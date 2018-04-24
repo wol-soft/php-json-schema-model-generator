@@ -1,0 +1,26 @@
+{
+    "name": "ewoortmann/php-json-schema-model-generator",
+    "homepage": "https://github.com/wol-soft/php-json-schema-model-generator",
+    "description": "Creates immutable PHP model classes from JSON-Schema files",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Enno Woortmann",
+            "email": "enno.woortmann@web.de"
+        }
+    ],
+    "require": {
+      "php": ">=7.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "PHPModelGenerator\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "PHPModelGenerator\\Tests\\": "tests"
+        }
+    }
+}

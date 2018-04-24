@@ -1,0 +1,34 @@
+<?php
+
+declare(strict_types = 1);
+
+{{ namespace }}
+
+{{ use }}
+
+/**
+ * This is an auto-implemented class implemented by the php-json-schema-model-generator.
+ * If you need to implement something in this class use inheritance. Else you will loose your changes if the classes
+ * are re-generated.
+ *
+ * Class {{ class }}
+ * @package {{ namespace }}
+ */
+class {{ class }}
+{
+    {{ properties }}
+
+    /**
+     * {{ class }} constructor.
+     *
+     * @param array $modelData
+     *
+     * @throws Exception
+     */
+    public function __construct(array $modelData)
+    {
+        {{ property-assignment }}
+    }
+
+    {{ getter }}
+}

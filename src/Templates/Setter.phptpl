@@ -1,0 +1,11 @@
+
+    /**
+     * @param {{ type }} ${{ attributeName }}
+     *
+     * @return $this
+     */
+    public function set{{ functionName }}({{ type }} ${{ attributeName }}): {{ className }}
+    {
+        $this->{{ attributeName }} = ${{ attributeName }};
+        return $this;
+    }
