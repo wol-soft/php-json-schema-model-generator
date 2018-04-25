@@ -1,0 +1,17 @@
+plugins:
+  phpmd:
+    enabled: true
+    config:
+      file_extensions: "php"
+      rulesets: "phpmd.xml"
+  phpcodesniffer:
+    enabled: true
+  phan:
+    enabled: true
+    config:
+      file_extensions: "php"
+  sonar-php:
+    enabled: true
+    config:
+      tests_patterns:
+        - test/**
