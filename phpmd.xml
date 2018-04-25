@@ -1,0 +1,3 @@
+<rule ref="rulesets/naming.xml">
+    <exclude name="LongVariable"/>
+</rule>
