@@ -17,8 +17,6 @@ class Property
     protected $attribute;
     /** @var string */
     protected $type;
-    /** @var bool */
-    protected $isRequired;
     /** @var array */
     protected $validator = [];
 
@@ -27,14 +25,12 @@ class Property
      *
      * @param string $name
      * @param string $type
-     * @param bool   $isRequired
      */
-    public function __construct(string $name, string $type, bool $isRequired = false)
+    public function __construct(string $name, string $type)
     {
         $this->attribute = $this->processAttributeName($name);
         $this->name = $name;
         $this->type = $type;
-        $this->isRequired = $isRequired;
     }
 
     /**
@@ -59,14 +55,6 @@ class Property
     public function getType(): string
     {
         return $this->type;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isRequired(): bool
-    {
-        return $this->isRequired;
     }
 
     /**
@@ -96,7 +84,8 @@ class Property
      */
     protected function processAttributeName(string $name): string
     {
-        $elements = array_map(function ($element) {
+        $elements = array_map(
+            function ($element) {
                 return ucfirst(strtolower($element));
             },
             preg_split('/[^a-z]/i', $name)

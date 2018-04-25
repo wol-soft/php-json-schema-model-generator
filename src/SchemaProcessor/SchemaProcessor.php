@@ -117,7 +117,8 @@ class SchemaProcessor
     protected function getClassPath(string $jsonSchemaFile): string
     {
         $path = str_replace($this->source, '', dirname($jsonSchemaFile));
-        $pieces = array_map(function ($directory) {
+        $pieces = array_map(
+            function ($directory) {
                 return ucfirst($directory);
             },
             explode(DIRECTORY_SEPARATOR, $path)
