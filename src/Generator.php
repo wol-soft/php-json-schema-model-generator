@@ -47,7 +47,8 @@ class Generator
      * @throws SchemaException          Will be thrown if a schema is invalid or can't be parsed
      * @throws FileSystemException      Will be thrown if a file system error occured
      */
-    public function generateModels(string $source, string $destination): bool {
+    public function generateModels(string $source, string $destination): bool
+    {
         if (!is_dir($source)) {
             throw new InvalidArgumentException("Source directory '$source' doesn't exist");
         }
