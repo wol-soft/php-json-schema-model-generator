@@ -1,5 +1,5 @@
 {
-    "name": "ewoortmann/php-json-schema-model-generator",
+    "name": "wol-soft/php-json-schema-model-generator",
     "homepage": "https://github.com/wol-soft/php-json-schema-model-generator",
     "description": "Creates immutable PHP model classes from JSON-Schema files",
     "type": "library",
@@ -11,7 +11,8 @@
         }
     ],
     "require": {
-      "php": ">=7.1"
+        "php": ">=7.1",
+        "wol-soft/php-micro-template": "dev-master"
     },
     "autoload": {
         "psr-4": {
@@ -22,5 +23,6 @@
         "psr-4": {
             "PHPModelGenerator\\Tests\\": "tests"
         }
-    }
+    },
+    "minimum-stability": "dev"
 }

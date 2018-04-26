@@ -5,13 +5,13 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\SchemaProcessor;
 
 use Exception;
+use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
-use PHPModelGenerator\Templates\Render;
 
 /**
  * Class SchemaProcessor
