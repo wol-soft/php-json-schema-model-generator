@@ -1,5 +1,5 @@
 {
-    "name": "ewoortmann/php-json-schema-model-generator",
+    "name": "wol-soft/php-json-schema-model-generator",
     "homepage": "https://github.com/wol-soft/php-json-schema-model-generator",
     "description": "Creates immutable PHP model classes from JSON-Schema files",
     "type": "library",
