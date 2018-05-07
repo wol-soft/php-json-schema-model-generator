@@ -27,7 +27,7 @@ class Generator
     /**
      * Generator constructor.
      *
-     * @param GeneratorConfiguration $generatorConfiguration The configuration to apply to the generator
+     * @param GeneratorConfiguration|null $generatorConfiguration The configuration to apply to the generator
      */
     public function __construct(GeneratorConfiguration $generatorConfiguration = null)
     {
@@ -63,11 +63,16 @@ class Generator
             $schemaProcessor->process($jsonSchemaFile);
         }
 
+        if ($this->generatorConfiguration->hasPrettyPrintEnabled()) {
+            shell_exec(__DIR__ . "/../vendor/bin/ecs check $destination --config " . __DIR__ . "/cs.yml --fix");
+        }
+
         return true;
     }
 
     /**
      * Get all json files from a given directory
+     *
      * @param string $directory
      *
      * @return array

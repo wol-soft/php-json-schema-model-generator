@@ -1,0 +1,9 @@
+imports:
+    - { resource: '../vendor/symplify/easy-coding-standard/config/psr12.yml' }
+    - { resource: '../vendor/symplify/easy-coding-standard/config/psr2.yml' }
+    - { resource: '../vendor/symplify/easy-coding-standard/config/common.yml' }
+
+parameters:
+    exclude_checkers:
+      - 'Symplify\CodingStandard\Fixer\Commenting\RemoveUselessDocBlockFixer'
+      - 'PhpCsFixer\Fixer\Operator\NotOperatorWithSuccessorSpaceFixer'

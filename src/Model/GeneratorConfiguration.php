@@ -15,6 +15,8 @@ class GeneratorConfiguration
     protected $namespacePrefix = '';
     /** @var bool */
     protected $immutable = false;
+    /** @var bool */
+    protected $prettyPrint = true;
 
     /**
      * @return string
@@ -51,6 +53,25 @@ class GeneratorConfiguration
     public function setImmutable(bool $immutable): GeneratorConfiguration
     {
         $this->immutable = $immutable;
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function hasPrettyPrintEnabled(): bool
+    {
+        return $this->prettyPrint;
+    }
+
+    /**
+     * @param bool $prettyPrint
+     *
+     * @return GeneratorConfiguration
+     */
+    public function setPrettyPrint(bool $prettyPrint): GeneratorConfiguration
+    {
+        $this->prettyPrint = $prettyPrint;
         return $this;
     }
 }

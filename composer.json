@@ -11,7 +11,9 @@
         }
     ],
     "require": {
-      "php": ">=7.1"
+        "php": ">=7.1",
+        "wol-soft/php-micro-template": "^1.3",
+        "symplify/easy-coding-standard": "^4.1"
     },
     "autoload": {
         "psr-4": {

@@ -1,8 +1,0 @@
-
-    /**
-     * @return {{ type }}
-     */
-    public function get{{ functionName }}(): {{ type }}
-    {
-        return $this->{{ attributeName }};
-    }

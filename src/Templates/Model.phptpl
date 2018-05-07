@@ -16,19 +16,69 @@ declare(strict_types = 1);
  */
 class {{ class }}
 {
-    {{ properties }}
+    {% foreach properties as property %}
+        /** @var {{ property.getType() }} */
+        protected ${{ property.getAttribute() }};
+    {% endforeach %}
 
     /**
      * {{ class }} constructor.
      *
      * @param array $modelData
-     *
-     * @throws Exception
-     */
+     {% if use %}
+        *
+        * @throws Exception
+     {% endif %}
+    */
     public function __construct(array $modelData)
     {
-        {{ property-assignment }}
+        {% foreach properties as property %}
+            $this->{{ property.getAttribute() }} = $modelData['{{ property.getName() }}'];
+            {% if property.getValidators() %}
+                $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($this->{{ property.getAttribute() }});
+            {% endif %}
+        {% endforeach %}
     }
 
-    {{ getter }}
+    {% foreach properties as property %}
+        /**
+         * @return {{ property.getType() }}
+         */
+        public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(): {{ property.getType() }}
+        {
+            return $this->{{ property.getAttribute() }};
+        }
+
+
+        {% if generateSetter %}
+            /**
+             * @param {{ property.getType() }} ${{ property.getAttribute() }}
+             *
+             * @return $this
+             */
+            public function set{{ viewHelper.ucfirst(property.getAttribute()) }}({{ property.getType() }} ${{ property.getAttribute() }}): {{ class }}
+            {
+                $this->{{ property.getAttribute() }} = ${{ property.getAttribute() }};
+                return $this;
+            }
+        {% endif %}
+
+        {% if property.getValidators() %}
+            /**
+             * Validate the property {{ property.getAttribute() }}
+             *
+             * @param {{ property.getType() }} $value
+             *
+             * @throws Exception
+             */
+            public function validate{{ viewHelper.ucfirst(property.getAttribute()) }}({{ property.getType() }} $value): void
+            {
+                {% foreach property.getValidators() as validator %}
+                    if ({{ validator.getCheck() }}) {
+                        throw new {{ validator.getExceptionClass() }}('{{ validator.getExceptionMessage() }}');
+                    }
+                {% endforeach %}
+            }
+        {% endif %}
+    {% endforeach %}
 }

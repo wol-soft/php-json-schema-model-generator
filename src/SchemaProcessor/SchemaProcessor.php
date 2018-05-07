@@ -5,13 +5,13 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\SchemaProcessor;
 
 use Exception;
+use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
-use PHPModelGenerator\Templates\Render;
 
 /**
  * Class SchemaProcessor
@@ -151,66 +151,23 @@ class SchemaProcessor
      * @param array  $properties
      *
      * @return string
-     * @throws FileSystemException
+     * @throws \PHPMicroTemplate\Exception\FileSystemException
+     * @throws \PHPMicroTemplate\Exception\SyntaxErrorException
+     * @throws \PHPMicroTemplate\Exception\UndefinedSymbolException
      */
     protected function renderClass(string $classPath, string $className, array $properties): string
     {
-        $modelAttributes = '';
-        $modelMethods    = '';
-        $assignments     = '';
-        $use             = [];
-
+        $use = [];
         $render = new Render(__DIR__ . "/../Templates/");
 
         /** @var Property $property */
         foreach ($properties as $property) {
-            $modelAttributes .=
-                "    /** @var {$property->getType()} */\n" .
-                "    protected \${$property->getAttribute()};\n";
-
-            $assignments .= "        \$this->{$property->getAttribute()} = \$modelData['{$property->getName()}'];\n";
-
-            $templates = ['Getter.phptpl'];
-            if (!$this->generatorConfiguration->isImmutable()) {
-                $templates[] = 'Setter.phptpl';
-            }
-
-            foreach ($templates as $template) {
-                $modelMethods .= $render->renderTemplate(
-                    $template,
-                    [
-                        'className'     => $className,
-                        'type'          => $property->getType(),
-                        'functionName'  => ucfirst($property->getAttribute()),
-                        'attributeName' => $property->getAttribute()
-                    ]
-                );
-            }
-
             if (!empty($property->getValidators())) {
-                $validatorImplementation = '';
                 $use[] = Exception::class;
 
                 foreach ($property->getValidators() as $validator) {
-                    $validatorImplementation .=
-                        "        if ({$validator->getCheck()}) {\n" .
-                        "            throw new {$validator->getExceptionClass()}('{$validator->getExceptionMessage()}');\n" .
-                        "        }\n";
-
                     $use[] = $validator->getExceptionClass();
                 }
-
-                $validationMethod = "validate" . ucfirst($property->getAttribute());
-                $assignments .= "        \$this->$validationMethod(\$this->{$property->getAttribute()});\n\n";
-
-                $modelMethods .= $render->renderTemplate(
-                    'Validator.phptpl',
-                    [
-                        'type'                    => $property->getType(),
-                        'functionName'            => $validationMethod,
-                        'validatorImplementation' => $validatorImplementation
-                    ]
-                );
             }
         }
 
@@ -219,12 +176,17 @@ class SchemaProcessor
         return $render->renderTemplate(
             'Model.phptpl',
             [
-                'namespace'           => empty($namespace) ? '' : "namespace $namespace;",
-                'use'                 => empty($use) ? '' : 'use ' . join(";\nuse ", array_unique($use)) . ';',
-                'class'               => $className,
-                'properties'          => $modelAttributes,
-                'property-assignment' => $assignments,
-                'getter'              => $modelMethods
+                'namespace'      => empty($namespace) ? '' : "namespace $namespace;",
+                'use'            => empty($use) ? '' : 'use ' . join(";\nuse ", array_unique($use)) . ';',
+                'class'          => $className,
+                'properties'     => $properties,
+                'generateSetter' => !$this->generatorConfiguration->isImmutable(),
+                'viewHelper'     => new class () {
+                    public function ucfirst(string $value): string
+                    {
+                        return ucfirst($value);
+                    }
+                }
             ]
         );
     }
