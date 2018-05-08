@@ -214,12 +214,14 @@ class SchemaProcessor
         $use = [];
 
         foreach ($properties as $property) {
-            if (!empty($property->getValidators())) {
-                $use[] = Exception::class;
+            if (empty($property->getValidators())) {
+                continue;
+            }
 
-                foreach ($property->getValidators() as $validator) {
-                    $use[] = $validator->getExceptionClass();
-                }
+            $use[] = Exception::class;
+
+            foreach ($property->getValidators() as $validator) {
+                $use[] = $validator->getExceptionClass();
             }
         }
 
