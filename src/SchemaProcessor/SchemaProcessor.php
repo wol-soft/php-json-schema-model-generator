@@ -5,8 +5,10 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\SchemaProcessor;
 
 use Exception;
+use PHPMicroTemplate\Exception\PHPMicroTemplateException;
 use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property;
@@ -42,10 +44,13 @@ class SchemaProcessor
     }
 
     /**
+     * Process a given json schema file
+     *
      * @param string $jsonSchemaFile
      *
      * @throws FileSystemException
      * @throws SchemaException
+     * @throws RenderException
      */
     public function process(string $jsonSchemaFile): void
     {
@@ -62,12 +67,15 @@ class SchemaProcessor
     }
 
     /**
+     * Generate a model and store the model to the file system
+     *
      * @param string $classPath
      * @param string $className
      * @param array  $structure
      *
      * @throws FileSystemException
      * @throws SchemaException
+     * @throws RenderException
      */
     protected function generateModel(string $classPath, string $className, array $structure): void
     {
@@ -87,12 +95,15 @@ class SchemaProcessor
     }
 
     /**
+     * Get the properties of a model out of the json schema
+     *
      * @param array $structure
      *
-     * @return array
+     * @return Property[]
+     *
      * @throws SchemaException
      */
-    protected function getModelProperties(array $structure):array
+    protected function getModelProperties(array $structure): array
     {
         $properties = [];
         $propertyProcessorFactory = new PropertyProcessorFactory();
@@ -110,6 +121,8 @@ class SchemaProcessor
     }
 
     /**
+     * Get the class path out of the file path of a schema file
+     *
      * @param string $jsonSchemaFile
      *
      * @return string
@@ -128,6 +141,8 @@ class SchemaProcessor
     }
 
     /**
+     * Generate the directory structure for saving a generated class
+     *
      * @param string $classPath
      *
      * @throws FileSystemException
@@ -146,21 +161,58 @@ class SchemaProcessor
     }
 
     /**
-     * @param string $classPath
-     * @param string $className
-     * @param array  $properties
+     * Render a class. Returns the php code of the class
+     *
+     * @param string     $classPath  The relative path of the class for namespace generation
+     * @param string     $className  The class name
+     * @param Property[] $properties The properties which are part of the class
      *
      * @return string
-     * @throws \PHPMicroTemplate\Exception\FileSystemException
-     * @throws \PHPMicroTemplate\Exception\SyntaxErrorException
-     * @throws \PHPMicroTemplate\Exception\UndefinedSymbolException
+     *
+     * @throws RenderException
      */
     protected function renderClass(string $classPath, string $className, array $properties): string
     {
-        $use = [];
         $render = new Render(__DIR__ . "/../Templates/");
 
-        /** @var Property $property */
+        $namespace = trim($this->generatorConfiguration->getNamespacePrefix() . $classPath, '\\');
+        $use = $this->getUseList($properties);
+
+        try {
+            $class = $render->renderTemplate(
+                'Model.phptpl',
+                [
+                    'namespace'              => empty($namespace) ? '' : "namespace $namespace;",
+                    'use'                    => empty($use) ? '' : 'use ' . join(";\nuse ", array_unique($use)) . ';',
+                    'class'                  => $className,
+                    'properties'             => $properties,
+                    'generatorConfiguration' => $this->generatorConfiguration,
+                    'viewHelper'             => new class () {
+                        public function ucfirst(string $value): string
+                        {
+                            return ucfirst($value);
+                        }
+                    }
+                ]
+            );
+        } catch (PHPMicroTemplateException $exception) {
+            throw new RenderException("Can't render class $classPath\\$className", 0, $exception);
+        }
+
+        return $class;
+    }
+
+    /**
+     * Extract all required uses for a given list of properties
+     *
+     * @param Property[] $properties
+     *
+     * @return array
+     */
+    protected function getUseList(array $properties): array
+    {
+        $use = [];
+
         foreach ($properties as $property) {
             if (!empty($property->getValidators())) {
                 $use[] = Exception::class;
@@ -171,23 +223,6 @@ class SchemaProcessor
             }
         }
 
-        $namespace = trim($this->generatorConfiguration->getNamespacePrefix() . $classPath, '\\');
-
-        return $render->renderTemplate(
-            'Model.phptpl',
-            [
-                'namespace'      => empty($namespace) ? '' : "namespace $namespace;",
-                'use'            => empty($use) ? '' : 'use ' . join(";\nuse ", array_unique($use)) . ';',
-                'class'          => $className,
-                'properties'     => $properties,
-                'generateSetter' => !$this->generatorConfiguration->isImmutable(),
-                'viewHelper'     => new class () {
-                    public function ucfirst(string $value): string
-                    {
-                        return ucfirst($value);
-                    }
-                }
-            ]
-        );
+        return $use;
     }
 }

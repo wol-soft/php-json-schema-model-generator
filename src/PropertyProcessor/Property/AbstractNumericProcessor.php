@@ -15,6 +15,9 @@ use PHPModelGenerator\Model\PropertyValidator;
  */
 abstract class AbstractNumericProcessor extends AbstractScalarValueProcessor
 {
+    protected const JSON_FIELD_MINIMUM = 'minimum';
+    protected const JSON_FIELD_MAXIMUM = 'maximum';
+
     /**
      * @inheritdoc
      */
@@ -22,22 +25,24 @@ abstract class AbstractNumericProcessor extends AbstractScalarValueProcessor
     {
         parent::generateValidators($property, $propertyData);
 
-        if (isset($propertyData['minimum'])) {
+        $limitMessage = "Value for %s must not be %s than %s";
+
+        if (isset($propertyData[self::JSON_FIELD_MINIMUM])) {
             $property->addValidator(
                 new PropertyValidator(
-                    "\$value < {$propertyData['minimum']}",
+                    "\$value < {$propertyData[self::JSON_FIELD_MINIMUM]}",
                     InvalidArgumentException::class,
-                    "Value for {$property->getName()} must not be smaller than {$propertyData['minimum']}"
+                    sprintf($limitMessage, $property->getName(), 'smaller', $propertyData[self::JSON_FIELD_MINIMUM])
                 )
             );
         }
 
-        if (isset($propertyData['maximum'])) {
+        if (isset($propertyData[self::JSON_FIELD_MAXIMUM])) {
             $property->addValidator(
                 new PropertyValidator(
-                    "\$value > {$propertyData['maximum']}",
+                    "\$value > {$propertyData[self::JSON_FIELD_MAXIMUM]}",
                     InvalidArgumentException::class,
-                    "Value for {$property->getName()} must not be greater than {$propertyData['maximum']}"
+                    sprintf($limitMessage, $property->getName(), 'greater', $propertyData[self::JSON_FIELD_MAXIMUM])
                 )
             );
         }

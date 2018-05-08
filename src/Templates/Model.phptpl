@@ -49,8 +49,7 @@ class {{ class }}
             return $this->{{ property.getAttribute() }};
         }
 
-
-        {% if generateSetter %}
+        {% if not generatorConfiguration.isImmutable() %}
             /**
              * @param {{ property.getType() }} ${{ property.getAttribute() }}
              *
