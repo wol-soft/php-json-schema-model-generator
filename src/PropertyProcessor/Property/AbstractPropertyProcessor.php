@@ -41,11 +41,34 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
         if ($this->propertyCollectionProcessor->isAttributeRequired($property->getName())) {
             $property->addValidator(
                 new PropertyValidator(
-                    'empty($value)',
+                    "!isset(\$modelData['{$property->getName()}'])",
                     InvalidArgumentException::class,
-                    "Value for {$property->getName()} must not be empty"
+                    "missing required value for {$property->getName()}"
                 )
             );
         }
+
+        if (isset($propertyData['enum'])) {
+            $this->addEnumValidator($property, $propertyData['enum']);
+        }
+    }
+
+    /**
+     * Add a validator to a property which validates the value against a list of allowed values
+     *
+     * @param Property $property
+     * @param array    $allowedValues
+     */
+    protected function addEnumValidator(Property $property, array $allowedValues)
+    {
+        $property->addValidator(
+            new PropertyValidator(
+                '!in_array($value, ' .
+                    preg_replace('(\d+\s=>)', '', var_export(array_values($allowedValues), true)) .
+                    ', true)',
+                InvalidArgumentException::class,
+                "Invalid value for {$property->getName()}"
+            )
+        );
     }
 }

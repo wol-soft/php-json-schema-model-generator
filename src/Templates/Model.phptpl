@@ -33,18 +33,15 @@ class {{ class }}
     public function __construct(array $modelData)
     {
         {% foreach properties as property %}
-            $this->{{ property.getAttribute() }} = $modelData['{{ property.getName() }}'];
-            {% if property.getValidators() %}
-                $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($this->{{ property.getAttribute() }});
-            {% endif %}
+            $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
         {% endforeach %}
     }
 
     {% foreach properties as property %}
         /**
-         * @return {{ property.getType() }}
+         * @return {% if property.getType() %}{{ property.getType() }}{% else %}mixed{% endif %}
          */
-        public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(): {{ property.getType() }}
+        public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(){% if property.getType() %}: {{ property.getType() }}{% endif %}
         {
             return $this->{{ property.getAttribute() }};
         }
@@ -62,22 +59,24 @@ class {{ class }}
             }
         {% endif %}
 
-        {% if property.getValidators() %}
-            /**
-             * Validate the property {{ property.getAttribute() }}
-             *
-             * @param {{ property.getType() }} $value
-             *
-             * @throws Exception
-             */
-            public function validate{{ viewHelper.ucfirst(property.getAttribute()) }}({{ property.getType() }} $value): void
-            {
+        /**
+         * Extract the value, perform validations and set the property {{ property.getAttribute() }}
+         *
+         * @param array $modelData
+         *
+         * {% if property.getValidators() %}@throws Exception{% endif %}
+         */
+        protected function process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
+        {
+            $value = $modelData['{{ property.getName() }}'] ?? null;
+            {% if property.getValidators() %}
                 {% foreach property.getValidators() as validator %}
                     if ({{ validator.getCheck() }}) {
                         throw new {{ validator.getExceptionClass() }}('{{ validator.getExceptionMessage() }}');
                     }
                 {% endforeach %}
-            }
-        {% endif %}
+            {% endif %}
+            $this->{{ property.getAttribute() }} = $value;
+        }
     {% endforeach %}
 }

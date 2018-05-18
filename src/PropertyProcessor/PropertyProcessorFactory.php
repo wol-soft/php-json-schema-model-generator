@@ -3,6 +3,7 @@
 namespace PHPModelGenerator\PropertyProcessor;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\PropertyProcessor\Property\EnumProcessor;
 
 /**
  * Class PropertyProcessorFactory
@@ -24,6 +25,10 @@ class PropertyProcessorFactory
     ): PropertyProcessorInterface {
         if (is_string($type)) {
             return $this->getScalarPropertyProcessor($type, $propertyCollectionProcessor);
+        }
+
+        if (is_array($type)) {
+            return new EnumProcessor($type, $propertyCollectionProcessor);
         }
 
         throw new SchemaException("Invalid property type");
