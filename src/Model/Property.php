@@ -21,6 +21,8 @@ class Property
     protected $type;
     /** @var array */
     protected $validator = [];
+    /** @var Property[] */
+    protected $nestedProperties = [];
 
     /**
      * Property constructor.
@@ -75,6 +77,46 @@ class Property
     public function getValidators(): array
     {
         return $this->validator;
+    }
+
+    /**
+     * @return Property[]
+     */
+    public function getNestedProperties(): array
+    {
+        return $this->nestedProperties;
+    }
+
+    /**
+     * @param Property $nestedProperty
+     *
+     * @return Property
+     */
+    public function addNestedProperty(Property $nestedProperty): self
+    {
+        $this->nestedProperties[] = $nestedProperty;
+
+        return $this;
+    }
+
+    /**
+     * Get a list of all exception classes
+     *
+     * @return array
+     */
+    public function getExceptionClasses(): array
+    {
+        $use = [];
+
+        foreach ($this->getValidators() as $validator) {
+            $use[] = $validator->getExceptionClass();
+        }
+
+        foreach ($this->getNestedProperties() as $property) {
+            $use = array_merge($use, $property->getExceptionClasses());
+        }
+
+        return $use;
     }
 
     /**

@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class SchemaProcessor
@@ -187,12 +188,7 @@ class SchemaProcessor
                     'class'                  => $className,
                     'properties'             => $properties,
                     'generatorConfiguration' => $this->generatorConfiguration,
-                    'viewHelper'             => new class () {
-                        public function ucfirst(string $value): string
-                        {
-                            return ucfirst($value);
-                        }
-                    }
+                    'viewHelper'             => new RenderHelper(),
                 ]
             );
         } catch (PHPMicroTemplateException $exception) {
@@ -218,11 +214,7 @@ class SchemaProcessor
                 continue;
             }
 
-            $use[] = Exception::class;
-
-            foreach ($property->getValidators() as $validator) {
-                $use[] = $validator->getExceptionClass();
-            }
+            $use = array_merge($use, [Exception::class], $property->getExceptionClasses());
         }
 
         return $use;

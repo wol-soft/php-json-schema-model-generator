@@ -72,7 +72,7 @@ class {{ class }}
             {% if property.getValidators() %}
                 {% foreach property.getValidators() as validator %}
                     if ({{ validator.getCheck() }}) {
-                        throw new {{ validator.getExceptionClass() }}('{{ validator.getExceptionMessage() }}');
+                        throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');
                     }
                 {% endforeach %}
             {% endif %}

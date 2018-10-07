@@ -8,7 +8,13 @@
       "enum": [1, 2, 3, 4]
     },
     "cds": {
-      "type": "array"
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
     },
     "import-title": {
       "type": "string",

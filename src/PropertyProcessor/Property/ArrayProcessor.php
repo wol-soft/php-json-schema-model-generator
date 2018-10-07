@@ -4,15 +4,18 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Model\Property;
-use PHPModelGenerator\Model\Validator\PropertyCallbackValidator;
+use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class ArrayProcessor
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-class ArrayProcessor extends AbstractPropertyProcessor
+class ArrayProcessor extends AbstractScalarValueProcessor
 {
     protected const TYPE = 'array';
 
@@ -28,6 +31,8 @@ class ArrayProcessor extends AbstractPropertyProcessor
 
         $this->addLengthValidation($property, $propertyData);
         $this->addUniqueItemsValidation($property, $propertyData);
+        $this->addItemsValidation($property, $propertyData);
+
         return $property;
     }
 
@@ -75,13 +80,47 @@ class ArrayProcessor extends AbstractPropertyProcessor
         }
 
         $property->addValidator(
-            new PropertyCallbackValidator(
-                function ($value) {
-                    return count($value) === count(array_unique($value));
-                },
+            new PropertyValidator(
+                'count($value) === count(array_unique($value))',
                 InvalidArgumentException::class,
                 "Items of array {$property->getName()} are not unique"
             )
         );
+    }
+
+    /**
+     * Add the validator to check if the items inside an array are unique
+     *
+     * @param Property $property
+     * @param array    $propertyData
+     */
+    private function addItemsValidation(Property $property, array $propertyData): void
+    {
+        if (!isset($propertyData['items'])) {
+            return;
+        }
+
+        if (isset($propertyData['items']['type'])) {
+            // an item of the array behaves like a nested property to add item-level validation
+            $processor = (new PropertyProcessorFactory())->getPropertyProcessor(
+                $propertyData['items']['type'],
+                new PropertyCollectionProcessor()
+            );
+
+            $nestedProperty = $processor->process('arrayItem', $propertyData['items']);
+            $property->addNestedProperty($nestedProperty);
+
+            $property->addValidator(
+                new PropertyTemplateValidator(
+                    InvalidArgumentException::class,
+                    'Invalid array item',
+                    '\Validator\ArrayItem.vtpl',
+                    [
+                        'property' => $nestedProperty,
+                        'viewHelper' => new RenderHelper(),
+                    ]
+                )
+            );
+        }
     }
 }

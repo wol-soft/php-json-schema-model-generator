@@ -7,7 +7,7 @@ namespace PHPModelGenerator;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Model\Validator\GeneratorConfiguration;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
