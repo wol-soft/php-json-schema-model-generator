@@ -4,9 +4,9 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
-use InvalidArgumentException;
+use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Model\Property;
-use PHPModelGenerator\Model\PropertyValidator;
+use PHPModelGenerator\Model\Validator\PropertyValidator;
 
 /**
  * Class AbstractScalarValueProcessor

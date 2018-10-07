@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model;
 
+use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
+
 /**
  * Class Property
  *
@@ -60,15 +62,15 @@ class Property
     /**
      * Add a validator for the property
      *
-     * @param PropertyValidator $validator
+     * @param PropertyValidatorInterface $validator
      */
-    public function addValidator(PropertyValidator $validator)
+    public function addValidator(PropertyValidatorInterface $validator)
     {
         $this->validator[] = $validator;
     }
 
     /**
-     * @return PropertyValidator[]
+     * @return PropertyValidatorInterface[]
      */
     public function getValidators(): array
     {

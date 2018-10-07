@@ -4,9 +4,9 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
-use InvalidArgumentException;
+use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Model\Property;
-use PHPModelGenerator\Model\PropertyValidator;
+use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
 
@@ -67,7 +67,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                     preg_replace('(\d+\s=>)', '', var_export(array_values($allowedValues), true)) .
                     ', true)',
                 InvalidArgumentException::class,
-                "Invalid value for {$property->getName()}"
+                "Invalid value for {$property->getName()} declined by emun constraint"
             )
         );
     }

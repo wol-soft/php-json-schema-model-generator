@@ -1,20 +1,18 @@
 <?php
 
-namespace PHPModelGenerator\Model;
+declare(strict_types = 1);
+
+namespace PHPModelGenerator\Model\Validator;
 
 /**
  * Class PropertyValidator
  *
- * @package PHPModelGenerator\Model
+ * @package PHPModelGenerator\Model\Validator
  */
-class PropertyValidator
+class PropertyValidator extends AbstractPropertyValidator implements PropertyValidatorInterface
 {
     /** @var string */
     protected $check;
-    /** @var string */
-    protected $exceptionClass;
-    /** @var string */
-    protected $exceptionMessage;
 
     /**
      * PropertyValidator constructor.
@@ -31,26 +29,12 @@ class PropertyValidator
     }
 
     /**
+     * Get the source code for the coeck to perform
+     *
      * @return string
      */
     public function getCheck(): string
     {
         return $this->check;
-    }
-
-    /**
-     * @return string
-     */
-    public function getExceptionClass(): string
-    {
-        return $this->exceptionClass;
-    }
-
-    /**
-     * @return string
-     */
-    public function getExceptionMessage(): string
-    {
-        return $this->exceptionMessage;
     }
 }

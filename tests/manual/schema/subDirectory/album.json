@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "albumModel",
+  "type": "object",
+  "properties": {
+    "album-title": {
+      "type": "string",
+      "description": "The title of the album",
+      "example": "Death Magnetic"
+    }
+  }
+}

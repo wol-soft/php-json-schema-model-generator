@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "CreateImportRequest",
+  "type": "object",
+  "properties": {
+    "import-type": {
+      "type": "int",
+      "enum": [1, 2, 3, 4]
+    },
+    "cds": {
+      "type": "array"
+    },
+    "import-title": {
+      "type": "string",
+      "description": "The title of the album",
+      "example": "Death Magnetic"
+    },
+    "import-content-description": {
+      "type": "string",
+      "description": "The title of the album",
+      "example": "Death Magnetic"
+    },
+    "user-id": {
+      "type": "number",
+      "description": "The title of the album",
+      "example": 2,
+      "minimum": 10
+    }
+  },
+  "required": [
+    "user-id"
+  ]
+}
