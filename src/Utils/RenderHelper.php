@@ -2,6 +2,8 @@
 
 namespace PHPModelGenerator\Utils;
 
+use PHPModelGenerator\Model\Property;
+
 /**
  * Class RenderHelper
  *
@@ -29,5 +31,19 @@ class RenderHelper
         $parts = explode('\\', $fqcn);
 
         return end($parts);
+    }
+
+    /**
+     * Resolve all associated decorators of a property
+     *
+     * @param Property $property
+     *
+     * @return string
+     */
+    public function resolvePropertyDecorator(Property $property): string
+    {
+        return $property->hasDecorators()
+            ? 'if ($value !== null) { $value = ' . $property->resolveDecorator('$value') . '; }'
+            : '';
     }
 }

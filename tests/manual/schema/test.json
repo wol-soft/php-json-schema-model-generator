@@ -10,9 +10,19 @@
     "cds": {
       "type": "array",
       "items": {
-        "type": "array",
-        "items": {
-          "type": "string"
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "The title of the CD",
+            "example": "Death Magnetic"
+          },
+          "songs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       }
     },

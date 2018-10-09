@@ -12,6 +12,10 @@ $generator = new Generator((new GeneratorConfiguration())
 );
 
 try {
+    if (!is_dir(__DIR__ . '/result')) {
+        mkdir(__DIR__ . '/result');
+    }
+
     $di = new RecursiveDirectoryIterator(__DIR__ . '/result', FilesystemIterator::SKIP_DOTS);
     $ri = new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST);
 

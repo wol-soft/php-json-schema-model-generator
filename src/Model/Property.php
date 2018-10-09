@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\Model;
 
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\PropertyDecoratorInterface;
 
 /**
  * Class Property
@@ -19,10 +20,13 @@ class Property
     protected $attribute;
     /** @var string */
     protected $type;
+
     /** @var array */
     protected $validator = [];
     /** @var Property[] */
     protected $nestedProperties = [];
+    /** @var PropertyDecoratorInterface[] */
+    public $decorators = [];
 
     /**
      * Property constructor.
@@ -62,13 +66,29 @@ class Property
     }
 
     /**
+     * @param string $type
+     *
+     * @return Property
+     */
+    public function setType(string $type): self
+    {
+        $this->type = $type;
+
+        return $this;
+    }
+
+    /**
      * Add a validator for the property
      *
      * @param PropertyValidatorInterface $validator
+     *
+     * @return Property
      */
-    public function addValidator(PropertyValidatorInterface $validator)
+    public function addValidator(PropertyValidatorInterface $validator): self
     {
         $this->validator[] = $validator;
+
+        return $this;
     }
 
     /**
@@ -100,11 +120,42 @@ class Property
     }
 
     /**
-     * Get a list of all exception classes
+     * Add a decorator to the property
+     *
+     * @param PropertyDecoratorInterface $decorator
+     *
+     * @return Property
+     */
+    public function addDecorator(PropertyDecoratorInterface $decorator): self
+    {
+        $this->decorators[] = $decorator;
+
+        return $this;
+    }
+
+    public function resolveDecorator(string $input): string
+    {
+        foreach ($this->decorators as $decorator) {
+            $input = $decorator->decorate($input);
+        }
+
+        return $input;
+    }
+
+    /**
+     * @return bool
+     */
+    public function hasDecorators(): bool
+    {
+        return count($this->decorators) > 0;
+    }
+
+    /**
+     * Get a list of all required classes
      *
      * @return array
      */
-    public function getExceptionClasses(): array
+    public function getClasses(): array
     {
         $use = [];
 
@@ -113,7 +164,7 @@ class Property
         }
 
         foreach ($this->getNestedProperties() as $property) {
-            $use = array_merge($use, $property->getExceptionClasses());
+            $use = array_merge($use, $property->getClasses());
         }
 
         return $use;

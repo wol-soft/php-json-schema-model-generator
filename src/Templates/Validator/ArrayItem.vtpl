@@ -1,5 +1,7 @@
 (function ($items) {
     foreach ($items as $value) {
+        {{ viewHelper.resolvePropertyDecorator(property) }}
+
         {% foreach property.getValidators() as validator %}
             if ({{ validator.getCheck() }}) {
                 throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');

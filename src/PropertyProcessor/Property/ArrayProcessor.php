@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types = 1);
+
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -15,7 +18,7 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-class ArrayProcessor extends AbstractScalarValueProcessor
+class ArrayProcessor extends AbstractNestedValueProcessor
 {
     protected const TYPE = 'array';
 
@@ -93,6 +96,8 @@ class ArrayProcessor extends AbstractScalarValueProcessor
      *
      * @param Property $property
      * @param array    $propertyData
+     *
+     * @throws SchemaException
      */
     private function addItemsValidation(Property $property, array $propertyData): void
     {
@@ -104,7 +109,8 @@ class ArrayProcessor extends AbstractScalarValueProcessor
             // an item of the array behaves like a nested property to add item-level validation
             $processor = (new PropertyProcessorFactory())->getPropertyProcessor(
                 $propertyData['items']['type'],
-                new PropertyCollectionProcessor()
+                new PropertyCollectionProcessor(),
+                $this->schemaProcessor
             );
 
             $nestedProperty = $processor->process('arrayItem', $propertyData['items']);

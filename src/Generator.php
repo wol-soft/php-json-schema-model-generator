@@ -6,6 +6,7 @@ namespace PHPModelGenerator;
 
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -37,8 +38,8 @@ class Generator
     /**
      * Generate models from JSON-Schema files. Returns true on success.
      *
-     * @param string                 $source                 The directory with the JSON-Schema files
-     * @param string                 $destination            The directory where to put the generated PHP models
+     * @param string $source      The directory with the JSON-Schema files
+     * @param string $destination The directory where to put the generated PHP models
      *
      * @return bool
      *
@@ -46,6 +47,7 @@ class Generator
      *                                  or the $destination directory is not empty
      * @throws SchemaException          Will be thrown if a schema is invalid or can't be parsed
      * @throws FileSystemException      Will be thrown if a file system error occured
+     * @throws RenderException          Will be thrown if a class can't be rendered correctly
      */
     public function generateModels(string $source, string $destination): bool
     {

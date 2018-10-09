@@ -30,6 +30,11 @@ class SchemaProcessor
     /** @var string */
     protected $destination;
 
+    /** @var string */
+    protected $currentClassPath;
+    /** @var string */
+    protected $currentClassName;
+
     /**
      * SchemaProcessor constructor.
      *
@@ -61,8 +66,28 @@ class SchemaProcessor
             throw new SchemaException("Invalid JSON-Schema file $jsonSchemaFile");
         }
 
-        $classPath = $this->getClassPath($jsonSchemaFile);
-        $className = ucfirst($jsonSchema['id'] ?? str_ireplace('.json', '', basename($jsonSchemaFile)));
+        $this->setCurrentClassPath($jsonSchemaFile);
+        $this->currentClassName = ucfirst($jsonSchema['id'] ?? str_ireplace('.json', '', basename($jsonSchemaFile)));
+
+        $this->processSchema($jsonSchema, $this->currentClassPath, $this->currentClassName);
+    }
+
+    /**
+     * Process a JSON schema stored as an associative array
+     *
+     * @param array  $jsonSchema
+     * @param string $classPath
+     * @param string $className
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function processSchema(array $jsonSchema, string $classPath, string $className): void
+    {
+        if ($jsonSchema['type'] !== 'object') {
+            throw new SchemaException("JSON-Schema doesn't provide an object " . $jsonSchema['id'] ?? '');
+        }
 
         $this->generateModel($classPath, $className, $jsonSchema);
     }
@@ -114,7 +139,7 @@ class SchemaProcessor
 
         foreach ($structure['properties'] as $propertyName => $property) {
             $properties[] = $propertyProcessorFactory
-                ->getPropertyProcessor($property['type'], $propertyCollectionProcessor)
+                ->getPropertyProcessor($property['type'], $propertyCollectionProcessor, $this)
                 ->process($propertyName, $property);
         }
 
@@ -125,10 +150,8 @@ class SchemaProcessor
      * Get the class path out of the file path of a schema file
      *
      * @param string $jsonSchemaFile
-     *
-     * @return string
      */
-    protected function getClassPath(string $jsonSchemaFile): string
+    protected function setCurrentClassPath(string $jsonSchemaFile): void
     {
         $path = str_replace($this->source, '', dirname($jsonSchemaFile));
         $pieces = array_map(
@@ -138,7 +161,7 @@ class SchemaProcessor
             explode(DIRECTORY_SEPARATOR, $path)
         );
 
-        return join('\\', $pieces);
+        $this->currentClassPath = join('\\', $pieces);
     }
 
     /**
@@ -214,9 +237,25 @@ class SchemaProcessor
                 continue;
             }
 
-            $use = array_merge($use, [Exception::class], $property->getExceptionClasses());
+            $use = array_merge($use, [Exception::class], $property->getClasses());
         }
 
         return $use;
+    }
+
+    /**
+     * @return string
+     */
+    public function getCurrentClassPath(): string
+    {
+        return $this->currentClassPath;
+    }
+
+    /**
+     * @return string
+     */
+    public function getCurrentClassName(): string
+    {
+        return $this->currentClassName;
     }
 }
