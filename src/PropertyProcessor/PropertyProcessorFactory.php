@@ -55,7 +55,7 @@ class PropertyProcessorFactory
             throw new SchemaException("Unsupported property type $type");
         }
 
-        return in_array(strtolower($type),  ['array', 'object'])
+        return in_array(strtolower($type), ['array', 'object'])
             ? new $processor($propertyCollectionProcessor, $schemaProcessor)
             : new $processor($propertyCollectionProcessor);
     }

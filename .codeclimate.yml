@@ -10,6 +10,8 @@ plugins:
     enabled: true
     config:
       file_extensions: "php"
+      ignore-undeclared: true
+      dead-code-detection: true
   sonar-php:
     enabled: true
     config:

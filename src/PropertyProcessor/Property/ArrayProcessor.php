@@ -24,6 +24,7 @@ class ArrayProcessor extends AbstractNestedValueProcessor
 
     private const JSON_FIELD_MIN_ITEMS = 'minItems';
     private const JSON_FIELD_MAX_ITEMS = 'maxItems';
+    private const JSON_FIELD_ITEMS     = 'items';
 
     /**
      * @inheritdoc
@@ -101,19 +102,19 @@ class ArrayProcessor extends AbstractNestedValueProcessor
      */
     private function addItemsValidation(Property $property, array $propertyData): void
     {
-        if (!isset($propertyData['items'])) {
+        if (!isset($propertyData[self::JSON_FIELD_ITEMS])) {
             return;
         }
 
-        if (isset($propertyData['items']['type'])) {
+        if (isset($propertyData[self::JSON_FIELD_ITEMS]['type'])) {
             // an item of the array behaves like a nested property to add item-level validation
             $processor = (new PropertyProcessorFactory())->getPropertyProcessor(
-                $propertyData['items']['type'],
+                $propertyData[self::JSON_FIELD_ITEMS]['type'],
                 new PropertyCollectionProcessor(),
                 $this->schemaProcessor
             );
 
-            $nestedProperty = $processor->process('arrayItem', $propertyData['items']);
+            $nestedProperty = $processor->process('arrayItem', $propertyData[self::JSON_FIELD_ITEMS]);
             $property->addNestedProperty($nestedProperty);
 
             $property->addValidator(
