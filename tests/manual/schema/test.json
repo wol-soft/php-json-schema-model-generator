@@ -40,7 +40,8 @@
       "type": "number",
       "description": "The title of the album",
       "example": 2,
-      "minimum": 10
+      "minimum": 10,
+      "multipleOf": 2
     }
   },
   "required": [

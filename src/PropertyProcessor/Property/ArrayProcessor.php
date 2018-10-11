@@ -17,6 +17,8 @@ use PHPModelGenerator\Utils\RenderHelper;
  * Class ArrayProcessor
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
+ *
+ * TODO: contains and tuple validation
  */
 class ArrayProcessor extends AbstractNestedValueProcessor
 {
@@ -27,17 +29,18 @@ class ArrayProcessor extends AbstractNestedValueProcessor
     private const JSON_FIELD_ITEMS     = 'items';
 
     /**
-     * @inheritdoc
+     * @param Property $property
+     * @param array    $propertyData
+     *
+     * @throws SchemaException
      */
-    public function process(string $propertyName, array $propertyData): Property
+    protected function generateValidators(Property $property, array $propertyData): void
     {
-        $property = parent::process($propertyName, $propertyData);
+        parent::generateValidators($property, $propertyData);
 
         $this->addLengthValidation($property, $propertyData);
         $this->addUniqueItemsValidation($property, $propertyData);
         $this->addItemsValidation($property, $propertyData);
-
-        return $property;
     }
 
     /**
