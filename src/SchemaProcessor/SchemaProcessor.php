@@ -200,7 +200,7 @@ class SchemaProcessor
         $render = new Render(__DIR__ . "/../Templates/");
 
         $namespace = trim($this->generatorConfiguration->getNamespacePrefix() . $classPath, '\\');
-        $use = $this->getUseList($properties);
+        $use = $this->getUseList($properties, empty($namespace));
 
         try {
             $class = $render->renderTemplate(
@@ -225,10 +225,11 @@ class SchemaProcessor
      * Extract all required uses for a given list of properties
      *
      * @param Property[] $properties
+     * @param bool       $skipGlobalNamespace
      *
      * @return array
      */
-    protected function getUseList(array $properties): array
+    protected function getUseList(array $properties, bool $skipGlobalNamespace): array
     {
         $use = [];
 
@@ -238,6 +239,12 @@ class SchemaProcessor
             }
 
             $use = array_merge($use, [Exception::class], $property->getClasses());
+        }
+
+        if ($skipGlobalNamespace) {
+            $use = array_filter($use, function ($namespace) {
+                return strstr($namespace, '\\');
+            });
         }
 
         return $use;

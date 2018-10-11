@@ -38,7 +38,7 @@ abstract class AbstractScalarValueProcessor extends AbstractPropertyProcessor
 
         $property->addValidator(
             new PropertyValidator(
-                '!is_' . strtolower(static::TYPE) . '($value)',
+                '!is_' . strtolower(static::TYPE) . '($value)' . ($property->isRequired() ? '' : ' && $value !== null'),
                 InvalidArgumentException::class,
                 "invalid type for {$property->getName()}"
             )

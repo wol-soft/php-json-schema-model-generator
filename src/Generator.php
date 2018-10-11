@@ -5,7 +5,6 @@ declare(strict_types = 1);
 namespace PHPModelGenerator;
 
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -43,7 +42,7 @@ class Generator
      *
      * @return bool
      *
-     * @throws InvalidArgumentException Will be thrown if either the $source or the $destination directory doesn't exist
+     * @throws FileSystemException      Will be thrown if either the $source or the $destination directory doesn't exist
      *                                  or the $destination directory is not empty
      * @throws SchemaException          Will be thrown if a schema is invalid or can't be parsed
      * @throws FileSystemException      Will be thrown if a file system error occured
@@ -52,11 +51,11 @@ class Generator
     public function generateModels(string $source, string $destination): bool
     {
         if (!is_dir($source)) {
-            throw new InvalidArgumentException("Source directory '$source' doesn't exist");
+            throw new FileSystemException("Source directory '$source' doesn't exist");
         }
 
         if (!is_dir($destination) || count(scandir($destination)) > 2) {
-            throw new InvalidArgumentException("Destination directory '$destination' doesn't exist or is not empty");
+            throw new FileSystemException("Destination directory '$destination' doesn't exist or is not empty");
         }
 
         $schemaProcessor = new SchemaProcessor($source, $destination, $this->generatorConfiguration);

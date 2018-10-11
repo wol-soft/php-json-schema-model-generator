@@ -41,7 +41,8 @@ class {{ class }}
         /**
          * @return {% if property.getType() %}{{ property.getType() }}{% else %}mixed{% endif %}
          */
-        public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(){% if property.getType() %}: {{ property.getType() }}{% endif %}
+        public function get{{ viewHelper.ucfirst(property.getAttribute()) }}()
+            {% if property.getType() %}: {% if not property.isRequired() %}?{% endif %}{{ property.getType() }}{% endif %}
         {
             return $this->{{ property.getAttribute() }};
         }
@@ -52,8 +53,9 @@ class {{ class }}
              *
              * @return $this
              */
-            public function set{{ viewHelper.ucfirst(property.getAttribute()) }}({{ property.getType() }} ${{ property.getAttribute() }}): {{ class }}
-            {
+            public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
+                {% if not property.isRequired() %}?{% endif %}{{ property.getType() }} ${{ property.getAttribute() }}
+            ): {{ class }} {
                 $this->{{ property.getAttribute() }} = ${{ property.getAttribute() }};
                 return $this;
             }

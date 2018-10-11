@@ -15,11 +15,13 @@ use PHPModelGenerator\PropertyProcessor\Decorator\PropertyDecoratorInterface;
 class Property
 {
     /** @var string */
-    protected $name;
+    protected $name = '';
     /** @var string */
-    protected $attribute;
+    protected $attribute = '';
     /** @var string */
-    protected $type;
+    protected $type = 'null';
+    /** @var bool */
+    protected $isPropertyRequired = true;
 
     /** @var array */
     protected $validator = [];
@@ -187,5 +189,24 @@ class Property
         );
 
         return lcfirst(join('', $elements));
+    }
+
+    /**
+     * @param bool $isPropertyRequired
+     *
+     * @return Property
+     */
+    public function setRequired(bool $isPropertyRequired): self
+    {
+        $this->isPropertyRequired = $isPropertyRequired;
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isRequired(): bool
+    {
+        return $this->isPropertyRequired;
     }
 }

@@ -38,7 +38,9 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      */
     protected function generateValidators(Property $property, array $propertyData): void
     {
-        if ($this->propertyCollectionProcessor->isAttributeRequired($property->getName())) {
+        $property->setRequired($this->propertyCollectionProcessor->isAttributeRequired($property->getName()));
+
+        if ($property->isRequired()) {
             $property->addValidator(
                 new PropertyValidator(
                     "!isset(\$modelData['{$property->getName()}'])",
