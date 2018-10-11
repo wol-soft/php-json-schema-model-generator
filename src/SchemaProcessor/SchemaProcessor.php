@@ -117,7 +117,9 @@ class SchemaProcessor
             throw new FileSystemException("Can't write class $classPath\\$className");
         }
 
-        echo "Generated class $className\n";
+        if ($this->generatorConfiguration->isOutputEnabled()) {
+            echo "Generated class $className\n";
+        }
     }
 
     /**

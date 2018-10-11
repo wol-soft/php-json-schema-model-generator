@@ -45,23 +45,43 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     }
 
     /**
-     * @param string                 $jsonSchema
-     * @param array                  $objectInput
-     * @param GeneratorConfiguration $generatorConfiguration
+     * Generate an object from a given JSON schema file and return the FQCN
      *
-     * @return object
+     * @param string                      $file
+     * @param GeneratorConfiguration|null $generatorConfiguration
+     *
+     * @return string
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function generateObject(
-        string $jsonSchema,
-        array $objectInput,
-        GeneratorConfiguration $generatorConfiguration = null
-    ): object {
+    public function generateObjectFromFile(string $file, GeneratorConfiguration $generatorConfiguration = null): string
+    {
+        return $this->generateObject(
+            file_get_contents(__DIR__ . '/../Schema/' . $this->getStaticClassName() . '/' . $file),
+            $generatorConfiguration
+        );
+    }
+
+    /**
+     * Generate an object from a given JSON schema string and return the FQCN
+     *
+     * @param string                 $jsonSchema
+     * @param GeneratorConfiguration $generatorConfiguration
+     *
+     * @return string
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function generateObject(string $jsonSchema, GeneratorConfiguration $generatorConfiguration = null): string
+    {
         $generatorConfiguration = $generatorConfiguration ?? new GeneratorConfiguration();
-        $generatorConfiguration->setPrettyPrint(false);
+        $generatorConfiguration
+            ->setPrettyPrint(false)
+            ->setOutputEnabled(false);
 
         $baseDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'PHPModelGeneratorTest';
         foreach ($this->names as $name) {
@@ -83,12 +103,18 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
         require_once $baseDir . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR . $className . '.php';
 
-        return new $className($objectInput);
+        return $className;
     }
 
+    /**
+     * Generate a unique name for a class
+     *
+     * @return string
+     */
     private function getClassName()
     {
-        $name = '_' . uniqid();
+        // include the static class name to avoid collisions from loaded classes from multiple tests
+        $name = $this->getStaticClassName() . '_' . uniqid();
 
         while (in_array($name, $this->names)) {
             $name .= '1';
@@ -97,5 +123,12 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         $this->names[] = $name;
 
         return $name;
+    }
+
+    private function getStaticClassName()
+    {
+        $parts = explode('\\', static::class);
+
+        return end($parts);
     }
 }

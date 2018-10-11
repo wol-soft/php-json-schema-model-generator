@@ -17,6 +17,8 @@ class GeneratorConfiguration
     protected $immutable = false;
     /** @var bool */
     protected $prettyPrint = true;
+    /** @var bool */
+    protected $outputEnabled = true;
 
     /**
      * @return string
@@ -29,9 +31,9 @@ class GeneratorConfiguration
     /**
      * @param string $namespacePrefix
      *
-     * @return GeneratorConfiguration
+     * @return $this
      */
-    public function setNamespacePrefix(string $namespacePrefix): GeneratorConfiguration
+    public function setNamespacePrefix(string $namespacePrefix): self
     {
         $this->namespacePrefix = $namespacePrefix;
         return $this;
@@ -50,7 +52,7 @@ class GeneratorConfiguration
      *
      * @return GeneratorConfiguration
      */
-    public function setImmutable(bool $immutable): GeneratorConfiguration
+    public function setImmutable(bool $immutable): self
     {
         $this->immutable = $immutable;
         return $this;
@@ -67,11 +69,30 @@ class GeneratorConfiguration
     /**
      * @param bool $prettyPrint
      *
-     * @return GeneratorConfiguration
+     * @return $this
      */
-    public function setPrettyPrint(bool $prettyPrint): GeneratorConfiguration
+    public function setPrettyPrint(bool $prettyPrint): self
     {
         $this->prettyPrint = $prettyPrint;
         return $this;
+    }
+
+    /**
+     * @param bool $outputEnabled
+     *
+     * @return $this
+     */
+    public function setOutputEnabled(bool $outputEnabled): self
+    {
+        $this->outputEnabled = $outputEnabled;
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isOutputEnabled(): bool
+    {
+        return $this->outputEnabled;
     }
 }

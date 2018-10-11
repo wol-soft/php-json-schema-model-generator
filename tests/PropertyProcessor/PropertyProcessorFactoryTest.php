@@ -51,20 +51,20 @@ class PropertyProcessorFactoryTest extends TestCase
     public function validPropertyProvider(): array
     {
         return [
-            ['array', ArrayProcessor::class],
-            ['boolean', BooleanProcessor::class],
-            ['int', IntProcessor::class],
-            ['null', NullProcessor::class],
-            ['number', NumberProcessor::class],
-            ['object', ObjectProcessor::class],
-            ['string', StringProcessor::class]
+            'array' => ['array', ArrayProcessor::class],
+            'boolean' => ['boolean', BooleanProcessor::class],
+            'int' => ['int', IntProcessor::class],
+            'null' => ['null', NullProcessor::class],
+            'number' => ['number', NumberProcessor::class],
+            'object' => ['object', ObjectProcessor::class],
+            'string' => ['string', StringProcessor::class]
         ];
     }
 
     /**
      * @throws SchemaException
      */
-    public function testGetInvalidPropertyProcessor()
+    public function testGetInvalidPropertyProcessorThrowsAnException()
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage('Unsupported property type Hello');

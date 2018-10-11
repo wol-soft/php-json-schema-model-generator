@@ -41,8 +41,9 @@ $generator->generateModels(__DIR__ . '/schema', __DIR__ . '/result');
 
 The *GeneratorConfiguration* object offers the following methods to configure the generator in a fluid interface:
 
-Method | Configuration | Example
---- | --- | ---
-``` setNamespacePrefix(string $prefix) ``` | Configures a namespace prefix for all generated classes. The namespaces will be extended with the directory structure of the source directory. | ``` setNamespacePrefix('\\MyApp\\Model') ```
-``` setImmutable(bool $immutable) ``` | The immutable option is false by default. If set to true the generated model classes will be delivered without setter methods for the object properties. | ``` setImmutable(true) ```
-``` setPrettyPrint(bool $prettyPrint) ``` | If set to false, the generated model classes won't follow coding gudelines (but the generation is faster). By default the pretty print mode is enabled. In this case the package [Symplify/EasyCodingStandard](https://github.com/Symplify/EasyCodingStandard) will be used to clean up the generated code. | ``` setPrettyPrint(false) ```
+Method | Configuration | Example | Default
+--- | --- | --- | ---
+``` setNamespacePrefix(string $prefix) ``` | Configures a namespace prefix for all generated classes. The namespaces will be extended with the directory structure of the source directory. | ``` setNamespacePrefix('\\MyApp\\Model') ``` | Empty string so no namespace prefix will be used
+``` setImmutable(bool $immutable) ``` | If set to true the generated model classes will be delivered without setter methods for the object properties. | ``` setImmutable(true) ``` | false
+``` setPrettyPrint(bool $prettyPrint) ``` | If set to false, the generated model classes won't follow coding gudelines (but the generation is faster). If enabled the package [Symplify/EasyCodingStandard](https://github.com/Symplify/EasyCodingStandard) will be used to clean up the generated code. | ``` setPrettyPrint(false) ``` | true
+``` setOutputEnabled(bool $prettyPrint) ``` | Enable or disable output of the generation process to STDOUT | ``` setOutputEnabled(false) ``` | true
