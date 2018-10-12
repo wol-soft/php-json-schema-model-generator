@@ -85,7 +85,7 @@ class SchemaProcessor
      */
     public function processSchema(array $jsonSchema, string $classPath, string $className): void
     {
-        if ($jsonSchema['type'] !== 'object') {
+        if (!isset($jsonSchema['type']) || $jsonSchema['type'] !== 'object') {
             throw new SchemaException("JSON-Schema doesn't provide an object " . $jsonSchema['id'] ?? '');
         }
 

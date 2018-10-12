@@ -45,6 +45,8 @@ class StringProcessor extends AbstractScalarValueProcessor
             return;
         }
 
+        $propertyData[static::JSON_FIELD_PATTERN] = addcslashes($propertyData[static::JSON_FIELD_PATTERN], "'");
+
         $property->addValidator(
             new PropertyValidator(
                 "!preg_match('/{$propertyData[static::JSON_FIELD_PATTERN]}/', \$value)",

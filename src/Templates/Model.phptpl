@@ -77,7 +77,7 @@ class {{ class }}
             {% if property.getValidators() %}
                 {% foreach property.getValidators() as validator %}
                     if ({{ validator.getCheck() }}) {
-                        throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');
+                        throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ viewHelper.escapeSingleQuotes(validator.getExceptionMessage()) }}');
                     }
                 {% endforeach %}
             {% endif %}

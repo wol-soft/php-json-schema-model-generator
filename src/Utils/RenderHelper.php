@@ -34,6 +34,18 @@ class RenderHelper
     }
 
     /**
+     * Escape all single quotes in the given $input string
+     *
+     * @param string $input
+     *
+     * @return string
+     */
+    public function escapeSingleQuotes(string $input): string
+    {
+        return addcslashes($input, "'");
+    }
+
+    /**
      * Resolve all associated decorators of a property
      *
      * @param Property $property

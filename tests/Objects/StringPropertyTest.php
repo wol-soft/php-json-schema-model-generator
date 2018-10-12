@@ -137,4 +137,60 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
             'Too long string' => ['Some Text', 'property must not be longer than 8']
         ];
     }
+
+    /**
+     * @dataProvider validPatternProvider
+     *
+     * @param string $pattern
+     * @param string $propertyValue
+     */
+    public function testPatternMatchingStringIsValid(string $pattern, string $propertyValue): void
+    {
+        $className = $this->generateObjectFromFileTemplate('StringPropertyPattern.json', [$pattern]);
+
+        $object = new $className(['property' => $propertyValue]);
+        $this->assertEquals($propertyValue, $object->getProperty());
+    }
+
+    public function validPatternProvider(): array
+    {
+        return [
+            'String starts with' => ['^The', 'The Test starts with The'],
+            'No spaces in string' => ['^[^\\s]+$', 'ThisStringContainsNoSpace'],
+            'A formatted date' => ['^[0-9]{4}-[0-9]{2}-[0-9]{2}$', '2018-12-12'],
+            'A formatted date inside a text' => [
+                '[0-9]{4}-[0-9]{2}-[0-9]{2}',
+                'Contains a Date 2018-12-12 and something else'
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider invalidPatternProvider
+     *
+     * @param string $pattern
+     * @param string $propertyValue
+     */
+    public function testStringThatDoesntMatchPatternThrowsAnException(string $pattern, string $propertyValue): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage("property doesn't match pattern $pattern");
+
+        $className = $this->generateObjectFromFileTemplate('StringPropertyPattern.json', [$pattern]);
+
+        new $className(['property' => $propertyValue]);
+    }
+
+    public function invalidPatternProvider(): array
+    {
+        return [
+            'String starts with' => ['^The', 'This Test doesn\'t start with The'],
+            'No spaces in string' => ['^[^\\s]+$', 'This String Contains Spaces'],
+            'A formatted date' => ['^[0-9]{4}-[0-9]{2}-[0-9]{2}$', '12.12.2018'],
+            'A formatted date inside a text' => [
+                '[0-9]{4}-[0-9]{2}-[0-9]{2}',
+                'Contains a Date in invalid format 12.12.2018 and something else'
+            ],
+        ];
+    }
 }

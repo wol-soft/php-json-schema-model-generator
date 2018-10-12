@@ -38,7 +38,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
     public function tearDown()
     {
-        parent::tearDownAfterClass();
+        parent::tearDown();
 
         foreach ($this->names as $name) {
             unlink(sys_get_temp_dir() . '/PHPModelGeneratorTest/' . $name . '.json');
@@ -62,6 +62,37 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     {
         return $this->generateObject(
             file_get_contents(__DIR__ . '/../Schema/' . $this->getStaticClassName() . '/' . $file),
+            $generatorConfiguration
+        );
+    }
+
+    /**
+     * Generate an object from a file template and apply all $values via sprintf to the template
+     *
+     * @param string                      $file
+     * @param array                       $values
+     * @param GeneratorConfiguration|null $generatorConfiguration
+     *
+     * @return string
+     */
+    public function generateObjectFromFileTemplate(
+        string $file,
+        array $values,
+        GeneratorConfiguration $generatorConfiguration = null
+    ): string {
+        return $this->generateObject(
+            call_user_func_array(
+                'sprintf',
+                array_merge(
+                    [file_get_contents(__DIR__ . '/../Schema/' . $this->getStaticClassName() . '/' . $file)],
+                    array_map(
+                        function ($item) {
+                            return addcslashes($item, '"\\');
+                        },
+                        $values
+                    )
+                )
+            ),
             $generatorConfiguration
         );
     }
