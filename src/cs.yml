@@ -7,3 +7,4 @@ parameters:
     exclude_checkers:
       - 'Symplify\CodingStandard\Fixer\Commenting\RemoveUselessDocBlockFixer'
       - 'PhpCsFixer\Fixer\Operator\NotOperatorWithSuccessorSpaceFixer'
+      - 'PhpCsFixer\Fixer\Strict\StrictComparisonFixer'

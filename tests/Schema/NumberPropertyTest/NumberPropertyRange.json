@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "number",
+      "minimum": -1.6,
+      "maximum": 1.6
+    }
+  }
+}

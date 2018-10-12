@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "number",
+      "multipleOf": %s
+    }
+  }
+}

@@ -17,7 +17,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
  */
 abstract class AbstractNumericProcessor extends AbstractScalarValueProcessor
 {
-    protected const LIMIT_MESSAGE = 'Value for %s must not be %s than %d';
+    protected const LIMIT_MESSAGE = 'Value for %s must not be %s than ';
 
     protected const JSON_FIELD_MINIMUM = 'minimum';
     protected const JSON_FIELD_MAXIMUM = 'maximum';
@@ -52,7 +52,8 @@ abstract class AbstractNumericProcessor extends AbstractScalarValueProcessor
             new PropertyValidator(
                 "\$value < {$propertyData[self::JSON_FIELD_MINIMUM]}",
                 InvalidArgumentException::class,
-                sprintf(static::LIMIT_MESSAGE, $property->getName(), 'smaller', $propertyData[self::JSON_FIELD_MINIMUM])
+                sprintf(static::LIMIT_MESSAGE, $property->getName(), 'smaller') .
+                    $propertyData[self::JSON_FIELD_MINIMUM]
             )
         );
     }
@@ -73,7 +74,7 @@ abstract class AbstractNumericProcessor extends AbstractScalarValueProcessor
             new PropertyValidator(
                 "\$value > {$propertyData[self::JSON_FIELD_MAXIMUM]}",
                 InvalidArgumentException::class,
-                sprintf(static::LIMIT_MESSAGE, $property->getName(), 'greater', $propertyData[self::JSON_FIELD_MAXIMUM])
+                sprintf(static::LIMIT_MESSAGE, $property->getName(), 'larger') . $propertyData[self::JSON_FIELD_MAXIMUM]
             )
         );
     }
@@ -92,13 +93,16 @@ abstract class AbstractNumericProcessor extends AbstractScalarValueProcessor
 
         $property->addValidator(
             new PropertyValidator(
-                "\$value % {$propertyData[self::JSON_FIELD_MULTIPLE]} !== 0",
+                // type unsafe comparison to be compatible with int and float
+                $propertyData[self::JSON_FIELD_MULTIPLE] == 0
+                    ? '$value != 0'
+                    : (
+                        is_int($propertyData[self::JSON_FIELD_MULTIPLE])
+                            ? "\$value % {$propertyData[self::JSON_FIELD_MULTIPLE]} != 0"
+                            : "fmod(\$value, {$propertyData[self::JSON_FIELD_MULTIPLE]}) != 0"
+                    ),
                 InvalidArgumentException::class,
-                sprintf(
-                    "Value for %s must be a multiple of %d",
-                    $property->getName(),
-                    $propertyData[self::JSON_FIELD_MULTIPLE]
-                )
+                "Value for {$property->getName()} must be a multiple of {$propertyData[self::JSON_FIELD_MULTIPLE]}"
             )
         );
     }
