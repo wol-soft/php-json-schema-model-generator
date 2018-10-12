@@ -9,20 +9,20 @@ use PHPModelGenerator\Exception\SchemaException;
 use stdClass;
 
 /**
- * Class NullPropertyTest
+ * Class BooleanPropertyTest
  *
  * @package PHPModelGenerator\Tests\Objects
  */
-class NullPropertyTest extends AbstractPHPModelGeneratorTest
+class BooleanPropertyTest extends AbstractPHPModelGeneratorTest
 {
     /**
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNotProvidedOptionalNullPropertyIsValid(): void
+    public function testNotProvidedOptionalBooleanPropertyIsValid(): void
     {
-        $className = $this->generateObjectFromFile('NullProperty.json');
+        $className = $this->generateObjectFromFile('BooleanProperty.json');
 
         $object = new $className([]);
         $this->assertNull($object->getProperty());
@@ -33,14 +33,39 @@ class NullPropertyTest extends AbstractPHPModelGeneratorTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testProvidedOptionalNullPropertyIsValid(): void
+    public function testProvidedOptionalBooleanPropertyIsValid(): void
     {
-        $className = $this->generateObjectFromFile('NullProperty.json');
+        $className = $this->generateObjectFromFile('BooleanProperty.json');
 
         $object = new $className(['property' => null]);
         $this->assertNull($object->getProperty());
     }
 
+    /**
+     * @dataProvider validInputProvider
+     *
+     * @param bool $input
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testProvidedBooleanPropertyIsValid(bool $input): void
+    {
+        $className = $this->generateObjectFromFile('BooleanProperty.json');
+
+        $object = new $className(['property' => $input]);
+        $this->assertSame($input, $object->getProperty());
+    }
+
+    public function validInputProvider(): array
+    {
+        return [
+            'true' => [true],
+            'false' => [false],
+        ];
+    }
+    
     /**
      * @dataProvider invalidPropertyTypeDataProvider
      *
@@ -55,7 +80,7 @@ class NullPropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('invalid type for property');
 
-        $className = $this->generateObjectFromFile('NullProperty.json');
+        $className = $this->generateObjectFromFile('BooleanProperty.json');
 
         new $className(['property' => $propertyValue]);
     }
@@ -65,10 +90,9 @@ class NullPropertyTest extends AbstractPHPModelGeneratorTest
         return [
             'int' => [0],
             'float' => [0.92],
-            'bool' => [true],
             'array' => [[]],
             'object' => [new stdClass()],
-            'string' => ['null']
+            'string' => ['true']
         ];
     }
 }

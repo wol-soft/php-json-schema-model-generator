@@ -19,15 +19,15 @@ class RenderHelperTest extends TestCase
     {
         $renderHelper = new RenderHelper();
 
-        $this->assertEquals('Hallo', $renderHelper->ucfirst('Hallo'));
-        $this->assertEquals('Hallo', $renderHelper->ucfirst('hallo'));
+        $this->assertSame('Hallo', $renderHelper->ucfirst('Hallo'));
+        $this->assertSame('Hallo', $renderHelper->ucfirst('hallo'));
     }
 
     public function testGetSimpleClassName(): void
     {
         $renderHelper = new RenderHelper();
 
-        $this->assertEquals('RenderHelper', $renderHelper->getSimpleClassName(RenderHelper::class));
-        $this->assertEquals('Exception', $renderHelper->getSimpleClassName(Exception::class));
+        $this->assertSame('RenderHelper', $renderHelper->getSimpleClassName(RenderHelper::class));
+        $this->assertSame('Exception', $renderHelper->getSimpleClassName(Exception::class));
     }
 }

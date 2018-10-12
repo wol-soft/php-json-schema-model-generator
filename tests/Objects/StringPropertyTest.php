@@ -25,7 +25,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateObjectFromFile('StringProperty.json');
 
         $object = new $className(['property' => 'Hello']);
-        $this->assertEquals('Hello', $object->getProperty());
+        $this->assertSame('Hello', $object->getProperty());
     }
 
     /**
@@ -79,6 +79,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
     {
         return [
             'int' => [1],
+            'float' => [0.92],
             'bool' => [true],
             'array' => [[]],
             'object' => [new stdClass()]
@@ -99,7 +100,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateObjectFromFile('StringPropertyLengthValidation.json');
 
         $object = new $className(['property' => $propertyValue]);
-        $this->assertEquals($propertyValue, $object->getProperty());
+        $this->assertSame($propertyValue, $object->getProperty());
     }
 
     public function stringInLengthValidationRangePassesDataProvider(): array
@@ -149,7 +150,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateObjectFromFileTemplate('StringPropertyPattern.json', [$pattern]);
 
         $object = new $className(['property' => $propertyValue]);
-        $this->assertEquals($propertyValue, $object->getProperty());
+        $this->assertSame($propertyValue, $object->getProperty());
     }
 
     public function validPatternProvider(): array
