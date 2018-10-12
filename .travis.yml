@@ -2,6 +2,10 @@ language: php
 
 sudo: false
 
+env:
+  global:
+    - CC_TEST_REPORTER_ID=5e32818628fac9eb11d34e2b35289f88169610cc4a98c6f170c74923342284f1
+
 php:
   - 7.1
   - 7.2
