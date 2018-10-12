@@ -23,11 +23,13 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
     public static function setUpBeforeClass()
     {
-        $di = new RecursiveDirectoryIterator(sys_get_temp_dir() . '/PHPModelGeneratorTest', FilesystemIterator::SKIP_DOTS);
-        $ri = new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST);
+        if (is_dir(sys_get_temp_dir() . '/PHPModelGeneratorTest')) {
+            $di = new RecursiveDirectoryIterator(sys_get_temp_dir() . '/PHPModelGeneratorTest', FilesystemIterator::SKIP_DOTS);
+            $ri = new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST);
 
-        foreach ($ri as $file ) {
-            $file->isDir() ?  rmdir($file) : unlink($file);
+            foreach ($ri as $file) {
+                $file->isDir() ? rmdir($file) : unlink($file);
+            }
         }
 
         @mkdir(sys_get_temp_dir() . '/PHPModelGeneratorTest');

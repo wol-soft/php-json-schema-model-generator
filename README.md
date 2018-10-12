@@ -1,7 +1,7 @@
-<p align="center">
-  <a href="https://codeclimate.com/github/wol-soft/php-json-schema-model-generator/maintainability"><img src="https://api.codeclimate.com/v1/badges/7eb29e7366dc3d6a5f44/maintainability" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/wol-soft/php-json-schema-model-generator.svg" alt="License"></a>
-</p>
+[![Maintainability](https://api.codeclimate.com/v1/badges/9e3c565c528edb3d58d5/maintainability)](https://codeclimate.com/github/wol-soft/php-json-schema-model-generator/maintainability)
+[![Build Status](https://travis-ci.org/wol-soft/php-micro-template.svg?branch=master)](https://travis-ci.org/wol-soft/php-json-schema-model-generator)
+[![Coverage Status](https://coveralls.io/repos/github/wol-soft/php-micro-template/badge.svg?branch=master)](https://coveralls.io/github/wol-soft/php-json-schema-model-generator?branch=master)
+[![MIT License](https://img.shields.io/packagist/l/wol-soft/php-micro-template.svg)](https://github.com/wol-soft/php-json-schema-model-generator/blob/master/LICENSE)
 
 # php-json-schema-model-generator
 Creates (immutable) PHP model classes from JSON-Schema files.

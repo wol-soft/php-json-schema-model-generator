@@ -1,0 +1,36 @@
+language: php
+
+sudo: false
+
+php:
+  - 7.1
+  - 7.2
+  - 7.3
+
+install:
+  # Install coveralls.phar
+  - wget -c -nc --retry-connrefused --tries=0 https://github.com/php-coveralls/php-coveralls/releases/download/v2.0.0/php-coveralls.phar -O coveralls.phar
+  - chmod +x coveralls.phar
+  - php coveralls.phar --version
+  # install codeclimate test reporter
+  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+  - chmod +x ./cc-test-reporter
+  - ./cc-test-reporter before-build
+
+before_script:
+  - composer self-update || true
+  - composer install
+  - mkdir -p build/logs
+
+script:
+  - ./vendor/bin/phpunit --coverage-clover build/logs/clover.xml --testdox
+
+after_script:
+  - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
+  - travis_retry php coveralls.phar -v
+  - vendor/bin/test-reporter
+
+cache:
+  directories:
+    - vendor
+    - $COMPOSER_CACHE_DIR
