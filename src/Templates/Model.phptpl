@@ -17,7 +17,7 @@ declare(strict_types = 1);
 class {{ class }}
 {
     {% foreach properties as property %}
-        /** @var {{ property.getType() }} */
+        /** @var {% if property.getType() %}{{ property.getType() }}{% else %}mixed{% endif %} */
         protected ${{ property.getAttribute() }};
     {% endforeach %}
 
@@ -49,12 +49,12 @@ class {{ class }}
 
         {% if not generatorConfiguration.isImmutable() %}
             /**
-             * @param {{ property.getType() }} ${{ property.getAttribute() }}
+             * @param {% if property.getType() %}{{ property.getType() }}{% else %}mixed{% endif %} ${{ property.getAttribute() }}
              *
              * @return $this
              */
             public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
-                {% if not property.isRequired() %}?{% endif %}{{ property.getType() }} ${{ property.getAttribute() }}
+                {% if property.getType() %}{% if not property.isRequired() %}?{% endif %}{{ property.getType() }} {% endif %}${{ property.getAttribute() }}
             ): {{ class }} {
                 $this->{{ property.getAttribute() }} = ${{ property.getAttribute() }};
                 return $this;
