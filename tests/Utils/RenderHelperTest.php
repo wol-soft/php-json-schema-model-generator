@@ -15,9 +15,6 @@ use PHPUnit\Framework\TestCase;
  */
 class RenderHelperTest extends TestCase
 {
-    /**
-     * @covers RenderHelper::ucfirst
-     */
     public function testUcfirst(): void
     {
         $renderHelper = new RenderHelper();
@@ -26,9 +23,6 @@ class RenderHelperTest extends TestCase
         $this->assertEquals('Hallo', $renderHelper->ucfirst('hallo'));
     }
 
-    /**
-     * @covers RenderHelper::getSimpleClassName
-     */
     public function testGetSimpleClassName(): void
     {
         $renderHelper = new RenderHelper();
