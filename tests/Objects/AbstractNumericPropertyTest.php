@@ -3,6 +3,7 @@
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 /**
  * Class AbstractNumericPropertyTest

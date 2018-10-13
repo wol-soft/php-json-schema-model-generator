@@ -1,6 +1,6 @@
 <?php
 
-namespace PHPModelGenerator\Tests\Objects;
+namespace PHPModelGenerator\Tests;
 
 use FilesystemIterator;
 use PHPModelGenerator\Exception\FileSystemException;
@@ -61,7 +61,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     public function generateObjectFromFile(string $file, GeneratorConfiguration $generatorConfiguration = null): string
     {
         return $this->generateObject(
-            file_get_contents(__DIR__ . '/../Schema/' . $this->getStaticClassName() . '/' . $file),
+            file_get_contents(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $file),
             $generatorConfiguration
         );
     }
@@ -84,7 +84,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
             call_user_func_array(
                 'sprintf',
                 array_merge(
-                    [file_get_contents(__DIR__ . '/../Schema/' . $this->getStaticClassName() . '/' . $file)],
+                    [file_get_contents(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $file)],
                     array_map(
                         function ($item) {
                             return str_replace("'", '"', addcslashes($item, '"\\'));
