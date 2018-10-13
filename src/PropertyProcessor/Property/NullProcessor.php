@@ -11,7 +11,7 @@ use PHPModelGenerator\Model\Property;
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-class NullProcessor extends AbstractScalarValueProcessor
+class NullProcessor extends AbstractTypedValueProcessor
 {
     protected const TYPE = 'null';
 

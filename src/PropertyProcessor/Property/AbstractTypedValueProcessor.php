@@ -7,26 +7,25 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 
 /**
  * Class AbstractScalarValueProcessor
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-abstract class AbstractScalarValueProcessor extends AbstractPropertyProcessor
+abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
 {
     protected const TYPE = '';
 
     /**
-     * @inheritdoc
+     * AbstractTypedValueProcessor constructor.
+     *
+     * @param PropertyCollectionProcessor $propertyCollectionProcessor
      */
-    public function process(string $propertyName, array $propertyData): Property
+    public function __construct(PropertyCollectionProcessor $propertyCollectionProcessor)
     {
-        $property = new Property($propertyName, static::TYPE);
-
-        $this->generateValidators($property, $propertyData);
-
-        return $property;
+        parent::__construct($propertyCollectionProcessor, static::TYPE);
     }
 
     /**
@@ -34,8 +33,6 @@ abstract class AbstractScalarValueProcessor extends AbstractPropertyProcessor
      */
     protected function generateValidators(Property $property, array $propertyData): void
     {
-        parent::generateValidators($property, $propertyData);
-
         $property->addValidator(
             new PropertyValidator(
                 '!is_' . strtolower(static::TYPE) . '($value)' . ($property->isRequired() ? '' : ' && $value !== null'),
@@ -43,5 +40,7 @@ abstract class AbstractScalarValueProcessor extends AbstractPropertyProcessor
                 "invalid type for {$property->getName()}"
             )
         );
+
+        parent::generateValidators($property, $propertyData);
     }
 }

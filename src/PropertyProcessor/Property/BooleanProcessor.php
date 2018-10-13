@@ -9,7 +9,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-class BooleanProcessor extends AbstractScalarValueProcessor
+class BooleanProcessor extends AbstractTypedValueProcessor
 {
     protected const TYPE = 'bool';
 }

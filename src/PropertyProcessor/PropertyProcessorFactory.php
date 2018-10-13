@@ -31,7 +31,7 @@ class PropertyProcessorFactory
         }
 
         if (is_array($type)) {
-            return new EnumProcessor($type, $propertyCollectionProcessor);
+            // TODO: Tuple Validation
         }
 
         throw new SchemaException("Invalid property type");

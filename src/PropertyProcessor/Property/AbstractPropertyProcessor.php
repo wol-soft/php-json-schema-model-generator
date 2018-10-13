@@ -38,8 +38,6 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      */
     protected function generateValidators(Property $property, array $propertyData): void
     {
-        $property->setRequired($this->propertyCollectionProcessor->isAttributeRequired($property->getName()));
-
         if ($property->isRequired()) {
             $property->addValidator(
                 new PropertyValidator(
@@ -69,7 +67,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                     preg_replace('(\d+\s=>)', '', var_export(array_values($allowedValues), true)) .
                     ', true)',
                 InvalidArgumentException::class,
-                "Invalid value for {$property->getName()} declined by emun constraint"
+                "Invalid value for {$property->getName()} declined by enum constraint"
             )
         );
     }

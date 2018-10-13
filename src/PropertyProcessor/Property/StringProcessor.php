@@ -13,7 +13,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-class StringProcessor extends AbstractScalarValueProcessor
+class StringProcessor extends AbstractTypedValueProcessor
 {
     protected const TYPE = 'string';
 

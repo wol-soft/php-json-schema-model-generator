@@ -15,7 +15,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
  *
  * TODO: exclusiveMinimum, exclkusiveMaximum validator
  */
-abstract class AbstractNumericProcessor extends AbstractScalarValueProcessor
+abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
 {
     protected const LIMIT_MESSAGE = 'Value for %s must not be %s than ';
 

@@ -141,7 +141,7 @@ class SchemaProcessor
 
         foreach ($structure['properties'] as $propertyName => $property) {
             $properties[] = $propertyProcessorFactory
-                ->getPropertyProcessor($property['type'], $propertyCollectionProcessor, $this)
+                ->getPropertyProcessor($property['type'] ?? 'any', $propertyCollectionProcessor, $this)
                 ->process($propertyName, $property);
         }
 

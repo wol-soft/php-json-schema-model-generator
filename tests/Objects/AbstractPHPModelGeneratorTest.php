@@ -87,7 +87,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
                     [file_get_contents(__DIR__ . '/../Schema/' . $this->getStaticClassName() . '/' . $file)],
                     array_map(
                         function ($item) {
-                            return addcslashes($item, '"\\');
+                            return str_replace("'", '"', addcslashes($item, '"\\'));
                         },
                         $values
                     )
