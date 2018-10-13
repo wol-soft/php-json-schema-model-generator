@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types = 1);
+
+namespace PHPModelGenerator\PropertyProcessor\Property;
+
+use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Model\Property;
+use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
+
+/**
+ * Class ConstProcessor
+ *
+ * @package PHPModelGenerator\PropertyProcessor\Property
+ */
+class ConstProcessor implements PropertyProcessorInterface
+{
+    /**
+     * @inheritdoc
+     */
+    public function process(string $propertyName, array $propertyData): Property
+    {
+        return (new Property($propertyName, gettype($propertyData['const'])))
+            ->addValidator(new PropertyValidator(
+                '$value !== ' . var_export($propertyData['const'], true),
+                InvalidArgumentException::class,
+                "Invalid value for $propertyName declined by const constraint"
+            ));
+    }
+}

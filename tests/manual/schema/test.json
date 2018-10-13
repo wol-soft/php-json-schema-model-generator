@@ -4,8 +4,8 @@
   "type": "object",
   "properties": {
     "import-type": {
-      "type": "int",
-      "enum": [1, 2, 3, 4]
+      "type": "number",
+      "multipleOf": 2
     },
     "cds": {
       "type": "array",

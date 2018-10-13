@@ -140,6 +140,11 @@ class SchemaProcessor
             ->setRequiredAttributes($structure['required'] ?? []);
 
         foreach ($structure['properties'] as $propertyName => $property) {
+            // redirect properties with a constant value to the ConstProcessor
+            if (isset($property['const'])) {
+                $property['type'] = 'const';
+            }
+
             $properties[] = $propertyProcessorFactory
                 ->getPropertyProcessor($property['type'] ?? 'any', $propertyCollectionProcessor, $this)
                 ->process($propertyName, $property);

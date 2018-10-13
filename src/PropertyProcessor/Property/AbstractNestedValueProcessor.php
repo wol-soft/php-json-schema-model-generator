@@ -12,7 +12,7 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-class AbstractNestedValueProcessor extends AbstractTypedValueProcessor
+abstract class AbstractNestedValueProcessor extends AbstractTypedValueProcessor
 {
     /** @var SchemaProcessor */
     protected $schemaProcessor;
