@@ -43,8 +43,9 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                 new PropertyValidator(
                     "!isset(\$modelData['{$property->getName()}'])",
                     InvalidArgumentException::class,
-                    "missing required value for {$property->getName()}"
-                )
+                    "Missing required value for {$property->getName()}"
+                ),
+                1
             );
         }
 
@@ -68,7 +69,8 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                     ', true)',
                 InvalidArgumentException::class,
                 "Invalid value for {$property->getName()} declined by enum constraint"
-            )
+            ),
+            3
         );
     }
 }

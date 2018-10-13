@@ -97,9 +97,38 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
             'float' => [0.92],
             'bool' => [true],
             'array' => [[]],
-            'object' => [new stdClass()],
-            'null' => [null]
+            'object' => [new stdClass()]
         ];
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNotProvidedValueForTypedEnumThrowsAnException(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage("Missing required value for property");
+
+        $className = $this->generateEnumClass('string', static::ENUM_STRING);
+
+        new $className([]);
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNullProvidedForTypedEnumThrowsAnException(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage("Missing required value for property");
+
+        $className = $this->generateEnumClass('string', static::ENUM_STRING);
+
+        new $className(['property' => null]);
     }
 
     /**

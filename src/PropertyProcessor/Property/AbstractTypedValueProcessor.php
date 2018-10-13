@@ -33,14 +33,15 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
      */
     protected function generateValidators(Property $property, array $propertyData): void
     {
+        parent::generateValidators($property, $propertyData);
+
         $property->addValidator(
             new PropertyValidator(
                 '!is_' . strtolower(static::TYPE) . '($value)' . ($property->isRequired() ? '' : ' && $value !== null'),
                 InvalidArgumentException::class,
                 "invalid type for {$property->getName()}"
-            )
+            ),
+            2
         );
-
-        parent::generateValidators($property, $propertyData);
     }
 }

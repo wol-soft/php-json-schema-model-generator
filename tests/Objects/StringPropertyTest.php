@@ -17,16 +17,28 @@ use stdClass;
 class StringPropertyTest extends AbstractPHPModelGeneratorTest
 {
     /**
+     * @dataProvider validStringPropertyValueProvider
+     *
+     * @param string $propertyValue
+     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testProvidedStringPropertyIsValid(): void
+    public function testProvidedStringPropertyIsValid(string $propertyValue): void
     {
         $className = $this->generateObjectFromFile('StringProperty.json');
 
-        $object = new $className(['property' => 'Hello']);
-        $this->assertSame('Hello', $object->getProperty());
+        $object = new $className(['property' => $propertyValue]);
+        $this->assertSame($propertyValue, $object->getProperty());
+    }
+
+    public function validStringPropertyValueProvider(): array
+    {
+        return [
+            'Hello' => ['Hello'],
+            'Empty string' => ['']
+        ];
     }
 
     /**

@@ -83,12 +83,16 @@ class Property
      * Add a validator for the property
      *
      * @param PropertyValidatorInterface $validator
+     * @param int                        $priority
      *
      * @return Property
      */
-    public function addValidator(PropertyValidatorInterface $validator): self
+    public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): self
     {
-        $this->validator[] = $validator;
+        $this->validator[] = [
+            'priority' => $priority,
+            'validator' => $validator
+        ];
 
         return $this;
     }
@@ -98,7 +102,22 @@ class Property
      */
     public function getValidators(): array
     {
-        return $this->validator;
+        usort(
+            $this->validator,
+            function ($a, $b) {
+                if ($a['priority'] == $b['priority']) {
+                    return 0;
+                }
+                return ($a['priority'] < $b['priority']) ? -1 : 1;
+            }
+        );
+
+        return array_map(
+            function ($validator) {
+                return $validator['validator'];
+            },
+            $this->validator
+        );
     }
 
     /**

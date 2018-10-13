@@ -41,8 +41,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         parent::tearDown();
 
         foreach ($this->names as $name) {
-            unlink(sys_get_temp_dir() . '/PHPModelGeneratorTest/' . $name . '.json');
-            unlink(sys_get_temp_dir() . '/PHPModelGeneratorTest/Models/' . $name . '.php');
+            @unlink(sys_get_temp_dir() . '/PHPModelGeneratorTest/' . $name . '.json');
+            @unlink(sys_get_temp_dir() . '/PHPModelGeneratorTest/Models/' . $name . '.php');
         }
     }
 
@@ -123,9 +123,12 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
         $className = $this->getClassName();
 
-        $jsonSchema = json_decode($jsonSchema, true);
-        $jsonSchema['id'] = $className;
-        $jsonSchema = json_encode($jsonSchema);
+        // generate an object ID for valid JSON schema files to avoid class name collisions in the testing process
+        $jsonSchemaArray = json_decode($jsonSchema, true);
+        if ($jsonSchemaArray) {
+            $jsonSchemaArray['id'] = $className;
+            $jsonSchema = json_encode($jsonSchemaArray);
+        }
 
         file_put_contents($baseDir . DIRECTORY_SEPARATOR . $className . '.json', $jsonSchema);
 
