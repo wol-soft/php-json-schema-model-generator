@@ -27,4 +27,12 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 
         $this->generateObjectFromFile('JSONSchemaWithoutObject.json');
     }
+
+    public function testJsonSchemaWithInvalidPropertyTypesThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage('Unsupported property type UnknownType');
+
+        $this->generateObjectFromFile('JSONSchemaWithInvalidPropertyType.json');
+    }
 }
