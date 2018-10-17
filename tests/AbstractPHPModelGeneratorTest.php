@@ -40,6 +40,24 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     {
         parent::tearDown();
 
+        if ($this->hasFailed()) {
+            $failedResultDir = FAILED_CLASSES_PATH . preg_replace( '/[^a-z0-9]+/i', '-', $this->getName());
+
+            @mkdir($failedResultDir, 0777, true);
+            foreach ($this->names as $name) {
+                copy(
+                    sys_get_temp_dir() . '/PHPModelGeneratorTest/' . $name . '.json',
+                    $failedResultDir . DIRECTORY_SEPARATOR . $name . '.json'
+                );
+
+                echo "\n\n" . $failedResultDir . DIRECTORY_SEPARATOR . $name . '.php' . "\n\n";
+                copy(
+                    sys_get_temp_dir() . '/PHPModelGeneratorTest/Models/' . $name . '.php',
+                    $failedResultDir . DIRECTORY_SEPARATOR . $name . '.php'
+                );
+            }
+        }
+
         foreach ($this->names as $name) {
             @unlink(sys_get_temp_dir() . '/PHPModelGeneratorTest/' . $name . '.json');
             @unlink(sys_get_temp_dir() . '/PHPModelGeneratorTest/Models/' . $name . '.php');
@@ -72,13 +90,15 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * @param string                      $file
      * @param array                       $values
      * @param GeneratorConfiguration|null $generatorConfiguration
+     * @param bool                        $escape
      *
      * @return string
      */
     public function generateObjectFromFileTemplate(
         string $file,
         array $values,
-        GeneratorConfiguration $generatorConfiguration = null
+        GeneratorConfiguration $generatorConfiguration = null,
+        bool $escape = true
     ): string {
         return $this->generateObject(
             call_user_func_array(
@@ -86,8 +106,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
                 array_merge(
                     [file_get_contents(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $file)],
                     array_map(
-                        function ($item) {
-                            return str_replace("'", '"', addcslashes($item, '"\\'));
+                        function ($item) use ($escape) {
+                            return $escape ? str_replace("'", '"', addcslashes($item, '"\\')) : $item;
                         },
                         $values
                     )

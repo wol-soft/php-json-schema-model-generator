@@ -147,6 +147,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
     public function invalidStringLengthDataProvider(): array
     {
         return [
+            'Empty string' => ['', 'property must not be shorter than 2'],
             'Too short string' => ['1', 'property must not be shorter than 2'],
             'Too long string' => ['Some Text', 'property must not be longer than 8']
         ];

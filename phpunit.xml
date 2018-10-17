@@ -8,7 +8,7 @@
          convertNoticesToExceptions="true"
          processIsolation="false"
          stopOnFailure="false"
-         bootstrap="vendor/autoload.php">
+         bootstrap="tests/bootstrap.php">
 
     <testsuite name="PHPModelGenerator">
         <directory>tests</directory>

@@ -48,3 +48,11 @@ Method | Configuration | Example | Default
 ``` setImmutable(bool $immutable) ``` | If set to true the generated model classes will be delivered without setter methods for the object properties. | ``` setImmutable(true) ``` | false
 ``` setPrettyPrint(bool $prettyPrint) ``` | If set to false, the generated model classes won't follow coding gudelines (but the generation is faster). If enabled the package [Symplify/EasyCodingStandard](https://github.com/Symplify/EasyCodingStandard) will be used to clean up the generated code. | ``` setPrettyPrint(false) ``` | true
 ``` setOutputEnabled(bool $prettyPrint) ``` | Enable or disable output of the generation process to STDOUT | ``` setOutputEnabled(false) ``` | true
+
+## Tests ##
+
+After installing the dependencies of the library via `composer update` you can execute the tests with `./vendor/bin/phpunit` (Linux) or `vendor\bin\phpunit.bat` (Windows). The test names are optimized for the usage of the `--testdox` output.
+
+During the execution the tests will create a directory PHPModelGeneratorTest in tmp where JSON-Schema files and PHP classes will be written to.
+
+If a test which creates a PHP class from a JSON-Schema fails the JSON-Schema and the class will be dumped to `./Failed-classes`

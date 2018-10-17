@@ -88,7 +88,7 @@ class ArrayProcessor extends AbstractNestedValueProcessor
 
         $property->addValidator(
             new PropertyValidator(
-                'count($value) === count(array_unique($value))',
+                '($amount = count($value)) > 0 && $amount !== count(array_unique($value, SORT_REGULAR))',
                 InvalidArgumentException::class,
                 "Items of array {$property->getName()} are not unique"
             )
