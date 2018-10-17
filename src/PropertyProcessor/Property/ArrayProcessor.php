@@ -124,7 +124,7 @@ class ArrayProcessor extends AbstractNestedValueProcessor
                 new PropertyTemplateValidator(
                     InvalidArgumentException::class,
                     'Invalid array item',
-                    '\Validator\ArrayItem.vtpl',
+                    DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayItem.vtpl',
                     [
                         'property' => $nestedProperty,
                         'viewHelper' => new RenderHelper(),

@@ -50,7 +50,6 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
                     $failedResultDir . DIRECTORY_SEPARATOR . $name . '.json'
                 );
 
-                echo "\n\n" . $failedResultDir . DIRECTORY_SEPARATOR . $name . '.php' . "\n\n";
                 copy(
                     sys_get_temp_dir() . '/PHPModelGeneratorTest/Models/' . $name . '.php',
                     $failedResultDir . DIRECTORY_SEPARATOR . $name . '.php'

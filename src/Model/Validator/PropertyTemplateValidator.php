@@ -40,7 +40,9 @@ class PropertyTemplateValidator extends AbstractPropertyValidator implements Pro
         $this->templateValues = $templateValues;
 
         if (!static::$renderer) {
-            static::$renderer = new Render(__DIR__ . '/../../Templates');
+            static::$renderer = new Render(
+                join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', 'Templates']) . DIRECTORY_SEPARATOR
+            );
         }
     }
 
