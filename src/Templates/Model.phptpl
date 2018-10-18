@@ -32,6 +32,12 @@ class {{ class }}
     */
     public function __construct(array $modelData)
     {
+        {% foreach baseValidators as validator %}
+             if ({{ validator.getCheck() }}) {
+                throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ viewHelper.escapeSingleQuotes(validator.getExceptionMessage()) }}');
+            }
+        {% endforeach %}
+
         {% foreach properties as property %}
             $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
         {% endforeach %}

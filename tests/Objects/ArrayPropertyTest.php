@@ -238,7 +238,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             'Number array' => ['number', [1, 1.1, 4.5, 6]],
             'Boolean array' => ['boolean', [true, false, true]],
             'Null array' => ['null', [null, null]],
-            'Nested array' => ['array","items":{"type":"int"},"injection":"yes we can', [[1, 2], [], [3]]]
+            'Nested array' => ['array","items":{"type":"int"},"injection":"yes we can', [[1, 2], [], [3], null]]
         ];
     }
 

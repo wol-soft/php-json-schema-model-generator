@@ -4,16 +4,13 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\SchemaProcessor;
 
-use Exception;
 use PHPMicroTemplate\Exception\PHPMicroTemplateException;
 use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Model\Property;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -105,8 +102,17 @@ class SchemaProcessor
      */
     protected function generateModel(string $classPath, string $className, array $structure): void
     {
+        $schema = new Schema();
+        $schemaPropertyProcessorFactory = new SchemaPropertyProcessorFactory();
+
+        foreach (array_keys($structure) as $schemaProperty) {
+            $schemaPropertyProcessorFactory
+                ->getSchemaPropertyProcessor($schemaProperty)
+                ->process($this, $schema, $structure);
+        }
+
         $this->generateModelDirectory($classPath);
-        $class = $this->renderClass($classPath, $className, $this->getModelProperties($structure));
+        $class = $this->renderClass($classPath, $className, $schema);
 
         $fileName = join(
             DIRECTORY_SEPARATOR,
@@ -120,37 +126,6 @@ class SchemaProcessor
         if ($this->generatorConfiguration->isOutputEnabled()) {
             echo "Generated class $className\n";
         }
-    }
-
-    /**
-     * Get the properties of a model out of the json schema
-     *
-     * @param array $structure
-     *
-     * @return Property[]
-     *
-     * @throws SchemaException
-     */
-    protected function getModelProperties(array $structure): array
-    {
-        $properties = [];
-        $propertyProcessorFactory = new PropertyProcessorFactory();
-
-        $propertyCollectionProcessor = (new PropertyCollectionProcessor())
-            ->setRequiredAttributes($structure['required'] ?? []);
-
-        foreach ($structure['properties'] as $propertyName => $property) {
-            // redirect properties with a constant value to the ConstProcessor
-            if (isset($property['const'])) {
-                $property['type'] = 'const';
-            }
-
-            $properties[] = $propertyProcessorFactory
-                ->getPropertyProcessor($property['type'] ?? 'any', $propertyCollectionProcessor, $this)
-                ->process($propertyName, $property);
-        }
-
-        return $properties;
     }
 
     /**
@@ -194,20 +169,19 @@ class SchemaProcessor
     /**
      * Render a class. Returns the php code of the class
      *
-     * @param string     $classPath  The relative path of the class for namespace generation
-     * @param string     $className  The class name
-     * @param Property[] $properties The properties which are part of the class
+     * @param string $classPath The relative path of the class for namespace generation
+     * @param string $className The class name
+     * @param Schema $schema    The Schema object which holds properties and validators
      *
      * @return string
      *
      * @throws RenderException
      */
-    protected function renderClass(string $classPath, string $className, array $properties): string
-    {
+    protected function renderClass(string $classPath, string $className, Schema $schema): string {
         $render = new Render(__DIR__ . "/../Templates/");
 
         $namespace = trim($this->generatorConfiguration->getNamespacePrefix() . $classPath, '\\');
-        $use = $this->getUseList($properties, empty($namespace));
+        $use = $schema->getUseList(empty($namespace));
 
         try {
             $class = $render->renderTemplate(
@@ -216,7 +190,8 @@ class SchemaProcessor
                     'namespace'              => empty($namespace) ? '' : "namespace $namespace;",
                     'use'                    => empty($use) ? '' : 'use ' . join(";\nuse ", array_unique($use)) . ';',
                     'class'                  => $className,
-                    'properties'             => $properties,
+                    'baseValidators'         => $schema->getBaseValidators(),
+                    'properties'             => $schema->getProperties(),
                     'generatorConfiguration' => $this->generatorConfiguration,
                     'viewHelper'             => new RenderHelper(),
                 ]
@@ -226,35 +201,6 @@ class SchemaProcessor
         }
 
         return $class;
-    }
-
-    /**
-     * Extract all required uses for a given list of properties
-     *
-     * @param Property[] $properties
-     * @param bool       $skipGlobalNamespace
-     *
-     * @return array
-     */
-    protected function getUseList(array $properties, bool $skipGlobalNamespace): array
-    {
-        $use = [];
-
-        foreach ($properties as $property) {
-            if (empty($property->getValidators())) {
-                continue;
-            }
-
-            $use = array_merge($use, [Exception::class], $property->getClasses());
-        }
-
-        if ($skipGlobalNamespace) {
-            $use = array_filter($use, function ($namespace) {
-                return strstr($namespace, '\\');
-            });
-        }
-
-        return $use;
     }
 
     /**

@@ -46,5 +46,6 @@
   },
   "required": [
     "user-id"
-  ]
+  ],
+  "additionalProperties": false
 }
