@@ -29,19 +29,6 @@ class IntPropertyTest extends AbstractNumericPropertyTest
     }
 
     /**
-     * @throws FileSystemException
-     * @throws RenderException
-     * @throws SchemaException
-     */
-    public function testProvidedOptionalIntPropertyIsValid(): void
-    {
-        $className = $this->generateObjectFromFile('IntProperty.json');
-
-        $object = new $className(['property' => null]);
-        $this->assertNull($object->getProperty());
-    }
-
-    /**
      * @dataProvider validInputProvider
      *
      * @param int $input
@@ -50,7 +37,7 @@ class IntPropertyTest extends AbstractNumericPropertyTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testProvidedIntPropertyIsValid(int $input): void
+    public function testProvidedIntPropertyIsValid(?int $input): void
     {
         $className = $this->generateObjectFromFile('IntProperty.json');
 
@@ -64,6 +51,7 @@ class IntPropertyTest extends AbstractNumericPropertyTest
             'Positive int' => [1],
             'Zero' => [0],
             'Negative int' => [-1],
+            'Null' => [null],
         ];
     }
     
@@ -110,6 +98,7 @@ class IntPropertyTest extends AbstractNumericPropertyTest
             '33 is multiple of -11' => [-11, 33],
             '-8 is multiple of -4' => [-4, -8],
             '0 is multiple of 0' => [0, 0],
+            'Null is multiple of 2' => [2, null],
         ];
     }
 
@@ -136,6 +125,7 @@ class IntPropertyTest extends AbstractNumericPropertyTest
             'Upper limit' => [1],
             'Zero' => [0],
             'Lower limit' => [-1],
+            'Null' => [null],
         ];
     }
 

@@ -44,13 +44,13 @@ class NumberPropertyTest extends AbstractNumericPropertyTest
     /**
      * @dataProvider validInputProvider
      *
-     * @param int $input
+     * @param $input
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testProvidedNumberPropertyIsValid(int $input): void
+    public function testProvidedNumberPropertyIsValid($input): void
     {
         $className = $this->generateObjectFromFile('NumberProperty.json');
 
@@ -67,6 +67,7 @@ class NumberPropertyTest extends AbstractNumericPropertyTest
             'Zero float' => [.0],
             'Negative int' => [-1],
             'Negative float' => [-1.5],
+            'Null' => [null],
         ];
     }
     
@@ -120,7 +121,8 @@ class NumberPropertyTest extends AbstractNumericPropertyTest
             '-2.4 is multiple of -1.2' => [-1.2, -2.4],
             '0.0 is multiple of 0.0' => [.0, .0],
             // check mixed multiples
-            '3 is multiple of 1.5' => [1.5, 3]
+            '3 is multiple of 1.5' => [1.5, 3],
+            'Null is multiple of 2' => [2, null],
         ];
     }
 
@@ -160,6 +162,7 @@ class NumberPropertyTest extends AbstractNumericPropertyTest
             'Zero float' => [.0],
             'Lower limit float' => [-1.6],
             'Lower limit int' => [-1],
+            'Null' => [null],
         ];
     }
 

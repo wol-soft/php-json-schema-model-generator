@@ -56,7 +56,7 @@ class ArrayProcessor extends AbstractNestedValueProcessor
         if (isset($propertyData[self::JSON_FIELD_MIN_ITEMS])) {
             $property->addValidator(
                 new PropertyValidator(
-                    "count(\$value) < {$propertyData[self::JSON_FIELD_MIN_ITEMS]}",
+                    $this->getTypeCheck() . "count(\$value) < {$propertyData[self::JSON_FIELD_MIN_ITEMS]}",
                     InvalidArgumentException::class,
                     sprintf($limitMessage, $property->getName(), 'less', $propertyData[self::JSON_FIELD_MIN_ITEMS])
                 )
@@ -66,7 +66,7 @@ class ArrayProcessor extends AbstractNestedValueProcessor
         if (isset($propertyData[self::JSON_FIELD_MAX_ITEMS])) {
             $property->addValidator(
                 new PropertyValidator(
-                    "count(\$value) > {$propertyData[self::JSON_FIELD_MAX_ITEMS]}",
+                    $this->getTypeCheck() . "count(\$value) > {$propertyData[self::JSON_FIELD_MAX_ITEMS]}",
                     InvalidArgumentException::class,
                     sprintf($limitMessage, $property->getName(), 'more', $propertyData[self::JSON_FIELD_MAX_ITEMS])
                 )
@@ -88,7 +88,7 @@ class ArrayProcessor extends AbstractNestedValueProcessor
 
         $property->addValidator(
             new PropertyValidator(
-                '!empty($value) && count($value) !== count(array_unique($value, SORT_REGULAR))',
+                $this->getTypeCheck() . 'count($value) !== count(array_unique($value, SORT_REGULAR))',
                 InvalidArgumentException::class,
                 "Items of array {$property->getName()} are not unique"
             )

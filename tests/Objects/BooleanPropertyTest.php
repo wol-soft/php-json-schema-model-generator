@@ -30,19 +30,6 @@ class BooleanPropertyTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
-     * @throws FileSystemException
-     * @throws RenderException
-     * @throws SchemaException
-     */
-    public function testProvidedOptionalBooleanPropertyIsValid(): void
-    {
-        $className = $this->generateObjectFromFile('BooleanProperty.json');
-
-        $object = new $className(['property' => null]);
-        $this->assertNull($object->getProperty());
-    }
-
-    /**
      * @dataProvider validInputProvider
      *
      * @param bool $input
@@ -51,7 +38,7 @@ class BooleanPropertyTest extends AbstractPHPModelGeneratorTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testProvidedBooleanPropertyIsValid(bool $input): void
+    public function testProvidedBooleanPropertyIsValid(?bool $input): void
     {
         $className = $this->generateObjectFromFile('BooleanProperty.json');
 
@@ -64,6 +51,7 @@ class BooleanPropertyTest extends AbstractPHPModelGeneratorTest
         return [
             'true' => [true],
             'false' => [false],
+            'null' => [null],
         ];
     }
     

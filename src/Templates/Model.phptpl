@@ -94,13 +94,12 @@ class {{ class }}
 
             {{ viewHelper.resolvePropertyDecorator(property) }}
 
-            {% if property.getValidators() %}
-                {% foreach property.getValidators() as validator %}
-                    if ({{ validator.getCheck() }}) {
-                        throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ viewHelper.escapeSingleQuotes(validator.getExceptionMessage()) }}');
-                    }
-                {% endforeach %}
-            {% endif %}
+            {% foreach property.getOrderedValidators() as validator %}
+                if ({{ validator.getCheck() }}) {
+                    throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ viewHelper.escapeSingleQuotes(validator.getExceptionMessage()) }}');
+                }
+            {% endforeach %}
+
             $this->{{ property.getAttribute() }} = $value;
         }
     {% endforeach %}

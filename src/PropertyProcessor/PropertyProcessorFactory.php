@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\PropertyProcessor;
 
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\PropertyProcessor\Property\EnumProcessor;
+use PHPModelGenerator\PropertyProcessor\Property\MultiTypeProcessor;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
@@ -31,7 +31,7 @@ class PropertyProcessorFactory
         }
 
         if (is_array($type)) {
-            // TODO: Tuple Validation
+            return new MultiTypeProcessor($this, $type, $propertyCollectionProcessor, $schemaProcessor);
         }
 
         throw new SchemaException("Invalid property type");

@@ -25,7 +25,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testProvidedStringPropertyIsValid(string $propertyValue): void
+    public function testProvidedStringPropertyIsValid(?string $propertyValue): void
     {
         $className = $this->generateObjectFromFile('StringProperty.json');
 
@@ -37,7 +37,8 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
     {
         return [
             'Hello' => ['Hello'],
-            'Empty string' => ['']
+            'Empty string' => [''],
+            'Null' => [null]
         ];
     }
 
@@ -53,19 +54,6 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
         $object = new $className([]);
         $this->assertTrue(is_callable([$object, 'getProperty']));
         $this->assertTrue(is_callable([$object, 'setProperty']));
-        $this->assertNull($object->getProperty());
-    }
-
-    /**
-     * @throws FileSystemException
-     * @throws RenderException
-     * @throws SchemaException
-     */
-    public function testProvidedOptionalStringPropertyIsValid(): void
-    {
-        $className = $this->generateObjectFromFile('StringProperty.json');
-
-        $object = new $className(['property' => null]);
         $this->assertNull($object->getProperty());
     }
 
@@ -108,7 +96,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testStringInLengthValidationRangePasses(string $propertyValue): void
+    public function testStringInLengthValidationRangePasses(?string $propertyValue): void
     {
         $className = $this->generateObjectFromFile('StringPropertyLengthValidation.json');
 
@@ -120,7 +108,8 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
     {
         return [
             'Lower limit' => ['11'],
-            'Upper limit' => ['12345678']
+            'Upper limit' => ['12345678'],
+            'Null' => [null],
         ];
     }
 
@@ -159,7 +148,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
      * @param string $pattern
      * @param string $propertyValue
      */
-    public function testPatternMatchingStringIsValid(string $pattern, string $propertyValue): void
+    public function testPatternMatchingStringIsValid(string $pattern, ?string $propertyValue): void
     {
         $className = $this->generateObjectFromFileTemplate('StringPropertyPattern.json', [$pattern]);
 
@@ -170,6 +159,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
     public function validPatternProvider(): array
     {
         return [
+            'Null' => ['^The', null],
             'String starts with' => ['^The', 'The Test starts with The'],
             'No spaces in string' => ['^[^\\s]+$', 'ThisStringContainsNoSpace'],
             'A formatted date' => ['^[0-9]{4}-[0-9]{2}-[0-9]{2}$', '2018-12-12'],

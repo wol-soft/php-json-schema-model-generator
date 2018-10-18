@@ -25,7 +25,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testProvidedArrayPropertyIsValidForUntypedArray(array $propertyValue): void
+    public function testProvidedArrayPropertyIsValidForUntypedArray(?array $propertyValue): void
     {
         $className = $this->generateObjectFromFile('ArrayProperty.json');
 
@@ -39,7 +39,8 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             'Associative Array' => [['a' => 1, 'b' => 2, 'c' => 1]],
             'Numeric Array' => [['a', 'b', 'b']],
             'Mixed Array' => [['a', 'b' => 1]],
-            'Empty array' => [[]]
+            'Empty array' => [[]],
+            'Null' => [null],
         ];
     }
 
@@ -53,19 +54,6 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateObjectFromFile('ArrayProperty.json');
 
         $object = new $className([]);
-        $this->assertNull($object->getProperty());
-    }
-
-    /**
-     * @throws FileSystemException
-     * @throws RenderException
-     * @throws SchemaException
-     */
-    public function testProvidedOptionalArrayPropertyIsValid(): void
-    {
-        $className = $this->generateObjectFromFile('ArrayProperty.json');
-
-        $object = new $className(['property' => null]);
         $this->assertNull($object->getProperty());
     }
 
@@ -165,7 +153,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testArrayInItemAmountValidationRangePasses(array $propertyValue): void
+    public function testArrayInItemAmountValidationRangePasses(?array $propertyValue): void
     {
         $className = $this->generateObjectFromFile('ArrayPropertyItemAmount.json');
 
@@ -177,7 +165,8 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
     {
         return [
             'Lower limit' => [[1, 2]],
-            'Upper limit' => [[1, 2, 3]]
+            'Upper limit' => [[1, 2, 3]],
+            'null' => [null],
         ];
     }
 

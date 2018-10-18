@@ -4,9 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
-use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Model\Property;
-use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Model\Validator\TypeCheckValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 
 /**
@@ -35,13 +34,11 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
     {
         parent::generateValidators($property, $propertyData);
 
-        $property->addValidator(
-            new PropertyValidator(
-                '!is_' . strtolower(static::TYPE) . '($value)' . ($property->isRequired() ? '' : ' && $value !== null'),
-                InvalidArgumentException::class,
-                "invalid type for {$property->getName()}"
-            ),
-            2
-        );
+        $property->addValidator(new TypeCheckValidator(static::TYPE, $property), 2);
+    }
+
+    protected function getTypeCheck(): string
+    {
+        return 'is_' . strtolower(static::TYPE) . '($value) && ';
     }
 }

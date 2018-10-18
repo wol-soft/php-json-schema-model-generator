@@ -50,7 +50,7 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
 
         $property->addValidator(
             new PropertyValidator(
-                "\$value < {$propertyData[self::JSON_FIELD_MINIMUM]}",
+                $this->getTypeCheck() . "\$value < {$propertyData[self::JSON_FIELD_MINIMUM]}",
                 InvalidArgumentException::class,
                 sprintf(static::LIMIT_MESSAGE, $property->getName(), 'smaller') .
                     $propertyData[self::JSON_FIELD_MINIMUM]
@@ -72,7 +72,7 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
 
         $property->addValidator(
             new PropertyValidator(
-                "\$value > {$propertyData[self::JSON_FIELD_MAXIMUM]}",
+                $this->getTypeCheck() . "\$value > {$propertyData[self::JSON_FIELD_MAXIMUM]}",
                 InvalidArgumentException::class,
                 sprintf(static::LIMIT_MESSAGE, $property->getName(), 'larger') . $propertyData[self::JSON_FIELD_MAXIMUM]
             )
@@ -95,11 +95,11 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
             new PropertyValidator(
                 // type unsafe comparison to be compatible with int and float
                 $propertyData[self::JSON_FIELD_MULTIPLE] == 0
-                    ? '$value != 0'
+                    ? $this->getTypeCheck() . '$value != 0'
                     : (
                         is_int($propertyData[self::JSON_FIELD_MULTIPLE])
-                            ? "\$value % {$propertyData[self::JSON_FIELD_MULTIPLE]} != 0"
-                            : "fmod(\$value, {$propertyData[self::JSON_FIELD_MULTIPLE]}) != 0"
+                            ? $this->getTypeCheck() . "\$value % {$propertyData[self::JSON_FIELD_MULTIPLE]} != 0"
+                            : $this->getTypeCheck() . "fmod(\$value, {$propertyData[self::JSON_FIELD_MULTIPLE]}) != 0"
                     ),
                 InvalidArgumentException::class,
                 "Value for {$property->getName()} must be a multiple of {$propertyData[self::JSON_FIELD_MULTIPLE]}"

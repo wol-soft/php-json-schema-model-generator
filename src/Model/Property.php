@@ -95,11 +95,19 @@ class Property
     }
 
     /**
+     * @return Validator[]
+     */
+    public function getValidators(): array
+    {
+        return $this->validator;
+    }
+
+    /**
      * Retrieve all added validators ordered by priority
      *
      * @return PropertyValidatorInterface[]
      */
-    public function getValidators(): array
+    public function getOrderedValidators(): array
     {
         usort(
             $this->validator,
@@ -179,7 +187,7 @@ class Property
     {
         $use = [];
 
-        foreach ($this->getValidators() as $validator) {
+        foreach ($this->getOrderedValidators() as $validator) {
             $use[] = $validator->getExceptionClass();
         }
 

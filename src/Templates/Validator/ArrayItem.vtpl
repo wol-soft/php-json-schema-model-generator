@@ -1,4 +1,4 @@
-(function ($items) {
+is_array($value) && (function ($items) {
     if (empty($items)) {
         return false;
     }
@@ -6,7 +6,7 @@
     foreach ($items as $value) {
         {{ viewHelper.resolvePropertyDecorator(property) }}
 
-        {% foreach property.getValidators() as validator %}
+        {% foreach property.getOrderedValidators() as validator %}
             if ({{ validator.getCheck() }}) {
                 throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');
             }

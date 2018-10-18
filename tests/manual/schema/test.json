@@ -37,7 +37,7 @@
       "example": "Death Magnetic"
     },
     "user-id": {
-      "type": "number",
+      "type": ["number", "string"],
       "description": "The title of the album",
       "example": 2,
       "minimum": 10,
