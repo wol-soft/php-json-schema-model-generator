@@ -23,7 +23,7 @@ class Property
     /** @var bool */
     protected $isPropertyRequired = true;
 
-    /** @var array */
+    /** @var Validator[] */
     protected $validator = [];
     /** @var Property[] */
     protected $nestedProperties = [];
@@ -89,32 +89,31 @@ class Property
      */
     public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): self
     {
-        $this->validator[] = [
-            'priority' => $priority,
-            'validator' => $validator
-        ];
+        $this->validator[] = new Validator($validator, $priority);
 
         return $this;
     }
 
     /**
+     * Retrieve all added validators ordered by priority
+     *
      * @return PropertyValidatorInterface[]
      */
     public function getValidators(): array
     {
         usort(
             $this->validator,
-            function ($a, $b) {
-                if ($a['priority'] == $b['priority']) {
+            function (Validator $validator, Validator $comparedValidator) {
+                if ($validator->getPriority() == $comparedValidator->getPriority()) {
                     return 0;
                 }
-                return ($a['priority'] < $b['priority']) ? -1 : 1;
+                return ($validator->getPriority() < $comparedValidator->getPriority()) ? -1 : 1;
             }
         );
 
         return array_map(
-            function ($validator) {
-                return $validator['validator'];
+            function (Validator $validator) {
+                return $validator->getValidator();
             },
             $this->validator
         );

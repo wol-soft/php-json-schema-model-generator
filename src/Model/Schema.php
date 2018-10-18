@@ -32,10 +32,14 @@ class Schema
 
     /**
      * @param Property $property
+     *
+     * @return $this
      */
     public function addProperty(Property $property)
     {
         $this->properties[] = $property;
+
+        return $this;
     }
 
     /**
@@ -48,10 +52,14 @@ class Schema
 
     /**
      * @param PropertyValidatorInterface $baseValidator
+     *
+     * @return $this
      */
     public function addBaseValidator(PropertyValidatorInterface $baseValidator)
     {
         $this->baseValidators[] = $baseValidator;
+
+        return $this;
     }
 
     /**
@@ -64,6 +72,10 @@ class Schema
     public function getUseList(bool $skipGlobalNamespace): array
     {
         $use = [];
+
+        foreach ($this->getBaseValidators() as $validator) {
+            $use[] = $validator->getExceptionClass();
+        }
 
         foreach ($this->getProperties() as $property) {
             if (empty($property->getValidators())) {

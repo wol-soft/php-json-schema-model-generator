@@ -20,6 +20,8 @@ class {{ class }}
         /** @var {% if property.getType() %}{{ property.getType() }}{% else %}mixed{% endif %} */
         protected ${{ property.getAttribute() }};
     {% endforeach %}
+    /** @var array */
+    protected $rawModelDataInput;
 
     /**
      * {{ class }} constructor.
@@ -41,6 +43,18 @@ class {{ class }}
         {% foreach properties as property %}
             $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
         {% endforeach %}
+
+        $this->rawModelDataInput = $modelData;
+    }
+
+    /**
+     * Get the raw input used to set up the model
+     *
+     * @return array
+     */
+    public function getRawModelDataInput(): array
+    {
+        return $this->rawModelDataInput;
     }
 
     {% foreach properties as property %}

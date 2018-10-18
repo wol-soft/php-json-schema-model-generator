@@ -11,29 +11,22 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\SchemaProcessor\SchemaPropertyProcessorInterface;
 
 /**
- * Class AdditionalpropertiesProcessor
+ * Class MaxpropertiesProcessor
  *
  * @package PHPModelGenerator\SchemaProcessor\SchemaProperty
  */
-class AdditionalpropertiesProcessor implements SchemaPropertyProcessorInterface
+class MaxpropertiesProcessor implements SchemaPropertyProcessorInterface
 {
     /**
      * @inheritdoc
      */
     public function process(SchemaProcessor $schemaProcessor, Schema $schema, array $structure): void
     {
-        if ($structure['additionalProperties'] === true) {
-            return;
-        }
-
         $schema->addBaseValidator(
             new PropertyValidator(
-                sprintf(
-                    'array_diff(array_keys($modelData), %s)',
-                    preg_replace('(\d+\s=>)', '', var_export(array_keys($structure['properties'] ?? []), true))
-                ),
+                sprintf('count($modelData) > %d', $structure['maxProperties']),
                 InvalidArgumentException::class,
-                'Provided JSON contains not allowed additional properties'
+                "Provided object must not contain more than {$structure['maxProperties']} properties"
             )
         );
     }

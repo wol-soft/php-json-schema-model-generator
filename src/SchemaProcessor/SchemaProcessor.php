@@ -177,7 +177,8 @@ class SchemaProcessor
      *
      * @throws RenderException
      */
-    protected function renderClass(string $classPath, string $className, Schema $schema): string {
+    protected function renderClass(string $classPath, string $className, Schema $schema): string
+    {
         $render = new Render(__DIR__ . "/../Templates/");
 
         $namespace = trim($this->generatorConfiguration->getNamespacePrefix() . $classPath, '\\');
