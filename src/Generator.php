@@ -65,7 +65,10 @@ class Generator
         }
 
         if ($this->generatorConfiguration->hasPrettyPrintEnabled()) {
-            shell_exec(__DIR__ . "/../vendor/bin/ecs check $destination --config " . __DIR__ . "/cs.yml --fix");
+            // @codeCoverageIgnoreStart
+            $out = $this->generatorConfiguration->isOutputEnabled() ? '' : '2>&1';
+            shell_exec(__DIR__ . "/../vendor/bin/ecs check $destination --config " . __DIR__ . "/cs.yml --fix $out");
+            // @codeCoverageIgnoreEnd
         }
 
         return true;

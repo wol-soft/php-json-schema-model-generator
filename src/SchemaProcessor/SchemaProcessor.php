@@ -120,11 +120,15 @@ class SchemaProcessor
         ) . '.php';
 
         if (!file_put_contents($fileName, $class)) {
+            // @codeCoverageIgnoreStart
             throw new FileSystemException("Can't write class $classPath\\$className");
+            // @codeCoverageIgnoreEno
         }
 
         if ($this->generatorConfiguration->isOutputEnabled()) {
+            // @codeCoverageIgnoreStart
             echo "Generated class $className\n";
+            // @codeCoverageIgnoreEno
         }
     }
 

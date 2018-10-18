@@ -52,8 +52,6 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateObjectFromFile('StringProperty.json');
 
         $object = new $className([]);
-        $this->assertTrue(is_callable([$object, 'getProperty']));
-        $this->assertTrue(is_callable([$object, 'setProperty']));
         $this->assertNull($object->getProperty());
     }
 
