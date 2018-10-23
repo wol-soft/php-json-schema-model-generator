@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 
@@ -31,6 +32,7 @@ class StringProcessor extends AbstractTypedValueProcessor
 
         $this->addPatternValidator($property, $propertyData);
         $this->addLengthValidator($property, $propertyData);
+        $this->addFormatValidator($property, $propertyData);
     }
 
     /**
@@ -82,6 +84,21 @@ class StringProcessor extends AbstractTypedValueProcessor
                     "{$property->getName()} must not be longer than {$propertyData[static::JSON_FIELD_MAX_LENGTH]}"
                 )
             );
+        }
+    }
+
+    /**
+     * TODO: implement format validations
+     *
+     * @param Property $property
+     * @param array $propertyData
+     *
+     * @throws SchemaException
+     */
+    protected function addFormatValidator(Property $property, array $propertyData): void
+    {
+        if (isset($propertyData['format'])) {
+            throw new SchemaException('Format is currently not supported');
         }
     }
 }

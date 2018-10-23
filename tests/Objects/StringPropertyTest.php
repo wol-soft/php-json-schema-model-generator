@@ -196,4 +196,12 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
             ],
         ];
     }
+
+    public function testStringFormatCheckThrowsNotSupportedException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage('Format is currently not supported');
+
+        $this->generateObjectFromFile('StringPropertyFormat.json');
+    }
 }

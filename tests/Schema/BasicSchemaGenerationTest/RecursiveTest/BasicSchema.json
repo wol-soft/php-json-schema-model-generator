@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "id": "MainClass",
+  "properties": {
+    "property": {
+      "type": "string"
+    }
+  }
+}
