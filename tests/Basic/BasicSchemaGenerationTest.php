@@ -3,6 +3,7 @@
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Generator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
@@ -48,6 +49,41 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $object = new $className([]);
 
         $this->assertNull($object->getProperty());
+    }
+
+    public function testFolderIsGeneratedRecursively(): void
+    {
+        define('MODEL_TEMP_PATH', sys_get_temp_dir() . '/PHPModelGeneratorTest/Models');
+
+        (new Generator(
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('\\Application')
+                ->setPrettyPrint(false)
+                ->setOutputEnabled(false)
+        ))->generateModels(
+            __DIR__ . '/../Schema/BasicSchemaGenerationTest/RecursiveTest',
+            MODEL_TEMP_PATH
+        );
+
+        $mainClassFile = MODEL_TEMP_PATH . DIRECTORY_SEPARATOR . 'MainClass.php';
+        $subClassFile = MODEL_TEMP_PATH . DIRECTORY_SEPARATOR . 'SubFolder' . DIRECTORY_SEPARATOR . 'SubClass.php';
+
+        require_once $mainClassFile;
+        require_once $subClassFile;
+
+        $mainClassFQCN = '\\Application\\MainClass';
+        $mainObject = new $mainClassFQCN(['property' => 'Hello']);
+
+        $this->assertSame('Hello', $mainObject->getProperty());
+
+        $subClassFQCN = '\\Application\\SubFolder\\SubClass';
+        $subObject = new $subClassFQCN(['property' => 3]);
+
+        $this->assertSame(3, $subObject->getProperty());
+
+        unlink($mainClassFile);
+        unlink($subClassFile);
+        rmdir(MODEL_TEMP_PATH . DIRECTORY_SEPARATOR . 'SubFolder');
     }
 
     public function testInvalidJsonSchemaFileThrowsAnException(): void
