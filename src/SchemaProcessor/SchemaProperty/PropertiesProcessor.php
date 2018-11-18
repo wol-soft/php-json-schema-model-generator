@@ -6,7 +6,7 @@ namespace PHPModelGenerator\SchemaProcessor\SchemaProperty;
 
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
+use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\SchemaProcessor\SchemaPropertyProcessorInterface;
 
@@ -22,21 +22,20 @@ class PropertiesProcessor implements SchemaPropertyProcessorInterface
      */
     public function process(SchemaProcessor $schemaProcessor, Schema $schema, array $structure): void
     {
-        $propertyProcessorFactory = new PropertyProcessorFactory();
+        $propertyFactory = new PropertyFactory();
 
         $propertyCollectionProcessor = (new PropertyCollectionProcessor())
             ->setRequiredAttributes($structure['required'] ?? []);
 
-        foreach ($structure['properties'] as $propertyName => $property) {
-            // redirect properties with a constant value to the ConstProcessor
-            if (isset($property['const'])) {
-                $property['type'] = 'const';
-            }
-
+        foreach ($structure['properties'] as $propertyName => $propertyStructure) {
             $schema->addProperty(
-                $propertyProcessorFactory
-                    ->getPropertyProcessor($property['type'] ?? 'any', $propertyCollectionProcessor, $schemaProcessor)
-                    ->process($propertyName, $property)
+                $propertyFactory->create(
+                    $propertyCollectionProcessor,
+                    $schemaProcessor,
+                    $schema,
+                    $propertyName,
+                    $propertyStructure
+                )
             );
         }
     }

@@ -2,17 +2,18 @@
 
 declare(strict_types = 1);
 
-namespace PHPModelGenerator\Model;
+namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\PropertyDecoratorInterface;
 
 /**
  * Class Property
  *
- * @package PHPModelGenerator\Model
+ * @package PHPModelGenerator\Model\Property
  */
-class Property
+class Property implements PropertyInterface
 {
     /** @var string */
     protected $name = '';
@@ -44,7 +45,7 @@ class Property
     }
 
     /**
-     * @return string
+     * @inheritdoc
      */
     public function getName(): string
     {
@@ -52,7 +53,7 @@ class Property
     }
 
     /**
-     * @return string
+     * @inheritdoc
      */
     public function getAttribute(): string
     {
@@ -60,7 +61,7 @@ class Property
     }
 
     /**
-     * @return string
+     * @inheritdoc
      */
     public function getType(): string
     {
@@ -68,11 +69,9 @@ class Property
     }
 
     /**
-     * @param string $type
-     *
-     * @return Property
+     * @inheritdoc
      */
-    public function setType(string $type): self
+    public function setType(string $type): PropertyInterface
     {
         $this->type = $type;
 
@@ -80,14 +79,9 @@ class Property
     }
 
     /**
-     * Add a validator for the property
-     *
-     * @param PropertyValidatorInterface $validator
-     * @param int                        $priority
-     *
-     * @return Property
+     * @inheritdoc
      */
-    public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): self
+    public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): PropertyInterface
     {
         $this->validator[] = new Validator($validator, $priority);
 
@@ -95,7 +89,7 @@ class Property
     }
 
     /**
-     * @return Validator[]
+     * @inheritdoc
      */
     public function getValidators(): array
     {
@@ -103,9 +97,7 @@ class Property
     }
 
     /**
-     * Retrieve all added validators ordered by priority
-     *
-     * @return PropertyValidatorInterface[]
+     * @inheritdoc
      */
     public function getOrderedValidators(): array
     {
@@ -128,7 +120,7 @@ class Property
     }
 
     /**
-     * @return Property[]
+     * @inheritdoc
      */
     public function getNestedProperties(): array
     {
@@ -136,11 +128,9 @@ class Property
     }
 
     /**
-     * @param Property $nestedProperty
-     *
-     * @return Property
+     * @inheritdoc
      */
-    public function addNestedProperty(Property $nestedProperty): self
+    public function addNestedProperty(PropertyInterface $nestedProperty): PropertyInterface
     {
         $this->nestedProperties[] = $nestedProperty;
 
@@ -148,19 +138,18 @@ class Property
     }
 
     /**
-     * Add a decorator to the property
-     *
-     * @param PropertyDecoratorInterface $decorator
-     *
-     * @return Property
+     * @inheritdoc
      */
-    public function addDecorator(PropertyDecoratorInterface $decorator): self
+    public function addDecorator(PropertyDecoratorInterface $decorator): PropertyInterface
     {
         $this->decorators[] = $decorator;
 
         return $this;
     }
 
+    /**
+     * @inheritdoc
+     */
     public function resolveDecorator(string $input): string
     {
         foreach ($this->decorators as $decorator) {
@@ -171,7 +160,7 @@ class Property
     }
 
     /**
-     * @return bool
+     * @inheritdoc
      */
     public function hasDecorators(): bool
     {
@@ -179,9 +168,7 @@ class Property
     }
 
     /**
-     * Get a list of all required classes
-     *
-     * @return array
+     * @inheritdoc
      */
     public function getClasses(): array
     {
@@ -218,18 +205,16 @@ class Property
     }
 
     /**
-     * @param bool $isPropertyRequired
-     *
-     * @return Property
+     * @inheritdoc
      */
-    public function setRequired(bool $isPropertyRequired): self
+    public function setRequired(bool $isPropertyRequired): PropertyInterface
     {
         $this->isPropertyRequired = $isPropertyRequired;
         return $this;
     }
 
     /**
-     * @return bool
+     * @inheritdoc
      */
     public function isRequired(): bool
     {

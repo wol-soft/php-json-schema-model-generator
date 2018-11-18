@@ -5,7 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\InvalidArgumentException;
-use PHPModelGenerator\Model\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 
 /**
@@ -27,7 +27,7 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
     /**
      * @inheritdoc
      */
-    protected function generateValidators(Property $property, array $propertyData): void
+    protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {
         parent::generateValidators($property, $propertyData);
 
@@ -39,10 +39,10 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
     /**
      * Adds a minimum validator to the property
      *
-     * @param Property $property
-     * @param array    $propertyData
+     * @param PropertyInterface $property
+     * @param array             $propertyData
      */
-    protected function addMinimumValidator(Property $property, array $propertyData)
+    protected function addMinimumValidator(PropertyInterface $property, array $propertyData)
     {
         if (!isset($propertyData[self::JSON_FIELD_MINIMUM])) {
             return;
@@ -61,10 +61,10 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
     /**
      * Adds a maximum validator to the property
      *
-     * @param Property $property
-     * @param array    $propertyData
+     * @param PropertyInterface $property
+     * @param array             $propertyData
      */
-    protected function addMaximumValidator(Property $property, array $propertyData)
+    protected function addMaximumValidator(PropertyInterface $property, array $propertyData)
     {
         if (!isset($propertyData[self::JSON_FIELD_MAXIMUM])) {
             return;
@@ -82,10 +82,10 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
     /**
      * Adds a multiple of validator to the property
      *
-     * @param Property $property
-     * @param array    $propertyData
+     * @param PropertyInterface $property
+     * @param array             $propertyData
      */
-    protected function addMultipleOfValidator(Property $property, array $propertyData)
+    protected function addMultipleOfValidator(PropertyInterface $property, array $propertyData)
     {
         if (!isset($propertyData[self::JSON_FIELD_MULTIPLE])) {
             return;

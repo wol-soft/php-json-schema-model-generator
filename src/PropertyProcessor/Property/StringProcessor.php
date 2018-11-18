@@ -6,7 +6,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Model\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 
 /**
@@ -23,10 +23,10 @@ class StringProcessor extends AbstractTypedValueProcessor
     protected const JSON_FIELD_MAX_LENGTH = 'maxLength';
 
     /**
-     * @param Property $property
+     * @param PropertyInterface $property
      * @param array    $propertyData
      */
-    protected function generateValidators(Property $property, array $propertyData): void
+    protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {
         parent::generateValidators($property, $propertyData);
 
@@ -38,10 +38,10 @@ class StringProcessor extends AbstractTypedValueProcessor
     /**
      * Add a regex pattern validator
      *
-     * @param Property $property
+     * @param PropertyInterface $property
      * @param array    $propertyData
      */
-    protected function addPatternValidator(Property $property, array $propertyData): void
+    protected function addPatternValidator(PropertyInterface $property, array $propertyData): void
     {
         if (!isset($propertyData[static::JSON_FIELD_PATTERN])) {
             return;
@@ -64,7 +64,7 @@ class StringProcessor extends AbstractTypedValueProcessor
      * @param $property
      * @param $propertyData
      */
-    protected function addLengthValidator(Property $property, array $propertyData): void
+    protected function addLengthValidator(PropertyInterface $property, array $propertyData): void
     {
         if (isset($propertyData[static::JSON_FIELD_MIN_LENGTH])) {
             $property->addValidator(
@@ -90,12 +90,12 @@ class StringProcessor extends AbstractTypedValueProcessor
     /**
      * TODO: implement format validations
      *
-     * @param Property $property
-     * @param array $propertyData
+     * @param PropertyInterface $property
+     * @param array             $propertyData
      *
      * @throws SchemaException
      */
-    protected function addFormatValidator(Property $property, array $propertyData): void
+    protected function addFormatValidator(PropertyInterface $property, array $propertyData): void
     {
         if (isset($propertyData['format'])) {
             throw new SchemaException('Format is currently not supported');

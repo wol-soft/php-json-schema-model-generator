@@ -151,12 +151,14 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
         file_put_contents($baseDir . DIRECTORY_SEPARATOR . $className . '.json', $jsonSchema);
 
-        (new Generator($generatorConfiguration))->generateModels(
+        $generatedFiles = (new Generator($generatorConfiguration))->generateModels(
             $baseDir,
             $baseDir . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR
         );
 
-        require_once $baseDir . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR . $className . '.php';
+        foreach ($generatedFiles as $path) {
+            require_once $path;
+        }
 
         return $className;
     }

@@ -4,7 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
-use PHPModelGenerator\Model\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\IntToFloatCastDecorator;
 
 /**
@@ -19,7 +19,7 @@ class NumberProcessor extends AbstractNumericProcessor
     /**
      * @inheritdoc
      */
-    public function process(string $propertyName, array $propertyData): Property
+    public function process(string $propertyName, array $propertyData): PropertyInterface
     {
         return parent::process($propertyName, $propertyData)->addDecorator(new IntToFloatCastDecorator());
     }

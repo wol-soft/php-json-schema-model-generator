@@ -4,7 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
-use PHPModelGenerator\Model\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\TypeCheckValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 
@@ -30,7 +30,7 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
     /**
      * @inheritdoc
      */
-    protected function generateValidators(Property $property, array $propertyData): void
+    protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {
         parent::generateValidators($property, $propertyData);
 

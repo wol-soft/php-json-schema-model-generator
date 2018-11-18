@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -35,12 +36,12 @@ class Generator
     }
 
     /**
-     * Generate models from JSON-Schema files. Returns true on success.
+     * Generate models from JSON-Schema files. Returns an array of generated file names on success.
      *
      * @param string $source      The directory with the JSON-Schema files
      * @param string $destination The directory where to put the generated PHP models
      *
-     * @return bool
+     * @return array
      *
      * @throws FileSystemException      Will be thrown if either the $source or the $destination directory doesn't exist
      *                                  or the $destination directory is not empty
@@ -48,7 +49,7 @@ class Generator
      * @throws FileSystemException      Will be thrown if a file system error occured
      * @throws RenderException          Will be thrown if a class can't be rendered correctly
      */
-    public function generateModels(string $source, string $destination): bool
+    public function generateModels(string $source, string $destination): array
     {
         if (!is_dir($source)) {
             throw new FileSystemException("Source directory '$source' doesn't exist");
@@ -58,11 +59,16 @@ class Generator
             throw new FileSystemException("Destination directory '$destination' doesn't exist or is not empty");
         }
 
-        $schemaProcessor = new SchemaProcessor($source, $destination, $this->generatorConfiguration);
+        $renderProxy = new RenderQueue();
+        $schemaProcessor = new SchemaProcessor($source, $destination, $this->generatorConfiguration, $renderProxy);
+        $generatedFiles = [];
 
         foreach ($this->getSchemaFiles($source) as $jsonSchemaFile) {
-            $schemaProcessor->process($jsonSchemaFile);
+            $generatedFiles[] = $schemaProcessor->process($jsonSchemaFile);
         }
+
+        // render all collected classes
+        $renderProxy->execute($destination, $this->generatorConfiguration);
 
         if ($this->generatorConfiguration->hasPrettyPrintEnabled()) {
             // @codeCoverageIgnoreStart
@@ -71,7 +77,7 @@ class Generator
             // @codeCoverageIgnoreEnd
         }
 
-        return true;
+        return $generatedFiles;
     }
 
     /**

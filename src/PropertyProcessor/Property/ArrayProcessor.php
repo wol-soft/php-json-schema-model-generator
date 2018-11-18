@@ -6,11 +6,12 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Model\Property;
+use PHPModelGenerator\Model\Property\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
+use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -29,12 +30,12 @@ class ArrayProcessor extends AbstractNestedValueProcessor
     private const JSON_FIELD_ITEMS     = 'items';
 
     /**
-     * @param Property $property
+     * @param PropertyInterface $property
      * @param array    $propertyData
      *
      * @throws SchemaException
      */
-    protected function generateValidators(Property $property, array $propertyData): void
+    protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {
         parent::generateValidators($property, $propertyData);
 
@@ -46,10 +47,10 @@ class ArrayProcessor extends AbstractNestedValueProcessor
     /**
      * Add the vaidation for the allowed amount of items in the array
      *
-     * @param Property $property
+     * @param PropertyInterface $property
      * @param array    $propertyData
      */
-    private function addLengthValidation(Property $property, array $propertyData): void
+    private function addLengthValidation(PropertyInterface $property, array $propertyData): void
     {
         $limitMessage = "Array %s must not contain %s than %s items";
 
@@ -77,10 +78,10 @@ class ArrayProcessor extends AbstractNestedValueProcessor
     /**
      * Add the validator to check if the items inside an array are unique
      *
-     * @param Property $property
-     * @param array    $propertyData
+     * @param PropertyInterface $property
+     * @param array             $propertyData
      */
-    private function addUniqueItemsValidation(Property $property, array $propertyData): void
+    private function addUniqueItemsValidation(PropertyInterface $property, array $propertyData): void
     {
         if (!isset($propertyData['uniqueItems']) || $propertyData['uniqueItems'] !== true) {
             return;
@@ -98,39 +99,39 @@ class ArrayProcessor extends AbstractNestedValueProcessor
     /**
      * Add the validator to check if the items inside an array are unique
      *
-     * @param Property $property
+     * @param PropertyInterface $property
      * @param array    $propertyData
      *
      * @throws SchemaException
      */
-    private function addItemsValidation(Property $property, array $propertyData): void
+    private function addItemsValidation(PropertyInterface $property, array $propertyData): void
     {
         if (!isset($propertyData[self::JSON_FIELD_ITEMS])) {
             return;
         }
 
-        if (isset($propertyData[self::JSON_FIELD_ITEMS]['type'])) {
-            // an item of the array behaves like a nested property to add item-level validation
-            $processor = (new PropertyProcessorFactory())->getPropertyProcessor(
-                $propertyData[self::JSON_FIELD_ITEMS]['type'],
+        // an item of the array behaves like a nested property to add item-level validation
+        $nestedProperty = (new PropertyFactory())
+            ->create(
                 new PropertyCollectionProcessor(),
-                $this->schemaProcessor
+                $this->schemaProcessor,
+                $this->schema,
+                'arrayItem',
+                $propertyData[self::JSON_FIELD_ITEMS]
             );
 
-            $nestedProperty = $processor->process('arrayItem', $propertyData[self::JSON_FIELD_ITEMS]);
-            $property->addNestedProperty($nestedProperty);
+        $property->addNestedProperty($nestedProperty);
 
-            $property->addValidator(
-                new PropertyTemplateValidator(
-                    InvalidArgumentException::class,
-                    'Invalid array item',
-                    DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayItem.vtpl',
-                    [
-                        'property' => $nestedProperty,
-                        'viewHelper' => new RenderHelper(),
-                    ]
-                )
-            );
-        }
+        $property->addValidator(
+            new PropertyTemplateValidator(
+                InvalidArgumentException::class,
+                'Invalid array item',
+                DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayItem.vtpl',
+                [
+                    'property' => $nestedProperty,
+                    'viewHelper' => new RenderHelper(),
+                ]
+            )
+        );
     }
 }

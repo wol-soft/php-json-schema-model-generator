@@ -5,7 +5,8 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\InvalidArgumentException;
-use PHPModelGenerator\Model\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\PropertyTransferDecorator;
@@ -31,22 +32,28 @@ class MultiTypeProcessor extends AbstractValueProcessor
     /**
      * MultiTypePropertyProcessor constructor.
      *
-     * @param PropertyProcessorFactory $propertyProcessorFactory
-     * @param array $types
+     * @param PropertyProcessorFactory    $propertyProcessorFactory
+     * @param array                       $types
      * @param PropertyCollectionProcessor $propertyCollectionProcessor
-     * @param SchemaProcessor $schemaProcessor
+     * @param SchemaProcessor             $schemaProcessor
+     * @param Schema                      $schema
      */
     public function __construct(
         PropertyProcessorFactory $propertyProcessorFactory,
         array $types,
         PropertyCollectionProcessor $propertyCollectionProcessor,
-        SchemaProcessor $schemaProcessor
+        SchemaProcessor $schemaProcessor,
+        Schema $schema
     ) {
         parent::__construct($propertyCollectionProcessor);
 
         foreach ($types as $type) {
-            $this->propertyProcessors[] = $propertyProcessorFactory
-                ->getPropertyProcessor($type, $propertyCollectionProcessor, $schemaProcessor);
+            $this->propertyProcessors[] = $propertyProcessorFactory->getPropertyProcessor(
+                $type,
+                $propertyCollectionProcessor,
+                $schemaProcessor,
+                $schema
+            );
         }
     }
 
@@ -56,9 +63,9 @@ class MultiTypeProcessor extends AbstractValueProcessor
      * @param string $propertyName The name of the property
      * @param array $propertyData An array containing the data of the property
      *
-     * @return Property
+     * @return PropertyInterface
      */
-    public function process(string $propertyName, array $propertyData): Property
+    public function process(string $propertyName, array $propertyData): PropertyInterface
     {
         $property = parent::process($propertyName, $propertyData);
 
@@ -89,10 +96,10 @@ class MultiTypeProcessor extends AbstractValueProcessor
     /**
      * Move validators from the $source property to the $destination property
      *
-     * @param Property $source
-     * @param Property $destination
+     * @param PropertyInterface $source
+     * @param PropertyInterface $destination
      */
-    protected function transferValidators(Property $source, Property $destination)
+    protected function transferValidators(PropertyInterface $source, PropertyInterface $destination)
     {
         foreach ($source->getValidators() as $validator) {
             // filter out type checks to create a single type check which covers all allowed types

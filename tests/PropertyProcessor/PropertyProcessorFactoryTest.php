@@ -4,6 +4,7 @@ namespace PHPModelGenerator\Tests\PropertyProcessor;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\Property\ArrayProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\BooleanProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\IntProcessor;
@@ -13,6 +14,7 @@ use PHPModelGenerator\PropertyProcessor\Property\ObjectProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\StringProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
+use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPUnit\Framework\TestCase;
 
@@ -37,7 +39,8 @@ class PropertyProcessorFactoryTest extends TestCase
         $propertyProcessor = $propertyProcessorFactory->getPropertyProcessor(
             $type,
             new PropertyCollectionProcessor(),
-            new SchemaProcessor('', '', new GeneratorConfiguration())
+            new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),
+            new Schema()
         );
 
         $this->assertInstanceOf($expectedClass, $propertyProcessor);
@@ -74,7 +77,8 @@ class PropertyProcessorFactoryTest extends TestCase
         $propertyProcessorFactory->getPropertyProcessor(
             'Hello',
             new PropertyCollectionProcessor(),
-            new SchemaProcessor('', '', new GeneratorConfiguration())
+            new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),
+            new Schema()
         );
     }
 }

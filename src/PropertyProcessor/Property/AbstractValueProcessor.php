@@ -4,7 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
-use PHPModelGenerator\Model\Property;
+use PHPModelGenerator\Model\Property\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 
 /**
@@ -31,7 +32,7 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
     /**
      * @inheritdoc
      */
-    public function process(string $propertyName, array $propertyData): Property
+    public function process(string $propertyName, array $propertyData): PropertyInterface
     {
         $property = (new Property($propertyName, $this->type))
             // the property is either required if defined as required

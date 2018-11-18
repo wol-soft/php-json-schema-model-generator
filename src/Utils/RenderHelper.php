@@ -2,7 +2,7 @@
 
 namespace PHPModelGenerator\Utils;
 
-use PHPModelGenerator\Model\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
  * Class RenderHelper
@@ -48,11 +48,11 @@ class RenderHelper
     /**
      * Resolve all associated decorators of a property
      *
-     * @param Property $property
+     * @param PropertyInterface $property
      *
      * @return string
      */
-    public function resolvePropertyDecorator(Property $property): string
+    public function resolvePropertyDecorator(PropertyInterface $property): string
     {
         return $property->hasDecorators()
             ? 'if ($value !== null) { $value = ' . $property->resolveDecorator('$value') . '; }'

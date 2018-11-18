@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\RenderJob;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -22,6 +23,8 @@ class SchemaProcessor
 {
     /** @var GeneratorConfiguration */
     protected $generatorConfiguration;
+    /** @var RenderQueue */
+    protected $renderProxy;
     /** @var string */
     protected $source;
     /** @var string */
@@ -38,12 +41,18 @@ class SchemaProcessor
      * @param string                 $source
      * @param string                 $destination
      * @param GeneratorConfiguration $generatorConfiguration
+     * @param RenderQueue            $renderProxy
      */
-    public function __construct(string $source, string $destination, GeneratorConfiguration $generatorConfiguration)
-    {
+    public function __construct(
+        string $source,
+        string $destination,
+        GeneratorConfiguration $generatorConfiguration,
+        RenderQueue $renderProxy
+    ) {
         $this->source = $source;
         $this->destination = $destination;
         $this->generatorConfiguration = $generatorConfiguration;
+        $this->renderProxy = $renderProxy;
     }
 
     /**
@@ -51,11 +60,12 @@ class SchemaProcessor
      *
      * @param string $jsonSchemaFile
      *
+     * @return string
      * @throws FileSystemException
      * @throws SchemaException
      * @throws RenderException
      */
-    public function process(string $jsonSchemaFile): void
+    public function process(string $jsonSchemaFile): string
     {
         $jsonSchema = file_get_contents($jsonSchemaFile);
 
@@ -66,7 +76,7 @@ class SchemaProcessor
         $this->setCurrentClassPath($jsonSchemaFile);
         $this->currentClassName = ucfirst($jsonSchema['id'] ?? str_ireplace('.json', '', basename($jsonSchemaFile)));
 
-        $this->processSchema($jsonSchema, $this->currentClassPath, $this->currentClassName);
+        return $this->processSchema($jsonSchema, $this->currentClassPath, $this->currentClassName);
     }
 
     /**
@@ -75,18 +85,25 @@ class SchemaProcessor
      * @param array  $jsonSchema
      * @param string $classPath
      * @param string $className
+     * @param array  $parentDefinitions If a nested object of a schema is processed import the definitions of the parent
+     *                                  schema to make them available for the nested schema as well
      *
+     * @return string
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function processSchema(array $jsonSchema, string $classPath, string $className): void
-    {
+    public function processSchema(
+        array $jsonSchema,
+        string $classPath,
+        string $className,
+        array $parentDefinitions = []
+    ): string {
         if (!isset($jsonSchema['type']) || $jsonSchema['type'] !== 'object') {
             throw new SchemaException("JSON-Schema doesn't provide an object " . $jsonSchema['id'] ?? '');
         }
 
-        $this->generateModel($classPath, $className, $jsonSchema);
+        return $this->generateModel($classPath, $className, $jsonSchema, $parentDefinitions);
     }
 
     /**
@@ -95,14 +112,20 @@ class SchemaProcessor
      * @param string $classPath
      * @param string $className
      * @param array  $structure
+     * @param array  $parentDefinitions
      *
+     * @return string
      * @throws FileSystemException
      * @throws SchemaException
      * @throws RenderException
      */
-    protected function generateModel(string $classPath, string $className, array $structure): void
-    {
-        $schema = new Schema();
+    protected function generateModel(
+        string $classPath,
+        string $className,
+        array $structure,
+        array $parentDefinitions = []
+    ): string {
+        $schema = new Schema($parentDefinitions);
         $schemaPropertyProcessorFactory = new SchemaPropertyProcessorFactory();
 
         foreach (array_keys($structure) as $schemaProperty) {
@@ -111,25 +134,20 @@ class SchemaProcessor
                 ->process($this, $schema, $structure);
         }
 
-        $this->generateModelDirectory($classPath);
-        $class = $this->renderClass($classPath, $className, $schema);
-
         $fileName = join(
-            DIRECTORY_SEPARATOR,
-            [$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]
-        ) . '.php';
+                DIRECTORY_SEPARATOR,
+                [$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]
+            ) . '.php';
 
-        if (!file_put_contents($fileName, $class)) {
-            // @codeCoverageIgnoreStart
-            throw new FileSystemException("Can't write class $classPath\\$className");
-            // @codeCoverageIgnoreEno
-        }
+        $this->renderProxy->addRenderJob(new RenderJob($fileName, $classPath, $className, $schema));
 
         if ($this->generatorConfiguration->isOutputEnabled()) {
             // @codeCoverageIgnoreStart
             echo "Generated class $className\n";
             // @codeCoverageIgnoreEno
         }
+
+        return $fileName;
     }
 
     /**
@@ -148,64 +166,6 @@ class SchemaProcessor
         );
 
         $this->currentClassPath = join('\\', $pieces);
-    }
-
-    /**
-     * Generate the directory structure for saving a generated class
-     *
-     * @param string $classPath
-     *
-     * @throws FileSystemException
-     */
-    protected function generateModelDirectory(string $classPath): void
-    {
-        $subDirectoryPath = '';
-        foreach (explode('\\', $classPath) as $directory) {
-            $subDirectoryPath .= "/$directory";
-            $fullPath = $this->destination . $subDirectoryPath;
-
-            if (!is_dir($fullPath) && !mkdir($fullPath)) {
-                throw new FileSystemException("Can't create path $fullPath");
-            }
-        }
-    }
-
-    /**
-     * Render a class. Returns the php code of the class
-     *
-     * @param string $classPath The relative path of the class for namespace generation
-     * @param string $className The class name
-     * @param Schema $schema    The Schema object which holds properties and validators
-     *
-     * @return string
-     *
-     * @throws RenderException
-     */
-    protected function renderClass(string $classPath, string $className, Schema $schema): string
-    {
-        $render = new Render(__DIR__ . "/../Templates/");
-
-        $namespace = trim($this->generatorConfiguration->getNamespacePrefix() . $classPath, '\\');
-        $use = $schema->getUseList(empty($namespace));
-
-        try {
-            $class = $render->renderTemplate(
-                'Model.phptpl',
-                [
-                    'namespace'              => empty($namespace) ? '' : "namespace $namespace;",
-                    'use'                    => empty($use) ? '' : 'use ' . join(";\nuse ", array_unique($use)) . ';',
-                    'class'                  => $className,
-                    'baseValidators'         => $schema->getBaseValidators(),
-                    'properties'             => $schema->getProperties(),
-                    'generatorConfiguration' => $this->generatorConfiguration,
-                    'viewHelper'             => new RenderHelper(),
-                ]
-            );
-        } catch (PHPMicroTemplateException $exception) {
-            throw new RenderException("Can't render class $classPath\\$className", 0, $exception);
-        }
-
-        return $class;
     }
 
     /**

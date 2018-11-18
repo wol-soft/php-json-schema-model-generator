@@ -5,7 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\InvalidArgumentException;
-use PHPModelGenerator\Model\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
@@ -33,10 +33,10 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     /**
      * Generates the validators for the property
      *
-     * @param Property $property
-     * @param array    $propertyData
+     * @param PropertyInterface $property
+     * @param array             $propertyData
      */
-    protected function generateValidators(Property $property, array $propertyData): void
+    protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {
         if ($property->isRequired()) {
             $property->addValidator(
@@ -57,10 +57,10 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     /**
      * Add a validator to a property which validates the value against a list of allowed values
      *
-     * @param Property $property
-     * @param array    $allowedValues
+     * @param PropertyInterface $property
+     * @param array             $allowedValues
      */
-    protected function addEnumValidator(Property $property, array $allowedValues)
+    protected function addEnumValidator(PropertyInterface $property, array $allowedValues)
     {
         $property->addValidator(
             new PropertyValidator(

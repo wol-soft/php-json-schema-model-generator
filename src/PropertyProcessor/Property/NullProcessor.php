@@ -4,7 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
-use PHPModelGenerator\Model\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
  * Class NullProcessor
@@ -20,10 +20,9 @@ class NullProcessor extends AbstractTypedValueProcessor
      *
      * @param string $propertyName
      * @param array $propertyData
-     *
-     * @return Property
+     * @return PropertyInterface
      */
-    public function process(string $propertyName, array $propertyData): Property
+    public function process(string $propertyName, array $propertyData): PropertyInterface
     {
         return (parent::process($propertyName, $propertyData))->setType('');
     }

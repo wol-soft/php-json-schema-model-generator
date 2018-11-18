@@ -4,7 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Decorator;
 
-use PHPModelGenerator\Model\Property;
+use PHPModelGenerator\Model\Property\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
  * Class PropertyTransferDecorator
@@ -21,9 +22,9 @@ class PropertyTransferDecorator implements PropertyDecoratorInterface
     /**
      * PropertyTransferDecorator constructor.
      *
-     * @param Property $property
+     * @param PropertyInterface $property
      */
-    public function __construct(Property $property)
+    public function __construct(PropertyInterface $property)
     {
         $this->property = $property;
     }

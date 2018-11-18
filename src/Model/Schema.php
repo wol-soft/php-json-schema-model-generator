@@ -5,6 +5,9 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\Model;
 
 use Exception;
+use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Property\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 
@@ -21,6 +24,13 @@ class Schema
      *                           before adding properties to the model
      */
     protected $baseValidators = [];
+    /** @var SchemaDefinition[] Hold all definitions of the schema */
+    protected $definitions;
+
+    public function __construct(array $parentDefinitions = [])
+    {
+        $this->definitions = $parentDefinitions;
+    }
 
     /**
      * @return Property[]
@@ -31,11 +41,11 @@ class Schema
     }
 
     /**
-     * @param Property $property
+     * @param PropertyInterface $property
      *
      * @return $this
      */
-    public function addProperty(Property $property)
+    public function addProperty(PropertyInterface $property)
     {
         $this->properties[] = $property;
 
@@ -92,5 +102,40 @@ class Schema
         }
 
         return $use;
+    }
+
+    /**
+     * Add a partial schema definition to the schema
+     *
+     * @param string $key
+     * @param SchemaDefinition $definition
+     *
+     * @throws SchemaException
+     */
+    public function addDefinition(string $key, SchemaDefinition $definition)
+    {
+        if (isset($this->definitions[$key])) {
+            throw new SchemaException("Duplicate key for schema definition: $key");
+        }
+
+        $this->definitions[$key] = $definition;
+    }
+
+    /**
+     * @param string $key
+     *
+     * @return SchemaDefinition
+     */
+    public function getDefinition(string $key): SchemaDefinition
+    {
+        return $this->definitions[$key] ?? null;
+    }
+
+    /**
+     * @return array
+     */
+    public function getDefinitions(): array
+    {
+        return $this->definitions;
     }
 }

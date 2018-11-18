@@ -1,11 +1,27 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
   "id": "CreateImportRequest",
+  "definitions": {
+    "person": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/person" },
+          "default": []
+        }
+      }
+    }
+  },
   "type": "object",
   "properties": {
     "import-type": {
       "type": "number",
       "multipleOf": 2
+    },
+    "person": {
+      "$ref": "#/definitions/person"
     },
     "cds": {
       "type": "array",

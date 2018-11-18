@@ -4,7 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
-use PHPModelGenerator\Model\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\ObjectInstantiationDecorator;
 
 /**
@@ -19,13 +19,18 @@ class ObjectProcessor extends AbstractNestedValueProcessor
     /**
      * @inheritdoc
      */
-    public function process(string $propertyName, array $propertyData): Property
+    public function process(string $propertyName, array $propertyData): PropertyInterface
     {
         $property = parent::process($propertyName, $propertyData);
 
         $className = $propertyData['id'] ?? sprintf('%s_%s', $this->schemaProcessor->getCurrentClassName(), uniqid());
 
-        $this->schemaProcessor->processSchema($propertyData, $this->schemaProcessor->getCurrentClassPath(), $className);
+        $this->schemaProcessor->processSchema(
+            $propertyData,
+            $this->schemaProcessor->getCurrentClassPath(),
+            $className,
+            $this->schema->getDefinitions()
+        );
 
         $property
             ->addDecorator(new ObjectInstantiationDecorator($className))
