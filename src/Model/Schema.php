@@ -126,7 +126,7 @@ class Schema
      *
      * @return SchemaDefinition
      */
-    public function getDefinition(string $key): SchemaDefinition
+    public function getDefinition(string $key): ?SchemaDefinition
     {
         return $this->definitions[$key] ?? null;
     }

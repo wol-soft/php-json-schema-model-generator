@@ -1,0 +1,24 @@
+{
+  "definitions": {
+    "person": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/person"
+          }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "person": {
+      "$ref": "#/definitions/person"
+    }
+  }
+}

@@ -6,6 +6,7 @@ namespace PHPModelGenerator\PropertyProcessor\Decorator;
 
 use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
  * Class ObjectInstantiationDecorator
@@ -38,13 +39,14 @@ class ObjectInstantiationDecorator implements PropertyDecoratorInterface
     /**
      * @inheritdoc
      */
-    public function decorate(string $input): string
+    public function decorate(string $input, PropertyInterface $property): string
     {
         return static::$renderer->renderTemplate(
             DIRECTORY_SEPARATOR . 'Decorator' . DIRECTORY_SEPARATOR . 'ObjectInstantiationDecorator.phptpl',
             [
                 'input' => $input,
-                'className' => $this->className
+                'className' => $this->className,
+                'property' => $property,
             ]
         );
     }

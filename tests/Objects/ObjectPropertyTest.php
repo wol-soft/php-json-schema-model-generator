@@ -10,7 +10,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use stdClass;
 
 /**
- * Class AnyPropertyTest
+ * Class ObjectPropertyTest
  *
  * @package PHPModelGenerator\Tests\Objects
  */

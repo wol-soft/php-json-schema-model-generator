@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Decorator;
 
+use PHPModelGenerator\Model\Property\PropertyInterface;
+
 /**
  * Class IntToFloatCastDecorator
  *
@@ -14,7 +16,7 @@ class IntToFloatCastDecorator implements PropertyDecoratorInterface
     /**
      * @inheritdoc
      */
-    public function decorate(string $input): string
+    public function decorate(string $input, PropertyInterface $property): string
     {
         return "is_int($input) ? (float) $input : $input";
     }

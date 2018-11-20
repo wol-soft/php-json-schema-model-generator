@@ -205,14 +205,15 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      * @dataProvider validTypedArrayDataProvider
      *
      * @param string $type
-     * @param $propertyValue
+     * @param        $propertyValue
+     * @param        $expectedValue
      */
-    public function testTypedArrayIsValid(string $type, $propertyValue): void
+    public function testTypedArrayIsValid(string $type, $propertyValue, $expectedValue = null): void
     {
         $className = $this->generateObjectFromFileTemplate('ArrayPropertyTyped.json', [$type], null, false);
 
         $object = new $className(['property' => $propertyValue]);
-        $this->assertSame($propertyValue, $object->getProperty());
+        $this->assertSame($expectedValue ?? $propertyValue, $object->getProperty());
     }
 
     public function validTypedArrayDataProvider(): array
@@ -224,7 +225,8 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             'String array with null' => ['string', ['a', 'b', null]],
             'Int array' => ['int', [1, 2, 3]],
             'Int array with null' => ['int', [1, 2, 3, null]],
-            'Number array' => ['number', [1, 1.1, 4.5, 6]],
+            // Number array will cast int to float
+            'Number array' => ['number', [1, 1.1, 4.5, 6], [1.0, 1.1, 4.5, 6.0]],
             'Boolean array' => ['boolean', [true, false, true]],
             'Null array' => ['null', [null, null]],
             'Nested array' => ['array","items":{"type":"int"},"injection":"yes we can', [[1, 2], [], [3], null]]

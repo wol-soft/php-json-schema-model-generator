@@ -32,7 +32,7 @@ class PropertyTransferDecorator implements PropertyDecoratorInterface
     /**
      * @inheritdoc
      */
-    public function decorate(string $input): string
+    public function decorate(string $input, PropertyInterface $property): string
     {
         return $this->property->resolveDecorator($input);
     }

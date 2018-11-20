@@ -1,6 +1,6 @@
 (is_array($param = {{ input }})
    ? new {{ className }}($param)
    : (function() {
-        throw new InvalidArgumentException('invalid type for property');
+        throw new InvalidArgumentException('invalid type for {{ property.getName() }}');
      })()
 )

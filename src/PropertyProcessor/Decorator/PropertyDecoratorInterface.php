@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Decorator;
 
+use PHPModelGenerator\Model\Property\PropertyInterface;
+
 /**
  * Interface PropertyDecoratorInterface
  *
@@ -14,11 +16,12 @@ interface PropertyDecoratorInterface
     /**
      * Decorate a given string
      *
-     * @param string $input
+     * @param string            $input
+     * @param PropertyInterface $property The property getting decorated
      *
      * @return string
      */
-    public function decorate(string $input): string;
+    public function decorate(string $input, PropertyInterface $property): string;
 
     /**
      * Return a list of all exception classes which may be thrown by the decorator

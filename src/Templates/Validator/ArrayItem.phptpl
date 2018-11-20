@@ -1,9 +1,9 @@
-is_array($value) && (function ($items) {
+is_array($value) && (function (&$items) {
     if (empty($items)) {
         return false;
     }
 
-    foreach ($items as $value) {
+    foreach ($items as &$value) {
         {{ viewHelper.resolvePropertyDecorator(property) }}
 
         {% foreach property.getOrderedValidators() as validator %}

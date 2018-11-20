@@ -153,7 +153,7 @@ class Property implements PropertyInterface
     public function resolveDecorator(string $input): string
     {
         foreach ($this->decorators as $decorator) {
-            $input = $decorator->decorate($input);
+            $input = $decorator->decorate($input, $this);
         }
 
         return $input;
