@@ -4,7 +4,6 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\SchemaProcessor;
 
-use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\RenderJob;
@@ -59,7 +58,6 @@ class SchemaProcessor
      *
      * @param string $jsonSchemaFile
      *
-     * @throws FileSystemException
      * @throws SchemaException
      */
     public function process(string $jsonSchemaFile): void
@@ -85,7 +83,6 @@ class SchemaProcessor
      * @param array  $parentDefinitions If a nested object of a schema is processed import the definitions of the parent
      *                                  schema to make them available for the nested schema as well
      *
-     * @throws FileSystemException
      * @throws SchemaException
      */
     public function processSchema(
@@ -108,9 +105,6 @@ class SchemaProcessor
      * @param string $className
      * @param array  $structure
      * @param array  $parentDefinitions
-     *
-     * @throws FileSystemException
-     * @throws SchemaException
      */
     protected function generateModel(
         string $classPath,

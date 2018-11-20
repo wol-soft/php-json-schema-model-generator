@@ -6,10 +6,8 @@ namespace PHPModelGenerator\Model;
 
 use PHPModelGenerator\Exception\PHPModelGeneratorException;
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyProxy;
-use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;

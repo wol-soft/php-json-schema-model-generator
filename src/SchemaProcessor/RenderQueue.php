@@ -4,9 +4,16 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor;
 
+use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\RenderJob;
 
+/**
+ * Class RenderQueue
+ *
+ * @package PHPModelGenerator\SchemaProcessor
+ */
 class RenderQueue
 {
     /** @var RenderJob[] */
@@ -27,8 +34,11 @@ class RenderQueue
     /**
      * Render all collected jobs of the RenderProxy and clear the queue
      *
-     * @param string $destination
+     * @param string                 $destination
      * @param GeneratorConfiguration $generatorConfiguration
+     *
+     * @throws FileSystemException
+     * @throws RenderException
      */
     public function execute(string $destination, GeneratorConfiguration $generatorConfiguration): void
     {

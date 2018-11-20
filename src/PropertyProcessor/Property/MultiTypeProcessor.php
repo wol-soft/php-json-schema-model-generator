@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -37,6 +38,8 @@ class MultiTypeProcessor extends AbstractValueProcessor
      * @param PropertyCollectionProcessor $propertyCollectionProcessor
      * @param SchemaProcessor             $schemaProcessor
      * @param Schema                      $schema
+     *
+     * @throws SchemaException
      */
     public function __construct(
         PropertyProcessorFactory $propertyProcessorFactory,

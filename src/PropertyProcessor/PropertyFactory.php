@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -36,6 +37,7 @@ class PropertyFactory
      * @param array                       $propertyStructure
      *
      * @return PropertyInterface
+     * @throws SchemaException
      */
     public function create(
         PropertyCollectionProcessor $propertyCollectionProcessor,

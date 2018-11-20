@@ -24,7 +24,9 @@ class StringProcessor extends AbstractTypedValueProcessor
 
     /**
      * @param PropertyInterface $property
-     * @param array    $propertyData
+     * @param array             $propertyData
+     *
+     * @throws SchemaException
      */
     protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {

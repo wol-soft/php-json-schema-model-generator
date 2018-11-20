@@ -44,6 +44,7 @@ class RenderJob
      * @param GeneratorConfiguration $generatorConfiguration
      *
      * @throws FileSystemException
+     * @throws RenderException
      */
     public function render(string $destination, GeneratorConfiguration $generatorConfiguration): void
     {
