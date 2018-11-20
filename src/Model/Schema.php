@@ -92,7 +92,7 @@ class Schema
                 continue;
             }
 
-            $use = array_merge($use, [Exception::class], $property->getClasses());
+            $use = array_merge($use, [Exception::class], $property->getExceptionClasses());
         }
 
         if ($skipGlobalNamespace) {

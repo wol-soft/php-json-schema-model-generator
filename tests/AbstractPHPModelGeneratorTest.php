@@ -21,6 +21,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 {
     private $names = [];
 
+    private $generatedFiles = [];
+
     public static function setUpBeforeClass()
     {
         if (is_dir(sys_get_temp_dir() . '/PHPModelGeneratorTest')) {
@@ -49,18 +51,28 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
                     sys_get_temp_dir() . '/PHPModelGeneratorTest/' . $name . '.json',
                     $failedResultDir . DIRECTORY_SEPARATOR . $name . '.json'
                 );
+            }
 
+            foreach ($this->generatedFiles as $file) {
                 copy(
-                    sys_get_temp_dir() . '/PHPModelGeneratorTest/Models/' . $name . '.php',
-                    $failedResultDir . DIRECTORY_SEPARATOR . $name . '.php'
+                    $file,
+                    $failedResultDir . DIRECTORY_SEPARATOR . basename($file)
                 );
             }
         }
 
+        // clear the JSON schema definitions
         foreach ($this->names as $name) {
             @unlink(sys_get_temp_dir() . '/PHPModelGeneratorTest/' . $name . '.json');
-            @unlink(sys_get_temp_dir() . '/PHPModelGeneratorTest/Models/' . $name . '.php');
         }
+
+        // clear the generated class files
+        foreach ($this->generatedFiles as $file) {
+            @unlink($file);
+        }
+
+        $this->names = [];
+        $this->generatedFiles = [];
     }
 
     /**
@@ -157,6 +169,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         );
 
         foreach ($generatedFiles as $path) {
+            $this->generatedFiles[] = $path;
+
             require_once $path;
         }
 

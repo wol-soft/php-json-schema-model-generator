@@ -19,4 +19,11 @@ interface PropertyDecoratorInterface
      * @return string
      */
     public function decorate(string $input): string;
+
+    /**
+     * Return a list of all exception classes which may be thrown by the decorator
+     *
+     * @return array
+     */
+    public function getExceptionClasses(): array;
 }

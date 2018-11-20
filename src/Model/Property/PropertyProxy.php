@@ -141,9 +141,9 @@ class PropertyProxy implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function getClasses(): array
+    public function getExceptionClasses(): array
     {
-        return $this->getProperty()->getClasses();
+        return $this->getProperty()->getExceptionClasses();
     }
 
     /**

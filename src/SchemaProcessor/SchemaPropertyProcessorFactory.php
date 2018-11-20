@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\SchemaProcessor;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition;
 
@@ -38,6 +39,13 @@ class SchemaPropertyProcessorFactory
                 $this->property = $property;
             }
 
+            /**
+             * @param SchemaProcessor $schemaProcessor
+             * @param Schema          $schema
+             * @param array           $structure
+             *
+             * @throws SchemaException
+             */
             public function process(SchemaProcessor $schemaProcessor, Schema $schema, array $structure): void
             {
                 if (!is_array($structure[$this->property])) {

@@ -18,4 +18,12 @@ class IntToFloatCastDecorator implements PropertyDecoratorInterface
     {
         return "is_int($input) ? (float) $input : $input";
     }
+
+    /**
+     * @inheritdoc
+     */
+    public function getExceptionClasses(): array
+    {
+        return [];
+    }
 }

@@ -170,7 +170,7 @@ class Property implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function getClasses(): array
+    public function getExceptionClasses(): array
     {
         $use = [];
 
@@ -179,7 +179,11 @@ class Property implements PropertyInterface
         }
 
         foreach ($this->getNestedProperties() as $property) {
-            $use = array_merge($use, $property->getClasses());
+            $use = array_merge($use, $property->getExceptionClasses());
+        }
+
+        foreach ($this->decorators as $decorator) {
+            $use = array_merge($use, $decorator->getExceptionClasses());
         }
 
         return $use;

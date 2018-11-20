@@ -4,15 +4,11 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\SchemaProcessor;
 
-use PHPMicroTemplate\Exception\PHPMicroTemplateException;
-use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\RenderJob;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class SchemaProcessor
@@ -34,6 +30,9 @@ class SchemaProcessor
     protected $currentClassPath;
     /** @var string */
     protected $currentClassName;
+
+    /** @var array */
+    protected $generatedFiles = [];
 
     /**
      * SchemaProcessor constructor.
@@ -60,12 +59,10 @@ class SchemaProcessor
      *
      * @param string $jsonSchemaFile
      *
-     * @return string
      * @throws FileSystemException
      * @throws SchemaException
-     * @throws RenderException
      */
-    public function process(string $jsonSchemaFile): string
+    public function process(string $jsonSchemaFile): void
     {
         $jsonSchema = file_get_contents($jsonSchemaFile);
 
@@ -76,7 +73,7 @@ class SchemaProcessor
         $this->setCurrentClassPath($jsonSchemaFile);
         $this->currentClassName = ucfirst($jsonSchema['id'] ?? str_ireplace('.json', '', basename($jsonSchemaFile)));
 
-        return $this->processSchema($jsonSchema, $this->currentClassPath, $this->currentClassName);
+        $this->processSchema($jsonSchema, $this->currentClassPath, $this->currentClassName);
     }
 
     /**
@@ -88,9 +85,7 @@ class SchemaProcessor
      * @param array  $parentDefinitions If a nested object of a schema is processed import the definitions of the parent
      *                                  schema to make them available for the nested schema as well
      *
-     * @return string
      * @throws FileSystemException
-     * @throws RenderException
      * @throws SchemaException
      */
     public function processSchema(
@@ -98,12 +93,12 @@ class SchemaProcessor
         string $classPath,
         string $className,
         array $parentDefinitions = []
-    ): string {
+    ): void {
         if (!isset($jsonSchema['type']) || $jsonSchema['type'] !== 'object') {
             throw new SchemaException("JSON-Schema doesn't provide an object " . $jsonSchema['id'] ?? '');
         }
 
-        return $this->generateModel($classPath, $className, $jsonSchema, $parentDefinitions);
+        $this->generateModel($classPath, $className, $jsonSchema, $parentDefinitions);
     }
 
     /**
@@ -114,17 +109,15 @@ class SchemaProcessor
      * @param array  $structure
      * @param array  $parentDefinitions
      *
-     * @return string
      * @throws FileSystemException
      * @throws SchemaException
-     * @throws RenderException
      */
     protected function generateModel(
         string $classPath,
         string $className,
         array $structure,
         array $parentDefinitions = []
-    ): string {
+    ): void {
         $schema = new Schema($parentDefinitions);
         $schemaPropertyProcessorFactory = new SchemaPropertyProcessorFactory();
 
@@ -147,7 +140,7 @@ class SchemaProcessor
             // @codeCoverageIgnoreEno
         }
 
-        return $fileName;
+        $this->generatedFiles[] = $fileName;
     }
 
     /**
@@ -182,5 +175,13 @@ class SchemaProcessor
     public function getCurrentClassName(): string
     {
         return $this->currentClassName;
+    }
+
+    /**
+     * @return array
+     */
+    public function getGeneratedFiles(): array
+    {
+        return $this->generatedFiles;
     }
 }

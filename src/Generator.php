@@ -61,10 +61,9 @@ class Generator
 
         $renderProxy = new RenderQueue();
         $schemaProcessor = new SchemaProcessor($source, $destination, $this->generatorConfiguration, $renderProxy);
-        $generatedFiles = [];
 
         foreach ($this->getSchemaFiles($source) as $jsonSchemaFile) {
-            $generatedFiles[] = $schemaProcessor->process($jsonSchemaFile);
+            $schemaProcessor->process($jsonSchemaFile);
         }
 
         // render all collected classes
@@ -77,7 +76,7 @@ class Generator
             // @codeCoverageIgnoreEnd
         }
 
-        return $generatedFiles;
+        return $schemaProcessor->getGeneratedFiles();
     }
 
     /**

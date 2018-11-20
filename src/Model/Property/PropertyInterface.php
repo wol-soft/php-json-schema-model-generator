@@ -99,7 +99,7 @@ interface PropertyInterface
      *
      * @return array
      */
-    public function getClasses(): array;
+    public function getExceptionClasses(): array;
 
     /**
      * @param bool $isPropertyRequired

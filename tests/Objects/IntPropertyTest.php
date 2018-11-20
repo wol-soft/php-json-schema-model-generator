@@ -54,7 +54,7 @@ class IntPropertyTest extends AbstractNumericPropertyTest
             'Null' => [null],
         ];
     }
-    
+
     /**
      * @dataProvider invalidPropertyTypeDataProvider
      *
