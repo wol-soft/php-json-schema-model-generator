@@ -73,9 +73,9 @@ class SchemaDefinition
         $key = implode('-', $path);
 
         if (!$this->resolvedPaths->offsetExists($key)) {
-            // create a dummy property for the path first. If the path is used recursive the recursive usages will point
+            // create a dummy entry for the path first. If the path is used recursive the recursive usages will point
             // to the currently created property
-            $this->resolvedPaths->offsetSet($key, (new Property('', ''))->addValidator(new PropertyValidator('Dummy Property Alive', PHPModelGeneratorException::class, 'Lulatsch')));
+            $this->resolvedPaths->offsetSet($key, true);
             try {
                 $this->resolvedPaths->offsetSet($key, (new PropertyFactory())
                     ->create(
