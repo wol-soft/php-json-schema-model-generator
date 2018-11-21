@@ -1,0 +1,22 @@
+(function ($value) {
+    $succeededCompositionElements = {{ availableAmount }};
+    {% foreach properties as property %}
+        try {
+            {{ viewHelper.resolvePropertyDecorator(property) }}
+
+            {% foreach property.getOrderedValidators() as validator %}
+                if ({{ validator.getCheck() }}) {
+                    throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');
+                }
+            {% endforeach %}
+        } catch (Exception $e) {
+            $succeededCompositionElements--;
+        }
+    {% endforeach %}
+
+    if ({{ composedValueValidation }}) {
+        return true;
+    }
+
+    return false;
+})($value)
