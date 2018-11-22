@@ -15,15 +15,13 @@ class PropertyCollectionProcessor
     protected $requiredAttributes = [];
 
     /**
-     * Set the required attributes
+     * PropertyCollectionProcessor constructor.
      *
-     * @param array $attributes
-     *
-     * @return PropertyCollectionProcessor
+     * @param array $requiredAttributes
      */
-    public function setRequiredAttributes(array $attributes): PropertyCollectionProcessor
+    public function __construct(array $requiredAttributes = [])
     {
-        $this->requiredAttributes = $attributes;
+        $this->requiredAttributes = $requiredAttributes;
         return $this;
     }
 

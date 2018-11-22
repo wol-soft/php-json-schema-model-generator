@@ -54,8 +54,12 @@ class RenderHelper
      */
     public function resolvePropertyDecorator(PropertyInterface $property): string
     {
-        return $property->hasDecorators()
-            ? 'if ($value !== null) { $value = ' . $property->resolveDecorator('$value') . '; }'
-            : '';
+        if (!$property->hasDecorators()) {
+            return '';
+        }
+
+        return $property->isRequired()
+            ? '$value = ' . $property->resolveDecorator('$value') . ';'
+            : 'if ($value !== null) { $value = ' . $property->resolveDecorator('$value') . '; }';
     }
 }

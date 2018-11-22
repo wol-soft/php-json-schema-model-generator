@@ -12,7 +12,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\ObjectInstantiationDecorator;
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-class ObjectProcessor extends AbstractNestedValueProcessor
+class ObjectProcessor extends AbstractTypedValueProcessor
 {
     protected const TYPE = 'object';
 

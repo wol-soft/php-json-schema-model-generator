@@ -36,7 +36,7 @@ class PropertyProcessorFactoryTest extends TestCase
     {
         $propertyProcessorFactory = new PropertyProcessorFactory();
 
-        $propertyProcessor = $propertyProcessorFactory->getPropertyProcessor(
+        $propertyProcessor = $propertyProcessorFactory->getProcessor(
             $type,
             new PropertyCollectionProcessor(),
             new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),
@@ -74,7 +74,7 @@ class PropertyProcessorFactoryTest extends TestCase
 
         $propertyProcessorFactory = new PropertyProcessorFactory();
 
-        $propertyProcessorFactory->getPropertyProcessor(
+        $propertyProcessorFactory->getProcessor(
             'Hello',
             new PropertyCollectionProcessor(),
             new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),

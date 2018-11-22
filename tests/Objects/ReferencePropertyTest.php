@@ -204,7 +204,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testInvalidProvidedRecursiveReferenceObjectPropertyValueIsInvalid($propertyValue): void
+    public function testInvalidProvidedRecursiveReferenceObjectPropertyValueThrowsAnException($propertyValue): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('invalid type for person');

@@ -6,7 +6,9 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
  * Class AbstractScalarValueProcessor
@@ -21,11 +23,17 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
      * AbstractValueProcessor constructor.
      *
      * @param PropertyCollectionProcessor $propertyCollectionProcessor
+     * @param SchemaProcessor             $schemaProcessor
+     * @param Schema                      $schema
      * @param string                      $type
      */
-    public function __construct(PropertyCollectionProcessor $propertyCollectionProcessor, string $type = '')
-    {
-        parent::__construct($propertyCollectionProcessor);
+    public function __construct(
+        PropertyCollectionProcessor $propertyCollectionProcessor,
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $type = ''
+    ) {
+        parent::__construct($propertyCollectionProcessor, $schemaProcessor, $schema);
         $this->type = $type;
     }
 

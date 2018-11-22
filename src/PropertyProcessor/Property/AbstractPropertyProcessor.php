@@ -6,9 +6,14 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
+use PHPModelGenerator\PropertyProcessor\ComposedValueProcessorFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
+use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
  * Class AbstractPropertyProcessor
@@ -19,15 +24,26 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
 {
     /** @var PropertyCollectionProcessor */
     protected $propertyCollectionProcessor;
+    /** @var SchemaProcessor */
+    protected $schemaProcessor;
+    /** @var Schema */
+    protected $schema;
 
     /**
      * AbstractPropertyProcessor constructor.
      *
      * @param PropertyCollectionProcessor $propertyCollectionProcessor
+     * @param SchemaProcessor             $schemaProcessor
+     * @param Schema                      $schema
      */
-    public function __construct(PropertyCollectionProcessor $propertyCollectionProcessor)
-    {
+    public function __construct(
+        PropertyCollectionProcessor $propertyCollectionProcessor,
+        SchemaProcessor $schemaProcessor,
+        Schema $schema
+    ) {
         $this->propertyCollectionProcessor = $propertyCollectionProcessor;
+        $this->schemaProcessor = $schemaProcessor;
+        $this->schema = $schema;
     }
 
     /**
@@ -39,19 +55,14 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {
         if ($property->isRequired()) {
-            $property->addValidator(
-                new PropertyValidator(
-                    "!isset(\$modelData['{$property->getName()}'])",
-                    InvalidArgumentException::class,
-                    "Missing required value for {$property->getName()}"
-                ),
-                1
-            );
+            $property->addValidator(new RequiredPropertyValidator($property), 1);
         }
 
         if (isset($propertyData['enum'])) {
             $this->addEnumValidator($property, $propertyData['enum']);
         }
+
+        $this->addComposedValueValidator($property, $propertyData);
     }
 
     /**
@@ -60,7 +71,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      * @param PropertyInterface $property
      * @param array             $allowedValues
      */
-    protected function addEnumValidator(PropertyInterface $property, array $allowedValues)
+    protected function addEnumValidator(PropertyInterface $property, array $allowedValues): void
     {
         $property->addValidator(
             new PropertyValidator(
@@ -72,5 +83,62 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             ),
             3
         );
+    }
+
+    /**
+     * @param PropertyInterface $property
+     * @param array             $propertyData
+     */
+    protected function addComposedValueValidator(PropertyInterface $property, array $propertyData): void
+    {
+        $composedValueKeywords = ['allOf', 'anyOf', 'oneOf', 'not'];
+        $propertyFactory = new PropertyFactory(new ComposedValueProcessorFactory());
+
+        foreach ($composedValueKeywords as $composedValueKeyword) {
+            if (!isset($propertyData[$composedValueKeyword])) {
+                continue;
+            }
+
+            $propertyData = $this->inheritPropertyType($propertyData, $composedValueKeyword);
+
+            $composedProperty = $propertyFactory
+                ->create(
+                    new PropertyCollectionProcessor(),
+                    $this->schemaProcessor,
+                    $this->schema,
+                    $property->getName(),
+                    [
+                        'type' => $composedValueKeyword,
+                        'composition' => $propertyData[$composedValueKeyword]
+                    ]
+                );
+
+            foreach ($composedProperty->getValidators() as $validator) {
+                $property->addValidator($validator->getValidator(), $validator->getPriority());
+            }
+        }
+    }
+
+    /**
+     * @param array $propertyData
+     * @param string $composedValueKeyword
+     *
+     * @return array
+     */
+    protected function inheritPropertyType(array $propertyData, string $composedValueKeyword): array
+    {
+        if ($composedValueKeyword === 'not') {
+            if (isset($propertyData['type']) && !isset($propertyData[$composedValueKeyword]['type'])) {
+                $propertyData[$composedValueKeyword]['type'] = $propertyData['type'];
+            }
+        } else {
+            foreach ($propertyData[$composedValueKeyword] as &$composedElement) {
+                if (isset($propertyData['type']) && !isset($composedElement['type'])) {
+                    $composedElement['type'] = $propertyData['type'];
+                }
+            }
+        }
+
+        return $propertyData;
     }
 }

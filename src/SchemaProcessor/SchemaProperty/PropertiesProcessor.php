@@ -7,6 +7,7 @@ namespace PHPModelGenerator\SchemaProcessor\SchemaProperty;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
+use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\SchemaProcessor\SchemaPropertyProcessorInterface;
 
@@ -22,10 +23,8 @@ class PropertiesProcessor implements SchemaPropertyProcessorInterface
      */
     public function process(SchemaProcessor $schemaProcessor, Schema $schema, array $structure): void
     {
-        $propertyFactory = new PropertyFactory();
-
-        $propertyCollectionProcessor = (new PropertyCollectionProcessor())
-            ->setRequiredAttributes($structure['required'] ?? []);
+        $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
+        $propertyCollectionProcessor = new PropertyCollectionProcessor($structure['required'] ?? []);
 
         foreach ($structure['properties'] as $propertyName => $propertyStructure) {
             $schema->addProperty(

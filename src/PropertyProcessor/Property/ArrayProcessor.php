@@ -11,6 +11,7 @@ use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
+use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -20,7 +21,7 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * TODO: contains and tuple validation
  */
-class ArrayProcessor extends AbstractNestedValueProcessor
+class ArrayProcessor extends AbstractTypedValueProcessor
 {
     protected const TYPE = 'array';
 
@@ -110,7 +111,7 @@ class ArrayProcessor extends AbstractNestedValueProcessor
         }
 
         // an item of the array behaves like a nested property to add item-level validation
-        $nestedProperty = (new PropertyFactory())
+        $nestedProperty = (new PropertyFactory(new PropertyProcessorFactory()))
             ->create(
                 new PropertyCollectionProcessor(),
                 $this->schemaProcessor,

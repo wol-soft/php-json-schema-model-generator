@@ -99,6 +99,14 @@ class Property implements PropertyInterface
     /**
      * @inheritdoc
      */
+    public function filterValidators(callable $filter): void
+    {
+        $this->validator = array_filter($this->validator, $filter);
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function getOrderedValidators(): array
     {
         usort(

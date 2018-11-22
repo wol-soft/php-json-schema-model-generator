@@ -18,7 +18,14 @@
   "properties": {
     "import-type": {
       "type": "number",
-      "multipleOf": 2
+      "allOf": [
+        {
+          "multipleOf": 2
+        },
+        {
+          "multipleOf": 5
+        }
+      ]
     },
     "person": {
       "$ref": "#/definitions/person"

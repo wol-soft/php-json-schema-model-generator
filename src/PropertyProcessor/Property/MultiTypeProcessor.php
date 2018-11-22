@@ -48,10 +48,10 @@ class MultiTypeProcessor extends AbstractValueProcessor
         SchemaProcessor $schemaProcessor,
         Schema $schema
     ) {
-        parent::__construct($propertyCollectionProcessor);
+        parent::__construct($propertyCollectionProcessor, $schemaProcessor, $schema);
 
         foreach ($types as $type) {
-            $this->propertyProcessors[] = $propertyProcessorFactory->getPropertyProcessor(
+            $this->propertyProcessors[] = $propertyProcessorFactory->getProcessor(
                 $type,
                 $propertyCollectionProcessor,
                 $schemaProcessor,

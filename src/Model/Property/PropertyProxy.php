@@ -93,6 +93,14 @@ class PropertyProxy implements PropertyInterface
     /**
      * @inheritdoc
      */
+    public function filterValidators(callable $filter): void
+    {
+        $this->getProperty()->filterValidators($filter);
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function getOrderedValidators(): array
     {
         return $this->getProperty()->getOrderedValidators();

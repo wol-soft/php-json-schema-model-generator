@@ -53,6 +53,13 @@ interface PropertyInterface
     public function getValidators(): array;
 
     /**
+     * Filter the assigned validators
+     *
+     * @param callable $filter
+     */
+    public function filterValidators(callable $filter): void;
+
+    /**
      * Retrieve all added validators ordered by priority
      *
      * @return PropertyValidatorInterface[]

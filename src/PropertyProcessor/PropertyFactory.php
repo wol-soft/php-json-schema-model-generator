@@ -16,15 +16,17 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
  */
 class PropertyFactory
 {
-    /** @var PropertyProcessorFactory */
-    protected $propertyProcessorFactory;
+    /** @var ProcessorFactoryInterface */
+    protected $processorFactory;
 
     /**
      * PropertyFactory constructor.
+     *
+     * @param ProcessorFactoryInterface $processorFactory
      */
-    public function __construct()
+    public function __construct(ProcessorFactoryInterface $processorFactory)
     {
-        $this->propertyProcessorFactory = new PropertyProcessorFactory();
+        $this->processorFactory = $processorFactory;
     }
 
     /**
@@ -55,8 +57,8 @@ class PropertyFactory
             $propertyStructure['type'] = 'reference';
         }
 
-        $property = $this->propertyProcessorFactory
-            ->getPropertyProcessor(
+        $property = $this->processorFactory
+            ->getProcessor(
                 $propertyStructure['type'] ?? 'any',
                 $propertyCollectionProcessor,
                 $schemaProcessor,

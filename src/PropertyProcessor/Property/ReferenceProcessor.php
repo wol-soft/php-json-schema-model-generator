@@ -13,7 +13,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-class ReferenceProcessor extends AbstractNestedValueProcessor
+class ReferenceProcessor extends AbstractTypedValueProcessor
 {
     /**
      * @inheritdoc
@@ -28,7 +28,7 @@ class ReferenceProcessor extends AbstractNestedValueProcessor
 
             if ($definition) {
                 try {
-                    return $definition->resolveReference($propertyName, $path);
+                    return $definition->resolveReference($propertyName, $path, $this->propertyCollectionProcessor);
                 } catch (Exception $exception) {
                     throw new SchemaException("Unresolved Reference: {$propertyData['$ref']}", 0, $exception);
                 }

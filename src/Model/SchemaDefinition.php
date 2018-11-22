@@ -10,6 +10,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyProxy;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
+use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
@@ -49,16 +50,20 @@ class SchemaDefinition
     /**
      * Resolve a reference
      *
-     * @param string $propertyName
-     * @param array $path
+     * @param string                      $propertyName
+     * @param array                       $path
+     * @param PropertyCollectionProcessor $propertyCollectionProcessor
      *
      * @return PropertyInterface
      *
      * @throws PHPModelGeneratorException
      * @throws SchemaException
      */
-    public function resolveReference(string $propertyName, array $path): PropertyInterface
-    {
+    public function resolveReference(
+        string $propertyName,
+        array $path,
+        PropertyCollectionProcessor $propertyCollectionProcessor
+    ): PropertyInterface {
         $structure = $this->structure;
         while ($segment = array_shift($path)) {
             if (!isset($structure[$segment])) {
@@ -75,9 +80,9 @@ class SchemaDefinition
             // to the currently created property
             $this->resolvedPaths->offsetSet($key, true);
             try {
-                $this->resolvedPaths->offsetSet($key, (new PropertyFactory())
+                $this->resolvedPaths->offsetSet($key, (new PropertyFactory(new PropertyProcessorFactory()))
                     ->create(
-                        new PropertyCollectionProcessor(),
+                        $propertyCollectionProcessor,
                         $this->schemaProcessor,
                         $this->schema,
                         $propertyName,

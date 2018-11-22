@@ -4,7 +4,6 @@ namespace PHPModelGenerator\PropertyProcessor;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\PropertyProcessor\Property\AbstractNestedValueProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\MultiTypeProcessor;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
@@ -13,7 +12,7 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
  *
  * @package PHPModelGenerator\PropertyProcessor
  */
-class PropertyProcessorFactory
+class PropertyProcessorFactory implements ProcessorFactoryInterface
 {
     /**
      * @param string|array                $type
@@ -24,14 +23,19 @@ class PropertyProcessorFactory
      * @return PropertyProcessorInterface
      * @throws SchemaException
      */
-    public function getPropertyProcessor(
+    public function getProcessor(
         $type,
         PropertyCollectionProcessor $propertyCollectionProcessor,
         SchemaProcessor $schemaProcessor,
         Schema $schema
     ): PropertyProcessorInterface {
         if (is_string($type)) {
-            return $this->getScalarPropertyProcessor($type, $propertyCollectionProcessor, $schemaProcessor, $schema);
+            return $this->getSingleTypePropertyProcessor(
+                $type,
+                $propertyCollectionProcessor,
+                $schemaProcessor,
+                $schema
+            );
         }
 
         if (is_array($type)) {
@@ -50,7 +54,7 @@ class PropertyProcessorFactory
      * @return PropertyProcessorInterface
      * @throws SchemaException
      */
-    protected function getScalarPropertyProcessor(
+    protected function getSingleTypePropertyProcessor(
         string $type,
         PropertyCollectionProcessor $propertyCollectionProcessor,
         SchemaProcessor $schemaProcessor,
@@ -61,8 +65,6 @@ class PropertyProcessorFactory
             throw new SchemaException("Unsupported property type $type");
         }
 
-        return is_subclass_of($processor, AbstractNestedValueProcessor::class)
-            ? new $processor($propertyCollectionProcessor, $schemaProcessor, $schema)
-            : new $processor($propertyCollectionProcessor);
+        return new $processor($propertyCollectionProcessor, $schemaProcessor, $schema);
     }
 }

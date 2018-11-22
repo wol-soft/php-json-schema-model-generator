@@ -20,7 +20,7 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNotProvidedOptionalNullPropertyIsValid(): void
+    public function testNotProvidedOptionalAnyPropertyIsValid(): void
     {
         $className = $this->generateObjectFromFile('AnyProperty.json');
 
