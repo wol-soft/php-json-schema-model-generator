@@ -2,6 +2,7 @@
   "definitions": {
     "person": {
       "type": "object",
+      "id": "PersonData",
       "properties": {
         "name": {
           "type": "string",
@@ -18,13 +19,48 @@
       "additionalProperties": false
     }
   },
+  "id": "Pet",
   "type": "object",
-  "allOf":
-  "properties": {
-    "person": {
-      "not": {
-        "$ref": "#/definitions/person"
+  "allOf": [
+    {
+      "properties": {
+        "owner": {
+          "type": "object",
+          "id": "Owner",
+          "allOf": [
+            {
+              "$ref": "#/definitions/person"
+            },
+            {
+              "properties": {
+                "alive": {
+                  "type": "boolean"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "car": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
       }
     }
-  }
+  ],
+  "properties": {
+    "race": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "race"
+  ]
 }

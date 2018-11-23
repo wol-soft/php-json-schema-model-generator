@@ -33,7 +33,7 @@ class Schema
     }
 
     /**
-     * @return Property[]
+     * @return PropertyInterface[]
      */
     public function getProperties(): array
     {
@@ -44,10 +44,16 @@ class Schema
      * @param PropertyInterface $property
      *
      * @return $this
+     *
+     * @throws SchemaException
      */
     public function addProperty(PropertyInterface $property)
     {
-        $this->properties[] = $property;
+        if (isset($this->properties[$property->getName()])) {
+            throw new SchemaException("Duplicate object property {$property->getName()}");
+        }
+
+        $this->properties[$property->getName()] = $property;
 
         return $this;
     }
@@ -115,7 +121,7 @@ class Schema
     public function addDefinition(string $key, SchemaDefinition $definition)
     {
         if (isset($this->definitions[$key])) {
-            throw new SchemaException("Duplicate key for schema definition: $key");
+            return;
         }
 
         $this->definitions[$key] = $definition;

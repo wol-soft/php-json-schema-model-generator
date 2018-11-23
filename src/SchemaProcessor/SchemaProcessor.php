@@ -86,6 +86,8 @@ class SchemaProcessor
      * @param array  $parentDefinitions If a nested object of a schema is processed import the definitions of the parent
      *                                  schema to make them available for the nested schema as well
      *
+     * @return Schema
+     *
      * @throws SchemaException
      */
     public function processSchema(
@@ -93,12 +95,12 @@ class SchemaProcessor
         string $classPath,
         string $className,
         array $parentDefinitions = []
-    ): void {
+    ): Schema {
         if (!isset($jsonSchema['type']) || $jsonSchema['type'] !== 'object') {
             throw new SchemaException("JSON-Schema doesn't provide an object " . $jsonSchema['id'] ?? '');
         }
 
-        $this->generateModel($classPath, $className, $jsonSchema, $parentDefinitions);
+        return $this->generateModel($classPath, $className, $jsonSchema, $parentDefinitions);
     }
 
     /**
@@ -108,13 +110,15 @@ class SchemaProcessor
      * @param string $className
      * @param array  $structure
      * @param array  $parentDefinitions
+     *
+     * @return Schema
      */
     protected function generateModel(
         string $classPath,
         string $className,
         array $structure,
         array $parentDefinitions = []
-    ): void {
+    ): Schema {
         $schema = new Schema($parentDefinitions);
         //$schemaPropertyProcessorFactory = new SchemaPropertyProcessorFactory();
 
@@ -124,7 +128,7 @@ class SchemaProcessor
             new PropertyCollectionProcessor($structure['required'] ?? []),
             $this,
             $schema,
-            'SchemaBaseObject',
+            $className,
             $structure
         );
 /*
@@ -148,6 +152,8 @@ class SchemaProcessor
         }
 
         $this->generatedFiles[] = $fileName;
+
+        return $schema;
     }
 
     /**

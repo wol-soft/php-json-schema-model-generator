@@ -34,6 +34,8 @@ class {{ class }}
     */
     public function __construct(array $modelData)
     {
+        $rawValue = $modelData;
+
         {% foreach baseValidators as validator %}
              if ({{ validator.getCheck() }}) {
                 throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ viewHelper.escapeSingleQuotes(validator.getExceptionMessage()) }}');
@@ -90,7 +92,7 @@ class {{ class }}
          */
         protected function process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
         {
-            $value = $modelData['{{ property.getName() }}'] ?? null;
+            $value = $rawValue = $modelData['{{ property.getName() }}'] ?? null;
 
             {{ viewHelper.resolvePropertyDecorator(property) }}
 

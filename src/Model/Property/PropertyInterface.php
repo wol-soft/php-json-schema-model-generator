@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\PropertyDecoratorInterface;
@@ -119,4 +120,20 @@ interface PropertyInterface
      * @return bool
      */
     public function isRequired(): bool;
+
+    /**
+     * Set a nested schema
+     *
+     * @param Schema $schema
+     *
+     * @return PropertyInterface
+     */
+    public function setNestedSchema(Schema $schema);
+
+    /**
+     * Get a nested schema if a schema was appended to the property
+     *
+     * @return null|Schema
+     */
+    public function getNestedSchema(): ?Schema;
 }

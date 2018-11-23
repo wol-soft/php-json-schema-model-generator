@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\PropertyDecoratorInterface;
@@ -28,6 +29,8 @@ class Property implements PropertyInterface
     protected $validator = [];
     /** @var Property[] */
     protected $nestedProperties = [];
+    /** @var Schema */
+    protected $schema;
     /** @var PropertyDecoratorInterface[] */
     public $decorators = [];
 
@@ -231,5 +234,22 @@ class Property implements PropertyInterface
     public function isRequired(): bool
     {
         return $this->isPropertyRequired;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function setNestedSchema(Schema $schema): PropertyInterface
+    {
+        $this->schema = $schema;
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getNestedSchema(): ?Schema
+    {
+        return $this->schema;
     }
 }

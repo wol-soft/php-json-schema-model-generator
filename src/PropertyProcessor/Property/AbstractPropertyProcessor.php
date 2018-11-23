@@ -127,13 +127,21 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      */
     protected function inheritPropertyType(array $propertyData, string $composedValueKeyword): array
     {
+        if (!isset($propertyData['type'])) {
+            return $propertyData;
+        }
+
+        if ($propertyData['type'] === 'base') {
+            $propertyData['type'] = 'object';
+        }
+
         if ($composedValueKeyword === 'not') {
-            if (isset($propertyData['type']) && !isset($propertyData[$composedValueKeyword]['type'])) {
+            if (!isset($propertyData[$composedValueKeyword]['type'])) {
                 $propertyData[$composedValueKeyword]['type'] = $propertyData['type'];
             }
         } else {
             foreach ($propertyData[$composedValueKeyword] as &$composedElement) {
-                if (isset($propertyData['type']) && !isset($composedElement['type'])) {
+                if (!isset($composedElement['type'])) {
                     $composedElement['type'] = $propertyData['type'];
                 }
             }

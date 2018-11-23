@@ -2,10 +2,9 @@
 
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
-use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
-use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
+use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Property\AbstractTypedValueProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
@@ -28,6 +27,7 @@ abstract class AbstractComposedValueProcessor extends AbstractTypedValueProcesso
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
         $properties = [];
+
         foreach ($propertyData['composition'] as $compositionElement) {
             $compositionProperty = $propertyFactory
                 ->create(
@@ -48,12 +48,13 @@ abstract class AbstractComposedValueProcessor extends AbstractTypedValueProcesso
         $availableAmount = count($properties);
 
         $property->addValidator(
-            new PropertyTemplateValidator(
-                InvalidArgumentException::class,
-                "Invalid value for {$property->getName()} declined by composition constraint",
-                DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
+            new ComposedPropertyValidator(
+                $property,
+                $properties,
+                static::class,
                 [
                     'properties' => $properties,
+                    'property' => $property,
                     'viewHelper' => new RenderHelper(),
                     'availableAmount' => $availableAmount,
                     'composedValueValidation' => $this->getComposedValueValidation($availableAmount),

@@ -65,6 +65,8 @@ class SchemaDefinition
         PropertyCollectionProcessor $propertyCollectionProcessor
     ): PropertyInterface {
         $structure = $this->structure;
+        $originalPath = $path;
+
         while ($segment = array_shift($path)) {
             if (!isset($structure[$segment])) {
                 throw new SchemaException("Unresolved path segment: $segment");
@@ -73,7 +75,7 @@ class SchemaDefinition
             $structure = $structure[$segment];
         }
 
-        $key = implode('-', $path);
+        $key = implode('-', $originalPath);
 
         if (!$this->resolvedPaths->offsetExists($key)) {
             // create a dummy entry for the path first. If the path is used recursive the recursive usages will point
@@ -90,7 +92,7 @@ class SchemaDefinition
                     )
                 );
             } catch (PHPModelGeneratorException $exception) {
-                unset($this->resolvedPaths[$key]);
+                $this->resolvedPaths->offsetUnset($key);
                 throw $exception;
             }
         }

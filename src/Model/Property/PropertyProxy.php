@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Property;
 
 use PHPModelGenerator\Model\ResolvedDefinitionsCollection;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\PropertyDecoratorInterface;
 
@@ -168,5 +169,21 @@ class PropertyProxy implements PropertyInterface
     public function isRequired(): bool
     {
         return $this->getProperty()->isRequired();
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function setNestedSchema(Schema $schema): PropertyInterface
+    {
+        return $this->getProperty()->setNestedSchema($schema);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getNestedSchema(): ?Schema
+    {
+        return $this->getProperty()->getNestedSchema();
     }
 }

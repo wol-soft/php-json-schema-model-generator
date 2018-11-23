@@ -1,5 +1,6 @@
-(function (&$value) use ($modelData) {
+(function ($value) {
     $succeededCompositionElements = {{ availableAmount }};
+    $originalModelData = $value;
     {% foreach properties as property %}
         try {
             {{ viewHelper.resolvePropertyDecorator(property) }}
@@ -12,7 +13,8 @@
         } catch (Exception $e) {
             $succeededCompositionElements--;
         }
+        $value = $originalModelData;
     {% endforeach %}
 
     return !({{ composedValueValidation }});
-})($value)
+})($rawValue)
