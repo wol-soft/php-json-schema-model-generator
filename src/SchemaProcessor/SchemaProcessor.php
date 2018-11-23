@@ -8,6 +8,9 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\RenderJob;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyFactory;
+use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 
 /**
  * Class SchemaProcessor
@@ -113,14 +116,24 @@ class SchemaProcessor
         array $parentDefinitions = []
     ): void {
         $schema = new Schema($parentDefinitions);
-        $schemaPropertyProcessorFactory = new SchemaPropertyProcessorFactory();
+        //$schemaPropertyProcessorFactory = new SchemaPropertyProcessorFactory();
 
+        $structure['type'] = 'base';
+
+        (new PropertyFactory(new PropertyProcessorFactory()))->create(
+            new PropertyCollectionProcessor($structure['required'] ?? []),
+            $this,
+            $schema,
+            'SchemaBaseObject',
+            $structure
+        );
+/*
         foreach (array_keys($structure) as $schemaProperty) {
             $schemaPropertyProcessorFactory
                 ->getSchemaPropertyProcessor($schemaProperty)
                 ->process($this, $schema, $structure);
         }
-
+*/
         $fileName = join(
                 DIRECTORY_SEPARATOR,
                 [$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]

@@ -188,7 +188,7 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateObjectFromFile('ReferencedObjectSchema.json');
 
         $object = new $className(['person' => $propertyValue]);
-        $this->assertSame(['person' => $propertyValue], $object->getRawModelDataInput());
+        $this->assertSame($propertyValue, $object->getPerson());
     }
 
     public function objectPropertyWithReferencedSchemaDataProvider(): array

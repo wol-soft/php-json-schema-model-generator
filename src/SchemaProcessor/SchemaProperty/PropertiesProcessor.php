@@ -23,19 +23,6 @@ class PropertiesProcessor implements SchemaPropertyProcessorInterface
      */
     public function process(SchemaProcessor $schemaProcessor, Schema $schema, array $structure): void
     {
-        $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
-        $propertyCollectionProcessor = new PropertyCollectionProcessor($structure['required'] ?? []);
 
-        foreach ($structure['properties'] as $propertyName => $propertyStructure) {
-            $schema->addProperty(
-                $propertyFactory->create(
-                    $propertyCollectionProcessor,
-                    $schemaProcessor,
-                    $schema,
-                    $propertyName,
-                    $propertyStructure
-                )
-            );
-        }
     }
 }
