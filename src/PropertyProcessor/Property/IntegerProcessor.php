@@ -9,7 +9,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-class IntProcessor extends AbstractNumericProcessor
+class IntegerProcessor extends AbstractNumericProcessor
 {
     protected const TYPE = 'int';
 }

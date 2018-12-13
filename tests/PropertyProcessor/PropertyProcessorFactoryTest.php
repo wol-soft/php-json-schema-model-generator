@@ -7,7 +7,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\Property\ArrayProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\BooleanProcessor;
-use PHPModelGenerator\PropertyProcessor\Property\IntProcessor;
+use PHPModelGenerator\PropertyProcessor\Property\IntegerProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\NullProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\NumberProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\ObjectProcessor;
@@ -56,7 +56,7 @@ class PropertyProcessorFactoryTest extends TestCase
         return [
             'array' => ['array', ArrayProcessor::class],
             'boolean' => ['boolean', BooleanProcessor::class],
-            'int' => ['int', IntProcessor::class],
+            'integer' => ['integer', IntegerProcessor::class],
             'null' => ['null', NullProcessor::class],
             'number' => ['number', NumberProcessor::class],
             'object' => ['object', ObjectProcessor::class],

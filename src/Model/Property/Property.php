@@ -209,6 +209,14 @@ class Property implements PropertyInterface
      */
     protected function processAttributeName(string $name): string
     {
+        $name = preg_replace_callback(
+            '/([a-z])([A-Z])/',
+            function ($matches) {
+                return "{$matches[1]}-{$matches[2]}";
+            },
+            $name
+        );
+
         $elements = array_map(
             function ($element) {
                 return ucfirst(strtolower($element));

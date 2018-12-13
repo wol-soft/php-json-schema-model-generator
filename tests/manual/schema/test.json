@@ -1,74 +1,94 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
-  "id": "CreateImportRequest",
+  "id": "Session",
   "definitions": {
-    "person": {
+    "Shop": {
       "type": "object",
       "properties": {
-        "name": { "type": "string" },
-        "children": {
-          "type": "array",
-          "items": { "$ref": "#/definitions/person" },
-          "default": []
+        "id": {
+          "type": "integer",
+          "description": "The shop ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the shop"
+        },
+        "eventSoldState": {
+          "type": "string",
+          "enum": [
+            "show",
+            "inactive",
+            "hide"
+          ],
+          "description": "Show the event on overview and detail page"
+        },
+        "showAvailableSeats": {
+          "type": "boolean",
+          "description": "If active, show the count of available seats in the seatmap overview"
+        },
+        "competition": {
+          "type": "object",
+          "properties": {
+            "show": {
+              "type": "boolean",
+              "description": "Show the competition name on overview and detail page"
+            },
+            "orderBy": {
+              "type": "boolean",
+              "description": "Order events by competition"
+            }
+          }
+        },
+        "orderEventsByDate": {
+          "type": "boolean",
+          "description": "Order events only by start and end date"
+        },
+        "promotionActive": {
+          "type": "boolean",
+          "description": "Show promotion code formular when is active"
         }
       }
     }
   },
   "type": "object",
   "properties": {
-    "import-type": {
-      "type": "number",
-      "allOf": [
-        {
-          "multipleOf": 2
-        },
-        {
-          "multipleOf": 5
-        }
-      ]
+    "sessionId": {
+      "type": "string",
+      "description": "The session ID"
     },
-    "person": {
-      "$ref": "#/definitions/person"
+    "affiliateId": {
+      "type": "integer",
+      "description": "The shop affiliate ID"
     },
-    "cds": {
+    "organizerId": {
+      "type": "integer",
+      "description": "The organizer ID"
+    },
+    "languageKeys": {
       "type": "array",
       "items": {
-        "type": "object",
-        "properties": {
-          "title": {
-            "type": "string",
-            "description": "The title of the CD",
-            "example": "Death Magnetic"
-          },
-          "songs": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
+        "type": "string"
+      },
+      "description": "Array with language keys like de, en, etc."
+    },
+    "defaultLanguageKey": {
+      "type": "string",
+      "description": "Language key like de, en, etc."
+    },
+    "maxTickets": {
+      "type": "integer",
+      "description": "The maximum count of tickets, which a customer can buy with an order"
+    },
+    "name": {
+      "type": "string",
+      "description": "The name for the shop tab"
+    },
+    "shops": {
+      "type": "array",
+      "description": "All activated shop tabs",
+      "items": {
+        "$ref": "#/definitions/Shop"
       }
-    },
-    "import-title": {
-      "type": "string",
-      "description": "The title of the album",
-      "example": "Death Magnetic"
-    },
-    "import-content-description": {
-      "type": "string",
-      "description": "The title of the album",
-      "example": "Death Magnetic"
-    },
-    "user-id": {
-      "type": ["number", "string"],
-      "description": "The title of the album",
-      "example": 2,
-      "minimum": 10,
-      "multipleOf": 2
     }
-  },
-  "required": [
-    "user-id"
-  ],
-  "additionalProperties": false
+  }
 }

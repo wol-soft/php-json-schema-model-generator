@@ -3,7 +3,7 @@
   "id": "SubClass",
   "properties": {
     "property": {
-      "type": "int"
+      "type": "integer"
     }
   }
 }

@@ -9,7 +9,7 @@
           "minLength": 2
         },
         "age": {
-          "type": "int"
+          "type": "integer"
         }
       },
       "required": [

@@ -2,7 +2,7 @@
   "type": "object",
   "properties": {
     "property": {
-      "type": "int",
+      "type": "integer",
       "multipleOf": %s
     }
   }

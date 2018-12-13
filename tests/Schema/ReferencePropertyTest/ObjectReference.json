@@ -7,7 +7,7 @@
           "type": "string"
         },
         "age": {
-          "type": "int"
+          "type": "integer"
         }
       }
     }

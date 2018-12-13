@@ -223,13 +223,13 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             'Empty array' => ['string', []],
             'String array' => ['string', ['a', 'b']],
             'String array with null' => ['string', ['a', 'b', null]],
-            'Int array' => ['int', [1, 2, 3]],
-            'Int array with null' => ['int', [1, 2, 3, null]],
+            'Int array' => ['integer', [1, 2, 3]],
+            'Int array with null' => ['integer', [1, 2, 3, null]],
             // Number array will cast int to float
             'Number array' => ['number', [1, 1.1, 4.5, 6], [1.0, 1.1, 4.5, 6.0]],
             'Boolean array' => ['boolean', [true, false, true]],
             'Null array' => ['null', [null, null]],
-            'Nested array' => ['array","items":{"type":"int"},"injection":"yes we can', [[1, 2], [], [3], null]]
+            'Nested array' => ['array","items":{"type":"integer"},"injection":"yes we can', [[1, 2], [], [3], null]]
         ];
     }
 
@@ -253,14 +253,17 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
     {
         return [
             'String array containing int' => ['string', ['a', 'b', 1]],
-            'Int array containing string' => ['int', [1, 2, 3, '4']],
-            'Int array containing float' => ['int', [1, 2, 3, 2.5]],
+            'Int array containing string' => ['integer', [1, 2, 3, '4']],
+            'Int array containing float' => ['integer', [1, 2, 3, 2.5]],
             'Number array containing array' => ['number', [1, 1.1, 4.5, 6, []]],
             'Boolean array containing int' => ['boolean', [true, false, true, 3]],
             'Null array containing string' => ['null', [null, null, 'null']],
-            'Nested array containing int' => ['array","items":{"type":"int"},"injection":"yes we can', [[1, 2], [], 3]],
+            'Nested array containing int' => [
+                'array","items":{"type":"integer"},"injection":"yes we can',
+                [[1, 2], [], 3]
+            ],
             'Nested array inner array containing string' => [
-                'array","items":{"type":"int"},"injection":"yes we can',
+                'array","items":{"type":"integer"},"injection":"yes we can',
                 [[1, '2'], [], [3]]
             ]
         ];

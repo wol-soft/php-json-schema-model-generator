@@ -13,7 +13,7 @@ use stdClass;
  *
  * @package PHPModelGenerator\Tests\Objects
  */
-class IntPropertyTest extends AbstractNumericPropertyTest
+class IntegerPropertyTest extends AbstractNumericPropertyTest
 {
     /**
      * @throws FileSystemException
@@ -22,7 +22,7 @@ class IntPropertyTest extends AbstractNumericPropertyTest
      */
     public function testNotProvidedOptionalIntPropertyIsValid(): void
     {
-        $className = $this->generateObjectFromFile('IntProperty.json');
+        $className = $this->generateObjectFromFile('IntegerProperty.json');
 
         $object = new $className([]);
         $this->assertNull($object->getProperty());
@@ -39,7 +39,7 @@ class IntPropertyTest extends AbstractNumericPropertyTest
      */
     public function testProvidedIntPropertyIsValid(?int $input): void
     {
-        $className = $this->generateObjectFromFile('IntProperty.json');
+        $className = $this->generateObjectFromFile('IntegerProperty.json');
 
         $object = new $className(['property' => $input]);
         $this->assertSame($input, $object->getProperty());
@@ -69,7 +69,7 @@ class IntPropertyTest extends AbstractNumericPropertyTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('invalid type for property');
 
-        $className = $this->generateObjectFromFile('IntProperty.json');
+        $className = $this->generateObjectFromFile('IntegerProperty.json');
 
         new $className(['property' => $propertyValue]);
     }
@@ -87,7 +87,7 @@ class IntPropertyTest extends AbstractNumericPropertyTest
 
     protected function getMultipleOfFile(): string
     {
-        return 'IntPropertyMultipleOf.json';
+        return 'IntegerPropertyMultipleOf.json';
     }
 
     public function validMultipleOfDataProvider(): iterable
@@ -116,7 +116,7 @@ class IntPropertyTest extends AbstractNumericPropertyTest
 
     protected function getRangeFile(): string
     {
-        return 'IntPropertyRange.json';
+        return 'IntegerPropertyRange.json';
     }
 
     public function validRangeDataProvider(): iterable
