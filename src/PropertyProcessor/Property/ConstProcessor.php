@@ -23,6 +23,7 @@ class ConstProcessor implements PropertyProcessorInterface
     public function process(string $propertyName, array $propertyData): PropertyInterface
     {
         return (new Property($propertyName, gettype($propertyData['const'])))
+            ->setDescription($propertyData['description'] ?? '')
             ->addValidator(new PropertyValidator(
                 '$value !== ' . var_export($propertyData['const'], true),
                 InvalidArgumentException::class,

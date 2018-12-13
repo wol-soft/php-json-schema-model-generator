@@ -43,6 +43,7 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
     public function process(string $propertyName, array $propertyData): PropertyInterface
     {
         $property = (new Property($propertyName, $this->type))
+            ->setDescription($propertyData['description'] ?? '')
             // the property is either required if defined as required
             // or if the property is related to a typed enum (strict type checks)
             ->setRequired(

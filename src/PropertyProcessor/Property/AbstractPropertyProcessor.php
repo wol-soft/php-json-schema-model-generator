@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -88,6 +89,8 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     /**
      * @param PropertyInterface $property
      * @param array             $propertyData
+     *
+     * @throws SchemaException
      */
     protected function addComposedValueValidator(PropertyInterface $property, array $propertyData): void
     {

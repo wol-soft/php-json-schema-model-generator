@@ -17,7 +17,7 @@ declare(strict_types = 1);
 class {{ class }}
 {
     {% foreach properties as property %}
-        /** @var {% if property.getType() %}{{ property.getType() }}{% else %}mixed{% endif %} */
+        /** @var {% if property.getType() %}{{ property.getType() }}{% else %}mixed{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
         protected ${{ property.getAttribute() }};
     {% endforeach %}
     /** @var array */

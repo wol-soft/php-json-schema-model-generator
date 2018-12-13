@@ -24,6 +24,8 @@ class Property implements PropertyInterface
     protected $type = 'null';
     /** @var bool */
     protected $isPropertyRequired = true;
+    /** @var string */
+    protected $description = '';
 
     /** @var Validator[] */
     protected $validator = [];
@@ -77,6 +79,24 @@ class Property implements PropertyInterface
     public function setType(string $type): PropertyInterface
     {
         $this->type = $type;
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getDescription(): string
+    {
+        return $this->description;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function setDescription(string $description): PropertyInterface
+    {
+        $this->description = $description;
 
         return $this;
     }
