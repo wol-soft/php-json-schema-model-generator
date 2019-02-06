@@ -23,7 +23,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
     private $generatedFiles = [];
 
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         if (is_dir(sys_get_temp_dir() . '/PHPModelGeneratorTest')) {
             $di = new RecursiveDirectoryIterator(sys_get_temp_dir() . '/PHPModelGeneratorTest', FilesystemIterator::SKIP_DOTS);
@@ -38,7 +38,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         @mkdir(sys_get_temp_dir() . '/PHPModelGeneratorTest/Models');
     }
 
-    public function tearDown()
+    public function tearDown(): void
     {
         parent::tearDown();
 
