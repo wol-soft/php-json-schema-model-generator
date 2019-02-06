@@ -9,7 +9,7 @@ Creates (immutable) PHP model classes from JSON-Schema files.
 
 ## Requirements ##
 
-- Requires at least PHP 7.1
+- Requires at least PHP 7.2
 
 ## Installation ##
 
