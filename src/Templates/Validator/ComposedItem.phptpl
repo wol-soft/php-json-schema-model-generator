@@ -10,7 +10,7 @@
                     throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');
                 }
             {% endforeach %}
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $succeededCompositionElements--;
         }
         $value = $originalModelData;

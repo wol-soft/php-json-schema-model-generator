@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPMicroTemplate\Exception\PHPMicroTemplateException;
@@ -11,7 +13,7 @@ use PHPModelGenerator\Exception\RenderException;
  *
  * @package PHPModelGenerator\Model\Validator
  */
-class PropertyTemplateValidator extends AbstractPropertyValidator implements PropertyValidatorInterface
+class PropertyTemplateValidator extends AbstractPropertyValidator
 {
     /** @var string */
     protected $template;

@@ -12,7 +12,7 @@ namespace PHPModelGenerator\Model\Validator;
 interface PropertyValidatorInterface
 {
     /**
-     * Get the source code for the coeck to perform
+     * Get the source code for the check to perform
      *
      * @return string
      */

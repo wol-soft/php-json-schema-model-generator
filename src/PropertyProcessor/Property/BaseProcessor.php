@@ -9,8 +9,11 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\SchemaDefinition;
+use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
+use PHPModelGenerator\Model\Validator\TypeCheckValidator;
 use PHPModelGenerator\PropertyProcessor\ComposedValue\AbstractComposedPropertiesProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
@@ -136,6 +139,8 @@ class BaseProcessor extends AbstractPropertyProcessor
      * Add the properties defined in the JSON schema to the current schema model
      *
      * @param array $propertyData
+     *
+     * @throws SchemaException
      */
     protected function addPropertiesToSchema(array $propertyData)
     {
@@ -184,7 +189,14 @@ class BaseProcessor extends AbstractPropertyProcessor
                 }
 
                 foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
-                    $this->schema->addProperty($property);
+                    $this->schema->addProperty(
+                        (clone $property)
+                            ->setRequired(false)
+                            ->filterValidators(function (Validator $validator) {
+                                return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
+                                    !is_a($validator->getValidator(), TypeCheckValidator::class);
+                            })
+                    );
                 }
             }
         }

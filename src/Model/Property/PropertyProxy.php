@@ -110,9 +110,9 @@ class PropertyProxy implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function filterValidators(callable $filter): void
+    public function filterValidators(callable $filter): PropertyInterface
     {
-        $this->getProperty()->filterValidators($filter);
+        return $this->getProperty()->filterValidators($filter);
     }
 
     /**

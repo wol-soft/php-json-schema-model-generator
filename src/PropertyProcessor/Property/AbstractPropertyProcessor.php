@@ -51,7 +51,9 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      * Generates the validators for the property
      *
      * @param PropertyInterface $property
-     * @param array             $propertyData
+     * @param array $propertyData
+     *
+     * @throws SchemaException
      */
     protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {

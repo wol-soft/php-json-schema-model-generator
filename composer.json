@@ -25,7 +25,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "PHPModelGenerator\\Tests\\": "tests"
+            "PHPModelGenerator\\Tests\\": "tests",
+            "ManualSchema\\": "tests/manual/result"
         }
     }
 }

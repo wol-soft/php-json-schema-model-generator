@@ -96,7 +96,9 @@ class SchemaProcessor
         string $className,
         array $parentDefinitions = []
     ): Schema {
-        if (!isset($jsonSchema['type']) || $jsonSchema['type'] !== 'object') {
+        if ((!isset($jsonSchema['type']) || $jsonSchema['type'] !== 'object') &&
+            !array_intersect(array_keys($jsonSchema), ['anyOf', 'allOf', 'oneOf'])
+        ) {
             throw new SchemaException("JSON-Schema doesn't provide an object " . $jsonSchema['id'] ?? '');
         }
 
@@ -112,6 +114,8 @@ class SchemaProcessor
      * @param array  $parentDefinitions
      *
      * @return Schema
+     *
+     * @throws SchemaException
      */
     protected function generateModel(
         string $classPath,
@@ -120,7 +124,6 @@ class SchemaProcessor
         array $parentDefinitions = []
     ): Schema {
         $schema = new Schema($parentDefinitions);
-        //$schemaPropertyProcessorFactory = new SchemaPropertyProcessorFactory();
 
         $structure['type'] = 'base';
 
@@ -131,13 +134,7 @@ class SchemaProcessor
             $className,
             $structure
         );
-/*
-        foreach (array_keys($structure) as $schemaProperty) {
-            $schemaPropertyProcessorFactory
-                ->getSchemaPropertyProcessor($schemaProperty)
-                ->process($this, $schema, $structure);
-        }
-*/
+
         $fileName = join(
                 DIRECTORY_SEPARATOR,
                 [$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]

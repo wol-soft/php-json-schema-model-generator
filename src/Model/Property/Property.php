@@ -122,9 +122,11 @@ class Property implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function filterValidators(callable $filter): void
+    public function filterValidators(callable $filter): PropertyInterface
     {
         $this->validator = array_filter($this->validator, $filter);
+
+        return $this;
     }
 
     /**

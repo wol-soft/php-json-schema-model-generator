@@ -47,7 +47,7 @@ class Schema
      *
      * @throws SchemaException
      */
-    public function addProperty(PropertyInterface $property)
+    public function addProperty(PropertyInterface $property): self
     {
         if (isset($this->properties[$property->getName()])) {
             throw new SchemaException("Duplicate object property {$property->getName()}");
@@ -116,15 +116,17 @@ class Schema
      * @param string $key
      * @param SchemaDefinition $definition
      *
-     * @throws SchemaException
+     * @return Schema
      */
-    public function addDefinition(string $key, SchemaDefinition $definition)
+    public function addDefinition(string $key, SchemaDefinition $definition): self
     {
         if (isset($this->definitions[$key])) {
-            return;
+            return $this;
         }
 
         $this->definitions[$key] = $definition;
+
+        return $this;
     }
 
     /**

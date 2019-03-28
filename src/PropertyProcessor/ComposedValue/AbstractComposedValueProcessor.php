@@ -39,7 +39,8 @@ abstract class AbstractComposedValueProcessor extends AbstractTypedValueProcesso
                 );
 
             $compositionProperty->filterValidators(function (Validator $validator) {
-                return !is_a($validator->getValidator(), RequiredPropertyValidator::class);
+                return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
+                    !is_a($validator->getValidator(), ComposedPropertyValidator::class);
             });
 
             $properties[] = $compositionProperty;
@@ -54,7 +55,6 @@ abstract class AbstractComposedValueProcessor extends AbstractTypedValueProcesso
                 static::class,
                 [
                     'properties' => $properties,
-                    'property' => $property,
                     'viewHelper' => new RenderHelper(),
                     'availableAmount' => $availableAmount,
                     'composedValueValidation' => $this->getComposedValueValidation($availableAmount),

@@ -73,8 +73,10 @@ interface PropertyInterface
      * Filter the assigned validators
      *
      * @param callable $filter
+     *
+     * @return PropertyInterface
      */
-    public function filterValidators(callable $filter): void;
+    public function filterValidators(callable $filter): PropertyInterface;
 
     /**
      * Retrieve all added validators ordered by priority

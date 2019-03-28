@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 namespace PHPModelGenerator\Model\Validator;
 
 /**
@@ -7,7 +9,7 @@ namespace PHPModelGenerator\Model\Validator;
  *
  * @package PHPModelGenerator\Model\Validator
  */
-abstract class AbstractPropertyValidator
+abstract class AbstractPropertyValidator implements PropertyValidatorInterface
 {
     /** @var string */
     protected $exceptionClass;

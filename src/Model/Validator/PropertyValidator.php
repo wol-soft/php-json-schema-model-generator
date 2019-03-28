@@ -9,7 +9,7 @@ namespace PHPModelGenerator\Model\Validator;
  *
  * @package PHPModelGenerator\Model\Validator
  */
-class PropertyValidator extends AbstractPropertyValidator implements PropertyValidatorInterface
+class PropertyValidator extends AbstractPropertyValidator
 {
     /** @var string */
     protected $check;
