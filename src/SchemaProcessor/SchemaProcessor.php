@@ -99,7 +99,9 @@ class SchemaProcessor
         if ((!isset($jsonSchema['type']) || $jsonSchema['type'] !== 'object') &&
             !array_intersect(array_keys($jsonSchema), ['anyOf', 'allOf', 'oneOf'])
         ) {
-            throw new SchemaException("JSON-Schema doesn't provide an object " . $jsonSchema['id'] ?? '');
+            throw new SchemaException(
+                "JSON-Schema doesn't provide an object or a composition " . $jsonSchema['id'] ?? ''
+            );
         }
 
         return $this->generateModel($classPath, $className, $jsonSchema, $parentDefinitions);

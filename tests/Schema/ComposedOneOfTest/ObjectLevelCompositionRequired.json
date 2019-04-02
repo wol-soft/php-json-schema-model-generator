@@ -1,0 +1,22 @@
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "stringProperty": {
+          "type": "string"
+        }
+      },
+      "required": ["stringProperty"]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "integerProperty": {
+          "type": "integer"
+        }
+      },
+      "required": ["integerProperty"]
+    }
+  ]
+}

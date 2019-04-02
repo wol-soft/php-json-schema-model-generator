@@ -114,7 +114,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                     $property->getName(),
                     [
                         'type' => $composedValueKeyword,
-                        'composition' => $propertyData[$composedValueKeyword]
+                        'composition' => $propertyData[$composedValueKeyword],
                     ]
                 );
 

@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types = 1);
+
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
+use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
@@ -29,14 +32,16 @@ abstract class AbstractComposedValueProcessor extends AbstractTypedValueProcesso
         $properties = [];
 
         foreach ($propertyData['composition'] as $compositionElement) {
-            $compositionProperty = $propertyFactory
-                ->create(
-                    new PropertyCollectionProcessor([$property->getName() => $property->isRequired()]),
-                    $this->schemaProcessor,
-                    $this->schema,
-                    $property->getName(),
-                    $compositionElement
-                );
+            $compositionProperty = new CompositionPropertyDecorator(
+                $propertyFactory
+                    ->create(
+                        new PropertyCollectionProcessor([$property->getName() => $property->isRequired()]),
+                        $this->schemaProcessor,
+                        $this->schema,
+                        $property->getName(),
+                        $compositionElement
+                    )
+            );
 
             $compositionProperty->filterValidators(function (Validator $validator) {
                 return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&

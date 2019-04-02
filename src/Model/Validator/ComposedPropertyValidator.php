@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
@@ -16,16 +17,16 @@ class ComposedPropertyValidator extends PropertyTemplateValidator
 {
     /** @var string */
     protected $composedProcessor;
-    /** @var PropertyInterface[] */
+    /** @var CompositionPropertyDecorator[] */
     protected $composedProperties;
 
     /**
      * ComposedPropertyValidator constructor.
      *
-     * @param PropertyInterface   $property
-     * @param PropertyInterface[] $composedProperties
-     * @param string              $composedProcessor
-     * @param array               $validatorVariables
+     * @param PropertyInterface              $property
+     * @param CompositionPropertyDecorator[] $composedProperties
+     * @param string                         $composedProcessor
+     * @param array                          $validatorVariables
      */
     public function __construct(
         PropertyInterface $property,
@@ -53,7 +54,7 @@ class ComposedPropertyValidator extends PropertyTemplateValidator
     }
 
     /**
-     * @return PropertyInterface[]
+     * @return CompositionPropertyDecorator[]
      */
     public function getComposedProperties(): array
     {

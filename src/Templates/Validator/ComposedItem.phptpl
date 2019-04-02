@@ -1,4 +1,4 @@
-(function ($value) {
+(function ($value) use (&$modelData) {
     $succeededCompositionElements = {{ availableAmount }};
     $originalModelData = $value;
     {% foreach properties as property %}
@@ -11,6 +11,10 @@
                 }
             {% endforeach %}
         } catch (\Exception $e) {
+            {% foreach property.getAffectedObjectProperties() as affectedObjectProperty %}
+                unset($modelData['{{ affectedObjectProperty.getName() }}']);
+            {% endforeach %}
+
             $succeededCompositionElements--;
         }
         $value = $originalModelData;

@@ -197,6 +197,8 @@ class BaseProcessor extends AbstractPropertyProcessor
                                     !is_a($validator->getValidator(), TypeCheckValidator::class);
                             })
                     );
+
+                    $composedProperty->appendAffectedObjectProperty($property);
                 }
             }
         }

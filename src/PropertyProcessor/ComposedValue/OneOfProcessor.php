@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
 /**
- * Class OneofProcessor
+ * Class OneOfProcessor
  *
  * @package PHPModelGenerator\PropertyProcessor\ComposedValue
  */
