@@ -124,7 +124,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
     public function testNullProvidedForTypedEnumThrowsAnException(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage("Missing required value for property");
+        $this->expectExceptionMessage("invalid type for property");
 
         $className = $this->generateEnumClass('string', static::ENUM_STRING);
 

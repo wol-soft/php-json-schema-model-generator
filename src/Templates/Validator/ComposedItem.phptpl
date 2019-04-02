@@ -1,3 +1,6 @@
+{%if onlyForDefinedValues %}
+    $value !== null &&
+{% endif %}
 (function ($value) use (&$modelData) {
     $succeededCompositionElements = {{ availableAmount }};
     $originalModelData = $value;

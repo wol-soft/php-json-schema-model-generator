@@ -115,6 +115,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                     [
                         'type' => $composedValueKeyword,
                         'composition' => $propertyData[$composedValueKeyword],
+                        'onlyForDefinedValues' => !($this instanceof BaseProcessor) && !$property->isRequired(),
                     ]
                 );
 

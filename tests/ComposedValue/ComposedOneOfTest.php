@@ -14,31 +14,53 @@ use stdClass;
 class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
 {
     /**
-     * @dataProvider oneOfSchemaFileDataProvider
+     * @dataProvider propertyLevelOneOfSchemaFileDataProvider
      *
      * @param string $schema
      */
-    public function testNotProvidedOneOfTypePropertyThrowsAnException(string $schema): void
+    public function testNotProvidedPropertyLevelOneOfIsValid(string $schema): void
+    {
+        $className = $this->generateObjectFromFile($schema);
+
+        $object = new $className([]);
+        $this->assertNull($object->getProperty());
+    }
+
+    public function propertyLevelOneOfSchemaFileDataProvider(): array
+    {
+        return [
+            'OneOfType.json' => ['OneOfType.json'],
+            'ExtendedPropertyDefinition.json' => ['ExtendedPropertyDefinition.json'],
+            'ReferencedObjectSchema.json' => ['ReferencedObjectSchema.json'],
+        ];
+    }
+
+    /**
+     * @dataProvider objectLevelOneOfSchemaFileDataProvider
+     *
+     * @param string $schema
+     */
+    public function testNotProvidedObjectLevelOneOfThrowsAnException(string $schema): void
     {
         $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageRegExp('/^Invalid value for (.*?) declined by composition constraint$/');
 
         $className = $this->generateObjectFromFile($schema);
 
         new $className([]);
     }
 
-    public function oneOfSchemaFileDataProvider(): array
+    public function objectLevelOneOfSchemaFileDataProvider(): array
     {
         return [
-            'OneOfType.json' => ['OneOfType.json'],
-            'ExtendedPropertyDefinition.json' => ['ExtendedPropertyDefinition.json'],
-            'ReferencedObjectSchema.json' => ['ReferencedObjectSchema.json'],
             'ObjectLevelComposition.json' => ['ObjectLevelComposition.json'],
+            'ObjectLevelCompositionRequired.json' => ['ObjectLevelCompositionRequired.json'],
         ];
     }
 
     /**
      * @dataProvider validPropertyTypeDataProvider
+     * @dataProvider nullDataProvider
      *
      * @param $propertyValue
      */
@@ -84,8 +106,42 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
             'float' => [0.92],
             'array' => [[]],
             'object' => [new stdClass()],
-            'null' => [null],
         ];
+    }
+
+
+    /**
+     * @dataProvider validPropertyTypeDataProvider
+     *
+     * @param $propertyValue
+     */
+    public function testValidProvidedRequiredOneOfTypePropertyIsValid($propertyValue): void
+    {
+        $className = $this->generateObjectFromFile('OneOfTypeRequired.json');
+
+        $object = new $className(['property' => $propertyValue]);
+        $this->assertSame($propertyValue, $object->getProperty());
+    }
+
+    /**
+     * @dataProvider invalidPropertyTypeDataProvider
+     * @dataProvider nullDataProvider
+     *
+     * @param $propertyValue
+     */
+    public function testInvalidProvidedRequiredOneOfTypePropertyThrowsAnException($propertyValue): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+
+        $className = $this->generateObjectFromFile('OneOfTypeRequired.json');
+
+        new $className(['property' => $propertyValue]);
+    }
+
+    public function nullDataProvider(): array
+    {
+        return ['null' => [null]];
     }
 
     /**
@@ -99,7 +155,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
 
         $object = new $className(['property' => $propertyValue]);
         // cast expected to float as an int is casted to an float internally for a number property
-        $this->assertSame((float) $propertyValue, $object->getProperty());
+        $this->assertSame(is_int($propertyValue) ? (float) $propertyValue : $propertyValue, $object->getProperty());
     }
 
     public function validExtendedPropertyDataProvider(): array
@@ -108,7 +164,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
             'int 12' => [12],
             'float 12.' => [12.],
             'int 15' => [15],
-// TODO            'null' => [null],
+            'null' => [null],
         ];
     }
 
@@ -155,13 +211,14 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
     {
         $className = $this->generateObjectFromFile('ReferencedObjectSchema.json');
 
-        $object = new $className(['person' => $propertyValue]);
-        $this->assertSame($propertyValue, $object->getPerson());
+        $object = new $className(['property' => $propertyValue]);
+        $this->assertSame($propertyValue, $object->getProperty());
     }
 
     public function objectPropertyWithReferencedSchemaDataProvider(): array
     {
         return [
+            'null' => [null],
             'string matching required length' => ['Hanne'],
             'Matching object' => [['name' => 'Ha', 'age' => 42]],
         ];
@@ -175,17 +232,16 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
     public function testNotMatchingObjectPropertyWithReferencedSchemaThrowsAnException($propertyValue): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid value for person declined by composition constraint');
+        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
 
         $className = $this->generateObjectFromFile('ReferencedObjectSchema.json');
 
-        new $className(['person' => $propertyValue]);
+        new $className(['property' => $propertyValue]);
     }
 
     public function invalidObjectPropertyWithReferencedSchemaDataProvider(): array
     {
         return [
-            'null' => [null],
             'int' => [0],
             'float' => [0.92],
             'bool' => [true],

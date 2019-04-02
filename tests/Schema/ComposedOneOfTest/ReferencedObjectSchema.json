@@ -20,7 +20,7 @@
   },
   "type": "object",
   "properties": {
-    "person": {
+    "property": {
       "oneOf": [
         {
           "$ref": "#/definitions/person"

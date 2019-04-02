@@ -63,6 +63,8 @@ abstract class AbstractComposedValueProcessor extends AbstractTypedValueProcesso
                     'viewHelper' => new RenderHelper(),
                     'availableAmount' => $availableAmount,
                     'composedValueValidation' => $this->getComposedValueValidation($availableAmount),
+                    'onlyForDefinedValues' => $propertyData['onlyForDefinedValues'] &&
+                        $this instanceof AbstractComposedPropertiesProcessor,
                 ]
             ),
             100
