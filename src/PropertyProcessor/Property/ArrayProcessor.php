@@ -100,7 +100,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
      * Add the validator to check if the items inside an array are unique
      *
      * @param PropertyInterface $property
-     * @param array    $propertyData
+     * @param array             $propertyData
      *
      * @throws SchemaException
      */

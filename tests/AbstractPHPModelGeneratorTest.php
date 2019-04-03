@@ -104,6 +104,10 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * @param bool                        $escape
      *
      * @return string
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
      */
     public function generateObjectFromFileTemplate(
         string $file,

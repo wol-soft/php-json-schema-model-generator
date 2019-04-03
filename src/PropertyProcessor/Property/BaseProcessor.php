@@ -124,6 +124,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                 continue;
             }
 
+            // add the root nodes of the schema to resolve path references
             $this->schema->addDefinition(
                 $key,
                 new SchemaDefinition(
@@ -132,6 +133,35 @@ class BaseProcessor extends AbstractPropertyProcessor
                     $this->schema
                 )
             );
+        }
+
+        $this->fetchDefinitionsById($propertyData);
+    }
+
+    /**
+     * Fetch all schema definitions with an ID for direct references
+     *
+     * @param array $schema
+     */
+    protected function fetchDefinitionsById(array $schema)
+    {
+        if (isset($schema['$id'])) {
+            $this->schema->addDefinition(
+                $schema['$id'],
+                new SchemaDefinition(
+                    $schema,
+                    $this->schemaProcessor,
+                    $this->schema
+                )
+            );
+        }
+
+        foreach ($schema as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $this->fetchDefinitionsById($item);
         }
     }
 

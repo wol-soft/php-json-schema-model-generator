@@ -97,7 +97,6 @@ class SchemaDefinition
             }
         }
 
-
         return new PropertyProxy($this->resolvedPaths, $key);
     }
 }

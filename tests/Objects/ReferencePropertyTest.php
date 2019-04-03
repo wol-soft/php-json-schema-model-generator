@@ -17,26 +17,42 @@ use stdClass;
 class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
 {
     /**
+     * @dataProvider referenceProvider
+     *
+     * @param string $reference
+     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNotResolvedReferenceThrowsAnException(): void
+    public function testNotResolvedReferenceThrowsAnException(string $reference): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage('Unresolved Reference: #/definitions/person');
+        $this->expectExceptionMessage("Unresolved Reference: $reference");
 
-        $this->generateObjectFromFile('NotResolvedReference.json');
+        $this->generateObjectFromFileTemplate('NotResolvedReference.json', [$reference]);
+    }
+
+    public function referenceProvider(): array
+    {
+        return [
+            'Internal path reference' => ['#/definitions/person'],
+            'Internal direct reference' => ['#person'],
+        ];
     }
 
     /**
+     * @dataProvider referenceProvider
+     *
+     * @param string $reference
+     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNotProvidedOptionalReferenceObjectPropertyIsValid(): void
+    public function testNotProvidedOptionalReferenceObjectPropertyIsValid(string $reference): void
     {
-        $className = $this->generateObjectFromFile('ObjectReference.json');
+        $className = $this->generateObjectFromFileTemplate('ObjectReference.json', [$reference]);
 
         $object = new $className([]);
         $this->assertNull($object->getPerson());
@@ -45,6 +61,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     /**
      * @dataProvider validReferenceObjectInputProvider
      *
+     * @param string $reference
      * @param array  $input
      * @param string $typeCheck
      *
@@ -52,9 +69,12 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testProvidedReferenceObjectPropertyIsValid(?array $input, string $typeCheck): void
-    {
-        $className = $this->generateObjectFromFile('ObjectReference.json');
+    public function testProvidedReferenceObjectPropertyIsValid(
+        string $reference,
+        ?array $input,
+        string $typeCheck
+    ): void {
+        $className = $this->generateObjectFromFileTemplate('ObjectReference.json', [$reference]);
 
         $object = new $className(['person' => $input]);
         $this->assertTrue(('is_' . $typeCheck)($object->getPerson()));
@@ -68,72 +88,92 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
 
     public function validReferenceObjectInputProvider(): array
     {
-        return [
-            'Empty object' => [[], 'object'],
-            'Object with property' => [['name' => 'Hannes', 'age' => 42, 'stringProperty' => 'Hello'], 'object'],
-            'Null' => [null, 'null'],
-        ];
+        return $this->combineDataProvider(
+            $this->referenceProvider(),
+            [
+                'Empty object' => [[], 'object'],
+                'Object with property' => [['name' => 'Hannes', 'age' => 42, 'stringProperty' => 'Hello'], 'object'],
+                'Null' => [null, 'null'],
+            ]
+        );
     }
 
     /**
      * @dataProvider invalidReferenceObjectPropertyTypeDataProvider
      *
+     * @param string $reference
      * @param $propertyValue
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testInvalidReferenceObjectPropertyTypeThrowsAnException($propertyValue): void
+    public function testInvalidReferenceObjectPropertyTypeThrowsAnException(string $reference, $propertyValue): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('invalid type for person');
 
-        $className = $this->generateObjectFromFile('ObjectReference.json');
+        $className = $this->generateObjectFromFileTemplate('ObjectReference.json', [$reference]);
 
         new $className(['person' => $propertyValue]);
     }
 
     public function invalidReferenceObjectPropertyTypeDataProvider(): array
     {
-        return [
-            'bool' => [true],
-            'float' => [0.92],
-            'int' => [2],
-            'object' => [new stdClass()],
-            'string' => ['1']
-        ];
+        return $this->combineDataProvider(
+            $this->referenceProvider(),
+            [
+                'bool' => [true],
+                'float' => [0.92],
+                'int' => [2],
+                'object' => [new stdClass()],
+                'string' => ['1']
+            ]
+        );
     }
 
     /**
      * @dataProvider validReferenceIntInputProvider
      *
+     * @param string   $reference
      * @param int|null $input
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testProvidedReferenceIntPropertyIsValid(?int $input): void
+    public function testProvidedReferenceIntPropertyIsValid(string $reference, ?int $input): void
     {
-        $className = $this->generateObjectFromFile('IntReference.json');
+        $className = $this->generateObjectFromFileTemplate('IntReference.json', [$reference]);
 
         $object = new $className(['year' => $input]);
         $this->assertSame($input, $object->getYear());
     }
 
-    public function validReferenceIntInputProvider(): array
+    public function intReferenceProvider(): array
     {
         return [
-            'Null' => [null],
-            'Upper limit' => [2000],
-            'Lower limit' => [1900],
+            'Internal path reference' => ['#/definitions/yearBetween1900and2000'],
+            'Internal direct reference' => ['#yearBetween1900and2000'],
         ];
+    }
+
+    public function validReferenceIntInputProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->intReferenceProvider(),
+            [
+                'Null' => [null],
+                'Upper limit' => [2000],
+                'Lower limit' => [1900],
+            ]
+        );
     }
 
     /**
      * @dataProvider invalidReferenceIntPropertyTypeDataProvider
      *
+     * @param string $reference
      * @param        $propertyValue
      * @param string $message
      *
@@ -141,41 +181,76 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testInvalidReferenceIntPropertyTypeThrowsAnException($propertyValue, string $message): void
-    {
+    public function testInvalidReferenceIntPropertyTypeThrowsAnException(
+        string $reference,
+        $propertyValue,
+        string $message
+    ): void {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage($message);
 
-        $className = $this->generateObjectFromFile('IntReference.json');
+        $className = $this->generateObjectFromFileTemplate('IntReference.json', [$reference]);
 
         new $className(['year' => $propertyValue]);
     }
 
     public function invalidReferenceIntPropertyTypeDataProvider(): array
     {
-        return [
-            'bool' => [true, 'invalid type for year'],
-            'float' => [0.92, 'invalid type for year'],
-            'array' => [[2], 'invalid type for year'],
-            'object' => [new stdClass(), 'invalid type for year'],
-            'string' => ['1', 'invalid type for year'],
-            'int too low' => [1899, 'Value for year must not be smaller than 1900'],
-            'int too high' => [2001, 'Value for year must not be larger than 2000'],
-        ];
+        return $this->combineDataProvider(
+            $this->intReferenceProvider(),
+            [
+                'bool' => [true, 'invalid type for year'],
+                'float' => [0.92, 'invalid type for year'],
+                'array' => [[2], 'invalid type for year'],
+                'object' => [new stdClass(), 'invalid type for year'],
+                'string' => ['1', 'invalid type for year'],
+                'int too low' => [1899, 'Value for year must not be smaller than 1900'],
+                'int too high' => [2001, 'Value for year must not be larger than 2000'],
+            ]
+        );
     }
 
-    public function testNotProvidedOptionalRecursiveReferenceObjectPropertyIsValid()
+    public function combinedReferenceProvider(): array
     {
-        $className = $this->generateObjectFromFile('RecursiveObjectReference.json');
+        return $this->combineDataProvider($this->referenceProvider(), $this->referenceProvider());
+    }
+
+    /**
+     * @dataProvider combinedReferenceProvider
+     *
+     * @param string $reference1
+     * @param string $reference2
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNotProvidedOptionalRecursiveReferenceObjectPropertyIsValid(
+        string $reference1,
+        string $reference2
+    ): void {
+        $className = $this->generateObjectFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
 
         $object = new $className(['person' => ['name' => 'Hannes']]);
         $this->assertSame('Hannes', $object->getPerson()->getName());
         $this->assertEmpty($object->getPerson()->getChildren());
     }
 
-    public function testProvidedRecursiveReferenceObjectPropertyIsValid()
-    {
-        $className = $this->generateObjectFromFile('RecursiveObjectReference.json');
+    /**
+     * @dataProvider combinedReferenceProvider
+     *
+     * @param string $reference1
+     * @param string $reference2
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testProvidedRecursiveReferenceObjectPropertyIsValid(
+        string $reference1,
+        string $reference2
+    ): void {
+        $className = $this->generateObjectFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
 
         $object = new $className([
             'person' => [
@@ -196,20 +271,28 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
-     * @dataProvider invalidReferenceObjectPropertyTypeDataProvider
+     * @dataProvider invalidCombinedReferenceObjectPropertyTypeDataProvider
      *
+     * @param string $reference1
+     * @param string $reference2
      * @param $propertyValue
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testInvalidProvidedRecursiveReferenceObjectPropertyValueThrowsAnException($propertyValue): void
-    {
+    public function testInvalidProvidedRecursiveReferenceObjectPropertyValueThrowsAnException(
+        string $reference1,
+        string $reference2,
+        $propertyValue
+    ): void {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('invalid type for person');
 
-        $className = $this->generateObjectFromFile('RecursiveObjectReference.json');
+        // TODO: all tests should throw an exception "invalid arrayItem". Currently the messages may differ due to
+        // TODO: PropertyProxy resolving
+        $this->expectExceptionMessageRegExp('/^invalid type for (.*)$/');
+
+        $className = $this->generateObjectFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
 
         new $className([
             'person' => [
@@ -217,5 +300,33 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
                 'children' => [$propertyValue]
             ]
         ]);
+    }
+
+    public function invalidCombinedReferenceObjectPropertyTypeDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->referenceProvider(),
+            $this->invalidReferenceObjectPropertyTypeDataProvider()
+        );
+    }
+
+    /**
+     * Combine two data providers
+     *
+     * @param array $dataProvider1
+     * @param array $dataProvider2
+     *
+     * @return array
+     */
+    protected function combineDataProvider(array $dataProvider1, array $dataProvider2): array
+    {
+        $result = [];
+        foreach ($dataProvider1 as $dp1Key => $dp1Value) {
+            foreach ($dataProvider2 as $dp2Key => $dp2Value) {
+                $result["$dp1Key - $dp2Key"] = array_merge($dp1Value, $dp2Value);
+            }
+        }
+
+        return $result;
     }
 }

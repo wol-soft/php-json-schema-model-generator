@@ -76,5 +76,5 @@ abstract class AbstractComposedValueProcessor extends AbstractTypedValueProcesso
      *
      * @return string
      */
-    abstract function getComposedValueValidation(int $composedElements): string;
+    abstract protected function getComposedValueValidation(int $composedElements): string;
 }

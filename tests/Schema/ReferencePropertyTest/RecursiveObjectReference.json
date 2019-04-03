@@ -1,6 +1,7 @@
 {
   "definitions": {
     "person": {
+      "$id": "#person",
       "type": "object",
       "properties": {
         "name": {
@@ -9,7 +10,7 @@
         "children": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/person"
+            "$ref": "%s"
           }
         }
       }
@@ -18,7 +19,7 @@
   "type": "object",
   "properties": {
     "person": {
-      "$ref": "#/definitions/person"
+      "$ref": "%s"
     }
   }
 }

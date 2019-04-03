@@ -12,7 +12,7 @@ class AnyOfProcessor extends AbstractComposedPropertiesProcessor
     /**
      * @inheritdoc
      */
-    function getComposedValueValidation(int $composedElements): string
+    protected function getComposedValueValidation(int $composedElements): string
     {
         return "\$succeededCompositionElements > 0";
     }
