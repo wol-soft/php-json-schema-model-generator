@@ -7,7 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use Exception;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Model\SchemaDefinition;
+use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinition;
 
 /**
  * Class ConstProcessor
@@ -24,9 +24,10 @@ class ReferenceProcessor extends AbstractTypedValueProcessor
     public function process(string $propertyName, array $propertyData): PropertyInterface
     {
         $reference = $propertyData['$ref'];
+        $dictionary = $this->schema->getSchemaDictionary();
 
-        if ($this->schema->getDefinition($reference)) {
-            return $this->resolveDefinition($propertyName, $this->schema->getDefinition($reference), $reference);
+        if ($dictionary->getDefinition($reference)) {
+            return $this->resolveDefinition($propertyName, $dictionary->getDefinition($reference), $reference);
         }
 
         if (strpos($reference, '#') === 0 && strpos($reference, '/')) {
@@ -35,7 +36,7 @@ class ReferenceProcessor extends AbstractTypedValueProcessor
 
             return $this->resolveDefinition(
                 $propertyName,
-                $this->schema->getDefinition(array_shift($path)),
+                $dictionary->getDefinition(array_shift($path)),
                 $reference,
                 $path
             );

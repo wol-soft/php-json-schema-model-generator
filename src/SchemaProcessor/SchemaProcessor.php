@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\RenderJob;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
@@ -74,17 +75,23 @@ class SchemaProcessor
         $this->setCurrentClassPath($jsonSchemaFile);
         $this->currentClassName = ucfirst($jsonSchema['id'] ?? str_ireplace('.json', '', basename($jsonSchemaFile)));
 
-        $this->processSchema($jsonSchema, $this->currentClassPath, $this->currentClassName);
+        $this->processSchema(
+            $jsonSchema,
+            $this->currentClassPath,
+            $this->currentClassName,
+            new SchemaDefinitionDictionary()
+        );
     }
 
     /**
      * Process a JSON schema stored as an associative array
      *
-     * @param array  $jsonSchema
-     * @param string $classPath
-     * @param string $className
-     * @param array  $parentDefinitions If a nested object of a schema is processed import the definitions of the parent
-     *                                  schema to make them available for the nested schema as well
+     * @param array                      $jsonSchema
+     * @param string                     $classPath
+     * @param string                     $className
+     * @param SchemaDefinitionDictionary $dictionary If a nested object of a schema is processed import the definitions
+     *                                               of the parent schema to make them available for the nested schema
+     *                                               as well
      *
      * @return Schema
      *
@@ -94,7 +101,7 @@ class SchemaProcessor
         array $jsonSchema,
         string $classPath,
         string $className,
-        array $parentDefinitions = []
+        SchemaDefinitionDictionary $dictionary
     ): Schema {
         if ((!isset($jsonSchema['type']) || $jsonSchema['type'] !== 'object') &&
             !array_intersect(array_keys($jsonSchema), ['anyOf', 'allOf', 'oneOf'])
@@ -104,16 +111,16 @@ class SchemaProcessor
             );
         }
 
-        return $this->generateModel($classPath, $className, $jsonSchema, $parentDefinitions);
+        return $this->generateModel($classPath, $className, $jsonSchema, $dictionary);
     }
 
     /**
      * Generate a model and store the model to the file system
      *
-     * @param string $classPath
-     * @param string $className
-     * @param array  $structure
-     * @param array  $parentDefinitions
+     * @param string                     $classPath
+     * @param string                     $className
+     * @param array                      $structure
+     * @param SchemaDefinitionDictionary $dictionary
      *
      * @return Schema
      *
@@ -123,9 +130,9 @@ class SchemaProcessor
         string $classPath,
         string $className,
         array $structure,
-        array $parentDefinitions = []
+        SchemaDefinitionDictionary $dictionary
     ): Schema {
-        $schema = new Schema($parentDefinitions);
+        $schema = new Schema($dictionary);
 
         $structure['type'] = 'base';
 

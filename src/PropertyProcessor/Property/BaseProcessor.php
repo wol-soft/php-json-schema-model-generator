@@ -8,7 +8,6 @@ use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Model\SchemaDefinition;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -30,10 +29,14 @@ class BaseProcessor extends AbstractPropertyProcessor
 
     /**
      * @inheritdoc
+     *
+     * @throws SchemaException
      */
     public function process(string $propertyName, array $propertyData): PropertyInterface
     {
-        $this->setUpDefinitionDictionary($propertyData);
+        $this->schema
+            ->getSchemaDictionary()
+            ->setUpDefinitionDictionary($propertyData, $this->schemaProcessor, $this->schema);
 
         // create a property which is used to gather composed properties validators.
         $property = new Property($propertyName, static::TYPE);
@@ -110,59 +113,6 @@ class BaseProcessor extends AbstractPropertyProcessor
                 "Provided object must not contain less than {$propertyData['minProperties']} properties"
             )
         );
-    }
-
-    /**
-     * Set up the definition directory for the schema
-     *
-     * @param array $propertyData
-     */
-    protected function setUpDefinitionDictionary(array $propertyData)
-    {
-        foreach ($propertyData as $key => $propertyEntry) {
-            if (!is_array($propertyEntry)) {
-                continue;
-            }
-
-            // add the root nodes of the schema to resolve path references
-            $this->schema->addDefinition(
-                $key,
-                new SchemaDefinition(
-                    $propertyEntry,
-                    $this->schemaProcessor,
-                    $this->schema
-                )
-            );
-        }
-
-        $this->fetchDefinitionsById($propertyData);
-    }
-
-    /**
-     * Fetch all schema definitions with an ID for direct references
-     *
-     * @param array $schema
-     */
-    protected function fetchDefinitionsById(array $schema)
-    {
-        if (isset($schema['$id'])) {
-            $this->schema->addDefinition(
-                $schema['$id'],
-                new SchemaDefinition(
-                    $schema,
-                    $this->schemaProcessor,
-                    $this->schema
-                )
-            );
-        }
-
-        foreach ($schema as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
-
-            $this->fetchDefinitionsById($item);
-        }
     }
 
     /**

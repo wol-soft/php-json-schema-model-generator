@@ -8,6 +8,7 @@ use Exception;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 
@@ -24,12 +25,17 @@ class Schema
      *                           before adding properties to the model
      */
     protected $baseValidators = [];
-    /** @var SchemaDefinition[] Hold all definitions of the schema */
-    protected $definitions;
+    /** @var SchemaDefinitionDictionary */
+    protected $schemaDefinitionDictionary;
 
-    public function __construct(array $parentDefinitions = [])
+    /**
+     * Schema constructor.
+     *
+     * @param SchemaDefinitionDictionary $dictionary
+     */
+    public function __construct(SchemaDefinitionDictionary $dictionary)
     {
-        $this->definitions = $parentDefinitions;
+        $this->schemaDefinitionDictionary = $dictionary;
     }
 
     /**
@@ -111,39 +117,10 @@ class Schema
     }
 
     /**
-     * Add a partial schema definition to the schema
-     *
-     * @param string $key
-     * @param SchemaDefinition $definition
-     *
-     * @return Schema
+     * @return SchemaDefinitionDictionary
      */
-    public function addDefinition(string $key, SchemaDefinition $definition): self
+    public function getSchemaDictionary(): SchemaDefinitionDictionary
     {
-        if (isset($this->definitions[$key])) {
-            return $this;
-        }
-
-        $this->definitions[$key] = $definition;
-
-        return $this;
-    }
-
-    /**
-     * @param string $key
-     *
-     * @return SchemaDefinition
-     */
-    public function getDefinition(string $key): ?SchemaDefinition
-    {
-        return $this->definitions[$key] ?? null;
-    }
-
-    /**
-     * @return array
-     */
-    public function getDefinitions(): array
-    {
-        return $this->definitions;
+        return $this->schemaDefinitionDictionary;
     }
 }

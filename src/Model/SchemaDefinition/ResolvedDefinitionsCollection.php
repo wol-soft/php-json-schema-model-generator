@@ -2,7 +2,7 @@
 
 declare(strict_types = 1);
 
-namespace PHPModelGenerator\Model;
+namespace PHPModelGenerator\Model\SchemaDefinition;
 
 use ArrayObject;
 

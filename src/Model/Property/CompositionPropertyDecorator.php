@@ -4,7 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Property;
 
-use PHPModelGenerator\Model\ResolvedDefinitionsCollection;
+use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 
 /**
  * Class CompositionPropertyDecorator

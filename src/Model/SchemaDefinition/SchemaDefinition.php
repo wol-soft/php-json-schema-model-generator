@@ -2,12 +2,13 @@
 
 declare(strict_types = 1);
 
-namespace PHPModelGenerator\Model;
+namespace PHPModelGenerator\Model\SchemaDefinition;
 
 use PHPModelGenerator\Exception\PHPModelGeneratorException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyProxy;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;

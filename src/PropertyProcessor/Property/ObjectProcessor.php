@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\ObjectInstantiationDecorator;
 
@@ -18,6 +19,8 @@ class ObjectProcessor extends AbstractTypedValueProcessor
 
     /**
      * @inheritdoc
+     *
+     * @throws SchemaException
      */
     public function process(string $propertyName, array $propertyData): PropertyInterface
     {
@@ -31,7 +34,7 @@ class ObjectProcessor extends AbstractTypedValueProcessor
             $propertyData,
             $this->schemaProcessor->getCurrentClassPath(),
             $className,
-            $this->schema->getDefinitions()
+            $this->schema->getSchemaDictionary()
         );
 
         $property
