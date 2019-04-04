@@ -117,7 +117,6 @@ class SchemaDefinitionDictionary extends ArrayObject
 
         if (!isset($this[$key]) && strstr($key, '#', true)) {
             [$jsonSchemaFile, $externalKey] = explode('#', $key);
-            $jsonSchemaFile = $this->sourceDirectory . DIRECTORY_SEPARATOR . $jsonSchemaFile;
 
             if (array_key_exists($jsonSchemaFile, $this->parsedExternalFileSchemas)) {
                 return $this->parsedExternalFileSchemas[$jsonSchemaFile]->getSchemaDictionary()->getDefinition(
@@ -151,17 +150,21 @@ class SchemaDefinitionDictionary extends ArrayObject
         SchemaProcessor $schemaProcessor,
         array &$path
     ): ?SchemaDefinition {
-        if (!is_file($jsonSchemaFile)) {
-            return null;
+        $jsonSchemaFilePath = filter_var($jsonSchemaFile, FILTER_VALIDATE_URL)
+            ? $jsonSchemaFile
+            : $this->sourceDirectory . '/' . $jsonSchemaFile;
+
+        if (!filter_var($jsonSchemaFilePath, FILTER_VALIDATE_URL) && !is_file($jsonSchemaFilePath)) {
+            throw new SchemaException("Reference to non existing JSON-Schema file $path");
         }
 
-        $jsonSchema = file_get_contents($jsonSchemaFile);
+        $jsonSchema = file_get_contents($jsonSchemaFilePath);
 
         if (!$jsonSchema || !($jsonSchema = json_decode($jsonSchema, true))) {
-            throw new SchemaException("Invalid JSON-Schema file $jsonSchemaFile");
+            throw new SchemaException("Invalid JSON-Schema file $jsonSchemaFilePath");
         }
 
-        $schema = new Schema(new self(dirname($jsonSchemaFile)));
+        $schema = new Schema(new self(dirname($jsonSchemaFilePath)));
         $schema->getSchemaDictionary()->setUpDefinitionDictionary($jsonSchema, $schemaProcessor, $schema);
         $this->parsedExternalFileSchemas[$jsonSchemaFile] = $schema;
 

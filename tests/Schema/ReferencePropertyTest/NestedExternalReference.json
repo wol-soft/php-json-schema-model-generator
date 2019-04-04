@@ -2,7 +2,7 @@
   "type": "object",
   "properties": {
     "family": {
-      "$ref": "external/library.json#/definitions/family"
+      "$ref": "%s#/definitions/family"
     }
   }
 }

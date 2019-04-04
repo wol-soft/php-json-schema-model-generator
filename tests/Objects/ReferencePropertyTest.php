@@ -389,13 +389,17 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * @dataProvider nestedReferenceProvider
+     *
+     * @param string $reference
+     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNestedExternalReference(): void
+    public function testNestedExternalReference(string $reference): void
     {
-        $className = $this->generateObjectFromFile('NestedExternalReference.json');
+        $className = $this->generateObjectFromFileTemplate('NestedExternalReference.json', [$reference]);
 
         $object = new $className([
             'family' => [
@@ -420,6 +424,14 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         $this->assertEmpty($object->getFamily()->getMember()[0]->getChildren()[0]->getChildren());
         $this->assertSame('Anette', $object->getFamily()->getMember()[1]->getName());
         $this->assertEmpty($object->getFamily()->getMember()[1]->getChildren());
+    }
+
+    public function nestedReferenceProvider(): array
+    {
+        return [
+            'Local reference' => ['external/library.json'],
+            'Network reference' => ['https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest/external/library.json'],
+        ];
     }
 
     /**

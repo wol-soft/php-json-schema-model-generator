@@ -25,14 +25,15 @@ class ReferenceProcessor extends AbstractTypedValueProcessor
         $path = [];
         $reference = $propertyData['$ref'];
         $dictionary = $this->schema->getSchemaDictionary();
-        $definition = $dictionary->getDefinition($reference, $this->schemaProcessor, $path);
 
-        if ($definition) {
-            try {
+        try {
+            $definition = $dictionary->getDefinition($reference, $this->schemaProcessor, $path);
+
+            if ($definition) {
                 return $definition->resolveReference($propertyName, $path, $this->propertyCollectionProcessor);
-            } catch (Exception $exception) {
-                throw new SchemaException("Unresolved Reference: $reference", 0, $exception);
             }
+        } catch (Exception $exception) {
+            throw new SchemaException("Unresolved Reference: $reference", 0, $exception);
         }
 
         throw new SchemaException("Unresolved Reference: $reference");
