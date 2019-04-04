@@ -19,6 +19,8 @@ use RecursiveIteratorIterator;
  */
 abstract class AbstractPHPModelGeneratorTest extends TestCase
 {
+    protected const EXTERNAL_JSON_DIRECTORIES = [];
+
     private $names = [];
 
     private $generatedFiles = [];
@@ -73,6 +75,24 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
         $this->names = [];
         $this->generatedFiles = [];
+    }
+
+    /**
+     * Copy given external JSON schema files into the tmp directory to make them available during model generation
+     */
+    private function copyExternalJSON(): void
+    {
+        $baseDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'PHPModelGeneratorTest' . DIRECTORY_SEPARATOR;
+        $copyBaseDir = __DIR__ . "/Schema/{$this->getStaticClassName()}/";
+
+        foreach (static::EXTERNAL_JSON_DIRECTORIES as $directory) {
+            $di = new RecursiveDirectoryIterator($copyBaseDir . $directory, FilesystemIterator::SKIP_DOTS);
+
+            foreach (new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST) as $file) {
+                @mkdir($baseDir . dirname(str_replace($copyBaseDir, '', $file)), 0777, true);
+                @copy($file, $baseDir . str_replace($copyBaseDir, '', $file));
+            }
+        }
     }
 
     /**
@@ -166,6 +186,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         }
 
         file_put_contents($baseDir . DIRECTORY_SEPARATOR . $className . '.json', $jsonSchema);
+        $this->copyExternalJSON();
 
         $generatedFiles = (new Generator($generatorConfiguration))->generateModels(
             $baseDir,

@@ -61,10 +61,11 @@ class SchemaProcessor
      * Process a given json schema file
      *
      * @param string $jsonSchemaFile
+     * @param string $schemaSourceDirectory
      *
      * @throws SchemaException
      */
-    public function process(string $jsonSchemaFile): void
+    public function process(string $jsonSchemaFile, string $schemaSourceDirectory): void
     {
         $jsonSchema = file_get_contents($jsonSchemaFile);
 
@@ -79,7 +80,7 @@ class SchemaProcessor
             $jsonSchema,
             $this->currentClassPath,
             $this->currentClassName,
-            new SchemaDefinitionDictionary()
+            new SchemaDefinitionDictionary($schemaSourceDirectory)
         );
     }
 
@@ -102,13 +103,12 @@ class SchemaProcessor
         string $classPath,
         string $className,
         SchemaDefinitionDictionary $dictionary
-    ): Schema {
+    ): ?Schema {
         if ((!isset($jsonSchema['type']) || $jsonSchema['type'] !== 'object') &&
             !array_intersect(array_keys($jsonSchema), ['anyOf', 'allOf', 'oneOf'])
         ) {
-            throw new SchemaException(
-                "JSON-Schema doesn't provide an object or a composition " . $jsonSchema['id'] ?? ''
-            );
+            // skip the JSON schema as neither an object nor a composition is defined on the root level
+            return null;
         }
 
         return $this->generateModel($classPath, $className, $jsonSchema, $dictionary);
@@ -154,7 +154,7 @@ class SchemaProcessor
         if ($this->generatorConfiguration->isOutputEnabled()) {
             // @codeCoverageIgnoreStart
             echo "Generated class $className\n";
-            // @codeCoverageIgnoreEno
+            // @codeCoverageIgnoreEnd
         }
 
         $this->generatedFiles[] = $fileName;

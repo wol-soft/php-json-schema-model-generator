@@ -63,7 +63,7 @@ class Generator
         $schemaProcessor = new SchemaProcessor($source, $destination, $this->generatorConfiguration, $renderProxy);
 
         foreach ($this->getSchemaFiles($source) as $jsonSchemaFile) {
-            $schemaProcessor->process($jsonSchemaFile);
+            $schemaProcessor->process($jsonSchemaFile, $source);
         }
 
         // render all collected classes

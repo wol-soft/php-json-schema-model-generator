@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "family": {
+      "$ref": "external/library.json#/definitions/family"
+    }
+  }
+}

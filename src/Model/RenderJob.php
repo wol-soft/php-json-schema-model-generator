@@ -55,13 +55,13 @@ class RenderJob
         if (!file_put_contents($this->fileName, $class)) {
             // @codeCoverageIgnoreStart
             throw new FileSystemException("Can't write class $this->classPath\\$this->className");
-            // @codeCoverageIgnoreEno
+            // @codeCoverageIgnoreEnd
         }
 
         if ($generatorConfiguration->isOutputEnabled()) {
             // @codeCoverageIgnoreStart
             echo "Rendered class $this->className\n";
-            // @codeCoverageIgnoreEno
+            // @codeCoverageIgnoreEnd
         }
     }
 

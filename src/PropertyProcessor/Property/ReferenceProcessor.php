@@ -7,7 +7,6 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use Exception;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinition;
 
 /**
  * Class ConstProcessor
@@ -23,46 +22,11 @@ class ReferenceProcessor extends AbstractTypedValueProcessor
      */
     public function process(string $propertyName, array $propertyData): PropertyInterface
     {
+        $path = [];
         $reference = $propertyData['$ref'];
         $dictionary = $this->schema->getSchemaDictionary();
+        $definition = $dictionary->getDefinition($reference, $this->schemaProcessor, $path);
 
-        if ($dictionary->getDefinition($reference)) {
-            return $this->resolveDefinition($propertyName, $dictionary->getDefinition($reference), $reference);
-        }
-
-        if (strpos($reference, '#') === 0 && strpos($reference, '/')) {
-            $path = explode('/', $reference);
-            array_shift($path);
-
-            return $this->resolveDefinition(
-                $propertyName,
-                $dictionary->getDefinition(array_shift($path)),
-                $reference,
-                $path
-            );
-        }
-
-        throw new SchemaException("Unresolved Reference: $reference");
-    }
-
-    /**
-     * Resolve a given definition into a Property
-     *
-     * @param string                $propertyName
-     * @param SchemaDefinition|null $definition
-     * @param string                $reference
-     * @param array                 $path
-     *
-     * @return PropertyInterface
-     *
-     * @throws SchemaException
-     */
-    protected function resolveDefinition(
-        string $propertyName,
-        ?SchemaDefinition $definition,
-        string $reference,
-        array $path = []
-    ): PropertyInterface {
         if ($definition) {
             try {
                 return $definition->resolveReference($propertyName, $path, $this->propertyCollectionProcessor);

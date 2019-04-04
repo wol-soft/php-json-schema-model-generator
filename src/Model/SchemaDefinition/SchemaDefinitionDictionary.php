@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\Model\SchemaDefinition;
 
 use ArrayObject;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
@@ -15,6 +16,23 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
  */
 class SchemaDefinitionDictionary extends ArrayObject
 {
+    /** @var string */
+    private $sourceDirectory;
+    /** @var Schema[] */
+    private $parsedExternalFileSchemas = [];
+
+    /**
+     * SchemaDefinitionDictionary constructor.
+     *
+     * @param string $sourceDirectory
+     */
+    public function __construct(string $sourceDirectory)
+    {
+        parent::__construct();
+
+        $this->sourceDirectory = $sourceDirectory;
+    }
+
     /**
      * Set up the definition directory for the schema
      *
@@ -22,8 +40,11 @@ class SchemaDefinitionDictionary extends ArrayObject
      * @param SchemaProcessor $schemaProcessor
      * @param Schema          $schema
      */
-    public function setUpDefinitionDictionary(array $propertyData, SchemaProcessor $schemaProcessor, Schema $schema)
-    {
+    public function setUpDefinitionDictionary(
+        array $propertyData,
+        SchemaProcessor $schemaProcessor,
+        Schema $schema
+    ): void {
         foreach ($propertyData as $key => $propertyEntry) {
             if (!is_array($propertyEntry)) {
                 continue;
@@ -43,7 +64,7 @@ class SchemaDefinitionDictionary extends ArrayObject
      * @param SchemaProcessor $schemaProcessor
      * @param Schema          $schema
      */
-    protected function fetchDefinitionsById(array $propertyData, SchemaProcessor $schemaProcessor, Schema $schema)
+    protected function fetchDefinitionsById(array $propertyData, SchemaProcessor $schemaProcessor, Schema $schema): void
     {
         if (isset($propertyData['$id'])) {
             $this->addDefinition($propertyData['$id'], new SchemaDefinition($propertyData, $schemaProcessor, $schema));
@@ -78,12 +99,72 @@ class SchemaDefinitionDictionary extends ArrayObject
     }
 
     /**
-     * @param string $key
+     * @param string          $key
+     * @param SchemaProcessor $schemaProcessor
+     * @param array           $path
      *
      * @return SchemaDefinition
+     *
+     * @throws SchemaException
      */
-    public function getDefinition(string $key): ?SchemaDefinition
+    public function getDefinition(string $key, SchemaProcessor $schemaProcessor, array &$path = []): ?SchemaDefinition
     {
+        if (strpos($key, '#') === 0 && strpos($key, '/')) {
+            $path = explode('/', $key);
+            array_shift($path);
+            $key  = array_shift($path);
+        }
+
+        if (!isset($this[$key]) && strstr($key, '#', true)) {
+            [$jsonSchemaFile, $externalKey] = explode('#', $key);
+            $jsonSchemaFile = $this->sourceDirectory . DIRECTORY_SEPARATOR . $jsonSchemaFile;
+
+            if (array_key_exists($jsonSchemaFile, $this->parsedExternalFileSchemas)) {
+                return $this->parsedExternalFileSchemas[$jsonSchemaFile]->getSchemaDictionary()->getDefinition(
+                    "#$externalKey",
+                    $schemaProcessor,
+                    $path
+                );
+            }
+
+            return $jsonSchemaFile
+                ? $this->parseExternalFile($jsonSchemaFile, "#$externalKey", $schemaProcessor, $path)
+                : null;
+        }
+
         return $this[$key] ?? null;
+    }
+
+    /**
+     * @param string          $jsonSchemaFile
+     * @param string          $externalKey
+     * @param SchemaProcessor $schemaProcessor
+     * @param array           $path
+     *
+     * @return SchemaDefinition|null
+     *
+     * @throws SchemaException
+     */
+    protected function parseExternalFile(
+        string $jsonSchemaFile,
+        string $externalKey,
+        SchemaProcessor $schemaProcessor,
+        array &$path
+    ): ?SchemaDefinition {
+        if (!is_file($jsonSchemaFile)) {
+            return null;
+        }
+
+        $jsonSchema = file_get_contents($jsonSchemaFile);
+
+        if (!$jsonSchema || !($jsonSchema = json_decode($jsonSchema, true))) {
+            throw new SchemaException("Invalid JSON-Schema file $jsonSchemaFile");
+        }
+
+        $schema = new Schema(new self(dirname($jsonSchemaFile)));
+        $schema->getSchemaDictionary()->setUpDefinitionDictionary($jsonSchema, $schemaProcessor, $schema);
+        $this->parsedExternalFileSchemas[$jsonSchemaFile] = $schema;
+
+        return $schema->getSchemaDictionary()->getDefinition($externalKey, $schemaProcessor, $path);
     }
 }

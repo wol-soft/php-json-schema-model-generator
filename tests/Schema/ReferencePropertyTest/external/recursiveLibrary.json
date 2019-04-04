@@ -1,0 +1,34 @@
+{
+  "definitions": {
+    "personDirect": {
+      "$id": "#personDirect",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#personDirect"
+          }
+        }
+      }
+    },
+    "personPath": {
+      "$id": "#personPath",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/personPath"
+          }
+        }
+      }
+    }
+  }
+}
