@@ -134,7 +134,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
         $invalidDefaultValueException = null;
         $invalidDefaultValues = 0;
 
-        if ($propertyData['default']) {
+        if (isset($propertyData['default'])) {
             $defaultValue = $propertyData['default'];
             unset($propertyData['default']);
         }
