@@ -22,6 +22,16 @@ class RenderHelper
     }
 
     /**
+     * @param $value
+     *
+     * @return bool
+     */
+    public function isNull($value): bool
+    {
+        return $value === null;
+    }
+
+    /**
      * @param string $fqcn
      *
      * @return string

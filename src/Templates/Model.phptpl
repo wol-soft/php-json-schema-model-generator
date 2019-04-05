@@ -18,7 +18,7 @@ class {{ class }}
 {
     {% foreach properties as property %}
         /** @var {% if property.getType() %}{{ property.getType() }}{% else %}mixed{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
-        protected ${{ property.getAttribute() }};
+        protected ${{ property.getAttribute() }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
     /** @var array */
     protected $rawModelDataInput;
@@ -92,7 +92,7 @@ class {{ class }}
          */
         protected function process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
         {
-            $value = $rawValue = $modelData['{{ property.getName() }}'] ?? null;
+            $value = $rawValue = $modelData['{{ property.getName() }}'] ?? $this->{{ property.getAttribute() }};
 
             {{ viewHelper.resolvePropertyDecorator(property) }}
 

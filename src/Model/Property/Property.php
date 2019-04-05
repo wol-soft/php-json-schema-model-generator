@@ -26,6 +26,8 @@ class Property implements PropertyInterface
     protected $isPropertyRequired = true;
     /** @var string */
     protected $description = '';
+    /** @var mixed */
+    protected $defaultValue;
 
     /** @var Validator[] */
     protected $validator = [];
@@ -256,6 +258,24 @@ class Property implements PropertyInterface
     {
         $this->isPropertyRequired = $isPropertyRequired;
         return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function setDefaultValue($defaultValue): PropertyInterface
+    {
+        $this->defaultValue = $defaultValue;
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getDefaultValue()
+    {
+        return var_export($this->defaultValue, true);
     }
 
     /**

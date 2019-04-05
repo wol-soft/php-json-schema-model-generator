@@ -67,19 +67,14 @@ class MultiTypeProcessor extends AbstractValueProcessor
      * @param array $propertyData An array containing the data of the property
      *
      * @return PropertyInterface
+     *
+     * @throws SchemaException
      */
     public function process(string $propertyName, array $propertyData): PropertyInterface
     {
         $property = parent::process($propertyName, $propertyData);
 
-        foreach ($this->propertyProcessors as $propertyProcessor) {
-            $subProperty = $propertyProcessor->process($propertyName, $propertyData);
-            $this->transferValidators($subProperty, $property);
-
-            if ($subProperty->hasDecorators()) {
-                $property->addDecorator(new PropertyTransferDecorator($subProperty));
-            }
-        }
+        $this->processSubProperties($propertyName, $propertyData, $property);
 
         if (empty($this->allowedPropertyTypeChecks)) {
             return $property;
@@ -120,6 +115,50 @@ class MultiTypeProcessor extends AbstractValueProcessor
 
             $destination->addValidator($validator->getValidator(), $validator->getPriority());
             $this->checks[] = $validator->getValidator()->getCheck();
+        }
+    }
+
+    /**
+     * @param string            $propertyName
+     * @param array             $propertyData
+     * @param PropertyInterface $property
+     *
+     * @throws SchemaException
+     */
+    protected function processSubProperties(
+        string $propertyName,
+        array $propertyData,
+        PropertyInterface $property
+    ): void {
+        $defaultValue = null;
+        $invalidDefaultValueException = null;
+        $invalidDefaultValues = 0;
+
+        if ($propertyData['default']) {
+            $defaultValue = $propertyData['default'];
+            unset($propertyData['default']);
+        }
+
+        foreach ($this->propertyProcessors as $propertyProcessor) {
+            $subProperty = $propertyProcessor->process($propertyName, $propertyData);
+            $this->transferValidators($subProperty, $property);
+
+            if ($subProperty->hasDecorators()) {
+                $property->addDecorator(new PropertyTransferDecorator($subProperty));
+            }
+
+            if ($defaultValue !== null && $propertyProcessor instanceof AbstractTypedValueProcessor) {
+                try {
+                    $propertyProcessor->setDefaultValue($property, $defaultValue);
+                } catch (SchemaException $e) {
+                    $invalidDefaultValues++;
+                    $invalidDefaultValueException = $e;
+                }
+            }
+        }
+
+        if ($invalidDefaultValues === count($this->propertyProcessors)) {
+            throw $invalidDefaultValueException;
         }
     }
 }

@@ -135,6 +135,18 @@ interface PropertyInterface
     public function setRequired(bool $isPropertyRequired): PropertyInterface;
 
     /**
+     * @param mixed $defaultValue
+     *
+     * @return PropertyInterface
+     */
+    public function setDefaultValue($defaultValue): PropertyInterface;
+
+    /**
+     * @return mixed
+     */
+    public function getDefaultValue();
+
+    /**
      * @return bool
      */
     public function isRequired(): bool;

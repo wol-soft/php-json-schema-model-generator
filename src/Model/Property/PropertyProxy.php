@@ -190,6 +190,22 @@ class PropertyProxy implements PropertyInterface
     /**
      * @inheritdoc
      */
+    public function setDefaultValue($defaultValue): PropertyInterface
+    {
+        return $this->getProperty()->setDefaultValue($defaultValue);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getDefaultValue()
+    {
+        return $this->getProperty()->getDefaultValue();
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function setNestedSchema(Schema $schema): PropertyInterface
     {
         return $this->getProperty()->setNestedSchema($schema);
