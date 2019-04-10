@@ -1,0 +1,44 @@
+{%if onlyForDefinedValues %}
+    $value !== null &&
+{% endif %}
+(function ($value) use (&$modelData) {
+    $originalModelData = $value;
+    $ifValid           = true;
+
+    try {
+        {{ viewHelper.resolvePropertyDecorator(ifProperty) }}
+
+        {% foreach ifProperty.getOrderedValidators() as validator %}
+            if ({{ validator.getCheck() }}) {
+                throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');
+            }
+        {% endforeach %}
+    } catch (\Exception $e) {
+        $ifValid = false;
+    }
+    $value = $originalModelData;
+
+    if ($ifValid) {
+        {% if thenProperty %}
+            {{ viewHelper.resolvePropertyDecorator(thenProperty) }}
+
+            {% foreach thenProperty.getOrderedValidators() as validator %}
+                if ({{ validator.getCheck() }}) {
+                    throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');
+                }
+            {% endforeach %}
+        {% endif %}
+    } else {
+        {% if elseProperty %}
+            {{ viewHelper.resolvePropertyDecorator(elseProperty) }}
+
+            {% foreach elseProperty.getOrderedValidators() as validator %}
+                if ({{ validator.getCheck() }}) {
+                    throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');
+                }
+            {% endforeach %}
+        {% endif %}
+    }
+
+    return false;
+})($rawValue)

@@ -50,16 +50,12 @@ class Schema
      * @param PropertyInterface $property
      *
      * @return $this
-     *
-     * @throws SchemaException
      */
     public function addProperty(PropertyInterface $property): self
     {
-        if (isset($this->properties[$property->getName()])) {
-            throw new SchemaException("Duplicate object property {$property->getName()}");
+        if (!isset($this->properties[$property->getName()])) {
+            $this->properties[$property->getName()] = $property;
         }
-
-        $this->properties[$property->getName()] = $property;
 
         return $this;
     }

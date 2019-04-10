@@ -8,12 +8,9 @@ use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Model\Validator;
-use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
-use PHPModelGenerator\Model\Validator\TypeCheckValidator;
-use PHPModelGenerator\PropertyProcessor\ComposedValue\AbstractComposedPropertiesProcessor;
+use PHPModelGenerator\PropertyProcessor\ComposedValue\ComposedPropertiesInterface;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
@@ -153,13 +150,13 @@ class BaseProcessor extends AbstractPropertyProcessor
         foreach ($property->getValidators() as $validator) {
             $validator = $validator->getValidator();
 
-            if (!is_a($validator, ComposedPropertyValidator::class)) {
+            if (!is_a($validator, AbstractComposedPropertyValidator::class)) {
                 continue;
             }
-            /** @var ComposedPropertyValidator $validator */
+            /** @var AbstractComposedPropertyValidator $validator */
             $this->schema->addBaseValidator($validator);
 
-            if (!is_a($validator->getComposedProcessor(), AbstractComposedPropertiesProcessor::class, true)) {
+            if (!is_a($validator->getComposedProcessor(), ComposedPropertiesInterface::class, true)) {
                 continue;
             }
 
@@ -172,9 +169,8 @@ class BaseProcessor extends AbstractPropertyProcessor
                     $this->schema->addProperty(
                         (clone $property)
                             ->setRequired(false)
-                            ->filterValidators(function (Validator $validator) {
-                                return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                                    !is_a($validator->getValidator(), TypeCheckValidator::class);
+                            ->filterValidators(function () {
+                                return false;
                             })
                     );
 

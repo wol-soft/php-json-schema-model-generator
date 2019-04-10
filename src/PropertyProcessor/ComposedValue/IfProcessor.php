@@ -4,10 +4,12 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Property\AbstractValueProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
@@ -16,22 +18,32 @@ use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
- * Class AbstractComposedValueProcessor
+ * Class IfProcessor
  *
  * @package PHPModelGenerator\PropertyProcessor\ComposedValue
  */
-abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
+class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesInterface
 {
     /**
      * @inheritdoc
      */
     protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {
+        echo print_r($propertyData, true);
+        if (!isset($propertyData['propertyData']['then']) && !isset($propertyData['propertyData']['else'])) {
+            throw new SchemaException('Incomplete conditional composition');
+        }
+
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
         $properties = [];
 
-        foreach ($propertyData['propertyData'][$propertyData['type']] as $compositionElement) {
+        foreach (['if', 'then', 'else'] as $compositionElement) {
+            if (!isset($propertyData['propertyData'][$compositionElement])) {
+                $properties[$compositionElement] = null;
+                continue;
+            }
+
             $compositionProperty = new CompositionPropertyDecorator(
                 $propertyFactory
                     ->create(
@@ -39,7 +51,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                         $this->schemaProcessor,
                         $this->schema,
                         $property->getName(),
-                        $compositionElement
+                        $propertyData['propertyData'][$compositionElement]
                     )
             );
 
@@ -48,33 +60,33 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     !is_a($validator->getValidator(), ComposedPropertyValidator::class);
             });
 
-            $properties[] = $compositionProperty;
+            $properties[$compositionElement] = $compositionProperty;
         }
 
-        $availableAmount = count($properties);
-
+        print_r($propertyData['propertyData'], true);
         $property->addValidator(
-            new ComposedPropertyValidator(
+            new ConditionalPropertyValidator(
                 $property,
                 $properties,
-                static::class,
                 [
-                    'properties' => $properties,
+                    'ifProperty' => $properties['if'],
+                    'thenProperty' => $properties['then'],
+                    'elseProperty' => $properties['else'],
                     'viewHelper' => new RenderHelper(),
-                    'availableAmount' => $availableAmount,
-                    'composedValueValidation' => $this->getComposedValueValidation($availableAmount),
-                    'onlyForDefinedValues' => $propertyData['onlyForDefinedValues'] &&
-                        $this instanceof ComposedPropertiesInterface,
+                    'onlyForDefinedValues' => $propertyData['onlyForDefinedValues'],
                 ]
             ),
             100
         );
+
+        parent::generateValidators($property, $propertyData);
     }
 
     /**
-     * @param int $composedElements The amount of elements which are composed together
-     *
-     * @return string
+     * @inheritdoc
      */
-    abstract protected function getComposedValueValidation(int $composedElements): string;
+    protected function getComposedValueValidation(int $composedElements): string
+    {
+        return '$succeededCompositionElements === 0';
+    }
 }

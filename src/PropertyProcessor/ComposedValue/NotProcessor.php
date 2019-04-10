@@ -17,7 +17,7 @@ class NotProcessor extends AbstractComposedValueProcessor
     protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {
         // as the not composition only takes one schema nest it one level deeper to use the ComposedValueProcessor
-        $propertyData['composition'] = [$propertyData['composition']];
+        $propertyData['propertyData']['not'] = [$propertyData['propertyData']['not']];
         // strict type checks for not constraint to avoid issues with null
         $property->setRequired(true);
         parent::generateValidators($property, $propertyData);

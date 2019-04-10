@@ -105,7 +105,7 @@ class SchemaProcessor
         SchemaDefinitionDictionary $dictionary
     ): ?Schema {
         if ((!isset($jsonSchema['type']) || $jsonSchema['type'] !== 'object') &&
-            !array_intersect(array_keys($jsonSchema), ['anyOf', 'allOf', 'oneOf'])
+            !array_intersect(array_keys($jsonSchema), ['anyOf', 'allOf', 'oneOf', 'if'])
         ) {
             // skip the JSON schema as neither an object nor a composition is defined on the root level
             return null;

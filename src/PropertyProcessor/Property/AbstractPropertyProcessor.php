@@ -96,7 +96,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      */
     protected function addComposedValueValidator(PropertyInterface $property, array $propertyData): void
     {
-        $composedValueKeywords = ['allOf', 'anyOf', 'oneOf', 'not'];
+        $composedValueKeywords = ['allOf', 'anyOf', 'oneOf', 'not', 'if'];
         $propertyFactory = new PropertyFactory(new ComposedValueProcessorFactory());
 
         foreach ($composedValueKeywords as $composedValueKeyword) {
@@ -114,7 +114,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                     $property->getName(),
                     [
                         'type' => $composedValueKeyword,
-                        'composition' => $propertyData[$composedValueKeyword],
+                        'propertyData' => $propertyData,
                         'onlyForDefinedValues' => !($this instanceof BaseProcessor) && !$property->isRequired(),
                     ]
                 );
@@ -141,15 +141,41 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             $propertyData['type'] = 'object';
         }
 
-        if ($composedValueKeyword === 'not') {
+        switch ($composedValueKeyword) {
+            case 'not':
+                if (!isset($propertyData[$composedValueKeyword]['type'])) {
+                    $propertyData[$composedValueKeyword]['type'] = $propertyData['type'];
+                }
+                break;
+            case 'if':
+                return $this->inheritIfPropertyType($propertyData);
+            default:
+                foreach ($propertyData[$composedValueKeyword] as &$composedElement) {
+                    if (!isset($composedElement['type'])) {
+                        $composedElement['type'] = $propertyData['type'];
+                    }
+                }
+        }
+
+        return $propertyData;
+    }
+
+    /**
+     * Inherit the type pf a property into all composed components of a conditional composition
+     *
+     * @param array $propertyData
+     *
+     * @return array
+     */
+    protected function inheritIfPropertyType(array $propertyData): array
+    {
+        foreach (['if', 'then', 'else'] as $composedValueKeyword) {
+            if (!isset($propertyData[$composedValueKeyword])) {
+                continue;
+            }
+
             if (!isset($propertyData[$composedValueKeyword]['type'])) {
                 $propertyData[$composedValueKeyword]['type'] = $propertyData['type'];
-            }
-        } else {
-            foreach ($propertyData[$composedValueKeyword] as &$composedElement) {
-                if (!isset($composedElement['type'])) {
-                    $composedElement['type'] = $propertyData['type'];
-                }
             }
         }
 
