@@ -9,6 +9,8 @@ env:
 php:
   - 7.2
   - 7.3
+  - 7.4snapshot
+  - nightly
 
 install:
   # Install coveralls.phar
