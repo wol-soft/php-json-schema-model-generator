@@ -44,12 +44,7 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
     {
         $property = (new Property($propertyName, $this->type))
             ->setDescription($propertyData['description'] ?? '')
-            // the property is either required if defined as required
-            // or if the property is related to a typed enum (strict type checks)
-            ->setRequired(
-                $this->propertyCollectionProcessor->isAttributeRequired($propertyName) ||
-                isset($propertyData['enum'], $propertyData['type'])
-            );
+            ->setRequired($this->propertyCollectionProcessor->isAttributeRequired($propertyName));
 
         $this->generateValidators($property, $propertyData);
 

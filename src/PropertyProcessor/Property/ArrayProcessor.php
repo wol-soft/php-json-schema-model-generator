@@ -9,6 +9,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\PropertyProcessor\Decorator\ArrayTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
@@ -120,18 +121,19 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                 $propertyData[self::JSON_FIELD_ITEMS]
             );
 
-        $property->addNestedProperty($nestedProperty);
-
-        $property->addValidator(
-            new PropertyTemplateValidator(
-                InvalidArgumentException::class,
-                'Invalid array item',
-                DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayItem.phptpl',
-                [
-                    'property' => $nestedProperty,
-                    'viewHelper' => new RenderHelper(),
-                ]
-            )
-        );
+        $property
+            ->addNestedProperty($nestedProperty)
+            ->addTypeHintDecorator(new ArrayTypeHintDecorator($nestedProperty))
+            ->addValidator(
+                new PropertyTemplateValidator(
+                    InvalidArgumentException::class,
+                    'Invalid array item',
+                    DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayItem.phptpl',
+                    [
+                        'property' => $nestedProperty,
+                        'viewHelper' => new RenderHelper(),
+                    ]
+                )
+            );
     }
 }

@@ -6,7 +6,7 @@ use FilesystemIterator;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Generator;
+use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
@@ -188,7 +188,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         file_put_contents($baseDir . DIRECTORY_SEPARATOR . $className . '.json', $jsonSchema);
         $this->copyExternalJSON();
 
-        $generatedFiles = (new Generator($generatorConfiguration))->generateModels(
+        $generatedFiles = (new ModelGenerator($generatorConfiguration))->generateModels(
             $baseDir,
             $baseDir . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR
         );

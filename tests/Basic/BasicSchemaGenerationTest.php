@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Generator;
+use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
@@ -55,7 +55,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         define('MODEL_TEMP_PATH', sys_get_temp_dir() . '/PHPModelGeneratorTest/Models');
 
-        (new Generator(
+        (new ModelGenerator(
             (new GeneratorConfiguration())
                 ->setNamespacePrefix('\\Application')
                 ->setPrettyPrint(false)

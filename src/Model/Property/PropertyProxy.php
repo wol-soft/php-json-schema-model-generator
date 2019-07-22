@@ -8,6 +8,7 @@ use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\PropertyDecoratorInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHintDecoratorInterface;
 
 /**
  * Class PropertyProxy
@@ -73,6 +74,22 @@ class PropertyProxy implements PropertyInterface
     public function setType(string $type): PropertyInterface
     {
         return $this->getProperty()->setType($type);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getTypeHint(): string
+    {
+        return $this->getProperty()->getTypeHint();
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function addTypeHintDecorator(TypeHintDecoratorInterface $typeHintDecorator): PropertyInterface
+    {
+        return $this->getProperty()->addTypeHintDecorator($typeHintDecorator);
     }
 
     /**

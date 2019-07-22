@@ -45,6 +45,9 @@ class SchemaDefinitionDictionary extends ArrayObject
         SchemaProcessor $schemaProcessor,
         Schema $schema
     ): void {
+        // attach the root node to the definition dictionary
+        $this->addDefinition('#', new SchemaDefinition($propertyData, $schemaProcessor, $schema));
+
         foreach ($propertyData as $key => $propertyEntry) {
             if (!is_array($propertyEntry)) {
                 continue;
@@ -115,8 +118,13 @@ class SchemaDefinitionDictionary extends ArrayObject
             $key  = array_shift($path);
         }
 
-        if (!isset($this[$key]) && strstr($key, '#', true)) {
-            [$jsonSchemaFile, $externalKey] = explode('#', $key);
+        if (!isset($this[$key])) {
+            if (strstr($key, '#', true)) {
+                [$jsonSchemaFile, $externalKey] = explode('#', $key);
+            } else {
+                $jsonSchemaFile = $key;
+                $externalKey = '';
+            }
 
             if (array_key_exists($jsonSchemaFile, $this->parsedExternalFileSchemas)) {
                 return $this->parsedExternalFileSchemas[$jsonSchemaFile]->getSchemaDictionary()->getDefinition(
@@ -155,7 +163,7 @@ class SchemaDefinitionDictionary extends ArrayObject
             : $this->sourceDirectory . '/' . $jsonSchemaFile;
 
         if (!filter_var($jsonSchemaFilePath, FILTER_VALIDATE_URL) && !is_file($jsonSchemaFilePath)) {
-            throw new SchemaException("Reference to non existing JSON-Schema file $path");
+            throw new SchemaException("Reference to non existing JSON-Schema file $jsonSchemaFilePath");
         }
 
         $jsonSchema = file_get_contents($jsonSchemaFilePath);

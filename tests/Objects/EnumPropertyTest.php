@@ -27,7 +27,24 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testEnumItemIsValid(string $propertyValue): void
+    public function testNotProvidedOptionalEnumItemIsValid(): void
+    {
+        $className = $this->generateEnumClass('string', static::ENUM_STRING);
+
+        $object = new $className([]);
+        $this->assertSame(null, $object->getProperty());
+    }
+
+    /**
+     * @dataProvider validEnumEntriesDataProvider
+     *
+     * @param string $propertyValue
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testEnumItemIsValid(?string $propertyValue): void
     {
         $className = $this->generateEnumClass('string', static::ENUM_STRING);
 
@@ -39,7 +56,8 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
     {
         return [
             'red' => ['red'],
-            'green' => ['green']
+            'green' => ['green'],
+            'null' => [null],
         ];
     }
 
@@ -106,12 +124,12 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNotProvidedValueForTypedEnumThrowsAnException(): void
+    public function testNotProvidedValueForRequiredEnumThrowsAnException(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Missing required value for property");
 
-        $className = $this->generateEnumClass('string', static::ENUM_STRING);
+        $className = $this->generateEnumClass('string', static::ENUM_STRING, true);
 
         new $className([]);
     }
@@ -121,14 +139,27 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNullProvidedForTypedEnumThrowsAnException(): void
+    public function testNullProvidedForRequiredEnumThrowsAnException(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("invalid type for property");
 
-        $className = $this->generateEnumClass('string', static::ENUM_STRING);
+        $className = $this->generateEnumClass('string', static::ENUM_STRING, true);
 
         new $className(['property' => null]);
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNotProvidedEnumItemIsValidInOptionalUntypedEnum(): void
+    {
+        $className = $this->generateObjectFromFile('UntypedEnumProperty.json');
+
+        $object = new $className([]);
+        $this->assertSame(null, $object->getProperty());
     }
 
     /**
@@ -188,7 +219,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
         ];
     }
 
-    protected function generateEnumClass(string $type, array $enumValues): string
+    protected function generateEnumClass(string $type, array $enumValues, $required = false): string
     {
         $enumValues = array_map(
             function ($item) {
@@ -199,7 +230,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
 
         return $this->generateObjectFromFileTemplate(
             'EnumProperty.json',
-            [$type, sprintf('[%s]', join(',', $enumValues))]
+            [$type, sprintf('[%s]', join(',', $enumValues)), $required ? 'property' : '']
         );
     }
 }

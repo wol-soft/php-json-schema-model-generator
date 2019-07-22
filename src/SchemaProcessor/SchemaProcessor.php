@@ -61,11 +61,10 @@ class SchemaProcessor
      * Process a given json schema file
      *
      * @param string $jsonSchemaFile
-     * @param string $schemaSourceDirectory
      *
      * @throws SchemaException
      */
-    public function process(string $jsonSchemaFile, string $schemaSourceDirectory): void
+    public function process(string $jsonSchemaFile): void
     {
         $jsonSchema = file_get_contents($jsonSchemaFile);
 
@@ -80,7 +79,7 @@ class SchemaProcessor
             $jsonSchema,
             $this->currentClassPath,
             $this->currentClassName,
-            new SchemaDefinitionDictionary($schemaSourceDirectory)
+            new SchemaDefinitionDictionary(dirname($jsonSchemaFile))
         );
     }
 

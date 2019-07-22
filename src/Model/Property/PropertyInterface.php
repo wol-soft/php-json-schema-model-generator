@@ -8,6 +8,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\PropertyDecoratorInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHintDecoratorInterface;
 
 /**
  * Interface PropertyInterface
@@ -37,6 +38,18 @@ interface PropertyInterface
      * @return PropertyInterface
      */
     public function setType(string $type): PropertyInterface;
+
+    /**
+     * @return string
+     */
+    public function getTypeHint(): string;
+
+    /**
+     * @param TypeHintDecoratorInterface $typeHintDecorator
+     *
+     * @return PropertyInterface
+     */
+    public function addTypeHintDecorator(TypeHintDecoratorInterface $typeHintDecorator): PropertyInterface;
 
     /**
      * Get a description for the property. If no description is available an empty string will be returned

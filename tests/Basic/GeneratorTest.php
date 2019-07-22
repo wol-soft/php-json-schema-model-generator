@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Generator;
+use PHPModelGenerator\ModelGenerator;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -18,7 +18,7 @@ class GeneratorTest extends TestCase
         $this->expectException(FileSystemException::class);
         $this->expectExceptionMessage("Source directory '" . __DIR__ . "/NonExistingDirectory' doesn't exist");
 
-        (new Generator())->generateModels(__DIR__ . '/NonExistingDirectory', __DIR__);
+        (new ModelGenerator())->generateModels(__DIR__ . '/NonExistingDirectory', __DIR__);
     }
 
     public function testNonExistingDestinationDirectoryThrowsAnException(): void
@@ -26,7 +26,7 @@ class GeneratorTest extends TestCase
         $this->expectException(FileSystemException::class);
         $this->expectExceptionMessage("Destination directory '" . __DIR__ . "/NonExistingDirectory' doesn't exist or is not empty");
 
-        (new Generator())->generateModels(__DIR__, __DIR__ . '/NonExistingDirectory');
+        (new ModelGenerator())->generateModels(__DIR__, __DIR__ . '/NonExistingDirectory');
     }
 
     public function testNotEmptyDestinationDirectoryThrowsAnException(): void
@@ -34,6 +34,6 @@ class GeneratorTest extends TestCase
         $this->expectException(FileSystemException::class);
         $this->expectExceptionMessage("Destination directory '" . __DIR__ . "' doesn't exist or is not empty");
 
-        (new Generator())->generateModels(__DIR__, __DIR__);
+        (new ModelGenerator())->generateModels(__DIR__, __DIR__);
     }
 }

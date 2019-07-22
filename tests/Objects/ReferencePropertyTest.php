@@ -16,7 +16,7 @@ use stdClass;
  */
 class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
 {
-    protected const EXTERNAL_JSON_DIRECTORIES = ['external'];
+    protected const EXTERNAL_JSON_DIRECTORIES = ['../ReferencePropertyTest_external'];
 
     /**
      * @dataProvider internalReferenceProvider
@@ -47,17 +47,19 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     public function externalReferenceProvider(): array
     {
         return [
-            'external path reference' => ['external/library.json#/definitions/person'],
-            'external direct reference' => ['external/library.json#person'],
+            'external path reference' => ['../ReferencePropertyTest_external/library.json#/definitions/person'],
+            'external direct reference' => ['../ReferencePropertyTest_external/library.json#person'],
+            'external file' => ['../ReferencePropertyTest_external/person.json']
         ];
     }
 
     public function notResolvedExternalReferenceProvider(): array
     {
         return [
-            'External non existing file' => ['external/notExisting#person'],
-            'External path reference' => ['external/library.json#/definitions/animal'],
-            'External direct reference' => ['external/library.json#animal'],
+            'External non existing file' => ['../ReferencePropertyTest_external/notExisting'],
+            'External path reference in non existing file' => ['../ReferencePropertyTest_external/notExisting#person'],
+            'External non existing path reference' => ['../ReferencePropertyTest_external/library.json#/definitions/animal'],
+            'External non existing direct reference' => ['../ReferencePropertyTest_external/library.json#animal'],
         ];
     }
 
@@ -190,8 +192,8 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         return [
             'Internal path reference' => ['#/definitions/yearBetween1900and2000'],
             'Internal direct reference' => ['#yearBetween1900and2000'],
-            'External path reference' => ['external/library.json#/definitions/yearBetween1900and2000'],
-            'External direct reference' => ['external/library.json#yearBetween1900and2000'],
+            'External path reference' => ['../ReferencePropertyTest_external/library.json#/definitions/yearBetween1900and2000'],
+            'External direct reference' => ['../ReferencePropertyTest_external/library.json#yearBetween1900and2000'],
         ];
     }
 
@@ -250,10 +252,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     public function recursiveExternalReferenceProvider(): array
     {
         return [
-            'external path reference to direct recursion' => ['external/recursiveLibrary.json#/definitions/personDirect'],
-            'external direct reference to direct recursion' => ['external/recursiveLibrary.json#personDirect'],
-            'external path reference to path recursion' => ['external/recursiveLibrary.json#/definitions/personPath'],
-            'external direct reference to path recursion' => ['external/recursiveLibrary.json#personPath'],
+            'external path reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personDirect'],
+            'external direct reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#personDirect'],
+            'external path reference to path recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personPath'],
+            'external direct reference to path recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#personPath'],
         ];
     }
 
@@ -429,8 +431,8 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     public function nestedReferenceProvider(): array
     {
         return [
-            'Local reference' => ['external/library.json'],
-            'Network reference' => ['https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest/external/library.json'],
+            'Local reference' => ['../ReferencePropertyTest_external/library.json'],
+            'Network reference' => ['https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/library.json'],
         ];
     }
 

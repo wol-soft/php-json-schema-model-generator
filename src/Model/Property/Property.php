@@ -8,6 +8,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\PropertyDecoratorInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHintDecoratorInterface;
 
 /**
  * Class Property
@@ -37,6 +38,8 @@ class Property implements PropertyInterface
     protected $schema;
     /** @var PropertyDecoratorInterface[] */
     public $decorators = [];
+    /** @var TypeHintDecoratorInterface[] */
+    public $typeHintDecorators = [];
 
     /**
      * Property constructor.
@@ -81,6 +84,30 @@ class Property implements PropertyInterface
     public function setType(string $type): PropertyInterface
     {
         $this->type = $type;
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getTypeHint(): string
+    {
+        $input =  $this->type ?: 'mixed';
+
+        foreach ($this->typeHintDecorators as $decorator) {
+            $input = $decorator->decorate($input);
+        }
+
+        return $input;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function addTypeHintDecorator(TypeHintDecoratorInterface $typeHintDecorator): PropertyInterface
+    {
+        $this->typeHintDecorators[] = $typeHintDecorator;
 
         return $this;
     }

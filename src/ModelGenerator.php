@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator;
 
+use FilesystemIterator;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -16,11 +17,11 @@ use RecursiveRegexIterator;
 use RegexIterator;
 
 /**
- * Class Generator
+ * Class ModelGenerator
  *
  * @package PHPModelGenerator
  */
-class Generator
+class ModelGenerator
 {
     /** @var GeneratorConfiguration */
     protected $generatorConfiguration;
@@ -33,6 +34,32 @@ class Generator
     public function __construct(GeneratorConfiguration $generatorConfiguration = null)
     {
         $this->generatorConfiguration = $generatorConfiguration ?? new GeneratorConfiguration();
+    }
+
+    /**
+     * Create an directory to store the models in. If the directory already exists and contains files all files will be
+     * removed to provide an empty directory for model generation.
+     *
+     * @param string $modelPath     The absolute path to the directory
+     * @param int    $directoryMode The mode to create the directory with
+     *
+     * @return ModelGenerator
+     */
+    public function generateModelDirectory(string $modelPath, int $directoryMode = 0777): self
+    {
+        if (!is_dir($modelPath)) {
+            mkdir($modelPath, $directoryMode, true);
+        }
+
+        $di = new RecursiveDirectoryIterator($modelPath, FilesystemIterator::SKIP_DOTS);
+
+        $ri = new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST);
+
+        foreach ($ri as $file ) {
+            $file->isDir() ?  rmdir($file) : unlink($file);
+        }
+
+        return $this;
     }
 
     /**
@@ -63,7 +90,7 @@ class Generator
         $schemaProcessor = new SchemaProcessor($source, $destination, $this->generatorConfiguration, $renderProxy);
 
         foreach ($this->getSchemaFiles($source) as $jsonSchemaFile) {
-            $schemaProcessor->process($jsonSchemaFile, $source);
+            $schemaProcessor->process($jsonSchemaFile);
         }
 
         // render all collected classes
