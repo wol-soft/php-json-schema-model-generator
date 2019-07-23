@@ -1,29 +1,20 @@
 <?php
 
-use PHPModelGenerator\Generator;
+use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 
-$generator = new Generator((new GeneratorConfiguration())
+$generator = new ModelGenerator((new GeneratorConfiguration())
     ->setNamespacePrefix('\\ManualSchema')
     ->setImmutable(false)
     ->setPrettyPrint(true)
 );
 
 try {
-    if (!is_dir(__DIR__ . '/result')) {
-        mkdir(__DIR__ . '/result');
-    }
-
-    $di = new RecursiveDirectoryIterator(__DIR__ . '/result', FilesystemIterator::SKIP_DOTS);
-    $ri = new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST);
-
-    foreach ($ri as $file ) {
-        $file->isDir() ?  rmdir($file) : unlink($file);
-    }
-
-    $generator->generateModels(__DIR__ . '/schema', __DIR__ . '/result');
+    $generator
+        ->generateModelDirectory(__DIR__ . '/result')
+        ->generateModels(__DIR__ . '/schema', __DIR__ . '/result');
 } catch (Exception $e) {
     echo get_class($e) . "\n";
     echo $e->getMessage() . "\n";

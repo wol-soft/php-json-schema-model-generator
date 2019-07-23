@@ -9,6 +9,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Property\AbstractValueProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
@@ -47,6 +48,8 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                 return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
                     !is_a($validator->getValidator(), ComposedPropertyValidator::class);
             });
+
+            $property->addTypeHintDecorator(new CompositionTypeHintDecorator($compositionProperty));
 
             $properties[] = $compositionProperty;
         }

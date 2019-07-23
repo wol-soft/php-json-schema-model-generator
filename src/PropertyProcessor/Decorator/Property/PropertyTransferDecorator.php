@@ -2,7 +2,7 @@
 
 declare(strict_types = 1);
 
-namespace PHPModelGenerator\PropertyProcessor\Decorator;
+namespace PHPModelGenerator\PropertyProcessor\Decorator\Property;
 
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -12,7 +12,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  *
  * Can be used to transfer the decorators of one property to another
  *
- * @package PHPModelGenerator\PropertyProcessor\Decorator
+ * @package PHPModelGenerator\PropertyProcessor\Decorator\Property
  */
 class PropertyTransferDecorator implements PropertyDecoratorInterface
 {

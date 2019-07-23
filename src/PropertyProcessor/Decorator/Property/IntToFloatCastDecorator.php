@@ -2,14 +2,14 @@
 
 declare(strict_types = 1);
 
-namespace PHPModelGenerator\PropertyProcessor\Decorator;
+namespace PHPModelGenerator\PropertyProcessor\Decorator\Property;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
  * Class IntToFloatCastDecorator
  *
- * @package PHPModelGenerator\PropertyProcessor\Decorator
+ * @package PHPModelGenerator\PropertyProcessor\Decorator\Property
  */
 class IntToFloatCastDecorator implements PropertyDecoratorInterface
 {

@@ -7,8 +7,8 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
-use PHPModelGenerator\PropertyProcessor\Decorator\PropertyDecoratorInterface;
-use PHPModelGenerator\PropertyProcessor\Decorator\TypeHintDecoratorInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInterface;
 
 /**
  * Interface PropertyInterface

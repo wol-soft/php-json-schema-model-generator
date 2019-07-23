@@ -7,8 +7,8 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
-use PHPModelGenerator\PropertyProcessor\Decorator\PropertyDecoratorInterface;
-use PHPModelGenerator\PropertyProcessor\Decorator\TypeHintDecoratorInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInterface;
 
 /**
  * Class Property
@@ -93,13 +93,13 @@ class Property implements PropertyInterface
      */
     public function getTypeHint(): string
     {
-        $input =  $this->type ?: 'mixed';
+        $input = $this->type;
 
         foreach ($this->typeHintDecorators as $decorator) {
             $input = $decorator->decorate($input);
         }
 
-        return $input;
+        return $input ?? 'mixed';
     }
 
     /**

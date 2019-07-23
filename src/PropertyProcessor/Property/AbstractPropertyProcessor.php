@@ -11,6 +11,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\ComposedValueProcessorFactory;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
@@ -122,6 +123,8 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             foreach ($composedProperty->getValidators() as $validator) {
                 $property->addValidator($validator->getValidator(), $validator->getPriority());
             }
+
+            $property->addTypeHintDecorator(new TypeHintTransferDecorator($composedProperty));
         }
     }
 

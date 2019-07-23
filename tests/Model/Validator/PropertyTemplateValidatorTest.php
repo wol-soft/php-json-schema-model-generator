@@ -17,9 +17,7 @@ class PropertyTemplateValidatorTest extends TestCase
     public function testInvalidRenderExceptionIsConverted(): void
     {
         $this->expectException(RenderException::class);
-        $this->expectExceptionMessageRegExp(
-            '/Can\'t render property validation template UnknownTemplate with values(.*)/'
-        );
+        $this->expectExceptionMessage('Can\'t render property validation template UnknownTemplate');
 
         (new PropertyTemplateValidator(
             InvalidArgumentException::class,

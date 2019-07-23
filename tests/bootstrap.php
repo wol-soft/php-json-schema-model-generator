@@ -7,7 +7,7 @@ if (is_dir(FAILED_CLASSES_PATH)) {
     $ri = new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST);
 
     foreach ($ri as $file) {
-        $file->isDir() ? rmdir($file) : unlink($file);
+        $file->isDir() ? rmdir($file->getRealPath()) : unlink($file->getRealPath());
     }
 }
 

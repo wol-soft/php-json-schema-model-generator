@@ -2,12 +2,12 @@
 
 declare(strict_types = 1);
 
-namespace PHPModelGenerator\PropertyProcessor\Decorator;
+namespace PHPModelGenerator\PropertyProcessor\Decorator\TypeHint;
 
 /**
  * Interface TypeHintDecoratorInterface
  *
- * @package PHPModelGenerator\PropertyProcessor\Decorator
+ * @package PHPModelGenerator\PropertyProcessor\Decorator\Property
  */
 interface TypeHintDecoratorInterface
 {

@@ -60,12 +60,7 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
         try {
             return static::$renderer->renderTemplate($this->template, $this->templateValues);
         } catch (PHPMicroTemplateException $exception) {
-            throw new RenderException(
-                "Can't render property validation template {$this->template} with values " .
-                    print_r($this->templateValues, true),
-                0,
-                $exception
-            );
+            throw new RenderException("Can't render property validation template {$this->template}", 0, $exception);
         }
     }
 }

@@ -5,7 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\PropertyProcessor\Decorator\IntToFloatCastDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntToFloatCastDecorator;
 
 /**
  * Class NumberProcessor

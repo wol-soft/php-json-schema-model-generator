@@ -6,7 +6,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\PropertyProcessor\Decorator\ObjectInstantiationDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
 
 /**
  * Class ObjectProcessor

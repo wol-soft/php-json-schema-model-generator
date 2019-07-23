@@ -2,16 +2,16 @@
 
 declare(strict_types = 1);
 
-namespace PHPModelGenerator\PropertyProcessor\Decorator;
+namespace PHPModelGenerator\PropertyProcessor\Decorator\TypeHint;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
  * Class ArrayTypeHintDecorator
  *
- * @package PHPModelGenerator\PropertyProcessor\Decorator
+ * @package PHPModelGenerator\PropertyProcessor\Decorator\Property
  */
-class ArrayTypeHintDecorator implements TypeHintDecoratorInterface
+class CompositionTypeHintDecorator implements TypeHintDecoratorInterface
 {
     /** @var PropertyInterface */
     protected $nestedProperty;
@@ -31,6 +31,6 @@ class ArrayTypeHintDecorator implements TypeHintDecoratorInterface
      */
     public function decorate(string $input): string
     {
-        return "{$this->nestedProperty->getTypeHint()}[]";
+        return ($input ? "$input|" : '') . $this->nestedProperty->getTypeHint();
     }
 }

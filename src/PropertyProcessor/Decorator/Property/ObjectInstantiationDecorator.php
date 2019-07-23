@@ -2,7 +2,7 @@
 
 declare(strict_types = 1);
 
-namespace PHPModelGenerator\PropertyProcessor\Decorator;
+namespace PHPModelGenerator\PropertyProcessor\Decorator\Property;
 
 use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\InvalidArgumentException;
@@ -11,7 +11,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 /**
  * Class ObjectInstantiationDecorator
  *
- * @package PHPModelGenerator\PropertyProcessor\Decorator
+ * @package PHPModelGenerator\PropertyProcessor\Decorator\Property
  */
 class ObjectInstantiationDecorator implements PropertyDecoratorInterface
 {
@@ -31,7 +31,7 @@ class ObjectInstantiationDecorator implements PropertyDecoratorInterface
 
         if (!static::$renderer) {
             static::$renderer = new Render(
-                join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', 'Templates']) . DIRECTORY_SEPARATOR
+                join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', '..', 'Templates']) . DIRECTORY_SEPARATOR
             );
         }
     }

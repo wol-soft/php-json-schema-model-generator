@@ -10,7 +10,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckValidator;
-use PHPModelGenerator\PropertyProcessor\Decorator\PropertyTransferDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
