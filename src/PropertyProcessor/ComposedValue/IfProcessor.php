@@ -81,12 +81,4 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
 
         parent::generateValidators($property, $propertyData);
     }
-
-    /**
-     * @inheritdoc
-     */
-    protected function getComposedValueValidation(int $composedElements): string
-    {
-        return '$succeededCompositionElements === 0';
-    }
 }

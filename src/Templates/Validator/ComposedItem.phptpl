@@ -1,11 +1,17 @@
 {%if onlyForDefinedValues %}
     $value !== null &&
 {% endif %}
-(function ($value) use (&$modelData) {
+(function (&$value) use (&$modelData) {
     $succeededCompositionElements = {{ availableAmount }};
     $originalModelData = $value;
+    $proposedValue = null;
+
     {% foreach properties as property %}
         try {
+            {% if not postPropose %}
+                $proposedValue = $proposedValue ?? $value;
+            {% endif %}
+
             {{ viewHelper.resolvePropertyDecorator(property) }}
 
             {% foreach property.getOrderedValidators() as validator %}
@@ -13,6 +19,10 @@
                     throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');
                 }
             {% endforeach %}
+
+            {% if postPropose %}
+                $proposedValue = $proposedValue ?? $value;
+            {% endif %}
         } catch (\Exception $e) {
             {% foreach property.getAffectedObjectProperties() as affectedObjectProperty %}
                 unset($modelData['{{ affectedObjectProperty.getName() }}']);
@@ -23,5 +33,7 @@
         $value = $originalModelData;
     {% endforeach %}
 
+    $value = $proposedValue;
+
     return !({{ composedValueValidation }});
-})($rawValue)
+})($value)

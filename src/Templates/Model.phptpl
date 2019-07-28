@@ -34,7 +34,9 @@ class {{ class }}
     */
     public function __construct(array $modelData)
     {
-        $rawValue = $modelData;
+        {% if baseValidators %}
+            $value = $modelData;
+        {% endif %}
 
         {% foreach baseValidators as validator %}
              if ({{ validator.getCheck() }}) {
@@ -100,7 +102,7 @@ class {{ class }}
          */
         protected function process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
         {
-            $value = $rawValue = $modelData['{{ property.getName() }}'] ?? $this->{{ property.getAttribute() }};
+            $value = $modelData['{{ property.getName() }}'] ?? $this->{{ property.getAttribute() }};
 
             {{ viewHelper.resolvePropertyDecorator(property) }}
 

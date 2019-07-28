@@ -203,11 +203,11 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
-     * @dataProvider objectPropertyWithReferencedSchemaDataProvider
+     * @dataProvider composedPropertyWithReferencedSchemaDataProvider
      *
      * @param $propertyValue
      */
-    public function testMatchingObjectPropertyWithReferencedSchemaIsValid($propertyValue): void
+    public function testMatchingComposedPropertyWithReferencedSchemaIsValid($propertyValue): void
     {
         $className = $this->generateObjectFromFile('ReferencedObjectSchema.json');
 
@@ -215,13 +215,26 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function objectPropertyWithReferencedSchemaDataProvider(): array
+    public function composedPropertyWithReferencedSchemaDataProvider(): array
     {
         return [
             'null' => [null],
             'string matching required length' => ['Hanne'],
-            'Matching object' => [['name' => 'Ha', 'age' => 42]],
         ];
+    }
+
+    /**
+     * @param $propertyValue
+     */
+    public function testMatchingObjectPropertyWithReferencedSchemaIsValid(): void
+    {
+        $className = $this->generateObjectFromFile('ReferencedObjectSchema.json');
+
+        $object = new $className(['property' => ['name' => 'Ha', 'age' => 42]]);
+
+        $this->assertTrue(is_object($object->getProperty()));
+        $this->assertSame('Ha', $object->getProperty()->getName());
+        $this->assertSame(42, $object->getProperty()->getAge());
     }
 
     /**

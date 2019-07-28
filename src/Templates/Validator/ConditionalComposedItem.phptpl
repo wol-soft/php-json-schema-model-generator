@@ -1,9 +1,9 @@
 {%if onlyForDefinedValues %}
     $value !== null &&
 {% endif %}
-(function ($value) use (&$modelData) {
+(function (&$value) use (&$modelData) {
     $originalModelData = $value;
-    $ifValid           = true;
+    $ifValid  = true;
 
     try {
         {{ viewHelper.resolvePropertyDecorator(ifProperty) }}
@@ -41,4 +41,4 @@
     }
 
     return false;
-})($rawValue)
+})($value)
