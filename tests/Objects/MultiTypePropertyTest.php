@@ -23,7 +23,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedOptionalMultiTypePropertyIsValid(): void
     {
-        $className = $this->generateObjectFromFile('MultiTypeProperty.json');
+        $className = $this->generateClassFromFile('MultiTypeProperty.json');
 
         $object = new $className([]);
         $this->assertNull($object->getProperty());
@@ -36,7 +36,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testValidProvidedValuePassesValidation($propertyValue): void
     {
-        $className = $this->generateObjectFromFile('MultiTypeProperty.json');
+        $className = $this->generateClassFromFile('MultiTypeProperty.json');
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertEquals($propertyValue, $object->getProperty());
@@ -64,7 +64,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage($exceptionMessage);
 
-        $className = $this->generateObjectFromFile('MultiTypeProperty.json');
+        $className = $this->generateClassFromFile('MultiTypeProperty.json');
 
         new $className(['property' => $propertyValue]);
     }

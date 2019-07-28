@@ -16,7 +16,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 {
     public function testGetterAndSetterAreGenerated(): void
     {
-        $className = $this->generateObjectFromFile('BasicSchema.json');
+        $className = $this->generateClassFromFile('BasicSchema.json');
 
         $object = new $className([]);
 
@@ -27,7 +27,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 
     public function testImmutableGeneratorDoesntGenerateSetter(): void
     {
-        $className = $this->generateObjectFromFile(
+        $className = $this->generateClassFromFile(
             'BasicSchema.json',
             (new GeneratorConfiguration())->setImmutable(true)
         );
@@ -41,7 +41,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 
     public function testNamespacePrefix(): void
     {
-        $className = '\\My\\Prefix\\' . $this->generateObjectFromFile(
+        $className = '\\My\\Prefix\\' . $this->generateClassFromFile(
             'BasicSchema.json',
             (new GeneratorConfiguration())->setNamespacePrefix('\\My\\Prefix')
         );
@@ -91,7 +91,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageRegExp('/^Invalid JSON-Schema file (.*)\.json$/');
 
-        $this->generateObjectFromFile('InvalidJSONSchema.json');
+        $this->generateClassFromFile('InvalidJSONSchema.json');
     }
 
     public function testJsonSchemaWithInvalidPropertyTypeThrowsAnException(): void
@@ -99,7 +99,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage('Unsupported property type UnknownType');
 
-        $this->generateObjectFromFile('JSONSchemaWithInvalidPropertyType.json');
+        $this->generateClassFromFile('JSONSchemaWithInvalidPropertyType.json');
     }
 
     public function testJsonSchemaWithInvalidPropertyTypeDefinitionThrowsAnException(): void
@@ -107,6 +107,6 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage('Invalid property type');
 
-        $this->generateObjectFromFile('JSONSchemaWithInvalidPropertyTypeDefinition.json');
+        $this->generateClassFromFile('JSONSchemaWithInvalidPropertyTypeDefinition.json');
     }
 }

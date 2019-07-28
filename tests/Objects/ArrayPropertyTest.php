@@ -27,7 +27,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testProvidedArrayPropertyIsValidForUntypedArray(?array $propertyValue): void
     {
-        $className = $this->generateObjectFromFile('ArrayProperty.json');
+        $className = $this->generateClassFromFile('ArrayProperty.json');
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -51,7 +51,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedOptionalArrayPropertyIsValid(): void
     {
-        $className = $this->generateObjectFromFile('ArrayProperty.json');
+        $className = $this->generateClassFromFile('ArrayProperty.json');
 
         $object = new $className([]);
         $this->assertNull($object->getProperty());
@@ -71,7 +71,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('invalid type for property');
 
-        $className = $this->generateObjectFromFile('ArrayProperty.json');
+        $className = $this->generateClassFromFile('ArrayProperty.json');
 
         new $className(['property' => $propertyValue]);
     }
@@ -98,7 +98,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testUniqueArrayIsValidWithUniqueConstraint($propertyValue): void
     {
-        $className = $this->generateObjectFromFile('ArrayPropertyUnique.json');
+        $className = $this->generateClassFromFile('ArrayPropertyUnique.json');
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -129,7 +129,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Items of array property are not unique');
 
-        $className = $this->generateObjectFromFile('ArrayPropertyUnique.json');
+        $className = $this->generateClassFromFile('ArrayPropertyUnique.json');
 
         new $className(['property' => $propertyValue]);
     }
@@ -155,7 +155,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testArrayInItemAmountValidationRangePasses(?array $propertyValue): void
     {
-        $className = $this->generateObjectFromFile('ArrayPropertyItemAmount.json');
+        $className = $this->generateClassFromFile('ArrayPropertyItemAmount.json');
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -187,7 +187,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage($exceptionMessage);
 
-        $className = $this->generateObjectFromFile('ArrayPropertyItemAmount.json');
+        $className = $this->generateClassFromFile('ArrayPropertyItemAmount.json');
 
         new $className(['property' => $propertyValue]);
     }
@@ -210,7 +210,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testTypedArrayIsValid(string $type, $propertyValue, $expectedValue = null): void
     {
-        $className = $this->generateObjectFromFileTemplate('ArrayPropertyTyped.json', [$type], null, false);
+        $className = $this->generateClassFromFileTemplate('ArrayPropertyTyped.json', [$type], null, false);
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($expectedValue ?? $propertyValue, $object->getProperty());
@@ -244,7 +244,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('invalid type for arrayItem');
 
-        $className = $this->generateObjectFromFileTemplate('ArrayPropertyTyped.json', [$type], null, false);
+        $className = $this->generateClassFromFileTemplate('ArrayPropertyTyped.json', [$type], null, false);
 
         new $className(['property' => $propertyValue]);
     }

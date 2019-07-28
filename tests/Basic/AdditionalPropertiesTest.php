@@ -19,7 +19,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
      */
     public function testAdditionalPropertiesAreIgnoredByDefault(array $propertyValue): void
     {
-        $className = $this->generateObjectFromFile('AdditionalPropertiesNotDefined.json');
+        $className = $this->generateClassFromFile('AdditionalPropertiesNotDefined.json');
 
         $object = new $className($propertyValue);
         $this->assertSame($propertyValue['name'] ?? null, $object->getName());
@@ -33,7 +33,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
      */
     public function testAdditionalPropertiesAreIgnoredWhenSetToTrue(array $propertyValue): void
     {
-        $className = $this->generateObjectFromFileTemplate('AdditionalProperties.json', ['true']);
+        $className = $this->generateClassFromFileTemplate('AdditionalProperties.json', ['true']);
 
         $object = new $className($propertyValue);
         $this->assertSame($propertyValue['name'] ?? null, $object->getName());
@@ -56,7 +56,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
      */
     public function testDefinedPropertiesAreAcceptedWhenSetToFalse(array $propertyValue): void
     {
-        $className = $this->generateObjectFromFileTemplate('AdditionalProperties.json', ['false']);
+        $className = $this->generateClassFromFileTemplate('AdditionalProperties.json', ['false']);
 
         $object = new $className($propertyValue);
         $this->assertSame($propertyValue['name'] ?? null, $object->getName());
@@ -82,7 +82,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Provided JSON contains not allowed additional properties');
 
-        $className = $this->generateObjectFromFileTemplate('AdditionalProperties.json', ['false']);
+        $className = $this->generateClassFromFileTemplate('AdditionalProperties.json', ['false']);
 
         new $className($propertyValue);
     }

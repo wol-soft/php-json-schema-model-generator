@@ -33,7 +33,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage("Unresolved Reference: $reference");
 
-        $this->generateObjectFromFileTemplate('NotResolvedReference.json', [$reference]);
+        $this->generateClassFromFileTemplate('NotResolvedReference.json', [$reference]);
     }
 
     public function internalReferenceProvider(): array
@@ -75,7 +75,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedOptionalReferenceObjectPropertyIsValid(string $reference): void
     {
-        $className = $this->generateObjectFromFileTemplate('ObjectReference.json', [$reference]);
+        $className = $this->generateClassFromFileTemplate('ObjectReference.json', [$reference]);
 
         $object = new $className([]);
         $this->assertNull($object->getPerson());
@@ -97,7 +97,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         ?array $input,
         string $typeCheck
     ): void {
-        $className = $this->generateObjectFromFileTemplate('ObjectReference.json', [$reference]);
+        $className = $this->generateClassFromFileTemplate('ObjectReference.json', [$reference]);
 
         $object = new $className(['person' => $input]);
         $this->assertTrue(('is_' . $typeCheck)($object->getPerson()));
@@ -137,7 +137,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('invalid type for person');
 
-        $className = $this->generateObjectFromFileTemplate('ObjectReference.json', [$reference]);
+        $className = $this->generateClassFromFileTemplate('ObjectReference.json', [$reference]);
 
         new $className(['person' => $propertyValue]);
     }
@@ -181,7 +181,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testProvidedReferenceIntPropertyIsValid(string $reference, ?int $input): void
     {
-        $className = $this->generateObjectFromFileTemplate('IntReference.json', [$reference]);
+        $className = $this->generateClassFromFileTemplate('IntReference.json', [$reference]);
 
         $object = new $className(['year' => $input]);
         $this->assertSame($input, $object->getYear());
@@ -228,7 +228,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage($message);
 
-        $className = $this->generateObjectFromFileTemplate('IntReference.json', [$reference]);
+        $className = $this->generateClassFromFileTemplate('IntReference.json', [$reference]);
 
         new $className(['year' => $propertyValue]);
     }
@@ -282,7 +282,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         string $reference1,
         string $reference2
     ): void {
-        $className = $this->generateObjectFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
+        $className = $this->generateClassFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
 
         $object = new $className(['person' => ['name' => 'Hannes']]);
         $this->assertSame('Hannes', $object->getPerson()->getName());
@@ -303,7 +303,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         string $reference1,
         string $reference2
     ): void {
-        $className = $this->generateObjectFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
+        $className = $this->generateClassFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
 
         $object = new $className([
             'person' => [
@@ -356,7 +356,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         // TODO: PropertyProxy resolving
         $this->expectExceptionMessageRegExp('/^invalid type for (.*)$/');
 
-        $className = $this->generateObjectFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
+        $className = $this->generateClassFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
 
         new $className([
             'person' => [
@@ -401,7 +401,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNestedExternalReference(string $reference): void
     {
-        $className = $this->generateObjectFromFileTemplate('NestedExternalReference.json', [$reference]);
+        $className = $this->generateClassFromFileTemplate('NestedExternalReference.json', [$reference]);
 
         $object = new $className([
             'family' => [

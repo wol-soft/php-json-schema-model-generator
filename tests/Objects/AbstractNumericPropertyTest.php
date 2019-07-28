@@ -31,7 +31,7 @@ abstract class AbstractNumericPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testValidValueForRangeValidator($propertyValue)
     {
-        $className = $this->generateObjectFromFile($this->getRangeFile());
+        $className = $this->generateClassFromFile($this->getRangeFile());
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertEquals($propertyValue, $object->getProperty());
@@ -48,7 +48,7 @@ abstract class AbstractNumericPropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage($exceptionMessage);
 
-        $className = $this->generateObjectFromFile($this->getRangeFile());
+        $className = $this->generateClassFromFile($this->getRangeFile());
 
         new $className(['property' => $propertyValue]);
     }
@@ -61,7 +61,7 @@ abstract class AbstractNumericPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testValidValueForMultipleOfValidator($multipleOf, $propertyValue): void
     {
-        $className = $this->generateObjectFromFileTemplate($this->getMultipleOfFile(), [$multipleOf]);
+        $className = $this->generateClassFromFileTemplate($this->getMultipleOfFile(), [$multipleOf]);
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertEquals($propertyValue, $object->getProperty());
@@ -78,7 +78,7 @@ abstract class AbstractNumericPropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Value for property must be a multiple of $multipleOf");
 
-        $className = $this->generateObjectFromFileTemplate($this->getMultipleOfFile(), [$multipleOf]);
+        $className = $this->generateClassFromFileTemplate($this->getMultipleOfFile(), [$multipleOf]);
 
         new $className(['property' => $propertyValue]);
     }

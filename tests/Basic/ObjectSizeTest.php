@@ -19,7 +19,7 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTest
      */
     public function testObjectWithPropertyAmountInRangeIsValid(array $propertyValue): void
     {
-        $className = $this->generateObjectFromFile('ObjectSize.json');
+        $className = $this->generateClassFromFile('ObjectSize.json');
 
         $object = new $className($propertyValue);
         $this->assertSame($propertyValue, $object->getRawModelDataInput());
@@ -46,7 +46,7 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage($exceptionMessage);
 
-        $className = $this->generateObjectFromFile('ObjectSize.json');
+        $className = $this->generateClassFromFile('ObjectSize.json');
 
         new $className($propertyValue);
     }

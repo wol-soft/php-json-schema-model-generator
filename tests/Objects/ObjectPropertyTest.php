@@ -23,7 +23,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedOptionalObjectPropertyIsValid(): void
     {
-        $className = $this->generateObjectFromFile('ObjectProperty.json');
+        $className = $this->generateClassFromFile('ObjectProperty.json');
 
         $object = new $className([]);
         $this->assertNull($object->getProperty());
@@ -41,7 +41,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testProvidedObjectPropertyIsValid(?array $input, string $typeCheck): void
     {
-        $className = $this->generateObjectFromFile('ObjectProperty.json');
+        $className = $this->generateClassFromFile('ObjectProperty.json');
 
         $object = new $className(['property' => $input]);
         $this->assertTrue(('is_' . $typeCheck)($object->getProperty()));
@@ -70,7 +70,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('invalid type for property');
 
-        $className = $this->generateObjectFromFile('ObjectProperty.json');
+        $className = $this->generateClassFromFile('ObjectProperty.json');
 
         new $className(['property' => $propertyValue]);
     }
@@ -98,7 +98,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testObjectLevelValidationApplyForNestedObjectsWithValidInput(?array $input, string $typeCheck):void
     {
-        $className = $this->generateObjectFromFile('ObjectLevelValidation.json');
+        $className = $this->generateClassFromFile('ObjectLevelValidation.json');
 
         $object = new $className(['property' => $input]);
 
@@ -141,7 +141,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException($exceptionClass);
         $this->expectExceptionMessage($exceptionMessage);
 
-        $className = $this->generateObjectFromFile('ObjectLevelValidation.json');
+        $className = $this->generateClassFromFile('ObjectLevelValidation.json');
 
         new $className(['property' => $input]);
     }

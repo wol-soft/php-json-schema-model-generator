@@ -26,7 +26,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testRequiredPropertyIsValidIfProvided(string $propertyValue): void
     {
-        $className = $this->generateObjectFromFile('RequiredStringProperty.json');
+        $className = $this->generateClassFromFile('RequiredStringProperty.json');
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -50,7 +50,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Missing required value for property");
 
-        $className = $this->generateObjectFromFile('RequiredStringProperty.json');
+        $className = $this->generateClassFromFile('RequiredStringProperty.json');
 
         new $className([]);
     }
@@ -65,7 +65,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("invalid type for property");
 
-        $className = $this->generateObjectFromFile('RequiredStringProperty.json');
+        $className = $this->generateClassFromFile('RequiredStringProperty.json');
 
         new $className(['property' => null]);
     }

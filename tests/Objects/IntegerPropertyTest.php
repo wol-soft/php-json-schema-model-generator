@@ -22,7 +22,7 @@ class IntegerPropertyTest extends AbstractNumericPropertyTest
      */
     public function testNotProvidedOptionalIntPropertyIsValid(): void
     {
-        $className = $this->generateObjectFromFile('IntegerProperty.json');
+        $className = $this->generateClassFromFile('IntegerProperty.json');
 
         $object = new $className([]);
         $this->assertNull($object->getProperty());
@@ -39,7 +39,7 @@ class IntegerPropertyTest extends AbstractNumericPropertyTest
      */
     public function testProvidedIntPropertyIsValid(?int $input): void
     {
-        $className = $this->generateObjectFromFile('IntegerProperty.json');
+        $className = $this->generateClassFromFile('IntegerProperty.json');
 
         $object = new $className(['property' => $input]);
         $this->assertSame($input, $object->getProperty());
@@ -69,7 +69,7 @@ class IntegerPropertyTest extends AbstractNumericPropertyTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('invalid type for property');
 
-        $className = $this->generateObjectFromFile('IntegerProperty.json');
+        $className = $this->generateClassFromFile('IntegerProperty.json');
 
         new $className(['property' => $propertyValue]);
     }

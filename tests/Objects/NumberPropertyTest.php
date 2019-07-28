@@ -22,7 +22,7 @@ class NumberPropertyTest extends AbstractNumericPropertyTest
      */
     public function testNotProvidedOptionalNumberPropertyIsValid(): void
     {
-        $className = $this->generateObjectFromFile('NumberProperty.json');
+        $className = $this->generateClassFromFile('NumberProperty.json');
 
         $object = new $className([]);
         $this->assertNull($object->getProperty());
@@ -35,7 +35,7 @@ class NumberPropertyTest extends AbstractNumericPropertyTest
      */
     public function testProvidedOptionalNumberPropertyIsValid(): void
     {
-        $className = $this->generateObjectFromFile('NumberProperty.json');
+        $className = $this->generateClassFromFile('NumberProperty.json');
 
         $object = new $className(['property' => null]);
         $this->assertNull($object->getProperty());
@@ -52,7 +52,7 @@ class NumberPropertyTest extends AbstractNumericPropertyTest
      */
     public function testProvidedNumberPropertyIsValid($input): void
     {
-        $className = $this->generateObjectFromFile('NumberProperty.json');
+        $className = $this->generateClassFromFile('NumberProperty.json');
 
         $object = new $className(['property' => $input]);
         $this->assertEquals($input, $object->getProperty());
@@ -85,7 +85,7 @@ class NumberPropertyTest extends AbstractNumericPropertyTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('invalid type for property');
 
-        $className = $this->generateObjectFromFile('NumberProperty.json');
+        $className = $this->generateClassFromFile('NumberProperty.json');
 
         new $className(['property' => $propertyValue]);
     }

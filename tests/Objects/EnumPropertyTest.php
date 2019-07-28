@@ -156,7 +156,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedEnumItemIsValidInOptionalUntypedEnum(): void
     {
-        $className = $this->generateObjectFromFile('UntypedEnumProperty.json');
+        $className = $this->generateClassFromFile('UntypedEnumProperty.json');
 
         $object = new $className([]);
         $this->assertSame(null, $object->getProperty());
@@ -173,7 +173,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testEnumItemIsValidInUntypedEnum($propertyValue): void
     {
-        $className = $this->generateObjectFromFile('UntypedEnumProperty.json');
+        $className = $this->generateClassFromFile('UntypedEnumProperty.json');
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -202,7 +202,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
 
-        $className = $this->generateObjectFromFile('UntypedEnumProperty.json');
+        $className = $this->generateClassFromFile('UntypedEnumProperty.json');
 
         new $className(['property' => $propertyValue]);
     }
@@ -228,7 +228,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
             $enumValues
         );
 
-        return $this->generateObjectFromFileTemplate(
+        return $this->generateClassFromFileTemplate(
             'EnumProperty.json',
             [$type, sprintf('[%s]', join(',', $enumValues)), $required ? 'property' : '']
         );

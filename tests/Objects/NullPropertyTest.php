@@ -23,7 +23,7 @@ class NullPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedOptionalNullPropertyIsValid(): void
     {
-        $className = $this->generateObjectFromFile('NullProperty.json');
+        $className = $this->generateClassFromFile('NullProperty.json');
 
         $object = new $className([]);
         $this->assertNull($object->getProperty());
@@ -36,7 +36,7 @@ class NullPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testProvidedOptionalNullPropertyIsValid(): void
     {
-        $className = $this->generateObjectFromFile('NullProperty.json');
+        $className = $this->generateClassFromFile('NullProperty.json');
 
         $object = new $className(['property' => null]);
         $this->assertNull($object->getProperty());
@@ -56,7 +56,7 @@ class NullPropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('invalid type for property');
 
-        $className = $this->generateObjectFromFile('NullProperty.json');
+        $className = $this->generateClassFromFile('NullProperty.json');
 
         new $className(['property' => $propertyValue]);
     }

@@ -27,7 +27,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
      */
     public function testDefaultValueForTypedProperty(string $valueType, $defaultValue, $compareValue): void
     {
-        $className = $this->generateObjectFromFileTemplate(
+        $className = $this->generateClassFromFileTemplate(
             'DefaultValueTypedProperty.json',
             [$valueType, $defaultValue],
             null,
@@ -80,7 +80,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage('Invalid type for default value of property property');
 
-        $this->generateObjectFromFileTemplate(
+        $this->generateClassFromFileTemplate(
             'DefaultValueTypedProperty.json',
             [$valueType, $defaultValue],
             null,
@@ -129,7 +129,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
      */
     public function testDefaultValueForUntypedTypedProperty($defaultValue, $compareValue): void
     {
-        $className = $this->generateObjectFromFileTemplate(
+        $className = $this->generateClassFromFileTemplate(
             'DefaultValueUntypedProperty.json',
             [$defaultValue],
             null,

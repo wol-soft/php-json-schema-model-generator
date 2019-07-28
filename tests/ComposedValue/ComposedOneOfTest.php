@@ -20,7 +20,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedPropertyLevelOneOfIsValid(string $schema): void
     {
-        $className = $this->generateObjectFromFile($schema);
+        $className = $this->generateClassFromFile($schema);
 
         $object = new $className([]);
         $this->assertNull($object->getProperty());
@@ -45,7 +45,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessageRegExp('/^Invalid value for (.*?) declined by composition constraint$/');
 
-        $className = $this->generateObjectFromFile($schema);
+        $className = $this->generateClassFromFile($schema);
 
         new $className([]);
     }
@@ -66,7 +66,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
      */
     public function testValidProvidedOneOfTypePropertyIsValid($propertyValue): void
     {
-        $className = $this->generateObjectFromFile('OneOfType.json');
+        $className = $this->generateClassFromFile('OneOfType.json');
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -82,7 +82,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
 
-        $className = $this->generateObjectFromFile('OneOfType.json');
+        $className = $this->generateClassFromFile('OneOfType.json');
 
         new $className(['property' => $propertyValue]);
     }
@@ -117,7 +117,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
      */
     public function testValidProvidedRequiredOneOfTypePropertyIsValid($propertyValue): void
     {
-        $className = $this->generateObjectFromFile('OneOfTypeRequired.json');
+        $className = $this->generateClassFromFile('OneOfTypeRequired.json');
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -134,7 +134,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
 
-        $className = $this->generateObjectFromFile('OneOfTypeRequired.json');
+        $className = $this->generateClassFromFile('OneOfTypeRequired.json');
 
         new $className(['property' => $propertyValue]);
     }
@@ -151,7 +151,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
      */
     public function testExtendedPropertyDefinitionWithValidValues($propertyValue): void
     {
-        $className = $this->generateObjectFromFile('ExtendedPropertyDefinition.json');
+        $className = $this->generateClassFromFile('ExtendedPropertyDefinition.json');
 
         $object = new $className(['property' => $propertyValue]);
         // cast expected to float as an int is casted to an float internally for a number property
@@ -181,7 +181,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage($exceptionMessage);
 
-        $className = $this->generateObjectFromFile('ExtendedPropertyDefinition.json');
+        $className = $this->generateClassFromFile('ExtendedPropertyDefinition.json');
 
         new $className(['property' => $propertyValue]);
     }
@@ -209,7 +209,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
      */
     public function testMatchingComposedPropertyWithReferencedSchemaIsValid($propertyValue): void
     {
-        $className = $this->generateObjectFromFile('ReferencedObjectSchema.json');
+        $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -228,7 +228,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
      */
     public function testMatchingObjectPropertyWithReferencedSchemaIsValid(): void
     {
-        $className = $this->generateObjectFromFile('ReferencedObjectSchema.json');
+        $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
 
         $object = new $className(['property' => ['name' => 'Ha', 'age' => 42]]);
 
@@ -247,7 +247,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
 
-        $className = $this->generateObjectFromFile('ReferencedObjectSchema.json');
+        $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
 
         new $className(['property' => $propertyValue]);
     }
@@ -281,7 +281,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
         ?string $stringPropertyValue,
         ?int $intPropertyValue
     ): void {
-        $className = $this->generateObjectFromFile('ObjectLevelComposition.json');
+        $className = $this->generateClassFromFile('ObjectLevelComposition.json');
 
         $object = new $className($input);
         $this->assertSame($stringPropertyValue, $object->getStringProperty());
@@ -311,7 +311,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
     {
         $this->expectException(InvalidArgumentException::class);
 
-        $className = $this->generateObjectFromFile('ObjectLevelComposition.json');
+        $className = $this->generateClassFromFile('ObjectLevelComposition.json');
 
         new $className($input);
     }
@@ -344,7 +344,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
         ?string $stringPropertyValue,
         ?int $intPropertyValue
     ): void {
-        $className = $this->generateObjectFromFile('ObjectLevelCompositionRequired.json');
+        $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
 
         $object = new $className($input);
         $this->assertSame($stringPropertyValue, $object->getStringProperty());
@@ -360,7 +360,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
     {
         $this->expectException(InvalidArgumentException::class);
 
-        $className = $this->generateObjectFromFile('ObjectLevelCompositionRequired.json');
+        $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
 
         new $className($input);
     }

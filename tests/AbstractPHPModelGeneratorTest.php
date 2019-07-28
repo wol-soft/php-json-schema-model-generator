@@ -25,6 +25,9 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
     private $generatedFiles = [];
 
+    /**
+     * Set up an empty directory for the tests
+     */
     public static function setUpBeforeClass(): void
     {
         if (is_dir(sys_get_temp_dir() . '/PHPModelGeneratorTest')) {
@@ -40,6 +43,10 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         @mkdir(sys_get_temp_dir() . '/PHPModelGeneratorTest/Models');
     }
 
+    /**
+     * Check if the test has failed. In this case move all JSON files and generated classes in a directory for debugging
+     * Additionally clear the test folder so the next test starts in an empty environment
+     */
     public function tearDown(): void
     {
         parent::tearDown();
@@ -96,7 +103,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     }
 
     /**
-     * Generate an object from a given JSON schema file and return the FQCN
+     * Generate a class from a given JSON schema file and return the FQCN
      *
      * @param string                      $file
      * @param GeneratorConfiguration|null $generatorConfiguration
@@ -107,16 +114,16 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * @throws RenderException
      * @throws SchemaException
      */
-    public function generateObjectFromFile(string $file, GeneratorConfiguration $generatorConfiguration = null): string
+    public function generateClassFromFile(string $file, GeneratorConfiguration $generatorConfiguration = null): string
     {
-        return $this->generateObject(
+        return $this->generateClass(
             file_get_contents(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $file),
             $generatorConfiguration
         );
     }
 
     /**
-     * Generate an object from a file template and apply all $values via sprintf to the template
+     * Generate a class from a file template and apply all $values via sprintf to the template
      *
      * @param string                      $file
      * @param array                       $values
@@ -129,13 +136,13 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * @throws RenderException
      * @throws SchemaException
      */
-    public function generateObjectFromFileTemplate(
+    public function generateClassFromFileTemplate(
         string $file,
         array $values,
         GeneratorConfiguration $generatorConfiguration = null,
         bool $escape = true
     ): string {
-        return $this->generateObject(
+        return $this->generateClass(
             call_user_func_array(
                 'sprintf',
                 array_merge(
@@ -153,7 +160,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     }
 
     /**
-     * Generate an object from a given JSON schema string and return the FQCN
+     * Generate a class from a given JSON schema string and return the FQCN
      *
      * @param string                 $jsonSchema
      * @param GeneratorConfiguration $generatorConfiguration
@@ -164,7 +171,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * @throws RenderException
      * @throws SchemaException
      */
-    public function generateObject(string $jsonSchema, GeneratorConfiguration $generatorConfiguration = null): string
+    public function generateClass(string $jsonSchema, GeneratorConfiguration $generatorConfiguration = null): string
     {
         $generatorConfiguration = $generatorConfiguration ?? new GeneratorConfiguration();
         $generatorConfiguration

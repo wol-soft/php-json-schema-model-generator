@@ -22,7 +22,7 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedOptionalAnyPropertyIsValid(): void
     {
-        $className = $this->generateObjectFromFile('AnyProperty.json');
+        $className = $this->generateClassFromFile('AnyProperty.json');
 
         $object = new $className([]);
         $this->assertNull($object->getProperty());
@@ -39,7 +39,7 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testAnyProvidedTypeIsValid($propertyValue): void
     {
-        $className = $this->generateObjectFromFile('AnyProperty.json');
+        $className = $this->generateClassFromFile('AnyProperty.json');
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
