@@ -63,7 +63,6 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
             $properties[$compositionElement] = $compositionProperty;
         }
 
-        print_r($propertyData['propertyData'], true);
         $property->addValidator(
             new ConditionalPropertyValidator(
                 $property,

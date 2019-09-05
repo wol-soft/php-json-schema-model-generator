@@ -41,7 +41,7 @@ class PropertyProcessorFactoryTest extends TestCase
             $type,
             new PropertyCollectionProcessor(),
             new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),
-            new Schema(new SchemaDefinitionDictionary(''))
+            new Schema()
         );
 
         $this->assertInstanceOf($expectedClass, $propertyProcessor);
@@ -79,7 +79,7 @@ class PropertyProcessorFactoryTest extends TestCase
             'Hello',
             new PropertyCollectionProcessor(),
             new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),
-            new Schema(new SchemaDefinitionDictionary(''))
+            new Schema()
         );
     }
 }

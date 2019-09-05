@@ -143,6 +143,20 @@ class SchemaProcessor
             $structure
         );
 
+        $this->generateClassFile($classPath, $className, $schema);
+
+        return $schema;
+    }
+
+    /**
+     * Attach a new class file render job to the render proxy
+     *
+     * @param string $classPath
+     * @param string $className
+     * @param Schema $schema
+     */
+    public function generateClassFile(string $classPath, string $className, Schema $schema): void
+    {
         $fileName = join(
                 DIRECTORY_SEPARATOR,
                 [$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]
@@ -157,8 +171,6 @@ class SchemaProcessor
         }
 
         $this->generatedFiles[] = $fileName;
-
-        return $schema;
     }
 
     /**

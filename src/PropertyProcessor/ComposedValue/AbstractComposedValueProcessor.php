@@ -5,10 +5,13 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
+use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Property\AbstractValueProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
@@ -31,6 +34,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
         $properties = [];
+        $createMergedProperty = $this instanceof MergedComposedPropertiesInterface;
 
         foreach ($propertyData['propertyData'][$propertyData['type']] as $compositionElement) {
             $compositionProperty = new CompositionPropertyDecorator(
@@ -49,12 +53,22 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     !is_a($validator->getValidator(), ComposedPropertyValidator::class);
             });
 
-            $property->addTypeHintDecorator(new CompositionTypeHintDecorator($compositionProperty));
+            // only create a composed type hint if we aren't a AnyOf or an AllOf processor and the compositionProperty
+            // contains no object. This results in objects being composed each separately for a OneOf processor
+            // (eg. string|ObjectA|ObjectB). For a merged composed property the objects are merged together so it
+            // results in string|MergedObject
+            if (!($createMergedProperty && $compositionProperty->getNestedSchema())) {
+                $property->addTypeHintDecorator(new CompositionTypeHintDecorator($compositionProperty));
+            }
 
             $properties[] = $compositionProperty;
         }
 
         $availableAmount = count($properties);
+
+        if ($createMergedProperty) {
+            $this->createMergedProperty($property, $properties);
+        }
 
         $property->addValidator(
             new ComposedPropertyValidator(
@@ -76,6 +90,43 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             ),
             100
         );
+    }
+
+    /**
+     * TODO: no nested properties --> cancel, only one --> use original model
+     *
+     * Gather all nested object properties and merge them together into a single merged property
+     *
+     * @param PropertyInterface              $property
+     * @param CompositionPropertyDecorator[] $properties
+     *
+     * @return PropertyInterface
+     */
+    private function createMergedProperty(PropertyInterface $property, array $properties): PropertyInterface
+    {
+        $mergedPropertySchema = new Schema();
+        $mergedClassName = sprintf('%s_Merged_%s', $this->schemaProcessor->getCurrentClassName(), uniqid());
+        $mergedProperty = new Property('MergedProperty', $mergedClassName);
+
+        foreach ($properties as $property) {
+            if ($property->getNestedSchema()) {
+                foreach ($property->getNestedSchema()->getProperties() as $nestedProperty) {
+                    $mergedPropertySchema->addProperty($nestedProperty);
+                }
+            }
+        }
+
+        $this->schemaProcessor->generateClassFile(
+            $this->schemaProcessor->getCurrentClassPath(),
+            $mergedClassName,
+            $mergedPropertySchema
+        );
+
+        $property->addTypeHintDecorator(new CompositionTypeHintDecorator($mergedProperty));
+
+        return $mergedProperty
+            ->addDecorator(new ObjectInstantiationDecorator($mergedClassName))
+            ->setNestedSchema($mergedPropertySchema);
     }
 
     /**

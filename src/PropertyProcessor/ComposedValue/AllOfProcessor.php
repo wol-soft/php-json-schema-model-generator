@@ -7,7 +7,9 @@ namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
  *
  * @package PHPModelGenerator\PropertyProcessor\ComposedValue
  */
-class AllOfProcessor extends AbstractComposedValueProcessor implements ComposedPropertiesInterface
+class AllOfProcessor
+    extends AbstractComposedValueProcessor
+    implements ComposedPropertiesInterface, MergedComposedPropertiesInterface
 {
     /**
      * @inheritdoc

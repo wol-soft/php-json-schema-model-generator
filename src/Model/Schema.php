@@ -33,9 +33,9 @@ class Schema
      *
      * @param SchemaDefinitionDictionary $dictionary
      */
-    public function __construct(SchemaDefinitionDictionary $dictionary)
+    public function __construct(SchemaDefinitionDictionary $dictionary = null)
     {
-        $this->schemaDefinitionDictionary = $dictionary;
+        $this->schemaDefinitionDictionary = $dictionary ?? new SchemaDefinitionDictionary('');
     }
 
     /**
