@@ -112,7 +112,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                     new PropertyCollectionProcessor(),
                     $this->schemaProcessor,
                     $this->schema,
-                    $property->getName() . '_composed_' . uniqid(),
+                    $property->getName(),
                     [
                         'type' => $composedValueKeyword,
                         'propertyData' => $propertyData,
