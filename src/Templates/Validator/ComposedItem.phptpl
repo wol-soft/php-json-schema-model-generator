@@ -33,7 +33,15 @@
         $value = $originalModelData;
     {% endforeach %}
 
-    $value = $proposedValue;
+    {% if mergedProperty %}
+        if (is_object($proposedValue)) {
+            {{ viewHelper.resolvePropertyDecorator(mergedProperty) }}
+        } else {
+            $value = $proposedValue;
+        }
+    {% else %}
+        $value = $proposedValue;
+    {% endif %}
 
     return !({{ composedValueValidation }});
 })($value)

@@ -66,10 +66,6 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
 
         $availableAmount = count($properties);
 
-        if ($createMergedProperty) {
-            $this->createMergedProperty($property, $properties);
-        }
-
         $property->addValidator(
             new ComposedPropertyValidator(
                 $property,
@@ -84,8 +80,10 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     // final value after the validations (eg. object instantiations may be performed). Otherwise (eg. a
                     // NotProcessor) the value must be proposed before the validation
                     'postPropose' => $this instanceof ComposedPropertiesInterface,
-                    'onlyForDefinedValues' => $propertyData['onlyForDefinedValues'] &&
-                        $this instanceof ComposedPropertiesInterface,
+                    'mergedProperty' =>
+                        $createMergedProperty ? $this->createMergedProperty($property, $properties) : null,
+                    'onlyForDefinedValues' =>
+                        $propertyData['onlyForDefinedValues'] && $this instanceof ComposedPropertiesInterface,
                 ]
             ),
             100
@@ -97,12 +95,12 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      *
      * Gather all nested object properties and merge them together into a single merged property
      *
-     * @param PropertyInterface              $property
+     * @param PropertyInterface              $compositionProperty
      * @param CompositionPropertyDecorator[] $properties
      *
      * @return PropertyInterface
      */
-    private function createMergedProperty(PropertyInterface $property, array $properties): PropertyInterface
+    private function createMergedProperty(PropertyInterface $compositionProperty, array $properties): PropertyInterface
     {
         $mergedPropertySchema = new Schema();
         $mergedClassName = sprintf('%s_Merged_%s', $this->schemaProcessor->getCurrentClassName(), uniqid());
@@ -111,7 +109,13 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         foreach ($properties as $property) {
             if ($property->getNestedSchema()) {
                 foreach ($property->getNestedSchema()->getProperties() as $nestedProperty) {
-                    $mergedPropertySchema->addProperty($nestedProperty);
+                    $mergedPropertySchema->addProperty(
+                        // don't validate fields in merged properties. All fields were validated before corresponding to
+                        // the defined constraints of the composition property.
+                        (clone $nestedProperty)->filterValidators(function () {
+                            return false;
+                        })
+                    );
                 }
             }
         }
@@ -122,7 +126,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             $mergedPropertySchema
         );
 
-        $property->addTypeHintDecorator(new CompositionTypeHintDecorator($mergedProperty));
+        $compositionProperty->addTypeHintDecorator(new CompositionTypeHintDecorator($mergedProperty));
 
         return $mergedProperty
             ->addDecorator(new ObjectInstantiationDecorator($mergedClassName))
