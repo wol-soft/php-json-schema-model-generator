@@ -11,6 +11,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use ReflectionClass;
 
 /**
  * Class AbstractPHPModelGeneratorTest
@@ -209,6 +210,45 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         return $className;
     }
 
+    /**
+     * Combine two data providers
+     *
+     * @param array $dataProvider1
+     * @param array $dataProvider2
+     *
+     * @return array
+     */
+    protected function combineDataProvider(array $dataProvider1, array $dataProvider2): array
+    {
+        $result = [];
+        foreach ($dataProvider1 as $dp1Key => $dp1Value) {
+            foreach ($dataProvider2 as $dp2Key => $dp2Value) {
+                $result["$dp1Key - $dp2Key"] = array_merge($dp1Value, $dp2Value);
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get the type for an object property
+     *
+     * @param object $object
+     * @param string $property
+     *
+     * @return string
+     */
+    protected function getPropertyType(object $object, string $property): string
+    {
+        $matches = [];
+        preg_match(
+            '/@var\s+([^\s]+)\s/',
+            (new ReflectionClass($object))->getProperty($property)->getDocComment(),
+            $matches
+        );
+
+        return $matches[1];
+    }
     /**
      * Generate a unique name for a class
      *

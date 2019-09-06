@@ -435,24 +435,4 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
             'Network reference' => ['https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/library.json'],
         ];
     }
-
-    /**
-     * Combine two data providers
-     *
-     * @param array $dataProvider1
-     * @param array $dataProvider2
-     *
-     * @return array
-     */
-    protected function combineDataProvider(array $dataProvider1, array $dataProvider2): array
-    {
-        $result = [];
-        foreach ($dataProvider1 as $dp1Key => $dp1Value) {
-            foreach ($dataProvider2 as $dp2Key => $dp2Value) {
-                $result["$dp1Key - $dp2Key"] = array_merge($dp1Value, $dp2Value);
-            }
-        }
-
-        return $result;
-    }
 }

@@ -29,9 +29,10 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
     public function propertyLevelOneOfSchemaFileDataProvider(): array
     {
         return [
-            'OneOfType.json' => ['OneOfType.json'],
-            'ExtendedPropertyDefinition.json' => ['ExtendedPropertyDefinition.json'],
-            'ReferencedObjectSchema.json' => ['ReferencedObjectSchema.json'],
+            'Scalar types' => ['OneOfType.json'],
+            'Property level composition' => ['ExtendedPropertyDefinition.json'],
+            'Object with scalar type' => ['ReferencedObjectSchema.json'],
+            'Multiple objects' => ['ReferencedObjectSchema2.json'],
         ];
     }
 
@@ -70,6 +71,29 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
+    }
+
+    /**
+     * @dataProvider annotationDataProvider
+     *
+     * @param string $schema
+     * @param string $annotationPattern
+     */
+    public function testOneOfTypePropertyHasTypeAnnotation(string $schema, string $annotationPattern): void
+    {
+        $className = $this->generateClassFromFile($schema);
+
+        $object = new $className([]);
+        $this->assertRegExp($annotationPattern, $this->getPropertyType($object, 'property'));
+    }
+
+    public function annotationDataProvider(): array
+    {
+        return [
+            'Multiple scalar types' => ['OneOfType.json', '/string\|int\|bool/'],
+            'Object with scalar type' => ['ReferencedObjectSchema.json', '/ComposedOneOfTest[\w]*\|string/'],
+            'Multiple objects' => ['ReferencedObjectSchema2.json', '/ComposedOneOfTest[\w]*\|ComposedOneOfTest[\w]*/']
+        ];
     }
 
     /**
@@ -224,11 +248,13 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
-     * @param $propertyValue
+     * @dataProvider referencedPersonDataProvider
+     *
+     * @param string $schema
      */
-    public function testMatchingObjectPropertyWithReferencedSchemaIsValid(): void
+    public function testMatchingObjectPropertyWithReferencedPersonSchemaIsValid(string $schema): void
     {
-        $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
+        $className = $this->generateClassFromFile($schema);
 
         $object = new $className(['property' => ['name' => 'Ha', 'age' => 42]]);
 
@@ -237,36 +263,93 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
         $this->assertSame(42, $object->getProperty()->getAge());
     }
 
+    public function referencedPersonDataProvider(): array
+    {
+        return [
+            'ReferencedObjectSchema.json' => ['ReferencedObjectSchema.json'],
+            'ReferencedObjectSchema2.json' => ['ReferencedObjectSchema2.json'],
+        ];
+    }
+
+    public function testMatchingObjectPropertyWithReferencedPetSchemaIsValid(): void
+    {
+        $className = $this->generateClassFromFile('ReferencedObjectSchema2.json');
+
+        $object = new $className(['property' => ['race' => 'Horse']]);
+
+        $this->assertTrue(is_object($object->getProperty()));
+        $this->assertSame('Horse', $object->getProperty()->getRace());
+    }
+
     /**
-     * @dataProvider invalidObjectPropertyWithReferencedSchemaDataProvider
+     * @dataProvider invalidObjectPropertyWithReferencedPersonSchemaDataProvider
      *
+     * @param string $schema
      * @param $propertyValue
      */
-    public function testNotMatchingObjectPropertyWithReferencedSchemaThrowsAnException($propertyValue): void
-    {
+    public function testNotMatchingObjectPropertyWithReferencedPersonSchemaThrowsAnException(
+        string $schema,
+        $propertyValue
+    ): void {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
 
-        $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
+        $className = $this->generateClassFromFile($schema);
 
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidObjectPropertyWithReferencedSchemaDataProvider(): array
+    public function invalidObjectPropertyWithReferencedPersonSchemaDataProvider(): array
     {
-        return [
-            'int' => [0],
-            'float' => [0.92],
-            'bool' => [true],
-            'object' => [new stdClass()],
-            'empty string' => [''],
-            'Too short string' => ['Hann'],
-            'empty array' => [[]],
-            'Missing property' => [['name' => 'Hannes']],
-            'Too many properties' => [['name' => 'Hannes', 'age' => 42, 'alive' => true]],
-            'Matching object with invalid type' => [['name' => 'Hannes', 'age' => '42']],
-            'Matching object with invalid data' => [['name' => 'H', 'age' => 42]],
-        ];
+        return $this->combineDataProvider(
+            $this->referencedPersonDataProvider(),
+            [
+                'int' => [0],
+                'float' => [0.92],
+                'bool' => [true],
+                'object' => [new stdClass()],
+                'empty string' => [''],
+                'Too short string' => ['Hann'],
+                'empty array' => [[]],
+                'Missing property' => [['name' => 'Hannes']],
+                'Too many properties' => [['name' => 'Hannes', 'age' => 42, 'alive' => true]],
+                'Matching object with invalid type' => [['name' => 'Hannes', 'age' => '42']],
+                'Matching object with invalid data' => [['name' => 'H', 'age' => 42]],
+            ]
+        );
+    }
+
+    /**
+     * @dataProvider invalidObjectPropertyWithReferencedPetSchemaDataProvider
+     *
+     * @param $propertyValue
+     */
+    public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException($propertyValue): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+
+        $className = $this->generateClassFromFile('ReferencedObjectSchema2.json');
+
+        new $className(['property' => $propertyValue]);
+    }
+
+    public function invalidObjectPropertyWithReferencedPetSchemaDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->referencedPersonDataProvider(),
+            [
+                'int' => [0],
+                'float' => [0.92],
+                'bool' => [true],
+                'object' => [new stdClass()],
+                'string' => ['Horse'],
+                'empty array' => [[]],
+                'Too many properties' => [['race' => 'Horse', 'alive' => true]],
+                'Matching object with invalid type' => [['race' => 123]],
+                'Matching object with invalid data' => [['race' => 'H']],
+            ]
+        );
     }
 
     /**
