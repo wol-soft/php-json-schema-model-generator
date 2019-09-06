@@ -1,3 +1,4 @@
+[![Latest Version](https://img.shields.io/packagist/v/wol-soft/php-json-schema-model-generator.svg)](https://packagist.org/packages/wol-soft/php-json-schema-model-generator)
 [![Maintainability](https://api.codeclimate.com/v1/badges/9e3c565c528edb3d58d5/maintainability)](https://codeclimate.com/github/wol-soft/php-json-schema-model-generator/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/7eb29e7366dc3d6a5f44/test_coverage)](https://codeclimate.com/github/wol-soft/php-json-schema-model-generator/test_coverage)
 [![Build Status](https://travis-ci.org/wol-soft/php-micro-template.svg?branch=master)](https://travis-ci.org/wol-soft/php-json-schema-model-generator)
