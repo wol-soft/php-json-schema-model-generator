@@ -109,7 +109,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
 
             $composedProperty = $propertyFactory
                 ->create(
-                    new PropertyCollectionProcessor(),
+                    $this->propertyCollectionProcessor,
                     $this->schemaProcessor,
                     $this->schema,
                     $property->getName(),

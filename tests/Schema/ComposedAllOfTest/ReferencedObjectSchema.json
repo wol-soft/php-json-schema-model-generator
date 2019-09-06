@@ -1,0 +1,45 @@
+{
+  "definitions": {
+    "person": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 2
+        },
+        "age": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "age"
+      ]
+    },
+    "pet": {
+      "type": "object",
+      "properties": {
+        "race": {
+          "type": "string",
+          "minLength": 2
+        }
+      },
+      "required": [
+        "race"
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "property": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/person"
+        },
+        {
+          "$ref": "#/definitions/pet"
+        }
+      ]
+    }
+  }
+}

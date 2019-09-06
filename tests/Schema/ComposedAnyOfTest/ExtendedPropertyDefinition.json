@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "number",
+      "minimum": 10,
+      "anyOf": [
+        {
+          "multipleOf": "2"
+        },
+        {
+          "multipleOf": "5"
+        }
+      ]
+    }
+  }
+}

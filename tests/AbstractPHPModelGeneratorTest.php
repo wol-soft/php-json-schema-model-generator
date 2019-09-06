@@ -231,7 +231,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     }
 
     /**
-     * Get the type for an object property
+     * Get the annotated type for an object property
      *
      * @param object $object
      * @param string $property
@@ -249,6 +249,27 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
         return $matches[1];
     }
+
+    /**
+     * Get the annotated return type for an object method
+     *
+     * @param object $object
+     * @param string $property
+     *
+     * @return string
+     */
+    protected function getMethodReturnType(object $object, string $method): string
+    {
+        $matches = [];
+        preg_match(
+            '/@return\s+([^\s]+)\s/',
+            (new ReflectionClass($object))->getMethod($method)->getDocComment(),
+            $matches
+        );
+
+        return $matches[1];
+    }
+
     /**
      * Generate a unique name for a class
      *

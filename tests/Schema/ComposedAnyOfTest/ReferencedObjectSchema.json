@@ -1,0 +1,35 @@
+{
+  "definitions": {
+    "person": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 2
+        },
+        "age": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "age"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "property": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/person"
+        },
+        {
+          "type": "string",
+          "minLength": 5
+        }
+      ]
+    }
+  }
+}
