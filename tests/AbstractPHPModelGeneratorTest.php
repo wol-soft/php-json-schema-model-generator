@@ -254,7 +254,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * Get the annotated return type for an object method
      *
      * @param object $object
-     * @param string $property
+     * @param string $method
      *
      * @return string
      */

@@ -7,6 +7,10 @@
 # php-json-schema-model-generator
 Creates (immutable) PHP model classes from JSON-Schema files.
 
+## Motivation ##
+
+Simple example from a PHP application: you define and document an API with swagger annotations and JSON-Schema models. Now you want to use models in your controller actions instead of manually accessing the request data (eg. array stuff). Additionally your schema already defines the validation rules for the models. Why duplicate this rules into your manually written code? Instead you can set up a middleware which instantiates models generated with this library and feed the model with the request data. Now you have a validated model which you can use in your controller action. With full auto completion when working with nested objects. Yay!
+
 ## Requirements ##
 
 - Requires at least PHP 7.2
