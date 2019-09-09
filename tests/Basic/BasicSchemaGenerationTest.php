@@ -18,11 +18,11 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         $className = $this->generateClassFromFile('BasicSchema.json');
 
-        $object = new $className([]);
+        $object = new $className(['property' => 'Hello']);
 
         $this->assertTrue(is_callable([$object, 'getProperty']));
         $this->assertTrue(is_callable([$object, 'setProperty']));
-        $this->assertNull($object->getProperty());
+        $this->assertSame('Hello', $object->getProperty());
     }
 
     public function testImmutableGeneratorDoesntGenerateSetter(): void
@@ -37,6 +37,33 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->assertTrue(is_callable([$object, 'getProperty']));
         $this->assertFalse(is_callable([$object, 'setProperty']));
         $this->assertNull($object->getProperty());
+    }
+
+    public function testSetterChangeTheInternalState(): void
+    {
+        $className = $this->generateClassFromFile('BasicSchema.json');
+
+        $object = new $className(['property' => 'Hello']);
+
+        $this->assertSame('Hello', $object->getProperty());
+        $this->assertSame($object, $object->setProperty('ChangedPropertyValue'));
+        $this->assertSame('ChangedPropertyValue', $object->getProperty());
+    }
+
+    public function testPropertyNamesAreNormalized(): void
+    {
+        $className = $this->generateClassFromFile('NameNormalization.json');
+        $object = new $className([
+            'underscore_property' => '___',
+            'minus-property' => '---',
+            'space property' => '   ',
+            'numeric42' => 13,
+        ]);
+
+        $this->assertSame('___', $object->getUnderscoreProperty());
+        $this->assertSame('---', $object->getMinusProperty());
+        $this->assertSame('   ', $object->getSpaceProperty());
+        $this->assertSame(13, $object->getNumeric42());
     }
 
     public function testNamespacePrefix(): void

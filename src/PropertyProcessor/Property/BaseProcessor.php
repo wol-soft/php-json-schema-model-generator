@@ -8,7 +8,9 @@ use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\ComposedValue\ComposedPropertiesInterface;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
@@ -169,8 +171,8 @@ class BaseProcessor extends AbstractPropertyProcessor
                     $this->schema->addProperty(
                         (clone $property)
                             ->setRequired(false)
-                            ->filterValidators(function () {
-                                return false;
+                            ->filterValidators(function (Validator $validator) {
+                                return is_a($validator->getValidator(), PropertyTemplateValidator::class);
                             })
                     );
 

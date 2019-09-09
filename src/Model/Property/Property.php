@@ -261,7 +261,7 @@ class Property implements PropertyInterface
     protected function processAttributeName(string $name): string
     {
         $name = preg_replace_callback(
-            '/([a-z])([A-Z])/',
+            '/([a-z][a-z0-9]*)([A-Z])/',
             function ($matches) {
                 return "{$matches[1]}-{$matches[2]}";
             },
@@ -272,7 +272,7 @@ class Property implements PropertyInterface
             function ($element) {
                 return ucfirst(strtolower($element));
             },
-            preg_split('/[^a-z]/i', $name)
+            preg_split('/[^a-z0-9]/i', $name)
         );
 
         return lcfirst(join('', $elements));

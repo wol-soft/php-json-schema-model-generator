@@ -317,4 +317,30 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
             'only string property with additional property' => [['stringProperty' => 'B', 'test' => 1234], 'B', null],
         ];
     }
+
+    /**
+     * @dataProvider nestedObjectDataProvider
+     *
+     * @param string $schema
+     */
+    public function testObjectLevelCompositionArrayWithNestedObject(string $schema)
+    {
+        $className = $this->generateClassFromFile($schema);
+
+        $object = new $className(['name' => 'Hannes', 'cars' => [['ps' => 112]]]);
+
+        $this->assertSame('Hannes', $object->getName());
+        $this->assertIsArray($object->getCars());
+        $this->assertCount(1, $object->getCars());
+        $this->assertIsObject($object->getCars()[0]);
+        $this->assertSame(112, $object->getCars()[0]->getPs());
+    }
+
+    public function nestedObjectDataProvider()
+    {
+        return [
+            ['ObjectLevelCompositionNestedObject.json'],
+            ['ObjectLevelNestedCompositionNestedObject.json'],
+        ];
+    }
 }

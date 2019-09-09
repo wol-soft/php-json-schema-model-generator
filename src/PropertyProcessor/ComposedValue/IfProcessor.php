@@ -29,7 +29,6 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
      */
     protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {
-        echo print_r($propertyData, true);
         if (!isset($propertyData['propertyData']['then']) && !isset($propertyData['propertyData']['else'])) {
             throw new SchemaException('Incomplete conditional composition');
         }

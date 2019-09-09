@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "underscore_property": {
+      "type": "string"
+    },
+    "CAPS": {
+      "type": "string"
+    },
+    "minus-property": {
+      "type": "string"
+    },
+    "space property": {
+      "type": "string"
+    },
+    "numeric42": {
+      "type": "integer"
+    }
+  }
+}

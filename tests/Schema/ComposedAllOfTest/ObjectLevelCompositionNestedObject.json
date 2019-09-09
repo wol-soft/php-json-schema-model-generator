@@ -1,0 +1,25 @@
+{
+  "allOf": [
+    {
+      "type": "object",
+      "id": "Owner",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "cars" : {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "id": "Car",
+            "properties": {
+              "ps": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

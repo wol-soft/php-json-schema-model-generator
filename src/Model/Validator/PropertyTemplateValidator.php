@@ -9,7 +9,7 @@ use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\RenderException;
 
 /**
- * Class CallbackPropertyValidator
+ * Class PropertyTemplateValidator
  *
  * @package PHPModelGenerator\Model\Validator
  */

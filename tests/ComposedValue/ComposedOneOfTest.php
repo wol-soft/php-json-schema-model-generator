@@ -92,8 +92,8 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
     {
         return [
             'Multiple scalar types' => ['OneOfType.json', '/string\|int\|bool/'],
-            'Object with scalar type' => ['ReferencedObjectSchema.json', '/ComposedOneOfTest[\w]*\|string/'],
-            'Multiple objects' => ['ReferencedObjectSchema2.json', '/ComposedOneOfTest[\w]*\|ComposedOneOfTest[\w]*/']
+            'Object with scalar type' => ['ReferencedObjectSchema.json', '/Composed[\w]*\|string/'],
+            'Multiple objects' => ['ReferencedObjectSchema2.json', '/Composed[\w]*\|Composed[\w]*/']
         ];
     }
 
