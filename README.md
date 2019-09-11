@@ -59,7 +59,7 @@ Method | Configuration | Example | Default
 ``` setPrettyPrint(bool $prettyPrint) ``` <br><br>Example:<br> ``` setPrettyPrint(false) ``` | If set to false, the generated model classes won't follow coding gudelines (but the generation is faster). If enabled the package [Symplify/EasyCodingStandard](https://github.com/Symplify/EasyCodingStandard) will be used to clean up the generated code. | true
 ``` setOutputEnabled(bool $prettyPrint) ``` <br><br>Example:<br> ``` setOutputEnabled(false) ``` | Enable or disable output of the generation process to STDOUT | true
 ``` setErrorRegistryClass(string $exceptionClass) ``` <br><br>Example:<br> ``` setErrorRegistryClass(CustomException::class) ``` | Define a custom exception implementing the ErrorRegistryExceptionInterface to decouple the generated code from the library (if you want to declare the library as a dev-dependency). The exception will be thrown if a validation fails error collection is **enabled** | ErrorRegistryException::class
-``` setExceptionClass(bool $prettyPrint) ``` <br><br>Example:<br> ``` setExceptionClass(CustomException::class) ``` | Define a custom exception to decouple the generated code from the library (if you want to declare the library as a dev-dependency). The exception will be thrown if a validation fails error collection is **disabled** | ValidationError::class
+``` setExceptionClass(bool $prettyPrint) ``` <br><br>Example:<br> ``` setExceptionClass(CustomException::class) ``` | Define a custom exception to decouple the generated code from the library (if you want to declare the library as a dev-dependency). The exception will be thrown if a validation fails error collection is **disabled** | ValidationException::class
 
 ## How the heck does this work? ##
 
