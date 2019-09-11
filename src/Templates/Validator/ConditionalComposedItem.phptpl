@@ -10,7 +10,7 @@
 
         {% foreach ifProperty.getOrderedValidators() as validator %}
             if ({{ validator.getCheck() }}) {
-                throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');
+                {{ viewHelper.validationError(validator.getExceptionMessage()) }}
             }
         {% endforeach %}
     } catch (\Exception $e) {
@@ -24,7 +24,7 @@
 
             {% foreach thenProperty.getOrderedValidators() as validator %}
                 if ({{ validator.getCheck() }}) {
-                    throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');
+                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
                 }
             {% endforeach %}
         {% endif %}
@@ -34,7 +34,7 @@
 
             {% foreach elseProperty.getOrderedValidators() as validator %}
                 if ({{ validator.getCheck() }}) {
-                    throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');
+                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
                 }
             {% endforeach %}
         {% endif %}

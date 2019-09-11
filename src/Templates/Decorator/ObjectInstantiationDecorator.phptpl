@@ -1,6 +1,9 @@
 (is_array($param = {{ input }})
-   ? new {{ className }}($param)
+   ? new {{ className }}(
+        $param
+        {% if generatorConfiguration.collectErrors() %}, $this->errorRegistry{% endif %}
+     )
    : (function() {
-        throw new InvalidArgumentException('invalid type for {{ property.getName() }}');
+        {{ viewHelper.validationError(exceptionMessage) }}
      })()
 )

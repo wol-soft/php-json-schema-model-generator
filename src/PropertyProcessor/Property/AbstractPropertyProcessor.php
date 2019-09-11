@@ -4,7 +4,6 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
-use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
@@ -82,7 +81,6 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                 '!in_array($value, ' .
                     preg_replace('(\d+\s=>)', '', var_export(array_merge([null], array_values($allowedValues)), true)) .
                     ', true)',
-                InvalidArgumentException::class,
                 "Invalid value for {$property->getName()} declined by enum constraint"
             ),
             3

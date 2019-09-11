@@ -73,7 +73,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                 static::class,
                 [
                     'properties' => $properties,
-                    'viewHelper' => new RenderHelper(),
+                    'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
                     'availableAmount' => $availableAmount,
                     'composedValueValidation' => $this->getComposedValueValidation($availableAmount),
                     // if the property is a composed property the resulting value of a validation must be proposed to be the
@@ -129,7 +129,9 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         $compositionProperty->addTypeHintDecorator(new CompositionTypeHintDecorator($mergedProperty));
 
         return $mergedProperty
-            ->addDecorator(new ObjectInstantiationDecorator($mergedClassName))
+            ->addDecorator(
+                new ObjectInstantiationDecorator($mergedClassName, $this->schemaProcessor->getGeneratorConfiguration())
+            )
             ->setNestedSchema($mergedPropertySchema);
     }
 

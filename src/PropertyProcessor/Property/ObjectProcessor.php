@@ -38,7 +38,9 @@ class ObjectProcessor extends AbstractTypedValueProcessor
         );
 
         $property
-            ->addDecorator(new ObjectInstantiationDecorator($className))
+            ->addDecorator(
+                new ObjectInstantiationDecorator($className, $this->schemaProcessor->getGeneratorConfiguration())
+            )
             ->setType($className)
             ->setNestedSchema($schema);
 

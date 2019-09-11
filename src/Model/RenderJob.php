@@ -99,7 +99,10 @@ class RenderJob
         $render = new Render(__DIR__ . "/../Templates/");
 
         $namespace = trim($generatorConfiguration->getNamespacePrefix() . $this->classPath, '\\');
-        $use = $this->schema->getUseList(empty($namespace));
+
+        $use = $generatorConfiguration->collectErrors()
+            ? [$generatorConfiguration->getErrorRegistryClass()]
+            : [$generatorConfiguration->getExceptionClass()];
 
         try {
             $class = $render->renderTemplate(
@@ -111,7 +114,7 @@ class RenderJob
                     'baseValidators'         => $this->schema->getBaseValidators(),
                     'properties'             => $this->schema->getProperties(),
                     'generatorConfiguration' => $generatorConfiguration,
-                    'viewHelper'             => new RenderHelper(),
+                    'viewHelper'             => new RenderHelper($generatorConfiguration),
                 ]
             );
         } catch (PHPMicroTemplateException $exception) {

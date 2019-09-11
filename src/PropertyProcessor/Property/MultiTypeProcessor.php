@@ -4,7 +4,6 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
-use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
@@ -84,7 +83,6 @@ class MultiTypeProcessor extends AbstractValueProcessor
             new PropertyValidator(
                 '!' . join('($value) && !', array_unique($this->allowedPropertyTypeChecks)) . '($value)' .
                     ($property->isRequired() ? '' : ' && $value !== null'),
-                InvalidArgumentException::class,
                 "invalid type for {$property->getName()}"
             ),
             2

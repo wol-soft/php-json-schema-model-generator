@@ -16,7 +16,7 @@
 
             {% foreach property.getOrderedValidators() as validator %}
                 if ({{ validator.getCheck() }}) {
-                    throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ validator.getExceptionMessage() }}');
+                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
                 }
             {% endforeach %}
 

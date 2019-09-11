@@ -230,28 +230,6 @@ class Property implements PropertyInterface
     }
 
     /**
-     * @inheritdoc
-     */
-    public function getExceptionClasses(): array
-    {
-        $use = [];
-
-        foreach ($this->getOrderedValidators() as $validator) {
-            $use[] = $validator->getExceptionClass();
-        }
-
-        foreach ($this->getNestedProperties() as $property) {
-            $use = array_merge($use, $property->getExceptionClasses());
-        }
-
-        foreach ($this->decorators as $decorator) {
-            $use = array_merge($use, $decorator->getExceptionClasses());
-        }
-
-        return $use;
-    }
-
-    /**
      * Convert a name of a JSON-field into a valid PHP variable name to be used as class attribute
      *
      * @param string $name

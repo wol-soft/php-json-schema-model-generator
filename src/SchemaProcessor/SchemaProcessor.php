@@ -214,4 +214,12 @@ class SchemaProcessor
     {
         return $this->generatedFiles;
     }
+
+    /**
+     * @return GeneratorConfiguration
+     */
+    public function getGeneratorConfiguration(): GeneratorConfiguration
+    {
+        return $this->generatorConfiguration;
+    }
 }

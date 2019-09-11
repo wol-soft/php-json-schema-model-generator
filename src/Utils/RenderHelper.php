@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types = 1);
+
 namespace PHPModelGenerator\Utils;
 
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
@@ -11,6 +14,19 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  */
 class RenderHelper
 {
+    /** @var GeneratorConfiguration */
+    protected $generatorConfiguration;
+
+    /**
+     * RenderHelper constructor.
+     *
+     * @param GeneratorConfiguration $generatorConfiguration
+     */
+    public function __construct(GeneratorConfiguration $generatorConfiguration)
+    {
+        $this->generatorConfiguration = $generatorConfiguration;
+    }
+
     /**
      * @param string $value
      *
@@ -71,5 +87,25 @@ class RenderHelper
         return $property->isRequired()
             ? '$value = ' . $property->resolveDecorator('$value') . ';'
             : 'if ($value !== null) { $value = ' . $property->resolveDecorator('$value') . '; }';
+    }
+
+    /**
+     * Generate code to handle a validation error
+     *
+     * @param string $message
+     *
+     * @return string
+     */
+    public function validationError(string $message): string
+    {
+        $message = $this->escapeSingleQuotes($message);
+
+        if ($this->generatorConfiguration->collectErrors()) {
+
+        }
+
+        $exceptionClass = $this->getSimpleClassName($this->generatorConfiguration->getExceptionClass());
+
+        return "throw new $exceptionClass('$message');";
     }
 }

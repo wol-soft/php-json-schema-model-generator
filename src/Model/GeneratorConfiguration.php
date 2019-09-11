@@ -4,6 +4,9 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model;
 
+use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\InvalidArgumentException;
+
 /**
  * Class GeneratorConfiguration
  *
@@ -19,6 +22,12 @@ class GeneratorConfiguration
     protected $prettyPrint = true;
     /** @var bool */
     protected $outputEnabled = true;
+    /** @var bool */
+    protected $collectErrors = true;
+    /** @var string */
+    protected $errorRegistryClass = ErrorRegistryException::class;
+    /** @var string */
+    protected $exceptionClass = InvalidArgumentException::class;
 
     /**
      * @return string
@@ -94,5 +103,62 @@ class GeneratorConfiguration
     public function isOutputEnabled(): bool
     {
         return $this->outputEnabled;
+    }
+
+    /**
+     * @return bool
+     */
+    public function collectErrors(): bool
+    {
+        return $this->collectErrors;
+    }
+
+    /**
+     * @param bool $collectErrors
+     *
+     * @return GeneratorConfiguration
+     */
+    public function setCollectErrors(bool $collectErrors): self
+    {
+        $this->collectErrors = $collectErrors;
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getErrorRegistryClass(): string
+    {
+        return $this->errorRegistryClass;
+    }
+
+    /**
+     * @param string $errorRegistryClass
+     *
+     * @return GeneratorConfiguration
+     */
+    public function setErrorRegistryClass(string $errorRegistryClass): self
+    {
+        $this->errorRegistryClass = $errorRegistryClass;
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getExceptionClass(): string
+    {
+        return $this->exceptionClass;
+    }
+
+    /**
+     * @param string $exceptionClass
+     *
+     * @return GeneratorConfiguration
+     */
+    public function setExceptionClass(string $exceptionClass): self
+    {
+        $this->exceptionClass = $exceptionClass;
+        return $this;
     }
 }

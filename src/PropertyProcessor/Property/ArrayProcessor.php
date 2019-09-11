@@ -4,7 +4,6 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
-use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
@@ -59,7 +58,6 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             $property->addValidator(
                 new PropertyValidator(
                     $this->getTypeCheck() . "count(\$value) < {$propertyData[self::JSON_FIELD_MIN_ITEMS]}",
-                    InvalidArgumentException::class,
                     sprintf($limitMessage, $property->getName(), 'less', $propertyData[self::JSON_FIELD_MIN_ITEMS])
                 )
             );
@@ -69,7 +67,6 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             $property->addValidator(
                 new PropertyValidator(
                     $this->getTypeCheck() . "count(\$value) > {$propertyData[self::JSON_FIELD_MAX_ITEMS]}",
-                    InvalidArgumentException::class,
                     sprintf($limitMessage, $property->getName(), 'more', $propertyData[self::JSON_FIELD_MAX_ITEMS])
                 )
             );
@@ -91,7 +88,6 @@ class ArrayProcessor extends AbstractTypedValueProcessor
         $property->addValidator(
             new PropertyValidator(
                 $this->getTypeCheck() . 'count($value) !== count(array_unique($value, SORT_REGULAR))',
-                InvalidArgumentException::class,
                 "Items of array {$property->getName()} are not unique"
             )
         );
@@ -126,12 +122,11 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             ->addTypeHintDecorator(new ArrayTypeHintDecorator($nestedProperty))
             ->addValidator(
                 new PropertyTemplateValidator(
-                    InvalidArgumentException::class,
                     'Invalid array item',
                     DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayItem.phptpl',
                     [
                         'property' => $nestedProperty,
-                        'viewHelper' => new RenderHelper(),
+                        'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
                     ]
                 )
             );

@@ -4,7 +4,6 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
-use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -54,7 +53,6 @@ class StringProcessor extends AbstractTypedValueProcessor
         $property->addValidator(
             new PropertyValidator(
                 $this->getTypeCheck() . "!preg_match('/{$propertyData[static::JSON_FIELD_PATTERN]}/', \$value)",
-                InvalidArgumentException::class,
                 "{$property->getName()} doesn't match pattern {$propertyData[static::JSON_FIELD_PATTERN]}"
             )
         );
@@ -72,7 +70,6 @@ class StringProcessor extends AbstractTypedValueProcessor
             $property->addValidator(
                 new PropertyValidator(
                     $this->getTypeCheck() . "strlen(\$value) < {$propertyData[static::JSON_FIELD_MIN_LENGTH]}",
-                    InvalidArgumentException::class,
                     "{$property->getName()} must not be shorter than {$propertyData[static::JSON_FIELD_MIN_LENGTH]}"
                 )
             );
@@ -82,7 +79,6 @@ class StringProcessor extends AbstractTypedValueProcessor
             $property->addValidator(
                 new PropertyValidator(
                     $this->getTypeCheck() . "strlen(\$value) > {$propertyData[static::JSON_FIELD_MAX_LENGTH]}",
-                    InvalidArgumentException::class,
                     "{$property->getName()} must not be longer than {$propertyData[static::JSON_FIELD_MAX_LENGTH]}"
                 )
             );

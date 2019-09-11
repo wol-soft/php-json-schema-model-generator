@@ -23,6 +23,15 @@ class {{ class }}
     /** @var array */
     protected $rawModelDataInput;
 
+    {% if generatorConfiguration.collectErrors() %}
+        /** @var Throwable Collect all validation errors */
+        protected $errorRegistry;
+        /** @var bool Store if the current class is the initial class which must throw a collected exception after
+         *            the validation process is finished
+         */
+        protected $isInitialClass = false;
+    {% endif %}
+
     /**
      * {{ class }} constructor.
      *
@@ -32,15 +41,24 @@ class {{ class }}
         * @throws Exception
      {% endif %}
     */
-    public function __construct(array $modelData)
-    {
+    public function __construct(
+        array $modelData
+        {% if generatorConfiguration.collectErrors() %}, {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $errorRegistry = null{% endif %}
+    ) {
+        {% if generatorConfiguration.collectErrors() %}
+            if (!$errorRegistry) {
+                $this->isInitialClass = false;
+                $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            }
+        {% endif%}
+
         {% if baseValidators %}
             $value = $modelData;
         {% endif %}
 
         {% foreach baseValidators as validator %}
              if ({{ validator.getCheck() }}) {
-                throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ viewHelper.escapeSingleQuotes(validator.getExceptionMessage()) }}');
+                {{ viewHelper.validationError(validator.getExceptionMessage()) }}
             }
         {% endforeach %}
 
@@ -49,6 +67,12 @@ class {{ class }}
         {% endforeach %}
 
         $this->rawModelDataInput = $modelData;
+
+        {% if generatorConfiguration.collectErrors() %}
+            if ($this->isInitialClass && count($this->errorRegistry->getErrors()) > 0) {
+                throw $this->errorRegistry;
+            }
+        {% endif%}
     }
 
     /**
@@ -108,7 +132,7 @@ class {{ class }}
 
             {% foreach property.getOrderedValidators() as validator %}
                 if ({{ validator.getCheck() }}) {
-                    throw new {{ viewHelper.getSimpleClassName(validator.getExceptionClass()) }}('{{ viewHelper.escapeSingleQuotes(validator.getExceptionMessage()) }}');
+                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
                 }
             {% endforeach %}
 

@@ -81,38 +81,6 @@ class Schema
     }
 
     /**
-     * Extract all required uses for the properties of the schema
-     *
-     * @param bool $skipGlobalNamespace
-     *
-     * @return array
-     */
-    public function getUseList(bool $skipGlobalNamespace): array
-    {
-        $use = [];
-
-        foreach ($this->getBaseValidators() as $validator) {
-            $use[] = $validator->getExceptionClass();
-        }
-
-        foreach ($this->getProperties() as $property) {
-            if (empty($property->getValidators())) {
-                continue;
-            }
-
-            $use = array_merge($use, [Exception::class], $property->getExceptionClasses());
-        }
-
-        if ($skipGlobalNamespace) {
-            $use = array_filter($use, function ($namespace) {
-                return strstr($namespace, '\\');
-            });
-        }
-
-        return $use;
-    }
-
-    /**
      * @return SchemaDefinitionDictionary
      */
     public function getSchemaDictionary(): SchemaDefinitionDictionary

@@ -25,18 +25,15 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
     /**
      * PropertyValidator constructor.
      *
-     * @param string $exceptionClass
      * @param string $exceptionMessage
      * @param string $template
      * @param array  $templateValues
      */
     public function __construct(
-        string $exceptionClass,
         string $exceptionMessage,
         string $template,
         array $templateValues
     ) {
-        $this->exceptionClass = $exceptionClass;
         $this->exceptionMessage = $exceptionMessage;
         $this->template = $template;
         $this->templateValues = $templateValues;

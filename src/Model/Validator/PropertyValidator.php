@@ -18,13 +18,11 @@ class PropertyValidator extends AbstractPropertyValidator
      * PropertyValidator constructor.
      *
      * @param string $check
-     * @param string $exceptionClass
      * @param string $exceptionMessage
      */
-    public function __construct(string $check, string $exceptionClass, string $exceptionMessage)
+    public function __construct(string $check, string $exceptionMessage)
     {
         $this->check = $check;
-        $this->exceptionClass = $exceptionClass;
         $this->exceptionMessage = $exceptionMessage;
     }
 

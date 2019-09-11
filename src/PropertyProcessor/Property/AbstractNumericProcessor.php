@@ -4,7 +4,6 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
-use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 
@@ -51,7 +50,6 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
         $property->addValidator(
             new PropertyValidator(
                 $this->getTypeCheck() . "\$value < {$propertyData[self::JSON_FIELD_MINIMUM]}",
-                InvalidArgumentException::class,
                 sprintf(static::LIMIT_MESSAGE, $property->getName(), 'smaller') .
                     $propertyData[self::JSON_FIELD_MINIMUM]
             )
@@ -73,7 +71,6 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
         $property->addValidator(
             new PropertyValidator(
                 $this->getTypeCheck() . "\$value > {$propertyData[self::JSON_FIELD_MAXIMUM]}",
-                InvalidArgumentException::class,
                 sprintf(static::LIMIT_MESSAGE, $property->getName(), 'larger') . $propertyData[self::JSON_FIELD_MAXIMUM]
             )
         );
@@ -101,7 +98,6 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
                             ? $this->getTypeCheck() . "\$value % {$propertyData[self::JSON_FIELD_MULTIPLE]} != 0"
                             : $this->getTypeCheck() . "fmod(\$value, {$propertyData[self::JSON_FIELD_MULTIPLE]}) != 0"
                     ),
-                InvalidArgumentException::class,
                 "Value for {$property->getName()} must be a multiple of {$propertyData[self::JSON_FIELD_MULTIPLE]}"
             )
         );

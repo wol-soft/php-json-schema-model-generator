@@ -4,7 +4,6 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
-use PHPModelGenerator\Exception\InvalidArgumentException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
@@ -23,7 +22,6 @@ class RequiredPropertyValidator extends PropertyValidator
     {
         parent::__construct(
             "!array_key_exists('{$property->getName()}', \$modelData)",
-            InvalidArgumentException::class,
             "Missing required value for {$property->getName()}"
         );
     }

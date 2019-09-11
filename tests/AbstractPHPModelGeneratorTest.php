@@ -174,7 +174,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      */
     public function generateClass(string $jsonSchema, GeneratorConfiguration $generatorConfiguration = null): string
     {
-        $generatorConfiguration = $generatorConfiguration ?? new GeneratorConfiguration();
+        $generatorConfiguration = $generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false);
         $generatorConfiguration
             ->setPrettyPrint(false)
             ->setOutputEnabled(false);

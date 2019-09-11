@@ -134,13 +134,6 @@ interface PropertyInterface
     public function hasDecorators(): bool;
 
     /**
-     * Get a list of all required classes
-     *
-     * @return array
-     */
-    public function getExceptionClasses(): array;
-
-    /**
      * @param bool $isPropertyRequired
      *
      * @return PropertyInterface

@@ -70,7 +70,7 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
                     'ifProperty' => $properties['if'],
                     'thenProperty' => $properties['then'],
                     'elseProperty' => $properties['else'],
-                    'viewHelper' => new RenderHelper(),
+                    'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
                     'onlyForDefinedValues' => $propertyData['onlyForDefinedValues'],
                 ]
             ),

@@ -5,8 +5,9 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Decorator\Property;
 
 use PHPMicroTemplate\Render;
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class ObjectInstantiationDecorator
@@ -19,15 +20,19 @@ class ObjectInstantiationDecorator implements PropertyDecoratorInterface
     protected static $renderer;
     /** @var string */
     protected $className;
+    /** @var GeneratorConfiguration */
+    protected $generatorConfiguration;
 
     /**
      * ObjectInstantiationDecorator constructor.
      *
-     * @param string $className
+     * @param string                 $className
+     * @param GeneratorConfiguration $generatorConfiguration
      */
-    public function __construct(string $className)
+    public function __construct(string $className, GeneratorConfiguration $generatorConfiguration)
     {
         $this->className = $className;
+        $this->generatorConfiguration = $generatorConfiguration;
 
         if (!static::$renderer) {
             static::$renderer = new Render(
@@ -46,16 +51,10 @@ class ObjectInstantiationDecorator implements PropertyDecoratorInterface
             [
                 'input' => $input,
                 'className' => $this->className,
-                'property' => $property,
+                'exceptionMessage' => "invalid type for {$property->getName()}",
+                'generatorConfiguration' => $this->generatorConfiguration,
+                'viewHelper' => new RenderHelper($this->generatorConfiguration),
             ]
         );
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getExceptionClasses(): array
-    {
-        return [InvalidArgumentException::class];
     }
 }

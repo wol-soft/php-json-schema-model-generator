@@ -183,14 +183,6 @@ class PropertyProxy implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function getExceptionClasses(): array
-    {
-        return $this->getProperty()->getExceptionClasses();
-    }
-
-    /**
-     * @inheritdoc
-     */
     public function setRequired(bool $isPropertyRequired): PropertyInterface
     {
         return $this->getProperty()->setRequired($isPropertyRequired);

@@ -36,12 +36,4 @@ class PropertyTransferDecorator implements PropertyDecoratorInterface
     {
         return $this->property->resolveDecorator($input);
     }
-
-    /**
-     * @inheritdoc
-     */
-    public function getExceptionClasses(): array
-    {
-        return [];
-    }
 }
