@@ -5,7 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\Model;
 
 use PHPModelGenerator\Exception\ErrorRegistryException;
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 
 /**
  * Class GeneratorConfiguration
@@ -27,7 +27,7 @@ class GeneratorConfiguration
     /** @var string */
     protected $errorRegistryClass = ErrorRegistryException::class;
     /** @var string */
-    protected $exceptionClass = InvalidArgumentException::class;
+    protected $exceptionClass = ValidationException::class;
 
     /**
      * @return string

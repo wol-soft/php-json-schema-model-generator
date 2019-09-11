@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
@@ -134,7 +134,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidReferenceObjectPropertyTypeThrowsAnException(string $reference, $propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('invalid type for person');
 
         $className = $this->generateClassFromFileTemplate('ObjectReference.json', [$reference]);
@@ -225,7 +225,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         $propertyValue,
         string $message
     ): void {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($message);
 
         $className = $this->generateClassFromFileTemplate('IntReference.json', [$reference]);
@@ -350,7 +350,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         string $reference2,
         $propertyValue
     ): void {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
 
         // TODO: all tests should throw an exception "invalid arrayItem". Currently the messages may differ due to
         // TODO: PropertyProxy resolving

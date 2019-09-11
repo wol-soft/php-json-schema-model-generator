@@ -2,7 +2,7 @@
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use stdClass;
 
@@ -39,7 +39,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedObjectLevelAllOfNotMatchingAnyOptionThrowsAnException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessageRegExp('/^Invalid value for (.*?) declined by composition constraint$/');
 
         $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
@@ -104,7 +104,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
         $propertyValue,
         string $exceptionMessage
     ): void {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($exceptionMessage);
 
         $className = $this->generateClassFromFile('ExtendedPropertyDefinition.json');
@@ -160,7 +160,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
      * @param $propertyValue
      */
     public function testNotMatchingObjectPropertyWithReferencedPersonSchemaThrowsAnException($propertyValue): void {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
 
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
@@ -192,7 +192,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException($propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
 
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
@@ -251,7 +251,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotMatchingPropertyForComposedAllOfObjectThrowsAnException(array $input): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
 
         $className = $this->generateClassFromFile('ObjectLevelComposition.json');
 
@@ -286,7 +286,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
     public function testMatchingPropertyForComposedAllOfObjectWithRequiredPropertiesThrowsAnException(
         array $input
     ): void {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
 
         $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
 
@@ -301,7 +301,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
     public function testNotMatchingPropertyForComposedAllOfObjectWithRequiredPropertiesThrowsAnException(
         array $input
     ): void {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
 
         $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
 
@@ -343,4 +343,18 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
             ['ObjectLevelNestedCompositionNestedObject.json'],
         ];
     }
+
+    /*
+        public function testObjectLevelCompositionConditional()
+        {
+            $className = $this->generateClassFromFile('ComposedAllOfConditional.json');
+
+            $object = new $className(['name' => 'Hannes', 'cars' => [['ps' => 112]]]);
+
+            $this->assertSame('Hannes', $object->getName());
+            $this->assertIsArray($object->getCars());
+            $this->assertCount(1, $object->getCars());
+            $this->assertIsObject($object->getCars()[0]);
+            $this->assertSame(112, $object->getCars()[0]->getPs());
+        }*/
 }

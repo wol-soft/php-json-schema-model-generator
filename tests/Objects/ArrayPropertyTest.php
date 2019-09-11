@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
@@ -68,7 +68,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidPropertyTypeThrowsAnException($propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('invalid type for property');
 
         $className = $this->generateClassFromFile('ArrayProperty.json');
@@ -126,7 +126,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotUniqueArrayThrowsAnExceptionWithUniqueConstraint(array $propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Items of array property are not unique');
 
         $className = $this->generateClassFromFile('ArrayPropertyUnique.json');
@@ -184,7 +184,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
         array $propertyValue,
         string $exceptionMessage
     ): void {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($exceptionMessage);
 
         $className = $this->generateClassFromFile('ArrayPropertyItemAmount.json');
@@ -241,7 +241,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidTypedArrayThrowsAnException(string $type, $propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('invalid type for arrayItem');
 
         $className = $this->generateClassFromFileTemplate('ArrayPropertyTyped.json', [$type], null, false);

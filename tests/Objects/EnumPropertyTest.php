@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
@@ -72,7 +72,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidItemThrowsAnException(string $propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
 
         $className = $this->generateEnumClass('string', static::ENUM_STRING);
@@ -100,7 +100,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidItemTypeThrowsAnException($propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('invalid type for property');
 
         $className = $this->generateEnumClass('string', static::ENUM_STRING);
@@ -126,7 +126,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedValueForRequiredEnumThrowsAnException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage("Missing required value for property");
 
         $className = $this->generateEnumClass('string', static::ENUM_STRING, true);
@@ -141,7 +141,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNullProvidedForRequiredEnumThrowsAnException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage("invalid type for property");
 
         $className = $this->generateEnumClass('string', static::ENUM_STRING, true);
@@ -199,7 +199,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidItemInUntypedEnumThrowsAnException($propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
 
         $className = $this->generateClassFromFile('UntypedEnumProperty.json');

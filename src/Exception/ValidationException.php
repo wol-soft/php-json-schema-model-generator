@@ -9,6 +9,6 @@ namespace PHPModelGenerator\Exception;
  *
  * @package PHPModelGenerator\Exception
  */
-class InvalidArgumentException extends PHPModelGeneratorException
+class ValidationException extends PHPModelGeneratorException
 {
 }

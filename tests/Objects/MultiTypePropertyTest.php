@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
@@ -61,7 +61,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidProvidedValueThrowsAnException($propertyValue, string $exceptionMessage): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($exceptionMessage);
 
         $className = $this->generateClassFromFile('MultiTypeProperty.json');

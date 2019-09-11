@@ -2,7 +2,7 @@
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use stdClass;
 
@@ -41,7 +41,7 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidProvidedOptionalNotOfTypeStringPropertyThrowsAnException(string $propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
 
         $className = $this->generateClassFromFile('NotOfType.json');
@@ -72,7 +72,7 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTest
 
     public function testNotProvidedOptionalNotNullPropertyThrowsAnException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
 
         $className = $this->generateClassFromFile('NotNull.json');
@@ -82,7 +82,7 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTest
 
     public function testInvalidProvidedOptionalNotNullPropertyThrowsAnException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
 
         $className = $this->generateClassFromFile('NotNull.json');
@@ -147,7 +147,7 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTest
         $propertyValue,
         string $exceptionMessage
     ): void {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($exceptionMessage);
 
         $className = $this->generateClassFromFile('ExtendedPropertyDefinition.json');
@@ -210,7 +210,7 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTest
 
     public function testMatchingObjectPropertyWithReferencedSchemaThrowsAnException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for person declined by composition constraint');
 
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json');

@@ -2,7 +2,7 @@
 
 namespace PHPModelGenerator\Tests\Basic;
 
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 /**
@@ -43,7 +43,7 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTest
         array $propertyValue,
         string $exceptionMessage
     ): void {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($exceptionMessage);
 
         $className = $this->generateClassFromFile('ObjectSize.json');

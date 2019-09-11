@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
@@ -66,7 +66,7 @@ class BooleanPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidPropertyTypeThrowsAnException($propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('invalid type for property');
 
         $className = $this->generateClassFromFile('BooleanProperty.json');

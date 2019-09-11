@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
@@ -67,7 +67,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidPropertyTypeThrowsAnException($propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('invalid type for property');
 
         $className = $this->generateClassFromFile('ObjectProperty.json');
@@ -151,17 +151,17 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTest
         return [
             'Missing required property' => [
                 ['age' => 42, 'alive' => true],
-                InvalidArgumentException::class,
+                ValidationException::class,
                 'Missing required value for name'
             ],
             'Too few arguments' => [
                 ['name' => 'Hannes'],
-                InvalidArgumentException::class,
+                ValidationException::class,
                 'Provided object must not contain less than 2 properties'
             ],
             'Too many arguments' => [
                 ['name' => 'Hannes', 'age' => 42, 'alive' => true, 'children' => 3],
-                InvalidArgumentException::class,
+                ValidationException::class,
                 'Provided object must not contain more than 3 properties'
             ],
         ];

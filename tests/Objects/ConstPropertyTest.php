@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
@@ -37,7 +37,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedConstPropertyThrowsAnException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by const constraint');
 
         $className = $this->generateClassFromFile('ConstProperty.json');
@@ -56,7 +56,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotMatchingProvidedDataThrowsAnException($propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by const constraint');
 
         $className = $this->generateClassFromFile('ConstProperty.json');

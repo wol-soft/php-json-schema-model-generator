@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
@@ -66,7 +66,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidPropertyTypeThrowsAnException($propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('invalid type for property');
 
         $className = $this->generateClassFromFile('StringProperty.json');
@@ -123,7 +123,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testStringWithInvalidLengthThrowsAnException(string $propertyValue, string $exceptionMessage): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($exceptionMessage);
 
         $className = $this->generateClassFromFile('StringPropertyLengthValidation.json');
@@ -176,7 +176,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testStringThatDoesntMatchPatternThrowsAnException(string $pattern, string $propertyValue): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage("property doesn't match pattern $pattern");
 
         $className = $this->generateClassFromFileTemplate('StringPropertyPattern.json', [$pattern]);

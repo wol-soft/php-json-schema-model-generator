@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
@@ -47,7 +47,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedRequiredPropertyThrowsAnException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage("Missing required value for property");
 
         $className = $this->generateClassFromFile('RequiredStringProperty.json');
@@ -62,7 +62,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNullProvidedForRequiredPropertyThrowsAnException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessage("invalid type for property");
 
         $className = $this->generateClassFromFile('RequiredStringProperty.json');

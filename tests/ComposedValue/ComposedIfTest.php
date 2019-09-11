@@ -2,7 +2,7 @@
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
-use PHPModelGenerator\Exception\InvalidArgumentException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 /**
@@ -55,7 +55,7 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTest
         ?string $country,
         ?string $postalCode
     ): void {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         $this->expectExceptionMessageRegExp('/postal_code doesn\'t match pattern .*/');
 
         $className = $this->generateClassFromFile('ConditionalObjectProperty.json');
