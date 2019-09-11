@@ -47,7 +47,7 @@ class {{ class }}
     ) {
         {% if generatorConfiguration.collectErrors() %}
             if (!$errorRegistry) {
-                $this->isInitialClass = false;
+                $this->isInitialClass = true;
                 $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
             }
         {% endif%}

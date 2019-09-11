@@ -22,7 +22,6 @@ class PropertyCollectionProcessor
     public function __construct(array $requiredAttributes = [])
     {
         $this->requiredAttributes = $requiredAttributes;
-        return $this;
     }
 
     /**

@@ -53,10 +53,13 @@ The *GeneratorConfiguration* object offers the following methods to configure th
 
 Method | Configuration | Example | Default
 --- | --- | --- | ---
-``` setNamespacePrefix(string $prefix) ``` | Configures a namespace prefix for all generated classes. The namespaces will be extended with the directory structure of the source directory. | ``` setNamespacePrefix('\\MyApp\\Model') ``` | Empty string so no namespace prefix will be used
-``` setImmutable(bool $immutable) ``` | If set to true the generated model classes will be delivered without setter methods for the object properties. | ``` setImmutable(true) ``` | false
+``` setNamespacePrefix(string $prefix) ``` | Configures a namespace prefix for all generated classes. The namespaces will be extended with the directory structure of the source directory. | ``` setNamespacePrefix('\MyApp\Model') ``` | Empty string so no namespace prefix will be used
+``` setImmutable(bool $immutable) ``` | If set to true the generated model classes will be delivered without setter methods for the object properties. | ``` setImmutable(false) ``` | true
+``` setCollectErrors(bool $collectErrors) ``` | By default the complete input is validated and in case of failing validations all error messages will be thrown in a single exception. If set to false the first failing validation will throw an exception. | ``` setCollectErrors(true) ``` | false
 ``` setPrettyPrint(bool $prettyPrint) ``` | If set to false, the generated model classes won't follow coding gudelines (but the generation is faster). If enabled the package [Symplify/EasyCodingStandard](https://github.com/Symplify/EasyCodingStandard) will be used to clean up the generated code. | ``` setPrettyPrint(false) ``` | true
 ``` setOutputEnabled(bool $prettyPrint) ``` | Enable or disable output of the generation process to STDOUT | ``` setOutputEnabled(false) ``` | true
+``` setErrorRegistryClass(string $exceptionClass) ``` | Define a custom exception implementing the ErrorRegistryExceptionInterface to decouple the generated code from the library (if you want to declare the library as a dev-dependency). The exception will be thrown if a validation fails error collection is **enabled** | ``` setErrorRegistryClass(CustomException::class) ``` | PHPModelGenerator\Exception\ErrorRegistryException::class
+``` setExceptionClass(bool $prettyPrint) ``` | Define a custom exception to decouple the generated code from the library (if you want to declare the library as a dev-dependency). The exception will be thrown if a validation fails error collection is **disabled** | ``` setExceptionClass(CustomException::class) ``` | PHPModelGenerator\Exception\InvalidArgumentException::class
 
 ## How the heck does this work? ##
 

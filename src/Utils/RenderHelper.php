@@ -101,7 +101,7 @@ class RenderHelper
         $message = $this->escapeSingleQuotes($message);
 
         if ($this->generatorConfiguration->collectErrors()) {
-
+            return "\$this->errorRegistry->addError('$message');";
         }
 
         $exceptionClass = $this->getSimpleClassName($this->generatorConfiguration->getExceptionClass());
