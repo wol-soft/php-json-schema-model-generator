@@ -51,8 +51,8 @@ The generator will check the given source directory recursive and convert all fo
 
 The *GeneratorConfiguration* object offers the following methods to configure the generator in a fluid interface:
 
-Method | Configuration | Example | Default
---- | --- | --- | ---
+Method | Configuration | Example
+--- | --- | ---
 ``` setNamespacePrefix(string $prefix) ``` <br><br>Example:<br> ``` setNamespacePrefix('\MyApp\Model') ``` | Configures a namespace prefix for all generated classes. The namespaces will be extended with the directory structure of the source directory. | Empty string so no namespace prefix will be used
 ``` setImmutable(bool $immutable) ``` <br><br>Example:<br> ``` setImmutable(false) ``` | If set to true the generated model classes will be delivered without setter methods for the object properties. | true
 ``` setCollectErrors(bool $collectErrors) ``` <br><br>Example:<br> ``` setCollectErrors(false) ``` | By default the complete input is validated and in case of failing validations all error messages will be thrown in a single exception. If set to false the first failing validation will throw an exception. | true
