@@ -1,10 +1,11 @@
 imports:
-    - { resource: '../vendor/symplify/easy-coding-standard/config/psr12.yml' }
-    - { resource: '../vendor/symplify/easy-coding-standard/config/psr2.yml' }
-    - { resource: '../vendor/symplify/easy-coding-standard/config/common.yml' }
+    - { resource: '%vendor_dir%/symplify/easy-coding-standard/config/set/psr12.yaml' }
+    - { resource: '%vendor_dir%/symplify/easy-coding-standard/config/set/psr2.yaml' }
+    - { resource: '%vendor_dir%/symplify/easy-coding-standard/config/set/common.yaml' }
+    - { resource: '%vendor_dir%/symplify/easy-coding-standard/config/set/clean-code.yaml' }
 
 parameters:
-    exclude_checkers:
-      - 'Symplify\CodingStandard\Fixer\Commenting\RemoveUselessDocBlockFixer'
-      - 'PhpCsFixer\Fixer\Operator\NotOperatorWithSuccessorSpaceFixer'
-      - 'PhpCsFixer\Fixer\Strict\StrictComparisonFixer'
+    skip:
+      Symplify\CodingStandard\Fixer\Commenting\RemoveUselessDocBlockFixer: ~
+      PhpCsFixer\Fixer\Operator\NotOperatorWithSuccessorSpaceFixer: ~
+      PhpCsFixer\Fixer\Strict\StrictComparisonFixer: ~

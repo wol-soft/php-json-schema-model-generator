@@ -36,11 +36,10 @@ class {{ class }}
      * {{ class }} constructor.
      *
      * @param array $modelData
-     {% if use %}
-        *
-        * @throws Exception
-     {% endif %}
-    */
+     {% if generatorConfiguration.collectErrors() %}* @param {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $errorRegistry{% endif %}
+     *
+     * @throws Throwable
+     */
     public function __construct(
         array $modelData
         {% if generatorConfiguration.collectErrors() %}, {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $errorRegistry = null{% endif %}
@@ -122,7 +121,7 @@ class {{ class }}
          *
          * @param array $modelData
          *
-         * {% if property.getValidators() %}@throws Exception{% endif %}
+         * {% if property.getValidators() %}{% if not generatorConfiguration.collectErrors() %}@throws Throwable{% endif %}{% endif %}
          */
         protected function process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
         {
