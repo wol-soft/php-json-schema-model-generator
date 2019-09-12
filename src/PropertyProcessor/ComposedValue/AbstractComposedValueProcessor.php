@@ -82,7 +82,9 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     // NotProcessor) the value must be proposed before the validation
                     'postPropose' => $this instanceof ComposedPropertiesInterface,
                     'mergedProperty' =>
-                        $createMergedProperty ? $this->createMergedProperty($property, $properties) : null,
+                        $createMergedProperty
+                            ? $this->createMergedProperty($property, $properties, $propertyData)
+                            : null,
                     'onlyForDefinedValues' =>
                         $propertyData['onlyForDefinedValues'] && $this instanceof ComposedPropertiesInterface,
                 ]
@@ -98,13 +100,21 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      *
      * @param PropertyInterface              $compositionProperty
      * @param CompositionPropertyDecorator[] $properties
+     * @param array                          $propertyData
      *
      * @return PropertyInterface
      */
-    private function createMergedProperty(PropertyInterface $compositionProperty, array $properties): PropertyInterface
-    {
+    private function createMergedProperty(
+        PropertyInterface $compositionProperty,
+        array $properties,
+        array $propertyData
+    ): PropertyInterface {
         $mergedPropertySchema = new Schema();
-        $mergedClassName = sprintf('%s_Merged_%s', $this->schemaProcessor->getCurrentClassName(), uniqid());
+        $mergedClassName = sprintf(
+            '%s_Merged_%s', $this->schemaProcessor->getCurrentClassName(),
+            $propertyData['propertyData']['id'] ?? uniqid()
+        );
+
         $mergedProperty = new Property('MergedProperty', $mergedClassName);
 
         foreach ($properties as $property) {
