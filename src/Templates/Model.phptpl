@@ -2,7 +2,9 @@
 
 declare(strict_types = 1);
 
-{{ namespace }}
+{% if namespace %}
+    namespace {{ namespace }};
+{% endif %}
 
 {{ use }}
 
@@ -12,7 +14,7 @@ declare(strict_types = 1);
  * are re-generated.
  *
  * Class {{ class }}
- * @package {{ namespace }}
+{% if namespace %} * @package {{ namespace }} {% endif %}
  */
 class {{ class }}
 {
@@ -38,7 +40,7 @@ class {{ class }}
      * @param array $modelData
      {% if generatorConfiguration.collectErrors() %}* @param {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $errorRegistry{% endif %}
      *
-     * @throws Throwable
+     * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getExceptionClass()) }}{% endif %}
      */
     public function __construct(
         array $modelData
@@ -48,6 +50,8 @@ class {{ class }}
             if (!$errorRegistry) {
                 $this->isInitialClass = true;
                 $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            } else {
+                $this->errorRegistry = $errorRegistry;
             }
         {% endif%}
 

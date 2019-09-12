@@ -2,7 +2,10 @@
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
-use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\RenderException;
+use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use stdClass;
 
@@ -24,68 +27,104 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTest
     /**
      * @dataProvider validPropertyTypeDataProvider
      *
+     * @param GeneratorConfiguration $configuration
      * @param $propertyValue
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
      */
-    public function testValidProvidedOptionalNotOfTypeStringPropertyIsValid($propertyValue): void
-    {
-        $className = $this->generateClassFromFile('NotOfType.json');
+    public function testValidProvidedOptionalNotOfTypeStringPropertyIsValid(
+        GeneratorConfiguration $configuration,
+        $propertyValue
+    ): void {
+        $className = $this->generateClassFromFile('NotOfType.json', $configuration);
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
+    public function validPropertyTypeDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'int' => [0],
+                'float' => [0.92],
+                'bool' => [true],
+                'array' => [[]],
+                'object' => [new stdClass()],
+                'null' => [null],
+            ]
+        );
+    }
+
     /**
      * @dataProvider invalidPropertyTypeDataProvider
      *
-     * @param $propertyValue
+     * @param GeneratorConfiguration $configuration
+     * @param string $propertyValue
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
      */
-    public function testInvalidProvidedOptionalNotOfTypeStringPropertyThrowsAnException(string $propertyValue): void
-    {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+    public function testInvalidProvidedOptionalNotOfTypeStringPropertyThrowsAnException(
+        GeneratorConfiguration $configuration,
+        string $propertyValue
+    ): void {
+        $this->expectValidationError($configuration, 'Invalid value for property declined by composition constraint');
 
-        $className = $this->generateClassFromFile('NotOfType.json');
+        $className = $this->generateClassFromFile('NotOfType.json', $configuration);
 
         new $className(['property' => $propertyValue]);
     }
 
     public function invalidPropertyTypeDataProvider(): array
     {
-        return [
-            'empty string' => [''],
-            'numeric string' => ['100'],
-            'word string' => ['Hello'],
-        ];
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'empty string' => [''],
+                'numeric string' => ['100'],
+                'word string' => ['Hello'],
+            ]
+        );
     }
 
-    public function validPropertyTypeDataProvider(): array
+    /**
+     * @dataProvider validationMethodDataProvider
+     *
+     * @param GeneratorConfiguration $configuration
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNotProvidedOptionalNotNullPropertyThrowsAnException(GeneratorConfiguration $configuration): void
     {
-        return [
-            'int' => [0],
-            'float' => [0.92],
-            'bool' => [true],
-            'array' => [[]],
-            'object' => [new stdClass()],
-            'null' => [null],
-        ];
-    }
+        $this->expectValidationError($configuration, 'Invalid value for property declined by composition constraint');
 
-    public function testNotProvidedOptionalNotNullPropertyThrowsAnException(): void
-    {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
-
-        $className = $this->generateClassFromFile('NotNull.json');
+        $className = $this->generateClassFromFile('NotNull.json', $configuration);
 
         new $className([]);
     }
 
-    public function testInvalidProvidedOptionalNotNullPropertyThrowsAnException(): void
-    {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+    /**
+     * @dataProvider validationMethodDataProvider
+     *
+     * @param GeneratorConfiguration $configuration
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testInvalidProvidedOptionalNotNullPropertyThrowsAnException(
+        GeneratorConfiguration $configuration
+    ): void {
+        $this->expectValidationError($configuration, 'Invalid value for property declined by composition constraint');
 
-        $className = $this->generateClassFromFile('NotNull.json');
+        $className = $this->generateClassFromFile('NotNull.json', $configuration);
 
         new $className(['property' => null]);
     }
@@ -93,11 +132,18 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTest
     /**
      * @dataProvider validNotNullPropertyDataProvider
      *
+     * @param GeneratorConfiguration $configuration
      * @param $propertyValue
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
      */
-    public function testValidProvidedOptionalNotNullPropertyIsValid($propertyValue): void
-    {
-        $className = $this->generateClassFromFile('NotNull.json');
+    public function testValidProvidedOptionalNotNullPropertyIsValid(
+        GeneratorConfiguration $configuration,
+        $propertyValue
+    ): void {
+        $className = $this->generateClassFromFile('NotNull.json', $configuration);
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -105,24 +151,34 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTest
 
     public function validNotNullPropertyDataProvider(): array
     {
-        return [
-            'int' => [0],
-            'float' => [0.92],
-            'bool' => [true],
-            'array' => [[]],
-            'object' => [new stdClass()],
-            'string' => [''],
-        ];
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'int' => [0],
+                'float' => [0.92],
+                'bool' => [true],
+                'array' => [[]],
+                'object' => [new stdClass()],
+                'string' => [''],
+            ]
+        );
     }
 
     /**
      * @dataProvider validExtendedPropertyDataProvider
      *
+     * @param GeneratorConfiguration $configuration
      * @param $propertyValue
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
      */
-    public function testExtendedPropertyDefinitionWithValidValues($propertyValue): void
-    {
-        $className = $this->generateClassFromFile('ExtendedPropertyDefinition.json');
+    public function testExtendedPropertyDefinitionWithValidValues(
+        GeneratorConfiguration $configuration,
+        $propertyValue
+    ): void {
+        $className = $this->generateClassFromFile('ExtendedPropertyDefinition.json', $configuration);
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -130,49 +186,70 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTest
 
     public function validExtendedPropertyDataProvider(): array
     {
-        return [
-            '11.' => [11.],
-            '13.' => [13.],
-            '10.5' => [10.5],
-        ];
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                '11.' => [11.],
+                '13.' => [13.],
+                '10.5' => [10.5],
+            ]
+        );
     }
 
     /**
      * @dataProvider invalidExtendedPropertyDataProvider
      *
+     * @param GeneratorConfiguration $configuration
      * @param $propertyValue
      * @param string $exceptionMessage
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
      */
     public function testExtendedPropertyDefinitionWithInvalidValuesThrowsAnException(
+        GeneratorConfiguration $configuration,
         $propertyValue,
         string $exceptionMessage
     ): void {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage($exceptionMessage);
+        $this->expectValidationError($configuration, $exceptionMessage);
 
-        $className = $this->generateClassFromFile('ExtendedPropertyDefinition.json');
+        $className = $this->generateClassFromFile('ExtendedPropertyDefinition.json', $configuration);
 
         new $className(['property' => $propertyValue]);
     }
 
     public function invalidExtendedPropertyDataProvider(): array
     {
-        return [
-            '10.' => [10., 'Invalid value for property declined by composition constraint'],
-            '12.' => [12., 'Invalid value for property declined by composition constraint'],
-            '9.9' => [9.9, 'Value for property must not be smaller than 10'],
-            '9.' => [9, 'Value for property must not be smaller than 10'],
-            '8.' => [8, 'Value for property must not be smaller than 10'],
-            'bool' => [true, 'invalid type for property'],
-            'array' => [[], 'invalid type for property'],
-            'object' => [new stdClass(), 'invalid type for property'],
-            'string' => ['', 'invalid type for property'],
-        ];
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                '10.' => [10., 'Invalid value for property declined by composition constraint'],
+                '12.' => [12., 'Invalid value for property declined by composition constraint'],
+                '9.9' => [9.9, 'Value for property must not be smaller than 10'],
+                '9.' => [9, 'Value for property must not be smaller than 10'],
+                '8.' => [8, 'Value for property must not be smaller than 10'],
+                'bool' => [true, 'invalid type for property'],
+                'array' => [[], 'invalid type for property'],
+                'object' => [new stdClass(), 'invalid type for property'],
+                'string' => ['', 'invalid type for property'],
+            ]
+        );
     }
 
-    public function testNotProvidedObjectPropertyWithReferencedSchemaIsValid(): void
-    {
-        $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
+    /**
+     * @dataProvider validationMethodDataProvider
+     *
+     * @param GeneratorConfiguration $configuration
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNotProvidedObjectPropertyWithReferencedSchemaIsValid(
+        GeneratorConfiguration $configuration
+    ): void {
+        $className = $this->generateClassFromFile('ReferencedObjectSchema.json', $configuration);
 
         $object = new $className([]);
         $this->assertNull($object->getPerson());
@@ -181,11 +258,18 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTest
     /**
      * @dataProvider objectPropertyWithReferencedSchemaDataProvider
      *
+     * @param GeneratorConfiguration $configuration
      * @param $propertyValue
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
      */
-    public function testNotMatchingObjectPropertyWithReferencedSchemaIsValid($propertyValue): void
-    {
-        $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
+    public function testNotMatchingObjectPropertyWithReferencedSchemaIsValid(
+        GeneratorConfiguration $configuration,
+        $propertyValue
+    ): void {
+        $className = $this->generateClassFromFile('ReferencedObjectSchema.json', $configuration);
 
         $object = new $className(['person' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getPerson());
@@ -193,27 +277,39 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTest
 
     public function objectPropertyWithReferencedSchemaDataProvider(): array
     {
-        return [
-            'null' => [null],
-            'int' => [0],
-            'float' => [0.92],
-            'bool' => [true],
-            'object' => [new stdClass()],
-            'string' => [''],
-            'empty array' => [[]],
-            'Missing property' => [['name' => 'Hannes']],
-            'Too many properties' => [['name' => 'Hannes', 'age' => 42, 'alive' => true]],
-            'Matching object with invalid type' => [['name' => 'Hannes', 'age' => '42']],
-            'Matching object with invalid data' => [['name' => 'H', 'age' => 42]],
-        ];
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'null' => [null],
+                'int' => [0],
+                'float' => [0.92],
+                'bool' => [true],
+                'object' => [new stdClass()],
+                'string' => [''],
+                'empty array' => [[]],
+                'Missing property' => [['name' => 'Hannes']],
+                'Too many properties' => [['name' => 'Hannes', 'age' => 42, 'alive' => true]],
+                'Matching object with invalid type' => [['name' => 'Hannes', 'age' => '42']],
+                'Matching object with invalid data' => [['name' => 'H', 'age' => 42]],
+            ]
+        );
     }
 
-    public function testMatchingObjectPropertyWithReferencedSchemaThrowsAnException(): void
-    {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for person declined by composition constraint');
+    /**
+     * @dataProvider validationMethodDataProvider
+     *
+     * @param GeneratorConfiguration $configuration
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testMatchingObjectPropertyWithReferencedSchemaThrowsAnException(
+        GeneratorConfiguration $configuration
+    ): void {
+        $this->expectValidationError($configuration, 'Invalid value for person declined by composition constraint');
 
-        $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
+        $className = $this->generateClassFromFile('ReferencedObjectSchema.json', $configuration);
 
         new $className(['person' => ['name' => 'Hannes', 'age' => 42]]);
     }

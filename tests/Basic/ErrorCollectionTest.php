@@ -4,7 +4,6 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
-use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use stdClass;
@@ -84,23 +83,5 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
             'array' => [[], ['invalid type for property']],
             'object' => [new stdClass(), ['invalid type for property']],
         ];
-    }
-
-    /**
-     * Set up an ErrorRegistryException containing the given messages
-     *
-     * @param array $messages
-     *
-     * @return ErrorRegistryException
-     */
-    protected function getErrorRegistryException(array $messages): ErrorRegistryException
-    {
-        $errorRegistry = new ErrorRegistryException();
-
-        foreach ($messages as $message) {
-            $errorRegistry->addError($message);
-        }
-
-        return $errorRegistry;
     }
 }

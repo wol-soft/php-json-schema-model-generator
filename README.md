@@ -37,7 +37,7 @@ As an optional parameter you can set up a *GeneratorConfiguration* object to con
 ```php
 $generator = new Generator(
     (new GeneratorConfiguration())
-        ->setNamespacePrefix('\\MyApp\\Model')
+        ->setNamespacePrefix('\MyApp\Model')
         ->setImmutable(true)
 );
 

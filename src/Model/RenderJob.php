@@ -113,7 +113,7 @@ class RenderJob
             $class = $render->renderTemplate(
                 'Model.phptpl',
                 [
-                    'namespace'              => empty($namespace) ? '' : "namespace $namespace;",
+                    'namespace'              => $namespace,
                     'use'                    => empty($use) ? '' : 'use ' . join(";\nuse ", array_unique($use)) . ';',
                     'class'                  => $this->className,
                     'baseValidators'         => $this->schema->getBaseValidators(),

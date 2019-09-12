@@ -18,6 +18,9 @@ class ErrorRegistryException extends Exception implements ErrorRegistryException
     public function addError(string $message): ErrorRegistryExceptionInterface
     {
         $this->errors[] = $message;
+
+        $this->message = join("\n", $this->errors);
+
         return $this;
     }
 

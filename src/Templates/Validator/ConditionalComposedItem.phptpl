@@ -4,8 +4,16 @@
 (function (&$value) use (&$modelData) {
     $originalModelData = $value;
     $ifValid  = true;
+    {% if generatorConfiguration.collectErrors() %}
+        $originalErrorRegistry = $this->errorRegistry;
+        $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+    {% endif %}
 
     try {
+        {% if generatorConfiguration.collectErrors() %}
+            $currentErrors = count($this->errorRegistry->getErrors());
+        {% endif %}
+
         {{ viewHelper.resolvePropertyDecorator(ifProperty) }}
 
         {% foreach ifProperty.getOrderedValidators() as validator %}
@@ -13,10 +21,22 @@
                 {{ viewHelper.validationError(validator.getExceptionMessage()) }}
             }
         {% endforeach %}
+
+        {% if generatorConfiguration.collectErrors() %}
+            // an error inside the composed validation occurred. Throw an exception to count the validity of the
+            // composition item
+            if ($currentErrors < count($this->errorRegistry->getErrors())) {
+                throw new \Exception();
+            }
+        {% endif %}
     } catch (\Exception $e) {
         $ifValid = false;
     }
     $value = $originalModelData;
+
+    {% if generatorConfiguration.collectErrors() %}
+        $this->errorRegistry = $originalErrorRegistry;
+    {% endif %}
 
     if ($ifValid) {
         {% if thenProperty %}

@@ -73,6 +73,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                 static::class,
                 [
                     'properties' => $properties,
+                    'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
                     'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
                     'availableAmount' => $availableAmount,
                     'composedValueValidation' => $this->getComposedValueValidation($availableAmount),

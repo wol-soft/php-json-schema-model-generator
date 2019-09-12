@@ -3,9 +3,11 @@
 namespace PHPModelGenerator\Tests;
 
 use FilesystemIterator;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPUnit\Framework\TestCase;
@@ -228,6 +230,61 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         }
 
         return $result;
+    }
+
+    protected function expectValidationError(GeneratorConfiguration $configuration, $messages): void
+    {
+        if (!is_array($messages)) {
+            $messages = [$messages];
+        }
+
+        if ($configuration->collectErrors()) {
+            $this->expectExceptionObject($this->getErrorRegistryException($messages));
+        } else {
+            $this->expectException(ValidationException::class);
+            $this->expectExceptionMessage($messages[0]);
+        }
+    }
+
+    protected function expectValidationErrorRegExp(GeneratorConfiguration $configuration, $messages)
+    {
+        if (!is_array($messages)) {
+            $messages = [$messages];
+        }
+
+        if ($configuration->collectErrors()) {
+            $exception = $this->getErrorRegistryException($messages);
+            $this->expectException(get_class($exception));
+            $this->expectExceptionMessageRegExp($exception->getMessage());
+        } else {
+            $this->expectException(ValidationException::class);
+            $this->expectExceptionMessageRegExp($messages[0]);
+        }
+    }
+
+    /**
+     * Set up an ErrorRegistryException containing the given messages
+     *
+     * @param array $messages
+     *
+     * @return ErrorRegistryException
+     */
+    protected function getErrorRegistryException(array $messages): ErrorRegistryException
+    {
+        $errorRegistry = new ErrorRegistryException();
+
+        foreach ($messages as $message) {
+            $errorRegistry->addError($message);
+        }
+
+        return $errorRegistry;
+    }
+
+    public function validationMethodDataProvider(): array {
+        return [
+            'Error Collection' => [new GeneratorConfiguration()],
+            'Direct Exception' => [(new GeneratorConfiguration())->setCollectErrors(false)],
+        ];
     }
 
     /**
