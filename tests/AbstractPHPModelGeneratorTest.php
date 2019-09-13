@@ -3,11 +3,11 @@
 namespace PHPModelGenerator\Tests;
 
 use FilesystemIterator;
-use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGeneratorException\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGeneratorException\ValidationException;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPUnit\Framework\TestCase;

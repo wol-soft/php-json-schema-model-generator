@@ -26,7 +26,7 @@ class {{ class }}
     protected $rawModelDataInput;
 
     {% if generatorConfiguration.collectErrors() %}
-        /** @var Throwable Collect all validation errors */
+        /** @var ErrorRegistryExceptionInterface Collect all validation errors */
         protected $errorRegistry;
         /** @var bool Store if the current class is the initial class which must throw a collected exception after
          *            the validation process is finished
@@ -125,7 +125,7 @@ class {{ class }}
          *
          * @param array $modelData
          *
-         * {% if property.getValidators() %}{% if not generatorConfiguration.collectErrors() %}@throws Throwable{% endif %}{% endif %}
+         * {% if property.getValidators() %}{% if not generatorConfiguration.collectErrors() %}@throws ErrorRegistryExceptionInterface{% endif %}{% endif %}
          */
         protected function process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
         {

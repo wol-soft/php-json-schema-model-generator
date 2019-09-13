@@ -4,8 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model;
 
-use PHPModelGenerator\Exception\ErrorRegistryException;
-use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGeneratorException\ErrorRegistryException;
+use PHPModelGeneratorException\ValidationException;
 
 /**
  * Class GeneratorConfiguration
