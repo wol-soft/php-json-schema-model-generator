@@ -14,8 +14,8 @@ Creates (immutable) PHP model classes from JSON-Schema files.
 * [Requirements](#Requirements)
 * [Installation](#Installation)
 * [Examples](#Examples)
-* [Configuring using the GeneratorConfiguration](#Configuring using the GeneratorConfiguration)
-* [How the heck does this work?](#How the heck does this work?)
+* [Configuring using the GeneratorConfiguration](#Configuring-using-the-GeneratorConfiguration)
+* [How the heck does this work?](#How-the-heck-does-this-work)
 * [Tests](#Tests)
 
 ## Motivation ##
