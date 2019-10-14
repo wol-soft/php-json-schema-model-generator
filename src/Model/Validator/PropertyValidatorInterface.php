@@ -24,4 +24,11 @@ interface PropertyValidatorInterface
      * @return string
      */
     public function getExceptionMessage(): string;
+
+    /**
+     * Get the source code which is required to set up the validator (eg. initialize variables)
+     *
+     * @return string
+     */
+    public function getValidatorSetUp(): string;
 }

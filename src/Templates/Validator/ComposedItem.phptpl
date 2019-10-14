@@ -1,19 +1,19 @@
 {%if onlyForDefinedValues %}
     $value !== null &&
 {% endif %}
-(function (&$value) use (&$modelData) {
+(function (&$value) use (&$modelData, &$compositionErrorCollection, &$succeededCompositionElements) {
     $succeededCompositionElements = {{ availableAmount }};
     $originalModelData = $value;
     $proposedValue = null;
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->errorRegistry;
-        $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
     {% endif %}
 
     {% foreach properties as property %}
         try {
             {% if generatorConfiguration.collectErrors() %}
-                $currentErrors = count($this->errorRegistry->getErrors());
+                // collect errors for each composition element
+                $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
             {% endif %}
 
             {% if not postPropose %}
@@ -23,15 +23,18 @@
             {{ viewHelper.resolvePropertyDecorator(property) }}
 
             {% foreach property.getOrderedValidators() as validator %}
+                {{ validator.getValidatorSetUp() }}
                 if ({{ validator.getCheck() }}) {
                     {{ viewHelper.validationError(validator.getExceptionMessage()) }}
                 }
             {% endforeach %}
 
             {% if generatorConfiguration.collectErrors() %}
+                $compositionErrorCollection[] = $this->errorRegistry;
+
                 // an error inside the composed validation occurred. Throw an exception to count the validity of the
                 // composition item
-                if ($currentErrors < count($this->errorRegistry->getErrors())) {
+                if ($this->errorRegistry->getErrors()) {
                     throw new \Exception();
                 }
             {% endif %}

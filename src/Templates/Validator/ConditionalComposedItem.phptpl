@@ -17,6 +17,7 @@
         {{ viewHelper.resolvePropertyDecorator(ifProperty) }}
 
         {% foreach ifProperty.getOrderedValidators() as validator %}
+            {{ validator.getValidatorSetUp() }}
             if ({{ validator.getCheck() }}) {
                 {{ viewHelper.validationError(validator.getExceptionMessage()) }}
             }
@@ -43,6 +44,7 @@
             {{ viewHelper.resolvePropertyDecorator(thenProperty) }}
 
             {% foreach thenProperty.getOrderedValidators() as validator %}
+                {{ validator.getValidatorSetUp() }}
                 if ({{ validator.getCheck() }}) {
                     {{ viewHelper.validationError(validator.getExceptionMessage()) }}
                 }
@@ -53,6 +55,7 @@
             {{ viewHelper.resolvePropertyDecorator(elseProperty) }}
 
             {% foreach elseProperty.getOrderedValidators() as validator %}
+                {{ validator.getValidatorSetUp() }}
                 if ({{ validator.getCheck() }}) {
                     {{ viewHelper.validationError(validator.getExceptionMessage()) }}
                 }

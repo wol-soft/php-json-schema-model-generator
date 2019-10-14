@@ -77,9 +77,10 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
                     'availableAmount' => $availableAmount,
                     'composedValueValidation' => $this->getComposedValueValidation($availableAmount),
-                    // if the property is a composed property the resulting value of a validation must be proposed to be the
-                    // final value after the validations (eg. object instantiations may be performed). Otherwise (eg. a
-                    // NotProcessor) the value must be proposed before the validation
+                    'composedErrorMessage' => $this->getComposedValueValidationErrorLabel($availableAmount),
+                    // if the property is a composed property the resulting value of a validation must be proposed
+                    // to be the final value after the validations (eg. object instantiations may be performed).
+                    // Otherwise (eg. a NotProcessor) the value must be proposed before the validation
                     'postPropose' => $this instanceof ComposedPropertiesInterface,
                     'mergedProperty' =>
                         $createMergedProperty
@@ -152,4 +153,11 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      * @return string
      */
     abstract protected function getComposedValueValidation(int $composedElements): string;
+
+    /**
+     * @param int $composedElements The amount of elements which are composed together
+     *
+     * @return string
+     */
+    abstract protected function getComposedValueValidationErrorLabel(int $composedElements): string;
 }

@@ -7,6 +7,7 @@ is_array($value) && (function (&$items) {
         {{ viewHelper.resolvePropertyDecorator(property) }}
 
         {% foreach property.getOrderedValidators() as validator %}
+            {{ validator.getValidatorSetUp() }}
             if ({{ validator.getCheck() }}) {
                 {{ viewHelper.validationError(validator.getExceptionMessage()) }}
             }

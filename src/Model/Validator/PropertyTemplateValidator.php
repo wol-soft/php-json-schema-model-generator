@@ -20,7 +20,7 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
     /** @var array */
     protected $templateValues;
     /** @var Render */
-    static protected $renderer;
+    static private $renderer;
 
     /**
      * PropertyValidator constructor.
@@ -37,12 +37,6 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
         $this->exceptionMessage = $exceptionMessage;
         $this->template = $template;
         $this->templateValues = $templateValues;
-
-        if (!static::$renderer) {
-            static::$renderer = new Render(
-                join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', 'Templates']) . DIRECTORY_SEPARATOR
-            );
-        }
     }
 
     /**
@@ -55,9 +49,23 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
     public function getCheck(): string
     {
         try {
-            return static::$renderer->renderTemplate($this->template, $this->templateValues);
+            return $this->getRenderer()->renderTemplate($this->template, $this->templateValues);
         } catch (PHPMicroTemplateException $exception) {
             throw new RenderException("Can't render property validation template {$this->template}", 0, $exception);
         }
+    }
+
+    /**
+     * @return Render
+     */
+    protected function getRenderer(): Render
+    {
+        if (!self::$renderer) {
+            self::$renderer = new Render(
+                join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', 'Templates']) . DIRECTORY_SEPARATOR
+            );
+        }
+
+        return self::$renderer;
     }
 }

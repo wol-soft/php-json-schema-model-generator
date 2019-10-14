@@ -63,7 +63,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
     public function testNullProvidedForRequiredPropertyThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage("invalid type for property");
+        $this->expectExceptionMessage("Invalid type for property");
 
         $className = $this->generateClassFromFile('RequiredStringProperty.json');
 

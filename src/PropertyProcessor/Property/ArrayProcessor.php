@@ -113,7 +113,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                 new PropertyCollectionProcessor(),
                 $this->schemaProcessor,
                 $this->schema,
-                'arrayItem',
+                'array item',
                 $propertyData[self::JSON_FIELD_ITEMS]
             );
 

@@ -3,7 +3,7 @@
         $param
         {% if generatorConfiguration.collectErrors() %}, $this->errorRegistry{% endif %}
      )
-   : (function() {
+   : (function () use ($param) {
         {{ viewHelper.validationError(exceptionMessage) }}
      })()
 )

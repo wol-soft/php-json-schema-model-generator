@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGeneratorException\ErrorRegistryException;
 use stdClass;
 
 /**
@@ -22,10 +23,7 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
      */
     public function testValidValuesForMultipleChecksForSingleProperty(string $value): void
     {
-        $className = $this->generateClassFromFile(
-            'MultipleChecksForSingleProperty.json',
-            (new GeneratorConfiguration())->setCollectErrors(true)
-        );
+        $className = $this->generateClassFromFile('MultipleChecksForSingleProperty.json', new GeneratorConfiguration());
 
         $object = new $className(['property' => $value]);
         $this->assertSame($value, $object->getProperty());
@@ -50,10 +48,7 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
     ): void {
         $this->expectExceptionObject($this->getErrorRegistryException($messages));
 
-        $className = $this->generateClassFromFile(
-            'MultipleChecksForSingleProperty.json',
-            (new GeneratorConfiguration())->setCollectErrors(true)
-        );
+        $className = $this->generateClassFromFile('MultipleChecksForSingleProperty.json', new GeneratorConfiguration());
 
         new $className(['property' => $value]);
     }
@@ -76,12 +71,75 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
                     'property must not be shorter than 2'
                 ]
             ],
-            'null' => [null, ['invalid type for property']],
-            'int' => [1, ['invalid type for property']],
-            'float' => [0.92, ['invalid type for property']],
-            'bool' => [true, ['invalid type for property']],
-            'array' => [[], ['invalid type for property']],
-            'object' => [new stdClass(), ['invalid type for property']],
+            'null' => [null, ['Invalid type for property']],
+            'int' => [1, ['Invalid type for property']],
+            'float' => [0.92, ['Invalid type for property']],
+            'bool' => [true, ['Invalid type for property']],
+            'array' => [[], ['Invalid type for property']],
+            'object' => [new stdClass(), ['Invalid type for property']],
+        ];
+    }
+
+    /**
+     * @dataProvider invalidValuesForCompositionDataProvider
+     */
+    public function testInvalidValuesForMultipleValuesInCompositionThrowsAnException($value, string $message): void
+    {
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessageRegExp("/$message/");
+
+        $className = $this->generateClassFromFile('MultipleChecksInComposition.json', new GeneratorConfiguration());
+
+        new $className(['integerProperty' => $value]);
+    }
+
+    public function invalidValuesForCompositionDataProvider(): array
+    {
+        return [
+            'matching both composition elements' => [
+                6,
+                <<<ERROR
+                Invalid value for (.*?) declined by composition constraint\.
+                Requires to match one composition element but matched 2 elements\.
+                - Composition element #1: Valid
+                - Composition element #2: Valid
+                ERROR
+            ],
+            'too low number both' => [
+                0,
+                <<<ERROR
+                Invalid value for (.*?) declined by composition constraint\.
+                Requires to match one composition element but matched 0 elements\.
+                - Composition element #1: Failed
+                  \* Value for integerProperty must not be smaller than 2
+                - Composition element #2: Failed
+                  \* Value for integerProperty must not be smaller than 3
+                ERROR
+            ],
+            'nothing matches' => [
+                1,
+                <<<ERROR
+                Invalid value for (.*?) declined by composition constraint\.
+                Requires to match one composition element but matched 0 elements\.
+                - Composition element #1: Failed
+                  \* Value for integerProperty must not be smaller than 2
+                  \* Value for integerProperty must be a multiple of 2
+                - Composition element #2: Failed
+                  \* Value for integerProperty must not be smaller than 3
+                  \* Value for integerProperty must be a multiple of 3
+                ERROR
+            ],
+            'invalid type' => [
+                "4",
+                <<<ERROR
+                Invalid value for (.*?) declined by composition constraint\.
+                Requires to match one composition element but matched 0 elements\.
+                - Composition element #1: Failed
+                  \* Invalid type for integerProperty. Requires int, got string
+                - Composition element #2: Failed
+                  \* Invalid type for integerProperty. Requires int, got string
+                ERROR
+            ],
         ];
     }
 }

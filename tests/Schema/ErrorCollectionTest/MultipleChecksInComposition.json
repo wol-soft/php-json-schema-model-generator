@@ -1,0 +1,30 @@
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "integerProperty": {
+          "type": "integer",
+          "minimum": 2,
+          "multipleOf": 2
+        }
+      },
+      "required": [
+        "integerProperty"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "integerProperty": {
+          "type": "integer",
+          "minimum": 3,
+          "multipleOf": 3
+        }
+      },
+      "required": [
+        "integerProperty"
+      ]
+    }
+  ]
+}

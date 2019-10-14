@@ -23,4 +23,14 @@ abstract class AbstractPropertyValidator implements PropertyValidatorInterface
     {
         return $this->exceptionMessage;
     }
+
+    /**
+     * By default a validator doesn't require a set up
+     *
+     * @return string
+     */
+    public function getValidatorSetUp(): string
+    {
+        return '';
+    }
 }

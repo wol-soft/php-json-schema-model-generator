@@ -81,7 +81,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
         GeneratorConfiguration $configuration,
         $propertyValue
     ): void {
-        $this->expectValidationError($configuration, 'invalid type for property');
+        $this->expectValidationError(
+            $configuration,
+            'Invalid type for property. Requires array, got ' . gettype($propertyValue)
+        );
 
         $className = $this->generateClassFromFile('ArrayProperty.json', $configuration);
 
@@ -297,7 +300,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
         string $type,
         $propertyValue
     ): void {
-        $this->expectValidationError($configuration, 'invalid type for arrayItem');
+        $this->expectValidationError($configuration, "Invalid type for array item");
 
         $className = $this->generateClassFromFileTemplate('ArrayPropertyTyped.json', [$type], $configuration, false);
 

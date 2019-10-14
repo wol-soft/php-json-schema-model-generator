@@ -60,18 +60,6 @@ class RenderHelper
     }
 
     /**
-     * Escape all single quotes in the given $input string
-     *
-     * @param string $input
-     *
-     * @return string
-     */
-    public function escapeSingleQuotes(string $input): string
-    {
-        return addcslashes($input, "'");
-    }
-
-    /**
      * Resolve all associated decorators of a property
      *
      * @param PropertyInterface $property
@@ -98,14 +86,12 @@ class RenderHelper
      */
     public function validationError(string $message): string
     {
-        $message = $this->escapeSingleQuotes($message);
-
         if ($this->generatorConfiguration->collectErrors()) {
-            return "\$this->errorRegistry->addError('$message');";
+            return '$this->errorRegistry->addError("' . $message . '");';
         }
 
         $exceptionClass = $this->getSimpleClassName($this->generatorConfiguration->getExceptionClass());
 
-        return "throw new $exceptionClass('$message');";
+        return "throw new $exceptionClass(\"$message\");";
     }
 }

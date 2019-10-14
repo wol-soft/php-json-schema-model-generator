@@ -67,7 +67,7 @@ class BooleanPropertyTest extends AbstractPHPModelGeneratorTest
     public function testInvalidPropertyTypeThrowsAnException($propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('invalid type for property');
+        $this->expectExceptionMessage('Invalid type for property. Requires bool, got ' . gettype($propertyValue));
 
         $className = $this->generateClassFromFile('BooleanProperty.json');
 

@@ -79,7 +79,10 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
         GeneratorConfiguration $configuration,
         $propertyValue
     ): void {
-        $this->expectValidationError($configuration, 'invalid type for property');
+        $this->expectValidationError(
+            $configuration,
+            'Invalid type for property. Requires string, got ' . gettype($propertyValue)
+        );
 
         $className = $this->generateClassFromFile('StringProperty.json', $configuration);
 

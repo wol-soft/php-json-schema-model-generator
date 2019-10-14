@@ -68,7 +68,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTest
     public function testInvalidPropertyTypeThrowsAnException($propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('invalid type for property');
+        $this->expectExceptionMessage('Invalid type for property. Requires object, got ' . gettype($propertyValue));
 
         $className = $this->generateClassFromFile('ObjectProperty.json');
 

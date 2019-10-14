@@ -4,6 +4,9 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPMicroTemplate\Exception\FileSystemException;
+use PHPMicroTemplate\Exception\SyntaxErrorException;
+use PHPMicroTemplate\Exception\UndefinedSymbolException;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
@@ -21,6 +24,10 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      * @param CompositionPropertyDecorator[] $composedProperties
      * @param string                         $composedProcessor
      * @param array                          $validatorVariables
+     *
+     * @throws FileSystemException
+     * @throws SyntaxErrorException
+     * @throws UndefinedSymbolException
      */
     public function __construct(
         PropertyInterface $property,
@@ -29,12 +36,31 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         array $validatorVariables
     ) {
         parent::__construct(
-            "Invalid value for {$property->getName()} declined by composition constraint",
+            $this->getRenderer()->renderTemplate(
+                DIRECTORY_SEPARATOR . 'Exception' . DIRECTORY_SEPARATOR . 'ComposedValueException.phptpl',
+                [
+                    'propertyName' => $property->getName(),
+                    'composedErrorMessage' => $validatorVariables['composedErrorMessage'],
+                ]
+            ),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
             $validatorVariables
         );
 
         $this->composedProcessor = $composedProcessor;
         $this->composedProperties = $composedProperties;
+    }
+
+    /**
+     * Initialize all variables which are required to execute a composed property validator
+     *
+     * @return string
+     */
+    public function getValidatorSetUp(): string
+    {
+        return '
+            $succeededCompositionElements = 0;
+            $compositionErrorCollection = [];
+        ';
     }
 }

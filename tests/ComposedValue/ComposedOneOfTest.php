@@ -2,6 +2,7 @@
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGeneratorException\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use stdClass;
@@ -40,11 +41,17 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
      * @dataProvider objectLevelOneOfSchemaFileDataProvider
      *
      * @param string $schema
+     * @param int $matchedElements
      */
-    public function testNotProvidedObjectLevelOneOfThrowsAnException(string $schema): void
+    public function testNotProvidedObjectLevelOneOfThrowsAnException(string $schema, int $matchedElements): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessageRegExp('/^Invalid value for (.*?) declined by composition constraint$/');
+        $this->expectExceptionMessageRegExp(
+            <<<ERROR
+            /^Invalid value for (.*?) declined by composition constraint.
+            Requires to match one composition element but matched $matchedElements elements.$/
+            ERROR
+        );
 
         $className = $this->generateClassFromFile($schema);
 
@@ -54,8 +61,8 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
     public function objectLevelOneOfSchemaFileDataProvider(): array
     {
         return [
-            'ObjectLevelComposition.json' => ['ObjectLevelComposition.json'],
-            'ObjectLevelCompositionRequired.json' => ['ObjectLevelCompositionRequired.json'],
+            'ObjectLevelComposition.json' => ['ObjectLevelComposition.json', 2],
+            'ObjectLevelCompositionRequired.json' => ['ObjectLevelCompositionRequired.json', 0],
         ];
     }
 
@@ -220,10 +227,10 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
             'float 10.' => [10., 'Invalid value for property declined by composition constraint'],
             'float 9.9' => [9.9, 'Value for property must not be smaller than 10'],
             'int 8' => [8, 'Value for property must not be smaller than 10'],
-            'bool' => [true, 'invalid type for property'],
-            'array' => [[], 'invalid type for property'],
-            'object' => [new stdClass(), 'invalid type for property'],
-            'string' => ['', 'invalid type for property'],
+            'bool' => [true, 'Invalid type for property'],
+            'array' => [[], 'Invalid type for property'],
+            'object' => [new stdClass(), 'Invalid type for property'],
+            'string' => ['', 'Invalid type for property'],
         ];
     }
 
@@ -268,7 +275,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
     {
         return [
             'ReferencedObjectSchema.json' => ['ReferencedObjectSchema.json'],
-            'ReferencedObjectSchema2.json' => ['ReferencedObjectSchema2.json'],
+   //         'ReferencedObjectSchema2.json' => ['ReferencedObjectSchema2.json'],
         ];
     }
 

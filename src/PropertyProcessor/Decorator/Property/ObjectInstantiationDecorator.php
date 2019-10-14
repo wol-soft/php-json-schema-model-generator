@@ -51,7 +51,10 @@ class ObjectInstantiationDecorator implements PropertyDecoratorInterface
             [
                 'input' => $input,
                 'className' => $this->className,
-                'exceptionMessage' => "invalid type for {$property->getName()}",
+                'exceptionMessage' => sprintf(
+                    'Invalid type for %s. Requires object, got " . gettype($param) . "',
+                    $property->getName()
+                ),
                 'generatorConfiguration' => $this->generatorConfiguration,
                 'viewHelper' => new RenderHelper($this->generatorConfiguration),
             ]

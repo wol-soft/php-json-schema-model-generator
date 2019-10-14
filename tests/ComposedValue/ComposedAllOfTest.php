@@ -40,7 +40,10 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
     public function testNotProvidedObjectLevelAllOfNotMatchingAnyOptionThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessageRegExp('/^Invalid value for (.*?) declined by composition constraint$/');
+        $this->expectExceptionMessageRegExp(
+            '/^Invalid value for (.*?) declined by composition constraint.\s*' .
+            'Requires to match 2 composition elements but matched 0 elements.\s*$/'
+        );
 
         $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
 
@@ -121,10 +124,10 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
             'int 13' => [13, 'Invalid value for property declined by composition constraint'],
             'float 9.9' => [9.9, 'Value for property must not be smaller than 10'],
             'int 8' => [8, 'Value for property must not be smaller than 10'],
-            'bool' => [true, 'invalid type for property'],
-            'array' => [[], 'invalid type for property'],
-            'object' => [new stdClass(), 'invalid type for property'],
-            'string' => ['', 'invalid type for property'],
+            'bool' => [true, 'Invalid type for property'],
+            'array' => [[], 'Invalid type for property'],
+            'object' => [new stdClass(), 'Invalid type for property'],
+            'string' => ['', 'Invalid type for property'],
         ];
     }
 

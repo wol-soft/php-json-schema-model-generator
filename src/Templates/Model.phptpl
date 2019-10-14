@@ -60,6 +60,7 @@ class {{ class }}
         {% endif %}
 
         {% foreach baseValidators as validator %}
+            {{ validator.getValidatorSetUp() }}
              if ({{ validator.getCheck() }}) {
                 {{ viewHelper.validationError(validator.getExceptionMessage()) }}
             }
@@ -134,6 +135,7 @@ class {{ class }}
             {{ viewHelper.resolvePropertyDecorator(property) }}
 
             {% foreach property.getOrderedValidators() as validator %}
+                {{ validator.getValidatorSetUp() }}
                 if ({{ validator.getCheck() }}) {
                     {{ viewHelper.validationError(validator.getExceptionMessage()) }}
                 }

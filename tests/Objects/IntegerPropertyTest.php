@@ -67,7 +67,7 @@ class IntegerPropertyTest extends AbstractNumericPropertyTest
     public function testInvalidPropertyTypeThrowsAnException($propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('invalid type for property');
+        $this->expectExceptionMessage('Invalid type for property. Requires int, got ' . gettype($propertyValue));
 
         $className = $this->generateClassFromFile('IntegerProperty.json');
 

@@ -21,9 +21,9 @@ class TypeCheckValidator extends PropertyValidator
      */
     public function __construct(string $type, PropertyInterface $property)
     {
-            parent::__construct(
-                '!is_' . strtolower($type) . '($value)' . ($property->isRequired() ? '' : ' && $value !== null'),
-                "invalid type for {$property->getName()}"
-            );
+        parent::__construct(
+            '!is_' . strtolower($type) . '($value)' . ($property->isRequired() ? '' : ' && $value !== null'),
+            sprintf('Invalid type for %s. Requires %s, got " . gettype($value) . "', $property->getName(), $type)
+        );
     }
 }

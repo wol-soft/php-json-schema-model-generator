@@ -6,15 +6,16 @@
 [![MIT License](https://img.shields.io/packagist/l/wol-soft/php-micro-template.svg)](https://github.com/wol-soft/php-json-schema-model-generator/blob/master/LICENSE)
 
 # php-json-schema-model-generator
-Creates (immutable) PHP model classes from JSON-Schema files.
+Generates PHP model classes from JSON-Schema files including validation and providing a fluent auto completion for the generated classes.
 
 ## Table of Contents ##
 
 * [Motivation](#Motivation)
 * [Requirements](#Requirements)
 * [Installation](#Installation)
-* [Examples](#Examples)
+* [Basic usage](#Basic-usage)
 * [Configuring using the GeneratorConfiguration](#Configuring-using-the-GeneratorConfiguration)
+* [Examples](#Examples)
 * [How the heck does this work?](#How-the-heck-does-this-work)
 * [Tests](#Tests)
 
@@ -35,7 +36,7 @@ $ composer require wol-soft/php-json-model-generator-exception
 ```
 To avoid adding all dependencies of the php-json-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the php-json-model-generator-exception library. The exception library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment (if you decide to commit the models) or as a build step of your application.
 
-## Examples ##
+## Basic usage ##
 
 The base object for generating models is the *Generator*. After you have created a Generator you can use the object to generate your model classes without any further configuration:
 
@@ -59,11 +60,12 @@ $generator
 ```
 
 The generator will check the given source directory recursive and convert all found *.json files to models. All JSON-Schema files inside the source directory must provide a schema of an object.
+
 ## Configuring using the GeneratorConfiguration ##
 
 The *GeneratorConfiguration* object offers the following methods to configure the generator in a fluid interface:
 
-Method | Configuration | Example
+Method | Configuration | Default
 --- | --- | ---
 ``` setNamespacePrefix(string $prefix) ``` <br><br>Example:<br> ``` setNamespacePrefix('\MyApp\Model') ``` | Configures a namespace prefix for all generated classes. The namespaces will be extended with the directory structure of the source directory. | Empty string so no namespace prefix will be used
 ``` setImmutable(bool $immutable) ``` <br><br>Example:<br> ``` setImmutable(false) ``` | If set to true the generated model classes will be delivered without setter methods for the object properties. | true
@@ -72,6 +74,74 @@ Method | Configuration | Example
 ``` setOutputEnabled(bool $prettyPrint) ``` <br><br>Example:<br> ``` setOutputEnabled(false) ``` | Enable or disable output of the generation process to STDOUT | true
 ``` setErrorRegistryClass(string $exceptionClass) ``` <br><br>Example:<br> ``` setErrorRegistryClass(CustomException::class) ``` | Define a custom exception implementing the ErrorRegistryExceptionInterface to decouple the generated code from the library (if you want to declare the library as a dev-dependency). The exception will be thrown if a validation fails error collection is **enabled** | ErrorRegistryException::class
 ``` setExceptionClass(bool $prettyPrint) ``` <br><br>Example:<br> ``` setExceptionClass(CustomException::class) ``` | Define a custom exception to decouple the generated code from the library (if you want to declare the library as a dev-dependency). The exception will be thrown if a validation fails error collection is **disabled** | ValidationException::class
+
+## Examples ##
+
+The directory `./tests/manual` contains some easy examples which show the usage. After installing the dependencies of the library via `composer update` you can execute `php ./tests/manual/test.php` to generate the examples and play around with some JSON-Schema files to explore the library.
+
+Let's have a look into an easy example. We create a simple model for a person with a name and an optional age. Our resulting JSON-Schema:
+```json
+{
+  "id": "Person",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "age": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
+```
+
+After generating a class with this JSON-Schema our class with the name `Person` will provide the following interface:
+```php
+// the constructor takes an array with data which is validated and applied to the model
+public function __construct(array $modelData);
+
+// the method getRawModelDataInput always delivers the raw input which was provided on instantiation
+public function getRawModelDataInput(): array;
+
+// getters to fetch the validated properties. Age is nullable as it's not required
+public function getName(): string;
+public function getAge(): ?int;
+
+// setters to change the values of the model after instantiation (only generated if immutability is disabled)
+public function setName(string $name): Person;
+public function setAge(int ?$age): Person;
+```
+
+Now let's have a look at the behaviour of the generated model:
+```php
+// Throws an exception as the required name isn't provided.
+// Exception: 'Missing required value for name'
+$person = new Person();
+
+// Throws an exception as the name provides an invalid value.
+// Exception: 'Invalid type for name. Requires string, got int'
+$person = new Person(['name' => 12]);
+
+// A valid example as the age isn't required
+$person = new Person(['name' => 'Albert']);
+$person->getName(); // returns 'Albert'
+$person->getAge(); // returns NULL
+```
+
+More complex exception messages eg. from a [allOf](https://json-schema.org/understanding-json-schema/reference/combining.html#allof) composition may look like:
+```
+Invalid value for Animal declined by composition constraint.
+Requires to match one composition element but matched 0 elements.
+- Composition element #1: Failed
+  * Value for age must not be smaller than 0
+- Composition element #2: Valid
+- Composition element #3: Failed
+  * Value for legs must not be smaller than 2
+  * Value for legs must be a multiple of 2
+```
 
 ## How the heck does this work? ##
 
@@ -84,8 +154,10 @@ The class generation process basically splits up into three to four steps:
 
 ## Tests ##
 
+The library is tested via [PHPUnit](https://phpunit.de/).
+
 After installing the dependencies of the library via `composer update` you can execute the tests with `./vendor/bin/phpunit` (Linux) or `vendor\bin\phpunit.bat` (Windows). The test names are optimized for the usage of the `--testdox` output. Most tests are atomic integration tests which will set up a JSON-Schema file and generate a class from the schema and test the behaviour of the generated class afterwards.
 
 During the execution the tests will create a directory PHPModelGeneratorTest in tmp where JSON-Schema files and PHP classes will be written to.
 
-If a test which creates a PHP class from a JSON-Schema fails the JSON-Schema and the generated class(es) will be dumped to `./Failed-classes`
+If a test which creates a PHP class from a JSON-Schema fails the JSON-Schema and the generated class(es) will be dumped to the directory `./Failed-classes`

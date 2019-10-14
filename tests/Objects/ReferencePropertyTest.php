@@ -135,7 +135,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     public function testInvalidReferenceObjectPropertyTypeThrowsAnException(string $reference, $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('invalid type for person');
+        $this->expectExceptionMessage('Invalid type for person. Requires object, got ' . gettype($propertyValue));
 
         $className = $this->generateClassFromFileTemplate('ObjectReference.json', [$reference]);
 
@@ -238,11 +238,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         return $this->combineDataProvider(
             $this->intReferenceProvider(),
             [
-                'bool' => [true, 'invalid type for year'],
-                'float' => [0.92, 'invalid type for year'],
-                'array' => [[2], 'invalid type for year'],
-                'object' => [new stdClass(), 'invalid type for year'],
-                'string' => ['1', 'invalid type for year'],
+                'bool' => [true, 'Invalid type for year'],
+                'float' => [0.92, 'Invalid type for year'],
+                'array' => [[2], 'Invalid type for year'],
+                'object' => [new stdClass(), 'Invalid type for year'],
+                'string' => ['1', 'Invalid type for year'],
                 'int too low' => [1899, 'Value for year must not be smaller than 1900'],
                 'int too high' => [2001, 'Value for year must not be larger than 2000'],
             ]
@@ -352,9 +352,9 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     ): void {
         $this->expectException(ValidationException::class);
 
-        // TODO: all tests should throw an exception "invalid arrayItem". Currently the messages may differ due to
+        // TODO: all tests should throw an exception "invalid array item". Currently the messages may differ due to
         // TODO: PropertyProxy resolving
-        $this->expectExceptionMessageRegExp('/^invalid type for (.*)$/');
+        $this->expectExceptionMessageRegExp('/^Invalid type for (.*)$/');
 
         $className = $this->generateClassFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
 
