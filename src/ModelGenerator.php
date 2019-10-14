@@ -85,15 +85,15 @@ class ModelGenerator
             throw new FileSystemException("Destination directory '$destination' doesn't exist or is not empty");
         }
 
-        $renderProxy = new RenderQueue();
-        $schemaProcessor = new SchemaProcessor($source, $destination, $this->generatorConfiguration, $renderProxy);
+        $renderQueue = new RenderQueue();
+        $schemaProcessor = new SchemaProcessor($source, $destination, $this->generatorConfiguration, $renderQueue);
 
         foreach ($this->getSchemaFiles($source) as $jsonSchemaFile) {
             $schemaProcessor->process($jsonSchemaFile);
         }
 
         // render all collected classes
-        $renderProxy->execute($destination, $this->generatorConfiguration);
+        $renderQueue->execute($destination, $this->generatorConfiguration);
 
         if ($this->generatorConfiguration->hasPrettyPrintEnabled()) {
             // @codeCoverageIgnoreStart

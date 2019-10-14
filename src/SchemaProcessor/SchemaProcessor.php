@@ -23,7 +23,7 @@ class SchemaProcessor
     /** @var GeneratorConfiguration */
     protected $generatorConfiguration;
     /** @var RenderQueue */
-    protected $renderProxy;
+    protected $renderQueue;
     /** @var string */
     protected $source;
     /** @var string */
@@ -43,18 +43,18 @@ class SchemaProcessor
      * @param string                 $source
      * @param string                 $destination
      * @param GeneratorConfiguration $generatorConfiguration
-     * @param RenderQueue            $renderProxy
+     * @param RenderQueue            $renderQueue
      */
     public function __construct(
         string $source,
         string $destination,
         GeneratorConfiguration $generatorConfiguration,
-        RenderQueue $renderProxy
+        RenderQueue $renderQueue
     ) {
         $this->source = $source;
         $this->destination = $destination;
         $this->generatorConfiguration = $generatorConfiguration;
-        $this->renderProxy = $renderProxy;
+        $this->renderQueue = $renderQueue;
     }
 
     /**
@@ -162,7 +162,7 @@ class SchemaProcessor
                 [$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]
             ) . '.php';
 
-        $this->renderProxy->addRenderJob(new RenderJob($fileName, $classPath, $className, $schema));
+        $this->renderQueue->addRenderJob(new RenderJob($fileName, $classPath, $className, $schema));
 
         if ($this->generatorConfiguration->isOutputEnabled()) {
             // @codeCoverageIgnoreStart
