@@ -99,46 +99,46 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
             'matching both composition elements' => [
                 6,
                 <<<ERROR
-                Invalid value for (.*?) declined by composition constraint\.
-                Requires to match one composition element but matched 2 elements\.
-                - Composition element #1: Valid
-                - Composition element #2: Valid
-                ERROR
+Invalid value for (.*?) declined by composition constraint\.
+Requires to match one composition element but matched 2 elements\.
+- Composition element #1: Valid
+- Composition element #2: Valid
+ERROR
             ],
             'too low number both' => [
                 0,
                 <<<ERROR
-                Invalid value for (.*?) declined by composition constraint\.
-                Requires to match one composition element but matched 0 elements\.
-                - Composition element #1: Failed
-                  \* Value for integerProperty must not be smaller than 2
-                - Composition element #2: Failed
-                  \* Value for integerProperty must not be smaller than 3
-                ERROR
+Invalid value for (.*?) declined by composition constraint\.
+Requires to match one composition element but matched 0 elements\.
+- Composition element #1: Failed
+  \* Value for integerProperty must not be smaller than 2
+- Composition element #2: Failed
+  \* Value for integerProperty must not be smaller than 3
+ERROR
             ],
             'nothing matches' => [
                 1,
                 <<<ERROR
-                Invalid value for (.*?) declined by composition constraint\.
-                Requires to match one composition element but matched 0 elements\.
-                - Composition element #1: Failed
-                  \* Value for integerProperty must not be smaller than 2
-                  \* Value for integerProperty must be a multiple of 2
-                - Composition element #2: Failed
-                  \* Value for integerProperty must not be smaller than 3
-                  \* Value for integerProperty must be a multiple of 3
-                ERROR
+Invalid value for (.*?) declined by composition constraint\.
+Requires to match one composition element but matched 0 elements\.
+- Composition element #1: Failed
+  \* Value for integerProperty must not be smaller than 2
+  \* Value for integerProperty must be a multiple of 2
+- Composition element #2: Failed
+  \* Value for integerProperty must not be smaller than 3
+  \* Value for integerProperty must be a multiple of 3
+ERROR
             ],
             'invalid type' => [
                 "4",
                 <<<ERROR
-                Invalid value for (.*?) declined by composition constraint\.
-                Requires to match one composition element but matched 0 elements\.
-                - Composition element #1: Failed
-                  \* Invalid type for integerProperty. Requires int, got string
-                - Composition element #2: Failed
-                  \* Invalid type for integerProperty. Requires int, got string
-                ERROR
+Invalid value for (.*?) declined by composition constraint\.
+Requires to match one composition element but matched 0 elements\.
+- Composition element #1: Failed
+  \* Invalid type for integerProperty. Requires int, got string
+- Composition element #2: Failed
+  \* Invalid type for integerProperty. Requires int, got string
+ERROR
             ],
         ];
     }
