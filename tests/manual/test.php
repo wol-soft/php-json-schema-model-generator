@@ -1,12 +1,10 @@
 <?php
 
-use ManualSchema\Person;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 
-/*
 $generator = new ModelGenerator((new GeneratorConfiguration())
     ->setNamespacePrefix('\\ManualSchema')
     ->setImmutable(false)
@@ -16,9 +14,3 @@ $generator = new ModelGenerator((new GeneratorConfiguration())
 $generator
     ->generateModelDirectory(__DIR__ . '/result')
     ->generateModels(__DIR__ . '/schema', __DIR__ . '/result');
-*/
-
-$person = new Person(['name' => 'Albert']);
-
-var_dump($person->getName());
-var_dump($person->getAge());
