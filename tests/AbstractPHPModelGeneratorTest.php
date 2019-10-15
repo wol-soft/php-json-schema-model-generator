@@ -232,6 +232,12 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         return $result;
     }
 
+    /**
+     * Expect a validation error based on the given configuration
+     *
+     * @param GeneratorConfiguration $configuration
+     * @param array|string           $messages
+     */
     protected function expectValidationError(GeneratorConfiguration $configuration, $messages): void
     {
         if (!is_array($messages)) {
@@ -255,10 +261,10 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         if ($configuration->collectErrors()) {
             $exception = $this->getErrorRegistryException($messages);
             $this->expectException(get_class($exception));
-            $this->expectExceptionMessageRegExp($exception->getMessage());
+            $this->expectExceptionMessageMatches($exception->getMessage());
         } else {
             $this->expectException(ValidationException::class);
-            $this->expectExceptionMessageRegExp($messages[0]);
+            $this->expectExceptionMessageMatches($messages[0]);
         }
     }
 

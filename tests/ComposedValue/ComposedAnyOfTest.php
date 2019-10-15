@@ -42,7 +42,7 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTest
     public function testNotProvidedObjectLevelAnyOfNotMatchingAnyOptionThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessageRegExp(
+        $this->expectExceptionMessageMatches(
             '/^Invalid value for (.*?) declined by composition constraint.\s*' .
             'Requires to match at least one composition element.\s*$/'
         );

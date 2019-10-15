@@ -86,7 +86,7 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
     public function testInvalidValuesForMultipleValuesInCompositionThrowsAnException($value, string $message): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageRegExp("/$message/");
+        $this->expectExceptionMessageMatches("/$message/");
 
         $className = $this->generateClassFromFile('MultipleChecksInComposition.json', new GeneratorConfiguration());
 

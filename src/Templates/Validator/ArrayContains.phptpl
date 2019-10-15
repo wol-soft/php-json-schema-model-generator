@@ -1,0 +1,45 @@
+is_array($value) && (function (&$items) {
+    if (empty($items)) {
+        return true;
+    }
+
+    {% if generatorConfiguration.collectErrors() %}
+        $originalErrorRegistry = $this->errorRegistry;
+    {% endif%}
+
+    foreach ($items as &$value) {
+        try {
+            {% if generatorConfiguration.collectErrors() %}
+                $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            {% endif %}
+
+            {{ viewHelper.resolvePropertyDecorator(property) }}
+
+            {% foreach property.getOrderedValidators() as validator %}
+                {{ validator.getValidatorSetUp() }}
+                if ({{ validator.getCheck() }}) {
+                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
+                }
+            {% endforeach %}
+
+            {% if generatorConfiguration.collectErrors() %}
+                if ($this->errorRegistry->getErrors()) {
+                    continue;
+                }
+
+                $this->errorRegistry = $originalErrorRegistry;
+            {% endif%}
+
+            // one matched item is enough to pass the contains check
+            return false;
+        } catch (\Exception $e) {
+            continue;
+        }
+    }
+
+    {% if generatorConfiguration.collectErrors() %}
+        $this->errorRegistry = $originalErrorRegistry;
+    {% endif%}
+
+    return true;
+})($value)

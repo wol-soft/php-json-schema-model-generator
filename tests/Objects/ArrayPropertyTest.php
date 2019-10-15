@@ -300,7 +300,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
         string $type,
         $propertyValue
     ): void {
-        $this->expectValidationError($configuration, "Invalid type for array item");
+        $this->expectValidationError($configuration, 'Invalid type for item of array');
 
         $className = $this->generateClassFromFileTemplate('ArrayPropertyTyped.json', [$type], $configuration, false);
 
@@ -326,6 +326,66 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
                     'array","items":{"type":"integer"},"injection":"yes we can',
                     [[1, '2'], [], [3]]
                 ]
+            ]
+        );
+    }
+
+    /**
+     * @dataProvider validArrayContainsDataProvider
+     *
+     * @param GeneratorConfiguration $configuration
+     * @param string                 $propertyValue
+     */
+    public function testValidValuesForArrayContains(GeneratorConfiguration $configuration, array $propertyValue): void
+    {
+        $className = $this->generateClassFromFile('ArrayPropertyContains.json', $configuration);
+
+        $object = new $className(['property' => $propertyValue]);
+        $this->assertSame($propertyValue, $object->getProperty());
+    }
+
+    public function validArrayContainsDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'null' => [[3, null, true]],
+                'empty string' => [[3, '', true]],
+                'lowercase string' => [[3, 'abc', true]],
+                'uppercase string' => [[3, 'AB', true]],
+                'mixed string' => [[3, 'AvBd', true]],
+                'mixed string with other strings' => [[' ', '123', 'AvBd', 'm-M']],
+            ]
+        );
+    }
+
+    /**
+     * @dataProvider invalidArrayContainsDataProvider
+     *
+     * @param GeneratorConfiguration $configuration
+     * @param string                 $propertyValue
+     */
+    public function testInvalidValuesForArrayContainsTrowsAnException(
+        GeneratorConfiguration $configuration,
+        array $propertyValue
+    ): void {
+        $this->expectValidationError($configuration, 'No item in array property matches contains constraint');
+
+        $className = $this->generateClassFromFile('ArrayPropertyContains.json', $configuration);
+
+        new $className(['property' => $propertyValue]);
+    }
+
+    public function invalidArrayContainsDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'Empty array' => [[]],
+                'numeric array' => [[1, 2.3]],
+                'boolean array' => [[true, false]],
+                'nested array' => [[['', 'Hallo'], [0, 2]]],
+                'string array with invalid pattern' => [[' ', '09', 'h-H']],
             ]
         );
     }

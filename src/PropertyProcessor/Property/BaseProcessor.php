@@ -64,10 +64,10 @@ class BaseProcessor extends AbstractPropertyProcessor
         $this->schema->addBaseValidator(
             new PropertyValidator(
                 sprintf(
-                    'array_diff(array_keys($modelData), %s)',
+                    '$additionalProperties = array_diff(array_keys($modelData), %s)',
                     preg_replace('(\d+\s=>)', '', var_export(array_keys($propertyData['properties'] ?? []), true))
                 ),
-                'Provided JSON contains not allowed additional properties'
+                'Provided JSON contains not allowed additional properties [" . join(", ", $additionalProperties) . "]'
             )
         );
     }

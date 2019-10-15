@@ -46,8 +46,55 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $object = new $className(['property' => 'Hello']);
 
         $this->assertSame('Hello', $object->getProperty());
-        $this->assertSame($object, $object->setProperty('ChangedPropertyValue'));
-        $this->assertSame('ChangedPropertyValue', $object->getProperty());
+        $this->assertSame($object, $object->setProperty('NewValue'));
+        $this->assertSame('NewValue', $object->getProperty());
+    }
+
+    /**
+     * @dataProvider invalidStringPropertyValueProvider
+     *
+     * @param GeneratorConfiguration $configuration
+     * @param string                 $propertyValue
+     * @param string                 $exceptionMessage
+     */
+    public function testInvalidSetterThrowsAnException(
+        GeneratorConfiguration $configuration,
+        string $propertyValue,
+        array $exceptionMessage
+    ) {
+        $this->expectValidationError($configuration, $exceptionMessage);
+
+        $className = $this->generateClassFromFile('BasicSchema.json', $configuration);
+
+        $object = new $className([]);
+        $object->setProperty($propertyValue);
+    }
+
+    public function invalidStringPropertyValueProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(), [
+                'Too long string' => [
+                    'HelloMyOldFriend',
+                    [
+                        'property must not be longer than 8'
+                    ]
+                ],
+                'Invalid pattern' => [
+                    '123456789',
+                    [
+                        'property doesn\'t match pattern ^[a-zA-Z]*$'
+                    ]
+                ],
+                'Too long and invalid pattern' => [
+                    'HelloMyOld1234567',
+                    [
+                        'property doesn\'t match pattern ^[a-zA-Z]*$',
+                        'property must not be longer than 8',
+                    ]
+                ]
+            ]
+        );
     }
 
     public function testPropertyNamesAreNormalized(): void
@@ -116,7 +163,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     public function testInvalidJsonSchemaFileThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageRegExp('/^Invalid JSON-Schema file (.*)\.json$/');
+        $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file (.*)\.json$/');
 
         $this->generateClassFromFile('InvalidJSONSchema.json');
     }

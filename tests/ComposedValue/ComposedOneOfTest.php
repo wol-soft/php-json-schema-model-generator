@@ -46,7 +46,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
     public function testNotProvidedObjectLevelOneOfThrowsAnException(string $schema, int $matchedElements): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessageRegExp(
+        $this->expectExceptionMessageMatches(
             <<<ERROR
 /^Invalid value for (.*?) declined by composition constraint.
 Requires to match one composition element but matched $matchedElements elements.$/

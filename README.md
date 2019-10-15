@@ -89,7 +89,8 @@ Let's have a look into an easy example. We create a simple model for a person wi
       "type": "string"
     },
     "age": {
-      "type": "integer"
+      "type": "integer",
+      "minimum": 0
     }
   },
   "required": [
@@ -125,10 +126,18 @@ $person = new Person();
 // Exception: 'Invalid type for name. Requires string, got int'
 $person = new Person(['name' => 12]);
 
+// Throws an exception as the age contains an invalid value due to the minimum definition.
+// Exception: 'Value for age must not be smaller than 0'
+$person = new Person(['name' => 'Albert', 'age' => -1]);
+
 // A valid example as the age isn't required
 $person = new Person(['name' => 'Albert']);
 $person->getName(); // returns 'Albert'
 $person->getAge(); // returns NULL
+
+// If setters are generated the setters also perform validations.
+// Exception: 'Value for age must not be smaller than 0'
+$person->setAge(-10);
 ```
 
 More complex exception messages eg. from a [allOf](https://json-schema.org/understanding-json-schema/reference/combining.html#allof) composition may look like:

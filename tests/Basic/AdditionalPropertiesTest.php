@@ -80,7 +80,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
     public function testAdditionalPropertiesThrowAnExceptionWhenSetToFalse(array $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Provided JSON contains not allowed additional properties');
+        $this->expectExceptionMessage('Provided JSON contains not allowed additional properties [additional]');
 
         $className = $this->generateClassFromFileTemplate('AdditionalProperties.json', ['false']);
 

@@ -116,7 +116,27 @@ class {{ class }}
             public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
                 {% if property.getType() %}{% if not property.isRequired() %}?{% endif %}{{ property.getType() }} {% endif %}${{ property.getAttribute() }}
             ): self {
-                $this->{{ property.getAttribute() }} = ${{ property.getAttribute() }};
+                $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute() }};
+
+                {% if generatorConfiguration.collectErrors() %}
+                    $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+                {% endif%}
+
+                {% foreach property.getOrderedValidators() as validator %}
+                    {{ validator.getValidatorSetUp() }}
+                    if ({{ validator.getCheck() }}) {
+                        {{ viewHelper.validationError(validator.getExceptionMessage()) }}
+                    }
+                {% endforeach %}
+
+                {% if generatorConfiguration.collectErrors() %}
+                    if ($this->errorRegistry->getErrors()) {
+                        throw $this->errorRegistry;
+                    }
+                {% endif%}
+
+                $this->{{ property.getAttribute() }} = $value;
+
                 return $this;
             }
         {% endif %}

@@ -19,7 +19,7 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  *
- * TODO: contains and tuple validation
+ * TODO: tuple validation
  */
 class ArrayProcessor extends AbstractTypedValueProcessor
 {
@@ -28,6 +28,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
     private const JSON_FIELD_MIN_ITEMS = 'minItems';
     private const JSON_FIELD_MAX_ITEMS = 'maxItems';
     private const JSON_FIELD_ITEMS     = 'items';
+    private const JSON_FIELD_CONTAINS  = 'contains';
 
     /**
      * @param PropertyInterface $property
@@ -42,6 +43,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
         $this->addLengthValidation($property, $propertyData);
         $this->addUniqueItemsValidation($property, $propertyData);
         $this->addItemsValidation($property, $propertyData);
+        $this->addContainsValidation($property, $propertyData);
     }
 
     /**
@@ -94,7 +96,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
     }
 
     /**
-     * Add the validator to check if the items inside an array are unique
+     * Add the validator to check for constraints required for each item
      *
      * @param PropertyInterface $property
      * @param array             $propertyData
@@ -107,14 +109,60 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             return;
         }
 
+        $this->addItemValidator(
+            $property,
+            $propertyData[self::JSON_FIELD_ITEMS],
+            'ArrayItem.phptpl',
+            "Invalid item in array {$property->getName()}"
+        );
+    }
+
+    /**
+     * Add the validator to check for constraints required for at least one item
+     *
+     * @param PropertyInterface $property
+     * @param array             $propertyData
+     *
+     * @throws SchemaException
+     */
+    private function addContainsValidation(PropertyInterface $property, array $propertyData): void
+    {
+        if (!isset($propertyData[self::JSON_FIELD_CONTAINS])) {
+            return;
+        }
+
+        $this->addItemValidator(
+            $property,
+            $propertyData[self::JSON_FIELD_CONTAINS],
+            'ArrayContains.phptpl',
+            "No item in array {$property->getName()} matches contains constraint"
+        );
+    }
+
+    /**
+     * Add an item based validator
+     *
+     * @param PropertyInterface $property
+     * @param array             $propertyData
+     * @param string            $template
+     * @param string            $message
+     *
+     * @throws SchemaException
+     */
+    private function addItemValidator(
+        PropertyInterface $property,
+        array $propertyData,
+        string $template,
+        string $message
+    ) {
         // an item of the array behaves like a nested property to add item-level validation
         $nestedProperty = (new PropertyFactory(new PropertyProcessorFactory()))
             ->create(
                 new PropertyCollectionProcessor(),
                 $this->schemaProcessor,
                 $this->schema,
-                'array item',
-                $propertyData[self::JSON_FIELD_ITEMS]
+                "item of array {$property->getName()}",
+                $propertyData
             );
 
         $property
@@ -122,11 +170,12 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             ->addTypeHintDecorator(new ArrayTypeHintDecorator($nestedProperty))
             ->addValidator(
                 new PropertyTemplateValidator(
-                    'Invalid array item',
-                    DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayItem.phptpl',
+                    $message,
+                    DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . $template,
                     [
                         'property' => $nestedProperty,
                         'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
+                        'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
                     ]
                 )
             );

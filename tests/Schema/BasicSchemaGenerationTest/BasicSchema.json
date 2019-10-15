@@ -2,7 +2,9 @@
   "type": "object",
   "properties": {
     "property": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 8,
+      "pattern": "^[a-zA-Z]*$"
     }
   }
 }

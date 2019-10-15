@@ -354,7 +354,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
 
         // TODO: all tests should throw an exception "invalid array item". Currently the messages may differ due to
         // TODO: PropertyProxy resolving
-        $this->expectExceptionMessageRegExp('/^Invalid type for (.*)$/');
+        $this->expectExceptionMessageMatches('/^Invalid type for (.*)$/');
 
         $className = $this->generateClassFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
 
