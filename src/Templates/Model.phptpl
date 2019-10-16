@@ -122,12 +122,7 @@ class {{ class }}
                     $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
                 {% endif%}
 
-                {% foreach property.getOrderedValidators() as validator %}
-                    {{ validator.getValidatorSetUp() }}
-                    if ({{ validator.getCheck() }}) {
-                        {{ viewHelper.validationError(validator.getExceptionMessage()) }}
-                    }
-                {% endforeach %}
+                $value = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
 
                 {% if generatorConfiguration.collectErrors() %}
                     if ($this->errorRegistry->getErrors()) {
@@ -154,6 +149,14 @@ class {{ class }}
 
             {{ viewHelper.resolvePropertyDecorator(property) }}
 
+            $this->{{ property.getAttribute() }} = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
+        }
+
+        /**
+         * Execute all validators for the property {{ property.getAttribute() }}
+         */
+        protected function validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, array $modelData)
+        {
             {% foreach property.getOrderedValidators() as validator %}
                 {{ validator.getValidatorSetUp() }}
                 if ({{ validator.getCheck() }}) {
@@ -161,7 +164,7 @@ class {{ class }}
                 }
             {% endforeach %}
 
-            $this->{{ property.getAttribute() }} = $value;
+            return $value;
         }
     {% endforeach %}
 }
