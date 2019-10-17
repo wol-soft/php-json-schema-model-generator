@@ -39,6 +39,22 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->assertNull($object->getProperty());
     }
 
+    public function testReadOnlyPropertyDoesntGenerateSetter(): void
+    {
+        $className = $this->generateClassFromFile('ReadOnly.json');
+
+        $object = new $className([]);
+
+        $this->assertTrue(is_callable([$object, 'getReadOnlyTrue']));
+        $this->assertFalse(is_callable([$object, 'setReadOnlyTrue']));
+
+        $this->assertTrue(is_callable([$object, 'getReadOnlyFalse']));
+        $this->assertTrue(is_callable([$object, 'setReadOnlyFalse']));
+
+        $this->assertTrue(is_callable([$object, 'getNoReadOnly']));
+        $this->assertTrue(is_callable([$object, 'setNoReadOnly']));
+    }
+
     public function testSetterChangeTheInternalState(): void
     {
         $className = $this->generateClassFromFile('BasicSchema.json');

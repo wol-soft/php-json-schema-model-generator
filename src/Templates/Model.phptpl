@@ -103,7 +103,7 @@ class {{ class }}
             return $this->{{ property.getAttribute() }};
         }
 
-        {% if not generatorConfiguration.isImmutable() %}
+        {% if not property.isReadOnly() %}
             /**
              * Set the value of {{ property.getName() }}.
              *

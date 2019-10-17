@@ -141,6 +141,13 @@ interface PropertyInterface
     public function setRequired(bool $isPropertyRequired): PropertyInterface;
 
     /**
+     * @param bool $isPropertyReadOnly
+     *
+     * @return PropertyInterface
+     */
+    public function setReadOnly(bool $isPropertyReadOnly): PropertyInterface;
+
+    /**
      * @param mixed $defaultValue
      *
      * @return PropertyInterface
@@ -156,6 +163,11 @@ interface PropertyInterface
      * @return bool
      */
     public function isRequired(): bool;
+
+    /**
+     * @return bool
+     */
+    public function isReadOnly(): bool;
 
     /**
      * Set a nested schema

@@ -199,6 +199,22 @@ class PropertyProxy implements PropertyInterface
     /**
      * @inheritdoc
      */
+    public function setReadOnly(bool $isPropertyReadOnly): PropertyInterface
+    {
+        return $this->getProperty()->setReadOnly($isPropertyReadOnly);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function isReadOnly(): bool
+    {
+        return $this->getProperty()->isReadOnly();
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function setDefaultValue($defaultValue): PropertyInterface
     {
         return $this->getProperty()->setDefaultValue($defaultValue);

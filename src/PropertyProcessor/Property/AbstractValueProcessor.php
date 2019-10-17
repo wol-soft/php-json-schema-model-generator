@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
@@ -39,12 +40,18 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
 
     /**
      * @inheritdoc
+     *
+     * @throws SchemaException
      */
     public function process(string $propertyName, array $propertyData): PropertyInterface
     {
         $property = (new Property($propertyName, $this->type))
             ->setDescription($propertyData['description'] ?? '')
-            ->setRequired($this->propertyCollectionProcessor->isAttributeRequired($propertyName));
+            ->setRequired($this->propertyCollectionProcessor->isAttributeRequired($propertyName))
+            ->setReadOnly(
+                (isset($propertyData['readOnly']) && $propertyData['readOnly'] === true) ||
+                $this->schemaProcessor->getGeneratorConfiguration()->isImmutable()
+            );
 
         $this->generateValidators($property, $propertyData);
 

@@ -25,6 +25,8 @@ class Property implements PropertyInterface
     protected $type = 'null';
     /** @var bool */
     protected $isPropertyRequired = true;
+    /** @var bool */
+    protected $isPropertyReadOnly = false;
     /** @var string */
     protected $description = '';
     /** @var mixed */
@@ -262,6 +264,17 @@ class Property implements PropertyInterface
     public function setRequired(bool $isPropertyRequired): PropertyInterface
     {
         $this->isPropertyRequired = $isPropertyRequired;
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function setReadOnly(bool $isPropertyReadOnly): PropertyInterface
+    {
+        $this->isPropertyReadOnly = $isPropertyReadOnly;
+
         return $this;
     }
 
@@ -289,6 +302,14 @@ class Property implements PropertyInterface
     public function isRequired(): bool
     {
         return $this->isPropertyRequired;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function isReadOnly(): bool
+    {
+        return $this->isPropertyReadOnly;
     }
 
     /**
