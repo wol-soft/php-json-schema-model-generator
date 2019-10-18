@@ -27,7 +27,11 @@ class ObjectProcessor extends AbstractTypedValueProcessor
         $property = parent::process($propertyName, $propertyData);
 
         $className = ucfirst(
-            $propertyData['id'] ?? sprintf('%s_%s', $this->schemaProcessor->getCurrentClassName(), uniqid())
+            $propertyData['id'] ?? str_replace(
+                ' ',
+                '_',
+                sprintf('%s_%s_%s', $this->schemaProcessor->getCurrentClassName(), $propertyName, uniqid())
+            )
         );
 
         $schema = $this->schemaProcessor->processSchema(
@@ -39,9 +43,12 @@ class ObjectProcessor extends AbstractTypedValueProcessor
 
         $property
             ->addDecorator(
-                new ObjectInstantiationDecorator($className, $this->schemaProcessor->getGeneratorConfiguration())
+                new ObjectInstantiationDecorator(
+                    $schema->getClassName(),
+                    $this->schemaProcessor->getGeneratorConfiguration()
+                )
             )
-            ->setType($className)
+            ->setType($schema->getClassName())
             ->setNestedSchema($schema);
 
         return $property;

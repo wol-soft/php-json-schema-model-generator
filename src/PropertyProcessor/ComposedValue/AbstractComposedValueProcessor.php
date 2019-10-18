@@ -110,12 +110,12 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         array $properties,
         array $propertyData
     ): PropertyInterface {
-        $mergedPropertySchema = new Schema();
         $mergedClassName = sprintf(
             '%s_Merged_%s', $this->schemaProcessor->getCurrentClassName(),
-            $propertyData['propertyData']['id'] ?? uniqid()
+            $propertyData['propertyData']['id'] ?? $compositionProperty->getName()
         );
 
+        $mergedPropertySchema = new Schema($mergedClassName);
         $mergedProperty = new Property('MergedProperty', $mergedClassName);
 
         foreach ($properties as $property) {

@@ -19,6 +19,8 @@ use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
  */
 class Schema
 {
+    /** @var string */
+    protected $className;
     /** @var Property[] The properties which are part of the class */
     protected $properties = [];
     /** @var PropertyValidator[] A Collection of validators which must be applied
@@ -31,11 +33,21 @@ class Schema
     /**
      * Schema constructor.
      *
+     * @param string                     $className
      * @param SchemaDefinitionDictionary $dictionary
      */
-    public function __construct(SchemaDefinitionDictionary $dictionary = null)
+    public function __construct(string $className, SchemaDefinitionDictionary $dictionary = null)
     {
+        $this->className = $className;
         $this->schemaDefinitionDictionary = $dictionary ?? new SchemaDefinitionDictionary('');
+    }
+
+    /**
+     * @return string
+     */
+    public function getClassName(): string
+    {
+        return $this->className;
     }
 
     /**

@@ -34,6 +34,8 @@ class SchemaProcessor
     /** @var string */
     protected $currentClassName;
 
+    /** @var array Collect processed schemas to avoid duplicated classes */
+    protected $processedSchema = [];
     /** @var array */
     protected $generatedFiles = [];
 
@@ -131,8 +133,20 @@ class SchemaProcessor
         array $structure,
         SchemaDefinitionDictionary $dictionary
     ): Schema {
-        $schema = new Schema($dictionary);
+        $schemaSignature = md5(json_encode($structure));
 
+        if (isset($this->processedSchema[$schemaSignature])) {
+            if ($this->generatorConfiguration->isOutputEnabled()) {
+                // @codeCoverageIgnoreStart
+                echo "Duplicated signature $schemaSignature for class $className." .
+                    " Redirecting to {$this->processedSchema[$schemaSignature]->getClassName()}\n";
+                // @codeCoverageIgnoreEnd
+            }
+            return $this->processedSchema[$schemaSignature];
+        }
+
+        $schema = new Schema($className, $dictionary);
+        $this->processedSchema[$schemaSignature] = $schema;
         $structure['type'] = 'base';
 
         (new PropertyFactory(new PropertyProcessorFactory()))->create(

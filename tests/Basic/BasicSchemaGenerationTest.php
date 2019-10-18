@@ -6,6 +6,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use ReflectionClass;
 
 /**
  * Class BasicSchemaGenerationTest
@@ -198,5 +199,15 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->expectExceptionMessage('Invalid property type');
 
         $this->generateClassFromFile('JSONSchemaWithInvalidPropertyTypeDefinition.json');
+    }
+
+    public function testIdenticalSchemasAreMappedToOneClass(): void
+    {
+        $reflection = new ReflectionClass($this->generateClassFromFile('IdenticalSubSchema.json'));
+
+        $this->assertSame(
+            $reflection->getProperty('object1')->getDocComment(),
+            $reflection->getProperty('object2')->getDocComment()
+        );
     }
 }

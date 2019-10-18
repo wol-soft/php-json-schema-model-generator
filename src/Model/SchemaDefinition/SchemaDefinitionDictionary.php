@@ -172,7 +172,8 @@ class SchemaDefinitionDictionary extends ArrayObject
             throw new SchemaException("Invalid JSON-Schema file $jsonSchemaFilePath");
         }
 
-        $schema = new Schema(new self(dirname($jsonSchemaFilePath)));
+        // set up a dummy schema to fetch the definitions from the external file
+        $schema = new Schema('', new self(dirname($jsonSchemaFilePath)));
         $schema->getSchemaDictionary()->setUpDefinitionDictionary($jsonSchema, $schemaProcessor, $schema);
         $this->parsedExternalFileSchemas[$jsonSchemaFile] = $schema;
 
