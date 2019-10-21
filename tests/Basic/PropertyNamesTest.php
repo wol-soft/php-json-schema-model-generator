@@ -131,7 +131,7 @@ Provided JSON contains properties with invalid names.
     * property name must not be shorter than 3
   - invalid property '123456'
     * property name must not be longer than 5
-ERROR,
+ERROR
                 ],
                 'pattern violation' => [
                     '{"pattern": "^test[0-9]+$"}',
@@ -149,7 +149,7 @@ Provided JSON contains properties with invalid names.
     * property name doesn't match pattern ^test[0-9]+$
   - invalid property 'test12w12'
     * property name doesn't match pattern ^test[0-9]+$
-ERROR,
+ERROR
                 ],
                 'multiple violations' => [
                     '{"minLength": 6, "maxLength": 8, "pattern": "^test[0-9]+$"}',
@@ -164,7 +164,7 @@ Provided JSON contains properties with invalid names.
     * property name doesn't match pattern ^test[0-9]+$
   - invalid property 'test'
     * property name doesn't match pattern ^test[0-9]+$
-ERROR,
+ERROR
                 ],
             ]
         );
@@ -187,7 +187,7 @@ Provided JSON contains properties with invalid names.
     * property name doesn't match pattern ^test[0-9]+$
   - invalid property 'test'
     * property name doesn't match pattern ^test[0-9]+$
-ERROR,
+ERROR
             ],
             'Error Collection - multiple violations' => [
                 new GeneratorConfiguration(),
@@ -205,7 +205,7 @@ Provided JSON contains properties with invalid names.
   - invalid property 'test'
     * property name doesn't match pattern ^test[0-9]+$
     * property name must not be shorter than 6
-ERROR,
+ERROR
             ],
         ];
     }

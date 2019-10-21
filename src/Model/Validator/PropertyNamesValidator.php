@@ -20,15 +20,14 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * @package PHPModelGenerator\Model\Validator
  */
-class PropertyNamesValidator extends AbstractComposedPropertyValidator
+class PropertyNamesValidator extends PropertyTemplateValidator
 {
     /**
-     * ComposedPropertyValidator constructor.
+     * PropertyNamesValidator constructor.
      *
-     * @param PropertyCollectionProcessor $propertyCollectionProcessor
-     * @param SchemaProcessor             $schemaProcessor
-     * @param Schema                      $schema
-     * @param array                       $propertyNames
+     * @param SchemaProcessor $schemaProcessor
+     * @param Schema          $schema
+     * @param array           $propertyNames
      *
      * @throws FileSystemException
      * @throws SyntaxErrorException
@@ -36,12 +35,11 @@ class PropertyNamesValidator extends AbstractComposedPropertyValidator
      * @throws SchemaException
      */
     public function __construct(
-        PropertyCollectionProcessor $propertyCollectionProcessor,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         array $propertyNames
     ) {
-        $nameValidationProperty = (new StringProcessor($propertyCollectionProcessor, $schemaProcessor, $schema))
+        $nameValidationProperty = (new StringProcessor(new PropertyCollectionProcessor(), $schemaProcessor, $schema))
             ->process('property name', $propertyNames)
             // the property name validator doesn't need type checks or required checks so simply filter them out
             ->filterValidators(function (Validator $validator) {
