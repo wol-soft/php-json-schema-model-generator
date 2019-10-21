@@ -143,13 +143,13 @@ $person->setAge(-10);
 More complex exception messages eg. from a [allOf](https://json-schema.org/understanding-json-schema/reference/combining.html#allof) composition may look like:
 ```
 Invalid value for Animal declined by composition constraint.
-Requires to match 3 composition elements but matched 1 elements.
-- Composition element #1: Failed
-  * Value for age must not be smaller than 0
-- Composition element #2: Valid
-- Composition element #3: Failed
-  * Value for legs must not be smaller than 2
-  * Value for legs must be a multiple of 2
+  Requires to match 3 composition elements but matched 1 elements.
+  - Composition element #1: Failed
+    * Value for age must not be smaller than 0
+  - Composition element #2: Valid
+  - Composition element #3: Failed
+    * Value for legs must not be smaller than 2
+    * Value for legs must be a multiple of 2
 ```
 
 ## How the heck does this work? ##

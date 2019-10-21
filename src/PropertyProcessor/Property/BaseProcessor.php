@@ -4,11 +4,15 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
+use PHPMicroTemplate\Exception\FileSystemException;
+use PHPMicroTemplate\Exception\SyntaxErrorException;
+use PHPMicroTemplate\Exception\UndefinedSymbolException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\PropertyNamesValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\ComposedValue\ComposedPropertiesInterface;
@@ -28,7 +32,15 @@ class BaseProcessor extends AbstractPropertyProcessor
     /**
      * @inheritdoc
      *
+     * @param string $propertyName
+     * @param array  $propertyData
+     *
+     * @return PropertyInterface
+     *
+     * @throws FileSystemException
      * @throws SchemaException
+     * @throws SyntaxErrorException
+     * @throws UndefinedSymbolException
      */
     public function process(string $propertyName, array $propertyData): PropertyInterface
     {
@@ -40,6 +52,7 @@ class BaseProcessor extends AbstractPropertyProcessor
         $property = new Property($propertyName, static::TYPE);
         $this->generateValidators($property, $propertyData);
 
+        $this->addPropertyNamesValidator($propertyData);
         $this->addAdditionalPropertiesValidator($propertyData);
         $this->addMinPropertiesValidator($propertyData);
         $this->addMaxPropertiesValidator($propertyData);
@@ -48,6 +61,32 @@ class BaseProcessor extends AbstractPropertyProcessor
         $this->transferComposedPropertiesToSchema($property);
 
         return $property;
+    }
+
+    /**
+     * Add a validator to check all provided property names
+     *
+     * @param array $propertyData
+     *
+     * @throws SchemaException
+     * @throws FileSystemException
+     * @throws SyntaxErrorException
+     * @throws UndefinedSymbolException
+     */
+    protected function addPropertyNamesValidator(array $propertyData): void
+    {
+        if (!isset($propertyData['propertyNames'])) {
+            return;
+        }
+
+        $this->schema->addBaseValidator(
+            new PropertyNamesValidator(
+                $this->propertyCollectionProcessor,
+                $this->schemaProcessor,
+                $this->schema,
+                $propertyData['propertyNames']
+            )
+        );
     }
 
     /**

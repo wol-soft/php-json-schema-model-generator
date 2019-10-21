@@ -49,7 +49,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
         $this->expectExceptionMessageMatches(
             <<<ERROR
 /^Invalid value for (.*?) declined by composition constraint.
-Requires to match one composition element but matched $matchedElements elements.$/
+  Requires to match one composition element but matched $matchedElements elements.$/
 ERROR
         );
 
