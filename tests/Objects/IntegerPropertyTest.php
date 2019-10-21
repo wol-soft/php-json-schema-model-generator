@@ -114,9 +114,9 @@ class IntegerPropertyTest extends AbstractNumericPropertyTest
         ];
     }
 
-    protected function getRangeFile(): string
+    protected function getRangeFile(bool $exclusive): string
     {
-        return 'IntegerPropertyRange.json';
+        return $exclusive ? 'IntegerPropertyRangeExclusive.json' : 'IntegerPropertyRange.json';
     }
 
     public function validRangeDataProvider(): iterable
@@ -134,6 +134,24 @@ class IntegerPropertyTest extends AbstractNumericPropertyTest
         return [
             'Too large number' => [2, 'Value for property must not be larger than 1'],
             'Too small number' => [-2, 'Value for property must not be smaller than -1'],
+        ];
+    }
+
+    public function validExclusiveRangeDataProvider(): iterable
+    {
+        return [
+            'Zero' => [0],
+            'Null' => [null],
+        ];
+    }
+
+    public function invalidExclusiveRangeDataProvider(): iterable
+    {
+        return [
+            'Too large number 1' => [2, 'Value for property must be smaller than 1'],
+            'Too large number 2' => [1, 'Value for property must be smaller than 1'],
+            'Too small number 1' => [-1, 'Value for property must be larger than -1'],
+            'Too small number 2' => [-2, 'Value for property must be larger than -1'],
         ];
     }
 }

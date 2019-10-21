@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "integer",
+      "exclusiveMinimum": -1,
+      "exclusiveMaximum": 1
+    }
+  }
+}

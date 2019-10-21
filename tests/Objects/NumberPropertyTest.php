@@ -144,13 +144,14 @@ class NumberPropertyTest extends AbstractNumericPropertyTest
             '0.1 is multiple of 0.0' => [.0, .1],
             '-0.1 is multiple of 0.0' => [.0, -.1],
             // check mixed multiples
-            '4 is multiple of 1.5' => [1.5, 4]
+            '4 is multiple of 1.5' => [1.5, 4],
+            '2.7 is multiple of 2' => [2, 2.7],
         ];
     }
 
-    protected function getRangeFile(): string
+    protected function getRangeFile(bool $exclusive): string
     {
-        return 'NumberPropertyRange.json';
+        return $exclusive ? 'NumberPropertyRangeExclusive.json' : 'NumberPropertyRange.json';
     }
 
     public function validRangeDataProvider(): iterable
@@ -173,6 +174,30 @@ class NumberPropertyTest extends AbstractNumericPropertyTest
             'Too large number float' => [1.7, 'Value for property must not be larger than 1.6'],
             'Too small number int' => [-2, 'Value for property must not be smaller than -1.6'],
             'Too small number float' => [-1.7, 'Value for property must not be smaller than -1.6'],
+        ];
+    }
+    public function validExclusiveRangeDataProvider(): iterable
+    {
+        return [
+            'Upper limit float' => [1.59],
+            'Upper limit int' => [1],
+            'Zero' => [0],
+            'Zero float' => [.0],
+            'Lower limit float' => [-1.59],
+            'Lower limit int' => [-1],
+            'Null' => [null],
+        ];
+    }
+
+    public function invalidExclusiveRangeDataProvider(): iterable
+    {
+        return [
+            'Too large number int' => [2, 'Value for property must be smaller than 1.6'],
+            'Too large number float 1' => [1.6, 'Value for property must be smaller than 1.6'],
+            'Too large number float 2' => [1.9, 'Value for property must be smaller than 1.6'],
+            'Too small number int' => [-2, 'Value for property must be larger than -1.6'],
+            'Too small number float 1' => [-1.6, 'Value for property must be larger than -1.6'],
+            'Too small number float 2' => [-1.9, 'Value for property must be larger than -1.6'],
         ];
     }
 }

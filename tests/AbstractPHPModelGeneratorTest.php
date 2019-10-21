@@ -252,7 +252,13 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         }
     }
 
-    protected function expectValidationErrorRegExp(GeneratorConfiguration $configuration, $messages)
+    /**
+     * Expect a validation error based on the given configuration matching the given message(s)
+     *
+     * @param GeneratorConfiguration $configuration
+     * @param array|string           $messages
+     */
+    protected function expectValidationErrorRegExp(GeneratorConfiguration $configuration, $messages): void
     {
         if (!is_array($messages)) {
             $messages = [$messages];
@@ -338,7 +344,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      *
      * @return string
      */
-    private function getClassName()
+    private function getClassName(): string
     {
         // include the static class name to avoid collisions from loaded classes from multiple tests
         $name = $this->getStaticClassName() . '_' . uniqid();
@@ -352,7 +358,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         return $name;
     }
 
-    private function getStaticClassName()
+    private function getStaticClassName(): string
     {
         $parts = explode('\\', static::class);
 
