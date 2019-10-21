@@ -81,7 +81,6 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyNamesValidator(
-                $this->propertyCollectionProcessor,
                 $this->schemaProcessor,
                 $this->schema,
                 $propertyData['propertyNames']
