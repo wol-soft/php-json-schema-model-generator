@@ -28,6 +28,8 @@ class GeneratorConfiguration
     protected $errorRegistryClass = ErrorRegistryException::class;
     /** @var string */
     protected $exceptionClass = ValidationException::class;
+    /** @var bool */
+    protected $serialization = false;
 
     /**
      * @return string
@@ -45,6 +47,7 @@ class GeneratorConfiguration
     public function setNamespacePrefix(string $namespacePrefix): self
     {
         $this->namespacePrefix = $namespacePrefix;
+
         return $this;
     }
 
@@ -64,6 +67,7 @@ class GeneratorConfiguration
     public function setImmutable(bool $immutable): self
     {
         $this->immutable = $immutable;
+
         return $this;
     }
 
@@ -83,6 +87,27 @@ class GeneratorConfiguration
     public function setPrettyPrint(bool $prettyPrint): self
     {
         $this->prettyPrint = $prettyPrint;
+
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function hasSerializationEnabled(): bool
+    {
+        return $this->serialization;
+    }
+
+    /**
+     * @param bool $serialization
+     *
+     * @return $this
+     */
+    public function setSerialization(bool $serialization): self
+    {
+        $this->serialization = $serialization;
+
         return $this;
     }
 
@@ -94,6 +119,7 @@ class GeneratorConfiguration
     public function setOutputEnabled(bool $outputEnabled): self
     {
         $this->outputEnabled = $outputEnabled;
+
         return $this;
     }
 
@@ -121,6 +147,7 @@ class GeneratorConfiguration
     public function setCollectErrors(bool $collectErrors): self
     {
         $this->collectErrors = $collectErrors;
+
         return $this;
     }
 
@@ -140,6 +167,7 @@ class GeneratorConfiguration
     public function setErrorRegistryClass(string $errorRegistryClass): self
     {
         $this->errorRegistryClass = $errorRegistryClass;
+
         return $this;
     }
 
@@ -159,6 +187,7 @@ class GeneratorConfiguration
     public function setExceptionClass(string $exceptionClass): self
     {
         $this->exceptionClass = $exceptionClass;
+
         return $this;
     }
 }

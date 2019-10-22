@@ -67,6 +67,29 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->assertSame('NewValue', $object->getProperty());
     }
 
+    public function testSerializationFunctionsAreNotGeneratedByDefault(): void
+    {
+        $className = $this->generateClassFromFile('BasicSchema.json');
+
+        $object = new $className(['property' => 'Hello']);
+
+        $this->assertFalse(is_callable([$object, 'toArray']));
+        $this->assertFalse(is_callable([$object, 'toJSON']));
+    }
+
+    public function testSerializationFunctionsAreGeneratedWithEnabledSerialization(): void
+    {
+        $className = $this->generateClassFromFile(
+            'BasicSchema.json',
+            (new GeneratorConfiguration())->setSerialization(true)
+        );
+
+        $object = new $className(['property' => 'Hello']);
+
+        $this->assertEquals(['property' => 'Hello'], $object->toArray());
+        $this->assertEquals('{"property":"Hello"}', $object->toJSON());
+    }
+
     /**
      * @dataProvider invalidStringPropertyValueProvider
      *
