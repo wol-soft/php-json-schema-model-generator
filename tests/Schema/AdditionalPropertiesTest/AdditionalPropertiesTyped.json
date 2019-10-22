@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "integer"
+    }
+  },
+  "additionalProperties": {
+    "type": "string",
+    "maxLength": 5,
+    "minLength": 2
+  }
+}

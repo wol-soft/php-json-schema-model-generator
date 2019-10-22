@@ -1,0 +1,41 @@
+(function () use ($modelData, &$invalidProperties) {
+    {% if generatorConfiguration.collectErrors() %}
+        $originalErrorRegistry = $this->errorRegistry;
+    {% endif %}
+
+    foreach (array_diff(array_keys($modelData), {{ additionalProperties }}) as $propertyKey) {
+        try {
+            $value = $modelData[$propertyKey];
+
+            {% if generatorConfiguration.collectErrors() %}
+                $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            {% endif %}
+
+            {{ viewHelper.resolvePropertyDecorator(validationProperty) }}
+
+            {% foreach validationProperty.getOrderedValidators() as validator %}
+                {{ validator.getValidatorSetUp() }}
+                if ({{ validator.getCheck() }}) {
+                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
+                }
+            {% endforeach %}
+
+            {% if generatorConfiguration.collectErrors() %}
+                if ($this->errorRegistry->getErrors()) {
+                    $invalidProperties[$propertyKey] = $this->errorRegistry->getErrors();
+                }
+            {% endif %}
+        } catch (\Exception $e) {
+            // collect all errors concerning invalid property names
+            isset($invalidProperties[$propertyKey])
+                ? $invalidProperties[$propertyKey][] = $e->getMessage()
+                : $invalidProperties[$propertyKey] = [$e->getMessage()];
+        }
+    }
+
+    {% if generatorConfiguration.collectErrors() %}
+        $this->errorRegistry = $originalErrorRegistry;
+    {% endif %}
+
+    return !empty($invalidProperties);
+})()

@@ -2,8 +2,10 @@
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGeneratorException\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use stdClass;
 
 /**
  * Class AdditionalPropertiesTest
@@ -85,5 +87,211 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateClassFromFileTemplate('AdditionalProperties.json', ['false']);
 
         new $className($propertyValue);
+    }
+
+    /**
+     * @dataProvider validTypedAdditionalPropertiesDataProvider
+     *
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param array $propertyValue
+     */
+    public function testValidTypedAdditionalPropertiesAreValid(
+        GeneratorConfiguration $generatorConfiguration,
+        array $propertyValue
+    ): void {
+        $className = $this->generateClassFromFile('AdditionalPropertiesTyped.json', $generatorConfiguration);
+
+        $object = new $className($propertyValue);
+
+        $this->assertEquals($propertyValue['id'] ?? null, $object->getId());
+        foreach ($propertyValue as $key => $value) {
+            $this->assertSame($value, $object->getRawModelDataInput()[$key]);
+        }
+    }
+
+    public function validTypedAdditionalPropertiesDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'no provided values' => [[]],
+                'only defined property' => [['id' => 12]],
+                'only additional properties' => [['additional1' => 'AB', 'additional2' => '12345', 'null' => null]],
+                'defined and additional properties' => [['id' => 10, 'additional1' => 'AB', 'additional2' => '12345']],
+            ]
+        );
+    }
+
+    /**
+     * @dataProvider invalidTypedAdditionalPropertiesDataProvider
+     *
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param array $propertyValue
+     * @param string $errorMessage
+     */
+    public function testInvalidTypedAdditionalPropertiesThrowsAnException(
+        GeneratorConfiguration $generatorConfiguration,
+        array $propertyValue,
+        string $errorMessage
+    ): void {
+        $this->expectValidationError($generatorConfiguration, $errorMessage);
+        $className = $this->generateClassFromFile('AdditionalPropertiesTyped.json', $generatorConfiguration);
+
+        new $className($propertyValue);
+    }
+
+    public function invalidTypedAdditionalPropertiesDataProvider(): array
+    {
+        $exception = <<<ERROR
+Provided JSON contains invalid additional properties.
+  - invalid property 'additional1'
+    * %s
+ERROR;
+
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'invalid type for additional property (int)' => [
+                    ['additional1' => 1, 'additional2' => 'Hello'],
+                    sprintf($exception, 'Invalid type for additional property. Requires string, got int')
+                ],
+                'invalid type for additional property (float)' => [
+                    ['additional1' => 0.92, 'additional2' => 'Hello'],
+                    sprintf($exception, 'Invalid type for additional property. Requires string, got double')
+                ],
+                'invalid type for additional property (bool)' => [
+                    ['additional1' => true, 'additional2' => 'Hello'],
+                    sprintf($exception, 'Invalid type for additional property. Requires string, got bool')
+                ],
+                'invalid type for additional property (array)' => [
+                    ['additional1' => [], 'additional2' => 'Hello'],
+                    sprintf($exception, 'Invalid type for additional property. Requires string, got array')
+                ],
+                'invalid type for additional property (object)' => [
+                    ['additional1' => new stdClass(), 'additional2' => 'Hello'],
+                    sprintf($exception, 'Invalid type for additional property. Requires string, got object')
+                ],
+                'empty short string' => [
+                    ['additional1' => '', 'additional2' => 'Hello'],
+                    sprintf($exception, 'additional property must not be shorter than 2')
+                ],
+                'too short string' => [
+                    ['additional1' => '1', 'additional2' => 'Hello'],
+                    sprintf($exception, 'additional property must not be shorter than 2')
+                ],
+                'too long string' => [
+                    ['additional1' => '12345678', 'additional2' => 'Hello'],
+                    sprintf($exception, 'additional property must not be longer than 5')
+                ],
+            ]
+        );
+    }
+
+    /**
+     * @dataProvider validAdditionalPropertiesObjectsDataProvider
+     *
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param array $propertyValue
+     */
+    public function testValidAdditionalPropertiesObjectsAreValid(
+        GeneratorConfiguration $generatorConfiguration,
+        array $propertyValue
+    ): void {
+        $className = $this->generateClassFromFile('AdditionalPropertiesObject.json', $generatorConfiguration);
+
+        $object = new $className($propertyValue);
+
+        $this->assertEquals($propertyValue['id'] ?? null, $object->getId());
+        foreach ($propertyValue as $key => $value) {
+            $this->assertSame($value, $object->getRawModelDataInput()[$key]);
+        }
+    }
+
+    public function validAdditionalPropertiesObjectsDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'no provided values' => [[]],
+                'only defined property' => [['id' => 12]],
+                'only additional properties' => [[
+                    'additional1' => ['name' => 'AB'],
+                    'additional2' => ['name' => 'AB', 'age' => 12],
+                    'null' => null
+                ]],
+                'defined and additional properties' => [[
+                    'id' => 10,
+                     'additional1' => ['name' => 'AB'],
+                     'additional2' => ['name' => 'AB', 'age' => 12],
+                ]],
+            ]
+        );
+    }
+
+    /**
+     * @dataProvider invalidAdditionalPropertiesObjectsDataProvider
+     *
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param array $propertyValue
+     * @param string $errorMessage
+     */
+    public function testInvalidAdditionalPropertiesObjectsThrowsAnException(
+        GeneratorConfiguration $generatorConfiguration,
+        array $propertyValue,
+        string $errorMessage
+    ): void {
+        $this->expectValidationError($generatorConfiguration, $errorMessage);
+        $className = $this->generateClassFromFile('AdditionalPropertiesObject.json', $generatorConfiguration);
+
+        new $className($propertyValue);
+    }
+
+    public function invalidAdditionalPropertiesObjectsDataProvider(): array
+    {
+        $exception = <<<ERROR
+Provided JSON contains invalid additional properties.
+  - invalid property 'additional1'
+    * %s
+ERROR;
+
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'invalid type for additional property (int)' => [
+                    ['additional1' => 1, 'additional2' => ['name' => 'AB', 'age' => 12]],
+                    sprintf($exception, 'Invalid type for additional property. Requires object, got int')
+                ],
+                'invalid type for additional property (float)' => [
+                    ['additional1' => 0.92, 'additional2' => ['name' => 'AB', 'age' => 12]],
+                    sprintf($exception, 'Invalid type for additional property. Requires object, got double')
+                ],
+                'invalid type for additional property (bool)' => [
+                    ['additional1' => true, 'additional2' => ['name' => 'AB', 'age' => 12]],
+                    sprintf($exception, 'Invalid type for additional property. Requires object, got bool')
+                ],
+                'invalid type for additional property (object)' => [
+                    ['additional1' => 'Hello', 'additional2' => ['name' => 'AB', 'age' => 12]],
+                    sprintf($exception, 'Invalid type for additional property. Requires object, got string')
+                ],
+                'Missing required name' => [
+                    ['additional1' => ['age' => 12], 'additional2' => ['name' => 'AB', 'age' => 12]],
+                    sprintf($exception, 'Missing required value for name')
+                ],
+                'Invalid type for name' => [
+                    ['additional1' => ['name' => 12], 'additional2' => ['name' => 'AB', 'age' => 12]],
+                    sprintf($exception, 'Invalid type for name. Requires string, got integer')
+                ],
+                'Multiple violations' => [
+                    ['additional1' => ['name' => 12], 'additional2' => ['name' => 'AB', 'age' => '12']],
+                    <<<ERROR
+Provided JSON contains invalid additional properties.
+  - invalid property 'additional1'
+    * Invalid type for name. Requires string, got integer
+  - invalid property 'additional2'
+    * Invalid type for age. Requires int, got string
+ERROR
+                ],
+            ]
+        );
     }
 }

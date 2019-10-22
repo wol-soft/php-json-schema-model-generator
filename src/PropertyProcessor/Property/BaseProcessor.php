@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyNamesValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -92,10 +93,27 @@ class BaseProcessor extends AbstractPropertyProcessor
      * Add an object validator to disallow properties which are not defined in the schema
      *
      * @param array $propertyData
+     *
+     * @throws FileSystemException
+     * @throws SchemaException
+     * @throws SyntaxErrorException
+     * @throws UndefinedSymbolException
      */
     protected function addAdditionalPropertiesValidator(array $propertyData): void
     {
         if (!isset($propertyData['additionalProperties']) || $propertyData['additionalProperties'] === true) {
+            return;
+        }
+
+        if (!is_bool($propertyData['additionalProperties'])) {
+            $this->schema->addBaseValidator(
+                new AdditionalPropertiesValidator(
+                    $this->schemaProcessor,
+                    $this->schema,
+                    $propertyData
+                )
+            );
+
             return;
         }
 

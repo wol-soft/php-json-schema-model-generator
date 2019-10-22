@@ -9,52 +9,59 @@ use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\Model\Validator;
-use PHPModelGenerator\PropertyProcessor\Property\StringProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyFactory;
+use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
- * Class PropertyNamesValidator
+ * Class AdditionalPropertiesValidator
  *
  * @package PHPModelGenerator\Model\Validator
  */
-class PropertyNamesValidator extends PropertyTemplateValidator
+class AdditionalPropertiesValidator extends AbstractComposedPropertyValidator
 {
     /**
-     * PropertyNamesValidator constructor.
+     * AdditionalPropertiesValidator constructor.
      *
      * @param SchemaProcessor $schemaProcessor
      * @param Schema          $schema
-     * @param array           $propertyNames
+     * @param array           $propertyStructure
      *
      * @throws FileSystemException
+     * @throws SchemaException
      * @throws SyntaxErrorException
      * @throws UndefinedSymbolException
-     * @throws SchemaException
      */
     public function __construct(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        array $propertyNames
+        array $propertyStructure
     ) {
-        $nameValidationProperty = (new StringProcessor(new PropertyCollectionProcessor(), $schemaProcessor, $schema))
-            ->process('property name', $propertyNames)
-            // the property name validator doesn't need type checks or required checks so simply filter them out
-            ->filterValidators(function (Validator $validator) {
-                return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                    !is_a($validator->getValidator(), TypeCheckValidator::class);
-            });
+        $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
+
+        $validationProperty = $propertyFactory->create(
+            new PropertyCollectionProcessor(),
+            $schemaProcessor,
+            $schema,
+            'additional property',
+            $propertyStructure['additionalProperties']
+        );
 
         parent::__construct(
             $this->getRenderer()->renderTemplate(
                 DIRECTORY_SEPARATOR . 'Exception' . DIRECTORY_SEPARATOR . 'InvalidPropertiesException.phptpl',
-                ['error' => 'Provided JSON contains properties with invalid names.']
+                ['error' => 'Provided JSON contains invalid additional properties.']
             ),
-            DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PropertyNames.phptpl',
+            DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'AdditionalProperties.phptpl',
             [
-                'nameValidationProperty' => $nameValidationProperty,
+                'validationProperty'     => $validationProperty,
+                'additionalProperties'   => preg_replace(
+                    '(\d+\s=>)',
+                    '',
+                    var_export(array_keys($propertyStructure['properties'] ?? []), true)
+                ),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper'             => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
             ]

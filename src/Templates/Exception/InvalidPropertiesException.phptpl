@@ -1,4 +1,4 @@
-Provided JSON contains properties with invalid names."
+{{ error }}"
   . (function (array $invalidProperties) {
         $output = '';
         foreach ($invalidProperties as $propertyName => $errors) {
