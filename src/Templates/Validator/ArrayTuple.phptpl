@@ -1,0 +1,42 @@
+is_array($value) && (function (&$items) use (&$invalidTuples) {
+    {% if generatorConfiguration.collectErrors() %}
+        $originalErrorRegistry = $this->errorRegistry;
+    {% endif%}
+
+    $index = 0;
+    {% foreach tupleProperties as tuple %}
+        // ---------------- validate a single tuple of the array ------------------
+        try {
+            {% if generatorConfiguration.collectErrors() %}
+                $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            {% endif %}
+
+            $value = &$items[$index++];
+            {{ viewHelper.resolvePropertyDecorator(tuple) }}
+
+            {% foreach tuple.getOrderedValidators() as validator %}
+                {{ validator.getValidatorSetUp() }}
+                if ({{ validator.getCheck() }}) {
+                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
+                }
+            {% endforeach %}
+
+            {% if generatorConfiguration.collectErrors() %}
+                if ($this->errorRegistry->getErrors()) {
+                    $invalidTuples[$index] = $this->errorRegistry->getErrors();
+                }
+            {% endif %}
+        } catch (\Exception $e) {
+            // collect all errors concerning invalid property names
+            isset($invalidTuples[$index])
+                ? $invalidTuples[$index][] = $e->getMessage()
+                : $invalidTuples[$index] = [$e->getMessage()];
+        }
+    {% endforeach %}
+
+    {% if generatorConfiguration.collectErrors() %}
+        $this->errorRegistry = $originalErrorRegistry;
+    {% endif %}
+
+    return !empty($invalidTuples);
+})($value)

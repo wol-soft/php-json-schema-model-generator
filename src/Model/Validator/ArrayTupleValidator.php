@@ -16,54 +16,55 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
- * Class AdditionalPropertiesValidator
+ * Class ArrayTupleValidator
  *
  * @package PHPModelGenerator\Model\Validator
  */
-class AdditionalPropertiesValidator extends PropertyTemplateValidator
+class ArrayTupleValidator extends PropertyTemplateValidator
 {
     /**
-     * AdditionalPropertiesValidator constructor.
+     * ArrayTupleValidator constructor.
      *
      * @param SchemaProcessor $schemaProcessor
      * @param Schema          $schema
      * @param array           $tuplePropertiesStructure
+     * @param string          $propertyName
      *
-     * @throws FileSystemException
      * @throws SchemaException
+     * @throws FileSystemException
      * @throws SyntaxErrorException
      * @throws UndefinedSymbolException
      */
     public function __construct(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        array $tuplePropertiesStructure
+        array $tuplePropertiesStructure,
+        string $propertyName
     ) {
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
-        $validationProperty = $propertyFactory->create(
-            new PropertyCollectionProcessor(),
-            $schemaProcessor,
-            $schema,
-            'additional property',
-            $tuplePropertiesStructure['additionalProperties']
-        );
+        $tupleProperties = [];
+        foreach ($tuplePropertiesStructure as $tupleIndex => $tupleItem) {
+            // an item of the array behaves like a nested property to add item-level validation
+            $tupleProperties[] = $propertyFactory->create(
+                new PropertyCollectionProcessor(),
+                $schemaProcessor,
+                $schema,
+                "tuple item #$tupleIndex of array {$propertyName}",
+                $tupleItem
+            );
+        }
 
         parent::__construct(
             $this->getRenderer()->renderTemplate(
-                DIRECTORY_SEPARATOR . 'Exception' . DIRECTORY_SEPARATOR . 'InvalidPropertiesException.phptpl',
-                ['error' => 'Provided JSON contains invalid additional properties.']
+                DIRECTORY_SEPARATOR . 'Exception' . DIRECTORY_SEPARATOR . 'InvalidArrayTuplesException.phptpl',
+                ['propertyName' => $propertyName]
             ),
-            DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'AdditionalProperties.phptpl',
+            DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayTuple.phptpl',
             [
-                'validationProperty'     => $validationProperty,
-                'additionalProperties'   => preg_replace(
-                    '(\d+\s=>)',
-                    '',
-                    var_export(array_keys($tuplePropertiesStructure['properties'] ?? []), true)
-                ),
+                'tupleProperties' => $tupleProperties,
+                'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
-                'viewHelper'             => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
             ]
         );
     }
@@ -75,6 +76,6 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
      */
     public function getValidatorSetUp(): string
     {
-        return '$invalidProperties = [];';
+        return '$invalidTuples = [];';
     }
 }

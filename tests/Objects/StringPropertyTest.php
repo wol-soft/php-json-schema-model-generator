@@ -163,9 +163,9 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
         return $this->combineDataProvider(
             $this->validationMethodDataProvider(),
             [
-                'Empty string' => ['', 'property must not be shorter than 2'],
-                'Too short string' => ['1', 'property must not be shorter than 2'],
-                'Too long string' => ['Some Text', 'property must not be longer than 8']
+                'Empty string' => ['', 'Value for property must not be shorter than 2'],
+                'Too short string' => ['1', 'Value for property must not be shorter than 2'],
+                'Too long string' => ['Some Text', 'Value for property must not be longer than 8']
             ]
         );
     }

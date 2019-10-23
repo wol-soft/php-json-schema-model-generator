@@ -72,7 +72,7 @@ class ModelGenerator
      * @throws FileSystemException      Will be thrown if either the $source or the $destination directory doesn't exist
      *                                  or the $destination directory is not empty
      * @throws SchemaException          Will be thrown if a schema is invalid or can't be parsed
-     * @throws FileSystemException      Will be thrown if a file system error occured
+     * @throws FileSystemException      Will be thrown if a file system error occurred
      * @throws RenderException          Will be thrown if a class can't be rendered correctly
      */
     public function generateModels(string $source, string $destination): array

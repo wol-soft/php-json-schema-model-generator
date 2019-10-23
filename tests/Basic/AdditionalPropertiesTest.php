@@ -173,15 +173,15 @@ ERROR;
                 ],
                 'empty short string' => [
                     ['additional1' => '', 'additional2' => 'Hello'],
-                    sprintf($exception, 'additional property must not be shorter than 2')
+                    sprintf($exception, 'Value for additional property must not be shorter than 2')
                 ],
                 'too short string' => [
                     ['additional1' => '1', 'additional2' => 'Hello'],
-                    sprintf($exception, 'additional property must not be shorter than 2')
+                    sprintf($exception, 'Value for additional property must not be shorter than 2')
                 ],
                 'too long string' => [
                     ['additional1' => '12345678', 'additional2' => 'Hello'],
-                    sprintf($exception, 'additional property must not be longer than 5')
+                    sprintf($exception, 'Value for additional property must not be longer than 5')
                 ],
             ]
         );

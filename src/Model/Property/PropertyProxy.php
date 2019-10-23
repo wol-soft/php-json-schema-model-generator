@@ -143,22 +143,6 @@ class PropertyProxy implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function getNestedProperties(): array
-    {
-        return $this->getProperty()->getNestedProperties();
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function addNestedProperty(PropertyInterface $nestedProperty): PropertyInterface
-    {
-        return $this->getProperty()->addNestedProperty($nestedProperty);
-    }
-
-    /**
-     * @inheritdoc
-     */
     public function addDecorator(PropertyDecoratorInterface $decorator): PropertyInterface
     {
         return $this->getProperty()->addDecorator($decorator);

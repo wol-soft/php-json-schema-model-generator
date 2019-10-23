@@ -6,6 +6,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Validator\ArrayTupleValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
@@ -109,12 +110,59 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             return;
         }
 
+        // check if the items require a tuple validation
+        if (is_array($propertyData[self::JSON_FIELD_ITEMS]) &&
+            array_keys($propertyData[self::JSON_FIELD_ITEMS]) ===
+                range(0, count($propertyData[self::JSON_FIELD_ITEMS]) - 1)
+        ) {
+            $this->addTupleValidator($property, $propertyData);
+
+            return;
+        }
+
         $this->addItemValidator(
             $property,
             $propertyData[self::JSON_FIELD_ITEMS],
             'ArrayItem.phptpl',
             "Invalid item in array {$property->getName()}"
         );
+    }
+
+    /**
+     * Add the validator to check a tuple validation for each item of the array
+     *
+     * @param PropertyInterface $property
+     * @param array             $propertyData
+     *
+     * @throws SchemaException
+     */
+    private function addTupleValidator(PropertyInterface $property, array $propertyData): void
+    {
+        if (isset($propertyData['additionalItems']) && $propertyData['additionalItems'] !== false) {
+            // TODO: add validator by reusing the AdditionalPropertiesValidator
+        }
+
+        $tupleCount = count($propertyData[self::JSON_FIELD_ITEMS]);
+
+        $property
+            ->addValidator(
+                new PropertyValidator(
+                    'is_array($value) && count($value) < ' . $tupleCount,
+                    sprintf(
+                        'Missing tuple item in array %s. Requires %s items, got " . count($value) . "',
+                        $property->getName(),
+                        $tupleCount
+                    )
+                )
+            )
+            ->addValidator(
+                new ArrayTupleValidator(
+                    $this->schemaProcessor,
+                    $this->schema,
+                    $propertyData[self::JSON_FIELD_ITEMS],
+                    $property->getName()
+                )
+            );
     }
 
     /**
@@ -166,7 +214,6 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             );
 
         $property
-            ->addNestedProperty($nestedProperty)
             ->addTypeHintDecorator(new ArrayTypeHintDecorator($nestedProperty))
             ->addValidator(
                 new PropertyTemplateValidator(

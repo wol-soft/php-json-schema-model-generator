@@ -34,8 +34,6 @@ class Property implements PropertyInterface
 
     /** @var Validator[] */
     protected $validator = [];
-    /** @var Property[] */
-    protected $nestedProperties = [];
     /** @var Schema */
     protected $schema;
     /** @var PropertyDecoratorInterface[] */
@@ -181,24 +179,6 @@ class Property implements PropertyInterface
             },
             $this->validator
         );
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getNestedProperties(): array
-    {
-        return $this->nestedProperties;
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function addNestedProperty(PropertyInterface $nestedProperty): PropertyInterface
-    {
-        $this->nestedProperties[] = $nestedProperty;
-
-        return $this;
     }
 
     /**

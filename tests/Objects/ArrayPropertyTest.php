@@ -389,4 +389,132 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             ]
         );
     }
+
+    /**
+     * @dataProvider validTupleArrayDataProvider
+     * @dataProvider validTupleArrayWithAdditionalPropertiesDataProvider
+     *
+     * @param GeneratorConfiguration $configuration
+     * @param array $propertyValue
+     */
+    public function testValidValuesForTupleArray(GeneratorConfiguration $configuration, array $propertyValue): void
+    {
+        $className = $this->generateClassFromFile('TupleArray.json', $configuration);
+
+        $object = new $className(['property' => $propertyValue]);
+
+        $this->assertSame($propertyValue[0], $object->getProperty()[0]);
+        $this->assertSame($propertyValue[1], $object->getProperty()[1]);
+        $this->assertSame($propertyValue[2]['name'], $object->getProperty()[2]->getName());
+        $this->assertSame($propertyValue[2]['age'] ?? null, $object->getProperty()[2]->getAge());
+        $this->assertSame($propertyValue[2], $object->getProperty()[2]->getRawModelDataInput());
+    }
+
+    public function validTupleArrayDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'minimal object' => [[3, 'Street', ['name' => 'Hans']]],
+                'full object' => [[400, 'Avenue', ['name' => 'Hans', 'age' => 42]]],
+                'extended object' => [[5, 'Boulevard', ['name' => 'Hans', 'age' => 42, 'alive' => true]]],
+            ]
+        );
+    }
+
+    public function validTupleArrayWithAdditionalPropertiesDataProvider(): array
+    {
+        $tuples = [];
+
+        foreach ($this->validTupleArrayDataProvider() as $key => $tuple) {
+            $tuple[1][] = 'additionalProperty';
+            $tuples[$key . ' - with additional property'] = $tuple;
+        };
+
+        return $tuples;
+    }
+
+    /**
+     * @dataProvider invalidTupleArrayDataProvider
+     *
+     * @param GeneratorConfiguration $configuration
+     * @param array $propertyValue
+     * @param string $message
+     */
+    public function testInvalidValuesForTupleArrayThrowsAnException(
+        GeneratorConfiguration $configuration,
+        array $propertyValue,
+        string $message
+    ): void {
+        $this->expectValidationError($configuration, $message);
+
+        $className = $this->generateClassFromFile('TupleArray.json', $configuration);
+
+        new $className(['property' => $propertyValue]);
+    }
+
+    public function invalidTupleArrayDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'empty array' => [
+                    [],
+                    'Missing tuple item in array property. Requires 3 items, got 0'
+                ],
+                'invalid type' => [
+                    ['400', 'Avenue', ['name' => 'Hans', 'age' => 42]],
+                    <<<ERROR
+Invalid tuple item in array property:
+  - invalid tuple #1
+    * Invalid type for tuple item #0 of array property. Requires int, got string
+ERROR
+                ],
+                'Too small number' => [
+                    [2, 'Boulevard', ['name' => 'Hans', 'age' => 42]],
+                    <<<ERROR
+Invalid tuple item in array property:
+  - invalid tuple #1
+    * Value for tuple item #0 of array property must not be smaller than 3
+ERROR
+
+                ],
+                'invalid enum value' => [
+                    [400, 'Way', ['name' => 'Hans', 'age' => 42]],
+                    <<<ERROR
+Invalid tuple item in array property:
+  - invalid tuple #2
+    * Invalid value for tuple item #1 of array property declined by enum constraint
+ERROR
+
+                ],
+                'Missing required field in nested object' => [
+                    [400, 'Street', ['age' => 42]],
+                    <<<ERROR
+Invalid tuple item in array property:
+  - invalid tuple #3
+    * Missing required value for name
+ERROR
+                ],
+                'Invalid type in nested object' => [
+                    [400, 'Street', ['name' => 'Hans', 'age' => true]],
+                    <<<ERROR
+Invalid tuple item in array property:
+  - invalid tuple #3
+    * Invalid type for age. Requires int, got boolean
+ERROR
+                ],
+                'Invalid order' => [
+                    [['name' => 'Hans', 'age' => 42], 'Street', 400],
+                    <<<ERROR
+Invalid tuple item in array property:
+  - invalid tuple #1
+    * Invalid type for tuple item #0 of array property. Requires int, got array
+  - invalid tuple #3
+    * Invalid type for tuple item #2 of array property. Requires object, got integer
+ERROR
+                ],
+            ]
+        );
+    }
 }

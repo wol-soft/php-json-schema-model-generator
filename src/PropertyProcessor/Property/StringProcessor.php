@@ -70,7 +70,11 @@ class StringProcessor extends AbstractTypedValueProcessor
             $property->addValidator(
                 new PropertyValidator(
                     $this->getTypeCheck() . "strlen(\$value) < {$propertyData[static::JSON_FIELD_MIN_LENGTH]}",
-                    "{$property->getName()} must not be shorter than {$propertyData[static::JSON_FIELD_MIN_LENGTH]}"
+                    sprintf(
+                        'Value for %s must not be shorter than %s',
+                        $property->getName(),
+                        $propertyData[static::JSON_FIELD_MIN_LENGTH]
+                    )
                 )
             );
         }
@@ -79,7 +83,11 @@ class StringProcessor extends AbstractTypedValueProcessor
             $property->addValidator(
                 new PropertyValidator(
                     $this->getTypeCheck() . "strlen(\$value) > {$propertyData[static::JSON_FIELD_MAX_LENGTH]}",
-                    "{$property->getName()} must not be longer than {$propertyData[static::JSON_FIELD_MAX_LENGTH]}"
+                    sprintf(
+                        'Value for %s must not be longer than %s',
+                        $property->getName(),
+                        $propertyData[static::JSON_FIELD_MAX_LENGTH]
+                    )
                 )
             );
         }

@@ -99,18 +99,6 @@ interface PropertyInterface
     public function getOrderedValidators(): array;
 
     /**
-     * @return PropertyInterface[]
-     */
-    public function getNestedProperties(): array;
-
-    /**
-     * @param PropertyInterface $nestedProperty
-     *
-     * @return PropertyInterface
-     */
-    public function addNestedProperty(PropertyInterface $nestedProperty): PropertyInterface;
-
-    /**
      * Add a decorator to the property
      *
      * @param PropertyDecoratorInterface $decorator

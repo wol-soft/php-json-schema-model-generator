@@ -62,13 +62,13 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
             ],
             'length invalid' => [
                 'a',
-                ['property must not be shorter than 2']
+                ['Value for property must not be shorter than 2']
             ],
             'pattern and length invalid' => [
                 ' ',
                 [
                     'property doesn\'t match pattern ^[^\s]+$',
-                    'property must not be shorter than 2'
+                    'Value for property must not be shorter than 2'
                 ]
             ],
             'null' => [null, ['Invalid type for property']],

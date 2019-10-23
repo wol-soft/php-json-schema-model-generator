@@ -27,7 +27,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
      *
      * @param SchemaProcessor $schemaProcessor
      * @param Schema          $schema
-     * @param array           $propertyNames
+     * @param array           $tuplePropertiesNames
      *
      * @throws FileSystemException
      * @throws SyntaxErrorException
@@ -37,10 +37,10 @@ class PropertyNamesValidator extends PropertyTemplateValidator
     public function __construct(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        array $propertyNames
+        array $tuplePropertiesNames
     ) {
         $nameValidationProperty = (new StringProcessor(new PropertyCollectionProcessor(), $schemaProcessor, $schema))
-            ->process('property name', $propertyNames)
+            ->process('property name', $tuplePropertiesNames)
             // the property name validator doesn't need type checks or required checks so simply filter them out
             ->filterValidators(function (Validator $validator) {
                 return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&

@@ -30,7 +30,12 @@ class ObjectProcessor extends AbstractTypedValueProcessor
             $propertyData['id'] ?? str_replace(
                 ' ',
                 '_',
-                sprintf('%s_%s_%s', $this->schemaProcessor->getCurrentClassName(), $propertyName, uniqid())
+                sprintf(
+                    '%s_%s_%s',
+                    $this->schemaProcessor->getCurrentClassName(),
+                    preg_replace('/[^a-z0-9\s]/i', '', $propertyName),
+                    uniqid()
+                )
             )
         );
 
