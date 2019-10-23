@@ -76,10 +76,14 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      */
     protected function addEnumValidator(PropertyInterface $property, array $allowedValues): void
     {
+        if (!$property->isRequired()) {
+            $allowedValues[] = null;
+        }
+
         $property->addValidator(
             new PropertyValidator(
                 '!in_array($value, ' .
-                    preg_replace('(\d+\s=>)', '', var_export(array_merge([null], array_values($allowedValues)), true)) .
+                    preg_replace('(\d+\s=>)', '', var_export(array_unique($allowedValues), true)) .
                     ', true)',
                 "Invalid value for {$property->getName()} declined by enum constraint"
             ),

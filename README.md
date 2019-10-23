@@ -4,6 +4,7 @@
 [![Build Status](https://travis-ci.org/wol-soft/php-micro-template.svg?branch=master)](https://travis-ci.org/wol-soft/php-json-schema-model-generator)
 [![Coverage Status](https://coveralls.io/repos/github/wol-soft/php-json-schema-model-generator/badge.svg?branch=master)](https://coveralls.io/github/wol-soft/php-json-schema-model-generator?branch=master)
 [![MIT License](https://img.shields.io/packagist/l/wol-soft/php-micro-template.svg)](https://github.com/wol-soft/php-json-schema-model-generator/blob/master/LICENSE)
+[![Documentation Status](https://readthedocs.org/projects/php-json-schema-model-generator/badge/?version=latest)](https://php-json-schema-model-generator.readthedocs.io/en/latest/?badge=latest)
 
 # php-json-schema-model-generator
 Generates PHP model classes from JSON-Schema files including validation and providing a fluent auto completion for the generated classes.
@@ -26,6 +27,7 @@ Simple example from a PHP application: you define and document an API with swagg
 ## Requirements ##
 
 - Requires at least PHP 7.2
+- Requires the PHP extensions ext-json and ext-mbstring
 
 ## Installation ##
 
@@ -37,6 +39,8 @@ $ composer require wol-soft/php-json-model-generator-exception
 To avoid adding all dependencies of the php-json-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the php-json-model-generator-exception library. The exception library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment (if you decide to commit the models) or as a build step of your application.
 
 ## Basic usage ##
+
+Check out the [docs](https://php-json-schema-model-generator.readthedocs.io/en/latest/) for more details.
 
 The base object for generating models is the *Generator*. After you have created a Generator you can use the object to generate your model classes without any further configuration:
 
@@ -70,11 +74,11 @@ Method | Configuration | Default
 ``` setNamespacePrefix(string $prefix) ``` <br><br>Example:<br> ``` setNamespacePrefix('\MyApp\Model') ``` | Configures a namespace prefix for all generated classes. The namespaces will be extended with the directory structure of the source directory. | Empty string so no namespace prefix will be used
 ``` setImmutable(bool $immutable) ``` <br><br>Example:<br> ``` setImmutable(false) ``` | If set to true the generated model classes will be delivered without setter methods for the object properties. | true
 ``` setCollectErrors(bool $collectErrors) ``` <br><br>Example:<br> ``` setCollectErrors(false) ``` | By default the complete input is validated and in case of failing validations all error messages will be thrown in a single exception. If set to false the first failing validation will throw an exception. | true
-``` setPrettyPrint(bool $prettyPrint) ``` <br><br>Example:<br> ``` setPrettyPrint(false) ``` | If set to false, the generated model classes won't follow coding gudelines (but the generation is faster). If enabled the package [Symplify/EasyCodingStandard](https://github.com/Symplify/EasyCodingStandard) will be used to clean up the generated code. | true
+``` setPrettyPrint(bool $prettyPrint) ``` <br><br>Example:<br> ``` setPrettyPrint(true) ``` | If set to false, the generated model classes won't follow coding guidelines (but the generation is faster). If enabled the package [Symplify/EasyCodingStandard](https://github.com/Symplify/EasyCodingStandard) will be used to clean up the generated code. By default pretty printing is disabled. | false
 ``` setSerialization(bool $serialization) ``` <br><br>Example:<br> ``` setSerialization(true) ``` | If set to true the serialization methods `toArray` and `toJSON` will be added to the public interface of the generated classes. | false
-``` setOutputEnabled(bool $prettyPrint) ``` <br><br>Example:<br> ``` setOutputEnabled(false) ``` | Enable or disable output of the generation process to STDOUT | true
-``` setErrorRegistryClass(string $exceptionClass) ``` <br><br>Example:<br> ``` setErrorRegistryClass(CustomException::class) ``` | Define a custom exception implementing the ErrorRegistryExceptionInterface to decouple the generated code from the library (if you want to declare the library as a dev-dependency). The exception will be thrown if a validation fails error collection is **enabled** | ErrorRegistryException::class
-``` setExceptionClass(bool $prettyPrint) ``` <br><br>Example:<br> ``` setExceptionClass(CustomException::class) ``` | Define a custom exception to decouple the generated code from the library (if you want to declare the library as a dev-dependency). The exception will be thrown if a validation fails error collection is **disabled** | ValidationException::class
+``` setOutputEnabled(bool $outputEnabled) ``` <br><br>Example:<br> ``` setOutputEnabled(false) ``` | Enable or disable output of the generation process to STDOUT | true
+``` setErrorRegistryClass(string $exceptionClass) ``` <br><br>Example:<br> ``` setErrorRegistryClass(CustomException::class) ``` | Define a custom exception implementing the ErrorRegistryExceptionInterface to be used. The exception will be thrown if a validation fails and error collection is **enabled** | ErrorRegistryException::class
+``` setExceptionClass(string $exceptionClass) ``` <br><br>Example:<br> ``` setExceptionClass(CustomException::class) ``` | Define a custom exception to be used. The exception will be thrown if a validation fails and error collection is **disabled** | ValidationException::class
 
 ## Examples ##
 
@@ -135,6 +139,7 @@ $person = new Person(['name' => 'Albert', 'age' => -1]);
 $person = new Person(['name' => 'Albert']);
 $person->getName(); // returns 'Albert'
 $person->getAge(); // returns NULL
+$person->getRawModelDataInput(); // returns ['name' => 'Albert']
 
 // If setters are generated the setters also perform validations.
 // Exception: 'Value for age must not be smaller than 0'

@@ -4,6 +4,9 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
+use PHPMicroTemplate\Exception\FileSystemException;
+use PHPMicroTemplate\Exception\SyntaxErrorException;
+use PHPMicroTemplate\Exception\UndefinedSymbolException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\ArrayTupleValidator;
@@ -19,8 +22,6 @@ use PHPModelGenerator\Utils\RenderHelper;
  * Class ArrayProcessor
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
- *
- * TODO: tuple validation
  */
 class ArrayProcessor extends AbstractTypedValueProcessor
 {
@@ -132,9 +133,12 @@ class ArrayProcessor extends AbstractTypedValueProcessor
      * Add the validator to check a tuple validation for each item of the array
      *
      * @param PropertyInterface $property
-     * @param array             $propertyData
+     * @param array $propertyData
      *
      * @throws SchemaException
+     * @throws FileSystemException
+     * @throws SyntaxErrorException
+     * @throws UndefinedSymbolException
      */
     private function addTupleValidator(PropertyInterface $property, array $propertyData): void
     {

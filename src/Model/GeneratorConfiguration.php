@@ -19,7 +19,7 @@ class GeneratorConfiguration
     /** @var bool */
     protected $immutable = false;
     /** @var bool */
-    protected $prettyPrint = true;
+    protected $prettyPrint = false;
     /** @var bool */
     protected $outputEnabled = true;
     /** @var bool */

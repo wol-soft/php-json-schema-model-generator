@@ -107,9 +107,7 @@ class {{ class }}
             /**
              * Set the value of {{ property.getName() }}.
              *
-             * {% if property.getDescription() %}{{ property.getDescription() }}{% endif %}
-             *
-             * @param {{ property.getTypeHint() }} ${{ property.getAttribute() }}
+             * @param {{ property.getTypeHint() }}{% if not property.isRequired() %}|null{% endif %} ${{ property.getAttribute() }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
              *
              * @return self
              */

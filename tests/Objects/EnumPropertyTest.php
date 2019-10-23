@@ -219,6 +219,36 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
         ];
     }
 
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNotProvidedEnumItemInRequiredUntypedEnumThrowsAnException(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Missing required value for property');
+
+        $className = $this->generateClassFromFile('RequiredUntypedEnumProperty.json');
+
+        new $className([]);
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNullProvidedEnumItemInRequiredUntypedEnumThrowsAnException(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+
+        $className = $this->generateClassFromFile('RequiredUntypedEnumProperty.json');
+
+        new $className(['property' => null]);
+    }
+
     protected function generateEnumClass(string $type, array $enumValues, $required = false): string
     {
         $enumValues = array_map(

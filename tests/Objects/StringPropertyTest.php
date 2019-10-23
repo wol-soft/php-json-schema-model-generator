@@ -130,6 +130,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
             [
                 'Lower limit' => ['11'],
                 'Upper limit' => ['12345678'],
+                'Multibyte' => ['日本語日本語'],
                 'Null' => [null],
             ]
         );
@@ -225,7 +226,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
         string $pattern,
         string $propertyValue
     ): void {
-        $this->expectValidationError($configuration, "property doesn't match pattern $pattern");
+        $this->expectValidationError($configuration, "Value for property doesn't match pattern $pattern");
 
         $className = $this->generateClassFromFileTemplate('StringPropertyPattern.json', [$pattern], $configuration);
 

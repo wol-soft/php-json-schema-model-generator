@@ -144,11 +144,11 @@ ERROR
                     <<<ERROR
 Provided JSON contains properties with invalid names.
   - invalid property '12test12'
-    * property name doesn't match pattern ^test[0-9]+$
+    * Value for property name doesn't match pattern ^test[0-9]+$
   - invalid property 'test'
-    * property name doesn't match pattern ^test[0-9]+$
+    * Value for property name doesn't match pattern ^test[0-9]+$
   - invalid property 'test12w12'
-    * property name doesn't match pattern ^test[0-9]+$
+    * Value for property name doesn't match pattern ^test[0-9]+$
 ERROR
                 ],
                 'multiple violations' => [
@@ -161,9 +161,9 @@ ERROR
                     <<<ERROR
 Provided JSON contains properties with invalid names.
   - invalid property 'test12345a'
-    * property name doesn't match pattern ^test[0-9]+$
+    * Value for property name doesn't match pattern ^test[0-9]+$
   - invalid property 'test'
-    * property name doesn't match pattern ^test[0-9]+$
+    * Value for property name doesn't match pattern ^test[0-9]+$
 ERROR
                 ],
             ]
@@ -184,9 +184,9 @@ ERROR
                 <<<ERROR
 Provided JSON contains properties with invalid names.
   - invalid property 'test12345a'
-    * property name doesn't match pattern ^test[0-9]+$
+    * Value for property name doesn't match pattern ^test[0-9]+$
   - invalid property 'test'
-    * property name doesn't match pattern ^test[0-9]+$
+    * Value for property name doesn't match pattern ^test[0-9]+$
 ERROR
             ],
             'Error Collection - multiple violations' => [
@@ -200,10 +200,10 @@ ERROR
                 <<<ERROR
 Provided JSON contains properties with invalid names.
   - invalid property 'test12345a'
-    * property name doesn't match pattern ^test[0-9]+$
+    * Value for property name doesn't match pattern ^test[0-9]+$
     * Value for property name must not be longer than 8
   - invalid property 'test'
-    * property name doesn't match pattern ^test[0-9]+$
+    * Value for property name doesn't match pattern ^test[0-9]+$
     * Value for property name must not be shorter than 6
 ERROR
             ],

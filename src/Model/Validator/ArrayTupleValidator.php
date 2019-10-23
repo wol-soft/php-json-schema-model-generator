@@ -9,6 +9,7 @@ use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
@@ -45,14 +46,18 @@ class ArrayTupleValidator extends PropertyTemplateValidator
 
         $tupleProperties = [];
         foreach ($tuplePropertiesStructure as $tupleIndex => $tupleItem) {
+            $tupleItemName = "tuple item #$tupleIndex of array $propertyName";
+
             // an item of the array behaves like a nested property to add item-level validation
             $tupleProperties[] = $propertyFactory->create(
-                new PropertyCollectionProcessor(),
+                new PropertyCollectionProcessor([$tupleItemName]),
                 $schemaProcessor,
                 $schema,
-                "tuple item #$tupleIndex of array {$propertyName}",
+                $tupleItemName,
                 $tupleItem
-            );
+            )->filterValidators(function (Validator $validator) {
+                return !is_a($validator->getValidator(), RequiredPropertyValidator::class);
+            });
         }
 
         parent::__construct(

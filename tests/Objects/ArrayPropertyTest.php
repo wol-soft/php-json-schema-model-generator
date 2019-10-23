@@ -51,20 +51,54 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
-     * @dataProvider validationMethodDataProvider
+     * @dataProvider optionalArrayPropertyDataProvider
      *
      * @param GeneratorConfiguration $configuration
+     * @param string                 $file
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNotProvidedOptionalArrayPropertyIsValid(GeneratorConfiguration $configuration): void
-    {
-        $className = $this->generateClassFromFile('ArrayProperty.json', $configuration);
+    public function testNotProvidedOptionalArrayPropertyIsValid(
+        GeneratorConfiguration $configuration,
+        string $file
+    ): void {
+        $className = $this->generateClassFromFile($file, $configuration);
 
         $object = new $className([]);
         $this->assertNull($object->getProperty());
+    }
+
+    /**
+     * @dataProvider optionalArrayPropertyDataProvider
+     *
+     * @param GeneratorConfiguration $configuration
+     * @param string                 $file
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNullProvidedOptionalArrayPropertyIsValid(
+        GeneratorConfiguration $configuration,
+        string $file
+    ): void {
+        $className = $this->generateClassFromFile($file, $configuration);
+
+        $object = new $className(['property' => null]);
+        $this->assertNull($object->getProperty());
+    }
+
+    public function optionalArrayPropertyDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'simple array' => ['ArrayProperty.json'],
+                'tuple array' => ['TupleArray.json'],
+            ]
+        );
     }
 
     /**
@@ -512,6 +546,16 @@ Invalid tuple item in array property:
     * Invalid type for tuple item #0 of array property. Requires int, got array
   - invalid tuple #3
     * Invalid type for tuple item #2 of array property. Requires object, got integer
+ERROR
+                ],
+                'null values' => [
+                    [null, null, ['name' => 'Hans', 'age' => 42]],
+                    <<<ERROR
+Invalid tuple item in array property:
+  - invalid tuple #1
+    * Invalid type for tuple item #0 of array property. Requires int, got NULL
+  - invalid tuple #2
+    * Invalid type for tuple item #1 of array property. Requires string, got NULL
 ERROR
                 ],
             ]

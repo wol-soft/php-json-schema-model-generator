@@ -53,7 +53,7 @@ class StringProcessor extends AbstractTypedValueProcessor
         $property->addValidator(
             new PropertyValidator(
                 $this->getTypeCheck() . "!preg_match('/{$propertyData[static::JSON_FIELD_PATTERN]}/', \$value)",
-                "{$property->getName()} doesn't match pattern {$propertyData[static::JSON_FIELD_PATTERN]}"
+                "Value for {$property->getName()} doesn't match pattern {$propertyData[static::JSON_FIELD_PATTERN]}"
             )
         );
     }
@@ -69,7 +69,7 @@ class StringProcessor extends AbstractTypedValueProcessor
         if (isset($propertyData[static::JSON_FIELD_MIN_LENGTH])) {
             $property->addValidator(
                 new PropertyValidator(
-                    $this->getTypeCheck() . "strlen(\$value) < {$propertyData[static::JSON_FIELD_MIN_LENGTH]}",
+                    $this->getTypeCheck() . "mb_strlen(\$value) < {$propertyData[static::JSON_FIELD_MIN_LENGTH]}",
                     sprintf(
                         'Value for %s must not be shorter than %s',
                         $property->getName(),
@@ -82,7 +82,7 @@ class StringProcessor extends AbstractTypedValueProcessor
         if (isset($propertyData[static::JSON_FIELD_MAX_LENGTH])) {
             $property->addValidator(
                 new PropertyValidator(
-                    $this->getTypeCheck() . "strlen(\$value) > {$propertyData[static::JSON_FIELD_MAX_LENGTH]}",
+                    $this->getTypeCheck() . "mb_strlen(\$value) > {$propertyData[static::JSON_FIELD_MAX_LENGTH]}",
                     sprintf(
                         'Value for %s must not be longer than %s',
                         $property->getName(),
