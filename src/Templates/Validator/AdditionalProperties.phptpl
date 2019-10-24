@@ -1,11 +1,11 @@
-(function () use ($modelData, &$invalidProperties) {
+(function () use ($properties, &$invalidProperties) {
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->errorRegistry;
     {% endif %}
 
-    foreach (array_diff(array_keys($modelData), {{ additionalProperties }}) as $propertyKey) {
+    foreach (array_diff(array_keys($properties), {{ additionalProperties }}) as $propertyKey) {
         try {
-            $value = $modelData[$propertyKey];
+            $value = $properties[$propertyKey];
 
             {% if generatorConfiguration.collectErrors() %}
                 $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();

@@ -9,6 +9,7 @@ use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Validator\AdditionalItemsValidator;
 use PHPModelGenerator\Model\Validator\ArrayTupleValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -34,9 +35,12 @@ class ArrayProcessor extends AbstractTypedValueProcessor
 
     /**
      * @param PropertyInterface $property
-     * @param array    $propertyData
+     * @param array             $propertyData
      *
+     * @throws FileSystemException
      * @throws SchemaException
+     * @throws SyntaxErrorException
+     * @throws UndefinedSymbolException
      */
     protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {
@@ -103,7 +107,10 @@ class ArrayProcessor extends AbstractTypedValueProcessor
      * @param PropertyInterface $property
      * @param array             $propertyData
      *
+     * @throws FileSystemException
      * @throws SchemaException
+     * @throws SyntaxErrorException
+     * @throws UndefinedSymbolException
      */
     private function addItemsValidation(PropertyInterface $property, array $propertyData): void
     {
@@ -142,8 +149,8 @@ class ArrayProcessor extends AbstractTypedValueProcessor
      */
     private function addTupleValidator(PropertyInterface $property, array $propertyData): void
     {
-        if (isset($propertyData['additionalItems']) && $propertyData['additionalItems'] !== false) {
-            // TODO: add validator by reusing the AdditionalPropertiesValidator
+        if (isset($propertyData['additionalItems']) && $propertyData['additionalItems'] !== true) {
+            $this->addAdditionalItemsValidator($property, $propertyData);
         }
 
         $tupleCount = count($propertyData[self::JSON_FIELD_ITEMS]);
@@ -151,9 +158,9 @@ class ArrayProcessor extends AbstractTypedValueProcessor
         $property
             ->addValidator(
                 new PropertyValidator(
-                    'is_array($value) && count($value) < ' . $tupleCount,
+                    'is_array($value) && ($amount = count($value)) < ' . $tupleCount,
                     sprintf(
-                        'Missing tuple item in array %s. Requires %s items, got " . count($value) . "',
+                        'Missing tuple item in array %s. Requires %s items, got $amount',
                         $property->getName(),
                         $tupleCount
                     )
@@ -167,6 +174,44 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                     $property->getName()
                 )
             );
+    }
+
+    /**
+     * @param PropertyInterface $property
+     * @param array             $propertyData
+     *
+     * @throws FileSystemException
+     * @throws SchemaException
+     * @throws SyntaxErrorException
+     * @throws UndefinedSymbolException
+     */
+    private function addAdditionalItemsValidator(PropertyInterface $property, array $propertyData): void
+    {
+        if (!is_bool($propertyData['additionalItems'])) {
+            $property->addValidator(
+                new AdditionalItemsValidator(
+                    $this->schemaProcessor,
+                    $this->schema,
+                    $propertyData,
+                    $property->getName()
+                )
+            );
+
+            return;
+        }
+
+        $expectedAmount = count($propertyData[self::JSON_FIELD_ITEMS]);
+
+        $property->addValidator(
+            new PropertyValidator(
+                '($amount = count($value)) > ' . $expectedAmount,
+                sprintf(
+                    'Tuple array %s contains not allowed additional items. Expected %s items, got $amount',
+                    $property->getName(),
+                    $expectedAmount
+                )
+            )
+        );
     }
 
     /**

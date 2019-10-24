@@ -27,7 +27,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
      *
      * @param SchemaProcessor $schemaProcessor
      * @param Schema          $schema
-     * @param array           $tuplePropertiesNames
+     * @param array           $propertiesNames
      *
      * @throws FileSystemException
      * @throws SyntaxErrorException
@@ -37,10 +37,10 @@ class PropertyNamesValidator extends PropertyTemplateValidator
     public function __construct(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        array $tuplePropertiesNames
+        array $propertiesNames
     ) {
         $nameValidationProperty = (new StringProcessor(new PropertyCollectionProcessor(), $schemaProcessor, $schema))
-            ->process('property name', $tuplePropertiesNames)
+            ->process('property name', $propertiesNames)
             // the property name validator doesn't need type checks or required checks so simply filter them out
             ->filterValidators(function (Validator $validator) {
                 return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
@@ -50,7 +50,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
         parent::__construct(
             $this->getRenderer()->renderTemplate(
                 DIRECTORY_SEPARATOR . 'Exception' . DIRECTORY_SEPARATOR . 'InvalidPropertiesException.phptpl',
-                ['error' => 'Provided JSON contains properties with invalid names.']
+                ['error' => 'Provided JSON contains properties with invalid names.', 'property' => 'property']
             ),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PropertyNames.phptpl',
             [

@@ -9,6 +9,7 @@ use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
@@ -22,37 +23,40 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class AdditionalPropertiesValidator extends PropertyTemplateValidator
 {
+    protected const PROPERTY_NAME = 'additional property';
+
+    protected const PROPERTIES_KEY = 'properties';
+    protected const ADDITIONAL_PROPERTIES_KEY = 'additionalProperties';
+
     /**
      * AdditionalPropertiesValidator constructor.
      *
      * @param SchemaProcessor $schemaProcessor
      * @param Schema          $schema
-     * @param array           $tuplePropertiesStructure
+     * @param array           $propertiesStructure
      *
      * @throws FileSystemException
      * @throws SchemaException
      * @throws SyntaxErrorException
      * @throws UndefinedSymbolException
      */
-    public function __construct(
-        SchemaProcessor $schemaProcessor,
-        Schema $schema,
-        array $tuplePropertiesStructure
-    ) {
+    public function __construct(SchemaProcessor $schemaProcessor, Schema $schema, array $propertiesStructure) {
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
         $validationProperty = $propertyFactory->create(
-            new PropertyCollectionProcessor(),
+            new PropertyCollectionProcessor([static::PROPERTY_NAME]),
             $schemaProcessor,
             $schema,
-            'additional property',
-            $tuplePropertiesStructure['additionalProperties']
-        );
+            static::PROPERTY_NAME,
+            $propertiesStructure[static::ADDITIONAL_PROPERTIES_KEY]
+        )->filterValidators(function (Validator $validator) {
+            return !is_a($validator->getValidator(), RequiredPropertyValidator::class);
+        });
 
         parent::__construct(
             $this->getRenderer()->renderTemplate(
                 DIRECTORY_SEPARATOR . 'Exception' . DIRECTORY_SEPARATOR . 'InvalidPropertiesException.phptpl',
-                ['error' => 'Provided JSON contains invalid additional properties.']
+                ['error' => $this->getErrorMessage(), 'property' => static::PROPERTY_NAME]
             ),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'AdditionalProperties.phptpl',
             [
@@ -60,7 +64,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
                 'additionalProperties'   => preg_replace(
                     '(\d+\s=>)',
                     '',
-                    var_export(array_keys($tuplePropertiesStructure['properties'] ?? []), true)
+                    var_export(array_keys($propertiesStructure[static::PROPERTIES_KEY] ?? []), true)
                 ),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper'             => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
@@ -75,6 +79,14 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
      */
     public function getValidatorSetUp(): string
     {
-        return '$invalidProperties = [];';
+        return '
+            $properties = $modelData;
+            $invalidProperties = [];
+        ';
+    }
+
+    protected function getErrorMessage(): string
+    {
+        return 'Provided JSON contains invalid additional properties.';
     }
 }

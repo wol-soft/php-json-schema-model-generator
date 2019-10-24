@@ -116,7 +116,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
             [
                 'no provided values' => [[]],
                 'only defined property' => [['id' => 12]],
-                'only additional properties' => [['additional1' => 'AB', 'additional2' => '12345', 'null' => null]],
+                'only additional properties' => [['additional1' => 'AB', 'additional2' => '12345']],
                 'defined and additional properties' => [['id' => 10, 'additional1' => 'AB', 'additional2' => '12345']],
             ]
         );
@@ -144,13 +144,17 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
     {
         $exception = <<<ERROR
 Provided JSON contains invalid additional properties.
-  - invalid property 'additional1'
+  - invalid additional property 'additional1'
     * %s
 ERROR;
 
         return $this->combineDataProvider(
             $this->validationMethodDataProvider(),
             [
+                'invalid type for additional property (null)' => [
+                    ['additional1' => null, 'additional2' => 'Hello'],
+                    sprintf($exception, 'Invalid type for additional property. Requires string, got NULL')
+                ],
                 'invalid type for additional property (int)' => [
                     ['additional1' => 1, 'additional2' => 'Hello'],
                     sprintf($exception, 'Invalid type for additional property. Requires string, got int')
@@ -217,7 +221,6 @@ ERROR;
                 'only additional properties' => [[
                     'additional1' => ['name' => 'AB'],
                     'additional2' => ['name' => 'AB', 'age' => 12],
-                    'null' => null
                 ]],
                 'defined and additional properties' => [[
                     'id' => 10,
@@ -250,13 +253,17 @@ ERROR;
     {
         $exception = <<<ERROR
 Provided JSON contains invalid additional properties.
-  - invalid property 'additional1'
+  - invalid additional property 'additional1'
     * %s
 ERROR;
 
         return $this->combineDataProvider(
             $this->validationMethodDataProvider(),
             [
+                'invalid type for additional property (null)' => [
+                    ['additional1' => null, 'additional2' => ['name' => 'AB', 'age' => 12]],
+                    sprintf($exception, 'Invalid type for additional property. Requires object, got NULL')
+                ],
                 'invalid type for additional property (int)' => [
                     ['additional1' => 1, 'additional2' => ['name' => 'AB', 'age' => 12]],
                     sprintf($exception, 'Invalid type for additional property. Requires object, got int')
@@ -285,9 +292,9 @@ ERROR;
                     ['additional1' => ['name' => 12], 'additional2' => ['name' => 'AB', 'age' => '12']],
                     <<<ERROR
 Provided JSON contains invalid additional properties.
-  - invalid property 'additional1'
+  - invalid additional property 'additional1'
     * Invalid type for name. Requires string, got integer
-  - invalid property 'additional2'
+  - invalid additional property 'additional2'
     * Invalid type for age. Requires int, got string
 ERROR
                 ],

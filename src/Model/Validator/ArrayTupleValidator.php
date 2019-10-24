@@ -28,7 +28,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
      *
      * @param SchemaProcessor $schemaProcessor
      * @param Schema          $schema
-     * @param array           $tuplePropertiesStructure
+     * @param array           $propertiesStructure
      * @param string          $propertyName
      *
      * @throws SchemaException
@@ -39,13 +39,13 @@ class ArrayTupleValidator extends PropertyTemplateValidator
     public function __construct(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        array $tuplePropertiesStructure,
+        array $propertiesStructure,
         string $propertyName
     ) {
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
         $tupleProperties = [];
-        foreach ($tuplePropertiesStructure as $tupleIndex => $tupleItem) {
+        foreach ($propertiesStructure as $tupleIndex => $tupleItem) {
             $tupleItemName = "tuple item #$tupleIndex of array $propertyName";
 
             // an item of the array behaves like a nested property to add item-level validation

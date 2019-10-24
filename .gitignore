@@ -1,3 +1,5 @@
+/docs/build/
 /tests/manual/result/
 /vendor/
 .idea
+composer.lock
