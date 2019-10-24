@@ -115,7 +115,98 @@ The *getMembers* function of the class *Family* is typehinted with *@returns Mem
 Tuples
 ------
 
-TODO: documentation
+A tuple array defines the structure of each array item on it's own. A tuple array is defined by providing an array of schemas with the `items` keyword.
+
+Items
+^^^^^
+
+.. code-block:: json
+
+    {
+        "id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "items": [
+                    {
+                        "type": "string",
+                        "minLength": 2
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+Possible exceptions:
+
+* Missing tuple item in array example. Requires 2 items, got 1
+
+If invalid tuples are provided a detailed exception will be thrown containing all violations:
+
+.. code-block:: none
+
+    Invalid tuple item in array example:
+      - invalid tuple #1
+        * Invalid type for tuple item #1 of array example. Requires string, got int
+      - invalid tuple #1
+        * Invalid type for name. Requires string, got boolean
+
+Additional items
+^^^^^^^^^^^^^^^^
+
+Using the keyword `additionalItems` the array can be limited to not contain any other value by providing `false`. If a schema is provided all additional items must be valid against the provided schema. Simple checks like 'must contain a string' are possible as well as checks like 'must contain an object with a specific structure'.
+
+.. code-block:: json
+
+    {
+        "id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "items": [
+                    {
+                        "type": "string",
+                        "minLength": 2
+                    },
+                    {
+                        "type": "integer"
+                    },
+                ],
+                "additionalItems": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+Possible exceptions:
+
+* Tuple array example contains not allowed additional items. Expected 2 items, got 3
+
+If invalid additional items are provided a detailed exception will be thrown containing all violations:
+
+.. code-block:: none
+
+    Tuple array property contains invalid additional items.
+      - invalid additional item '3'
+        * Invalid type for name. Requires string, got integer
+      - invalid additional item '5'
+        * Invalid type for additional item. Requires object, got int
 
 Contains
 --------

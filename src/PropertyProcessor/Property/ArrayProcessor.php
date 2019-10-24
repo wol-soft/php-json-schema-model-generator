@@ -128,6 +128,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             return;
         }
 
+        // TODO: more detailed exception including the violations
         $this->addItemValidator(
             $property,
             $propertyData[self::JSON_FIELD_ITEMS],
