@@ -1,5 +1,6 @@
 /docs/build/
 /tests/manual/result/
+/failed-classes/
 /vendor/
 .idea
 composer.lock

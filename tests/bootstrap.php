@@ -1,6 +1,6 @@
 <?php
 
-const FAILED_CLASSES_PATH = __DIR__ . '/../Failed-classes/';
+const FAILED_CLASSES_PATH = __DIR__ . '/../failed-classes/';
 
 if (is_dir(FAILED_CLASSES_PATH)) {
     $di = new RecursiveDirectoryIterator(FAILED_CLASSES_PATH, FilesystemIterator::SKIP_DOTS);

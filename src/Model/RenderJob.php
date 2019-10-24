@@ -53,9 +53,13 @@ class RenderJob
 
         $class = $this->renderClass($generatorConfiguration);
 
+        if (file_exists($this->fileName)) {
+            throw new FileSystemException("File {$this->fileName} already exists. Make sure object IDs are unique.");
+        }
+
         if (!file_put_contents($this->fileName, $class)) {
             // @codeCoverageIgnoreStart
-            throw new FileSystemException("Can't write class $this->classPath\\$this->className");
+            throw new FileSystemException("Can't write class $this->classPath\\$this->className.");
             // @codeCoverageIgnoreEnd
         }
 

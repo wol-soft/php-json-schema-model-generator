@@ -2,6 +2,7 @@
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -232,5 +233,13 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
             $reflection->getProperty('object1')->getDocComment(),
             $reflection->getProperty('object2')->getDocComment()
         );
+    }
+
+    public function testDuplicateIdThrowsAnException(): void
+    {
+        $this->expectException(FileSystemException::class);
+        $this->expectExceptionMessageMatches('/File (.*) already exists. Make sure object IDs are unique./');
+
+        $this->generateClassFromFile('DuplicateId.json');
     }
 }

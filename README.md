@@ -176,4 +176,4 @@ After installing the dependencies of the library via `composer update` you can e
 
 During the execution the tests will create a directory PHPModelGeneratorTest in tmp where JSON-Schema files and PHP classes will be written to.
 
-If a test which creates a PHP class from a JSON-Schema fails the JSON-Schema and the generated class(es) will be dumped to the directory `./Failed-classes`
+If a test which creates a PHP class from a JSON-Schema fails the JSON-Schema and the generated class(es) will be dumped to the directory `./failed-classes`

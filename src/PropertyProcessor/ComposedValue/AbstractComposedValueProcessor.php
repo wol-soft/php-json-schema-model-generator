@@ -26,6 +26,8 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
 {
+    private static $generatedMergedProperties = [];
+
     /**
      * @inheritdoc
      */
@@ -115,8 +117,14 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             $propertyData['propertyData']['id'] ?? $compositionProperty->getName()
         );
 
+        // check if the merged property already has been generated
+        if (isset(self::$generatedMergedProperties[$mergedClassName])) {
+            return self::$generatedMergedProperties[$mergedClassName];
+        }
+
         $mergedPropertySchema = new Schema($mergedClassName);
         $mergedProperty = new Property('MergedProperty', $mergedClassName);
+        self::$generatedMergedProperties[$mergedClassName] = $mergedProperty;
 
         foreach ($properties as $property) {
             if ($property->getNestedSchema()) {
