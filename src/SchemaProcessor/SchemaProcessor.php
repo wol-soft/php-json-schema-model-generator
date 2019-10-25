@@ -75,7 +75,13 @@ class SchemaProcessor
         }
 
         $this->setCurrentClassPath($jsonSchemaFile);
-        $this->currentClassName = ucfirst($jsonSchema['id'] ?? str_ireplace('.json', '', basename($jsonSchemaFile)));
+        $this->currentClassName = ucfirst(
+            preg_replace(
+                '/[^a-z0-9_]/i',
+                '',
+                $jsonSchema['id'] ?? str_ireplace('.json', '', basename($jsonSchemaFile))
+            )
+        );
 
         $this->processSchema(
             $jsonSchema,

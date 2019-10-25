@@ -112,9 +112,13 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         array $properties,
         array $propertyData
     ): PropertyInterface {
-        $mergedClassName = sprintf(
-            '%s_Merged_%s', $this->schemaProcessor->getCurrentClassName(),
-            $propertyData['propertyData']['id'] ?? $compositionProperty->getName()
+        $mergedClassName = preg_replace(
+            '/[^a-z0-9_]/i',
+            '',
+            sprintf(
+                '%s_Merged_%s', $this->schemaProcessor->getCurrentClassName(),
+                $propertyData['propertyData']['id'] ?? $compositionProperty->getName()
+            )
         );
 
         // check if the merged property already has been generated
