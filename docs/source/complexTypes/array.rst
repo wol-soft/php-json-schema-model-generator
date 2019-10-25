@@ -146,10 +146,6 @@ Items
         }
     }
 
-Possible exceptions:
-
-* Missing tuple item in array example. Requires 2 items, got 1
-
 If invalid tuples are provided a detailed exception will be thrown containing all violations:
 
 .. code-block:: none
@@ -159,6 +155,10 @@ If invalid tuples are provided a detailed exception will be thrown containing al
         * Invalid type for tuple item #1 of array example. Requires string, got int
       - invalid tuple #1
         * Invalid type for name. Requires string, got boolean
+
+.. hint::
+
+    Incomplete tuples are valid. Consequently an empty array provided for the schema shown above would pass the validation. Keep this in mind when designing tuple constraints. To force the given data to provide all tuples use tuple items combined with the `minItems` array size validation.
 
 Additional items
 ^^^^^^^^^^^^^^^^

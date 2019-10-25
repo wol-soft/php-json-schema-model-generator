@@ -154,27 +154,14 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             $this->addAdditionalItemsValidator($property, $propertyData);
         }
 
-        $tupleCount = count($propertyData[self::JSON_FIELD_ITEMS]);
-
-        $property
-            ->addValidator(
-                new PropertyValidator(
-                    'is_array($value) && ($amount = count($value)) < ' . $tupleCount,
-                    sprintf(
-                        'Missing tuple item in array %s. Requires %s items, got $amount',
-                        $property->getName(),
-                        $tupleCount
-                    )
-                )
+        $property->addValidator(
+            new ArrayTupleValidator(
+                $this->schemaProcessor,
+                $this->schema,
+                $propertyData[self::JSON_FIELD_ITEMS],
+                $property->getName()
             )
-            ->addValidator(
-                new ArrayTupleValidator(
-                    $this->schemaProcessor,
-                    $this->schema,
-                    $propertyData[self::JSON_FIELD_ITEMS],
-                    $property->getName()
-                )
-            );
+        );
     }
 
     /**

@@ -17,6 +17,7 @@ use stdClass;
 class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTest
 {
     /**
+     * @dataProvider validIncompleteTupleArrayDataProvider
      * @dataProvider validTupleArrayDataProvider
      * @dataProvider validTupleArrayWithAdditionalPropertiesDataProvider
      *
@@ -29,11 +30,33 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTest
 
         $object = new $className(['property' => $propertyValue]);
 
-        $this->assertSame($propertyValue[0], $object->getProperty()[0]);
-        $this->assertSame($propertyValue[1], $object->getProperty()[1]);
-        $this->assertSame($propertyValue[2]['name'], $object->getProperty()[2]->getName());
-        $this->assertSame($propertyValue[2]['age'] ?? null, $object->getProperty()[2]->getAge());
-        $this->assertSame($propertyValue[2], $object->getProperty()[2]->getRawModelDataInput());
+        if (count($propertyValue) > 0) {
+            $this->assertSame($propertyValue[0], $object->getProperty()[0]);
+        } else {
+            $this->assertSame([], $object->getProperty());
+        }
+
+        if (count($propertyValue) > 1) {
+            $this->assertSame($propertyValue[1], $object->getProperty()[1]);
+        }
+
+        if (count($propertyValue) > 2) {
+            $this->assertSame($propertyValue[2]['name'], $object->getProperty()[2]->getName());
+            $this->assertSame($propertyValue[2]['age'] ?? null, $object->getProperty()[2]->getAge());
+            $this->assertSame($propertyValue[2], $object->getProperty()[2]->getRawModelDataInput());
+        }
+    }
+
+    public function validIncompleteTupleArrayDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->validationMethodDataProvider(),
+            [
+                'empty array' => [[]],
+                'only one value' => [[4]],
+                'multiple values' => [[100, 'Avenue']],
+            ]
+        );
     }
 
     public function validTupleArrayDataProvider(): array
@@ -104,9 +127,13 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTest
         return $this->combineDataProvider(
             $this->validationMethodDataProvider(),
             [
-                'empty array' => [
-                    [],
-                    'Missing tuple item in array property. Requires 3 items, got 0'
+                'not all elements invalid type' => [
+                    [400, ''],
+                    <<<ERROR
+Invalid tuple item in array property:
+  - invalid tuple #2
+    * Invalid value for tuple item #1 of array property declined by enum constraint
+ERROR
                 ],
                 'invalid type' => [
                     ['400', 'Avenue', ['name' => 'Hans', 'age' => 42]],

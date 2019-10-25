@@ -7,6 +7,10 @@ is_array($value) && (function (&$items) use (&$invalidTuples) {
     {% foreach tupleProperties as tuple %}
         // ---------------- validate a single tuple of the array ------------------
         try {
+            if ($index === count($items)) {
+                return !empty($invalidTuples);
+            }
+
             {% if generatorConfiguration.collectErrors() %}
                 $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
             {% endif %}
