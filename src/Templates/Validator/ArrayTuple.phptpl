@@ -31,7 +31,7 @@ is_array($value) && (function (&$items) use (&$invalidTuples) {
                 }
             {% endif %}
         } catch (\Exception $e) {
-            // collect all errors concerning invalid property names
+            // collect all errors concerning invalid tuples
             isset($invalidTuples[$index])
                 ? $invalidTuples[$index][] = $e->getMessage()
                 : $invalidTuples[$index] = [$e->getMessage()];

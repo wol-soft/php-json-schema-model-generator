@@ -322,8 +322,9 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      * @dataProvider invalidTypedArrayDataProvider
      *
      * @param GeneratorConfiguration $configuration
-     * @param string $type
-     * @param $propertyValue
+     * @param string                 $type
+     * @param                        $propertyValue
+     * @param string                 $message
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -332,9 +333,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
     public function testInvalidTypedArrayThrowsAnException(
         GeneratorConfiguration $configuration,
         string $type,
-        $propertyValue
+        $propertyValue,
+        string $message = ''
     ): void {
-        $this->expectValidationError($configuration, 'Invalid type for item of array');
+        $this->expectValidationError($configuration, $message);
 
         $className = $this->generateClassFromFileTemplate('ArrayPropertyTyped.json', [$type], $configuration, false);
 
@@ -346,19 +348,90 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
         return $this->combineDataProvider(
             $this->validationMethodDataProvider(),
             [
-                'String array containing int' => ['string', ['a', 'b', 1]],
-                'Int array containing string' => ['integer', [1, 2, 3, '4']],
-                'Int array containing float' => ['integer', [1, 2, 3, 2.5]],
-                'Number array containing array' => ['number', [1, 1.1, 4.5, 6, []]],
-                'Boolean array containing int' => ['boolean', [true, false, true, 3]],
-                'Null array containing string' => ['null', [null, null, 'null']],
+                'String array containing int' => [
+                    'string',
+                    ['a', 'b', 1],
+                    <<<ERROR
+Invalid item in array property:
+  - invalid item #2
+    * Invalid type for item of array property. Requires string, got integer
+ERROR
+                ],
+                'Int array containing string' => [
+                    'integer',
+                    [1, 2, 3, '4'],
+                    <<<ERROR
+Invalid item in array property:
+  - invalid item #3
+    * Invalid type for item of array property. Requires int, got string
+ERROR
+                ],
+                'Int array containing float' => [
+                    'integer',
+                    [1, 2, 3, 2.5],
+                    <<<ERROR
+Invalid item in array property:
+  - invalid item #3
+    * Invalid type for item of array property. Requires int, got double
+ERROR
+                ],
+                'Number array containing array' => [
+                    'number',
+                    [1, 1.1, 4.5, 6, []],
+                    <<<ERROR
+Invalid item in array property:
+  - invalid item #4
+    * Invalid type for item of array property. Requires float, got array
+ERROR
+                ],
+                'Boolean array containing int' => [
+                    'boolean',
+                    [true, false, true, 3],
+                    <<<ERROR
+Invalid item in array property:
+  - invalid item #3
+    * Invalid type for item of array property. Requires bool, got integer
+ERROR
+                ],
+                'Null array containing string' => [
+                    'null',
+                    [null, null, 'null'],
+                    <<<ERROR
+Invalid item in array property:
+  - invalid item #2
+    * Invalid type for item of array property. Requires null, got string
+ERROR
+                ],
+                'Multiple violations' => [
+                    'boolean',
+                    [true, false, true, 3, true, 'true'],
+                    <<<ERROR
+Invalid item in array property:
+  - invalid item #3
+    * Invalid type for item of array property. Requires bool, got integer
+  - invalid item #5
+    * Invalid type for item of array property. Requires bool, got string
+ERROR
+                ],
                 'Nested array containing int' => [
                     'array","items":{"type":"integer"},"injection":"yes we can',
-                    [[1, 2], [], 3]
+                    [[1, 2], [], 3],
+                    <<<ERROR
+Invalid item in array property:
+  - invalid item #2
+    * Invalid type for item of array property. Requires array, got integer
+ERROR
                 ],
                 'Nested array inner array containing string' => [
                     'array","items":{"type":"integer"},"injection":"yes we can',
-                    [[1, '2'], [], [3]]
+                    [[1, '2'], [], [3]],
+                    <<<ERROR
+Invalid item in array property:
+  - invalid item #0
+    * Invalid item in array item of array property:
+  - invalid item #1
+    * Invalid type for item of array item of array property. Requires int, got string
+ERROR
                 ]
             ]
         );

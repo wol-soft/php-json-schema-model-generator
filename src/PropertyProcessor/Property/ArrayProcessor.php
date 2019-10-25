@@ -10,10 +10,10 @@ use PHPMicroTemplate\Exception\UndefinedSymbolException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\AdditionalItemsValidator;
+use PHPModelGenerator\Model\Validator\ArrayItemValidator;
 use PHPModelGenerator\Model\Validator\ArrayTupleValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
@@ -128,12 +128,13 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             return;
         }
 
-        // TODO: more detailed exception including the violations
-        $this->addItemValidator(
-            $property,
-            $propertyData[self::JSON_FIELD_ITEMS],
-            'ArrayItem.phptpl',
-            "Invalid item in array {$property->getName()}"
+        $property->addValidator(
+            new ArrayItemValidator(
+                $this->schemaProcessor,
+                $this->schema,
+                $propertyData[self::JSON_FIELD_ITEMS],
+                $property
+            )
         );
     }
 
@@ -216,30 +217,6 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             return;
         }
 
-        $this->addItemValidator(
-            $property,
-            $propertyData[self::JSON_FIELD_CONTAINS],
-            'ArrayContains.phptpl',
-            "No item in array {$property->getName()} matches contains constraint"
-        );
-    }
-
-    /**
-     * Add an item based validator
-     *
-     * @param PropertyInterface $property
-     * @param array             $propertyData
-     * @param string            $template
-     * @param string            $message
-     *
-     * @throws SchemaException
-     */
-    private function addItemValidator(
-        PropertyInterface $property,
-        array $propertyData,
-        string $template,
-        string $message
-    ) {
         // an item of the array behaves like a nested property to add item-level validation
         $nestedProperty = (new PropertyFactory(new PropertyProcessorFactory()))
             ->create(
@@ -247,21 +224,19 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                 $this->schemaProcessor,
                 $this->schema,
                 "item of array {$property->getName()}",
-                $propertyData
+                $propertyData[self::JSON_FIELD_CONTAINS]
             );
 
-        $property
-            ->addTypeHintDecorator(new ArrayTypeHintDecorator($nestedProperty))
-            ->addValidator(
-                new PropertyTemplateValidator(
-                    $message,
-                    DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . $template,
-                    [
-                        'property' => $nestedProperty,
-                        'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
-                        'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
-                    ]
-                )
-            );
+        $property->addValidator(
+            new PropertyTemplateValidator(
+                "No item in array {$property->getName()} matches contains constraint",
+                DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayContains.phptpl',
+                [
+                    'property' => $nestedProperty,
+                    'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
+                    'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
+                ]
+            )
+        );
     }
 }

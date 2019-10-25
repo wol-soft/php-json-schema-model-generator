@@ -54,7 +54,11 @@ The items of a list can be restricted with a nested schema. All items of the sch
 
 With a schema like this all items must contain a string with at least two characters. Possible exceptions:
 
-* Invalid item in array example
+.. code-block:: none
+
+    Invalid item in array example:
+      - invalid item #3
+        * Invalid type for item of array example. Requires string, got double
 
 A more complex array may contain a nested object.
 

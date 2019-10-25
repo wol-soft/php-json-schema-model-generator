@@ -1,18 +1,39 @@
-is_array($value) && (function (&$items) {
-    if (empty($items)) {
-        return false;
+is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}) {
+    {% if generatorConfiguration.collectErrors() %}
+        $originalErrorRegistry = $this->errorRegistry;
+    {% endif%}
+
+    foreach ($items as $index => &$value) {
+        {% if generatorConfiguration.collectErrors() %}
+            $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        {% endif%}
+
+        try {
+            {{ viewHelper.resolvePropertyDecorator(nestedProperty) }}
+
+            {% foreach nestedProperty.getOrderedValidators() as validator %}
+                {{ validator.getValidatorSetUp() }}
+                if ({{ validator.getCheck() }}) {
+                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
+                }
+            {% endforeach %}
+
+            {% if generatorConfiguration.collectErrors() %}
+                if ($this->errorRegistry->getErrors()) {
+                    $invalidItems{{ suffix }}[$index] = $this->errorRegistry->getErrors();
+                }
+            {% endif %}
+        } catch (\Exception $e) {
+            // collect all errors concerning invalid items
+            isset($invalidItems{{ suffix }}[$index])
+                ? $invalidItems{{ suffix }}[$index][] = $e->getMessage()
+                : $invalidItems{{ suffix }}[$index] = [$e->getMessage()];
+        }
     }
 
-    foreach ($items as &$value) {
-        {{ viewHelper.resolvePropertyDecorator(property) }}
+    {% if generatorConfiguration.collectErrors() %}
+        $this->errorRegistry = $originalErrorRegistry;
+    {% endif %}
 
-        {% foreach property.getOrderedValidators() as validator %}
-            {{ validator.getValidatorSetUp() }}
-            if ({{ validator.getCheck() }}) {
-                {{ viewHelper.validationError(validator.getExceptionMessage()) }}
-            }
-        {% endforeach %}
-    }
-
-    return false;
+    return !empty($invalidItems{{ suffix }});
 })($value)
