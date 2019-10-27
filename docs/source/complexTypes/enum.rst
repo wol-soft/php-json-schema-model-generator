@@ -6,7 +6,7 @@ Enums can be used to define a set of constant values a property must accept.
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {
@@ -36,7 +36,7 @@ An enum can also be defined without a specific type.
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {

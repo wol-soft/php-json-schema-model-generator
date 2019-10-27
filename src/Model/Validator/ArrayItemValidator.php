@@ -10,7 +10,6 @@ use PHPMicroTemplate\Exception\UndefinedSymbolException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
@@ -56,10 +55,9 @@ class ArrayItemValidator extends PropertyTemplateValidator
                 $schema,
                 "item of array {$property->getName()}",
                 $itemStructure
-            )->filterValidators(function (Validator $validator) {
-                return !is_a($validator->getValidator(), RequiredPropertyValidator::class);
-            });
+            );
 
+        $this->removeRequiredPropertyValidator($nestedProperty);
         $property->addTypeHintDecorator(new ArrayTypeHintDecorator($nestedProperty));
 
         parent::__construct(

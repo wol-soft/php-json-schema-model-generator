@@ -6,7 +6,7 @@ Used for properties containing characters. Converted to the PHP type `string`.
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {
@@ -34,7 +34,7 @@ To add a length validation to the property use the `minLength` and `maxLength` k
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {
@@ -62,7 +62,7 @@ To add a pattern validation to the property use `pattern` keyword.
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {

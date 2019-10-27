@@ -11,7 +11,7 @@ A simple array without further restrictions can be defined using `array`.
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {
@@ -39,7 +39,7 @@ The items of a list can be restricted with a nested schema. All items of the sch
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {
@@ -65,14 +65,14 @@ A more complex array may contain a nested object.
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "family",
         "properties": {
             "members": {
                 "type": "array",
                 "items": {
                     "type": "object",
-                    "id": "member",
+                    "$id": "member",
                     "properties": {
                         "name": {
                             "type": "string"
@@ -127,7 +127,7 @@ Items
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {
@@ -172,7 +172,7 @@ Using the keyword `additionalItems` the array can be limited to not contain any 
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {
@@ -220,7 +220,7 @@ The contains check uses a schema which must match at least one of the items prov
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {
@@ -244,7 +244,7 @@ To limit the size of an array use the `minItems` and `maxItems` keywords.
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {
@@ -268,7 +268,7 @@ The items of an array can be forced to be unique with the `uniqueItems` keyword.
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {

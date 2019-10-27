@@ -6,7 +6,7 @@ Used for properties which only accept `null`.
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {

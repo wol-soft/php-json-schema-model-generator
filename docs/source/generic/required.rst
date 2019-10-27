@@ -6,7 +6,7 @@ By default the values of a schema are not required. In this case the input is va
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {
@@ -45,7 +45,7 @@ By setting the property to a required value the property must be always provided
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {

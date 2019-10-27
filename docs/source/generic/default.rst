@@ -6,7 +6,7 @@ Default values are set inside the model if a property which is not required isn'
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {

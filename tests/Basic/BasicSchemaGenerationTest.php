@@ -240,6 +240,6 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->expectException(FileSystemException::class);
         $this->expectExceptionMessageMatches('/File (.*) already exists. Make sure object IDs are unique./');
 
-        $this->generateClassFromFile('DuplicateId.json');
+        $this->generateClassFromFile('DuplicateId.json', null, true);
     }
 }

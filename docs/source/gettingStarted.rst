@@ -47,7 +47,7 @@ The constructor of a generated model takes an array as argument. The array must 
 .. code-block:: json
 
     {
-        "id": "person",
+        "$id": "person",
         "type": "object",
         "properties": {
             "name": {

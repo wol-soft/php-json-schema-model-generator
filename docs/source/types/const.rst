@@ -6,7 +6,7 @@ Used for properties which only accept a single value.
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {

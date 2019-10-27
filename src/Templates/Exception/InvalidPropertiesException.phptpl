@@ -2,7 +2,7 @@
   . (function (array $invalidProperties) {
         $output = '';
         foreach ($invalidProperties as $propertyName => $errors) {
-            $output .= "\n  - invalid {{ property }} '$propertyName'\n    * " . implode("\n    * ", $errors);
+            $output .= "\n  - invalid {{ property }} '$propertyName'\n    * " . implode("\n    * ", str_replace("\n", "\n    ", $errors));
         }
         return $output;
     })($invalidProperties) . "

@@ -6,7 +6,7 @@ Used for properties containing boolean values. Converted to the PHP type `bool`.
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {

@@ -429,8 +429,8 @@ ERROR
 Invalid item in array property:
   - invalid item #0
     * Invalid item in array item of array property:
-  - invalid item #1
-    * Invalid type for item of array item of array property. Requires int, got string
+      - invalid item #1
+        * Invalid type for item of array item of array property. Requires int, got string
 ERROR
                 ]
             ]
@@ -494,6 +494,233 @@ ERROR
                 'nested array' => [[['', 'Hallo'], [0, 2]]],
                 'string array with invalid pattern' => [[' ', '09', 'h-H']],
             ]
+        );
+    }
+
+    /**
+     * @dataProvider validObjectArrayDataProvider
+     *
+     * @param string $file
+     * @param GeneratorConfiguration $configuration
+     * @param array $propertyValue
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testValidObjectArray(
+        string $file,
+        GeneratorConfiguration $configuration,
+        array $propertyValue
+    ): void {
+        $className = $this->generateClassFromFile($file, $configuration);
+
+        $object = new $className(['property' => $propertyValue]);
+
+        $this->assertCount(count($propertyValue), $object->getProperty());
+
+        foreach ($object->getProperty() as $key => $person) {
+            if ($person === null) {
+                $this->assertNull($propertyValue[$key]);
+                continue;
+            }
+
+            $this->assertSame($propertyValue[$key], $person->getRawModelDataInput());
+
+            $this->assertSame($propertyValue[$key]['name'], $person->getName());
+            $this->assertSame($propertyValue[$key]['age'] ?? null, $person->getAge());
+        }
+    }
+
+    public function validObjectArrayDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            [
+                'nested object' => ['ArrayPropertyNestedObject.json'],
+                'referenced object' => ['ArrayPropertyReferencedObject.json'],
+                'combined object' => ['ArrayPropertyCombinedObject.json'],
+            ],
+            $this->combineDataProvider(
+                $this->validationMethodDataProvider(),
+                [
+                    'empty array' => [[]],
+                    'null' => [[null]],
+                    'minimal object' => [[['name' => 'Hannes']]],
+                    'full object' => [[['name' => 'Hannes', 'age' => 42]]],
+                    'additional properties object' => [[['name' => 'Hannes', 'age' => 42, 'alive' => true]]],
+                    'multiple objects' => [
+                        [
+                            ['name' => 'Hannes'],
+                            ['name' => 'Hannes', 'age' => 42],
+                            ['name' => 'Hannes', 'age' => 42, 'alive' => true],
+                            null,
+                        ]
+                    ],
+                ]
+            )
+        );
+    }
+
+    /**
+     * @dataProvider invalidObjectArrayDataProvider
+     * @dataProvider invalidCombinedObjectArrayDataProvider
+     *
+     * @param string $file
+     * @param GeneratorConfiguration $configuration
+     * @param array $propertyValue
+     * @param string $message
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testInvalidObjectArrayThrowsAnException(
+        string $file,
+        GeneratorConfiguration $configuration,
+        array $propertyValue,
+        string $message
+    ): void {
+        $this->expectValidationError($configuration, $message);
+
+        $className = $this->generateClassFromFile($file, $configuration);
+
+        new $className(['property' => $propertyValue]);
+    }
+
+    public function invalidObjectArrayDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            [
+                'nested object' => ['ArrayPropertyNestedObject.json'],
+                'referenced object' => ['ArrayPropertyReferencedObject.json'],
+            ],
+            $this->combineDataProvider(
+                $this->validationMethodDataProvider(),
+                [
+                    'invalid type bool' => [
+                        [['name' => 'Hannes'], true],
+                        <<<ERROR
+Invalid item in array property:
+  - invalid item #1
+    * Invalid type for item of array property. Requires object, got boolean
+ERROR
+                    ],
+                    'missing property name' => [
+                        [['name' => 'Hannes'], ['age' => 42]],
+                        <<<ERROR
+Invalid item in array property:
+  - invalid item #1
+    * Missing required value for name
+ERROR
+                    ],
+                    'invalid type name' => [
+                        [['name' => 'Hannes'], ['name' => false, 'age' => 42]],
+                        <<<ERROR
+Invalid item in array property:
+  - invalid item #1
+    * Invalid type for name. Requires string, got boolean
+ERROR
+                    ],
+                    'multiple violations' => [
+                        [['name' => false, 'age' => 42], ['name' => 'Frida', 'age' => 'yes'], 5, []],
+                        <<<ERROR
+Invalid item in array property:
+  - invalid item #0
+    * Invalid type for name. Requires string, got boolean
+  - invalid item #1
+    * Invalid type for age. Requires int, got string
+  - invalid item #2
+    * Invalid type for item of array property. Requires object, got integer
+  - invalid item #3
+    * Missing required value for name
+ERROR
+                    ],
+                ]
+            )
+        );
+    }
+    public function invalidCombinedObjectArrayDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            [
+                'combined object' => ['ArrayPropertyCombinedObject.json'],
+            ],
+            $this->combineDataProvider(
+                ['Error Collection' => [new GeneratorConfiguration()]],
+                [
+                    'invalid type bool' => [
+                        [['name' => 'Hannes'], true],
+                        <<<ERROR
+Invalid item in array property:
+  - invalid item #1
+    * Invalid value for item of array property declined by composition constraint.
+      Requires to match 2 composition elements but matched 0 elements.
+      - Composition element #1: Failed
+        * Invalid type for item of array property. Requires object, got boolean
+      - Composition element #2: Failed
+        * Invalid type for item of array property. Requires object, got boolean
+ERROR
+                    ],
+                    'missing property name' => [
+                        [['name' => 'Hannes'], ['age' => 42]],
+                        <<<ERROR
+Invalid item in array property:
+  - invalid item #1
+    * Invalid value for item of array property declined by composition constraint.
+      Requires to match 2 composition elements but matched 1 elements.
+      - Composition element #1: Failed
+        * Missing required value for name
+        * Invalid type for name. Requires string, got NULL
+      - Composition element #2: Valid
+ERROR
+                    ],
+                    'invalid type name' => [
+                        [['name' => 'Hannes'], ['name' => false, 'age' => 42]],
+                        <<<ERROR
+Invalid item in array property:
+  - invalid item #1
+    * Invalid value for item of array property declined by composition constraint.
+      Requires to match 2 composition elements but matched 1 elements.
+      - Composition element #1: Failed
+        * Invalid type for name. Requires string, got boolean
+      - Composition element #2: Valid
+ERROR
+                    ],
+                    'multiple violations' => [
+                        [['name' => false, 'age' => 42], ['name' => 'F', 'age' => 'yes'], 5, []],
+                        <<<ERROR
+Invalid item in array property:
+  - invalid item #0
+    * Invalid value for item of array property declined by composition constraint.
+      Requires to match 2 composition elements but matched 1 elements.
+      - Composition element #1: Failed
+        * Invalid type for name. Requires string, got boolean
+      - Composition element #2: Valid
+  - invalid item #1
+    * Invalid value for item of array property declined by composition constraint.
+      Requires to match 2 composition elements but matched 0 elements.
+      - Composition element #1: Failed
+        * Value for name must not be shorter than 2
+      - Composition element #2: Failed
+        * Invalid type for age. Requires int, got string
+  - invalid item #2
+    * Invalid value for item of array property declined by composition constraint.
+      Requires to match 2 composition elements but matched 0 elements.
+      - Composition element #1: Failed
+        * Invalid type for item of array property. Requires object, got integer
+      - Composition element #2: Failed
+        * Invalid type for item of array property. Requires object, got integer
+  - invalid item #3
+    * Invalid value for item of array property declined by composition constraint.
+      Requires to match 2 composition elements but matched 1 elements.
+      - Composition element #1: Failed
+        * Missing required value for name
+        * Invalid type for name. Requires string, got NULL
+      - Composition element #2: Valid
+ERROR
+                    ],
+                ]
+            )
         );
     }
 }

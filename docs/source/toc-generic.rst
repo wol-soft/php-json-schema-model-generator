@@ -5,3 +5,4 @@
     generic/required
     generic/default
     generic/meta
+    generic/combinedException

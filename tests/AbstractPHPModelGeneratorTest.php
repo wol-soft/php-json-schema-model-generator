@@ -3,6 +3,7 @@
 namespace PHPModelGenerator\Tests;
 
 use FilesystemIterator;
+use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGeneratorException\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
@@ -110,6 +111,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      *
      * @param string                      $file
      * @param GeneratorConfiguration|null $generatorConfiguration
+     * @param bool                        $originalClassNames
      *
      * @return string
      *
@@ -117,11 +119,15 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * @throws RenderException
      * @throws SchemaException
      */
-    public function generateClassFromFile(string $file, GeneratorConfiguration $generatorConfiguration = null): string
-    {
+    public function generateClassFromFile(
+        string $file,
+        GeneratorConfiguration $generatorConfiguration = null,
+        bool $originalClassNames = false
+    ): string {
         return $this->generateClass(
             file_get_contents(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $file),
-            $generatorConfiguration
+            $generatorConfiguration,
+            $originalClassNames
         );
     }
 
@@ -167,6 +173,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      *
      * @param string                 $jsonSchema
      * @param GeneratorConfiguration $generatorConfiguration
+     * @param bool                   $originalClassNames
      *
      * @return string
      *
@@ -174,12 +181,30 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * @throws RenderException
      * @throws SchemaException
      */
-    public function generateClass(string $jsonSchema, GeneratorConfiguration $generatorConfiguration = null): string
-    {
-        $generatorConfiguration = $generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false);
-        $generatorConfiguration
+    public function generateClass(
+        string $jsonSchema,
+        GeneratorConfiguration $generatorConfiguration = null,
+        bool $originalClassNames = false
+    ): string {
+        $generatorConfiguration = ($generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false))
             ->setPrettyPrint(false)
             ->setOutputEnabled(false);
+
+        if (!$originalClassNames) {
+            // extend the class name generator to attach a uniqid as multiple test executions use identical $id
+            // properties which would lead to name collisions
+            $generatorConfiguration->setClassNameGenerator(new class extends ClassNameGenerator {
+                public function getClassName(
+                    string $propertyName,
+                    array $schema,
+                    bool $isMergeClass,
+                    string $currentClassName = ''
+                ): string {
+                    return parent::getClassName($propertyName, $schema, $isMergeClass, $currentClassName) .
+                        ($currentClassName ? uniqid() : '');
+                }
+            });
+        }
 
         $baseDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'PHPModelGeneratorTest';
         foreach ($this->names as $name) {

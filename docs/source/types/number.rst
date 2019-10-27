@@ -6,7 +6,7 @@ Used for properties containing numeric values. Properties with the type `integer
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example1": {
@@ -41,7 +41,7 @@ To add a range validation to the property use the `minimum`, `maximum` and `excl
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example1": {
@@ -76,7 +76,7 @@ To add a multiple of validation to the property use the `multipleOf` keyword.
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {

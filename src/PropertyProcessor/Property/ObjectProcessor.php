@@ -26,17 +26,11 @@ class ObjectProcessor extends AbstractTypedValueProcessor
     {
         $property = parent::process($propertyName, $propertyData);
 
-        $className = ucfirst(
-            $propertyData['id'] ?? str_replace(
-                ' ',
-                '_',
-                sprintf(
-                    '%s_%s_%s',
-                    $this->schemaProcessor->getCurrentClassName(),
-                    preg_replace('/[^a-z0-9\s]/i', '', $propertyName),
-                    uniqid()
-                )
-            )
+        $className = $this->schemaProcessor->getGeneratorConfiguration()->getClassNameGenerator()->getClassName(
+            $propertyName,
+            $propertyData,
+            false,
+            $this->schemaProcessor->getCurrentClassName()
         );
 
         $schema = $this->schemaProcessor->processSchema(

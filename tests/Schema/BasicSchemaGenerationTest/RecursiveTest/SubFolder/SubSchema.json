@@ -1,6 +1,6 @@
 {
   "type": "object",
-  "id": "SubClass",
+  "$id": "SubClass",
   "properties": {
     "property": {
       "type": "integer"

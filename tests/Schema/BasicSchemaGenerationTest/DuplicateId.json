@@ -3,7 +3,7 @@
   "properties": {
     "property": {
       "type": "object",
-      "id": "Person",
+      "$id": "Person",
       "properties": {
         "name": {
           "type": "string"
@@ -12,7 +12,7 @@
     },
     "property2": {
       "type": "object",
-      "id": "Person",
+      "$id": "Person",
       "properties": {
         "age": {
           "type": "integer"

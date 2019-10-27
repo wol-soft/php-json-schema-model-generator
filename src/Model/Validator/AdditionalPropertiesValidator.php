@@ -9,7 +9,6 @@ use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
@@ -49,9 +48,9 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
             $schema,
             static::PROPERTY_NAME,
             $propertiesStructure[static::ADDITIONAL_PROPERTIES_KEY]
-        )->filterValidators(function (Validator $validator) {
-            return !is_a($validator->getValidator(), RequiredPropertyValidator::class);
-        });
+        );
+
+        $this->removeRequiredPropertyValidator($validationProperty);
 
         parent::__construct(
             $this->getRenderer()->renderTemplate(

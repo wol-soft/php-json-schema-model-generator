@@ -9,7 +9,7 @@ The ID of a schema is used to generate the class name. If no ID is present the f
 .. code-block:: json
 
     {
-        "id": "MyObject",
+        "$id": "MyObject",
         "type": "object",
         "properties": {
             "example": {
@@ -28,7 +28,7 @@ If a property provides a description this description will be adopted into the g
 .. code-block:: json
 
     {
-        "id": "example",
+        "$id": "example",
         "type": "object",
         "properties": {
             "example": {

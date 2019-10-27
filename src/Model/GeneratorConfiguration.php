@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model;
 
+use PHPModelGenerator\Utils\ClassNameGenerator;
+use PHPModelGenerator\Utils\ClassNameGeneratorInterface;
 use PHPModelGeneratorException\ErrorRegistryException;
 use PHPModelGeneratorException\ValidationException;
 
@@ -30,6 +32,32 @@ class GeneratorConfiguration
     protected $exceptionClass = ValidationException::class;
     /** @var bool */
     protected $serialization = false;
+    /** @var ClassNameGeneratorInterface */
+    protected $classNameGenerator;
+
+    /**
+     * GeneratorConfiguration constructor.
+     */
+    public function __construct()
+    {
+        $this->classNameGenerator = new ClassNameGenerator();
+    }
+
+    /**
+     * @return ClassNameGeneratorInterface
+     */
+    public function getClassNameGenerator(): ClassNameGeneratorInterface
+    {
+        return $this->classNameGenerator;
+    }
+
+    /**
+     * @param ClassNameGeneratorInterface $classNameGenerator
+     */
+    public function setClassNameGenerator(ClassNameGeneratorInterface $classNameGenerator): void
+    {
+        $this->classNameGenerator = $classNameGenerator;
+    }
 
     /**
      * @return string

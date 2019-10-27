@@ -4,7 +4,6 @@
       "allOf": [
         {
           "type": "object",
-          "id": "Owner",
           "properties": {
             "name": {
               "type": "string"
@@ -13,7 +12,6 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "id": "Car",
                 "properties": {
                   "ps": {
                     "type": "integer"

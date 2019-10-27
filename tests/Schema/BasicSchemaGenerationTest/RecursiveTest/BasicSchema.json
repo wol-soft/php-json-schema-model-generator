@@ -1,6 +1,6 @@
 {
   "type": "object",
-  "id": "MainClass",
+  "$id": "MainClass",
   "properties": {
     "property": {
       "type": "string"
