@@ -150,7 +150,7 @@ class Schema
         $usedClasses = $this->usedClasses;
 
         foreach ($this->namespaceTransferDecorators as $decorator) {
-            array_push($usedClasses, ...$decorator->resolve());
+            $usedClasses = array_merge($usedClasses, $decorator->resolve());
         }
 
         return $usedClasses;

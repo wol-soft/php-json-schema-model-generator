@@ -40,7 +40,7 @@ class SchemaNamespaceTransferDecorator
 
         if ($this->fetchPropertyImports) {
             foreach ($this->schema->getProperties() as $property) {
-                array_push($usedClasses, ...$this->getUsedClasses($property));
+                $usedClasses = array_merge($usedClasses, $this->getUsedClasses($property));
             }
         }
 
