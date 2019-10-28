@@ -28,31 +28,30 @@ class {{ class }}
     {% if generatorConfiguration.collectErrors() %}
         /** @var ErrorRegistryExceptionInterface Collect all validation errors */
         private $errorRegistry;
-        /** @var bool Store if the current class is the initial class which must throw a collected exception after
-         *            the validation process is finished
-         */
-        private $isInitialClass = false;
     {% endif %}
 
     /**
      * {{ class }} constructor.
      *
      * @param array $modelData
-     {% if generatorConfiguration.collectErrors() %}* @param {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $errorRegistry{% endif %}
+     {% if generatorConfiguration.collectErrors() %}{% if not initialClass %}* @param {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $errorRegistry{% endif %}{% endif %}
      *
      * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getExceptionClass()) }}{% endif %}
      */
     public function __construct(
         array $modelData
-        {% if generatorConfiguration.collectErrors() %}, {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $errorRegistry = null{% endif %}
+        {% if generatorConfiguration.collectErrors() %}
+            {% if not initialClass %}
+                , {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $errorRegistry = null
+            {% endif %}
+        {% endif %}
     ) {
         {% if generatorConfiguration.collectErrors() %}
-            if (!$errorRegistry) {
-                $this->isInitialClass = true;
+            {% if initialClass %}
                 $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-            } else {
+            {% else %}
                 $this->errorRegistry = $errorRegistry;
-            }
+            {% endif %}
         {% endif%}
 
         {% if baseValidators %}
@@ -73,9 +72,11 @@ class {{ class }}
         $this->rawModelDataInput = $modelData;
 
         {% if generatorConfiguration.collectErrors() %}
-            if ($this->isInitialClass && count($this->errorRegistry->getErrors()) > 0) {
-                throw $this->errorRegistry;
-            }
+            {% if initialClass %}
+                if (count($this->errorRegistry->getErrors())) {
+                    throw $this->errorRegistry;
+                }
+            {% endif%}
         {% endif%}
     }
 
@@ -176,7 +177,7 @@ class {{ class }}
         {
             $modelData = get_object_vars($this);
 
-            unset($modelData['rawModelDataInput'], $modelData['errorRegistry'], $modelData['isInitialClass']);
+            unset($modelData['rawModelDataInput'], $modelData['errorRegistry']);
 
             return $modelData;
         }

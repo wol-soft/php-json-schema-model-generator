@@ -13,6 +13,44 @@ use stdClass;
  */
 class ComposedAnyOfTest extends AbstractPHPModelGeneratorTest
 {
+    public function testNullProvidedForEmptyOptionalAnyOfIsValid(): void
+    {
+        $className = $this->generateClassFromFile('emptyAnyOf.json');
+
+        $object = new $className(['property' => null]);
+        $this->assertNull($object->getProperty());
+        $this->assertSame(['property' => null], $object->getRawModelDataInput());
+    }
+
+    /**
+     * @dataProvider validEmptyAnyOfDataProvider
+     *
+     * @param $propertyValue
+     */
+    public function testValueProvidedForEmptyOptionalAnyOfIsInvalid($propertyValue): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage(<<<ERROR
+Invalid value for property declined by composition constraint.
+  Requires to match at least one composition element.
+ERROR
+        );
+
+        $className = $this->generateClassFromFile('emptyAnyOf.json');
+
+        new $className(['property' => $propertyValue]);
+    }
+
+    public function validEmptyAnyOfDataProvider(): array
+    {
+        return [
+            'empty array' => [[]],
+            'string' => ['Hello'],
+            'int' => [9],
+            'array' => [['name' => 'Hannes', 'age' => 42]],
+        ];
+    }
+
     /**
      * @dataProvider propertyLevelAnyOfSchemaFileDataProvider
      *
@@ -33,6 +71,7 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTest
             'Property level composition' => ['ExtendedPropertyDefinition.json'],
             'Object with scalar type' => ['ReferencedObjectSchema.json'],
             'Multiple objects' => ['ReferencedObjectSchema2.json'],
+            'Empty any of' => ['EmptyAnyOf.json'],
         ];
     }
 

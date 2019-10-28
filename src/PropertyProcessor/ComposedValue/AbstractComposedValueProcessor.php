@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -33,10 +34,59 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      */
     protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {
-        $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
+        if (empty($propertyData['propertyData'][$propertyData['type']]) &&
+            $this->schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()
+        ) {
+            // @codeCoverageIgnoreStart
+            echo "Warning: empty composition for {$property->getName()} may lead to unexpected results\n";
+            // @codeCoverageIgnoreEnd
+        }
 
+        $properties = $this->getCompositionProperties($property, $propertyData);
+        $availableAmount = count($properties);
+
+        $property->addValidator(
+            new ComposedPropertyValidator(
+                $property,
+                $properties,
+                static::class,
+                [
+                    'properties' => $properties,
+                    'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
+                    'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
+                    'availableAmount' => $availableAmount,
+                    'composedValueValidation' => $this->getComposedValueValidation($availableAmount),
+                    'composedErrorMessage' => $this->getComposedValueValidationErrorLabel($availableAmount),
+                    // if the property is a composed property the resulting value of a validation must be proposed
+                    // to be the final value after the validations (eg. object instantiations may be performed).
+                    // Otherwise (eg. a NotProcessor) the value must be proposed before the validation
+                    'postPropose' => $this instanceof ComposedPropertiesInterface,
+                    'mergedProperty' =>
+                        $this instanceof MergedComposedPropertiesInterface
+                            ? $this->createMergedProperty($property, $properties, $propertyData)
+                            : null,
+                    'onlyForDefinedValues' =>
+                        $propertyData['onlyForDefinedValues'] && $this instanceof ComposedPropertiesInterface,
+                ]
+            ),
+            100
+        );
+    }
+
+    /**
+     * Set up composition properties for the given propertyData schema
+     *
+     * @param PropertyInterface $property
+     * @param array             $propertyData
+     *
+     * @return CompositionPropertyDecorator[]
+     *
+     * @throws SchemaException
+     */
+    protected function getCompositionProperties(PropertyInterface $property, array $propertyData): array
+    {
+        $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
         $properties = [];
-        $createMergedProperty = $this instanceof MergedComposedPropertiesInterface;
 
         foreach ($propertyData['propertyData'][$propertyData['type']] as $compositionElement) {
             $compositionProperty = new CompositionPropertyDecorator(
@@ -59,41 +109,14 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             // contains no object. This results in objects being composed each separately for a OneOf processor
             // (eg. string|ObjectA|ObjectB). For a merged composed property the objects are merged together so it
             // results in string|MergedObject
-            if (!($createMergedProperty && $compositionProperty->getNestedSchema())) {
+            if (!($this instanceof MergedComposedPropertiesInterface && $compositionProperty->getNestedSchema())) {
                 $property->addTypeHintDecorator(new CompositionTypeHintDecorator($compositionProperty));
             }
 
             $properties[] = $compositionProperty;
         }
 
-        $availableAmount = count($properties);
-
-        $property->addValidator(
-            new ComposedPropertyValidator(
-                $property,
-                $properties,
-                static::class,
-                [
-                    'properties' => $properties,
-                    'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
-                    'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
-                    'availableAmount' => $availableAmount,
-                    'composedValueValidation' => $this->getComposedValueValidation($availableAmount),
-                    'composedErrorMessage' => $this->getComposedValueValidationErrorLabel($availableAmount),
-                    // if the property is a composed property the resulting value of a validation must be proposed
-                    // to be the final value after the validations (eg. object instantiations may be performed).
-                    // Otherwise (eg. a NotProcessor) the value must be proposed before the validation
-                    'postPropose' => $this instanceof ComposedPropertiesInterface,
-                    'mergedProperty' =>
-                        $createMergedProperty
-                            ? $this->createMergedProperty($property, $properties, $propertyData)
-                            : null,
-                    'onlyForDefinedValues' =>
-                        $propertyData['onlyForDefinedValues'] && $this instanceof ComposedPropertiesInterface,
-                ]
-            ),
-            100
-        );
+        return $properties;
     }
 
     /**
@@ -128,19 +151,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         $mergedProperty = new Property('MergedProperty', $mergedClassName);
         self::$generatedMergedProperties[$mergedClassName] = $mergedProperty;
 
-        foreach ($properties as $property) {
-            if ($property->getNestedSchema()) {
-                foreach ($property->getNestedSchema()->getProperties() as $nestedProperty) {
-                    $mergedPropertySchema->addProperty(
-                        // don't validate fields in merged properties. All fields were validated before corresponding to
-                        // the defined constraints of the composition property.
-                        (clone $nestedProperty)->filterValidators(function () {
-                            return false;
-                        })
-                    );
-                }
-            }
-        }
+        $this->transferPropertiesToMergedSchema($mergedPropertySchema, $properties);
 
         $this->schemaProcessor->generateClassFile(
             $this->schemaProcessor->getCurrentClassPath(),
@@ -155,6 +166,29 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                 new ObjectInstantiationDecorator($mergedClassName, $this->schemaProcessor->getGeneratorConfiguration())
             )
             ->setNestedSchema($mergedPropertySchema);
+    }
+
+    /**
+     * @param Schema              $mergedPropertySchema
+     * @param PropertyInterface[] $properties
+     */
+    protected function transferPropertiesToMergedSchema(Schema $mergedPropertySchema, array $properties): void
+    {
+        foreach ($properties as $property) {
+            if (!$property->getNestedSchema()) {
+                continue;
+            }
+
+            foreach ($property->getNestedSchema()->getProperties() as $nestedProperty) {
+                $mergedPropertySchema->addProperty(
+                    // don't validate fields in merged properties. All fields were validated before corresponding to
+                    // the defined constraints of the composition property.
+                    (clone $nestedProperty)->filterValidators(function () {
+                        return false;
+                    })
+                );
+            }
+        }
     }
 
     /**

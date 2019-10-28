@@ -7,6 +7,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGeneratorException\ValidationException;
 use stdClass;
 
 /**
@@ -16,6 +17,36 @@ use stdClass;
  */
 class ComposedNotTest extends AbstractPHPModelGeneratorTest
 {
+    /**
+     * @dataProvider emptyNotDataProvider
+     *
+     * @param $propertyValue
+     */
+    public function testEmptyNotIsInvalid($propertyValue): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage(<<<ERROR
+Invalid value for property declined by composition constraint.
+  Requires to match none composition element but matched 1 elements.
+ERROR
+        );
+
+        $className = $this->generateClassFromFile('emptyNot.json');
+
+        new $className(['property' => $propertyValue]);
+    }
+
+    public function emptyNotDataProvider(): array
+    {
+        return [
+            'null' => [null],
+            'empty array' => [[]],
+            'string' => ['Hello'],
+            'int' => [9],
+            'array' => [['name' => 'Hannes', 'age' => 42]],
+        ];
+    }
+
     public function testNotProvidedOptionalNotOfTypeStringPropertyIsValid(): void
     {
         $className = $this->generateClassFromFile('NotOfType.json');

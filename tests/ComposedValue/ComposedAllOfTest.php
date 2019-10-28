@@ -14,6 +14,31 @@ use stdClass;
 class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
 {
     /**
+     * @dataProvider validEmptyAllOfDataProvider
+     *
+     * @param $propertyValue
+     */
+    public function testEmptyAllOfIsValid($propertyValue): void
+    {
+        $className = $this->generateClassFromFile('emptyAllOf.json');
+
+        $object = new $className(['property' => $propertyValue]);
+        $this->assertNull($object->getProperty());
+        $this->assertSame(['property' => $propertyValue], $object->getRawModelDataInput());
+    }
+
+    public function validEmptyAllOfDataProvider(): array
+    {
+        return [
+            'null' => [null],
+            'empty array' => [[]],
+            'string' => ['Hello'],
+            'int' => [9],
+            'array' => [['name' => 'Hannes', 'age' => 42]],
+        ];
+    }
+
+    /**
      * @dataProvider propertyLevelAllOfSchemaFileDataProvider
      *
      * @param string $schema
@@ -31,6 +56,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
         return [
             'Property level composition' => ['ExtendedPropertyDefinition.json'],
             'Multiple objects' => ['ReferencedObjectSchema.json'],
+            'Empty all of' => ['emptyAllOf.json'],
         ];
     }
 

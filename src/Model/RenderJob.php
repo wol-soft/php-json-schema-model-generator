@@ -21,21 +21,30 @@ class RenderJob
     protected $classPath;
     /** @var string */
     protected $fileName;
+    /** @var bool */
+    protected $initialClass;
 
     /**
      * Create a new class render job
      *
-     * @param string $fileName  The file name
-     * @param string $classPath The relative path of the class for namespace generation
-     * @param string $className The class name
-     * @param Schema $schema    The Schema object which holds properties and validators
+     * @param string $fileName     The file name
+     * @param string $classPath    The relative path of the class for namespace generation
+     * @param string $className    The class name
+     * @param Schema $schema       The Schema object which holds properties and validators
+     * @param bool   $initialClass Render job for an initial class or render job for a nested class?
      */
-    public function __construct(string $fileName, string $classPath, string $className, Schema $schema)
-    {
+    public function __construct(
+        string $fileName,
+        string $classPath,
+        string $className,
+        Schema $schema,
+        bool $initialClass
+    ) {
         $this->fileName = $fileName;
         $this->classPath = $classPath;
         $this->className = $className;
         $this->schema = $schema;
+        $this->initialClass = $initialClass;
     }
 
     /**
@@ -124,6 +133,7 @@ class RenderJob
                     'properties'             => $this->schema->getProperties(),
                     'generatorConfiguration' => $generatorConfiguration,
                     'viewHelper'             => new RenderHelper($generatorConfiguration),
+                    'initialClass'           => $this->initialClass,
                 ]
             );
         } catch (PHPMicroTemplateException $exception) {

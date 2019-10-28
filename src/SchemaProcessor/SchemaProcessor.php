@@ -85,7 +85,8 @@ class SchemaProcessor
             $jsonSchema,
             $this->currentClassPath,
             $this->currentClassName,
-            new SchemaDefinitionDictionary(dirname($jsonSchemaFile))
+            new SchemaDefinitionDictionary(dirname($jsonSchemaFile)),
+            true
         );
     }
 
@@ -95,9 +96,10 @@ class SchemaProcessor
      * @param array                      $jsonSchema
      * @param string                     $classPath
      * @param string                     $className
-     * @param SchemaDefinitionDictionary $dictionary If a nested object of a schema is processed import the definitions
-     *                                               of the parent schema to make them available for the nested schema
-     *                                               as well
+     * @param SchemaDefinitionDictionary $dictionary   If a nested object of a schema is processed import the
+     *                                                 definitions of the parent schema to make them available for the
+     *                                                 nested schema as well
+     * @param bool                       $initialClass Is it an initial class or a nested class?
      *
      * @return Schema
      *
@@ -107,7 +109,8 @@ class SchemaProcessor
         array $jsonSchema,
         string $classPath,
         string $className,
-        SchemaDefinitionDictionary $dictionary
+        SchemaDefinitionDictionary $dictionary,
+        bool $initialClass = false
     ): ?Schema {
         if ((!isset($jsonSchema['type']) || $jsonSchema['type'] !== 'object') &&
             !array_intersect(array_keys($jsonSchema), ['anyOf', 'allOf', 'oneOf', 'if'])
@@ -116,7 +119,7 @@ class SchemaProcessor
             return null;
         }
 
-        return $this->generateModel($classPath, $className, $jsonSchema, $dictionary);
+        return $this->generateModel($classPath, $className, $jsonSchema, $dictionary, $initialClass);
     }
 
     /**
@@ -126,6 +129,7 @@ class SchemaProcessor
      * @param string                     $className
      * @param array                      $structure
      * @param SchemaDefinitionDictionary $dictionary
+     * @param bool                       $initialClass
      *
      * @return Schema
      *
@@ -135,7 +139,8 @@ class SchemaProcessor
         string $classPath,
         string $className,
         array $structure,
-        SchemaDefinitionDictionary $dictionary
+        SchemaDefinitionDictionary $dictionary,
+        bool $initialClass
     ): Schema {
         $schemaSignature = md5(json_encode($structure));
 
@@ -161,7 +166,7 @@ class SchemaProcessor
             $structure
         );
 
-        $this->generateClassFile($classPath, $className, $schema);
+        $this->generateClassFile($classPath, $className, $schema, $initialClass);
 
         return $schema;
     }
@@ -173,14 +178,18 @@ class SchemaProcessor
      * @param string $className
      * @param Schema $schema
      */
-    public function generateClassFile(string $classPath, string $className, Schema $schema): void
-    {
+    public function generateClassFile(
+        string $classPath,
+        string $className,
+        Schema $schema,
+        bool $initialClass = false
+    ): void {
         $fileName = join(
                 DIRECTORY_SEPARATOR,
                 [$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]
             ) . '.php';
 
-        $this->renderQueue->addRenderJob(new RenderJob($fileName, $classPath, $className, $schema));
+        $this->renderQueue->addRenderJob(new RenderJob($fileName, $classPath, $className, $schema, $initialClass));
 
         if ($this->generatorConfiguration->isOutputEnabled()) {
             // @codeCoverageIgnoreStart
