@@ -144,17 +144,16 @@ class SchemaProcessor
     ): Schema {
         $schemaSignature = md5(json_encode($structure));
 
-        if (isset($this->processedSchema[$schemaSignature])) {
+        if (!$initialClass && isset($this->processedSchema[$schemaSignature])) {
             if ($this->generatorConfiguration->isOutputEnabled()) {
-                // @codeCoverageIgnoreStart
                 echo "Duplicated signature $schemaSignature for class $className." .
                     " Redirecting to {$this->processedSchema[$schemaSignature]->getClassName()}\n";
-                // @codeCoverageIgnoreEnd
             }
+
             return $this->processedSchema[$schemaSignature];
         }
 
-        $schema = new Schema($className, $dictionary);
+        $schema = new Schema($classPath, $className, $dictionary);
         $this->processedSchema[$schemaSignature] = $schema;
         $structure['type'] = 'base';
 
@@ -177,6 +176,7 @@ class SchemaProcessor
      * @param string $classPath
      * @param string $className
      * @param Schema $schema
+     * @param bool   $initialClass
      */
     public function generateClassFile(
         string $classPath,
@@ -192,9 +192,7 @@ class SchemaProcessor
         $this->renderQueue->addRenderJob(new RenderJob($fileName, $classPath, $className, $schema, $initialClass));
 
         if ($this->generatorConfiguration->isOutputEnabled()) {
-            // @codeCoverageIgnoreStart
-            echo "Generated class $className\n";
-            // @codeCoverageIgnoreEnd
+            echo "Generated class {$this->generatorConfiguration->getNamespacePrefix()}$classPath\\$className\n";
         }
 
         $this->generatedFiles[] = $fileName;

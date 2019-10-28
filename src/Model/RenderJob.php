@@ -73,9 +73,7 @@ class RenderJob
         }
 
         if ($generatorConfiguration->isOutputEnabled()) {
-            // @codeCoverageIgnoreStart
-            echo "Rendered class $this->className\n";
-            // @codeCoverageIgnoreEnd
+            echo "Rendered class {$generatorConfiguration->getNamespacePrefix()}$this->classPath\\$this->className\n";
         }
     }
 
@@ -110,13 +108,19 @@ class RenderJob
      */
     protected function renderClass(GeneratorConfiguration $generatorConfiguration): string
     {
+        $getFullNamespace = function (string $classPath) use ($generatorConfiguration): string {
+            return trim($generatorConfiguration->getNamespacePrefix() . $classPath, '\\');
+        };
+
         $render = new Render(__DIR__ . "/../Templates/");
+        $namespace = $getFullNamespace($this->classPath);
 
-        $namespace = trim($generatorConfiguration->getNamespacePrefix() . $this->classPath, '\\');
-
-        $use = $generatorConfiguration->collectErrors()
-            ? [$generatorConfiguration->getErrorRegistryClass()]
-            : [$generatorConfiguration->getExceptionClass()];
+        $use = array_merge(
+            array_map($getFullNamespace, $this->schema->getUsedClasses()),
+            $generatorConfiguration->collectErrors()
+                ? [$generatorConfiguration->getErrorRegistryClass()]
+                : [$generatorConfiguration->getExceptionClass()]
+        );
 
         if ($namespace) {
             $use[] = Throwable::class;

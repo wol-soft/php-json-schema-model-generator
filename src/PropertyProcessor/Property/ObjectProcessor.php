@@ -40,6 +40,10 @@ class ObjectProcessor extends AbstractTypedValueProcessor
             $this->schema->getSchemaDictionary()
         );
 
+        if ($schema->getClassPath() !== $this->schema->getClassPath()) {
+            $this->schema->addUsedClass("{$schema->getClassPath()}\\{$schema->getClassName()}");
+        }
+
         $property
             ->addDecorator(
                 new ObjectInstantiationDecorator(

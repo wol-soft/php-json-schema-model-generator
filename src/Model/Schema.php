@@ -21,24 +21,31 @@ class Schema
 {
     /** @var string */
     protected $className;
+    /** @var string */
+    protected $classPath;
     /** @var Property[] The properties which are part of the class */
     protected $properties = [];
     /** @var PropertyValidator[] A Collection of validators which must be applied
      *                           before adding properties to the model
      */
     protected $baseValidators = [];
+    /** @var array */
+    protected $usedClasses = [];
+
     /** @var SchemaDefinitionDictionary */
     protected $schemaDefinitionDictionary;
 
     /**
      * Schema constructor.
      *
+     * @param string                     $classPath
      * @param string                     $className
      * @param SchemaDefinitionDictionary $dictionary
      */
-    public function __construct(string $className, SchemaDefinitionDictionary $dictionary = null)
+    public function __construct(string $classPath, string $className, SchemaDefinitionDictionary $dictionary = null)
     {
         $this->className = $className;
+        $this->classPath = $classPath;
         $this->schemaDefinitionDictionary = $dictionary ?? new SchemaDefinitionDictionary('');
     }
 
@@ -48,6 +55,14 @@ class Schema
     public function getClassName(): string
     {
         return $this->className;
+    }
+
+    /**
+     * @return string
+     */
+    public function getClassPath(): string
+    {
+        return $this->classPath;
     }
 
     /**
@@ -98,5 +113,27 @@ class Schema
     public function getSchemaDictionary(): SchemaDefinitionDictionary
     {
         return $this->schemaDefinitionDictionary;
+    }
+
+    /**
+     * Add a class to the schema which is required
+     *
+     * @param string $path
+     *
+     * @return $this
+     */
+    public function addUsedClass(string $path): self
+    {
+        $this->usedClasses[] = $path;
+
+        return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getUsedClasses(): array
+    {
+        return $this->usedClasses;
     }
 }

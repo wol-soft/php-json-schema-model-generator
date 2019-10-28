@@ -147,7 +147,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             return self::$generatedMergedProperties[$mergedClassName];
         }
 
-        $mergedPropertySchema = new Schema($mergedClassName);
+        $mergedPropertySchema = new Schema($this->schema->getClassPath(), $mergedClassName);
         $mergedProperty = new Property('MergedProperty', $mergedClassName);
         self::$generatedMergedProperties[$mergedClassName] = $mergedProperty;
 
