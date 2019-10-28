@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Property\AbstractValueProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
@@ -188,6 +189,8 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     })
                 );
             }
+
+            $mergedPropertySchema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($this->schema));
         }
     }
 

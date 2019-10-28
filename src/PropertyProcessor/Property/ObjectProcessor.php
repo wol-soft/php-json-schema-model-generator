@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 
 /**
  * Class ObjectProcessor
@@ -42,6 +43,7 @@ class ObjectProcessor extends AbstractTypedValueProcessor
 
         if ($schema->getClassPath() !== $this->schema->getClassPath()) {
             $this->schema->addUsedClass("{$schema->getClassPath()}\\{$schema->getClassName()}");
+            $this->schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($schema, true));
         }
 
         $property

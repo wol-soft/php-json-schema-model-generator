@@ -4,13 +4,12 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model;
 
-use Exception;
-use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 
 /**
  * Class Schema
@@ -31,6 +30,8 @@ class Schema
     protected $baseValidators = [];
     /** @var array */
     protected $usedClasses = [];
+    /** @var SchemaNamespaceTransferDecorator[] */
+    protected $namespaceTransferDecorators = [];
 
     /** @var SchemaDefinitionDictionary */
     protected $schemaDefinitionDictionary;
@@ -130,10 +131,28 @@ class Schema
     }
 
     /**
+     * @param SchemaNamespaceTransferDecorator $decorator
+     *
+     * @return $this
+     */
+    public function addNamespaceTransferDecorator(SchemaNamespaceTransferDecorator $decorator): self
+    {
+        $this->namespaceTransferDecorators[] = $decorator;
+
+        return $this;
+    }
+
+    /**
      * @return array
      */
     public function getUsedClasses(): array
     {
-        return $this->usedClasses;
+        $usedClasses = $this->usedClasses;
+
+        foreach ($this->namespaceTransferDecorators as $decorator) {
+            array_push($usedClasses, ...$decorator->resolve());
+        }
+
+        return $usedClasses;
     }
 }

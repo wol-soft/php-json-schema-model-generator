@@ -276,14 +276,16 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         }
 
         $subClass1FQCN = '\\Application\\SubFolder1\\SubSchema';
-        $subObject1 = new $subClass1FQCN(['object1' => ['property1' => 'Hello']]);
+        $subObject1 = new $subClass1FQCN(['object1' => ['property1' => 'Hello'], 'property3' => 3]);
 
         $this->assertSame('Hello', $subObject1->getObject1()->getProperty1());
+        $this->assertSame(3, $subObject1->getProperty3());
 
         $subClass2FQCN = '\\Application\\SubFolder2\\SubSchema';
-        $subObject2 = new $subClass2FQCN(['object1' => ['property1' => 'Goodbye']]);
+        $subObject2 = new $subClass2FQCN(['object1' => ['property1' => 'Goodbye'], 'property3' => true]);
 
         $this->assertSame('Goodbye', $subObject2->getObject1()->getProperty1());
+        $this->assertSame(true, $subObject2->getProperty3());
 
         $this->assertSame(get_class($subObject1->getObject1()), get_class($subObject2->getObject1()));
 
