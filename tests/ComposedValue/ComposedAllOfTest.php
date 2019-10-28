@@ -56,7 +56,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
         return [
             'Property level composition' => ['ExtendedPropertyDefinition.json'],
             'Multiple objects' => ['ReferencedObjectSchema.json'],
-            'Empty all of' => ['emptyAllOf.json'],
+            'Empty all of' => ['EmptyAllOf.json'],
         ];
     }
 

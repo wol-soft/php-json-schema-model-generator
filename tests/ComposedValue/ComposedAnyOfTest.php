@@ -15,7 +15,7 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTest
 {
     public function testNullProvidedForEmptyOptionalAnyOfIsValid(): void
     {
-        $className = $this->generateClassFromFile('emptyAnyOf.json');
+        $className = $this->generateClassFromFile('EmptyAnyOf.json');
 
         $object = new $className(['property' => null]);
         $this->assertNull($object->getProperty());
