@@ -168,8 +168,6 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 
     public function testFolderIsGeneratedRecursively(): void
     {
-        define('MODEL_TEMP_PATH', sys_get_temp_dir() . '/PHPModelGeneratorTest/Models');
-
         (new ModelGenerator(
             (new GeneratorConfiguration())
                 ->setNamespacePrefix('\\Application')
@@ -249,8 +247,6 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 
     public function testIdenticalSchemasAreMappedToOneClassFromDifferentNamespaces(): void
     {
-        define('MODEL_TEMP_PATH', sys_get_temp_dir() . '/PHPModelGeneratorTest/Models');
-
         ob_start();
 
         $generatedClasses = (new ModelGenerator(

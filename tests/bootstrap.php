@@ -1,6 +1,7 @@
 <?php
 
-const FAILED_CLASSES_PATH = __DIR__ . '/../failed-classes/';
+define('FAILED_CLASSES_PATH', __DIR__ . '/../failed-classes/');
+define('MODEL_TEMP_PATH', sys_get_temp_dir() . '/PHPModelGeneratorTest/Models');
 
 if (is_dir(FAILED_CLASSES_PATH)) {
     $di = new RecursiveDirectoryIterator(FAILED_CLASSES_PATH, FilesystemIterator::SKIP_DOTS);
