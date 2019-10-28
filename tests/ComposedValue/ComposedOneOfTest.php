@@ -16,7 +16,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
 {
     public function testNullProvidedForEmptyOptionalOneOfIsValid(): void
     {
-        $className = $this->generateClassFromFile('emptyOneOf.json');
+        $className = $this->generateClassFromFile('EmptyOneOf.json');
 
         $object = new $className(['property' => null]);
         $this->assertNull($object->getProperty());

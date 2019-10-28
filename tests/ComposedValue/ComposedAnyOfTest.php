@@ -36,7 +36,7 @@ Invalid value for property declined by composition constraint.
 ERROR
         );
 
-        $className = $this->generateClassFromFile('emptyAnyOf.json');
+        $className = $this->generateClassFromFile('EmptyAnyOf.json');
 
         new $className(['property' => $propertyValue]);
     }

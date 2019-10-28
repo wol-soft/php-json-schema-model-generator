@@ -20,7 +20,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
      */
     public function testEmptyAllOfIsValid($propertyValue): void
     {
-        $className = $this->generateClassFromFile('emptyAllOf.json');
+        $className = $this->generateClassFromFile('EmptyAllOf.json');
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertNull($object->getProperty());
