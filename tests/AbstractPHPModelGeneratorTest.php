@@ -32,8 +32,10 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     /**
      * Set up an empty directory for the tests
      */
-    public static function setUpBeforeClass(): void
+    public function setUp(): void
     {
+        parent::setUp();
+
         if (is_dir(sys_get_temp_dir() . '/PHPModelGeneratorTest')) {
             $di = new RecursiveDirectoryIterator(sys_get_temp_dir() . '/PHPModelGeneratorTest', FilesystemIterator::SKIP_DOTS);
             $ri = new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST);
@@ -74,16 +76,6 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
             }
         }
 
-        // clear the JSON schema definitions
-        foreach ($this->names as $name) {
-            @unlink(sys_get_temp_dir() . '/PHPModelGeneratorTest/' . $name . '.json');
-        }
-
-        // clear the generated class files
-        foreach ($this->generatedFiles as $file) {
-            @unlink($file);
-        }
-
         $this->names = [];
         $this->generatedFiles = [];
     }
@@ -119,7 +111,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * @throws RenderException
      * @throws SchemaException
      */
-    public function generateClassFromFile(
+    protected function generateClassFromFile(
         string $file,
         GeneratorConfiguration $generatorConfiguration = null,
         bool $originalClassNames = false
@@ -145,7 +137,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * @throws RenderException
      * @throws SchemaException
      */
-    public function generateClassFromFileTemplate(
+    protected function generateClassFromFileTemplate(
         string $file,
         array $values,
         GeneratorConfiguration $generatorConfiguration = null,
@@ -181,7 +173,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * @throws RenderException
      * @throws SchemaException
      */
-    public function generateClass(
+    protected function generateClass(
         string $jsonSchema,
         GeneratorConfiguration $generatorConfiguration = null,
         bool $originalClassNames = false
@@ -231,10 +223,37 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         foreach ($generatedFiles as $path) {
             $this->generatedFiles[] = $path;
 
-            require_once $path;
+            require $path;
         }
 
         return $className;
+    }
+
+    /**
+     * Generate objects for all JSON-Schema files in the given directory
+     *
+     * @param string                 $directory
+     * @param GeneratorConfiguration $configuration
+     * @return array
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    protected function generateDirectory(string $directory, GeneratorConfiguration $configuration): array
+    {
+        $generatedClasses = (new ModelGenerator($configuration))->generateModels(
+            __DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $directory,
+            MODEL_TEMP_PATH
+        );
+
+        foreach ($generatedClasses as $path) {
+            $this->generatedFiles[] = $path;
+
+            require $path;
+        }
+
+        return $generatedClasses;
     }
 
     /**

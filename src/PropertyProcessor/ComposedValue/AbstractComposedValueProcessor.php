@@ -188,8 +188,15 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                         return false;
                     })
                 );
+
+                // the parent schema needs to know about all imports of the nested classes as all properties of the
+                // nested classes are available in the parent schema (combined schema merging)
+                $this->schema->addNamespaceTransferDecorator(
+                    new SchemaNamespaceTransferDecorator($property->getNestedSchema())
+                );
             }
 
+            // make sure the merged schema knows all imports of the parent schema
             $mergedPropertySchema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($this->schema));
         }
     }

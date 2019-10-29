@@ -1,0 +1,46 @@
+{
+  "anyOf": [
+    {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "object1": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "property1": {
+                    "type": "string"
+                  },
+                  "property2": {
+                    "allOf": []
+                  }
+                },
+                "required": [
+                  "property1"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "property3": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "extendedProperty": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}

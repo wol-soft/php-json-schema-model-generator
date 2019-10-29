@@ -119,7 +119,8 @@ Namespace prefix
 
     setNamespacePrefix(string $prefix);
 
-Configures a namespace prefix for all generated classes. The namespaces will be extended with the directory structure of the source directory. By default no namespace prefix will be set.
+Configures a namespace prefix for all generated classes. By default no namespace prefix will be set. Generated namespaces are PSR-4 compatible.
+Further information about the generated namespaces can be found at `Namespaces <generic/namespaces.html>`__.
 
 .. code-block:: php
 
@@ -222,3 +223,14 @@ Enable or disable output of the generation process to STDOUT. By default the out
 
     (new GeneratorConfiguration())
         ->setOutputEnabled(false);
+
+The output contains information about generated classes, rendered classes, hints and warnings concerning the internal handling or the given schema files.
+The output of a generation process may look like:
+
+.. code-block:: none
+
+    Generated class MyApp\User\Response\Login
+    Generated class MyApp\User\Response\Register
+    Duplicated signature 444fd086d8d1f186145a6f81a3ac3f7a for class Register_Message. Redirecting to Login_Message
+    Rendered class MyApp\User\Response\Login
+    Rendered class MyApp\User\Response\Register

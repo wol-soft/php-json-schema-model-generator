@@ -20,6 +20,7 @@ Generates PHP model classes from JSON-Schema files including validation and prov
 * [Examples](#Examples)
 * [How the heck does this work?](#How-the-heck-does-this-work)
 * [Tests](#Tests)
+* [Docs](#Docs)
 
 ## Motivation ##
 
@@ -177,3 +178,11 @@ After installing the dependencies of the library via `composer update` you can e
 During the execution the tests will create a directory PHPModelGeneratorTest in tmp where JSON-Schema files and PHP classes will be written to.
 
 If a test which creates a PHP class from a JSON-Schema fails the JSON-Schema and the generated class(es) will be dumped to the directory `./failed-classes`
+
+## Docs ##
+
+The [docs](https://php-json-schema-model-generator.readthedocs.io/en/latest/) for the library is generated with [Sphinx](https://www.sphinx-doc.org/en/master/).
+
+To generate the documentation install Sphinx, enter the docs directory and execute `make html` (Linux) or `make.bat html` (Windows). The generated documentation will be available in the directory `./docs/build`.
+
+The documentation hosted at [Read the Docs](https://readthedocs.org/) is updated on each push.
