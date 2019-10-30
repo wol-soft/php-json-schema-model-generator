@@ -45,9 +45,11 @@ class ObjectProcessor extends AbstractTypedValueProcessor
         // $propertyData is duplicated) add used classes to the current schema. By importing the class which is
         // represented by $schema and by transferring all imports of $schema as well as imports for all properties
         // of $schema to $this->schema the already generated schema can be used
-        if ($schema->getClassPath() !== $this->schema->getClassPath()) {
+        if ($schema->getClassPath() !== $this->schema->getClassPath() ||
+            $schema->getClassName() !== $this->schema->getClassName()
+        ) {
             $this->schema->addUsedClass("{$schema->getClassPath()}\\{$schema->getClassName()}");
-            $this->schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($schema, true));
+            $this->schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($schema));
         }
 
         $property

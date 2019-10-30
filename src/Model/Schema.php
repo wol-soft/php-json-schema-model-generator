@@ -143,14 +143,16 @@ class Schema
     }
 
     /**
+     * @param Schema[] $visitedSchema
+     *
      * @return array
      */
-    public function getUsedClasses(): array
+    public function getUsedClasses(array $visitedSchema = []): array
     {
         $usedClasses = $this->usedClasses;
 
         foreach ($this->namespaceTransferDecorators as $decorator) {
-            $usedClasses = array_merge($usedClasses, $decorator->resolve());
+            $usedClasses = array_merge($usedClasses, $decorator->resolve(array_merge($visitedSchema, [$this])));
         }
 
         return $usedClasses;

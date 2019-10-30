@@ -9,7 +9,6 @@ use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Utils\RenderHelper;
-use Throwable;
 
 class RenderJob
 {
@@ -122,9 +121,10 @@ class RenderJob
                 : [$generatorConfiguration->getExceptionClass()]
         );
 
-        if ($namespace) {
-            $use[] = Throwable::class;
-        }
+        // filter out non-compound namespaces
+        $use = array_filter($use, function ($classPath) {
+            return strstr($classPath, '\\');
+        });
 
         try {
             $class = $render->renderTemplate(

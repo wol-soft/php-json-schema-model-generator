@@ -2,6 +2,9 @@
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\RenderException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use ReflectionClass;
@@ -13,7 +16,7 @@ use ReflectionClass;
  */
 class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTest
 {
-    public function testIdenticalSchemaInSingleFile(): void
+    public function testIdenticalSchemaInSingleFileAreMappedToOneClass(): void
     {
         $className = $this->generateClassFromFile('IdenticalSubSchema.json');
 
@@ -33,6 +36,81 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTest
         $this->assertSame('Goodbye', $object->getObject2()->getProperty1());
 
         $this->assertSame(get_class($object->getObject1()), get_class($object->getObject2()));
+    }
+
+    public function testIdenticalReferencedSchemaInSingleFileAreMappedToOneClass(): void
+    {
+        $className = $this->generateClassFromFile('IdenticalReferencedSchema.json');
+
+        $reflection = new ReflectionClass($className);
+
+        $this->assertSame(
+            $reflection->getProperty('object1')->getDocComment(),
+            $reflection->getProperty('object2')->getDocComment()
+        );
+
+        $object = new $className([
+            'object1' => ['member' => ['name' => 'Hannes', 'age' => 42]],
+            'object2' => ['member' => ['name' => 'Frida', 'age' => 24]],
+        ]);
+
+        $this->assertSame('Hannes', $object->getObject1()->getMember()->getName());
+        $this->assertSame(42, $object->getObject1()->getMember()->getAge());
+
+        $this->assertSame('Frida', $object->getObject2()->getMember()->getName());
+        $this->assertSame(24, $object->getObject2()->getMember()->getAge());
+
+        $this->assertSame(get_class($object->getObject1()->getMember()), get_class($object->getObject2()->getMember()));
+    }
+
+    /**
+     * @dataProvider identicalReferencedSchemaDataProvider
+     *
+     * @param string $file
+     * @param string $class1FQCN
+     * @param string $class2FQCN
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testIdenticalReferencedSchemaInMultipleFilesAreMappedToOneClass(
+        string $file,
+        string $class1FQCN,
+        string $class2FQCN
+    ): void {
+        $this->generateDirectory(
+            $file,
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix($file)
+                ->setOutputEnabled(false)
+        );
+
+        $object1 = new $class1FQCN(['member' => ['name' => 'Hannes', 'age' => 42]]);
+        $this->assertSame('Hannes', $object1->getMember()->getName());
+        $this->assertSame(42, $object1->getMember()->getAge());
+
+        $object2 = new $class2FQCN(['member' => ['name' => 'Frida', 'age' => 24]]);
+        $this->assertSame('Frida', $object2->getMember()->getName());
+        $this->assertSame(24, $object2->getMember()->getAge());
+
+        $this->assertSame(get_class($object1->getMember()), get_class($object2->getMember()));
+    }
+
+    public function identicalReferencedSchemaDataProvider()
+    {
+        return [
+            'In same namespace' => [
+                'IdenticalReferencedSchemaInSameNamespace',
+                '\\IdenticalReferencedSchemaInSameNamespace\\Schema1',
+                '\\IdenticalReferencedSchemaInSameNamespace\\Schema2'
+            ],
+            'In different namespace' => [
+                'IdenticalReferencedSchemaInDifferentNamespace',
+                '\\IdenticalReferencedSchemaInDifferentNamespace\\SubFolder1\\Schema',
+                '\\IdenticalReferencedSchemaInDifferentNamespace\\SubFolder2\\Schema'
+            ],
+        ];
     }
 
     public function testIdenticalSchemasInDifferentNamespaceAreMappedToOneClass(): void

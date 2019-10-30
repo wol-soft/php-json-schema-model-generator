@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "member": {
+      "$ref": "Person.json#person"
+    }
+  }
+}

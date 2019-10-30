@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use Exception;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 
 /**
  * Class ConstProcessor
@@ -30,6 +31,14 @@ class ReferenceProcessor extends AbstractTypedValueProcessor
             $definition = $dictionary->getDefinition($reference, $this->schemaProcessor, $path);
 
             if ($definition) {
+                if ($this->schema->getClassPath() !== $definition->getSchema()->getClassPath() ||
+                    $this->schema->getClassName() !== $definition->getSchema()->getClassName()
+                ) {
+                    $this->schema->addNamespaceTransferDecorator(
+                        new SchemaNamespaceTransferDecorator($definition->getSchema())
+                    );
+                }
+
                 return $definition->resolveReference($propertyName, $path, $this->propertyCollectionProcessor);
             }
         } catch (Exception $exception) {

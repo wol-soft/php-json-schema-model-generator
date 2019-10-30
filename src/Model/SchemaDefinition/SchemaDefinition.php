@@ -49,6 +49,14 @@ class SchemaDefinition
     }
 
     /**
+     * @return Schema
+     */
+    public function getSchema(): Schema
+    {
+        return $this->schema;
+    }
+
+    /**
      * Resolve a reference
      *
      * @param string                      $propertyName

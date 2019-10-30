@@ -1,0 +1,16 @@
+{
+  "definitions": {
+    "person": {
+      "$id": "#person",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "age": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

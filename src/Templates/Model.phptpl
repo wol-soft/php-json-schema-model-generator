@@ -26,7 +26,7 @@ class {{ class }}
     private $rawModelDataInput;
 
     {% if generatorConfiguration.collectErrors() %}
-        /** @var ErrorRegistryExceptionInterface Collect all validation errors */
+        /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} Collect all validation errors */
         private $errorRegistry;
     {% endif %}
 
@@ -110,6 +110,8 @@ class {{ class }}
              *
              * @param {{ property.getTypeHint() }}{% if not property.isRequired() %}|null{% endif %} ${{ property.getAttribute() }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
              *
+             * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getExceptionClass()) }}{% endif %}{% endif %}
+             *
              * @return self
              */
             public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
@@ -140,7 +142,7 @@ class {{ class }}
          *
          * @param array $modelData
          *
-         * {% if property.getValidators() %}{% if not generatorConfiguration.collectErrors() %}@throws ErrorRegistryExceptionInterface{% endif %}{% endif %}
+         * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getExceptionClass()) }}{% endif %}{% endif %}
          */
         protected function process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
         {
