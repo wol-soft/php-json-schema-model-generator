@@ -139,7 +139,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTest
         string $exceptionMessage
     ): void {
         $this->expectException($exceptionClass);
-        $this->expectExceptionMessage($exceptionMessage);
+        $this->expectExceptionMessageMatches("/$exceptionMessage/");
 
         $className = $this->generateClassFromFile('ObjectLevelValidation.json');
 
@@ -157,12 +157,12 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTest
             'Too few arguments' => [
                 ['name' => 'Hannes'],
                 ValidationException::class,
-                'Provided object must not contain less than 2 properties'
+                'Provided object for ObjectPropertyTest_(.*) must not contain less than 2 properties'
             ],
             'Too many arguments' => [
                 ['name' => 'Hannes', 'age' => 42, 'alive' => true, 'children' => 3],
                 ValidationException::class,
-                'Provided object must not contain more than 3 properties'
+                'Provided object for ObjectPropertyTest_(.*) must not contain more than 3 properties'
             ],
         ];
     }

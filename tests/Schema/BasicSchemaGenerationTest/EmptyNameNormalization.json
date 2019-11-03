@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "__ -- __": {
+      "type": "string"
+    }
+  }
+}

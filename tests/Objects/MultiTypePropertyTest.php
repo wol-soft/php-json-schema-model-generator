@@ -72,14 +72,21 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
     public function invalidValueDataProvider()
     {
         return [
-            'Bool' => [true, 'Invalid type for property'],
-            'Object' => [new stdClass(), 'Invalid type for property'],
+            'Bool' => [true, 'Invalid type for property. Requires [float, string, array], got boolean'],
+            'Object' => [new stdClass(), 'Invalid type for property. Requires [float, string, array], got object'],
             'Invalid int' => [9, 'Value for property must not be smaller than 10'],
             'zero' => [0, 'Value for property must not be smaller than 10'],
             'Invalid float' => [9.9, 'Value for property must not be smaller than 10'],
             'Invalid string' => ['ABC', 'Value for property must not be shorter than 4'],
             'Array with too few items' => [['Hello'], 'Array property must not contain less than 2 items'],
-            'Array with invalid items' => [['Hello', 123], 'Invalid type for item of array property']
+            'Array with invalid items' => [
+                ['Hello', 123],
+                <<<ERROR
+Invalid item in array property:
+  - invalid item #1
+    * Invalid type for item of array property. Requires string, got integer
+ERROR
+            ]
         ];
     }
 }

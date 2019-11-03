@@ -79,4 +79,4 @@ Possible exceptions:
 Format
 ------
 
-String formats are currently not supported
+String formats are currently not supported.

@@ -44,7 +44,7 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTest
         string $exceptionMessage
     ): void {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage($exceptionMessage);
+        $this->expectExceptionMessageMatches("/$exceptionMessage/");
 
         $className = $this->generateClassFromFile('ObjectSize.json');
 
@@ -54,11 +54,17 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTest
     public function invalidObjectPropertyAmountDataProvider(): array
     {
         return [
-            'empty object' => [[], 'Provided object must not contain less than 2 properties'],
-            'too few properties' => [['b' => 2], 'Provided object must not contain less than 2 properties'],
+            'empty object' => [
+                [],
+                'Provided object for ObjectSizeTest_(.*) must not contain less than 2 properties'
+            ],
+            'too few properties' => [
+                ['b' => 2],
+                'Provided object for ObjectSizeTest_(.*) must not contain less than 2 properties'
+            ],
             'too many properties' => [
                 ['a' => 1, 'b' => 2, 'c' => 3, 'd' => 4],
-                'Provided object must not contain more than 3 properties'
+                'Provided object for ObjectSizeTest_(.*) must not contain more than 3 properties'
             ]
         ];
     }

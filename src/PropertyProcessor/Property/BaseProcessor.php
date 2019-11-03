@@ -55,8 +55,8 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->addPropertyNamesValidator($propertyData);
         $this->addAdditionalPropertiesValidator($propertyData);
-        $this->addMinPropertiesValidator($propertyData);
-        $this->addMaxPropertiesValidator($propertyData);
+        $this->addMinPropertiesValidator($propertyName, $propertyData);
+        $this->addMaxPropertiesValidator($propertyName, $propertyData);
 
         $this->addPropertiesToSchema($propertyData);
         $this->transferComposedPropertiesToSchema($property);
@@ -131,9 +131,10 @@ class BaseProcessor extends AbstractPropertyProcessor
     /**
      * Add an object validator to limit the amount of provided properties
      *
-     * @param array $propertyData
+     * @param string $propertyName
+     * @param array  $propertyData
      */
-    protected function addMaxPropertiesValidator(array $propertyData): void
+    protected function addMaxPropertiesValidator(string $propertyName, array $propertyData): void
     {
         if (!isset($propertyData['maxProperties'])) {
             return;
@@ -142,7 +143,11 @@ class BaseProcessor extends AbstractPropertyProcessor
         $this->schema->addBaseValidator(
             new PropertyValidator(
                 sprintf('count($modelData) > %d', $propertyData['maxProperties']),
-                "Provided object must not contain more than {$propertyData['maxProperties']} properties"
+                sprintf(
+                    'Provided object for %s must not contain more than %s properties',
+                    $propertyName,
+                    $propertyData['maxProperties']
+                )
             )
         );
     }
@@ -150,9 +155,10 @@ class BaseProcessor extends AbstractPropertyProcessor
     /**
      * Add an object validator to force at least the defined amount of properties to be provided
      *
-     * @param array $propertyData
+     * @param string $propertyName
+     * @param array  $propertyData
      */
-    protected function addMinPropertiesValidator(array $propertyData): void
+    protected function addMinPropertiesValidator(string $propertyName, array $propertyData): void
     {
         if (!isset($propertyData['minProperties'])) {
             return;
@@ -161,7 +167,11 @@ class BaseProcessor extends AbstractPropertyProcessor
         $this->schema->addBaseValidator(
             new PropertyValidator(
                 sprintf('count($modelData) < %d', $propertyData['minProperties']),
-                "Provided object must not contain less than {$propertyData['minProperties']} properties"
+                sprintf(
+                    'Provided object for %s must not contain less than %s properties',
+                    $propertyName,
+                    $propertyData['minProperties']
+                )
             )
         );
     }

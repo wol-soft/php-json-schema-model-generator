@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
@@ -46,6 +47,8 @@ class Property implements PropertyInterface
      *
      * @param string $name
      * @param string $type
+     *
+     * @throws SchemaException
      */
     public function __construct(string $name, string $type)
     {
@@ -217,10 +220,12 @@ class Property implements PropertyInterface
      * @param string $name
      *
      * @return string
+     *
+     * @throws SchemaException
      */
     protected function processAttributeName(string $name): string
     {
-        $name = preg_replace_callback(
+        $attributeName = preg_replace_callback(
             '/([a-z][a-z0-9]*)([A-Z])/',
             function ($matches) {
                 return "{$matches[1]}-{$matches[2]}";
@@ -232,10 +237,16 @@ class Property implements PropertyInterface
             function ($element) {
                 return ucfirst(strtolower($element));
             },
-            preg_split('/[^a-z0-9]/i', $name)
+            preg_split('/[^a-z0-9]/i', $attributeName)
         );
 
-        return lcfirst(join('', $elements));
+        $attributeName = lcfirst(join('', $elements));
+
+        if (empty($attributeName)) {
+            throw new SchemaException("Property name '$name' results in an empty attribute name");
+        }
+
+        return $attributeName;
     }
 
     /**

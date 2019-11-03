@@ -4,10 +4,8 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
-use ReflectionClass;
 
 /**
  * Class BasicSchemaGenerationTest
@@ -152,6 +150,14 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->assertSame('---', $object->getMinusProperty());
         $this->assertSame('   ', $object->getSpaceProperty());
         $this->assertSame(13, $object->getNumeric42());
+    }
+
+    public function testEmptyNormalizedPropertyNameThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage("Property name '__ -- __' results in an empty attribute name");
+
+        $this->generateClassFromFile('EmptyNameNormalization.json');
     }
 
     public function testNamespacePrefix(): void

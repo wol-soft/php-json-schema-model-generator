@@ -42,7 +42,7 @@ class PropertyProcessorFactory implements ProcessorFactoryInterface
             return new MultiTypeProcessor($this, $type, $propertyCollectionProcessor, $schemaProcessor, $schema);
         }
 
-        throw new SchemaException("Invalid property type");
+        throw new SchemaException('Invalid property type');
     }
 
     /**

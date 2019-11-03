@@ -121,6 +121,7 @@ class RenderJob
                 : [$generatorConfiguration->getExceptionClass()]
         );
 
+        // TODO: filter out uses in the same namespace
         // filter out non-compound namespaces
         $use = array_filter($use, function ($classPath) {
             return strstr($classPath, '\\');
