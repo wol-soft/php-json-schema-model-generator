@@ -5,5 +5,6 @@
     generic/required
     generic/default
     generic/namespaces
+    generic/references
     generic/meta
     generic/combinedException

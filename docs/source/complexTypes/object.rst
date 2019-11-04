@@ -37,7 +37,7 @@ Generated interface:
     public function setCar(?Car $name): self;
     public function getCar(): ?Car;
 
-    // class Car
+    // class Person_Car
     public function setModel(?string $name): self;
     public function getModel(): ?string;
     public function setPs(?int $name): self;
@@ -55,8 +55,23 @@ Namespaces
 If a nested class is generated the nested class will be located in the same namespace as the parent class.
 If the nested class occurs somewhere else and has already been generated a class from another namespace may be used (compare `namespaces <../generic/namespaces.html>`__ for additional information concerning class re-usage).
 
+Naming
+------
+
+Naming of classes
+^^^^^^^^^^^^^^^^^
+
+If the given main object in a JSON-Schema file contains a `$id` the id will be used as class name. Otherwise the name of the file will be used.
+
+Naming of nested classes
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Nested classes are prefixed with the parent class. If an object `Person` has a nested object `car` the class for car will be named **Person_Car**.
+
+For the class name of a nested class the `$id` property of the nested object is used. If the id property isn't present the property key combined with a uniqid will be used.
+
 Property Name Normalization
----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Property names are normalized to provide valid and readable PHP code. All non alpha numeric characters will be removed.
 
@@ -182,6 +197,57 @@ If invalid additional properties are provided a detailed exception will be throw
         * Invalid type for name. Requires string, got integer
       - invalid additional property 'additional2'
         * Invalid type for age. Requires int, got string
+
+Recursive Objects
+-----------------
+
+If objects are defined recursive the recursion will be resolved into a single class.
+
+.. code-block:: json
+
+    {
+        "definitions": {
+            "person": {
+                "$id": "person",
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "children": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/person"
+                        }
+                    }
+                }
+            }
+        },
+        "$id": "family",
+        "type": "object",
+        "properties": {
+            "members": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/definitions/person"
+                }
+            }
+        }
+    }
+
+Generated interface:
+
+.. code-block:: php
+
+    // class Family, arrays typehinted in docblocks with Family_Person[]
+    public function setMembers(?array $members): self;
+    public function getMembers(): ?array;
+
+    // class Person, arrays typehinted in docblocks with Family_Person[]
+    public function setName(?string $name): self;
+    public function getName(): ?string;
+    public function setChildren(?array $name): self;
+    public function getChildren(): ?array;
 
 Property Names
 --------------
