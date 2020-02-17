@@ -70,19 +70,19 @@ class SchemaProcessor
     {
         $jsonSchema = file_get_contents($jsonSchemaFile);
 
-        if (!$jsonSchema || !($jsonSchema = json_decode($jsonSchema, true))) {
+        if (!$jsonSchema || !($decodedJsonSchema = json_decode($jsonSchema, true))) {
             throw new SchemaException("Invalid JSON-Schema file $jsonSchemaFile");
         }
 
         $this->setCurrentClassPath($jsonSchemaFile);
         $this->currentClassName = $this->generatorConfiguration->getClassNameGenerator()->getClassName(
             str_ireplace('.json', '', basename($jsonSchemaFile)),
-            $jsonSchema,
+            $decodedJsonSchema,
             false
         );
 
         $this->processSchema(
-            $jsonSchema,
+            $decodedJsonSchema,
             $this->currentClassPath,
             $this->currentClassName,
             new SchemaDefinitionDictionary(dirname($jsonSchemaFile)),

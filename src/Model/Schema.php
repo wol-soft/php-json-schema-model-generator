@@ -4,10 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model;
 
-use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
-use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 
@@ -22,10 +20,10 @@ class Schema
     protected $className;
     /** @var string */
     protected $classPath;
-    /** @var Property[] The properties which are part of the class */
+    /** @var PropertyInterface[] The properties which are part of the class */
     protected $properties = [];
-    /** @var PropertyValidator[] A Collection of validators which must be applied
-     *                           before adding properties to the model
+    /** @var PropertyValidatorInterface[] A Collection of validators which must be applied
+     *                                    before adding properties to the model
      */
     protected $baseValidators = [];
     /** @var array */
@@ -89,7 +87,7 @@ class Schema
     }
 
     /**
-     * @return PropertyValidator[]
+     * @return PropertyValidatorInterface[]
      */
     public function getBaseValidators(): array
     {

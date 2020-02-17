@@ -41,6 +41,10 @@ class ObjectProcessor extends AbstractTypedValueProcessor
             $this->schema->getSchemaDictionary()
         );
 
+        if ($schema === null) {
+            throw new SchemaException("Failed to process schema for object property $propertyName");
+        }
+
         // if the generated schema is located in a different namespace (the schema for the given structure in
         // $propertyData is duplicated) add used classes to the current schema. By importing the class which is
         // represented by $schema and by transferring all imports of $schema as well as imports for all properties

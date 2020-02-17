@@ -31,6 +31,11 @@ class CompositionTypeHintDecorator implements TypeHintDecoratorInterface
      */
     public function decorate(string $input): string
     {
+        // don't add the same type hint multiple times
+        if ($input && in_array($this->nestedProperty->getTypeHint(), explode('|', $input))) {
+            return $input;
+        }
+
         return ($input ? "$input|" : '') . $this->nestedProperty->getTypeHint();
     }
 }

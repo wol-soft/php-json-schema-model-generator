@@ -130,6 +130,8 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      * @param array                          $propertyData
      *
      * @return PropertyInterface
+     *
+     * @throws SchemaException
      */
     private function createMergedProperty(
         PropertyInterface $compositionProperty,

@@ -168,13 +168,13 @@ class SchemaDefinitionDictionary extends ArrayObject
 
         $jsonSchema = file_get_contents($jsonSchemaFilePath);
 
-        if (!$jsonSchema || !($jsonSchema = json_decode($jsonSchema, true))) {
+        if (!$jsonSchema || !($decodedJsonSchema = json_decode($jsonSchema, true))) {
             throw new SchemaException("Invalid JSON-Schema file $jsonSchemaFilePath");
         }
 
         // set up a dummy schema to fetch the definitions from the external file
         $schema = new Schema('ExternalSchema_' . uniqid(), '', new self(dirname($jsonSchemaFilePath)));
-        $schema->getSchemaDictionary()->setUpDefinitionDictionary($jsonSchema, $schemaProcessor, $schema);
+        $schema->getSchemaDictionary()->setUpDefinitionDictionary($decodedJsonSchema, $schemaProcessor, $schema);
         $this->parsedExternalFileSchemas[$jsonSchemaFile] = $schema;
 
         return $schema->getSchemaDictionary()->getDefinition($externalKey, $schemaProcessor, $path);
