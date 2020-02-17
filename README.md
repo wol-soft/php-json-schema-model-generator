@@ -120,7 +120,7 @@ public function getAge(): ?int;
 
 // setters to change the values of the model after instantiation (only generated if immutability is disabled)
 public function setName(string $name): Person;
-public function setAge(int ?$age): Person;
+public function setAge(?int $age): Person;
 ```
 
 Now let's have a look at the behaviour of the generated model:
