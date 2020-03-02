@@ -2,7 +2,7 @@
 
 namespace PHPModelGenerator\Tests\Basic;
 
-use PHPModelGeneratorException\ValidationException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 /**

@@ -6,7 +6,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
-use PHPModelGeneratorException\ErrorRegistryException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use stdClass;
 
 /**

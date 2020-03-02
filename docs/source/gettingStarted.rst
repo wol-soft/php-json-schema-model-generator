@@ -9,7 +9,7 @@ The recommended way to install php-json-model-generator is through `Composer <ht
 .. code-block:: rconsole
 
     composer require --dev wol-soft/php-json-schema-model-generator
-    composer require wol-soft/php-json-schema-model-generator-exception
+    composer require wol-soft/php-json-schema-model-generator-production
 
 To avoid adding all dependencies of the php-json-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the php-json-model-generator-exception library. The exception library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment (if you decide to commit the models) or as a build step of your application.
 
@@ -150,10 +150,10 @@ Collect errors vs. early return
 
 By default the complete input is validated and in case of failing validations all error messages will be thrown in a single exception implementing the ErrorRegistryExceptionInterface interface. If set to false the first failing validation will throw an exception.
 
-The exceptions are implemented in the php-json-schema-model-generator-exception repository. Default exceptions:
+The exceptions are implemented in the php-json-schema-model-generator-production repository. Default exceptions:
 
-* Error collection enabled: **PHPModelGeneratorException\ErrorRegistryException**
-* Error collection disabled: **PHPModelGeneratorException\ValidationException**
+* Error collection enabled: **PHPModelGenerator\\Exception\\ErrorRegistryException**
+* Error collection disabled: **PHPModelGenerator\\Exception\\ValidationException**
 
 .. code-block:: php
 
@@ -209,6 +209,8 @@ Generated interface:
 
     public function toArray(): array;
     public function toJSON(): string;
+
+The generated class will implement the interface **PHPModelGenerator\\Interfaces\\SerializationInterface** implemented in the php-json-schema-model-generator-production repository. This interface can be used to write additional generic modules to handle the generated models.
 
 Output generation process
 ^^^^^^^^^^^^^^^^^^^^^^^^^

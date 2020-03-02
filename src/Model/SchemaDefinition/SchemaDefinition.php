@@ -4,7 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\SchemaDefinition;
 
-use PHPModelGenerator\Exception\PHPModelGeneratorException;
+use PHPModelGenerator\Exception\PHPModelGenerator\Exception;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyProxy;
@@ -65,7 +65,7 @@ class SchemaDefinition
      *
      * @return PropertyInterface
      *
-     * @throws PHPModelGeneratorException
+     * @throws PHPModelGenerator\Exception
      * @throws SchemaException
      */
     public function resolveReference(
@@ -100,7 +100,7 @@ class SchemaDefinition
                         $structure
                     )
                 );
-            } catch (PHPModelGeneratorException $exception) {
+            } catch (PHPModelGenerator\Exception $exception) {
                 $this->resolvedPaths->offsetUnset($key);
                 throw $exception;
             }

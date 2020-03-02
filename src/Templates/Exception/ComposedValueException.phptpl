@@ -2,7 +2,7 @@ Invalid value for {{ propertyName }} declined by composition constraint.\n"
   . sprintf('  {{ composedErrorMessage }}', $succeededCompositionElements)
   . array_reduce(
         $compositionErrorCollection,
-        function (string $carry, \PHPModelGeneratorException\ErrorRegistryExceptionInterface $exception) use (&$i) {
+        function (string $carry, \PHPModelGenerator\Exception\ErrorRegistryExceptionInterface $exception) use (&$i) {
             return "$carry\n  - Composition element #" . ++$i . (
                 $exception->getErrors()
                     ? ": Failed\n    * " . implode("\n    * ", $exception->getErrors())

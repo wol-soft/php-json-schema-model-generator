@@ -3,7 +3,7 @@
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGeneratorException\ValidationException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;

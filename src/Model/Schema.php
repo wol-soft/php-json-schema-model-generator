@@ -81,6 +81,12 @@ class Schema
     {
         if (!isset($this->properties[$property->getName()])) {
             $this->properties[$property->getName()] = $property;
+        } else {
+            // TODO tests:
+            // testConditionalObjectProperty
+            // testInvalidConditionalObjectPropertyThrowsAnException
+            // testInvalidValuesForMultipleValuesInCompositionThrowsAnException
+          //  throw new SchemaException("Duplicate attribute name {$property->getName()}");
         }
 
         return $this;

@@ -6,8 +6,8 @@ namespace PHPModelGenerator\Model;
 
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Utils\ClassNameGeneratorInterface;
-use PHPModelGeneratorException\ErrorRegistryException;
-use PHPModelGeneratorException\ValidationException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\ValidationException;
 
 /**
  * Class GeneratorConfiguration

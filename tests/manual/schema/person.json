@@ -1,19 +1,18 @@
 {
-  "id": "Person",
+  "$id": "example",
   "type": "object",
   "properties": {
-    "name": {
-      "type": "string",
-      "description": "The name of the person",
-      "example": "Lawrence"
-    },
-    "age": {
-      "type": "integer",
-      "description": "The age of the person",
-      "example": 42
+    "example": {
+      "allOf": [
+        {
+          "type": "number",
+          "multipleOf": 5
+        },
+        {
+          "type": "number",
+          "multipleOf": 3
+        }
+      ]
     }
-  },
-  "required": [
-    "name"
-  ]
+  }
 }

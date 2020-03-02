@@ -4,6 +4,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Interfaces\SerializationInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
@@ -74,6 +75,8 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 
         $this->assertFalse(is_callable([$object, 'toArray']));
         $this->assertFalse(is_callable([$object, 'toJSON']));
+
+        $this->assertFalse($object instanceof SerializationInterface);
     }
 
     public function testSerializationFunctionsAreGeneratedWithEnabledSerialization(): void
@@ -87,6 +90,8 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 
         $this->assertEquals(['property' => 'Hello'], $object->toArray());
         $this->assertEquals('{"property":"Hello"}', $object->toJSON());
+
+        $this->assertTrue($object instanceof SerializationInterface);
     }
 
     /**

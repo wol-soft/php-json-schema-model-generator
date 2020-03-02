@@ -7,7 +7,7 @@ namespace PHPModelGenerator\Exception;
 use Exception;
 
 /**
- * Class PHPModelGeneratorException
+ * Class PHPModelGenerator\Exception
  *
  * @package PHPModelGenerator\Exception
  */
