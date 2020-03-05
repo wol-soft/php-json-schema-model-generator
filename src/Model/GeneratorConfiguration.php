@@ -4,6 +4,9 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model;
 
+use PHPModelGenerator\Exception\InvalidFilterException;
+use PHPModelGenerator\PropertyProcessor\Filter\FilterInterface;
+use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Utils\ClassNameGeneratorInterface;
 use PHPModelGenerator\Exception\ErrorRegistryException;
@@ -34,6 +37,8 @@ class GeneratorConfiguration
     protected $serialization = false;
     /** @var ClassNameGeneratorInterface */
     protected $classNameGenerator;
+    /** @var FilterInterface[] */
+    protected $filter;
 
     /**
      * GeneratorConfiguration constructor.
@@ -41,6 +46,45 @@ class GeneratorConfiguration
     public function __construct()
     {
         $this->classNameGenerator = new ClassNameGenerator();
+
+        $this->addFilter(new TrimFilter());
+    }
+
+    /**
+     * Add an additional filter
+     *
+     * @param FilterInterface $filter
+     *
+     * @return $this
+     *
+     * @throws InvalidFilterException
+     */
+    public function addFilter(FilterInterface $filter): self
+    {
+        // TODO: check accepted types
+        if (!(count($filter->getFilter()) === 2) ||
+            !is_string($filter->getFilter()[0]) ||
+            !is_string($filter->getFilter()[1]) ||
+            !is_callable($filter->getFilter())
+        ) {
+            throw new InvalidFilterException("Invalid filter callback for filter {$filter->getToken()}");
+        }
+
+        $this->filter[$filter->getToken()] = $filter;
+
+        return $this;
+    }
+
+    /**
+     * Get a filter by the given token
+     *
+     * @param string $token
+     *
+     * @return FilterInterface|null
+     */
+    public function getFilter(string $token): ?FilterInterface
+    {
+        return $this->filter[$token] ?? null;
     }
 
     /**

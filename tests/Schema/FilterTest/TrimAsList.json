@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": %s,
+      "filter": [
+        "trim"
+      ]
+    }
+  }
+}

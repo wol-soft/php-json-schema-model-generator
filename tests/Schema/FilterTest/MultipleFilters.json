@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "string",
+      "filter": [
+        "uppercase",
+        "trim"
+      ]
+    }
+  }
+}

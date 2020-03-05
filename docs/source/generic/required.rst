@@ -30,7 +30,7 @@ Behaviour with different inputs:
 
     // property example not provided
     $example = new Example([]);
-    $example->getExample();     // returns "Not provided"
+    $example->getExample();     // returns "Not provided". If no default value has been defined in the schema NULL would be returned
 
     // property example explicitly set to null (allowed as the property isn't required)
     $example = new Example(['example' => null]);
@@ -55,7 +55,7 @@ By setting the property to a required value the property must be always provided
         "required": ["example"]
     }
 
-Generated interface (typehints not nullable any longer):
+Generated interface (type hints not nullable any longer):
 
 .. code-block:: php
 
