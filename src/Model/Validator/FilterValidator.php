@@ -40,7 +40,7 @@ class FilterValidator extends PropertyValidator
                 ? '($value !== null && (!is_' . implode('($value) && !is_', $filter->getAcceptedTypes()) . '($value)))'
                 : ''
             ) . sprintf(
-                ' || (($value = call_user_func([%s::class, "%s"], $value)) && false)',
+                ' || (($value = call_user_func([\%s::class, "%s"], $value)) && false)',
                 $filter->getFilter()[0],
                 $filter->getFilter()[1]
             ),
