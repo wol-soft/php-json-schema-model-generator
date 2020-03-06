@@ -81,6 +81,7 @@ Method | Configuration | Default
 ``` setOutputEnabled(bool $outputEnabled) ``` <br><br>Example:<br> ``` setOutputEnabled(false) ``` | Enable or disable output of the generation process to STDOUT | true
 ``` setErrorRegistryClass(string $exceptionClass) ``` <br><br>Example:<br> ``` setErrorRegistryClass(CustomException::class) ``` | Define a custom exception implementing the ErrorRegistryExceptionInterface to be used. The exception will be thrown if a validation fails and error collection is **enabled** | ErrorRegistryException::class
 ``` setExceptionClass(string $exceptionClass) ``` <br><br>Example:<br> ``` setExceptionClass(CustomException::class) ``` | Define a custom exception to be used. The exception will be thrown if a validation fails and error collection is **disabled** | ValidationException::class
+``` addFilter(FilterInterface $filter) ``` <br><br>Example:<br> ``` addFilter(new CustomFilter()) ``` | Add a custom filter to the generator. Check out the docs for more details. | -
 
 ## Examples ##
 
@@ -127,7 +128,7 @@ Now let's have a look at the behaviour of the generated model:
 ```php
 // Throws an exception as the required name isn't provided.
 // Exception: 'Missing required value for name'
-$person = new Person();
+$person = new Person([]);
 
 // Throws an exception as the name provides an invalid value.
 // Exception: 'Invalid type for name. Requires string, got int'

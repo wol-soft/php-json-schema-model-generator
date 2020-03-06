@@ -87,7 +87,7 @@ Now let's have a look at the behaviour of the generated model:
 
     // Throws an exception as the required name isn't provided.
     // Exception: 'Missing required value for name'
-    $person = new Person();
+    $person = new Person([]);
 
     // Throws an exception as the name provides an invalid value.
     // Exception: 'Invalid type for name. Requires string, got int'
@@ -236,3 +236,12 @@ The output of a generation process may look like:
     Duplicated signature 444fd086d8d1f186145a6f81a3ac3f7a for class Register_Message. Redirecting to Login_Message
     Rendered class MyApp\User\Response\Login
     Rendered class MyApp\User\Response\Register
+
+Custom filter
+^^^^^^^^^^^^^
+
+.. code-block:: php
+
+    addFilter(FilterInterface $customFilter);
+
+Add a custom filter to the generator. For more details see `Filter <nonStandardExtensions/filter.html>`__.
