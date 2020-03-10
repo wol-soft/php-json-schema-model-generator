@@ -4,6 +4,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Interfaces\SerializationInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
@@ -69,7 +70,10 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 
     public function testSerializationFunctionsAreNotGeneratedByDefault(): void
     {
-        $className = $this->generateClassFromFile('BasicSchema.json');
+        $className = '\\MyApp\\' . $this->generateClassFromFile(
+            'BasicSchema.json',
+            (new GeneratorConfiguration())->setNamespacePrefix('\\MyApp\\')
+        );
 
         $object = new $className(['property' => 'Hello']);
 
@@ -77,13 +81,14 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->assertFalse(is_callable([$object, 'toJSON']));
 
         $this->assertFalse($object instanceof SerializationInterface);
+        $this->assertTrue($object instanceof JSONModelInterface);
     }
 
     public function testSerializationFunctionsAreGeneratedWithEnabledSerialization(): void
     {
-        $className = $this->generateClassFromFile(
+        $className = '\\MyApp\\' . $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setSerialization(true)
+            (new GeneratorConfiguration())->setSerialization(true)->setNamespacePrefix('\\MyApp\\')
         );
 
         $object = new $className(['property' => 'Hello']);
@@ -92,6 +97,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->assertEquals('{"property":"Hello"}', $object->toJSON());
 
         $this->assertTrue($object instanceof SerializationInterface);
+        $this->assertTrue($object instanceof JSONModelInterface);
     }
 
     /**

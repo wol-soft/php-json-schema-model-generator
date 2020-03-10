@@ -16,8 +16,8 @@ declare(strict_types = 1);
  * Class {{ class }}
 {% if namespace %} * @package {{ namespace }} {% endif %}
  */
-class {{ class }}
-{% if generatorConfiguration.hasSerializationEnabled() %}implements PHPModelGenerator\Interfaces\SerializationInterface{% endif %}
+class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
+{% if generatorConfiguration.hasSerializationEnabled() %}, \PHPModelGenerator\Interfaces\SerializationInterface{% endif %}
 {
     {% foreach properties as property %}
         /** @var {{ property.getTypeHint() }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */

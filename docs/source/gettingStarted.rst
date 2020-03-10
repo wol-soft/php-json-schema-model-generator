@@ -107,6 +107,8 @@ Now let's have a look at the behaviour of the generated model:
     // Exception: 'Value for age must not be smaller than 0'
     $person->setAge(-10);
 
+Each generated class will implement the interface **PHPModelGenerator\\Interfaces\\JSONModelInterface** implemented in the php-json-schema-model-generator-production repository and thus provide the method *getRawModelDataInput*.
+
 Configuring the generator
 -------------------------
 
