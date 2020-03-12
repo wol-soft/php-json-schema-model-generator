@@ -2,9 +2,9 @@
 [![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%207.2-8892BF.svg)](https://php.net/)
 [![Maintainability](https://api.codeclimate.com/v1/badges/9e3c565c528edb3d58d5/maintainability)](https://codeclimate.com/github/wol-soft/php-json-schema-model-generator/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/7eb29e7366dc3d6a5f44/test_coverage)](https://codeclimate.com/github/wol-soft/php-json-schema-model-generator/test_coverage)
-[![Build Status](https://travis-ci.org/wol-soft/php-micro-template.svg?branch=master)](https://travis-ci.org/wol-soft/php-json-schema-model-generator)
+[![Build Status](https://travis-ci.org/wol-soft/php-json-schema-model-generator.svg?branch=master)](https://travis-ci.org/wol-soft/php-json-schema-model-generator)
 [![Coverage Status](https://coveralls.io/repos/github/wol-soft/php-json-schema-model-generator/badge.svg?branch=master)](https://coveralls.io/github/wol-soft/php-json-schema-model-generator?branch=master)
-[![MIT License](https://img.shields.io/packagist/l/wol-soft/php-micro-template.svg)](https://github.com/wol-soft/php-json-schema-model-generator/blob/master/LICENSE)
+[![MIT License](https://img.shields.io/packagist/l/wol-soft/php-json-schema-model-generator.svg)](https://github.com/wol-soft/php-json-schema-model-generator/blob/master/LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/php-json-schema-model-generator/badge/?version=latest)](https://php-json-schema-model-generator.readthedocs.io/en/latest/?badge=latest)
 
 # php-json-schema-model-generator
@@ -38,7 +38,7 @@ The recommended way to install php-json-schema-model-generator is through [Compo
 $ composer require --dev wol-soft/php-json-schema-model-generator
 $ composer require wol-soft/php-json-schema-model-generator-production
 ```
-To avoid adding all dependencies of the php-json-schema-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the php-json-schema-model-generator-production library. The exception library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment (if you decide to commit the models) or as a build step of your application.
+To avoid adding all dependencies of the php-json-schema-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the [wol-soft/php-json-schema-model-generator-production](https://github.com/wol-soft/php-json-schema-model-generator-production) library. The production library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment (if you decide to commit the models) or as a build step of your application.
 
 ## Basic usage ##
 

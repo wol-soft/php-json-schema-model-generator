@@ -15,4 +15,4 @@ plugins:
     enabled: true
     config:
       tests_patterns:
-        - test/**
+        - tests/**
