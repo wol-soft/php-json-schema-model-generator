@@ -20,7 +20,7 @@ class ComposedValueProcessorFactory implements ProcessorFactoryInterface
      */
     public function getProcessor(
         $type,
-        PropertyCollectionProcessor $propertyCollectionProcessor,
+        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema
     ): PropertyProcessorInterface {
@@ -29,6 +29,6 @@ class ComposedValueProcessorFactory implements ProcessorFactoryInterface
             throw new SchemaException("Unsupported composed value type $type");
         }
 
-        return new $processor($propertyCollectionProcessor, $schemaProcessor, $schema);
+        return new $processor($propertyMetaDataCollection, $schemaProcessor, $schema);
     }
 }

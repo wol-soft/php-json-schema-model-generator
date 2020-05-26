@@ -16,7 +16,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDe
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Property\AbstractValueProcessor;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -93,7 +93,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             $compositionProperty = new CompositionPropertyDecorator(
                 $propertyFactory
                     ->create(
-                        new PropertyCollectionProcessor([$property->getName() => $property->isRequired()]),
+                        new PropertyMetaDataCollection([$property->getName() => $property->isRequired()]),
                         $this->schemaProcessor,
                         $this->schema,
                         $property->getName(),

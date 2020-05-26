@@ -12,7 +12,7 @@ use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Property\AbstractValueProcessor;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -46,7 +46,7 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
             $compositionProperty = new CompositionPropertyDecorator(
                 $propertyFactory
                     ->create(
-                        new PropertyCollectionProcessor([$property->getName() => $property->isRequired()]),
+                        new PropertyMetaDataCollection([$property->getName() => $property->isRequired()]),
                         $this->schemaProcessor,
                         $this->schema,
                         $property->getName(),

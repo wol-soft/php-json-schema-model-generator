@@ -8,7 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\TypeCheckValidator;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
@@ -23,16 +23,16 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
     /**
      * AbstractTypedValueProcessor constructor.
      *
-     * @param PropertyCollectionProcessor $propertyCollectionProcessor
-     * @param SchemaProcessor             $schemaProcessor
-     * @param Schema                      $schema
+     * @param PropertyMetaDataCollection $propertyMetaDataCollection
+     * @param SchemaProcessor            $schemaProcessor
+     * @param Schema                     $schema
      */
     public function __construct(
-        PropertyCollectionProcessor $propertyCollectionProcessor,
+        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema
     ) {
-        parent::__construct($propertyCollectionProcessor, $schemaProcessor, $schema, static::TYPE);
+        parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema, static::TYPE);
     }
 
     /**

@@ -11,7 +11,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -50,7 +50,7 @@ class ArrayItemValidator extends PropertyTemplateValidator
         // an item of the array behaves like a nested property to add item-level validation
         $nestedProperty = (new PropertyFactory(new PropertyProcessorFactory()))
             ->create(
-                new PropertyCollectionProcessor(),
+                new PropertyMetaDataCollection(),
                 $schemaProcessor,
                 $schema,
                 "item of array {$property->getName()}",

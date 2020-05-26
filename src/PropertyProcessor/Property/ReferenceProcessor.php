@@ -39,7 +39,7 @@ class ReferenceProcessor extends AbstractTypedValueProcessor
                     );
                 }
 
-                return $definition->resolveReference($propertyName, $path, $this->propertyCollectionProcessor);
+                return $definition->resolveReference($propertyName, $path, $this->propertyMetaDataCollection);
             }
         } catch (Exception $exception) {
             throw new SchemaException("Unresolved Reference: $reference", 0, $exception);

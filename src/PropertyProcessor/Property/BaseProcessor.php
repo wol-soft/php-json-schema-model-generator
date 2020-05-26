@@ -17,7 +17,7 @@ use PHPModelGenerator\Model\Validator\PropertyNamesValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\ComposedValue\ComposedPropertiesInterface;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 
@@ -186,12 +186,15 @@ class BaseProcessor extends AbstractPropertyProcessor
     protected function addPropertiesToSchema(array $propertyData)
     {
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
-        $propertyCollectionProcessor = new PropertyCollectionProcessor($propertyData['required'] ?? []);
+        $propertyMetaDataCollection = new PropertyMetaDataCollection(
+            $propertyData['required'] ?? [],
+            $propertyData['dependencies'] ?? [],
+        );
 
         foreach ($propertyData['properties'] ?? [] as $propertyName => $propertyStructure) {
             $this->schema->addProperty(
                 $propertyFactory->create(
-                    $propertyCollectionProcessor,
+                    $propertyMetaDataCollection,
                     $this->schemaProcessor,
                     $this->schema,
                     $propertyName,

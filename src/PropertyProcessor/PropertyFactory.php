@@ -32,17 +32,17 @@ class PropertyFactory
     /**
      * Create a property
      *
-     * @param PropertyCollectionProcessor $propertyCollectionProcessor
-     * @param SchemaProcessor             $schemaProcessor
-     * @param Schema                      $schema
-     * @param string                      $propertyName
-     * @param array                       $propertyStructure
+     * @param PropertyMetaDataCollection $propertyMetaDataCollection
+     * @param SchemaProcessor            $schemaProcessor
+     * @param Schema                     $schema
+     * @param string                     $propertyName
+     * @param array                      $propertyStructure
      *
      * @return PropertyInterface
      * @throws SchemaException
      */
     public function create(
-        PropertyCollectionProcessor $propertyCollectionProcessor,
+        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         string $propertyName,
@@ -60,7 +60,7 @@ class PropertyFactory
         $property = $this->processorFactory
             ->getProcessor(
                 $propertyStructure['type'] ?? 'any',
-                $propertyCollectionProcessor,
+                $propertyMetaDataCollection,
                 $schemaProcessor,
                 $schema
             )

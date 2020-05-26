@@ -9,7 +9,7 @@ use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
@@ -24,18 +24,18 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
     /**
      * AbstractValueProcessor constructor.
      *
-     * @param PropertyCollectionProcessor $propertyCollectionProcessor
-     * @param SchemaProcessor             $schemaProcessor
-     * @param Schema                      $schema
-     * @param string                      $type
+     * @param PropertyMetaDataCollection $propertyMetaDataCollection
+     * @param SchemaProcessor            $schemaProcessor
+     * @param Schema                     $schema
+     * @param string                     $type
      */
     public function __construct(
-        PropertyCollectionProcessor $propertyCollectionProcessor,
+        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         string $type = ''
     ) {
-        parent::__construct($propertyCollectionProcessor, $schemaProcessor, $schema);
+        parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
         $this->type = $type;
     }
 
@@ -48,7 +48,7 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
     {
         $property = (new Property($propertyName, $this->type))
             ->setDescription($propertyData['description'] ?? '')
-            ->setRequired($this->propertyCollectionProcessor->isAttributeRequired($propertyName))
+            ->setRequired($this->propertyMetaDataCollection->isAttributeRequired($propertyName))
             ->setReadOnly(
                 (isset($propertyData['readOnly']) && $propertyData['readOnly'] === true) ||
                 $this->schemaProcessor->getGeneratorConfiguration()->isImmutable()

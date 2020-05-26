@@ -11,7 +11,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\ComposedValueProcessorFactory;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintTransferDecorator;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -23,8 +23,8 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
  */
 abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
 {
-    /** @var PropertyCollectionProcessor */
-    protected $propertyCollectionProcessor;
+    /** @var PropertyMetaDataCollection */
+    protected $propertyMetaDataCollection;
     /** @var SchemaProcessor */
     protected $schemaProcessor;
     /** @var Schema */
@@ -33,16 +33,16 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     /**
      * AbstractPropertyProcessor constructor.
      *
-     * @param PropertyCollectionProcessor $propertyCollectionProcessor
-     * @param SchemaProcessor             $schemaProcessor
-     * @param Schema                      $schema
+     * @param PropertyMetaDataCollection $propertyMetaDataCollection
+     * @param SchemaProcessor            $schemaProcessor
+     * @param Schema                     $schema
      */
     public function __construct(
-        PropertyCollectionProcessor $propertyCollectionProcessor,
+        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema
     ) {
-        $this->propertyCollectionProcessor = $propertyCollectionProcessor;
+        $this->propertyMetaDataCollection = $propertyMetaDataCollection;
         $this->schemaProcessor = $schemaProcessor;
         $this->schema = $schema;
     }
@@ -111,7 +111,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
 
             $composedProperty = $propertyFactory
                 ->create(
-                    $this->propertyCollectionProcessor,
+                    $this->propertyMetaDataCollection,
                     $this->schemaProcessor,
                     $this->schema,
                     $property->getName(),

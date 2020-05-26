@@ -9,7 +9,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyProxy;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -59,9 +59,9 @@ class SchemaDefinition
     /**
      * Resolve a reference
      *
-     * @param string                      $propertyName
-     * @param array                       $path
-     * @param PropertyCollectionProcessor $propertyCollectionProcessor
+     * @param string                     $propertyName
+     * @param array                      $path
+     * @param PropertyMetaDataCollection $propertyMetaDataCollection
      *
      * @return PropertyInterface
      *
@@ -71,7 +71,7 @@ class SchemaDefinition
     public function resolveReference(
         string $propertyName,
         array $path,
-        PropertyCollectionProcessor $propertyCollectionProcessor
+        PropertyMetaDataCollection $propertyMetaDataCollection
     ): PropertyInterface {
         $structure = $this->structure;
         $originalPath = $path;
@@ -93,7 +93,7 @@ class SchemaDefinition
             try {
                 $this->resolvedPaths->offsetSet($key, (new PropertyFactory(new PropertyProcessorFactory()))
                     ->create(
-                        $propertyCollectionProcessor,
+                        $propertyMetaDataCollection,
                         $this->schemaProcessor,
                         $this->schema,
                         $propertyName,

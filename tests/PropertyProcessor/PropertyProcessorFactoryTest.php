@@ -5,7 +5,6 @@ namespace PHPModelGenerator\Tests\PropertyProcessor;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\PropertyProcessor\Property\ArrayProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\BooleanProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\IntegerProcessor;
@@ -13,7 +12,7 @@ use PHPModelGenerator\PropertyProcessor\Property\NullProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\NumberProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\ObjectProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\StringProcessor;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -39,7 +38,7 @@ class PropertyProcessorFactoryTest extends TestCase
 
         $propertyProcessor = $propertyProcessorFactory->getProcessor(
             $type,
-            new PropertyCollectionProcessor(),
+            new PropertyMetaDataCollection(),
             new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),
             new Schema('', '')
         );
@@ -77,7 +76,7 @@ class PropertyProcessorFactoryTest extends TestCase
 
         $propertyProcessorFactory->getProcessor(
             'Hello',
-            new PropertyCollectionProcessor(),
+            new PropertyMetaDataCollection(),
             new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),
             new Schema('', '')
         );

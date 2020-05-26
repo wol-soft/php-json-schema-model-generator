@@ -10,7 +10,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -32,27 +32,27 @@ class MultiTypeProcessor extends AbstractValueProcessor
     /**
      * MultiTypePropertyProcessor constructor.
      *
-     * @param PropertyProcessorFactory    $propertyProcessorFactory
-     * @param array                       $types
-     * @param PropertyCollectionProcessor $propertyCollectionProcessor
-     * @param SchemaProcessor             $schemaProcessor
-     * @param Schema                      $schema
+     * @param PropertyProcessorFactory   $propertyProcessorFactory
+     * @param array                      $types
+     * @param PropertyMetaDataCollection $propertyMetaDataCollection
+     * @param SchemaProcessor            $schemaProcessor
+     * @param Schema                     $schema
      *
      * @throws SchemaException
      */
     public function __construct(
         PropertyProcessorFactory $propertyProcessorFactory,
         array $types,
-        PropertyCollectionProcessor $propertyCollectionProcessor,
+        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema
     ) {
-        parent::__construct($propertyCollectionProcessor, $schemaProcessor, $schema);
+        parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
 
         foreach ($types as $type) {
             $this->propertyProcessors[] = $propertyProcessorFactory->getProcessor(
                 $type,
-                $propertyCollectionProcessor,
+                $propertyMetaDataCollection,
                 $schemaProcessor,
                 $schema
             );

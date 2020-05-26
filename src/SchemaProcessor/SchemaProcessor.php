@@ -9,7 +9,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\RenderJob;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 
@@ -158,7 +158,7 @@ class SchemaProcessor
         $structure['type'] = 'base';
 
         (new PropertyFactory(new PropertyProcessorFactory()))->create(
-            new PropertyCollectionProcessor($structure['required'] ?? []),
+            new PropertyMetaDataCollection($structure['required'] ?? []),
             $this,
             $schema,
             $className,

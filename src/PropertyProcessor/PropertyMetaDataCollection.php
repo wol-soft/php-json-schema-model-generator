@@ -5,17 +5,19 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor;
 
 /**
- * Class PropertyCollectionProcessor
+ * Class PropertyMetaDataCollection
+ *
+ * Includes the meta data for a collection of properties
  *
  * @package PHPModelGenerator\PropertyProcessor
  */
-class PropertyCollectionProcessor
+class PropertyMetaDataCollection
 {
     /** @var array */
     protected $requiredAttributes = [];
 
     /**
-     * PropertyCollectionProcessor constructor.
+     * PropertyMetaDataCollection constructor.
      *
      * @param array $requiredAttributes
      */

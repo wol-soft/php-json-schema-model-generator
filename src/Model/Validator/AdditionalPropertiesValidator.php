@@ -9,7 +9,7 @@ use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -43,7 +43,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
         $validationProperty = $propertyFactory->create(
-            new PropertyCollectionProcessor([static::PROPERTY_NAME]),
+            new PropertyMetaDataCollection([static::PROPERTY_NAME]),
             $schemaProcessor,
             $schema,
             static::PROPERTY_NAME,

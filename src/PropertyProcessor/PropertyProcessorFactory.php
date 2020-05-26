@@ -15,48 +15,48 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 class PropertyProcessorFactory implements ProcessorFactoryInterface
 {
     /**
-     * @param string|array                $type
-     * @param PropertyCollectionProcessor $propertyCollectionProcessor
-     * @param SchemaProcessor             $schemaProcessor
-     * @param Schema                      $schema
+     * @param string|array               $type
+     * @param PropertyMetaDataCollection $propertyMetaDataCollection
+     * @param SchemaProcessor            $schemaProcessor
+     * @param Schema                     $schema
      *
      * @return PropertyProcessorInterface
      * @throws SchemaException
      */
     public function getProcessor(
         $type,
-        PropertyCollectionProcessor $propertyCollectionProcessor,
+        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema
     ): PropertyProcessorInterface {
         if (is_string($type)) {
             return $this->getSingleTypePropertyProcessor(
                 $type,
-                $propertyCollectionProcessor,
+                $propertyMetaDataCollection,
                 $schemaProcessor,
                 $schema
             );
         }
 
         if (is_array($type)) {
-            return new MultiTypeProcessor($this, $type, $propertyCollectionProcessor, $schemaProcessor, $schema);
+            return new MultiTypeProcessor($this, $type, $propertyMetaDataCollection, $schemaProcessor, $schema);
         }
 
         throw new SchemaException('Invalid property type');
     }
 
     /**
-     * @param string                      $type
-     * @param PropertyCollectionProcessor $propertyCollectionProcessor
-     * @param SchemaProcessor             $schemaProcessor
-     * @param Schema                      $schema
+     * @param string                     $type
+     * @param PropertyMetaDataCollection $propertyMetaDataCollection
+     * @param SchemaProcessor            $schemaProcessor
+     * @param Schema                     $schema
      *
      * @return PropertyProcessorInterface
      * @throws SchemaException
      */
     protected function getSingleTypePropertyProcessor(
         string $type,
-        PropertyCollectionProcessor $propertyCollectionProcessor,
+        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema
     ): PropertyProcessorInterface {
@@ -65,6 +65,6 @@ class PropertyProcessorFactory implements ProcessorFactoryInterface
             throw new SchemaException("Unsupported property type $type");
         }
 
-        return new $processor($propertyCollectionProcessor, $schemaProcessor, $schema);
+        return new $processor($propertyMetaDataCollection, $schemaProcessor, $schema);
     }
 }

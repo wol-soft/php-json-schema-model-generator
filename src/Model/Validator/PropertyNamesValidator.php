@@ -11,7 +11,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\PropertyProcessor\Property\StringProcessor;
-use PHPModelGenerator\PropertyProcessor\PropertyCollectionProcessor;
+use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -39,7 +39,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
         Schema $schema,
         array $propertiesNames
     ) {
-        $nameValidationProperty = (new StringProcessor(new PropertyCollectionProcessor(), $schemaProcessor, $schema))
+        $nameValidationProperty = (new StringProcessor(new PropertyMetaDataCollection(), $schemaProcessor, $schema))
             ->process('property name', $propertiesNames)
             // the property name validator doesn't need type checks or required checks so simply filter them out
             ->filterValidators(function (Validator $validator) {
