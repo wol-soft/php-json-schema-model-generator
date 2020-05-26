@@ -25,7 +25,7 @@ class PropertyDependencyValidator extends PropertyTemplateValidator
             sprintf(
                 'Missing required attributes which are dependants of %s:' .
                     '\n  - " . join("\n  - ", $missingAttributes) . "',
-                $property->getName(),
+                $property->getName()
             ),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PropertyDependency.phptpl',
             [
@@ -33,9 +33,9 @@ class PropertyDependencyValidator extends PropertyTemplateValidator
                 'dependencies' => preg_replace(
                     '(\d+\s=>)',
                     '',
-                    var_export(array_values($dependencies), true),
+                    var_export(array_values($dependencies), true)
                 ),
-            ],
+            ]
         );
     }
 

@@ -104,7 +104,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             function (bool $carry, $dependency): bool {
                 return $carry && is_string($dependency);
             },
-            true,
+            true
         );
 
         if ($propertyDependency) {

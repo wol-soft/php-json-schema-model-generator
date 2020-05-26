@@ -93,7 +93,7 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTest
             <<<ERROR
 Missing required attributes which are dependants of credit_card:
   - billing_address
-ERROR,
+ERROR
         );
 
         $className = $this->generateClassFromFile('PropertyDependency.json', $configuration);
@@ -147,7 +147,7 @@ Missing required attributes which are dependants of credit_card:
   - billing_address
 ERROR,
                 ],
-            ],
+            ]
         );
     }
 
@@ -189,7 +189,7 @@ Missing required attributes which are dependants of billing_address:
   - credit_card
 ERROR,
                 ],
-            ],
+            ]
         );
     }
 }
