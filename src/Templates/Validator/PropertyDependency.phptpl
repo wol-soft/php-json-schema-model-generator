@@ -1,0 +1,9 @@
+array_key_exists('{{ propertyName }}', $modelData) && (function () use (&$modelData, &$missingAttributes) {
+    foreach ({{ dependencies }} as $dependency) {
+        if (!array_key_exists($dependency, $modelData)) {
+            $missingAttributes[] = $dependency;
+        }
+    }
+
+    return !empty($missingAttributes);
+})()

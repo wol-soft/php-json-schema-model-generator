@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "credit_card": {
+      "type": "integer"
+    },
+    "billing_address": {
+      "type": "string"
+    }
+  },
+  "dependencies": {
+    "credit_card": [
+      "billing_address",
+      "name"
+    ]
+  }
+}

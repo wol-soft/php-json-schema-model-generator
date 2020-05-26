@@ -280,7 +280,70 @@ Exceptions contain detailed information about the violations:
 Dependencies
 ------------
 
-Object dependencies are currently not supported.
+With the keyword `dependencies` a list of properties can be defined which require a given dependency to be fulfilled if the property is present.
+
+Property Dependencies
+^^^^^^^^^^^^^^^^^^^^^
+
+Property dependencies refer to a list of other object properties. Each of the referred property is required if the property utilizing the dependency is present.
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "credit_card": {
+                "type": "integer"
+            },
+            "billing_address": {
+                "type": "string"
+            }
+        },
+        "dependencies": {
+            "credit_card": [
+                "billing_address"
+            ]
+        }
+    }
+
+The generated object accepts input which provide none of the defined properties, both of the defined properties or only the billing_address. If only a credit_card is provided the validation will fail as the presence of the credit_card property depends on the presence of the billing_address.
+
+Exceptions contain a list of all violated properties which are declared as a dependency but aren't provided:
+
+.. code-block:: none
+
+    Missing required attributes which are dependants of credit_card:
+      - billing_address
+
+As stated above the dependency declaration is not bidirectional. If the presence of a billing_address shall also require the credit_card property to be required the dependency has to be declared separately:
+
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "credit_card": {
+                "type": "integer"
+            },
+            "billing_address": {
+                "type": "string"
+            }
+        },
+        "dependencies": {
+            "credit_card": [
+                "billing_address"
+            ],
+            "billing_address": [
+                "credit_card"
+            ]
+        }
+    }
+
+Schema Dependencies
+^^^^^^^^^^^^^^^^^^^
+
+Schema dependencies are currently not supported.
 
 Pattern Properties
 ------------------

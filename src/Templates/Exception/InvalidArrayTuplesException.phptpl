@@ -1,5 +1,5 @@
 Invalid tuple item in array {{ propertyName }}:"
-  . (function (array $invalidTuples) {
+  . (function (array $invalidTuples): string {
         $output = '';
         foreach ($invalidTuples as $tupleIndex => $errors) {
             $output .= "\n  - invalid tuple #$tupleIndex\n    * " . implode("\n    * ", str_replace("\n", "\n    ", $errors));

@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\ComposedValueProcessorFactory;
@@ -57,6 +58,10 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      */
     protected function generateValidators(PropertyInterface $property, array $propertyData): void
     {
+        if ($dependencies = $this->propertyMetaDataCollection->getAttributeDependencies($property->getName())) {
+            $this->addDependencyValidator($property, $dependencies);
+        }
+
         if ($property->isRequired()) {
             $property->addValidator(new RequiredPropertyValidator($property), 1);
         }
@@ -89,6 +94,27 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             ),
             3
         );
+    }
+
+    protected function addDependencyValidator(PropertyInterface $property, array $dependencies): void
+    {
+        // check if we have a simple list of properties which must be present if the current property is present
+        $propertyDependency = array_reduce(
+            $dependencies,
+            function (bool $carry, $dependency): bool {
+                return $carry && is_string($dependency);
+            },
+            true,
+        );
+
+        if ($propertyDependency) {
+            $property->addValidator(new PropertyDependencyValidator($property, $dependencies));
+
+            return;
+        }
+
+        // TODO: We have a nested schema inside the dependency definition which must be fulfilled if the current
+        // property is available
     }
 
     /**
