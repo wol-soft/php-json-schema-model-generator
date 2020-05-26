@@ -188,7 +188,7 @@ class BaseProcessor extends AbstractPropertyProcessor
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
         $propertyMetaDataCollection = new PropertyMetaDataCollection(
             $propertyData['required'] ?? [],
-            $propertyData['dependencies'] ?? [],
+            $propertyData['dependencies'] ?? []
         );
 
         foreach ($propertyData['properties'] ?? [] as $propertyName => $propertyStructure) {
