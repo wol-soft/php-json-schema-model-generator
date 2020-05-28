@@ -101,7 +101,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     )
             );
 
-            $compositionProperty->filterValidators(function (Validator $validator) {
+            $compositionProperty->filterValidators(function (Validator $validator): bool {
                 return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
                     !is_a($validator->getValidator(), ComposedPropertyValidator::class);
             });
@@ -186,7 +186,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                 $mergedPropertySchema->addProperty(
                     // don't validate fields in merged properties. All fields were validated before corresponding to
                     // the defined constraints of the composition property.
-                    (clone $nestedProperty)->filterValidators(function () {
+                    (clone $nestedProperty)->filterValidators(function (): bool {
                         return false;
                     })
                 );

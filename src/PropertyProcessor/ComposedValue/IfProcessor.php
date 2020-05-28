@@ -54,7 +54,7 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
                     )
             );
 
-            $compositionProperty->filterValidators(function (Validator $validator) {
+            $compositionProperty->filterValidators(function (Validator $validator): bool {
                 return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
                     !is_a($validator->getValidator(), ComposedPropertyValidator::class);
             });

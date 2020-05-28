@@ -1,0 +1,25 @@
+array_key_exists('{{ propertyName }}', $modelData) && (function () use ($modelData, &$dependencyException) {
+    {% if generatorConfiguration.collectErrors() %}
+        $originalErrorRegistry = $this->errorRegistry;
+        $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+    {% else %}
+        try {
+    {% endif%}
+
+    $value = $modelData;
+    {{ viewHelper.resolvePropertyDecorator(nestedProperty) }}
+
+    {% if generatorConfiguration.collectErrors() %}
+        if ($this->errorRegistry->getErrors()) {
+            $dependencyException = $this->errorRegistry;
+        }
+
+        $this->errorRegistry = $originalErrorRegistry;
+    {% else %}
+        } catch (\Exception $e) {
+            $dependencyException = $e;
+        }
+    {% endif %}
+
+    return $dependencyException !== null;
+})()

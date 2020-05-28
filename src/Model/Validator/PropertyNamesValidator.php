@@ -42,7 +42,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
         $nameValidationProperty = (new StringProcessor(new PropertyMetaDataCollection(), $schemaProcessor, $schema))
             ->process('property name', $propertiesNames)
             // the property name validator doesn't need type checks or required checks so simply filter them out
-            ->filterValidators(function (Validator $validator) {
+            ->filterValidators(function (Validator $validator): bool {
                 return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
                     !is_a($validator->getValidator(), TypeCheckValidator::class);
             });

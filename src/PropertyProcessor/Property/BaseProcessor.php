@@ -236,7 +236,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                     $this->schema->addProperty(
                         (clone $property)
                             ->setRequired(false)
-                            ->filterValidators(function (Validator $validator) {
+                            ->filterValidators(function (Validator $validator): bool {
                                 return is_a($validator->getValidator(), PropertyTemplateValidator::class);
                             })
                     );

@@ -7,10 +7,14 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
+use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
+use PHPModelGenerator\Model\Validator\TypeCheckValidator;
 use PHPModelGenerator\PropertyProcessor\ComposedValueProcessorFactory;
+use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
@@ -96,6 +100,12 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
         );
     }
 
+    /**
+     * @param PropertyInterface $property
+     * @param array $dependencies
+     *
+     * @throws SchemaException
+     */
     protected function addDependencyValidator(PropertyInterface $property, array $dependencies): void
     {
         // check if we have a simple list of properties which must be present if the current property is present
@@ -113,8 +123,43 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             return;
         }
 
-        // TODO: We have a nested schema inside the dependency definition which must be fulfilled if the current
-        // property is available
+        if (!isset($dependencies['type'])) {
+            $dependencies['type'] = 'object';
+        }
+
+        $dependencySchema = $this->schemaProcessor->processSchema(
+            $dependencies,
+            $this->schema->getClassPath(),
+            "{$property->getName()}_Dependency",
+            $this->schema->getSchemaDictionary()
+        );
+
+        $property->addValidator(new SchemaDependencyValidator($this->schemaProcessor, $property, $dependencySchema));
+        $this->schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
+
+        foreach ($dependencySchema->getProperties() as $property) {
+            $typeCheckValidator = null;
+
+            $transferProperty = (clone $property)
+                ->setRequired(false)
+                ->filterValidators(function (Validator $validator) use (&$typeCheckValidator): bool {
+                    if (is_a($validator->getValidator(), TypeCheckValidator::class)) {
+                        $typeCheckValidator = $validator->getValidator();
+
+                        return false;
+                    }
+
+                    return !is_a($validator->getValidator(), RequiredPropertyValidator::class);
+                });
+
+            // rebuild the type check validator as the origin property may be required but the transferred property
+            // must be optional
+            if ($typeCheckValidator !== null) {
+                $transferProperty->addValidator(new TypeCheckValidator($property->getType(), $transferProperty));
+            }
+
+            $this->schema->addProperty($transferProperty);
+        }
     }
 
     /**
