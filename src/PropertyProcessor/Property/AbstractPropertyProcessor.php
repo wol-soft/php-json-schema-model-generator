@@ -155,7 +155,8 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             // rebuild the type check validator as the origin property may be required but the transferred property
             // must be optional
             if ($typeCheckValidator !== null) {
-                $transferProperty->addValidator(new TypeCheckValidator($property->getType(), $transferProperty));
+                preg_match('/is_([^(]+)/', $typeCheckValidator->getCheck(), $matches);
+                $transferProperty->addValidator(new TypeCheckValidator($matches[1], $transferProperty));
             }
 
             $this->schema->addProperty($transferProperty);

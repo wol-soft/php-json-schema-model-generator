@@ -72,7 +72,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         $className = '\\MyApp\\' . $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setNamespacePrefix('\\MyApp\\')
+            (new GeneratorConfiguration())->setNamespacePrefix('MyApp')
         );
 
         $object = new $className(['property' => 'Hello']);
@@ -88,7 +88,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         $className = '\\MyApp\\' . $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setSerialization(true)->setNamespacePrefix('\\MyApp\\')
+            (new GeneratorConfiguration())->setSerialization(true)->setNamespacePrefix('MyApp')
         );
 
         $object = new $className(['property' => 'Hello']);
@@ -100,12 +100,39 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->assertTrue($object instanceof JSONModelInterface);
     }
 
+    public function testNestedSerializationFunctions(): void
+    {
+        $className = '\\MyApp\\' . $this->generateClassFromFile(
+            'NestedSchema.json',
+            (new GeneratorConfiguration())->setSerialization(true)->setNamespacePrefix('MyApp')
+        );
+
+        $input = [
+            'name' => 'Hannes',
+            'address' => [
+                'street' => 'Test-Street',
+                'number' => null
+            ]
+        ];
+
+        $object = new $className($input);
+
+        $this->assertEquals($input, $object->toArray());
+        $this->assertEquals('{"name":"Hannes","address":{"street":"Test-Street","number":null}}', $object->toJSON());
+
+        $this->assertEquals(['name' => 'Hannes', 'address' => null], $object->toArray(1));
+        $this->assertEquals('{"name":"Hannes","address":null}', $object->toJSON(0, 1));
+
+        $this->assertFalse($object->toArray(0));
+        $this->assertFalse($object->toJSON(0, 0));
+    }
+
     /**
      * @dataProvider invalidStringPropertyValueProvider
      *
      * @param GeneratorConfiguration $configuration
      * @param string                 $propertyValue
-     * @param string                 $exceptionMessage
+     * @param array                  $exceptionMessage
      */
     public function testInvalidSetterThrowsAnException(
         GeneratorConfiguration $configuration,
@@ -175,7 +202,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         $className = '\\My\\Prefix\\' . $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setNamespacePrefix('\\My\\Prefix')
+            (new GeneratorConfiguration())->setNamespacePrefix('My\Prefix')
         );
 
         $object = new $className([]);
@@ -187,7 +214,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         $this->generateDirectory(
             'RecursiveTest',
-            (new GeneratorConfiguration())->setNamespacePrefix('\\Application')->setOutputEnabled(false)
+            (new GeneratorConfiguration())->setNamespacePrefix('Application')->setOutputEnabled(false)
         );
 
         $mainClassFQCN = '\\Application\\MainClass';
