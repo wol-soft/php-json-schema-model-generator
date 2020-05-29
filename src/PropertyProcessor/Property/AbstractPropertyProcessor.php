@@ -109,12 +109,13 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     protected function addDependencyValidator(PropertyInterface $property, array $dependencies): void
     {
         // check if we have a simple list of properties which must be present if the current property is present
-        $propertyDependency = array_reduce(
+        $propertyDependency = true;
+
+        array_walk(
             $dependencies,
-            function (bool $carry, $dependency): bool {
-                return $carry && is_string($dependency);
-            },
-            true
+            function ($dependency, $index) use (&$propertyDependency): void {
+                $propertyDependency = $propertyDependency && is_int($index) && is_string($dependency);
+            }
         );
 
         if ($propertyDependency) {
@@ -130,13 +131,23 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
         $dependencySchema = $this->schemaProcessor->processSchema(
             $dependencies,
             $this->schema->getClassPath(),
-            "{$property->getName()}_Dependency",
+            "{$property->getName()}_Dependency_" . uniqid(),
             $this->schema->getSchemaDictionary()
         );
 
         $property->addValidator(new SchemaDependencyValidator($this->schemaProcessor, $property, $dependencySchema));
         $this->schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
 
+        $this->transferDependendPropertiesToBaseSchema($dependencySchema);
+    }
+
+    /**
+     * Transfer all properties from $dependencySchema to the base schema of the current property
+     *
+     * @param Schema $dependencySchema
+     */
+    private function transferDependendPropertiesToBaseSchema(Schema $dependencySchema): void
+    {
         foreach ($dependencySchema->getProperties() as $property) {
             $typeCheckValidator = null;
 

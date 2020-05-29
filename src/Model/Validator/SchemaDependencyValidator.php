@@ -28,8 +28,8 @@ class SchemaDependencyValidator extends PropertyTemplateValidator
     public function __construct(SchemaProcessor $schemaProcessor, PropertyInterface $property, Schema $schema)
     {
         parent::__construct(
-            "Invalid schema which is dependant on {$property->getName()}:\\n  " .
-                '" . implode("\n  ", explode("\n", $dependencyException->getMessage())) . "',
+            "Invalid schema which is dependant on {$property->getName()}:\\n  - " .
+                '" . implode("\n  - ", explode("\n", $dependencyException->getMessage())) . "',
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'SchemaDependency.phptpl',
             [
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),

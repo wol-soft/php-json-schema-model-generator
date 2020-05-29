@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
+use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 
 /**
@@ -69,6 +70,35 @@ class Schema
      */
     public function getProperties(): array
     {
+        $hasSchemaDependencyValidator = function (PropertyInterface $property): bool {
+            foreach ($property->getValidators() as $validator) {
+                if ($validator->getValidator() instanceof SchemaDependencyValidator) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        // order the properties to make sure properties with a SchemaDependencyValidator are validated at the beginning
+        // of the validation process for correct exception order of the messages
+        usort(
+            $this->properties,
+            function (
+                PropertyInterface $property,
+                PropertyInterface $comparedProperty
+            ) use ($hasSchemaDependencyValidator): int {
+                $propertyHasSchemaDependencyValidator = $hasSchemaDependencyValidator($property);
+                $comparedPropertyHasSchemaDependencyValidator = $hasSchemaDependencyValidator($comparedProperty);
+
+                if ($propertyHasSchemaDependencyValidator === $comparedPropertyHasSchemaDependencyValidator) {
+                    return 0;
+                }
+
+                return ($propertyHasSchemaDependencyValidator < $comparedPropertyHasSchemaDependencyValidator) ? 1 : -1;
+            }
+        );
+
         return $this->properties;
     }
 
