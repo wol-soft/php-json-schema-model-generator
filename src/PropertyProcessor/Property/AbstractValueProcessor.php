@@ -46,8 +46,7 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
      */
     public function process(string $propertyName, array $propertyData): PropertyInterface
     {
-        $property = (new Property($propertyName, $this->type))
-            ->setDescription($propertyData['description'] ?? '')
+        $property = (new Property($propertyName, $this->type, $propertyData['description'] ?? ''))
             ->setRequired($this->propertyMetaDataCollection->isAttributeRequired($propertyName))
             ->setReadOnly(
                 (isset($propertyData['readOnly']) && $propertyData['readOnly'] === true) ||

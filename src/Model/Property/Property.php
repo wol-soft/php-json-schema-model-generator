@@ -47,14 +47,16 @@ class Property implements PropertyInterface
      *
      * @param string $name
      * @param string $type
+     * @param string $description
      *
      * @throws SchemaException
      */
-    public function __construct(string $name, string $type)
+    public function __construct(string $name, string $type, string $description = '')
     {
         $this->attribute = $this->processAttributeName($name);
         $this->name = $name;
         $this->type = $type;
+        $this->description = $description;
     }
 
     /**
@@ -121,16 +123,6 @@ class Property implements PropertyInterface
     public function getDescription(): string
     {
         return $this->description;
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function setDescription(string $description): PropertyInterface
-    {
-        $this->description = $description;
-
-        return $this;
     }
 
     /**

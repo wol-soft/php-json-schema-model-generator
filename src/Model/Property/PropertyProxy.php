@@ -103,14 +103,6 @@ class PropertyProxy implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function setDescription(string $description): PropertyInterface
-    {
-        return $this->getProperty()->setDescription($description);
-    }
-
-    /**
-     * @inheritdoc
-     */
     public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): PropertyInterface
     {
         return $this->getProperty()->addValidator($validator, $priority);

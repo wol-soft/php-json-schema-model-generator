@@ -4,7 +4,6 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\SchemaDefinition;
 
-use PHPModelGenerator\Exception\PHPModelGenerator\Exception;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyProxy;

@@ -101,7 +101,7 @@ class SchemaProcessor
      *                                                 nested schema as well
      * @param bool                       $initialClass Is it an initial class or a nested class?
      *
-     * @return Schema
+     * @return Schema|null
      *
      * @throws SchemaException
      */

@@ -59,15 +59,6 @@ interface PropertyInterface
     public function getDescription(): string;
 
     /**
-     * Set a description for the property
-     *
-     * @param string $description
-     *
-     * @return PropertyInterface
-     */
-    public function setDescription(string $description): PropertyInterface;
-
-    /**
      * Add a validator for the property
      *
      * @param PropertyValidatorInterface $validator

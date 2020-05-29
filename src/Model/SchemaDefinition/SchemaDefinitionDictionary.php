@@ -106,7 +106,7 @@ class SchemaDefinitionDictionary extends ArrayObject
      * @param SchemaProcessor $schemaProcessor
      * @param array           $path
      *
-     * @return SchemaDefinition
+     * @return SchemaDefinition|null
      *
      * @throws SchemaException
      */

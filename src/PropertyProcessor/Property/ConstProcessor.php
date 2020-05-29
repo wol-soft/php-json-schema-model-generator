@@ -21,9 +21,8 @@ class ConstProcessor implements PropertyProcessorInterface
      */
     public function process(string $propertyName, array $propertyData): PropertyInterface
     {
-        return (new Property($propertyName, gettype($propertyData['const'])))
+        return (new Property($propertyName, gettype($propertyData['const']), $propertyData['description'] ?? ''))
             ->setRequired(true)
-            ->setDescription($propertyData['description'] ?? '')
             ->addValidator(new PropertyValidator(
                 '$value !== ' . var_export($propertyData['const'], true),
                 "Invalid value for $propertyName declined by const constraint"

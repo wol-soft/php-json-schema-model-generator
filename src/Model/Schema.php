@@ -37,9 +37,9 @@ class Schema
     /**
      * Schema constructor.
      *
-     * @param string                     $classPath
-     * @param string                     $className
-     * @param SchemaDefinitionDictionary $dictionary
+     * @param string                          $classPath
+     * @param string                          $className
+     * @param SchemaDefinitionDictionary|null $dictionary
      */
     public function __construct(string $classPath, string $className, SchemaDefinitionDictionary $dictionary = null)
     {
