@@ -12,7 +12,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-class BaseReferenceProcessor extends ReferenceProcessor
+class BasereferenceProcessor extends ReferenceProcessor
 {
     /**
      * @inheritdoc
