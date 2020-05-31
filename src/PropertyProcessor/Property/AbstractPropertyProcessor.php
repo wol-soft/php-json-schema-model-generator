@@ -131,7 +131,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
         $dependencySchema = $this->schemaProcessor->processSchema(
             $dependencies,
             $this->schema->getClassPath(),
-            "{$property->getName()}_Dependency_" . uniqid(),
+            ucfirst("{$property->getName()}_Dependency_" . uniqid()),
             $this->schema->getSchemaDictionary()
         );
 
