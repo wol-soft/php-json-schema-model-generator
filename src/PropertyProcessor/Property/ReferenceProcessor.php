@@ -10,7 +10,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 
 /**
- * Class ConstProcessor
+ * Class ReferenceProcessor
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */

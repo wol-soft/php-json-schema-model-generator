@@ -48,3 +48,38 @@ An example for properties referring to a definition inside the same schema:
             }
         }
     }
+
+Base Reference
+--------------
+
+The whole model may contain a reference. In this case all base validations (eg. number of allowed attributes) must be defined in the referenced schema.
+
+.. code-block:: json
+
+    {
+        "definitions": {
+            "person": {
+                "$id": "#person",
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "$id": "#Citizen",
+        "$ref": "#person"
+    }
+
+Generated interface:
+
+.. code-block:: php
+
+    // class Citizen
+    public function setName(?string $name): self;
+    public function getName(): ?string;
+
+If a base reference is used and the reference doesn't point to an object definition an Exception will be thrown during the model generation process:
+
+* A referenced schema on base level must provide an object definition [Citizen]

@@ -370,7 +370,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     {
         // the combination external reference - external reference must'nt be tested. If the internal person definition
         // from the RecursiveObjectReference.json maps to an external definition and the object reference maps to an
-        // external  definition the internal definition is never used and thus can be ignored
+        // external definition the internal definition is never used and thus can be ignored
         return array_merge(
             $this->combineDataProvider(
                 $this->internalReferenceProvider(),
@@ -434,5 +434,46 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
             'Local reference' => ['../ReferencePropertyTest_external/library.json'],
             'Network reference' => ['https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/library.json'],
         ];
+    }
+
+    public function testInvalidBaseReferenceThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage('A referenced schema on base level must provide an object definition');
+
+        $this->generateClassFromFile('InvalidBaseReference.json');
+    }
+
+    /**
+     * @dataProvider validBaseReferenceObjectInputProvider
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testValidBaseReference(
+        string $reference,
+        ?array $input
+    ): void {
+        $className = $this->generateClassFromFileTemplate('BaseReference.json', [$reference]);
+
+        $object = new $className($input);
+
+        $this->assertSame($input['name'] ?? null, ($object->getName()));
+        $this->assertSame($input['age'] ?? null, ($object->getAge()));
+        $this->assertSame($input, ($object->getRawModelDataInput()));
+    }
+
+    public function validBaseReferenceObjectInputProvider(): array
+    {
+        return $this->combineDataProvider(
+            array_merge($this->internalReferenceProvider(), $this->externalReferenceProvider()),
+            [
+                'Empty object' => [[]],
+                'Object with one property' => [['name' => 'Hannes']],
+                'Object with nulled property' => [['name' => 'Hannes', 'age' => null]],
+                'Object with additional property' => [['name' => 'Hannes', 'age' => 42, 'stringProperty' => 'Hello']],
+            ]
+        );
     }
 }

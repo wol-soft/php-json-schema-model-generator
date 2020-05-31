@@ -54,10 +54,12 @@ class PropertyFactory
         }
         // redirect references to the ReferenceProcessor
         if (isset($propertyStructure['$ref'])) {
-            $propertyStructure['type'] = 'reference';
+            $propertyStructure['type'] = isset($propertyStructure['type']) && $propertyStructure['type'] === 'base'
+                ? 'baseReference'
+                : 'reference';
         }
 
-        $property = $this->processorFactory
+        return $this->processorFactory
             ->getProcessor(
                 $propertyStructure['type'] ?? 'any',
                 $propertyMetaDataCollection,
@@ -65,7 +67,5 @@ class PropertyFactory
                 $schema
             )
             ->process($propertyName, $propertyStructure);
-
-        return $property;
     }
 }

@@ -1,0 +1,11 @@
+{
+  "definitions": {
+    "person": {
+      "$id": "#yearBetween1900and2000",
+      "type": "integer",
+      "minimum": 1900,
+      "maximum": 2000
+    }
+  },
+  "$ref": "#yearBetween1900and2000"
+}

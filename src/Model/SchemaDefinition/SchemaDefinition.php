@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\SchemaDefinition;
 
+use PHPModelGenerator\Exception\PHPModelGeneratorException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyProxy;
@@ -64,7 +65,7 @@ class SchemaDefinition
      *
      * @return PropertyInterface
      *
-     * @throws PHPModelGenerator\Exception
+     * @throws PHPModelGeneratorException
      * @throws SchemaException
      */
     public function resolveReference(
@@ -88,7 +89,8 @@ class SchemaDefinition
         if (!$this->resolvedPaths->offsetExists($key)) {
             // create a dummy entry for the path first. If the path is used recursive the recursive usages will point
             // to the currently created property
-            $this->resolvedPaths->offsetSet($key, true);
+            $this->resolvedPaths->offsetSet($key, null);
+
             try {
                 $this->resolvedPaths->offsetSet($key, (new PropertyFactory(new PropertyProcessorFactory()))
                     ->create(
@@ -99,7 +101,7 @@ class SchemaDefinition
                         $structure
                     )
                 );
-            } catch (PHPModelGenerator\Exception $exception) {
+            } catch (PHPModelGeneratorException $exception) {
                 $this->resolvedPaths->offsetUnset($key);
                 throw $exception;
             }
