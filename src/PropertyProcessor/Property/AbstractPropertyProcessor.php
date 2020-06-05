@@ -7,12 +7,10 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
-use PHPModelGenerator\Model\Validator\TypeCheckValidator;
 use PHPModelGenerator\PropertyProcessor\ComposedValueProcessorFactory;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintTransferDecorator;
@@ -149,28 +147,16 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     private function transferDependendPropertiesToBaseSchema(Schema $dependencySchema): void
     {
         foreach ($dependencySchema->getProperties() as $property) {
-            $typeCheckValidator = null;
-
-            $transferProperty = (clone $property)
-                ->setRequired(false)
-                ->filterValidators(function (Validator $validator) use (&$typeCheckValidator): bool {
-                    if (is_a($validator->getValidator(), TypeCheckValidator::class)) {
-                        $typeCheckValidator = $validator->getValidator();
-
+            $this->schema->addProperty(
+                // validators and types must not be transferred as any value is acceptable for the property if the
+                // property defining the dependency isn't present
+                (clone $property)
+                    ->setRequired(false)
+                    ->setType('')
+                    ->filterValidators(function (): bool {
                         return false;
-                    }
-
-                    return !is_a($validator->getValidator(), RequiredPropertyValidator::class);
-                });
-
-            // rebuild the type check validator as the origin property may be required but the transferred property
-            // must be optional
-            if ($typeCheckValidator !== null) {
-                preg_match('/is_([^(]+)/', $typeCheckValidator->getCheck(), $matches);
-                $transferProperty->addValidator(new TypeCheckValidator($matches[1], $transferProperty));
-            }
-
-            $this->schema->addProperty($transferProperty);
+                    })
+            );
         }
     }
 
@@ -249,7 +235,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     }
 
     /**
-     * Inherit the type pf a property into all composed components of a conditional composition
+     * Inherit the type of a property into all composed components of a conditional composition
      *
      * @param array $propertyData
      *

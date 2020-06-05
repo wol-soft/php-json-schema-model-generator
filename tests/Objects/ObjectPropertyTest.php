@@ -81,9 +81,25 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTest
             'bool' => [true],
             'float' => [0.92],
             'int' => [2],
-            'object' => [new stdClass()],
             'string' => ['1']
         ];
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testInvalidPropertyObjectClassThrowsAnException(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessageMatches(
+            '/Invalid class for property. Requires ObjectPropertyTest_.*, got stdClass/'
+        );
+
+        $className = $this->generateClassFromFile('ObjectProperty.json');
+
+        new $className(['property' => new stdClass()]);
     }
 
     /**

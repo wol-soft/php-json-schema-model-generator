@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "properties": {
+    "credit_card": {
+      "type": "integer"
+    }
+  },
+  "dependencies": {
+    "credit_card": {
+      "type": "object",
+      "properties": {
+        "billing_address": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "age": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      },
+      "required": [
+        "owner",
+        "billing_address"
+      ]
+    }
+  }
+}

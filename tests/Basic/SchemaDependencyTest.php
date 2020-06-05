@@ -32,9 +32,12 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTest
     {
         return [
             'No properties provided' => [[]],
+            'Only dependant property provided with different type' => [['billing_address' => true]],
             'Only dependant property provided 1' => [['billing_address' => '555 Debitors Lane']],
             'Only dependant property provided 2' => [['date_of_birth' => '01-01-1990']],
             'Only dependant property provided 3' => [['billing_address' => '555 Debitors Lane', 'date_of_birth' => '01-01-1990']],
+            'Dependant property nulled 1' => [['billing_address' => null]],
+            'Dependant property nulled 2' => [['date_of_birth' => null]],
             'All properties provided' => [['credit_card' => 12345, 'billing_address' => '555 Debitors Lane', 'date_of_birth' => '01-01-1990']],
             'Only required properties provided' => [['credit_card' => 12345, 'date_of_birth' => '01-01-1990']],
         ];
@@ -108,9 +111,12 @@ ERROR
     {
         return [
             'No properties provided' => [[]],
+            'Only dependant property provided with different type' => [['name' => true]],
             'Only dependant property provided 1' => [['name' => 'Hannes']],
             'Only dependant property provided 2' => [['age' => 42]],
             'Only dependant property provided 3' => [['name' => 'Hannes', 'age' => 42]],
+            'Dependant property nulled 1' => [['name' => null]],
+            'Dependant property nulled 2' => [['age' => null]],
             'All properties provided' => [['credit_card' => 12345, 'name' => 'Hannes', 'age' => 42]],
             'Only required properties provided' => [['credit_card' => 12345, 'name' => 'Hannes']],
         ];
@@ -184,9 +190,12 @@ ERROR
     {
         return [
             'No properties provided' => [[]],
+            'Only dependant property provided with different type' => [['name' => 42]],
             'Only dependant property provided 1' => [['name' => 'Hannes']],
             'Only dependant property provided 2' => [['age' => 42]],
             'Only dependant property provided 3' => [['name' => 'Hannes', 'age' => 42]],
+            'Dependant property nulled 1' => [['name' => null]],
+            'Dependant property nulled 2' => [['age' => null]],
             'All properties provided' => [['credit_card' => 12345, 'name' => 'Hannes', 'age' => 42]],
         ];
     }
@@ -240,8 +249,9 @@ Invalid schema which is dependant on credit_card:
         \* Invalid type for name. Requires string, got NULL
       - Composition element #2: Valid
 ERROR
+    ,
             ],
-            'invalid data type' => [
+            'invalid data type'                 => [
                 ['credit_card' => 12345, 'name' => false, 'age' => 42],
                 <<<ERROR
 Invalid schema which is dependant on credit_card:
@@ -251,7 +261,116 @@ Invalid schema which is dependant on credit_card:
         \* Invalid type for name. Requires string, got boolean
       - Composition element #2: Valid
 ERROR
-            ]
+    ,
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider validSchemaDependencyNestedObejctDataProvider
+     *
+     * @param array $propertyValue
+     */
+    public function testSchemaDependencyNestedObject(array $propertyValue): void
+    {
+        $className = $this->generateClassFromFile('NestedObjectSchemaDependency.json');
+
+        $object = new $className($propertyValue);
+        $this->assertSame($propertyValue['credit_card'] ?? null, $object->getCreditCard());
+        $this->assertSame($propertyValue['billing_address'] ?? null, $object->getBillingAddress());
+
+        if (isset($propertyValue['owner'])) {
+            $this->assertSame($propertyValue['owner']['name'] ?? null, $object->getOwner()->getName());
+            $this->assertSame($propertyValue['owner']['age'] ?? null, $object->getOwner()->getAge());
+        } else {
+            $this->assertNull($object->getOwner());
+        }
+    }
+
+    public function validSchemaDependencyNestedObejctDataProvider(): array
+    {
+        return [
+            'No properties provided' => [[]],
+            'Only dependant properties provided with different type' => [['billing_address' => 42]],
+            'Only dependant properties provided 1' => [['billing_address' => '555 Debitors Lane']],
+            'Only dependant properties provided 2' => [['owner' => ['name' => 'Hannes', 'age' => 42]]],
+            'Only dependant properties provided 3' => [[
+                'owner' => ['name' => 'Hannes', 'age' => 42],
+                'billing_address' => '555 Debitors Lane',
+            ]],
+            'Dependant property nulled 1' => [['billing_address' => null]],
+            'Dependant property nulled 2' => [['owner' => null]],
+            'All properties provided' => [[
+                'credit_card' => 12345,
+                'owner' => ['name' => 'Hannes', 'age' => 42],
+                'billing_address' => '555 Debitors Lane',
+            ]],
+            'Only required properties provided' => [[
+                'credit_card' => 12345,
+                'owner' => ['name' => 'Hannes'],
+                'billing_address' => '555 Debitors Lane',
+            ]],
+        ];
+    }
+
+    /**
+     * @dataProvider invalidSchemaDependencyNestedObjectDataProvider
+     *
+     * @param array $propertyValue
+     * @param string $message
+     */
+    public function testInvalidSchemaDependencyNestedObject(
+        array $propertyValue,
+        string $message
+    ): void {
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessageMatches("/$message/m");
+
+        $className = $this->generateClassFromFile(
+            'NestedObjectSchemaDependency.json',
+            (new GeneratorConfiguration())->setCollectErrors(true)
+        );
+
+        new $className($propertyValue);
+    }
+
+    public function invalidSchemaDependencyNestedObjectDataProvider(): array
+    {
+        return [
+            'required attribute not provided 1' => [
+                ['credit_card' => 12345],
+                <<<ERROR
+Invalid schema which is dependant on credit_card:
+  - Missing required value for billing_address
+  - Invalid type for billing_address. Requires string, got NULL
+  - Missing required value for owner
+  - Invalid type for owner. Requires object, got NULL
+ERROR
+            ],
+            'required attribute not provided 2' => [
+                ['credit_card' => 12345, 'owner' => ['age' => 42]],
+                <<<ERROR
+Invalid schema which is dependant on credit_card:
+  - Missing required value for billing_address
+  - Invalid type for billing_address. Requires string, got NULL
+  - Missing required value for name
+  - Invalid type for name. Requires string, got NULL
+ERROR
+            ],
+            'invalid data type' => [
+                [
+                    'credit_card' => 12345,
+                    'owner' => [
+                        'name' => false,
+                        'age' => 42,
+                    ],
+                    'billing_address' => '555 Debitors Lane',
+                ],
+                <<<ERROR
+Invalid schema which is dependant on credit_card:
+  - Invalid type for name. Requires string, got boolean
+ERROR
+            ],
         ];
     }
 }

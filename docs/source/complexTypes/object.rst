@@ -343,7 +343,64 @@ As stated above the dependency declaration is not bidirectional. If the presence
 Schema Dependencies
 ^^^^^^^^^^^^^^^^^^^
 
-Schema dependencies are currently not supported.
+Schema dependencies allow you to define a schema which must be fulfilled if a given property is present. The schema provided for the property must be either an object schema, a composition schema or a reference to an object schema.
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "$id": "CreditCardOwner"
+        "properties": {
+            "credit_card": {
+                "type": "integer"
+            }
+        },
+        "dependencies": {
+            "credit_card": {
+                "properties": {
+                    "billing_address": {
+                        "type": "string"
+                    },
+                    "date_of_birth": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "date_of_birth"
+                ]
+            }
+        }
+    }
+
+The properties of the dependant schema will be transferred to the base model during the model generation process. If the property which defines the dependency isn't present they will not be required by the base model.
+
+Generated interface:
+
+.. code-block:: php
+
+    // class CreditCardOwner
+    // base properties
+    public function setCreditCard(?int $creditCard): self;
+    public function getCreditCard(): ?int;
+
+    // inherited properties
+    public function setBillingAddress($billingAddress): self;
+    public function getBillingAddress();
+    public function setDateOfBirth($dateOfBirth): self;
+    public function getDateOfBirth();
+
+.. hint::
+
+    Basically this means your base object gets getters and setters for the additional properties transferred from the schema dependency but this getters and setters won't perform any validation. If you require type checks and validations performed on the properties define them in your main schema as not required properties and require them as a property dependency.
+
+Possible exceptions:
+
+.. code-block:: none
+
+    Invalid schema which is dependant on credit_card:
+      - Missing required value for date_of_birth
+
+Multiple violations against the schema dependency may be included.
 
 Pattern Properties
 ------------------
