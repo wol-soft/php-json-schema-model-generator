@@ -159,7 +159,7 @@ class Schema
      */
     public function addUsedClass(string $path): self
     {
-        $this->usedClasses[] = $path;
+        $this->usedClasses[] = trim($path, '\\');
 
         return $this;
     }

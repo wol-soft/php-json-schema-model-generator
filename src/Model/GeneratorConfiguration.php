@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\Model;
 
 use PHPModelGenerator\Exception\InvalidFilterException;
+use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
 use PHPModelGenerator\Utils\ClassNameGenerator;
@@ -47,7 +48,9 @@ class GeneratorConfiguration
     {
         $this->classNameGenerator = new ClassNameGenerator();
 
-        $this->addFilter(new TrimFilter());
+        $this
+            ->addFilter(new DateTimeFilter())
+            ->addFilter(new TrimFilter());
     }
 
     /**

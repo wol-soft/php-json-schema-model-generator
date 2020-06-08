@@ -72,7 +72,7 @@ class RenderJob
         }
 
         if ($generatorConfiguration->isOutputEnabled()) {
-            echo "Rendered class {$generatorConfiguration->getNamespacePrefix()}$this->classPath\\$this->className\n";
+            echo "Rendered class {$generatorConfiguration->getNamespacePrefix()}\\$this->classPath\\$this->className\n";
         }
     }
 
@@ -107,24 +107,20 @@ class RenderJob
      */
     protected function renderClass(GeneratorConfiguration $generatorConfiguration): string
     {
-        $getFullNamespace = function (string $classPath) use ($generatorConfiguration): string {
-            return trim($generatorConfiguration->getNamespacePrefix() . $classPath, '\\');
-        };
-
-        $render = new Render(__DIR__ . "/../Templates/");
-        $namespace = $getFullNamespace($this->classPath);
+        $render = new Render(__DIR__ . '/../Templates/');
+        $namespace = trim(join('\\', [$generatorConfiguration->getNamespacePrefix(), $this->classPath]), '\\');
 
         $use = array_merge(
-            array_map($getFullNamespace, $this->schema->getUsedClasses()),
+            $this->schema->getUsedClasses(),
             $generatorConfiguration->collectErrors()
                 ? [$generatorConfiguration->getErrorRegistryClass()]
                 : [$generatorConfiguration->getExceptionClass()]
         );
 
-        // TODO: filter out uses in the same namespace
-        // filter out non-compound namespaces
-        $use = array_filter($use, function ($classPath) {
-            return strstr($classPath, '\\');
+        // filter out non-compound uses and uses which link to the current namespace
+        $use = array_filter($use, function ($classPath) use ($namespace) {
+            return strstr(str_replace($namespace, '', $classPath), '\\') ||
+                (!strstr($classPath, '\\') && !empty($namespace));
         });
 
         try {
@@ -139,6 +135,8 @@ class RenderJob
                     'generatorConfiguration' => $generatorConfiguration,
                     'viewHelper'             => new RenderHelper($generatorConfiguration),
                     'initialClass'           => $this->initialClass,
+                    // one hack a day keeps the problems away. Make true literal available for the templating. Easy fix
+                    'true'                   => true,
                 ]
             );
         } catch (PHPMicroTemplateException $exception) {

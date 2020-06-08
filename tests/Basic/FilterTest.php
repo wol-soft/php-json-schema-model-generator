@@ -245,10 +245,14 @@ class FilterTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateClassFromFile(
             'Uppercase.json',
             (new GeneratorConfiguration())
+                ->setImmutable(false)
                 ->addFilter($this->getCustomFilter([self::class, 'uppercaseFilter'], 'uppercase'))
         );
 
         $object = new $className(['property' => $input]);
+        $this->assertSame($expectedValue, $object->getProperty());
+
+        $object->setProperty($input);
         $this->assertSame($expectedValue, $object->getProperty());
     }
 
@@ -275,10 +279,14 @@ class FilterTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateClassFromFile(
             'MultipleFilters.json',
             (new GeneratorConfiguration())
+                ->setImmutable(false)
                 ->addFilter($this->getCustomFilter([self::class, 'uppercaseFilter'], 'uppercase'))
         );
 
         $object = new $className(['property' => $input]);
+        $this->assertSame($expectedValue, $object->getProperty());
+
+        $object->setProperty($input);
         $this->assertSame($expectedValue, $object->getProperty());
     }
 

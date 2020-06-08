@@ -63,25 +63,25 @@ class PropertyProxy implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function getType(): string
+    public function getType(bool $outputType = false): string
     {
-        return $this->getProperty()->getType();
+        return $this->getProperty()->getType($outputType);
     }
 
     /**
      * @inheritdoc
      */
-    public function setType(string $type): PropertyInterface
+    public function setType(string $type, ?string $outputType = null): PropertyInterface
     {
-        return $this->getProperty()->setType($type);
+        return $this->getProperty()->setType($type, $outputType);
     }
 
     /**
      * @inheritdoc
      */
-    public function getTypeHint(): string
+    public function getTypeHint(bool $outputType = false): string
     {
-        return $this->getProperty()->getTypeHint();
+        return $this->getProperty()->getTypeHint($outputType);
     }
 
     /**

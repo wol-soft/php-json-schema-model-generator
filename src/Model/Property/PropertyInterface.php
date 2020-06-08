@@ -28,21 +28,27 @@ interface PropertyInterface
     public function getAttribute(): string;
 
     /**
+     * @param bool $outputType If set to true the output type will be returned (may differ from the base type)
+     *
      * @return string
      */
-    public function getType(): string;
+    public function getType(bool $outputType = false): string;
 
     /**
      * @param string $type
+     * @param string|null $outputType By default the output type will be equal to the base type but due to applied
+     *                                filters the output type may change
      *
      * @return PropertyInterface
      */
-    public function setType(string $type): PropertyInterface;
+    public function setType(string $type, ?string $outputType = null): PropertyInterface;
 
     /**
+     * @param bool $outputType If set to true the output type hint will be returned (may differ from the base type)
+     *
      * @return string
      */
-    public function getTypeHint(): string;
+    public function getTypeHint(bool $outputType = false): string;
 
     /**
      * @param TypeHintDecoratorInterface $typeHintDecorator

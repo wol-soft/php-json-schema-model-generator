@@ -20,7 +20,7 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
 {% if generatorConfiguration.hasSerializationEnabled() %}, \PHPModelGenerator\Interfaces\SerializationInterface{% endif %}
 {
     {% foreach properties as property %}
-        /** @var {{ property.getTypeHint() }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
+        /** @var {{ property.getTypeHint(true) }}{% if not property.isRequired() %}|null{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
         protected ${{ property.getAttribute() }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
     /** @var array */
@@ -97,10 +97,10 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
          *
          * {% if property.getDescription() %}{{ property.getDescription() }}{% endif %}
          *
-         * @return {{ property.getTypeHint() }}{% if not property.isRequired() %}|null{% endif %}
+         * @return {{ property.getTypeHint(true) }}{% if not property.isRequired() %}|null{% endif %}
          */
         public function get{{ viewHelper.ucfirst(property.getAttribute()) }}()
-            {% if property.getType() %}: {% if not property.isRequired() %}?{% endif %}{{ property.getType() }}{% endif %}
+            {% if property.getType(true) %}: {% if not property.isRequired() %}?{% endif %}{{ property.getType(true) }}{% endif %}
         {
             return $this->{{ property.getAttribute() }};
         }

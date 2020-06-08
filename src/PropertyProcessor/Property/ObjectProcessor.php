@@ -53,7 +53,17 @@ class ObjectProcessor extends AbstractTypedValueProcessor
         if ($schema->getClassPath() !== $this->schema->getClassPath() ||
             $schema->getClassName() !== $this->schema->getClassName()
         ) {
-            $this->schema->addUsedClass("{$schema->getClassPath()}\\{$schema->getClassName()}");
+            $this->schema->addUsedClass(
+                join(
+                    '\\',
+                    array_filter([
+                        $this->schemaProcessor->getGeneratorConfiguration()->getNamespacePrefix(),
+                        $schema->getClassPath(),
+                        $schema->getClassName(),
+                    ])
+                )
+            );
+
             $this->schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($schema));
         }
 

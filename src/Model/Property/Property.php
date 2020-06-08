@@ -24,6 +24,8 @@ class Property implements PropertyInterface
     protected $attribute = '';
     /** @var string */
     protected $type = 'null';
+    /** @var string|null */
+    protected $outputType = null;
     /** @var bool */
     protected $isPropertyRequired = true;
     /** @var bool */
@@ -78,17 +80,18 @@ class Property implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function getType(): string
+    public function getType(bool $outputType = false): string
     {
-        return $this->type;
+        return $outputType && $this->outputType !== null ? $this->outputType : $this->type;
     }
 
     /**
      * @inheritdoc
      */
-    public function setType(string $type): PropertyInterface
+    public function setType(string $type, ?string $outputType = null): PropertyInterface
     {
         $this->type = $type;
+        $this->outputType = $outputType;
 
         return $this;
     }
@@ -96,9 +99,9 @@ class Property implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function getTypeHint(): string
+    public function getTypeHint(bool $outputType = false): string
     {
-        $input = $this->type;
+        $input = $outputType && $this->outputType !== null ? $this->outputType : $this->type;
 
         foreach ($this->typeHintDecorators as $decorator) {
             $input = $decorator->decorate($input);
