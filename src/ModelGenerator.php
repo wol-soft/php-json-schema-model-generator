@@ -11,10 +11,9 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use RecursiveRegexIterator;
-use RegexIterator;
 
 /**
  * Class ModelGenerator
@@ -64,8 +63,8 @@ class ModelGenerator
     /**
      * Generate models from JSON-Schema files. Returns an array of generated file names on success.
      *
-     * @param string $source      The directory with the JSON-Schema files
-     * @param string $destination The directory where to put the generated PHP models
+     * @param SchemaProviderInterface $schemaProvider The provider used to fetch the JSON schemas to process
+     * @param string $destination                     The directory where to put the generated PHP models
      *
      * @return array
      *
@@ -75,21 +74,22 @@ class ModelGenerator
      * @throws FileSystemException      Will be thrown if a file system error occurred
      * @throws RenderException          Will be thrown if a class can't be rendered correctly
      */
-    public function generateModels(string $source, string $destination): array
+    public function generateModels(SchemaProviderInterface $schemaProvider, string $destination): array
     {
-        if (!is_dir($source)) {
-            throw new FileSystemException("Source directory '$source' doesn't exist");
-        }
-
         if (!is_dir($destination) || count(scandir($destination)) > 2) {
             throw new FileSystemException("Destination directory '$destination' doesn't exist or is not empty");
         }
 
         $renderQueue = new RenderQueue();
-        $schemaProcessor = new SchemaProcessor($source, $destination, $this->generatorConfiguration, $renderQueue);
+        $schemaProcessor = new SchemaProcessor(
+            $schemaProvider->getBaseDirectory(),
+            $destination,
+            $this->generatorConfiguration,
+            $renderQueue
+        );
 
-        foreach ($this->getSchemaFiles($source) as $jsonSchemaFile) {
-            $schemaProcessor->process($jsonSchemaFile);
+        foreach ($schemaProvider->getSchemas() as [$filePath, $jsonSchema]) {
+            $schemaProcessor->process($jsonSchema, $filePath);
         }
 
         // render all collected classes
@@ -103,25 +103,5 @@ class ModelGenerator
         }
 
         return $schemaProcessor->getGeneratedFiles();
-    }
-
-    /**
-     * Get all json files from a given directory
-     *
-     * @param string $directory
-     *
-     * @return array
-     */
-    protected function getSchemaFiles(string $directory) : array
-    {
-        $directory = new RecursiveDirectoryIterator($directory);
-        $iterator = new RecursiveIteratorIterator($directory);
-        $files = [];
-
-        foreach (new RegexIterator($iterator, '/^.+\.json$/i', RecursiveRegexIterator::GET_MATCH) as $file) {
-            $files[] = $file[0];
-        }
-
-        return $files;
     }
 }

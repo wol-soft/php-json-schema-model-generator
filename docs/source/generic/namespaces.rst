@@ -34,7 +34,7 @@ Your model generation code inside `generateModels.php` now could look like:
 
     $generator
         ->generateModelDirectory(__DIR__ . '/build')
-        ->generateModels(__DIR__ . '/Models', __DIR__ . '/build');
+        ->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/Models'), __DIR__ . '/build');
 
 The generated main classes will be:
 

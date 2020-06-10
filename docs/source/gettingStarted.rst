@@ -21,7 +21,18 @@ The base object for generating models is the *Generator*. After you have created
 .. code-block:: php
 
     (new Generator())
-        ->generateModels(__DIR__ . '/schema', __DIR__ . '/result');
+        ->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
+
+The first parameter of the *generateModels* method must be a class implementing the *SchemaProviderInterface*. The provider fetches the JSON schema files and provides them for the generator. The following providers are available:
+
+=========================== ===========
+Provider                    Description
+=========================== ===========
+RecursiveDirectoryProvider  Fetches all *.json files from the given source directory. Each file must contain a JSON Schema object definition on the top level
+OpenAPIv3Provider           Fetches all objects defined in the #/components/schemas section of an Open API v3 spec file
+=========================== ===========
+
+The second parameter must point to an existing and empty directory. This directory will contain the generated PHP classes after the generator is finished.
 
 As an optional parameter you can set up a *GeneratorConfiguration* object to configure your Generator and/or use the method *generateModelDirectory* to generate your model directory (will generate the directory if it doesn't exist; if it exists, all contained files and folders will be removed for a clean generation process):
 
@@ -35,7 +46,7 @@ As an optional parameter you can set up a *GeneratorConfiguration* object to con
 
     $generator
         ->generateModelDirectory(__DIR__ . '/result');
-        ->generateModels(__DIR__ . '/schema', __DIR__ . '/result');
+        ->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
 
 The generator will check the given source directory recursive and convert all found \*.json files to models. All JSON-Schema files inside the source directory must provide a schema of an object.
 

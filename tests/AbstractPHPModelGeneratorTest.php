@@ -3,6 +3,7 @@
 namespace PHPModelGenerator\Tests;
 
 use FilesystemIterator;
+use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
@@ -216,7 +217,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         $this->copyExternalJSON();
 
         $generatedFiles = (new ModelGenerator($generatorConfiguration))->generateModels(
-            $baseDir,
+            new RecursiveDirectoryProvider($baseDir),
             $baseDir . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR
         );
 
@@ -243,7 +244,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     protected function generateDirectory(string $directory, GeneratorConfiguration $configuration): array
     {
         $generatedClasses = (new ModelGenerator($configuration))->generateModels(
-            __DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $directory,
+            new RecursiveDirectoryProvider(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $directory),
             MODEL_TEMP_PATH
         );
 

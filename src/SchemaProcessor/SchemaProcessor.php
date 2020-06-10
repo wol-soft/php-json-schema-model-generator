@@ -25,7 +25,7 @@ class SchemaProcessor
     /** @var RenderQueue */
     protected $renderQueue;
     /** @var string */
-    protected $source;
+    protected $baseSource;
     /** @var string */
     protected $destination;
 
@@ -42,18 +42,18 @@ class SchemaProcessor
     /**
      * SchemaProcessor constructor.
      *
-     * @param string                 $source
+     * @param string                 $baseSource
      * @param string                 $destination
      * @param GeneratorConfiguration $generatorConfiguration
      * @param RenderQueue            $renderQueue
      */
     public function __construct(
-        string $source,
+        string $baseSource,
         string $destination,
         GeneratorConfiguration $generatorConfiguration,
         RenderQueue $renderQueue
     ) {
-        $this->source = $source;
+        $this->baseSource = $baseSource;
         $this->destination = $destination;
         $this->generatorConfiguration = $generatorConfiguration;
         $this->renderQueue = $renderQueue;
@@ -62,30 +62,25 @@ class SchemaProcessor
     /**
      * Process a given json schema file
      *
-     * @param string $jsonSchemaFile
+     * @param array $jsonSchema
+     * @param string $sourcePath
      *
      * @throws SchemaException
      */
-    public function process(string $jsonSchemaFile): void
+    public function process(array $jsonSchema, string $sourcePath): void
     {
-        $jsonSchema = file_get_contents($jsonSchemaFile);
-
-        if (!$jsonSchema || !($decodedJsonSchema = json_decode($jsonSchema, true))) {
-            throw new SchemaException("Invalid JSON-Schema file $jsonSchemaFile");
-        }
-
-        $this->setCurrentClassPath($jsonSchemaFile);
+        $this->setCurrentClassPath($sourcePath);
         $this->currentClassName = $this->generatorConfiguration->getClassNameGenerator()->getClassName(
-            str_ireplace('.json', '', basename($jsonSchemaFile)),
-            $decodedJsonSchema,
+            str_ireplace('.json', '', basename($sourcePath)),
+            $jsonSchema,
             false
         );
 
         $this->processSchema(
-            $decodedJsonSchema,
+            $jsonSchema,
             $this->currentClassPath,
             $this->currentClassName,
-            new SchemaDefinitionDictionary(dirname($jsonSchemaFile)),
+            new SchemaDefinitionDictionary(dirname($sourcePath)),
             true
         );
     }
@@ -205,7 +200,7 @@ class SchemaProcessor
      */
     protected function setCurrentClassPath(string $jsonSchemaFile): void
     {
-        $path = str_replace($this->source, '', dirname($jsonSchemaFile));
+        $path = str_replace($this->baseSource, '', dirname($jsonSchemaFile));
         $pieces = array_map(
             function ($directory) {
                 return ucfirst($directory);

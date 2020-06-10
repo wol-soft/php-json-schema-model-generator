@@ -62,7 +62,7 @@ $generator = new Generator(
 
 $generator
     ->generateModelDirectory(__DIR__ . '/result');
-    ->generateModels(__DIR__ . '/schema', __DIR__ . '/result');
+    ->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
 ```
 
 The generator will check the given source directory recursive and convert all found *.json files to models. All JSON-Schema files inside the source directory must provide a schema of an object.

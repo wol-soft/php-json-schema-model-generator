@@ -66,9 +66,7 @@ If the given main object in a JSON-Schema file contains a `$id` the id will be u
 Naming of nested classes
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Nested classes are prefixed with the parent class. If an object `Person` has a nested object `car` the class for car will be named **Person_Car**.
-
-For the class name of a nested class the `$id` property of the nested object is used. If the id property isn't present the property key combined with a uniqid will be used.
+For the class name of a nested class the `$id` property of the nested object is used. If the id property isn't present the property key will be prefixed with the parent class. If an object `Person` has a nested object `car` without a `$id` the class for car will be named **Person_Car**.
 
 Property Name Normalization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
