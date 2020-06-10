@@ -48,7 +48,7 @@ The base object for generating models is the *Generator*. After you have created
 
 ```php
 (new Generator())
-    ->generateModels(__DIR__ . '/schema', __DIR__ . '/result');
+    ->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
 ```
 
 As an optional parameter you can set up a *GeneratorConfiguration* object to configure your Generator and/or use the method *generateModelDirectory* to generate your model directory (will generate the directory if it doesn't exist; if it exists, all contained files and folders will be removed for a clean generation process):
