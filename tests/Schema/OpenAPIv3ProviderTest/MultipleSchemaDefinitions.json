@@ -1,0 +1,26 @@
+{
+  "components": {
+    "schemas": {
+      "OpenApiPerson": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "age": {
+            "type": "integer"
+          }
+        }
+      },
+      "OpenApiCar": {
+        "type": "object",
+        "$id": "OpenApiCarWithCustomId",
+        "properties": {
+          "ps": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}
