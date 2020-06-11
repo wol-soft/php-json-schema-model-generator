@@ -55,7 +55,7 @@ As the required check is executed before the filter a filter may transform a req
 
 The return type of the last applied filter will be used to define the type of the property inside the generated model (in the example one section above given above the method **getCreated** will return a DateTime object). Additionally the generated model also accepts the transformed type as input type. So **setCreated** will accept a string and a DateTime object. If an already transformed value is provided the filter which transforms the value will **not** be executed.
 
-For working models you must define the return type of your filter function as the implementation uses Reflection methods to determine whether a filter transforms a value or keeps the type (like the **trim** filter).
+If you write a custom transforming filter you must define the return type of your filter function as the implementation uses Reflection methods to determine to which type a value is transformed by a filter.
 
 Builtin filter
 --------------
@@ -163,6 +163,7 @@ Option           Default value Description
 convertNullToNow false         If null is provided a DateTime object with the current time will be created (works only if the property isn't required as null would be denied otherwise before the filter is executed)
 denyEmptyValue   false         An empty string value will be denied (by default an empty string value will result in a DateTime object with the current time)
 createFromFormat null          Provide a pattern which is used to parse the provided value (DateTime object will be created via DateTime::createFromFormat if a format is provided)
+outputFormat     DATE_ISO8601  The output format if serialization is enabled and toArray or toJSON is called on a transformed property. If a createFromFormat is defined but no outputFormat the createFromFormat value will override the default value
 ================ ============= ===========
 
 Custom filter
@@ -269,5 +270,55 @@ The option will be available if your JSON-Schema uses the object-notation for th
                     "trim"
                 ]
             }
+        }
+    }
+
+Custom transforming filter
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you want to provide a custom filter which transforms a value (eg. redirect data into a manually written model) you must implement the **PHPModelGenerator\\PropertyProcessor\\Filter\\TransformingFilterInterface**. This interface adds the **getSerializer** method to your filter. The method is similar to the **getFilter** method. It must return a callable which is available during the render process as well as during code execution. The returned callable must return null or a string and undo a transformation (eg. the serializer method of the builtin **dateTime** filter transforms a DateTime object back into a formatted string). The serializer method will be called with the current value of the property as the first argument and with the (optionally provided) additional options of the filter as the second argument. Your custom transforming filter might look like:
+
+
+.. code-block:: php
+
+    namespace MyApp\Model\Generator\Filter;
+
+    use MyApp\Model\ManuallyWrittenModels\Customer;
+    use PHPModelGenerator\PropertyProcessor\Filter\TransformingFilterInterface;
+
+    class CustomerFilter implements TransformingFilterInterface
+    {
+        // Let's assume you have written a Customer model manually eg. due to advanced validations
+        // and you want to use the Customer model as a part of your generated model
+        public static function instantiateCustomer(?array $data, array $additionalOptions): ?Customer
+        {
+            return $data !== null ? new Customer($data, $additionalOptions) : null;
+        }
+
+        // $customer will contain the current value of the property the filter is applied to
+        // $additionalOptions will contain all additional options from the JSON Schema
+        public static function instantiateCustomer(?Customer $customer, array $additionalOptions): ?string
+        {
+            return $data !== null ? $customer->serialize($additionalOptions) : null;
+        }
+
+        public function getAcceptedTypes(): array
+        {
+            return ['object'];
+        }
+
+        public function getToken(): string
+        {
+            return 'uppercase';
+        }
+
+        public function getFilter(): array
+        {
+            return [self::class, 'instantiateCustomer'];
+        }
+
+        public function getSerializer(): array
+        {
+            return [self::class, 'serializeCustomer'];
         }
     }

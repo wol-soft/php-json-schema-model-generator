@@ -19,6 +19,8 @@ declare(strict_types = 1);
 class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
 {% if generatorConfiguration.hasSerializationEnabled() %}, \PHPModelGenerator\Interfaces\SerializationInterface{% endif %}
 {
+    {% if generatorConfiguration.hasSerializationEnabled() %}use \PHPModelGenerator\Traits\SerializableTrait;{% endif %}
+
     {% foreach properties as property %}
         /** @var {{ property.getTypeHint(true) }}{% if not property.isRequired() %}|null{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
         protected ${{ property.getAttribute() }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
@@ -171,75 +173,8 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
     {% endforeach %}
 
     {% if generatorConfiguration.hasSerializationEnabled() %}
-        /**
-         * Get an array representation of the current state
-         *
-         * @param int $depth the maximum level of object nesting. Must be greater than 0
-         *
-         * @return array|false
-         */
-        public function toArray(int $depth = 512)
-        {
-            if ($depth < 1) {
-                return false;
-            }
-
-            $depth--;
-            $modelData = [];
-
-            foreach (get_object_vars($this) as $key => $value) {
-                if (in_array($key, ['rawModelDataInput', 'errorRegistry'])) {
-                    continue;
-                }
-
-                if (is_array($value)) {
-                    $subData = [];
-                    foreach ($value as $subKey => $element) {
-                        $subData[$subKey] = $this->evaluateAttribute($element, $depth);
-                    }
-                    $modelData[$key] = $subData;
-                } else {
-                    $modelData[$key] = $this->evaluateAttribute($value, $depth);
-                }
-            }
-
-            return $modelData;
-        }
-
-        private function evaluateAttribute($attribute, int $depth)
-        {
-            if (!is_object($attribute)) {
-                return $attribute;
-            }
-
-            if ($depth === 0 && method_exists($attribute, '__toString')) {
-                return (string) $attribute;
-            }
-
-            return (0 >= $depth)
-                ? null
-                : (
-                    method_exists($attribute, 'toArray')
-                        ? $attribute->toArray($depth - 1)
-                        : get_object_vars($attribute)
-                );
-        }
-
-        /**
-         * Get a JSON representation of the current state
-         *
-         * @param int $options Bitmask for json_encode
-         * @param int $depth   the maximum level of object nesting. Must be greater than 0
-         *
-         * @return string|false
-         */
-        public function toJSON(int $options = 0, int $depth = 512)
-        {
-            if ($depth < 1) {
-                return false;
-            }
-
-            return json_encode($this->toArray($depth), $options, $depth);
-        }
+        {% foreach customSerializer as serializer %}
+            {{ serializer.getSerializer(generatorConfiguration) }}
+        {% endforeach %}
     {% endif %}
 }

@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Filter;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\Serializer\TransformingFilterSerializer;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
@@ -63,7 +64,7 @@ class FilterProcessor
         }
 
         // check if the last applied filter has changed the type of the property
-        if ($filter) {
+        if ($filter instanceof TransformingFilterInterface) {
             $typeAfterFilter = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))
                 ->getReturnType();
 
@@ -74,6 +75,10 @@ class FilterProcessor
                 $this->extendTypeCheckValidatorToAllowTransformedValue($property, $schema, $typeAfterFilter);
 
                 $property->setType($property->getType(), $typeAfterFilter->getName());
+
+                $schema->addCustomSerializer(
+                    new TransformingFilterSerializer($property->getAttribute(), $filter, $filterOptions)
+                );
             }
         }
     }

@@ -1,0 +1,10 @@
+/**
+ * serialize the property {{ property }}
+ */
+protected function serialize{{ viewHelper.ucfirst(property) }}(): ?string
+{
+    return call_user_func_array(
+        [\{{ serializerClass }}::class, "{{ serializerMethod }}"],
+        [$this->{{ property }}, {{ serializerOptions }}]
+    );
+}

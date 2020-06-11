@@ -132,6 +132,7 @@ class RenderJob
                     'class'                  => $this->className,
                     'baseValidators'         => $this->schema->getBaseValidators(),
                     'properties'             => $this->schema->getProperties(),
+                    'customSerializer'       => $this->schema->getCustomSerializer(),
                     'generatorConfiguration' => $generatorConfiguration,
                     'viewHelper'             => new RenderHelper($generatorConfiguration),
                     'initialClass'           => $this->initialClass,

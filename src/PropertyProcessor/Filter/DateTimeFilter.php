@@ -13,13 +13,10 @@ use PHPModelGenerator\Filter\DateTime;
  *
  * @package PHPModelGenerator\PropertyProcessor\Filter
  */
-class DateTimeFilter implements FilterInterface
+class DateTimeFilter implements TransformingFilterInterface
 {
     /**
-     * Return a list of accepted data types for the filter (eg. ['string', 'int']). If the filter is applied to a
-     * value which doesn't match an accepted type an exception will be thrown
-     *
-     * @return array
+     * @inheritDoc
      */
     public function getAcceptedTypes(): array
     {
@@ -27,9 +24,7 @@ class DateTimeFilter implements FilterInterface
     }
 
     /**
-     * Return the token for the filter
-     *
-     * @return string
+     * @inheritDoc
      */
     public function getToken(): string
     {
@@ -37,13 +32,18 @@ class DateTimeFilter implements FilterInterface
     }
 
     /**
-     * Return the filter to apply. Make sure the returned array is a callable which is also callable after the
-     * render process
-     *
-     * @return array
+     * @inheritDoc
      */
     public function getFilter(): array
     {
         return [DateTime::class, 'filter'];
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getSerializer(): array
+    {
+        return [DateTime::class, 'serialize'];
     }
 }
