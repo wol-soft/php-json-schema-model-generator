@@ -37,7 +37,7 @@ Generated interface:
     public function setCar(?Car $name): self;
     public function getCar(): ?Car;
 
-    // class Person_Car
+    // class Car
     public function setModel(?string $name): self;
     public function getModel(): ?string;
     public function setPs(?int $name): self;

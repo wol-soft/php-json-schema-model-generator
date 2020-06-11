@@ -2,7 +2,9 @@
 
 namespace PHPModelGenerator\Tests;
 
+use Exception;
 use FilesystemIterator;
+use PHPModelGenerator\SchemaProvider\OpenAPIv3Provider;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Exception\ErrorRegistryException;
@@ -52,6 +54,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
     /**
      * Check if the test has failed. In this case move all JSON files and generated classes in a directory for debugging
+     *
      * Additionally clear the test folder so the next test starts in an empty environment
      */
     public function tearDown(): void
@@ -105,6 +108,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * @param string                      $file
      * @param GeneratorConfiguration|null $generatorConfiguration
      * @param bool                        $originalClassNames
+     * @param string                      $schemaProviderClass
      *
      * @return string
      *
@@ -115,12 +119,14 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     protected function generateClassFromFile(
         string $file,
         GeneratorConfiguration $generatorConfiguration = null,
-        bool $originalClassNames = false
+        bool $originalClassNames = false,
+        string $schemaProviderClass = RecursiveDirectoryProvider::class
     ): string {
         return $this->generateClass(
             file_get_contents(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $file),
             $generatorConfiguration,
-            $originalClassNames
+            $originalClassNames,
+            $schemaProviderClass
         );
     }
 
@@ -164,12 +170,14 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     /**
      * Generate a class from a given JSON schema string and return the FQCN
      *
-     * @param string                 $jsonSchema
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param bool                   $originalClassNames
+     * @param string                      $jsonSchema
+     * @param GeneratorConfiguration|null $generatorConfiguration
+     * @param bool                        $originalClassNames
+     * @param string                      $schemaProviderClass
      *
      * @return string
      *
+     * @throws Exception
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -177,7 +185,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     protected function generateClass(
         string $jsonSchema,
         GeneratorConfiguration $generatorConfiguration = null,
-        bool $originalClassNames = false
+        bool $originalClassNames = false,
+        string $schemaProviderClass = RecursiveDirectoryProvider::class
     ): string {
         $generatorConfiguration = ($generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false))
             ->setPrettyPrint(false)
@@ -213,11 +222,22 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
             $jsonSchema = json_encode($jsonSchemaArray);
         }
 
-        file_put_contents($baseDir . DIRECTORY_SEPARATOR . $className . '.json', $jsonSchema);
+        $mainFile = $baseDir . DIRECTORY_SEPARATOR . $className . '.json';
+        file_put_contents($mainFile, $jsonSchema);
         $this->copyExternalJSON();
 
+        switch ($schemaProviderClass) {
+            case RecursiveDirectoryProvider::class:
+                $schemaProvider = new RecursiveDirectoryProvider($baseDir);
+                break;
+            case OpenAPIv3Provider::class:
+                $schemaProvider = new OpenAPIv3Provider($mainFile);
+                break;
+            default: throw new Exception("Schema provider $schemaProviderClass not supported");
+        }
+
         $generatedFiles = (new ModelGenerator($generatorConfiguration))->generateModels(
-            new RecursiveDirectoryProvider($baseDir),
+            $schemaProvider,
             $baseDir . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR
         );
 
