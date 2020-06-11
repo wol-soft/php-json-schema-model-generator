@@ -42,11 +42,20 @@ If a list is used filters may include additional option parameters. In this case
         }
     }
 
+Transforming filter
+-------------------
+
 .. warning::
 
-    Filters may change the type of the property. For example the builtin filter **dateTime** creates a DateTime object. Consequently further validations like pattern checks for the string property won't be performed.
+    Read this section carefully if you want to use filters which transform the type of the property
 
-    The return type of the last applied filter will be used to define the type of the property inside the generated model (in the example given above the method **getCreated** will return a DateTime object).
+Filters may change the type of the property. For example the builtin filter **dateTime** creates a DateTime object. Consequently further validations like pattern checks for the string property won't be performed.
+
+As the required check is executed before the filter a filter may transform a required value into a null value. Be aware when writing custom filters which transform values to not break your validation rules by adding filters to a property.
+
+The return type of the last applied filter will be used to define the type of the property inside the generated model (in the example one section above given above the method **getCreated** will return a DateTime object). Additionally the generated model also accepts the transformed type as input type. So **setCreated** will accept a string and a DateTime object. If an already transformed value is provided the filter which transforms the value will **not** be executed.
+
+For working models you must define the return type of your filter function as the implementation uses Reflection methods to determine whether a filter transforms a value or keeps the type (like the **trim** filter).
 
 Builtin filter
 --------------
@@ -121,24 +130,29 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setProductionDate(?string $productionDate): self;
+    // $productionDate accepts string|DateTime|null
+    // if a string is provided the string will be transformed into a DateTime
+    public function setProductionDate($productionDate): self;
     public function getProductionDate(): ?DateTime;
 
 Let's have a look how the generated model behaves:
 
 .. code-block:: php
 
-    // valid, the name will be NULL as the productionDate is not required
-    $person = new Car([]);
+    // valid, the productionDate will be NULL as the productionDate is not required
+    $car = new Car([]);
 
     // Throws an exception as the provided value is not valid for the DateTime constructor
-    $person = new Car(['productionDate' => 'Hello']);
+    $car = new Car(['productionDate' => 'Hello']);
 
     // A valid example
-    $person = new Car(['productionDate' => '2020-10-10']);
-    $person->productionDate(); // returns a DateTime object
+    $car = new Car(['productionDate' => '2020-10-10']);
+    $car->productionDate(); // returns a DateTime object
     // the raw model data input is not affected by the filter
-    $person->getRawModelDataInput(); // returns ['productionDate' => '2020-10-10']
+    $car->getRawModelDataInput(); // returns ['productionDate' => '2020-10-10']
+
+    // Another valid example with an already transformed value
+    $car = new Car(['productionDate' => $myDateTimeObject]);
 
 Additional options
 ~~~~~~~~~~~~~~~~~~
@@ -148,6 +162,7 @@ Option           Default value Description
 ================ ============= ===========
 convertNullToNow false         If null is provided a DateTime object with the current time will be created (works only if the property isn't required as null would be denied otherwise before the filter is executed)
 denyEmptyValue   false         An empty string value will be denied (by default an empty string value will result in a DateTime object with the current time)
+createFromFormat null          Provide a pattern which is used to parse the provided value (DateTime object will be created via DateTime::createFromFormat if a format is provided)
 ================ ============= ===========
 
 Custom filter

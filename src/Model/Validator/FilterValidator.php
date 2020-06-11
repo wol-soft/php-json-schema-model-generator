@@ -7,8 +7,11 @@ namespace PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterInterface;
 use PHPModelGenerator\Utils\RenderHelper;
+use ReflectionException;
+use ReflectionMethod;
 
 class FilterValidator extends PropertyTemplateValidator
 {
@@ -18,14 +21,17 @@ class FilterValidator extends PropertyTemplateValidator
      * @param GeneratorConfiguration $generatorConfiguration
      * @param FilterInterface $filter
      * @param PropertyInterface $property
+     * @param Schema $schema
      * @param array $filterOptions
      *
+     * @throws ReflectionException
      * @throws SchemaException
      */
     public function __construct(
         GeneratorConfiguration $generatorConfiguration,
         FilterInterface $filter,
         PropertyInterface $property,
+        Schema $schema,
         array $filterOptions = []
     ) {
         if (!empty($filter->getAcceptedTypes()) &&
@@ -42,6 +48,18 @@ class FilterValidator extends PropertyTemplateValidator
             );
         }
 
+        // check if the return type of the provided filter transforms the value. If the value is transformed by the
+        // filter make sure the filter is only executed if a non-transformed value is provided.
+        // This is required as a setter (eg. for a string property which is modified by the DateTime filter into a
+        // DateTime object) also accepts a transformed value (in this case a DateTime object).
+        $typeAfterFilter = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))->getReturnType();
+        if ($typeAfterFilter &&
+            $typeAfterFilter->getName() &&
+            !in_array($typeAfterFilter->getName(), $filter->getAcceptedTypes())
+        ) {
+            $transformedCheck = (new ReflectionTypeCheckValidator($typeAfterFilter, $property, $schema))->getCheck();
+        }
+
         parent::__construct(
             sprintf(
                 'Filter %s is not compatible with property type " . gettype($value) . " for property %s',
@@ -50,6 +68,7 @@ class FilterValidator extends PropertyTemplateValidator
             ),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'Filter.phptpl',
             [
+                'skipTransformedValuesCheck' => $transformedCheck ?? '',
                 // check if the given value has a type matched by the filter
                 'typeCheck' => !empty($filter->getAcceptedTypes())
                     ? '($value !== null && (!is_' .

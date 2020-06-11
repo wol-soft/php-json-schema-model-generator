@@ -55,6 +55,8 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
                 $this->schemaProcessor->getGeneratorConfiguration()->isImmutable()
             );
 
+        $this->generateValidators($property, $propertyData);
+
         if (isset($propertyData['filter'])) {
             (new FilterProcessor())->process(
                 $property,
@@ -63,8 +65,6 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
                 $this->schema
             );
         }
-
-        $this->generateValidators($property, $propertyData);
 
         return $property;
     }

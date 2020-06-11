@@ -82,6 +82,13 @@ class Property implements PropertyInterface
      */
     public function getType(bool $outputType = false): string
     {
+        // If the output type differs from an input type also accept the output type
+        // (in this case the transforming filter is skipped)
+        // TODO: PHP 8 use union types to accept multiple input types
+        if (!$outputType && $this->outputType !== null && $this->outputType !== $this->type) {
+            return '';
+        }
+
         return $outputType && $this->outputType !== null ? $this->outputType : $this->type;
     }
 
@@ -101,11 +108,21 @@ class Property implements PropertyInterface
      */
     public function getTypeHint(bool $outputType = false): string
     {
-        $input = $outputType && $this->outputType !== null ? $this->outputType : $this->type;
+        $input = [$outputType && $this->outputType !== null ? $this->outputType : $this->type];
 
-        foreach ($this->typeHintDecorators as $decorator) {
-            $input = $decorator->decorate($input);
+        // If the output type differs from an input type also accept the output type
+        if (!$outputType && $this->outputType !== null && $this->outputType !== $this->type) {
+            $input = [$this->type, $this->outputType];
         }
+
+        $input = join('|', array_map(function (string $input) {
+            foreach ($this->typeHintDecorators as $decorator) {
+                $input = $decorator->decorate($input);
+            }
+
+            return $input;
+        }, $input));
+
 
         return $input ?? 'mixed';
     }

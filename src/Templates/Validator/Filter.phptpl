@@ -1,10 +1,14 @@
-{{ typeCheck }} || (function (&$value) {
-    // make sure exceptions from the filter are caught and added to the error handling
-    try {
-        $value = call_user_func_array([\{{ filterClass }}::class, "{{ filterMethod }}"], [$value, {{ filterOptions }}]);
-    } catch (\Exception $e) {
-        {{ viewHelper.validationError(transferExceptionMessage) }}
-    }
+{% if skipTransformedValuesCheck %}{{ skipTransformedValuesCheck }} && {% endif %}
+(
+    {% if typeCheck %}{{ typeCheck }} || {% endif %}
+    (function (&$value) {
+        // make sure exceptions from the filter are caught and added to the error handling
+        try {
+            $value = call_user_func_array([\{{ filterClass }}::class, "{{ filterMethod }}"], [$value, {{ filterOptions }}]);
+        } catch (\Exception $e) {
+            {{ viewHelper.validationError(transferExceptionMessage) }}
+        }
 
-    return false;
-})($value)
+        return false;
+    })($value)
+)
