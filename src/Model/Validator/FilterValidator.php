@@ -27,17 +27,14 @@ class FilterValidator extends PropertyTemplateValidator
      * @param GeneratorConfiguration $generatorConfiguration
      * @param FilterInterface $filter
      * @param PropertyInterface $property
-     * @param Schema $schema
      * @param array $filterOptions
      *
-     * @throws ReflectionException
      * @throws SchemaException
      */
     public function __construct(
         GeneratorConfiguration $generatorConfiguration,
         FilterInterface $filter,
         PropertyInterface $property,
-        Schema $schema,
         array $filterOptions = []
     ) {
         if (!empty($filter->getAcceptedTypes()) &&
@@ -62,7 +59,7 @@ class FilterValidator extends PropertyTemplateValidator
             ),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'Filter.phptpl',
             [
-                'skipTransformedValuesCheck' => $this->getTransformedCheck($filter, $property, $schema),
+                'skipTransformedValuesCheck' => false,
                 // check if the given value has a type matched by the filter
                 'typeCheck' => !empty($filter->getAcceptedTypes())
                     ? '($value !== null && (!is_' .
@@ -83,33 +80,35 @@ class FilterValidator extends PropertyTemplateValidator
     }
 
     /**
-     * Check if the return type of the provided filter transforms the value. If the value is transformed by the filter
-     * make sure the filter is only executed if a non-transformed value is provided.
+     * Make sure the filter is only executed if a non-transformed value is provided.
      * This is required as a setter (eg. for a string property which is modified by the DateTime filter into a DateTime
      * object) also accepts a transformed value (in this case a DateTime object).
+     * If transformed values are provided neither filters defined before the transforming filter in the filter chain nor
+     * the transforming filter must be executed as they are only compatible with the original value
      *
-     * @param FilterInterface $filter
+     * @param TransformingFilterInterface $filter
      * @param PropertyInterface $property
      * @param Schema $schema
      *
-     * @return string
+     * @return self
      *
      * @throws ReflectionException
      */
-    private function getTransformedCheck(FilterInterface $filter, PropertyInterface $property, Schema $schema): string
-    {
-        if ($filter instanceof TransformingFilterInterface) {
-            $typeAfterFilter = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))
-                ->getReturnType();
+    public function addTransformedCheck(
+        TransformingFilterInterface $filter,
+        PropertyInterface $property,
+        Schema $schema
+    ): self {
+        $typeAfterFilter = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))->getReturnType();
 
-            if ($typeAfterFilter &&
-                $typeAfterFilter->getName() &&
-                !in_array($typeAfterFilter->getName(), $filter->getAcceptedTypes())
-            ) {
-                return (new ReflectionTypeCheckValidator($typeAfterFilter, $property, $schema))->getCheck();
-            }
+        if ($typeAfterFilter &&
+            $typeAfterFilter->getName() &&
+            !in_array($typeAfterFilter->getName(), $filter->getAcceptedTypes())
+        ) {
+            $this->templateValues['skipTransformedValuesCheck'] =
+                (new ReflectionTypeCheckValidator($typeAfterFilter, $property, $schema))->getCheck();
         }
 
-        return '';
+        return $this;
     }
 }

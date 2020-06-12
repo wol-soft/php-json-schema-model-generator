@@ -3,6 +3,7 @@
 namespace PHPModelGenerator\Tests\Basic;
 
 use DateTime;
+use Exception;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -11,6 +12,8 @@ use PHPModelGenerator\Filter\Trim;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterInterface;
+use PHPModelGenerator\PropertyProcessor\Filter\TransformingFilterInterface;
+use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 /**
@@ -307,6 +310,42 @@ class FilterTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * @dataProvider invalidCustomFilterDataProvider
+     *
+     * @param array $customInvalidFilter
+     */
+    public function testAddFilterWithInvalidSerializerThrowsAnException(array $customInvalidFilter): void
+    {
+        $this->expectException(InvalidFilterException::class);
+        $this->expectExceptionMessage('Invalid serializer callback for filter customTransformingFilter');
+
+        (new GeneratorConfiguration())->addFilter($this->getCustomTransformingFilter($customInvalidFilter));
+    }
+
+    protected function getCustomTransformingFilter(
+        array $customSerializer
+    ): TransformingFilterInterface {
+        return new class ($customSerializer) extends TrimFilter implements TransformingFilterInterface {
+            private $customSerializer;
+
+            public function __construct(array $customSerializer)
+            {
+                $this->customSerializer = $customSerializer;
+            }
+
+            public function getToken(): string
+            {
+                return 'customTransformingFilter';
+            }
+
+            public function getSerializer(): array
+            {
+                return $this->customSerializer;
+            }
+        };
+    }
+
+    /**
      * @dataProvider validDateTimeFilterDataProvider
      */
     public function testTransformingFilter(array $input, ?string $expected): void
@@ -419,5 +458,45 @@ ERROR
                 }
             )
         );
+    }
+
+    public function testFilterBeforeTransformingFilterIsExecutedIfNonTransformedValueIsProvided(): void
+    {
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage(
+            'Invalid value for property filteredProperty denied by filter exceptionFilter: ' .
+            'Exception filter called with 12.12.2020'
+        );
+
+        $className = $this->generateClassFromFile(
+            'FilterPassThrough.json',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomFilter([self::class, 'exceptionFilter'], 'exceptionFilter')
+            )
+        );
+
+        new $className(['filteredProperty' => '12.12.2020']);
+    }
+
+    public function testFilterBeforeTransformingFilterIsSkippedIfTransformedValueIsProvided(): void
+    {
+        $className = $this->generateClassFromFile(
+            'FilterPassThrough.json',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomFilter([self::class, 'exceptionFilter'], 'exceptionFilter')
+            )
+        );
+
+        $object = new $className(['filteredProperty' => new DateTime('2020-12-10')]);
+
+        $this->assertSame(
+            (new DateTime('2020-12-10'))->format(DATE_ATOM),
+            $object->getFilteredProperty()->format(DATE_ATOM)
+        );
+    }
+
+    public static function exceptionFilter(string $value): void
+    {
+        throw new Exception("Exception filter called with $value");
     }
 }

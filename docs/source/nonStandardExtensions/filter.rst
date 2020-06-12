@@ -23,6 +23,8 @@ Filters can be either supplied as a string or as a list of filters (multiple fil
         }
     }
 
+If multiple filters are applied to a single property they will be executed in the order of their definition inside the JSON Schema.
+
 If a list is used filters may include additional option parameters. In this case a single filter must be provided as an object with the key **filter** defining the filter:
 
 .. code-block:: json
@@ -47,17 +49,19 @@ Transforming filter
 
 .. warning::
 
-    Read this section carefully and understand it if you want to use filters which transform the type of the property
+    Read this section carefully and understand it if you want to use filters which transform the type of the property without breaking your bones
+
+    You may keep it simple and skip this for your first tries and only experiment with non-transforming filters like the trim filter
 
 Filters may change the type of the property. For example the builtin filter **dateTime** creates a DateTime object. Consequently further validations like pattern checks for the string property won't be performed.
 
 As the required check is executed before the filter a filter may transform a required value into a null value. Be aware when writing custom filters which transform values to not break your validation rules by adding filters to a property.
 
-The return type of the last applied filter will be used to define the type of the property inside the generated model (in the example one section above given above the method **getCreated** will return a DateTime object). Additionally the generated model also accepts the transformed type as input type. So **setCreated** will accept a string and a DateTime object. If an already transformed value is provided the filter which transforms the value will **not** be executed.
+Only one transforming filter per property is allowed. may be positioned anywhere in the filter chain of a single property. If multiple filters are applied and a transforming filter is among them you have to make sure the property types are compatible.
 
 If you write a custom transforming filter you must define the return type of your filter function as the implementation uses Reflection methods to determine to which type a value is transformed by a filter.
 
-Only one transforming filter per property is allowed. may be positioned anywhere in the filter chain of a single property. If multiple filters are applied and a transforming filter is among them you have to make sure the property types are compatible.
+The return type of the transforming filter will be used to define the type of the property inside the generated model (in the example one section above given above the method **getCreated** will return a DateTime object). Additionally the generated model also accepts the transformed type as input type. So **setCreated** will accept a string and a DateTime object. If an already transformed value is provided the filter which transforms the value will **not** be executed. Also all filters which are defined before the transformation will **not** be executed (eg. a trim filter before a dateTime filter will not be executed if a DateTime object is provided).
 
 Builtin filter
 --------------
@@ -159,15 +163,15 @@ Let's have a look how the generated model behaves:
 Additional options
 ~~~~~~~~~~~~~~~~~~
 
-================        ============= ===========
+======================= ============= ===========
 Option                  Default value Description
-================        ============= ===========
+======================= ============= ===========
 convertNullToNow        false         If null is provided a DateTime object with the current time will be created (works only if the property isn't required as null would be denied otherwise before the filter is executed)
 convertEmptyValueToNull false         If an empty string is provided and this option is set to true the property will contain null after the filter has been applied
 denyEmptyValue          false         An empty string value will be denied (by default an empty string value will result in a DateTime object with the current time)
 createFromFormat        null          Provide a pattern which is used to parse the provided value (DateTime object will be created via DateTime::createFromFormat if a format is provided)
 outputFormat            DATE_ISO8601  The output format if serialization is enabled and toArray or toJSON is called on a transformed property. If a createFromFormat is defined but no outputFormat the createFromFormat value will override the default value
-================        ============= ===========
+======================= ============= ===========
 
 .. hint::
 

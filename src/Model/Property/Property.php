@@ -36,7 +36,7 @@ class Property implements PropertyInterface
     protected $defaultValue;
 
     /** @var Validator[] */
-    protected $validator = [];
+    protected $validators = [];
     /** @var Schema */
     protected $schema;
     /** @var PropertyDecoratorInterface[] */
@@ -150,7 +150,7 @@ class Property implements PropertyInterface
      */
     public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): PropertyInterface
     {
-        $this->validator[] = new Validator($validator, $priority);
+        $this->validators[] = new Validator($validator, $priority);
 
         return $this;
     }
@@ -160,7 +160,7 @@ class Property implements PropertyInterface
      */
     public function getValidators(): array
     {
-        return $this->validator;
+        return $this->validators;
     }
 
     /**
@@ -168,7 +168,7 @@ class Property implements PropertyInterface
      */
     public function filterValidators(callable $filter): PropertyInterface
     {
-        $this->validator = array_filter($this->validator, $filter);
+        $this->validators = array_filter($this->validators, $filter);
 
         return $this;
     }
@@ -179,7 +179,7 @@ class Property implements PropertyInterface
     public function getOrderedValidators(): array
     {
         usort(
-            $this->validator,
+            $this->validators,
             function (Validator $validator, Validator $comparedValidator) {
                 if ($validator->getPriority() == $comparedValidator->getPriority()) {
                     return 0;
@@ -192,7 +192,7 @@ class Property implements PropertyInterface
             function (Validator $validator) {
                 return $validator->getValidator();
             },
-            $this->validator
+            $this->validators
         );
     }
 

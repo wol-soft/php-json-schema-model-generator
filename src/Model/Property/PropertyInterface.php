@@ -67,6 +67,16 @@ interface PropertyInterface
     /**
      * Add a validator for the property
      *
+     * The priority is used to order the validators applied to a property.
+     * The validators with the lowest priority number will be executed first.
+     *
+     * Priority 1:   Required checks
+     * Priority 2:   Type Checks
+     * Priority 3:   Enum Checks
+     * Priority 10+: Filter validators
+     * Priority 99:  Default priority used for casual validators
+     * Priority 100: Validators for compositions
+     *
      * @param PropertyValidatorInterface $validator
      * @param int $priority
      *

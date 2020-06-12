@@ -45,6 +45,8 @@ class FilterProcessor
         }
 
         $hasTransformingFilter = false;
+        // apply a different priority to each filter to make sure the order is kept
+        $filterPriority = 10;
 
         foreach ($filterList as $filterToken) {
             $filterOptions = [];
@@ -58,8 +60,8 @@ class FilterProcessor
             }
 
             $property->addValidator(
-                new FilterValidator($generatorConfiguration, $filter, $property, $schema, $filterOptions),
-                3
+                new FilterValidator($generatorConfiguration, $filter, $property, $filterOptions),
+                $filterPriority++
             );
 
             if ($filter instanceof TransformingFilterInterface) {
@@ -78,6 +80,7 @@ class FilterProcessor
                     $typeAfterFilter->getName() &&
                     $property->getType() !== $typeAfterFilter->getName()
                 ) {
+                    $this->addTransformedValuePassThrough($property, $schema, $filter);
                     $this->extendTypeCheckValidatorToAllowTransformedValue($property, $schema, $typeAfterFilter);
 
                     $property->setType($property->getType(), $typeAfterFilter->getName());
@@ -86,6 +89,32 @@ class FilterProcessor
                         new TransformingFilterSerializer($property->getAttribute(), $filter, $filterOptions)
                     );
                 }
+            }
+        }
+    }
+
+    /**
+     * Apply a check to each FilterValidator which is already associated with the given property to pass through values
+     * which are already transformed.
+     * By adding the pass through eg. a trim filter executed before a dateTime transforming filter will not be executed
+     * if a DateTime object is provided for the property
+     *
+     * @param PropertyInterface $property
+     * @param Schema $schema
+     * @param TransformingFilterInterface $filter
+     *
+     * @throws ReflectionException
+     */
+    private function addTransformedValuePassThrough(
+        PropertyInterface $property,
+        Schema $schema,
+        TransformingFilterInterface $filter
+    ): void {
+        foreach ($property->getValidators() as $validator) {
+            $validator = $validator->getValidator();
+
+            if ($validator instanceof FilterValidator) {
+                $validator->addTransformedCheck($filter, $property, $schema);
             }
         }
     }

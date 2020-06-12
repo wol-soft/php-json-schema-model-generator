@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": "string",
+      "filter": [
+        "exceptionFilter",
+        "dateTime"
+      ]
+    }
+  }
+}
