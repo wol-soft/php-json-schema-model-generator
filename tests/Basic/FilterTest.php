@@ -59,6 +59,18 @@ class FilterTest extends AbstractPHPModelGeneratorTest
         ];
     }
 
+    public function testFilterWithNotAllowedAcceptedTypeThrowsAnException(): void
+    {
+        $this->expectException(InvalidFilterException::class);
+        $this->expectExceptionMessage(
+            'Filter accepts invalid types. Allowed types are [integer, number, boolean, string, array]'
+        );
+
+        (new GeneratorConfiguration())->addFilter(
+            $this->getCustomFilter([self::class, 'uppercaseFilter'], 'customFilter', [DateTime::class])
+        );
+    }
+
     public function testNonExistingFilterThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
@@ -323,21 +335,46 @@ class FilterTest extends AbstractPHPModelGeneratorTest
     }
 
     protected function getCustomTransformingFilter(
-        array $customSerializer
+        array $customSerializer,
+        array $customFilter = [],
+        string $token = 'customTransformingFilter',
+        array $acceptedTypes = ['string']
     ): TransformingFilterInterface {
-        return new class ($customSerializer) extends TrimFilter implements TransformingFilterInterface {
+        return new class ($customSerializer, $customFilter, $token, $acceptedTypes)
+            extends TrimFilter
+            implements TransformingFilterInterface
+        {
             private $customSerializer;
+            private $customFilter;
+            private $token;
+            private $acceptedTypes;
 
-            public function __construct(array $customSerializer)
-            {
+            public function __construct(
+                array $customSerializer,
+                array $customFilter,
+                string $token,
+                array $acceptedTypes
+            ) {
                 $this->customSerializer = $customSerializer;
+                $this->customFilter = $customFilter;
+                $this->token = $token;
+                $this->acceptedTypes = $acceptedTypes;
+            }
+
+            public function getAcceptedTypes(): array
+            {
+                return $this->acceptedTypes;
             }
 
             public function getToken(): string
             {
-                return 'customTransformingFilter';
+                return $this->token;
             }
 
+            public function getFilter(): array
+            {
+                return empty($this->customFilter) ? parent::getFilter() : $this->customFilter;
+            }
             public function getSerializer(): array
             {
                 return $this->customSerializer;
@@ -498,5 +535,41 @@ ERROR
     public static function exceptionFilter(string $value): void
     {
         throw new Exception("Exception filter called with $value");
+    }
+
+    public function testTransformingToScalarType()
+    {
+        $className = $this->generateClassFromFile(
+            'TransformingScalarFilter.json',
+            (new GeneratorConfiguration())
+                ->setSerialization(true)
+                ->addFilter(
+                    $this->getCustomTransformingFilter(
+                        [self::class, 'serializeBinaryToInt'],
+                        [self::class, 'filterIntToBinary'],
+                        'binary',
+                        ['integer']
+                    )
+                )
+        );
+
+        $object = new $className(['value' => 9]);
+
+        $this->assertSame('1001', $object->getValue());
+        $this->assertSame('1010', $object->setValue('1010')->getValue());
+        $this->assertSame('1011', $object->setValue(11)->getValue());
+
+        $this->assertSame(['value' => 11], $object->toArray());
+        $this->assertSame('{"value":11}', $object->toJSON());
+    }
+
+    public static function filterIntToBinary(int $value): string
+    {
+        return decbin($value);
+    }
+
+    public static function serializeBinaryToInt(string $binary): int
+    {
+        return bindec($binary);
     }
 }

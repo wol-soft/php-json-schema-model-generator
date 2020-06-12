@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "value": {
+      "type": "integer",
+      "filter": "binary"
+    }
+  }
+}

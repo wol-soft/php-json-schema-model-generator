@@ -23,6 +23,8 @@ Filters can be either supplied as a string or as a list of filters (multiple fil
         }
     }
 
+If the implementation of a filter throws an exception this exception will be caught by the generated model. The model will either throw the exception directly or insert it into the error collection based on your GeneratorConfiguration (compare `collecting errors <../gettingStarted.html#collect-errors-vs-early-return>`__). This behaviour also allows you to hook into the validation process and execute extended validations on the provided property.
+
 If multiple filters are applied to a single property they will be executed in the order of their definition inside the JSON Schema.
 
 If a list is used filters may include additional option parameters. In this case a single filter must be provided as an object with the key **filter** defining the filter:
@@ -208,6 +210,8 @@ The callable filter method must be a static method. Internally it will be called
 
         public function getAcceptedTypes(): array
         {
+            // return an array of types which can be handled by the filter.
+            // valid types are: [integer, number, boolean, string, array]
             return ['string'];
         }
 
@@ -287,8 +291,7 @@ The option will be available if your JSON-Schema uses the object-notation for th
 Custom transforming filter
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you want to provide a custom filter which transforms a value (eg. redirect data into a manually written model) you must implement the **PHPModelGenerator\\PropertyProcessor\\Filter\\TransformingFilterInterface**. This interface adds the **getSerializer** method to your filter. The method is similar to the **getFilter** method. It must return a callable which is available during the render process as well as during code execution. The returned callable must return null or a string and undo a transformation (eg. the serializer method of the builtin **dateTime** filter transforms a DateTime object back into a formatted string). The serializer method will be called with the current value of the property as the first argument and with the (optionally provided) additional options of the filter as the second argument. Your custom transforming filter might look like:
-
+If you want to provide a custom filter which transforms a value (eg. redirect data into a manually written model, transforming between data types [eg. accepting values as an integer but handle them internally as binary strings]) you must implement the **PHPModelGenerator\\PropertyProcessor\\Filter\\TransformingFilterInterface**. This interface adds the **getSerializer** method to your filter. The method is similar to the **getFilter** method. It must return a callable which is available during the render process as well as during code execution. The returned callable must return null or a string and undo a transformation (eg. the serializer method of the builtin **dateTime** filter transforms a DateTime object back into a formatted string). The serializer method will be called with the current value of the property as the first argument and with the (optionally provided) additional options of the filter as the second argument. Your custom transforming filter might look like:
 
 .. code-block:: php
 

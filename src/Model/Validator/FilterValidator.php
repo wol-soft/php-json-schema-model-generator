@@ -39,7 +39,7 @@ class FilterValidator extends PropertyTemplateValidator
     ) {
         if (!empty($filter->getAcceptedTypes()) &&
             $property->getType() &&
-            !in_array($property->getType(), $filter->getAcceptedTypes())
+            !in_array($property->getType(), $this->mapDataTypes($filter->getAcceptedTypes()))
         ) {
             throw new SchemaException(
                 sprintf(
@@ -63,7 +63,7 @@ class FilterValidator extends PropertyTemplateValidator
                 // check if the given value has a type matched by the filter
                 'typeCheck' => !empty($filter->getAcceptedTypes())
                     ? '($value !== null && (!is_' .
-                        implode('($value) && !is_', $filter->getAcceptedTypes()) .
+                        implode('($value) && !is_', $this->mapDataTypes($filter->getAcceptedTypes())) .
                         '($value)))'
                     : '',
                 'filterClass' => $filter->getFilter()[0],
@@ -103,12 +103,34 @@ class FilterValidator extends PropertyTemplateValidator
 
         if ($typeAfterFilter &&
             $typeAfterFilter->getName() &&
-            !in_array($typeAfterFilter->getName(), $filter->getAcceptedTypes())
+            !in_array($typeAfterFilter->getName(), $this->mapDataTypes($filter->getAcceptedTypes()))
         ) {
             $this->templateValues['skipTransformedValuesCheck'] =
                 (new ReflectionTypeCheckValidator($typeAfterFilter, $property, $schema))->getCheck();
         }
 
         return $this;
+    }
+
+    /**
+     * Map a list of accepted data types to their corresponding PHP types
+     *
+     * @param array $acceptedTypes
+     *
+     * @return array
+     */
+    private function mapDataTypes(array $acceptedTypes): array
+    {
+        return array_map(function (string $jsonSchemaType): string {
+            switch ($jsonSchemaType) {
+                case 'integer': return 'int';
+                case 'number': return 'float';
+                case 'string': return 'string';
+                case 'boolean': return 'bool';
+                case 'array': return 'array';
+
+                default: throw new SchemaException("Invalid accepted type $jsonSchemaType");
+            }
+        }, $acceptedTypes);
     }
 }
