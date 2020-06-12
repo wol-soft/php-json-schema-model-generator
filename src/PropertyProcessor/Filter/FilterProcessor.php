@@ -44,7 +44,7 @@ class FilterProcessor
             $filterList = [$filterList];
         }
 
-        $filter = null;
+        $hasTransformingFilter = false;
 
         foreach ($filterList as $filterToken) {
             $filterOptions = [];
@@ -61,24 +61,31 @@ class FilterProcessor
                 new FilterValidator($generatorConfiguration, $filter, $property, $schema, $filterOptions),
                 3
             );
-        }
 
-        // check if the last applied filter has changed the type of the property
-        if ($filter instanceof TransformingFilterInterface) {
-            $typeAfterFilter = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))
-                ->getReturnType();
+            if ($filter instanceof TransformingFilterInterface) {
+                if ($hasTransformingFilter) {
+                    throw new SchemaException(
+                        "Applying multiple transforming filters for property {$property->getName()} is not supported"
+                    );
+                }
 
-            if ($typeAfterFilter &&
-                $typeAfterFilter->getName() &&
-                $property->getType() !== $typeAfterFilter->getName()
-            ) {
-                $this->extendTypeCheckValidatorToAllowTransformedValue($property, $schema, $typeAfterFilter);
+                $hasTransformingFilter = true;
 
-                $property->setType($property->getType(), $typeAfterFilter->getName());
+                $typeAfterFilter = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))
+                    ->getReturnType();
 
-                $schema->addCustomSerializer(
-                    new TransformingFilterSerializer($property->getAttribute(), $filter, $filterOptions)
-                );
+                if ($typeAfterFilter &&
+                    $typeAfterFilter->getName() &&
+                    $property->getType() !== $typeAfterFilter->getName()
+                ) {
+                    $this->extendTypeCheckValidatorToAllowTransformedValue($property, $schema, $typeAfterFilter);
+
+                    $property->setType($property->getType(), $typeAfterFilter->getName());
+
+                    $schema->addCustomSerializer(
+                        new TransformingFilterSerializer($property->getAttribute(), $filter, $filterOptions)
+                    );
+                }
             }
         }
     }

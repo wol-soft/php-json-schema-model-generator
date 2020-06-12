@@ -47,7 +47,7 @@ Transforming filter
 
 .. warning::
 
-    Read this section carefully if you want to use filters which transform the type of the property
+    Read this section carefully and understand it if you want to use filters which transform the type of the property
 
 Filters may change the type of the property. For example the builtin filter **dateTime** creates a DateTime object. Consequently further validations like pattern checks for the string property won't be performed.
 
@@ -56,6 +56,8 @@ As the required check is executed before the filter a filter may transform a req
 The return type of the last applied filter will be used to define the type of the property inside the generated model (in the example one section above given above the method **getCreated** will return a DateTime object). Additionally the generated model also accepts the transformed type as input type. So **setCreated** will accept a string and a DateTime object. If an already transformed value is provided the filter which transforms the value will **not** be executed.
 
 If you write a custom transforming filter you must define the return type of your filter function as the implementation uses Reflection methods to determine to which type a value is transformed by a filter.
+
+Only one transforming filter per property is allowed. may be positioned anywhere in the filter chain of a single property. If multiple filters are applied and a transforming filter is among them you have to make sure the property types are compatible.
 
 Builtin filter
 --------------
@@ -157,14 +159,19 @@ Let's have a look how the generated model behaves:
 Additional options
 ~~~~~~~~~~~~~~~~~~
 
-================ ============= ===========
-Option           Default value Description
-================ ============= ===========
-convertNullToNow false         If null is provided a DateTime object with the current time will be created (works only if the property isn't required as null would be denied otherwise before the filter is executed)
-denyEmptyValue   false         An empty string value will be denied (by default an empty string value will result in a DateTime object with the current time)
-createFromFormat null          Provide a pattern which is used to parse the provided value (DateTime object will be created via DateTime::createFromFormat if a format is provided)
-outputFormat     DATE_ISO8601  The output format if serialization is enabled and toArray or toJSON is called on a transformed property. If a createFromFormat is defined but no outputFormat the createFromFormat value will override the default value
-================ ============= ===========
+================        ============= ===========
+Option                  Default value Description
+================        ============= ===========
+convertNullToNow        false         If null is provided a DateTime object with the current time will be created (works only if the property isn't required as null would be denied otherwise before the filter is executed)
+convertEmptyValueToNull false         If an empty string is provided and this option is set to true the property will contain null after the filter has been applied
+denyEmptyValue          false         An empty string value will be denied (by default an empty string value will result in a DateTime object with the current time)
+createFromFormat        null          Provide a pattern which is used to parse the provided value (DateTime object will be created via DateTime::createFromFormat if a format is provided)
+outputFormat            DATE_ISO8601  The output format if serialization is enabled and toArray or toJSON is called on a transformed property. If a createFromFormat is defined but no outputFormat the createFromFormat value will override the default value
+================        ============= ===========
+
+.. hint::
+
+    If the dateTime filter is used without the createFromFormat option the string will be passed into the DateTime constructor. Consequently also strings like '+1 day' will be converted to the corresponding DateTime objects.
 
 Custom filter
 -------------

@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "created": {
+      "type": "string",
+      "filter": "dateTime"
+    },
+    "name": {
+      "type": "string"
+    }
+  }
+}

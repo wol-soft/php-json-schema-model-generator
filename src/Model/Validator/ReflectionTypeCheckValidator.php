@@ -25,15 +25,15 @@ class ReflectionTypeCheckValidator extends PropertyValidator
     public function __construct(ReflectionType $reflectionType, PropertyInterface $property, Schema $schema)
     {
         if ($reflectionType->isBuiltin()) {
-            $skipTransformedValuesCheck = "!is_{$reflectionType->getName()}(\$value)";
+            $typeCheck = "!is_{$reflectionType->getName()}(\$value)";
         } else {
-            $skipTransformedValuesCheck = "!(\$value instanceof {$reflectionType->getName()})";
+            $typeCheck = "!(\$value instanceof {$reflectionType->getName()})";
             // make sure the returned class is imported so the instanceof check can be performed
             $schema->addUsedClass($reflectionType->getName());
         }
 
         parent::__construct(
-            $skipTransformedValuesCheck,
+            $typeCheck,
             sprintf(
                 'Invalid type for %s. Requires %s, got " . gettype($value) . "',
                 $property->getName(),
