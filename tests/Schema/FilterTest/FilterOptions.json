@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "created": {
+      "type": "string",
+      "filter": [
+        {
+          "filter": "dateTime",
+          "createFromFormat": "!dmY",
+          "outputFormat": "Ymd"
+        }
+      ]
+    }
+  }
+}

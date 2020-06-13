@@ -28,21 +28,27 @@ interface PropertyInterface
     public function getAttribute(): string;
 
     /**
+     * @param bool $outputType If set to true the output type will be returned (may differ from the base type)
+     *
      * @return string
      */
-    public function getType(): string;
+    public function getType(bool $outputType = false): string;
 
     /**
      * @param string $type
+     * @param string|null $outputType By default the output type will be equal to the base type but due to applied
+     *                                filters the output type may change
      *
      * @return PropertyInterface
      */
-    public function setType(string $type): PropertyInterface;
+    public function setType(string $type, ?string $outputType = null): PropertyInterface;
 
     /**
+     * @param bool $outputType If set to true the output type hint will be returned (may differ from the base type)
+     *
      * @return string
      */
-    public function getTypeHint(): string;
+    public function getTypeHint(bool $outputType = false): string;
 
     /**
      * @param TypeHintDecoratorInterface $typeHintDecorator
@@ -60,6 +66,16 @@ interface PropertyInterface
 
     /**
      * Add a validator for the property
+     *
+     * The priority is used to order the validators applied to a property.
+     * The validators with the lowest priority number will be executed first.
+     *
+     * Priority 1:   Required checks
+     * Priority 2:   Type Checks
+     * Priority 3:   Enum Checks
+     * Priority 10+: Filter validators
+     * Priority 99:  Default priority used for casual validators
+     * Priority 100: Validators for compositions
      *
      * @param PropertyValidatorInterface $validator
      * @param int $priority

@@ -2,7 +2,7 @@
 [![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%207.2-8892BF.svg)](https://php.net/)
 [![Maintainability](https://api.codeclimate.com/v1/badges/9e3c565c528edb3d58d5/maintainability)](https://codeclimate.com/github/wol-soft/php-json-schema-model-generator/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/7eb29e7366dc3d6a5f44/test_coverage)](https://codeclimate.com/github/wol-soft/php-json-schema-model-generator/test_coverage)
-[![Build Status](https://travis-ci.org/wol-soft/php-json-schema-model-generator.svg?branch=master)](https://travis-ci.org/wol-soft/php-json-schema-model-generator)
+[![Build Status](https://travis-ci.com/wol-soft/php-json-schema-model-generator.svg?branch=master)](https://travis-ci.com/wol-soft/php-json-schema-model-generator)
 [![Coverage Status](https://coveralls.io/repos/github/wol-soft/php-json-schema-model-generator/badge.svg?branch=master)](https://coveralls.io/github/wol-soft/php-json-schema-model-generator?branch=master)
 [![MIT License](https://img.shields.io/packagist/l/wol-soft/php-json-schema-model-generator.svg)](https://github.com/wol-soft/php-json-schema-model-generator/blob/master/LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/php-json-schema-model-generator/badge/?version=latest)](https://php-json-schema-model-generator.readthedocs.io/en/latest/?badge=latest)
@@ -50,6 +50,14 @@ The base object for generating models is the *Generator*. After you have created
 (new Generator())
     ->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
 ```
+The first parameter of the *generateModels* method must be a class implementing the *SchemaProviderInterface*. The provider fetches the JSON schema files and provides them for the generator. The following providers are available:
+
+Provider | Description
+--- | ---
+RecursiveDirectoryProvider | Fetches all *.json files from the given source directory. Each file must contain a JSON Schema object definition on the top level
+OpenAPIv3Provider | Fetches all objects defined in the `#/components/schemas section` of an Open API v3 spec file
+
+The second parameter must point to an existing and empty directory (you may use the `generateModelDirectory` helper method to create your destination directory). This directory will contain the generated PHP classes after the generator is finished.
 
 As an optional parameter you can set up a *GeneratorConfiguration* object to configure your Generator and/or use the method *generateModelDirectory* to generate your model directory (will generate the directory if it doesn't exist; if it exists, all contained files and folders will be removed for a clean generation process):
 

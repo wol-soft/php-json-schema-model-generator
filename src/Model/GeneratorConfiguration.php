@@ -5,7 +5,10 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\Model;
 
 use PHPModelGenerator\Exception\InvalidFilterException;
+use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterInterface;
+use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
+use PHPModelGenerator\PropertyProcessor\Filter\TransformingFilterInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Utils\ClassNameGeneratorInterface;
@@ -47,7 +50,10 @@ class GeneratorConfiguration
     {
         $this->classNameGenerator = new ClassNameGenerator();
 
-        $this->addFilter(new TrimFilter());
+        $this
+            ->addFilter(new DateTimeFilter())
+            ->addFilter(new NotEmptyFilter())
+            ->addFilter(new TrimFilter());
     }
 
     /**
@@ -61,13 +67,28 @@ class GeneratorConfiguration
      */
     public function addFilter(FilterInterface $filter): self
     {
-        // TODO: check accepted types
         if (!(count($filter->getFilter()) === 2) ||
             !is_string($filter->getFilter()[0]) ||
             !is_string($filter->getFilter()[1]) ||
             !is_callable($filter->getFilter())
         ) {
             throw new InvalidFilterException("Invalid filter callback for filter {$filter->getToken()}");
+        }
+
+        if ($filter instanceof TransformingFilterInterface) {
+            if (!(count($filter->getSerializer()) === 2) ||
+                !is_string($filter->getSerializer()[0]) ||
+                !is_string($filter->getSerializer()[1]) ||
+                !is_callable($filter->getSerializer())
+            ) {
+                throw new InvalidFilterException("Invalid serializer callback for filter {$filter->getToken()}");
+            }
+        }
+
+        if (array_diff($filter->getAcceptedTypes(), ['integer', 'number', 'boolean', 'string', 'array'])) {
+            throw new InvalidFilterException(
+                'Filter accepts invalid types. Allowed types are [integer, number, boolean, string, array]'
+            );
         }
 
         $this->filter[$filter->getToken()] = $filter;

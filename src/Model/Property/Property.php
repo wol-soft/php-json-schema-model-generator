@@ -24,6 +24,8 @@ class Property implements PropertyInterface
     protected $attribute = '';
     /** @var string */
     protected $type = 'null';
+    /** @var string|null */
+    protected $outputType = null;
     /** @var bool */
     protected $isPropertyRequired = true;
     /** @var bool */
@@ -34,7 +36,7 @@ class Property implements PropertyInterface
     protected $defaultValue;
 
     /** @var Validator[] */
-    protected $validator = [];
+    protected $validators = [];
     /** @var Schema */
     protected $schema;
     /** @var PropertyDecoratorInterface[] */
@@ -78,17 +80,25 @@ class Property implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function getType(): string
+    public function getType(bool $outputType = false): string
     {
-        return $this->type;
+        // If the output type differs from an input type also accept the output type
+        // (in this case the transforming filter is skipped)
+        // TODO: PHP 8 use union types to accept multiple input types
+        if (!$outputType && $this->outputType !== null && $this->outputType !== $this->type) {
+            return '';
+        }
+
+        return $outputType && $this->outputType !== null ? $this->outputType : $this->type;
     }
 
     /**
      * @inheritdoc
      */
-    public function setType(string $type): PropertyInterface
+    public function setType(string $type, ?string $outputType = null): PropertyInterface
     {
         $this->type = $type;
+        $this->outputType = $outputType;
 
         return $this;
     }
@@ -96,13 +106,23 @@ class Property implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function getTypeHint(): string
+    public function getTypeHint(bool $outputType = false): string
     {
-        $input = $this->type;
+        $input = [$outputType && $this->outputType !== null ? $this->outputType : $this->type];
 
-        foreach ($this->typeHintDecorators as $decorator) {
-            $input = $decorator->decorate($input);
+        // If the output type differs from an input type also accept the output type
+        if (!$outputType && $this->outputType !== null && $this->outputType !== $this->type) {
+            $input = [$this->type, $this->outputType];
         }
+
+        $input = join('|', array_map(function (string $input) {
+            foreach ($this->typeHintDecorators as $decorator) {
+                $input = $decorator->decorate($input);
+            }
+
+            return $input;
+        }, $input));
+
 
         return $input ?? 'mixed';
     }
@@ -130,7 +150,7 @@ class Property implements PropertyInterface
      */
     public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): PropertyInterface
     {
-        $this->validator[] = new Validator($validator, $priority);
+        $this->validators[] = new Validator($validator, $priority);
 
         return $this;
     }
@@ -140,7 +160,7 @@ class Property implements PropertyInterface
      */
     public function getValidators(): array
     {
-        return $this->validator;
+        return $this->validators;
     }
 
     /**
@@ -148,7 +168,7 @@ class Property implements PropertyInterface
      */
     public function filterValidators(callable $filter): PropertyInterface
     {
-        $this->validator = array_filter($this->validator, $filter);
+        $this->validators = array_filter($this->validators, $filter);
 
         return $this;
     }
@@ -159,7 +179,7 @@ class Property implements PropertyInterface
     public function getOrderedValidators(): array
     {
         usort(
-            $this->validator,
+            $this->validators,
             function (Validator $validator, Validator $comparedValidator) {
                 if ($validator->getPriority() == $comparedValidator->getPriority()) {
                     return 0;
@@ -172,7 +192,7 @@ class Property implements PropertyInterface
             function (Validator $validator) {
                 return $validator->getValidator();
             },
-            $this->validator
+            $this->validators
         );
     }
 

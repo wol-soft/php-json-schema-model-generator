@@ -4,16 +4,16 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
-use PHPModelGenerator\Filter\Trim;
+use PHPModelGenerator\Filter\DateTime;
 
 /**
- * Class TrimFilter
+ * Class DateTimeFilter
  *
  * Trims a string
  *
  * @package PHPModelGenerator\PropertyProcessor\Filter
  */
-class TrimFilter implements FilterInterface
+class DateTimeFilter implements TransformingFilterInterface
 {
     /**
      * @inheritDoc
@@ -28,7 +28,7 @@ class TrimFilter implements FilterInterface
      */
     public function getToken(): string
     {
-        return 'trim';
+        return 'dateTime';
     }
 
     /**
@@ -36,6 +36,14 @@ class TrimFilter implements FilterInterface
      */
     public function getFilter(): array
     {
-        return [Trim::class, 'filter'];
+        return [DateTime::class, 'filter'];
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getSerializer(): array
+    {
+        return [DateTime::class, 'serialize'];
     }
 }

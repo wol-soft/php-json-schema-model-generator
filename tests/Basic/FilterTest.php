@@ -2,12 +2,18 @@
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use DateTime;
+use Exception;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Filter\Trim;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterInterface;
+use PHPModelGenerator\PropertyProcessor\Filter\TransformingFilterInterface;
+use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 /**
@@ -51,6 +57,18 @@ class FilterTest extends AbstractPHPModelGeneratorTest
             'Non existing function' => [[Trim::class, 'nonExistingMethod']],
             'three array' => [[Trim::class, 'filter', 'abc']],
         ];
+    }
+
+    public function testFilterWithNotAllowedAcceptedTypeThrowsAnException(): void
+    {
+        $this->expectException(InvalidFilterException::class);
+        $this->expectExceptionMessage(
+            'Filter accepts invalid types. Allowed types are [integer, number, boolean, string, array]'
+        );
+
+        (new GeneratorConfiguration())->addFilter(
+            $this->getCustomFilter([self::class, 'uppercaseFilter'], 'customFilter', [DateTime::class])
+        );
     }
 
     public function testNonExistingFilterThrowsAnException(): void
@@ -99,18 +117,18 @@ class FilterTest extends AbstractPHPModelGeneratorTest
      * @dataProvider validBuiltInFilterDataProvider
      *
      * @param string $template
-     * @param string|null $input
+     * @param array $input
      * @param string|null $expected
      */
-    public function testValidUsageOfBuiltInFilter(string $template, ?string $input, ?string $expected): void
+    public function testValidUsageOfBuiltInFilter(string $template, array $input, ?string $expected): void
     {
         $className = $this->generateClassFromFileTemplate($template, ['"string"'], null, false);
 
-        $object = new $className(['property' => $input]);
+        $object = new $className($input);
 
         $this->assertSame($object->getProperty(), $expected);
         // make sure the raw inout isn't affected by the filter
-        $this->assertSame($input, $object->getRawModelDataInput()['property']);
+        $this->assertSame($input, $object->getRawModelDataInput());
     }
 
     /**
@@ -140,11 +158,12 @@ class FilterTest extends AbstractPHPModelGeneratorTest
         return $this->combineDataProvider(
             $this->validTrimDataFormatProvider(),
             [
-                'Null' => [null, null],
-                'Empty string' => ['', ''],
-                'String containing only whitespaces' => [" \t \n \r ", ''],
-                'Numeric string' => ['  12  ', '12'],
-                'Text' => ['  Hello World! ', 'Hello World!'],
+                'Optional Value not provided' => [[], null],
+                'Null' => [['property' => null], null],
+                'Empty string' => [['property' => ''], ''],
+                'String containing only whitespaces' => [['property' => " \t \n \r "], ''],
+                'Numeric string' => [['property' => '  12  '], '12'],
+                'Text' => [['property' => '  Hello World! '], 'Hello World!'],
             ]
         );
     }
@@ -245,10 +264,14 @@ class FilterTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateClassFromFile(
             'Uppercase.json',
             (new GeneratorConfiguration())
+                ->setImmutable(false)
                 ->addFilter($this->getCustomFilter([self::class, 'uppercaseFilter'], 'uppercase'))
         );
 
         $object = new $className(['property' => $input]);
+        $this->assertSame($expectedValue, $object->getProperty());
+
+        $object->setProperty($input);
         $this->assertSame($expectedValue, $object->getProperty());
     }
 
@@ -275,10 +298,14 @@ class FilterTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateClassFromFile(
             'MultipleFilters.json',
             (new GeneratorConfiguration())
+                ->setImmutable(false)
                 ->addFilter($this->getCustomFilter([self::class, 'uppercaseFilter'], 'uppercase'))
         );
 
         $object = new $className(['property' => $input]);
+        $this->assertSame($expectedValue, $object->getProperty());
+
+        $object->setProperty($input);
         $this->assertSame($expectedValue, $object->getProperty());
     }
 
@@ -291,6 +318,303 @@ class FilterTest extends AbstractPHPModelGeneratorTest
             'spaces' => ['  ', ''],
             'uppercase string' => [" ABC\n", 'ABC'],
             'mixed string' => ["  \t Hello World! ", 'HELLO WORLD!'],
+        ];
+    }
+
+    /**
+     * @dataProvider invalidCustomFilterDataProvider
+     *
+     * @param array $customInvalidFilter
+     */
+    public function testAddFilterWithInvalidSerializerThrowsAnException(array $customInvalidFilter): void
+    {
+        $this->expectException(InvalidFilterException::class);
+        $this->expectExceptionMessage('Invalid serializer callback for filter customTransformingFilter');
+
+        (new GeneratorConfiguration())->addFilter($this->getCustomTransformingFilter($customInvalidFilter));
+    }
+
+    protected function getCustomTransformingFilter(
+        array $customSerializer,
+        array $customFilter = [],
+        string $token = 'customTransformingFilter',
+        array $acceptedTypes = ['string']
+    ): TransformingFilterInterface {
+        return new class ($customSerializer, $customFilter, $token, $acceptedTypes)
+            extends TrimFilter
+            implements TransformingFilterInterface
+        {
+            private $customSerializer;
+            private $customFilter;
+            private $token;
+            private $acceptedTypes;
+
+            public function __construct(
+                array $customSerializer,
+                array $customFilter,
+                string $token,
+                array $acceptedTypes
+            ) {
+                $this->customSerializer = $customSerializer;
+                $this->customFilter = $customFilter;
+                $this->token = $token;
+                $this->acceptedTypes = $acceptedTypes;
+            }
+
+            public function getAcceptedTypes(): array
+            {
+                return $this->acceptedTypes;
+            }
+
+            public function getToken(): string
+            {
+                return $this->token;
+            }
+
+            public function getFilter(): array
+            {
+                return empty($this->customFilter) ? parent::getFilter() : $this->customFilter;
+            }
+            public function getSerializer(): array
+            {
+                return $this->customSerializer;
+            }
+        };
+    }
+
+    /**
+     * @dataProvider validDateTimeFilterDataProvider
+     */
+    public function testTransformingFilter(array $input, ?string $expected): void
+    {
+        $className = $this->generateClassFromFile(
+            'TransformingFilter.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true)
+        );
+
+        $object = new $className($input);
+
+        if ($expected === null) {
+            $this->assertNull($object->getCreated());
+        } else {
+            $expectedDateTime = new DateTime($expected);
+
+            $this->assertInstanceOf(DateTime::class, $object->getCreated());
+            $this->assertSame($expectedDateTime->format(DATE_ATOM), $object->getCreated()->format(DATE_ATOM));
+        }
+
+        // test if the setter accepts the raw model data
+        if (isset($input['created'])) {
+            $object->setCreated($input['created']);
+
+            if ($expected === null) {
+                $this->assertNull($object->getCreated());
+            } else {
+                $expectedDateTime = new DateTime($expected);
+
+                $this->assertInstanceOf(DateTime::class, $object->getCreated());
+                $this->assertSame($expectedDateTime->format(DATE_ATOM), $object->getCreated()->format(DATE_ATOM));
+
+                // test if the setter accepts a DateTime object
+                $object->setCreated($expectedDateTime);
+
+                $this->assertInstanceOf(DateTime::class, $object->getCreated());
+                $this->assertSame($expectedDateTime->format(DATE_ATOM), $object->getCreated()->format(DATE_ATOM));
+            }
+        }
+
+        // test if the model can be serialized
+        $expectedSerialization = [
+            'created' => $expected !== null ? (new DateTime($expected))->format(DATE_ISO8601) : null,
+            'name' => null,
+        ];
+
+        $this->assertSame($expectedSerialization, $object->toArray());
+        $this->assertSame(json_encode($expectedSerialization), $object->toJSON());
+    }
+
+    public function validDateTimeFilterDataProvider(): array
+    {
+        return [
+            'Optional Value not provided' => [[], null],
+            'Null' => [['created' => null], null],
+            'Empty string' => [['created' => ''], 'now'],
+            'valid date' => [['created' => "12.12.2020 12:00"], '12.12.2020 12:00'],
+            'valid DateTime constructor string' => [['created' => '+1 day'], '+1 day'],
+        ];
+    }
+
+    public function testFilterExceptionsAreCaught(): void
+    {
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage(<<<ERROR
+Invalid value for property created denied by filter dateTime: Invalid Date Time value "Hello"
+Invalid type for name. Requires string, got integer
+ERROR
+        );
+
+        $className = $this->generateClassFromFile(
+            'TransformingFilter.json',
+            (new GeneratorConfiguration())->setCollectErrors(true)
+        );
+
+        new $className(['created' => 'Hello', 'name' => 12]);
+    }
+
+    public function testAdditionalFilterOptions(): void
+    {
+        $className = $this->generateClassFromFile(
+            'FilterOptions.json',
+            (new GeneratorConfiguration())->setSerialization(true)
+        );
+
+        $object = new $className(['created' => '10122020']);
+
+        $this->assertSame((new DateTime('2020-12-10'))->format(DATE_ATOM), $object->getCreated()->format(DATE_ATOM));
+
+        $expectedSerialization = ['created' => '20201210'];
+        $this->assertSame($expectedSerialization, $object->toArray());
+        $this->assertSame(json_encode($expectedSerialization), $object->toJSON());
+    }
+
+    public function testTransformingFilterAppliedToAnArrayPropertyThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage(
+            'Applying a transforming filter to the array property list is not supported'
+        );
+
+        $this->generateClassFromFile(
+            'ArrayTransformingFilter.json',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomTransformingFilter(
+                    [self::class, 'serializeBinaryToInt'],
+                    [self::class, 'filterIntToBinary'],
+                    'customArrayTransformer',
+                    ['array']
+                )
+            )
+        );
+    }
+
+    public function testMultipleTransformingFiltersAppliedToOnePropertyThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage(
+            'Applying multiple transforming filters for property filteredProperty is not supported'
+        );
+
+        $this->generateClassFromFile(
+            'MultipleTransformingFilters.json',
+            (new GeneratorConfiguration())->addFilter(
+                new class () extends DateTimeFilter {
+                    public function getToken(): string
+                    {
+                        return 'customTransformer';
+                    }
+                }
+            )
+        );
+    }
+
+    public function testFilterBeforeTransformingFilterIsExecutedIfNonTransformedValueIsProvided(): void
+    {
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage(
+            'Invalid value for property filteredProperty denied by filter exceptionFilter: ' .
+            'Exception filter called with 12.12.2020'
+        );
+
+        $className = $this->generateClassFromFile(
+            'FilterPassThrough.json',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomFilter([self::class, 'exceptionFilter'], 'exceptionFilter')
+            )
+        );
+
+        new $className(['filteredProperty' => '12.12.2020']);
+    }
+
+    public function testFilterBeforeTransformingFilterIsSkippedIfTransformedValueIsProvided(): void
+    {
+        $className = $this->generateClassFromFile(
+            'FilterPassThrough.json',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomFilter([self::class, 'exceptionFilter'], 'exceptionFilter')
+            )
+        );
+
+        $object = new $className(['filteredProperty' => new DateTime('2020-12-10')]);
+
+        $this->assertSame(
+            (new DateTime('2020-12-10'))->format(DATE_ATOM),
+            $object->getFilteredProperty()->format(DATE_ATOM)
+        );
+    }
+
+    public static function exceptionFilter(string $value): void
+    {
+        throw new Exception("Exception filter called with $value");
+    }
+
+    public function testTransformingToScalarType()
+    {
+        $className = $this->generateClassFromFile(
+            'TransformingScalarFilter.json',
+            (new GeneratorConfiguration())
+                ->setSerialization(true)
+                ->addFilter(
+                    $this->getCustomTransformingFilter(
+                        [self::class, 'serializeBinaryToInt'],
+                        [self::class, 'filterIntToBinary'],
+                        'binary',
+                        ['integer']
+                    )
+                )
+        );
+
+        $object = new $className(['value' => 9]);
+
+        $this->assertSame('1001', $object->getValue());
+        $this->assertSame('1010', $object->setValue('1010')->getValue());
+        $this->assertSame('1011', $object->setValue(11)->getValue());
+
+        $this->assertSame(['value' => 11], $object->toArray());
+        $this->assertSame('{"value":11}', $object->toJSON());
+    }
+
+    public static function filterIntToBinary(int $value): string
+    {
+        return decbin($value);
+    }
+
+    public static function serializeBinaryToInt(string $binary): int
+    {
+        return bindec($binary);
+    }
+
+    /**
+     * @dataProvider arrayFilterDataProvider
+     *
+     * @param array|null $input
+     * @param array|null $output
+     */
+    public function testArrayFilter(?array $input, ?array $output): void
+    {
+        $className = $this->generateClassFromFile('ArrayFilter.json');
+
+        $object = new $className(['list' => $input]);
+        $this->assertSame($output, $object->getList());
+    }
+
+    public function arrayFilterDataProvider(): array
+    {
+        return [
+            'null' => [null, null],
+            'empty array' => [[], []],
+            'string array' => [['', 'Hello', null, '123'], ['Hello', '123']],
+            'numeric array' => [[12, 0, 43], [12, 43]],
+            'nested array' => [[['Hello'], [], [12], ['']], [['Hello'], [12], ['']]],
         ];
     }
 }

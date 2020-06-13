@@ -180,14 +180,14 @@ class SchemaProcessor
         bool $initialClass = false
     ): void {
         $fileName = join(
-                DIRECTORY_SEPARATOR,
-                [$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]
-            ) . '.php';
+            DIRECTORY_SEPARATOR,
+            [$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]
+        ) . '.php';
 
         $this->renderQueue->addRenderJob(new RenderJob($fileName, $classPath, $className, $schema, $initialClass));
 
         if ($this->generatorConfiguration->isOutputEnabled()) {
-            echo "Generated class {$this->generatorConfiguration->getNamespacePrefix()}$classPath\\$className\n";
+            echo "Generated class {$this->generatorConfiguration->getNamespacePrefix()}\\$classPath\\$className\n";
         }
 
         $this->generatedFiles[] = $fileName;
@@ -208,7 +208,7 @@ class SchemaProcessor
             explode(DIRECTORY_SEPARATOR, $path)
         );
 
-        $this->currentClassPath = join('\\', $pieces);
+        $this->currentClassPath = join('\\', array_filter($pieces));
     }
 
     /**

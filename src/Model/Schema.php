@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\Model;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\Serializer\TransformingFilterSerializer;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
@@ -31,6 +32,8 @@ class Schema
     protected $usedClasses = [];
     /** @var SchemaNamespaceTransferDecorator[] */
     protected $namespaceTransferDecorators = [];
+    /** @var TransformingFilterSerializer[] */
+    protected $customSerializer = [];
 
     /** @var SchemaDefinitionDictionary */
     protected $schemaDefinitionDictionary;
@@ -159,7 +162,7 @@ class Schema
      */
     public function addUsedClass(string $path): self
     {
-        $this->usedClasses[] = $path;
+        $this->usedClasses[] = trim($path, '\\');
 
         return $this;
     }
@@ -190,5 +193,25 @@ class Schema
         }
 
         return $usedClasses;
+    }
+
+    /**
+     * @param TransformingFilterSerializer $serializer
+     *
+     * @return $this
+     */
+    public function addCustomSerializer(TransformingFilterSerializer $serializer): self
+    {
+        $this->customSerializer[] = $serializer;
+
+        return $this;
+    }
+
+    /**
+     * @return TransformingFilterSerializer[]
+     */
+    public function getCustomSerializer(): array
+    {
+        return $this->customSerializer;
     }
 }

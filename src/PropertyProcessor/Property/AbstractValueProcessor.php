@@ -11,6 +11,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use ReflectionException;
 
 /**
  * Class AbstractScalarValueProcessor
@@ -42,6 +43,7 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
     /**
      * @inheritdoc
      *
+     * @throws ReflectionException
      * @throws SchemaException
      */
     public function process(string $propertyName, array $propertyData): PropertyInterface
@@ -53,15 +55,16 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
                 $this->schemaProcessor->getGeneratorConfiguration()->isImmutable()
             );
 
+        $this->generateValidators($property, $propertyData);
+
         if (isset($propertyData['filter'])) {
             (new FilterProcessor())->process(
                 $property,
                 $propertyData['filter'],
-                $this->schemaProcessor->getGeneratorConfiguration()
+                $this->schemaProcessor->getGeneratorConfiguration(),
+                $this->schema
             );
         }
-
-        $this->generateValidators($property, $propertyData);
 
         return $property;
     }
