@@ -4,23 +4,23 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
-use PHPModelGenerator\Filter\Trim;
+use PHPModelGenerator\Filter\NotEmpty;
 
 /**
- * Class TrimFilter
+ * Class NotEmptyFilter
  *
- * Trims a string
+ * Removes empty elements from an array
  *
  * @package PHPModelGenerator\PropertyProcessor\Filter
  */
-class TrimFilter implements FilterInterface
+class NotEmptyFilter implements FilterInterface
 {
     /**
      * @inheritDoc
      */
     public function getAcceptedTypes(): array
     {
-        return ['string'];
+        return ['array'];
     }
 
     /**
@@ -28,7 +28,7 @@ class TrimFilter implements FilterInterface
      */
     public function getToken(): string
     {
-        return 'trim';
+        return 'notEmpty';
     }
 
     /**
@@ -36,6 +36,6 @@ class TrimFilter implements FilterInterface
      */
     public function getFilter(): array
     {
-        return [Trim::class, 'filter'];
+        return [NotEmpty::class, 'filter'];
     }
 }

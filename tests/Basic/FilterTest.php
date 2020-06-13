@@ -477,6 +477,26 @@ ERROR
         $this->assertSame(json_encode($expectedSerialization), $object->toJSON());
     }
 
+    public function testTransformingFilterAppliedToAnArrayPropertyThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage(
+            'Applying a transforming filter to the array property list is not supported'
+        );
+
+        $this->generateClassFromFile(
+            'ArrayTransformingFilter.json',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomTransformingFilter(
+                    [self::class, 'serializeBinaryToInt'],
+                    [self::class, 'filterIntToBinary'],
+                    'customArrayTransformer',
+                    ['array']
+                )
+            )
+        );
+    }
+
     public function testMultipleTransformingFiltersAppliedToOnePropertyThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
@@ -571,5 +591,30 @@ ERROR
     public static function serializeBinaryToInt(string $binary): int
     {
         return bindec($binary);
+    }
+
+    /**
+     * @dataProvider arrayFilterDataProvider
+     *
+     * @param array|null $input
+     * @param array|null $output
+     */
+    public function testArrayFilter(?array $input, ?array $output): void
+    {
+        $className = $this->generateClassFromFile('ArrayFilter.json');
+
+        $object = new $className(['list' => $input]);
+        $this->assertSame($output, $object->getList());
+    }
+
+    public function arrayFilterDataProvider(): array
+    {
+        return [
+            'null' => [null, null],
+            'empty array' => [[], []],
+            'string array' => [['', 'Hello', null, '123'], ['Hello', '123']],
+            'numeric array' => [[12, 0, 43], [12, 43]],
+            'nested array' => [[['Hello'], [], [12], ['']], [['Hello'], [12], ['']]],
+        ];
     }
 }

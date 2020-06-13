@@ -129,7 +129,9 @@ class FilterValidator extends PropertyTemplateValidator
                 case 'boolean': return 'bool';
                 case 'array': return 'array';
 
+                // @codeCoverageIgnoreStart this must not occur as invalid types are filtered out before
                 default: throw new SchemaException("Invalid accepted type $jsonSchemaType");
+                // @codeCoverageIgnoreEnd
             }
         }, $acceptedTypes);
     }

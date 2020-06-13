@@ -46,6 +46,31 @@ If a list is used filters may include additional option parameters. In this case
         }
     }
 
+Array filter
+------------
+
+Filters may be applied to arrays. In this case the filter operates on the whole array.
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "names": {
+                "type": "array",
+                "filter": "notEmpty",
+                "items": {
+                    "type": "string",
+                    "filter": "trim"
+                }
+            }
+        }
+    }
+
+The array filter is executed before the items are processed. Consequently strings which aren't empty at the beginning but are empty after the trim filter is applied to each element won't be filtered out in the example given above.
+
+It is not possible to use transforming filters on arrays.
+
 Transforming filter
 -------------------
 
@@ -111,6 +136,40 @@ Let's have a look how the generated model behaves:
 If the filter trim is used for a property which doesn't require a string value and a non string value is provided an exception will be thrown:
 
 * Filter trim is not compatible with property type __TYPE__ for property __PROPERTY_NAME__
+
+notEmpty
+^^^^^^^^
+
+The dateTime filter is only valid for array properties.
+
+.. code-block:: json
+
+    {
+        "$id": "family",
+        "type": "object",
+        "properties": {
+            "members": {
+                "type": "array",
+                "filter": "notEmpty"
+            }
+        }
+    }
+
+Let's have a look how the generated model behaves:
+
+.. code-block:: php
+
+    // valid, the name will be NULL as the name is not required
+    $family = new Person([]);
+
+    // A valid example
+    $family = new Family(['members' => [null, null]]]);
+    $family->getMembers(); // returns an empty array
+    // the raw model data input is not affected by the filter
+    $family->getRawModelDataInput(); // returns ['members' => [null, null]]
+
+    $family->setMembers(['Hannes', null]);
+    $family->getMembers(); // returns ['Hannes']
 
 dateTime
 ^^^^^^^^
@@ -228,6 +287,9 @@ The callable filter method must be a static method. Internally it will be called
 
 If the custom filter is added to the generator configuration you can now use the filter in your schema and the generator will resolve the function:
 
+.. hint::
+
+    If a filter with the token of your custom filter already exists the existing filter will be overwritten when adding the filter to the generator configuration. By overwriting filters you may change the behaviour of builtin filters by replacing them with your custom implementation.
 
 .. code-block:: json
 

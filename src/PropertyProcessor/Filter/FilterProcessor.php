@@ -65,6 +65,11 @@ class FilterProcessor
             );
 
             if ($filter instanceof TransformingFilterInterface) {
+                if ($property->getType() === 'array') {
+                    throw new SchemaException(
+                        "Applying a transforming filter to the array property {$property->getName()} is not supported"
+                    );
+                }
                 if ($hasTransformingFilter) {
                     throw new SchemaException(
                         "Applying multiple transforming filters for property {$property->getName()} is not supported"
