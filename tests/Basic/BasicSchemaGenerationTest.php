@@ -41,6 +41,19 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->assertNull($object->getProperty());
     }
 
+    public function testClassInstantiationWithoutParameter(): void
+    {
+        $className = $this->generateClassFromFile('BasicSchema.json');
+
+        $object = new $className();
+        $this->assertNull($object->getProperty());
+
+        $object->setProperty('Hello');
+
+        $this->assertSame('Hello', $object->getProperty());
+
+    }
+
     public function testReadOnlyPropertyDoesntGenerateSetter(): void
     {
         $className = $this->generateClassFromFile('ReadOnly.json');

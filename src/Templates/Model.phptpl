@@ -42,7 +42,7 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
      * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getExceptionClass()) }}{% endif %}
      */
     public function __construct(
-        array $modelData
+        array $modelData = []
         {% if generatorConfiguration.collectErrors() %}
             {% if not initialClass %}
                 , {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $errorRegistry = null
