@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\ReflectionTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckValidator;
+use PHPModelGenerator\Utils\RenderHelper;
 use ReflectionException;
 use ReflectionMethod;
 use ReflectionType;
@@ -44,7 +45,7 @@ class FilterProcessor
             $filterList = [$filterList];
         }
 
-        $hasTransformingFilter = false;
+        $transformingFilter = null;
         // apply a different priority to each filter to make sure the order is kept
         $filterPriority = 10;
 
@@ -60,7 +61,7 @@ class FilterProcessor
             }
 
             $property->addValidator(
-                new FilterValidator($generatorConfiguration, $filter, $property, $filterOptions),
+                new FilterValidator($generatorConfiguration, $filter, $property, $filterOptions, $transformingFilter),
                 $filterPriority++
             );
 
@@ -70,13 +71,14 @@ class FilterProcessor
                         "Applying a transforming filter to the array property {$property->getName()} is not supported"
                     );
                 }
-                if ($hasTransformingFilter) {
+                if ($transformingFilter) {
                     throw new SchemaException(
                         "Applying multiple transforming filters for property {$property->getName()} is not supported"
                     );
                 }
 
-                $hasTransformingFilter = true;
+                // keep track of the transforming filter to modify type checks for following filters
+                $transformingFilter = $filter;
 
                 $typeAfterFilter = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))
                     ->getReturnType();
@@ -85,14 +87,19 @@ class FilterProcessor
                     $typeAfterFilter->getName() &&
                     $property->getType() !== $typeAfterFilter->getName()
                 ) {
-                    $this->addTransformedValuePassThrough($property, $schema, $filter);
+                    $this->addTransformedValuePassThrough($property, $filter);
                     $this->extendTypeCheckValidatorToAllowTransformedValue($property, $schema, $typeAfterFilter);
 
-                    $property->setType($property->getType(), $typeAfterFilter->getName());
-
-                    $schema->addCustomSerializer(
-                        new TransformingFilterSerializer($property->getAttribute(), $filter, $filterOptions)
+                    $property->setType(
+                        $property->getType(),
+                        (new RenderHelper($generatorConfiguration))->getSimpleClassName($typeAfterFilter->getName())
                     );
+
+                    $schema
+                        ->addUsedClass($typeAfterFilter->getName())
+                        ->addCustomSerializer(
+                            new TransformingFilterSerializer($property->getAttribute(), $filter, $filterOptions)
+                        );
                 }
             }
         }
@@ -105,21 +112,19 @@ class FilterProcessor
      * if a DateTime object is provided for the property
      *
      * @param PropertyInterface $property
-     * @param Schema $schema
      * @param TransformingFilterInterface $filter
      *
      * @throws ReflectionException
      */
     private function addTransformedValuePassThrough(
         PropertyInterface $property,
-        Schema $schema,
         TransformingFilterInterface $filter
     ): void {
         foreach ($property->getValidators() as $validator) {
             $validator = $validator->getValidator();
 
             if ($validator instanceof FilterValidator) {
-                $validator->addTransformedCheck($filter, $property, $schema);
+                $validator->addTransformedCheck($filter, $property);
             }
         }
     }
@@ -155,7 +160,7 @@ class FilterProcessor
                 new PropertyValidator(
                     sprintf(
                         '%s && %s',
-                        (new ReflectionTypeCheckValidator($typeAfterFilter, $property, $schema))->getCheck(),
+                        ReflectionTypeCheckValidator::fromReflectionType($typeAfterFilter, $property)->getCheck(),
                         $typeCheckValidator->getCheck()
                     ),
                     sprintf(

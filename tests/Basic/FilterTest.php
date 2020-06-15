@@ -62,12 +62,10 @@ class FilterTest extends AbstractPHPModelGeneratorTest
     public function testFilterWithNotAllowedAcceptedTypeThrowsAnException(): void
     {
         $this->expectException(InvalidFilterException::class);
-        $this->expectExceptionMessage(
-            'Filter accepts invalid types. Allowed types are [integer, number, boolean, string, array]'
-        );
+        $this->expectExceptionMessage('Filter accepts invalid types');
 
         (new GeneratorConfiguration())->addFilter(
-            $this->getCustomFilter([self::class, 'uppercaseFilter'], 'customFilter', [DateTime::class])
+            $this->getCustomFilter([self::class, 'uppercaseFilter'], 'customFilter', ['NotExistingType'])
         );
     }
 
@@ -504,16 +502,23 @@ ERROR
             'Applying multiple transforming filters for property filteredProperty is not supported'
         );
 
-        $this->generateClassFromFile(
-            'MultipleTransformingFilters.json',
+        $this->generateClassFromFileTemplate(
+            'FilterChain.json',
+            ['["dateTime", "customTransformer"]'],
             (new GeneratorConfiguration())->addFilter(
                 new class () extends DateTimeFilter {
+                    public function getAcceptedTypes(): array
+                    {
+                        return [DateTime::class];
+                    }
+
                     public function getToken(): string
                     {
                         return 'customTransformer';
                     }
                 }
-            )
+            ),
+            false
         );
     }
 
@@ -525,11 +530,13 @@ ERROR
             'Exception filter called with 12.12.2020'
         );
 
-        $className = $this->generateClassFromFile(
-            'FilterPassThrough.json',
+        $className = $this->generateClassFromFileTemplate(
+            'FilterChain.json',
+            ['["exceptionFilter", "dateTime"]'],
             (new GeneratorConfiguration())->addFilter(
                 $this->getCustomFilter([self::class, 'exceptionFilter'], 'exceptionFilter')
-            )
+            ),
+            false
         );
 
         new $className(['filteredProperty' => '12.12.2020']);
@@ -537,11 +544,13 @@ ERROR
 
     public function testFilterBeforeTransformingFilterIsSkippedIfTransformedValueIsProvided(): void
     {
-        $className = $this->generateClassFromFile(
-            'FilterPassThrough.json',
+        $className = $this->generateClassFromFileTemplate(
+            'FilterChain.json',
+            ['["exceptionFilter", "dateTime"]'],
             (new GeneratorConfiguration())->addFilter(
                 $this->getCustomFilter([self::class, 'exceptionFilter'], 'exceptionFilter')
-            )
+            ),
+            false
         );
 
         $object = new $className(['filteredProperty' => new DateTime('2020-12-10')]);
@@ -591,6 +600,48 @@ ERROR
     public static function serializeBinaryToInt(string $binary): int
     {
         return bindec($binary);
+    }
+
+    public function testInvalidFilterChainWithTransformingFilterThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage(
+            'Filter trim is not compatible with transformed property type DateTime for property filteredProperty'
+        );
+
+        $this->generateClassFromFileTemplate('FilterChain.json', ['["dateTime", "trim"]'], null, false);
+    }
+
+    public function testFilterChainWithTransformingFilter(): void
+    {
+        $className = $this->generateClassFromFileTemplate(
+            'FilterChain.json',
+            ['["trim", "dateTime", "stripTime"]'],
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomFilter(
+                    [self::class, 'stripTimeFilter'],
+                    'stripTime',
+                    [DateTime::class]
+                )
+            ),
+            false
+        );
+
+        $object = new $className(['filteredProperty' => '2020-12-12 12:12:12']);
+
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+        $this->assertSame('2020-12-12T00:00:00+00:00', $object->getFilteredProperty()->format(DateTime::ATOM));
+
+        $object->setFilteredProperty(null);
+        $this->assertNull($object->getFilteredProperty());
+
+        $object->setFilteredProperty(new DateTime('2020-12-12 12:12:12'));
+        $this->assertSame('2020-12-12T00:00:00+00:00', $object->getFilteredProperty()->format(DateTime::ATOM));
+    }
+
+    public static function stripTimeFilter(?DateTime $value): ?DateTime
+    {
+        return $value !== null ? $value->setTime(0, 0) : null;
     }
 
     /**

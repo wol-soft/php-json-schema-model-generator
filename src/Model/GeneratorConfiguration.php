@@ -85,10 +85,12 @@ class GeneratorConfiguration
             }
         }
 
-        if (array_diff($filter->getAcceptedTypes(), ['integer', 'number', 'boolean', 'string', 'array'])) {
-            throw new InvalidFilterException(
-                'Filter accepts invalid types. Allowed types are [integer, number, boolean, string, array]'
-            );
+        foreach ($filter->getAcceptedTypes() as $acceptedType) {
+            if (!in_array($acceptedType, ['integer', 'number', 'boolean', 'string', 'array']) &&
+                !class_exists($acceptedType)
+            ) {
+                throw new InvalidFilterException('Filter accepts invalid types');
+            }
         }
 
         $this->filter[$filter->getToken()] = $filter;

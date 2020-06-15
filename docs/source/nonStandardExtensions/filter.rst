@@ -84,7 +84,7 @@ Filters may change the type of the property. For example the builtin filter **da
 
 As the required check is executed before the filter a filter may transform a required value into a null value. Be aware when writing custom filters which transform values to not break your validation rules by adding filters to a property.
 
-Only one transforming filter per property is allowed. may be positioned anywhere in the filter chain of a single property. If multiple filters are applied and a transforming filter is among them you have to make sure the property types are compatible.
+Only one transforming filter per property is allowed. may be positioned anywhere in the filter chain of a single property. If multiple filters are applied and a transforming filter is among them you have to make sure the property types are compatible. If you use a custom filter after the dateTime filter for example the custom filter has to accept a DateTime value. Filters used before a transforming filter must accept the base type of the property the filter is applied to defined in the schema.
 
 If you write a custom transforming filter you must define the return type of your filter function as the implementation uses Reflection methods to determine to which type a value is transformed by a filter.
 
@@ -238,6 +238,10 @@ outputFormat            DATE_ISO8601  The output format if serialization is enab
 
     If the dateTime filter is used without the createFromFormat option the string will be passed into the DateTime constructor. Consequently also strings like '+1 day' will be converted to the corresponding DateTime objects.
 
+.. hint::
+
+    Beside defining custom formats the formatting options *createFromFormat* and *outputFormat* also accept PHPs builtin constants. To accept values formatted with DATE_ATOM simply set the option *createFromFormat* to **ATOM**. The following constants are available: ATOM, COOKIE, ISO8601, RFC822, RFC850, RFC1036, RFC1123, RFC2822, RFC3339, RFC3339_EXTENDED, RFC7231, RSS, W3C
+
 Custom filter
 -------------
 
@@ -270,7 +274,8 @@ The callable filter method must be a static method. Internally it will be called
         public function getAcceptedTypes(): array
         {
             // return an array of types which can be handled by the filter.
-            // valid types are: [integer, number, boolean, string, array]
+            // valid types are: [integer, number, boolean, string, array] or available classes (FQCN required, eg.
+            // DateTime::class)
             return ['string'];
         }
 
@@ -285,11 +290,11 @@ The callable filter method must be a static method. Internally it will be called
         }
     }
 
-If the custom filter is added to the generator configuration you can now use the filter in your schema and the generator will resolve the function:
-
 .. hint::
 
     If a filter with the token of your custom filter already exists the existing filter will be overwritten when adding the filter to the generator configuration. By overwriting filters you may change the behaviour of builtin filters by replacing them with your custom implementation.
+
+If the custom filter is added to the generator configuration you can now use the filter in your schema and the generator will resolve the function:
 
 .. code-block:: json
 

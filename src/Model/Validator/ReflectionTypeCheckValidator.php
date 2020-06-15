@@ -5,7 +5,6 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Model\Schema;
 use ReflectionType;
 
 /**
@@ -16,20 +15,38 @@ use ReflectionType;
 class ReflectionTypeCheckValidator extends PropertyValidator
 {
     /**
-     * ReflectionTypeCheckValidator constructor.
-     *
      * @param ReflectionType $reflectionType
      * @param PropertyInterface $property
-     * @param Schema $schema
+     *
+     * @return static
      */
-    public function __construct(ReflectionType $reflectionType, PropertyInterface $property, Schema $schema)
+    public static function fromReflectionType(
+        ReflectionType $reflectionType,
+        PropertyInterface $property
+    ): self {
+        return new self(
+            $reflectionType->isBuiltin(),
+            $reflectionType->getName(),
+            $property
+        );
+    }
+
+    /**
+     * ReflectionTypeCheckValidator constructor.
+     *
+     * @param bool $isBuiltin
+     * @param string $name
+     * @param PropertyInterface $property
+     */
+    public function __construct(bool $isBuiltin, string $name, PropertyInterface $property)
     {
-        if ($reflectionType->isBuiltin()) {
-            $typeCheck = "!is_{$reflectionType->getName()}(\$value)";
+        if ($isBuiltin) {
+            $typeCheck = "!is_{$name}(\$value)";
         } else {
-            $typeCheck = "!(\$value instanceof {$reflectionType->getName()})";
-            // make sure the returned class is imported so the instanceof check can be performed
-            $schema->addUsedClass($reflectionType->getName());
+            $parts = explode('\\', $name);
+            $className = end($parts);
+
+            $typeCheck = "!(\$value instanceof $className)";
         }
 
         parent::__construct(
@@ -37,7 +54,7 @@ class ReflectionTypeCheckValidator extends PropertyValidator
             sprintf(
                 'Invalid type for %s. Requires %s, got " . gettype($value) . "',
                 $property->getName(),
-                $reflectionType->getName()
+                $name
             )
         );
     }
