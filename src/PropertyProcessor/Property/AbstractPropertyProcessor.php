@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
@@ -254,5 +255,19 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
         }
 
         return $propertyData;
+    }
+
+    /**
+     * Check if implicit null values are allowed for the given property (a not required property which has no
+     * explicit null type and is passed with a null value will be accepted)
+     *
+     * @param GeneratorConfiguration $configuration
+     * @param PropertyInterface $property
+     *
+     * @return bool
+     */
+    protected function isImplicitNullAllowed(GeneratorConfiguration $configuration, PropertyInterface $property): bool
+    {
+        return $configuration->isImplicitNullAllowed() && !$property->isRequired();
     }
 }

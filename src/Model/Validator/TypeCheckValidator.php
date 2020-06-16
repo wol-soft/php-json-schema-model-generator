@@ -18,11 +18,12 @@ class TypeCheckValidator extends PropertyValidator
      *
      * @param string            $type
      * @param PropertyInterface $property
+     * @param bool              $allowImplicitNull
      */
-    public function __construct(string $type, PropertyInterface $property)
+    public function __construct(string $type, PropertyInterface $property, bool $allowImplicitNull)
     {
         parent::__construct(
-            '!is_' . strtolower($type) . '($value)' . ($property->isRequired() ? '' : ' && $value !== null'),
+            '!is_' . strtolower($type) . '($value)' . ($allowImplicitNull ? ' && $value !== null' : ''),
             sprintf('Invalid type for %s. Requires %s, got " . gettype($value) . "', $property->getName(), $type)
         );
     }

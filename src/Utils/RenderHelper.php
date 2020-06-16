@@ -94,4 +94,9 @@ class RenderHelper
 
         return "throw new $exceptionClass(\"$message\");";
     }
+
+    public function implicitNull(PropertyInterface $property): bool
+    {
+        return $this->generatorConfiguration->isImplicitNullAllowed() && !$property->isRequired();
+    }
 }

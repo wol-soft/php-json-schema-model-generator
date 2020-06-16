@@ -82,7 +82,10 @@ class MultiTypeProcessor extends AbstractValueProcessor
         return $property->addValidator(
             new PropertyValidator(
                 '!' . join('($value) && !', array_unique($this->allowedPropertyTypeChecks)) . '($value)' .
-                    ($property->isRequired() ? '' : ' && $value !== null'),
+                    ($this->isImplicitNullAllowed($this->schemaProcessor->getGeneratorConfiguration(), $property)
+                        ? ' && $value !== null'
+                        : ''
+                    ),
                 "Invalid type for {$property->getName()}. Requires [" .
                     implode(
                         ', ',

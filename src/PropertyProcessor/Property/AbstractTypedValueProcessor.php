@@ -81,7 +81,14 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
     {
         parent::generateValidators($property, $propertyData);
 
-        $property->addValidator(new TypeCheckValidator(static::TYPE, $property), 2);
+        $property->addValidator(
+            new TypeCheckValidator(
+                static::TYPE,
+                $property,
+                $this->isImplicitNullAllowed($this->schemaProcessor->getGeneratorConfiguration(), $property)
+            ),
+            2
+        );
     }
 
     protected function getTypeCheck(): string
