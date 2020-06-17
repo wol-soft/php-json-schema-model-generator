@@ -27,7 +27,7 @@ class GeneratorConfiguration
     /** @var bool */
     protected $immutable = false;
     /** @var bool */
-    protected $allowImplicitNull = true;
+    protected $allowImplicitNull = false;
     /** @var bool */
     protected $prettyPrint = false;
     /** @var bool */
@@ -88,7 +88,7 @@ class GeneratorConfiguration
         }
 
         foreach ($filter->getAcceptedTypes() as $acceptedType) {
-            if (!in_array($acceptedType, ['integer', 'number', 'boolean', 'string', 'array']) &&
+            if (!in_array($acceptedType, ['integer', 'number', 'boolean', 'string', 'array', 'null']) &&
                 !class_exists($acceptedType)
             ) {
                 throw new InvalidFilterException('Filter accepts invalid types');

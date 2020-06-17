@@ -154,7 +154,7 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
                     if (!array_key_exists('{{ property.getName() }}', $modelData)) {
                         return;
                     }
-                {%endif% }
+                {% endif %}
             {% endif %}
 
             $value = $modelData['{{ property.getName() }}'] ?? $this->{{ property.getAttribute() }};

@@ -25,3 +25,5 @@ Generated interface (as null is no explicit type no typehints are generated):
 Possible exceptions:
 
 * Invalid type for property. Requires null, got __TYPE__
+
+The main use case for the **null** type is a property with `multiple types <complexTypes/multiType.html>`__ accepting for example a string and null values when using explicit null types.

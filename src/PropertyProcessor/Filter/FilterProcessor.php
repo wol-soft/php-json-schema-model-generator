@@ -11,8 +11,7 @@ use PHPModelGenerator\Model\Property\Serializer\TransformingFilterSerializer;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
-use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\Model\Validator\ReflectionTypeCheckValidator;
+use PHPModelGenerator\Model\Validator\PassThroughTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckValidator;
 use PHPModelGenerator\Utils\RenderHelper;
 use ReflectionException;
@@ -157,19 +156,7 @@ class FilterProcessor
             // add a combined validator which checks for the transformed value or the original type of the property as a
             // replacement for the removed TypeCheckValidator
             $property->addValidator(
-                new PropertyValidator(
-                    sprintf(
-                        '%s && %s',
-                        ReflectionTypeCheckValidator::fromReflectionType($typeAfterFilter, $property)->getCheck(),
-                        $typeCheckValidator->getCheck()
-                    ),
-                    sprintf(
-                        'Invalid type for %s. Requires [%s, %s], got " . gettype($value) . "',
-                        $property->getName(),
-                        $typeAfterFilter->getName(),
-                        $property->getType()
-                    )
-                ),
+                new PassThroughTypeCheckValidator($typeAfterFilter, $property, $typeCheckValidator),
                 2
             );
         }

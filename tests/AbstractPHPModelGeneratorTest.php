@@ -190,6 +190,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     ): string {
         $generatorConfiguration = ($generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false))
             ->setPrettyPrint(false)
+            ->setImplicitNull(true)
             ->setOutputEnabled(false);
 
         if (!$originalClassNames) {

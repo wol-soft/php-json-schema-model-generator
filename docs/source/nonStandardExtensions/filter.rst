@@ -274,9 +274,9 @@ The callable filter method must be a static method. Internally it will be called
         public function getAcceptedTypes(): array
         {
             // return an array of types which can be handled by the filter.
-            // valid types are: [integer, number, boolean, string, array] or available classes (FQCN required, eg.
-            // DateTime::class)
-            return ['string'];
+            // valid types are: [integer, number, boolean, string, array, null]
+            // or available classes (FQCN required, eg. DateTime::class)
+            return ['string', 'null'];
         }
 
         public function getToken(): string
@@ -289,6 +289,10 @@ The callable filter method must be a static method. Internally it will be called
             return [self::class, 'uppercase'];
         }
     }
+
+.. hint::
+
+    If your filter accepts null values add 'null' to your *getAcceptedTypes* to make sure your filter is compatible with explicit null type
 
 .. hint::
 
@@ -387,12 +391,12 @@ The custom serializer method will be called if the model utilizing the custom fi
 
         public function getAcceptedTypes(): array
         {
-            return ['object'];
+            return ['string', 'null'];
         }
 
         public function getToken(): string
         {
-            return 'uppercase';
+            return 'customer';
         }
 
         public function getFilter(): array

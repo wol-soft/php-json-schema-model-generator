@@ -20,7 +20,7 @@ class TrimFilter implements FilterInterface
      */
     public function getAcceptedTypes(): array
     {
-        return ['string'];
+        return ['string', 'null'];
     }
 
     /**
