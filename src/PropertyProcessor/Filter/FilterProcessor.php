@@ -10,8 +10,11 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\Serializer\TransformingFilterSerializer;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PassThroughTypeCheckValidator;
+use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Model\Validator\ReflectionTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckValidator;
 use PHPModelGenerator\Utils\RenderHelper;
 use ReflectionException;
@@ -86,8 +89,8 @@ class FilterProcessor
                     $typeAfterFilter->getName() &&
                     $property->getType() !== $typeAfterFilter->getName()
                 ) {
-                    $this->addTransformedValuePassThrough($property, $filter);
-                    $this->extendTypeCheckValidatorToAllowTransformedValue($property, $schema, $typeAfterFilter);
+                    $this->addTransformedValuePassThrough($property, $filter, $typeAfterFilter);
+                    $this->extendTypeCheckValidatorToAllowTransformedValue($property, $typeAfterFilter);
 
                     $property->setType(
                         $property->getType(),
@@ -112,18 +115,38 @@ class FilterProcessor
      *
      * @param PropertyInterface $property
      * @param TransformingFilterInterface $filter
+     * @param ReflectionType $filteredType
      *
      * @throws ReflectionException
      */
     private function addTransformedValuePassThrough(
         PropertyInterface $property,
-        TransformingFilterInterface $filter
+        TransformingFilterInterface $filter,
+        ReflectionType $filteredType
     ): void {
         foreach ($property->getValidators() as $validator) {
             $validator = $validator->getValidator();
 
             if ($validator instanceof FilterValidator) {
                 $validator->addTransformedCheck($filter, $property);
+            }
+
+            if ($validator instanceof EnumValidator) {
+                $property->filterValidators(function (Validator $validator): bool {
+                    return !is_a($validator->getValidator(), EnumValidator::class);
+                });
+
+                $property->addValidator(
+                    new PropertyValidator(
+                        sprintf(
+                            "%s && %s",
+                            ReflectionTypeCheckValidator::fromReflectionType($filteredType, $property)->getCheck(),
+                            $validator->getCheck()
+                        ),
+                        $validator->getExceptionMessage()
+                    ),
+                    3
+                );
             }
         }
     }
@@ -133,12 +156,10 @@ class FilterProcessor
      * used to allow also already transformed values as valid input values
      *
      * @param PropertyInterface $property
-     * @param Schema $schema
      * @param ReflectionType $typeAfterFilter
      */
     private function extendTypeCheckValidatorToAllowTransformedValue(
         PropertyInterface $property,
-        Schema $schema,
         ReflectionType $typeAfterFilter
     ): void {
         $typeCheckValidator = null;

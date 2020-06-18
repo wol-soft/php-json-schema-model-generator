@@ -80,7 +80,7 @@ Transforming filter
 
     You may keep it simple and skip this for your first tries and only experiment with non-transforming filters like the trim filter
 
-Filters may change the type of the property. For example the builtin filter **dateTime** creates a DateTime object. Consequently further validations like pattern checks for the string property won't be performed.
+Filters may change the type of the property. For example the builtin filter **dateTime** creates a DateTime object. Consequently further type-related validations like pattern checks for the string property won't be performed. Additionally enum validations will not be executed if an already transformed value is provided.
 
 As the required check is executed before the filter a filter may transform a required value into a null value. Be aware when writing custom filters which transform values to not break your validation rules by adding filters to a property.
 

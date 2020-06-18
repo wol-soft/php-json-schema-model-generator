@@ -729,4 +729,33 @@ ERROR
             'nested array' => [[['Hello'], [], [12], ['']], [['Hello'], [12], ['']]],
         ];
     }
+
+    public function testEnumCheckWithTransformingFilterIsExecutedForNonTransformedValues(): void
+    {
+        $className = $this->generateClassFromFile('EnumBeforeFilter.json');
+
+        $object = new $className(['filteredProperty' => '2020-12-12']);
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+        $this->assertSame(
+            (new DateTime('2020-12-12'))->format(DATE_ATOM),
+            $object->getFilteredProperty()->format(DATE_ATOM)
+        );
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Invalid value for filteredProperty declined by enum constraint');
+
+        new $className(['filteredProperty' => '1999-12-12']);
+    }
+
+    public function testEnumCheckWithTransformingFilterIsNotExecutedForTransformedValues(): void
+    {
+        $className = $this->generateClassFromFile('EnumBeforeFilter.json');
+        $object = new $className(['filteredProperty' => new DateTime('1999-12-12')]);
+
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+        $this->assertSame(
+            (new DateTime('1999-12-12'))->format(DATE_ATOM),
+            $object->getFilteredProperty()->format(DATE_ATOM)
+        );
+    }
 }

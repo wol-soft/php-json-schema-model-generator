@@ -62,6 +62,21 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNullWithoutImplicitNullThrowsAnException(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+
+        $className = $this->generateClassFromFile('TypedEnumProperty.json', null, false, false);
+
+        new $className(['property' => null]);
+    }
+
+    /**
      * @dataProvider invalidEnumEntriesDataProvider
      *
      * @param $propertyValue
@@ -150,6 +165,8 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * @dataProvider implicitNullDataProvider
+     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -186,6 +203,21 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
             'null' => [null],
             'int 10' => [10],
         ];
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNullInUntypedEnumWithoutImplicitNullThrowsAnException(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+
+        $className = $this->generateClassFromFile('UntypedEnumProperty.json', null, false, false);
+
+        new $className(['property' => null]);
     }
 
     /**
@@ -235,16 +267,20 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * @dataProvider implicitNullDataProvider
+     *
+     * @param bool $implicitNull
+     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNullProvidedEnumItemInRequiredUntypedEnumThrowsAnException(): void
+    public function testNullProvidedEnumItemInRequiredUntypedEnumThrowsAnException(bool $implicitNull): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
 
-        $className = $this->generateClassFromFile('RequiredUntypedEnumProperty.json');
+        $className = $this->generateClassFromFile('RequiredUntypedEnumProperty.json', null, false, $implicitNull);
 
         new $className(['property' => null]);
     }

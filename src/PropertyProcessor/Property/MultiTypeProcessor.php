@@ -89,7 +89,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
             new MultiTypeCheckValidator(
                 array_unique($this->allowedPropertyTypeChecks),
                 $property,
-                $this->isImplicitNullAllowed($this->schemaProcessor->getGeneratorConfiguration(), $property)
+                $this->isImplicitNullAllowed($property)
             ),
             2
         );

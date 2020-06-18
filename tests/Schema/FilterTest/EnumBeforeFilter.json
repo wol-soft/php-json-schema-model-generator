@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": "string",
+      "enum": ["2020-12-12", "2019-12-12"],
+      "filter": "dateTime"
+    }
+  }
+}

@@ -3,14 +3,13 @@
   "type": "object",
   "properties": {
     "name": {
-      "type": "string",
+      "type": ["null", "string"],
       "description": "The name of the person",
-      "example": "Lawrence"
-    },
-    "age": {
-      "type": "integer",
-      "description": "The age of the person",
-      "example": 42
+      "example": "Lawrence",
+      "filter": [
+        "trim",
+        "dateTime"
+      ]
     }
   },
   "required": [
