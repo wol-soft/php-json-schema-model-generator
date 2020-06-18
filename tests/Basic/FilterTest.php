@@ -758,4 +758,21 @@ ERROR
             $object->getFilteredProperty()->format(DATE_ATOM)
         );
     }
+
+    /**
+     * @dataProvider implicitNullDataProvider
+     *
+     * @param bool $implicitNull
+     */
+    public function testDefaultValuesAreTransformed(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile('DefaultValueFilter.json', null, false, $implicitNull);
+        $object = new $className();
+
+        $this->assertInstanceOf(DateTime::class, $object->getCreated());
+        $this->assertSame(
+            (new DateTime('2020-12-12'))->format(DATE_ATOM),
+            $object->getCreated()->format(DATE_ATOM)
+        );
+    }
 }

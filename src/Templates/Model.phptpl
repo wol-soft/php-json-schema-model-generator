@@ -151,7 +151,7 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
         {
             {% if not generatorConfiguration.isImplicitNullAllowed() %}
                 {% if not property.isRequired() %}
-                    if (!array_key_exists('{{ property.getName() }}', $modelData)) {
+                    if (!array_key_exists('{{ property.getName() }}', $modelData) && $this->{{ property.getAttribute() }} === null) {
                         return;
                     }
                 {% endif %}
