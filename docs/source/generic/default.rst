@@ -31,3 +31,9 @@ Behaviour with different inputs:
     // property example set to a custom value
     $example = new Example(['example' => 'My Input']);
     $example->getExample();     // returns "My Input"
+
+.. hint::
+
+    If no value for a property with a default value is defined the default value will be validated against all rules defined in the schema. Consequently you may get a validation error if the default value doesn't match your constraints.
+
+    If you use a `filter <../nonStandardExtensions/filter.html>`__ on a property with a default value the default value will be filtered if no value is provided for the property. If the filter is a `transforming filter <../nonStandardExtensions/filter.html#transforming-filter>`__ the default value will be transformed.

@@ -39,16 +39,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     {
         parent::setUp();
 
-        if (is_dir(sys_get_temp_dir() . '/PHPModelGeneratorTest')) {
-            $di = new RecursiveDirectoryIterator(sys_get_temp_dir() . '/PHPModelGeneratorTest', FilesystemIterator::SKIP_DOTS);
-            $ri = new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST);
-
-            foreach ($ri as $file) {
-                $file->isDir() ? rmdir($file->getRealPath()) : unlink($file->getRealPath());
-            }
-        }
-
-        @mkdir(sys_get_temp_dir() . '/PHPModelGeneratorTest');
+        (new ModelGenerator())->generateModelDirectory(sys_get_temp_dir() . '/PHPModelGeneratorTest');
         @mkdir(sys_get_temp_dir() . '/PHPModelGeneratorTest/Models');
     }
 
