@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "filter": [
+        "trim",
+        "dateTime",
+        "stripTime"
+      ]
+    }
+  }
+}

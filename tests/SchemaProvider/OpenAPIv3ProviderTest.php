@@ -13,25 +13,25 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
  */
 class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTest
 {
-    public function testInvalidJSONSchemaFileThrowsAnException(): void
+    public function testInvalidJsonSchemaFileThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file (.*)\.json$/');
 
-        $this->generateClassFromFile('InvalidJSONSchema.json', null, false, OpenAPIv3Provider::class);
+        $this->generateClassFromFile('InvalidJSONSchema.json', null, false, true, OpenAPIv3Provider::class);
     }
 
     /**
      * @dataProvider missingSchemasDataProvider
      */
-    public function testOpenAPIv3JSONSchemaFileWithoutSchemasThrowsAnException(string $file): void
+    public function testOpenApiV3JsonSchemaFileWithoutSchemasThrowsAnException(string $file): void
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
             "/^Open API v3 spec file (.*)\.json doesn't contain any schemas to process$/"
         );
 
-        $this->generateClassFromFile($file, null, false, OpenAPIv3Provider::class);
+        $this->generateClassFromFile($file, null, false, true, OpenAPIv3Provider::class);
     }
 
     public function missingSchemasDataProvider(): array
@@ -43,9 +43,9 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTest
         ];
     }
 
-    public function testOpenAPIv3SchemaProvider(): void
+    public function testOpenApiV3SchemaProvider(): void
     {
-        $this->generateClassFromFile('MultipleSchemaDefinitions.json', null, false, OpenAPIv3Provider::class);
+        $this->generateClassFromFile('MultipleSchemaDefinitions.json', null, false, true, OpenAPIv3Provider::class);
 
         $person = new \OpenApiPerson(['name' => 'Hannes']);
         $this->assertSame('Hannes', $person->getName());

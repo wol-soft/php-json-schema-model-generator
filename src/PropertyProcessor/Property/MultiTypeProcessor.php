@@ -7,13 +7,14 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\Model\Validator\TypeCheckValidator;
+use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
+use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use ReflectionException;
 
 /**
  * Class MultiTypePropertyProcessor
@@ -68,10 +69,15 @@ class MultiTypeProcessor extends AbstractValueProcessor
      * @return PropertyInterface
      *
      * @throws SchemaException
+     * @throws ReflectionException
      */
     public function process(string $propertyName, array $propertyData): PropertyInterface
     {
         $property = parent::process($propertyName, $propertyData);
+
+        foreach ($property->getValidators() as $validator) {
+            $this->checks[] = $validator->getValidator()->getCheck();
+        }
 
         $this->processSubProperties($propertyName, $propertyData, $property);
 
@@ -80,20 +86,10 @@ class MultiTypeProcessor extends AbstractValueProcessor
         }
 
         return $property->addValidator(
-            new PropertyValidator(
-                '!' . join('($value) && !', array_unique($this->allowedPropertyTypeChecks)) . '($value)' .
-                    ($property->isRequired() ? '' : ' && $value !== null'),
-                "Invalid type for {$property->getName()}. Requires [" .
-                    implode(
-                        ', ',
-                        array_map(
-                            function ($check) {
-                                return substr($check, 3);
-                            },
-                            $this->allowedPropertyTypeChecks
-                        )
-                    ) .
-                '], got " . gettype($value) . "'
+            new MultiTypeCheckValidator(
+                array_unique($this->allowedPropertyTypeChecks),
+                $property,
+                $this->isImplicitNullAllowed($property)
             ),
             2
         );
@@ -107,22 +103,23 @@ class MultiTypeProcessor extends AbstractValueProcessor
      */
     protected function transferValidators(PropertyInterface $source, PropertyInterface $destination)
     {
-        foreach ($source->getValidators() as $validator) {
+        foreach ($source->getValidators() as $validatorContainer) {
+            $validator = $validatorContainer->getValidator();
+
             // filter out type checks to create a single type check which covers all allowed types
-            if ($validator->getValidator() instanceof TypeCheckValidator) {
-                preg_match('/(?P<typeCheck>is_[a-z]+)/', $validator->getValidator()->getCheck(), $matches);
-                $this->allowedPropertyTypeChecks[] = $matches['typeCheck'];
+            if ($validator instanceof TypeCheckInterface) {
+                array_push($this->allowedPropertyTypeChecks, ...$validator->getTypes());
 
                 continue;
             }
 
             // remove duplicated checks like an isset check
-            if (in_array($validator->getValidator()->getCheck(), $this->checks)) {
+            if (in_array($validator->getCheck(), $this->checks)) {
                 continue;
             }
 
-            $destination->addValidator($validator->getValidator(), $validator->getPriority());
-            $this->checks[] = $validator->getValidator()->getCheck();
+            $destination->addValidator($validator, $validatorContainer->getPriority());
+            $this->checks[] = $validator->getCheck();
         }
     }
 

@@ -17,12 +17,12 @@ declare(strict_types = 1);
 {% if namespace %} * @package {{ namespace }} {% endif %}
  */
 class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
-{% if generatorConfiguration.hasSerializationEnabled() %}, \PHPModelGenerator\Interfaces\SerializationInterface{% endif %}
+{% if generatorConfiguration.hasSerializationEnabled() %}, \PHPModelGenerator\Interfaces\SerializationInterface, \JsonSerializable{% endif %}
 {
     {% if generatorConfiguration.hasSerializationEnabled() %}use \PHPModelGenerator\Traits\SerializableTrait;{% endif %}
 
     {% foreach properties as property %}
-        /** @var {{ property.getTypeHint(true) }}{% if not property.isRequired() %}|null{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
+        /** @var {{ property.getTypeHint(true) }}{% if viewHelper.implicitNull(property) %}|null{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
         protected ${{ property.getAttribute() }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
     /** @var array */
@@ -99,7 +99,7 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
          *
          * {% if property.getDescription() %}{{ property.getDescription() }}{% endif %}
          *
-         * @return {{ property.getTypeHint(true) }}{% if not property.isRequired() %}|null{% endif %}
+         * @return {{ property.getTypeHint(true) }}{% if viewHelper.implicitNull(property) %}|null{% endif %}
          */
         public function get{{ viewHelper.ucfirst(property.getAttribute()) }}()
             {% if property.getType(true) %}: {% if not property.isRequired() %}?{% endif %}{{ property.getType(true) }}{% endif %}
@@ -111,14 +111,14 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
             /**
              * Set the value of {{ property.getName() }}.
              *
-             * @param {{ property.getTypeHint() }}{% if not property.isRequired() %}|null{% endif %} ${{ property.getAttribute() }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
+             * @param {{ property.getTypeHint() }}{% if viewHelper.implicitNull(property) %}|null{% endif %} ${{ property.getAttribute() }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
              *
              * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getExceptionClass()) }}{% endif %}{% endif %}
              *
              * @return self
              */
             public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
-                {% if property.getType() %}{% if not property.isRequired() %}?{% endif %}{{ property.getType() }} {% endif %}${{ property.getAttribute() }}
+                {% if property.getType() %}{% if viewHelper.implicitNull(property) %}?{% endif %}{{ property.getType() }} {% endif %}${{ property.getAttribute() }}
             ): self {
                 $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute() }};
 
@@ -149,6 +149,14 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
          */
         protected function process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
         {
+            {% if not generatorConfiguration.isImplicitNullAllowed() %}
+                {% if not property.isRequired() %}
+                    if (!array_key_exists('{{ property.getName() }}', $modelData) && $this->{{ property.getAttribute() }} === null) {
+                        return;
+                    }
+                {% endif %}
+            {% endif %}
+
             $value = $modelData['{{ property.getName() }}'] ?? $this->{{ property.getAttribute() }};
 
             {{ viewHelper.resolvePropertyDecorator(property) }}

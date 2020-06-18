@@ -7,8 +7,8 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
-use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\PropertyProcessor\ComposedValueProcessorFactory;
@@ -83,19 +83,11 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      */
     protected function addEnumValidator(PropertyInterface $property, array $allowedValues): void
     {
-        if (!$property->isRequired()) {
+        if ($this->isImplicitNullAllowed($property)) {
             $allowedValues[] = null;
         }
 
-        $property->addValidator(
-            new PropertyValidator(
-                '!in_array($value, ' .
-                    preg_replace('(\d+\s=>)', '', var_export(array_unique($allowedValues), true)) .
-                    ', true)',
-                "Invalid value for {$property->getName()} declined by enum constraint"
-            ),
-            3
-        );
+        $property->addValidator(new EnumValidator($property, array_unique($allowedValues)), 3);
     }
 
     /**
@@ -254,5 +246,18 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
         }
 
         return $propertyData;
+    }
+
+    /**
+     * Check if implicit null values are allowed for the given property (a not required property which has no
+     * explicit null type and is passed with a null value will be accepted)
+     *
+     * @param PropertyInterface $property
+     *
+     * @return bool
+     */
+    protected function isImplicitNullAllowed(PropertyInterface $property): bool
+    {
+        return $this->schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed() && !$property->isRequired();
     }
 }

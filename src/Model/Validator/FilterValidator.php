@@ -56,11 +56,7 @@ class FilterValidator extends PropertyTemplateValidator
                 'typeCheck' => !empty($filter->getAcceptedTypes())
                     ? '($value !== null && (' .
                         implode(' && ', array_map(function (string $type) use ($property): string {
-                            return (new ReflectionTypeCheckValidator(
-                                in_array($type, ['int', 'float', 'string', 'bool', 'array', 'object']),
-                                $type,
-                                $property
-                            ))->getCheck();
+                            return ReflectionTypeCheckValidator::fromType($type, $property)->getCheck();
                         }, $this->mapDataTypes($filter->getAcceptedTypes()))) .
                         '))'
                     : '',
@@ -179,9 +175,7 @@ class FilterValidator extends PropertyTemplateValidator
             switch ($jsonSchemaType) {
                 case 'integer': return 'int';
                 case 'number': return 'float';
-                case 'string': return 'string';
                 case 'boolean': return 'bool';
-                case 'array': return 'array';
 
                 default: return $jsonSchemaType;
             }

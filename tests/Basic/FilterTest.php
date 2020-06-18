@@ -639,6 +639,67 @@ ERROR
         $this->assertSame('2020-12-12T00:00:00+00:00', $object->getFilteredProperty()->format(DateTime::ATOM));
     }
 
+    /**
+     * @dataProvider implicitNullDataProvider
+     *
+     * @param bool $implicitNull
+     */
+    public function testFilterChainWithTransformingFilterOnMultiTypeProperty(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile(
+            'FilterChainMultiType.json',
+            (new GeneratorConfiguration())
+                ->setImplicitNull($implicitNull)
+                ->addFilter(
+                    $this->getCustomFilter(
+                        [self::class, 'stripTimeFilter'],
+                        'stripTime',
+                        [DateTime::class]
+                    )
+                ),
+            false
+        );
+
+        $object = new $className(['filteredProperty' => '2020-12-12 12:12:12']);
+
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+        $this->assertSame('2020-12-12T00:00:00+00:00', $object->getFilteredProperty()->format(DateTime::ATOM));
+
+        $object->setFilteredProperty(null);
+        $this->assertNull($object->getFilteredProperty());
+
+        $object->setFilteredProperty(new DateTime('2020-12-12 12:12:12'));
+        $this->assertSame('2020-12-12T00:00:00+00:00', $object->getFilteredProperty()->format(DateTime::ATOM));
+    }
+
+    public function testFilterWhichAppliesToMultiTypePropertyPartiallyThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage(
+            'Filter trim is not compatible with property type null for property filteredProperty'
+        );
+
+        $this->generateClassFromFile(
+            'FilterChainMultiType.json',
+            (new GeneratorConfiguration())
+                ->addFilter(
+                    $this->getCustomFilter(
+                        [self::class, 'stripTimeFilter'],
+                        'trim',
+                        ['string']
+                    )
+                )
+                ->addFilter(
+                    $this->getCustomFilter(
+                        [self::class, 'stripTimeFilter'],
+                        'stripTime',
+                        [DateTime::class]
+                    )
+                ),
+            false
+        );
+    }
+
     public static function stripTimeFilter(?DateTime $value): ?DateTime
     {
         return $value !== null ? $value->setTime(0, 0) : null;
@@ -667,5 +728,51 @@ ERROR
             'numeric array' => [[12, 0, 43], [12, 43]],
             'nested array' => [[['Hello'], [], [12], ['']], [['Hello'], [12], ['']]],
         ];
+    }
+
+    public function testEnumCheckWithTransformingFilterIsExecutedForNonTransformedValues(): void
+    {
+        $className = $this->generateClassFromFile('EnumBeforeFilter.json');
+
+        $object = new $className(['filteredProperty' => '2020-12-12']);
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+        $this->assertSame(
+            (new DateTime('2020-12-12'))->format(DATE_ATOM),
+            $object->getFilteredProperty()->format(DATE_ATOM)
+        );
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Invalid value for filteredProperty declined by enum constraint');
+
+        new $className(['filteredProperty' => '1999-12-12']);
+    }
+
+    public function testEnumCheckWithTransformingFilterIsNotExecutedForTransformedValues(): void
+    {
+        $className = $this->generateClassFromFile('EnumBeforeFilter.json');
+        $object = new $className(['filteredProperty' => new DateTime('1999-12-12')]);
+
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+        $this->assertSame(
+            (new DateTime('1999-12-12'))->format(DATE_ATOM),
+            $object->getFilteredProperty()->format(DATE_ATOM)
+        );
+    }
+
+    /**
+     * @dataProvider implicitNullDataProvider
+     *
+     * @param bool $implicitNull
+     */
+    public function testDefaultValuesAreTransformed(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile('DefaultValueFilter.json', null, false, $implicitNull);
+        $object = new $className();
+
+        $this->assertInstanceOf(DateTime::class, $object->getCreated());
+        $this->assertSame(
+            (new DateTime('2020-12-12'))->format(DATE_ATOM),
+            $object->getCreated()->format(DATE_ATOM)
+        );
     }
 }

@@ -38,7 +38,8 @@ The recommended way to install php-json-schema-model-generator is through [Compo
 $ composer require --dev wol-soft/php-json-schema-model-generator
 $ composer require wol-soft/php-json-schema-model-generator-production
 ```
-To avoid adding all dependencies of the php-json-schema-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the [wol-soft/php-json-schema-model-generator-production](https://github.com/wol-soft/php-json-schema-model-generator-production) library. The production library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment (if you decide to commit the models) or as a build step of your application.
+
+To avoid adding all dependencies of the php-json-schema-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the [wol-soft/php-json-schema-model-generator-production](https://github.com/wol-soft/php-json-schema-model-generator-production) library. The production library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment or as a build step of your application (for example you could generate the models in a [composer post-autoload-dump script](https://getcomposer.org/doc/articles/scripts.md#command-events), which is the recommended workflow).
 
 ## Basic usage ##
 
@@ -83,6 +84,7 @@ Method | Configuration | Default
 --- | --- | ---
 ``` setNamespacePrefix(string $prefix) ``` <br><br>Example:<br> ``` setNamespacePrefix('\MyApp\Model') ``` | Configures a namespace prefix for all generated classes. The namespaces will be extended with the directory structure of the source directory. | Empty string so no namespace prefix will be used
 ``` setImmutable(bool $immutable) ``` <br><br>Example:<br> ``` setImmutable(false) ``` | If set to true the generated model classes will be delivered without setter methods for the object properties. | true
+``` setImplicitNull(bool $allowImplicitNull) ``` <br><br>Example:<br> ``` setImplicitNull(true) ``` | By setting the implicit null option to true all of your object properties which aren't required will implicitly accept null. | false
 ``` setCollectErrors(bool $collectErrors) ``` <br><br>Example:<br> ``` setCollectErrors(false) ``` | By default the complete input is validated and in case of failing validations all error messages will be thrown in a single exception. If set to false the first failing validation will throw an exception. | true
 ``` setPrettyPrint(bool $prettyPrint) ``` <br><br>Example:<br> ``` setPrettyPrint(true) ``` | If set to false, the generated model classes won't follow coding guidelines (but the generation is faster). If enabled the package [Symplify/EasyCodingStandard](https://github.com/Symplify/EasyCodingStandard) will be used to clean up the generated code. By default pretty printing is disabled. | false
 ``` setSerialization(bool $serialization) ``` <br><br>Example:<br> ``` setSerialization(true) ``` | If set to true the serialization methods `toArray` and `toJSON` will be added to the public interface of the generated classes. | false

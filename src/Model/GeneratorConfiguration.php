@@ -27,6 +27,8 @@ class GeneratorConfiguration
     /** @var bool */
     protected $immutable = false;
     /** @var bool */
+    protected $allowImplicitNull = false;
+    /** @var bool */
     protected $prettyPrint = false;
     /** @var bool */
     protected $outputEnabled = true;
@@ -86,7 +88,7 @@ class GeneratorConfiguration
         }
 
         foreach ($filter->getAcceptedTypes() as $acceptedType) {
-            if (!in_array($acceptedType, ['integer', 'number', 'boolean', 'string', 'array']) &&
+            if (!in_array($acceptedType, ['integer', 'number', 'boolean', 'string', 'array', 'null']) &&
                 !class_exists($acceptedType)
             ) {
                 throw new InvalidFilterException('Filter accepts invalid types');
@@ -282,6 +284,26 @@ class GeneratorConfiguration
     public function setExceptionClass(string $exceptionClass): self
     {
         $this->exceptionClass = $exceptionClass;
+
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isImplicitNullAllowed(): bool
+    {
+        return $this->allowImplicitNull;
+    }
+
+    /**
+     * @param bool $allowImplicitNull
+     *
+     * @return GeneratorConfiguration
+     */
+    public function setImplicitNull(bool $allowImplicitNull): self
+    {
+        $this->allowImplicitNull = $allowImplicitNull;
 
         return $this;
     }

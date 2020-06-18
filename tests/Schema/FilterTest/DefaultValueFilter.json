@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "created": {
+      "default": "2020-12-12",
+      "type": "string",
+      "filter": "dateTime"
+    }
+  }
+}

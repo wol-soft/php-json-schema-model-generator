@@ -20,7 +20,7 @@ class DateTimeFilter implements TransformingFilterInterface
      */
     public function getAcceptedTypes(): array
     {
-        return ['string'];
+        return ['string', 'null'];
     }
 
     /**

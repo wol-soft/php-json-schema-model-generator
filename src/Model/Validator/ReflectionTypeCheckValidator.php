@@ -32,6 +32,23 @@ class ReflectionTypeCheckValidator extends PropertyValidator
     }
 
     /**
+     * @param string $type
+     * @param PropertyInterface $property
+     *
+     * @return static
+     */
+    public static function fromType(
+        string $type,
+        PropertyInterface $property
+    ): self {
+        return new self(
+            in_array($type, ['int', 'float', 'string', 'bool', 'array', 'object', 'null']),
+            $type,
+            $property
+        );
+    }
+
+    /**
      * ReflectionTypeCheckValidator constructor.
      *
      * @param bool $isBuiltin

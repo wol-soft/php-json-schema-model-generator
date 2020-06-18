@@ -20,7 +20,7 @@ class NotEmptyFilter implements FilterInterface
      */
     public function getAcceptedTypes(): array
     {
-        return ['array'];
+        return ['array', 'null'];
     }
 
     /**
