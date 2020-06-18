@@ -650,6 +650,7 @@ ERROR
             'FilterChainMultiType.json',
             (new GeneratorConfiguration())
                 ->setImplicitNull($implicitNull)
+                ->setSerialization(true)
                 ->addFilter(
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilter'],
@@ -670,6 +671,8 @@ ERROR
 
         $object->setFilteredProperty(new DateTime('2020-12-12 12:12:12'));
         $this->assertSame('2020-12-12T00:00:00+00:00', $object->getFilteredProperty()->format(DateTime::ATOM));
+
+        $this->assertSame(['filteredProperty' => '2020-12-12T00:00:00+0000'], $object->toArray());
     }
 
     public function testFilterWhichAppliesToMultiTypePropertyPartiallyThrowsAnException(): void

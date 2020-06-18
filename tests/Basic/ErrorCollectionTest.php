@@ -37,6 +37,7 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
             'special chars' => ['+.'],
         ];
     }
+
     /**
      * @dataProvider invalidValuesForSinglePropertyDataProvider
      *

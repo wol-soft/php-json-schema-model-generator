@@ -100,6 +100,7 @@ class FilterProcessor
                     $schema
                         ->addUsedClass($typeAfterFilter->getName())
                         ->addCustomSerializer(
+                            $property->getAttribute(),
                             new TransformingFilterSerializer($property->getAttribute(), $filter, $filterOptions)
                         );
                 }

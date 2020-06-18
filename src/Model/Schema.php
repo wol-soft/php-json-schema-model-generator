@@ -196,13 +196,14 @@ class Schema
     }
 
     /**
+     * @param string $property
      * @param TransformingFilterSerializer $serializer
      *
      * @return $this
      */
-    public function addCustomSerializer(TransformingFilterSerializer $serializer): self
+    public function addCustomSerializer(string $property, TransformingFilterSerializer $serializer): self
     {
-        $this->customSerializer[] = $serializer;
+        $this->customSerializer[$property] = $serializer;
 
         return $this;
     }
