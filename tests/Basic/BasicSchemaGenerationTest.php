@@ -2,6 +2,7 @@
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use JsonSerializable;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Interfaces\JSONModelInterface;
@@ -107,10 +108,12 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $object = new $className(['property' => 'Hello']);
 
         $this->assertEquals(['property' => 'Hello'], $object->toArray());
+        $this->assertEquals(['property' => 'Hello'], $object->jsonSerialize());
         $this->assertEquals('{"property":"Hello"}', $object->toJSON());
 
         $this->assertTrue($object instanceof SerializationInterface);
         $this->assertTrue($object instanceof JSONModelInterface);
+        $this->assertTrue($object instanceof JsonSerializable);
     }
 
     public function testNestedSerializationFunctions(): void
@@ -131,6 +134,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $object = new $className($input);
 
         $this->assertEquals($input, $object->toArray());
+        $this->assertEquals($input, $object->jsonSerialize());
         $this->assertEquals('{"name":"Hannes","address":{"street":"Test-Street","number":null}}', $object->toJSON());
 
         $this->assertEquals(['name' => 'Hannes', 'address' => null], $object->toArray(1));

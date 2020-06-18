@@ -39,7 +39,7 @@ $ composer require --dev wol-soft/php-json-schema-model-generator
 $ composer require wol-soft/php-json-schema-model-generator-production
 ```
 
-To avoid adding all dependencies of the php-json-schema-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the [wol-soft/php-json-schema-model-generator-production](https://github.com/wol-soft/php-json-schema-model-generator-production) library. The production library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment or as a build step of your application (for example you could generate the models in a [composer post-update-cmd script](https://getcomposer.org/doc/articles/scripts.md#command-events), which is the recommended workflow).
+To avoid adding all dependencies of the php-json-schema-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the [wol-soft/php-json-schema-model-generator-production](https://github.com/wol-soft/php-json-schema-model-generator-production) library. The production library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment or as a build step of your application (for example you could generate the models in a [composer post-autoload-dump script](https://getcomposer.org/doc/articles/scripts.md#command-events), which is the recommended workflow).
 
 ## Basic usage ##
 

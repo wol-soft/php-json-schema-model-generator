@@ -6,6 +6,7 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 /**
@@ -18,15 +19,19 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
     /**
      * @dataProvider validStringPropertyValueProvider
      *
+     * @param bool $implicitNull
      * @param string $propertyValue
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testRequiredPropertyIsValidIfProvided(string $propertyValue): void
+    public function testRequiredPropertyIsValidIfProvided(bool $implicitNull, string $propertyValue): void
     {
-        $className = $this->generateClassFromFile('RequiredStringProperty.json');
+        $className = $this->generateClassFromFile(
+            'RequiredStringProperty.json',
+            (new GeneratorConfiguration())->setImplicitNull($implicitNull)
+        );
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -34,38 +39,55 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
 
     public function validStringPropertyValueProvider(): array
     {
-        return [
-            'Hello' => ['Hello'],
-            'Empty string' => ['']
-        ];
+        return $this->combineDataProvider(
+            $this->implicitNullDataProvider(),
+            [
+                'Hello' => ['Hello'],
+                'Empty string' => ['']
+            ]
+        );
     }
 
     /**
+     * @dataProvider implicitNullDataProvider
+     *
+     * @param bool $implicitNull
+     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNotProvidedRequiredPropertyThrowsAnException(): void
+    public function testNotProvidedRequiredPropertyThrowsAnException(bool $implicitNull): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage("Missing required value for property");
 
-        $className = $this->generateClassFromFile('RequiredStringProperty.json');
+        $className = $this->generateClassFromFile(
+            'RequiredStringProperty.json',
+            (new GeneratorConfiguration())->setImplicitNull($implicitNull)->setCollectErrors(false)
+        );
 
         new $className([]);
     }
 
     /**
+     * @dataProvider implicitNullDataProvider
+     *
+     * @param bool $implicitNull
+     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNullProvidedForRequiredPropertyThrowsAnException(): void
+    public function testNullProvidedForRequiredPropertyThrowsAnException(bool $implicitNull): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage("Invalid type for property");
 
-        $className = $this->generateClassFromFile('RequiredStringProperty.json');
+        $className = $this->generateClassFromFile(
+            'RequiredStringProperty.json',
+            (new GeneratorConfiguration())->setImplicitNull($implicitNull)->setCollectErrors(false)
+        );
 
         new $className(['property' => null]);
     }

@@ -17,7 +17,7 @@ declare(strict_types = 1);
 {% if namespace %} * @package {{ namespace }} {% endif %}
  */
 class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
-{% if generatorConfiguration.hasSerializationEnabled() %}, \PHPModelGenerator\Interfaces\SerializationInterface{% endif %}
+{% if generatorConfiguration.hasSerializationEnabled() %}, \PHPModelGenerator\Interfaces\SerializationInterface, \JsonSerializable{% endif %}
 {
     {% if generatorConfiguration.hasSerializationEnabled() %}use \PHPModelGenerator\Traits\SerializableTrait;{% endif %}
 

@@ -90,13 +90,15 @@ If you write a custom transforming filter you must define the return type of you
 
 The return type of the transforming filter will be used to define the type of the property inside the generated model (in the example one section above given above the method **getCreated** will return a DateTime object). Additionally the generated model also accepts the transformed type as input type. So **setCreated** will accept a string and a DateTime object. If an already transformed value is provided the filter which transforms the value will **not** be executed. Also all filters which are defined before the transformation will **not** be executed (eg. a trim filter before a dateTime filter will not be executed if a DateTime object is provided).
 
+If you use a filter on a property which accepts multiple types (eg. explicit null ['string', 'null'] or ['string', 'integer']) the filter must accept each of the types defined on the property.
+
 Builtin filter
 --------------
 
 trim
 ^^^^
 
-The trim filter is only valid for string properties.
+The trim filter is only valid for string and null properties.
 
 .. code-block:: json
 
@@ -140,7 +142,7 @@ If the filter trim is used for a property which doesn't require a string value a
 notEmpty
 ^^^^^^^^
 
-The dateTime filter is only valid for array properties.
+The dateTime filter is only valid for array and null properties.
 
 .. code-block:: json
 
@@ -174,7 +176,7 @@ Let's have a look how the generated model behaves:
 dateTime
 ^^^^^^^^
 
-The dateTime filter is only valid for string properties.
+The dateTime filter is only valid for string and null properties.
 
 .. code-block:: json
 
@@ -292,7 +294,7 @@ The callable filter method must be a static method. Internally it will be called
 
 .. hint::
 
-    If your filter accepts null values add 'null' to your *getAcceptedTypes* to make sure your filter is compatible with explicit null type
+    If your filter accepts null values add 'null' to your *getAcceptedTypes* to make sure your filter is compatible with explicit null type.
 
 .. hint::
 

@@ -105,10 +105,11 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     /**
      * Generate a class from a given JSON schema file and return the FQCN
      *
-     * @param string                      $file
+     * @param string $file
      * @param GeneratorConfiguration|null $generatorConfiguration
-     * @param bool                        $originalClassNames
-     * @param string                      $schemaProviderClass
+     * @param bool $originalClassNames
+     * @param bool $implicitNull
+     * @param string $schemaProviderClass
      *
      * @return string
      *
@@ -120,12 +121,14 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         string $file,
         GeneratorConfiguration $generatorConfiguration = null,
         bool $originalClassNames = false,
+        bool $implicitNull = true,
         string $schemaProviderClass = RecursiveDirectoryProvider::class
     ): string {
         return $this->generateClass(
             file_get_contents(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $file),
             $generatorConfiguration,
             $originalClassNames,
+            $implicitNull,
             $schemaProviderClass
         );
     }
@@ -170,14 +173,14 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     /**
      * Generate a class from a given JSON schema string and return the FQCN
      *
-     * @param string                      $jsonSchema
+     * @param string $jsonSchema
      * @param GeneratorConfiguration|null $generatorConfiguration
-     * @param bool                        $originalClassNames
-     * @param string                      $schemaProviderClass
+     * @param bool $originalClassNames
+     * @param bool $implicitNull
+     * @param string $schemaProviderClass
      *
      * @return string
      *
-     * @throws Exception
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -186,11 +189,12 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         string $jsonSchema,
         GeneratorConfiguration $generatorConfiguration = null,
         bool $originalClassNames = false,
+        bool $implicitNull = true,
         string $schemaProviderClass = RecursiveDirectoryProvider::class
     ): string {
         $generatorConfiguration = ($generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false))
             ->setPrettyPrint(false)
-            ->setImplicitNull(true)
+            ->setImplicitNull($implicitNull)
             ->setOutputEnabled(false);
 
         if (!$originalClassNames) {
@@ -362,6 +366,14 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         return [
             'Error Collection' => [new GeneratorConfiguration()],
             'Direct Exception' => [(new GeneratorConfiguration())->setCollectErrors(false)],
+        ];
+    }
+
+    public function implicitNullDataProvider(): array
+    {
+        return [
+            'implicit null enabled' => [true],
+            'implicit null disabled' => [false],
         ];
     }
 
