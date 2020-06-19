@@ -572,6 +572,7 @@ ERROR
             'TransformingScalarFilter.json',
             (new GeneratorConfiguration())
                 ->setSerialization(true)
+                ->setImmutable(false)
                 ->addFilter(
                     $this->getCustomTransformingFilter(
                         [self::class, 'serializeBinaryToInt'],
@@ -617,13 +618,15 @@ ERROR
         $className = $this->generateClassFromFileTemplate(
             'FilterChain.json',
             ['["trim", "dateTime", "stripTime"]'],
-            (new GeneratorConfiguration())->addFilter(
-                $this->getCustomFilter(
-                    [self::class, 'stripTimeFilter'],
-                    'stripTime',
-                    [DateTime::class]
-                )
-            ),
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->addFilter(
+                    $this->getCustomFilter(
+                        [self::class, 'stripTimeFilter'],
+                        'stripTime',
+                        [DateTime::class]
+                    )
+                ),
             false
         );
 
@@ -651,6 +654,7 @@ ERROR
             (new GeneratorConfiguration())
                 ->setImplicitNull($implicitNull)
                 ->setSerialization(true)
+                ->setImmutable(false)
                 ->addFilter(
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilter'],

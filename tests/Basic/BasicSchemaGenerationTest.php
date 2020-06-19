@@ -17,9 +17,12 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
  */
 class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 {
-    public function testGetterAndSetterAreGenerated(): void
+    public function testGetterAndSetterAreGeneratedForMutableObjects(): void
     {
-        $className = $this->generateClassFromFile('BasicSchema.json');
+        $className = $this->generateClassFromFile(
+            'BasicSchema.json',
+            (new GeneratorConfiguration())->setImmutable(false)
+        );
 
         $object = new $className(['property' => 'Hello']);
 
@@ -28,12 +31,9 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->assertSame('Hello', $object->getProperty());
     }
 
-    public function testImmutableGeneratorDoesntGenerateSetter(): void
+    public function testGetterAndSetterAreNotGeneratedByDefault(): void
     {
-        $className = $this->generateClassFromFile(
-            'BasicSchema.json',
-            (new GeneratorConfiguration())->setImmutable(true)
-        );
+        $className = $this->generateClassFromFile('BasicSchema.json');
 
         $object = new $className([]);
 
@@ -44,7 +44,10 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 
     public function testClassInstantiationWithoutParameter(): void
     {
-        $className = $this->generateClassFromFile('BasicSchema.json');
+        $className = $this->generateClassFromFile(
+            'BasicSchema.json',
+            (new GeneratorConfiguration())->setImmutable(false)
+        );
 
         $object = new $className();
         $this->assertNull($object->getProperty());
@@ -57,7 +60,10 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 
     public function testReadOnlyPropertyDoesntGenerateSetter(): void
     {
-        $className = $this->generateClassFromFile('ReadOnly.json');
+        $className = $this->generateClassFromFile(
+            'ReadOnly.json',
+            (new GeneratorConfiguration())->setImmutable(false)
+        );
 
         $object = new $className([]);
 
@@ -73,7 +79,10 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 
     public function testSetterChangeTheInternalState(): void
     {
-        $className = $this->generateClassFromFile('BasicSchema.json');
+        $className = $this->generateClassFromFile(
+            'BasicSchema.json',
+            (new GeneratorConfiguration())->setImmutable(false)
+        );
 
         $object = new $className(['property' => 'Hello']);
 
@@ -158,7 +167,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     ) {
         $this->expectValidationError($configuration, $exceptionMessage);
 
-        $className = $this->generateClassFromFile('BasicSchema.json', $configuration);
+        $className = $this->generateClassFromFile('BasicSchema.json', $configuration->setImmutable(false));
 
         $object = new $className([]);
         $object->setProperty($propertyValue);

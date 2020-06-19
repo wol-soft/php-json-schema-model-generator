@@ -25,7 +25,7 @@ class GeneratorConfiguration
     /** @var string */
     protected $namespacePrefix = '';
     /** @var bool */
-    protected $immutable = false;
+    protected $immutable = true;
     /** @var bool */
     protected $allowImplicitNull = false;
     /** @var bool */
