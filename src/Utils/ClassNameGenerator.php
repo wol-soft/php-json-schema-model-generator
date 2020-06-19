@@ -24,7 +24,7 @@ class ClassNameGenerator implements ClassNameGeneratorInterface
             $isMergeClass ? '%s_Merged_%s' : '%s_%s',
             $currentClassName,
             ucfirst(
-                $schema['$id']
+                isset($schema['$id'])
                     ? str_replace('#', '', $schema['$id'])
                     : ($propertyName . ($currentClassName ? uniqid() : ''))
             )
