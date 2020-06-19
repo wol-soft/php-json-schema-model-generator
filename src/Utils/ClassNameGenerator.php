@@ -23,7 +23,11 @@ class ClassNameGenerator implements ClassNameGeneratorInterface
         $className = sprintf(
             $isMergeClass ? '%s_Merged_%s' : '%s_%s',
             $currentClassName,
-            ucfirst($schema['$id'] ?? ($propertyName . ($currentClassName ? uniqid() : '')))
+            ucfirst(
+                $schema['$id']
+                    ? str_replace('#', '', $schema['$id'])
+                    : ($propertyName . ($currentClassName ? uniqid() : ''))
+            )
         );
 
         return ucfirst(preg_replace('/\W/', '', trim($className, '_')));

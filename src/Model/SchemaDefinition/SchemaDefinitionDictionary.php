@@ -70,7 +70,10 @@ class SchemaDefinitionDictionary extends ArrayObject
     protected function fetchDefinitionsById(array $propertyData, SchemaProcessor $schemaProcessor, Schema $schema): void
     {
         if (isset($propertyData['$id'])) {
-            $this->addDefinition($propertyData['$id'], new SchemaDefinition($propertyData, $schemaProcessor, $schema));
+            $this->addDefinition(
+                strpos($propertyData['$id'], '#') === 0 ? $propertyData['$id'] : "#{$propertyData['$id']}",
+                new SchemaDefinition($propertyData, $schemaProcessor, $schema)
+            );
         }
 
         foreach ($propertyData as $item) {

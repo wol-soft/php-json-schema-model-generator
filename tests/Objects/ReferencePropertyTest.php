@@ -81,6 +81,14 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         $this->assertNull($object->getPerson());
     }
 
+    public function testIdWithoutHashSymbolIsResolved(): void
+    {
+        $className = $this->generateClassFromFile('IdWithoutHashSymbolReference.json');
+
+        $object = new $className([]);
+        $this->assertNull($object->getPerson());
+    }
+
     /**
      * @dataProvider validReferenceObjectInputProvider
      *
