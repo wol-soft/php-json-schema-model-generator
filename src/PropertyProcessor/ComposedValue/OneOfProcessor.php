@@ -16,12 +16,4 @@ class OneOfProcessor extends AbstractComposedValueProcessor implements ComposedP
     {
         return '$succeededCompositionElements === 1';
     }
-
-    /**
-     * @inheritdoc
-     */
-    protected function getComposedValueValidationErrorLabel(int $composedElements): string
-    {
-        return "Requires to match one composition element but matched %s elements.";
-    }
 }

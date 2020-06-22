@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
+use PHPModelGenerator\Exception\Generic\InvalidConstException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -25,7 +26,8 @@ class ConstProcessor implements PropertyProcessorInterface
             ->setRequired(true)
             ->addValidator(new PropertyValidator(
                 '$value !== ' . var_export($propertyData['const'], true),
-                "Invalid value for $propertyName declined by const constraint"
+                InvalidConstException::class,
+                [$propertyName, $propertyData['const']]
             ));
     }
 }

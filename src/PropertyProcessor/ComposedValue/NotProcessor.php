@@ -30,12 +30,4 @@ class NotProcessor extends AbstractComposedValueProcessor
     {
         return '$succeededCompositionElements === 0';
     }
-
-    /**
-     * @inheritdoc
-     */
-    protected function getComposedValueValidationErrorLabel(int $composedElements): string
-    {
-        return "Requires to match none composition element but matched %s elements.";
-    }
 }

@@ -306,7 +306,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         }
 
         if ($configuration->collectErrors()) {
-            $this->expectExceptionObject($this->getErrorRegistryException($messages));
+            $this->expectException(ErrorRegistryException::class);
+            $this->expectExceptionMessage(join("\n", $messages));
         } else {
             $this->expectException(ValidationException::class);
             $this->expectExceptionMessage($messages[0]);
@@ -326,9 +327,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         }
 
         if ($configuration->collectErrors()) {
-            $exception = $this->getErrorRegistryException($messages);
-            $this->expectException(get_class($exception));
-            $this->expectExceptionMessageMatches($exception->getMessage());
+            $this->expectException(ErrorRegistryException::class);
+            $this->expectExceptionMessageMatches(join("\n", $messages));
         } else {
             $this->expectException(ValidationException::class);
             $this->expectExceptionMessageMatches($messages[0]);

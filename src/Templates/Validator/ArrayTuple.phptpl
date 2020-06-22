@@ -21,7 +21,7 @@ is_array($value) && (function (&$items) use (&$invalidTuples) {
             {% foreach tuple.getOrderedValidators() as validator %}
                 {{ validator.getValidatorSetUp() }}
                 if ({{ validator.getCheck() }}) {
-                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
+                    {{ viewHelper.validationError(validator) }}
                 }
             {% endforeach %}
 

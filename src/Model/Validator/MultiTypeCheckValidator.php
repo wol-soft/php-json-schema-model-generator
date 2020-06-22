@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
@@ -42,12 +43,8 @@ class MultiTypeCheckValidator extends PropertyValidator implements TypeCheckInte
                     $types
                 )
             ) . ($allowImplicitNull ? ' && $value !== null' : ''),
-            sprintf(
-                'Invalid type for %s. Requires [%s], got " . gettype($value) . "',
-                $property->getName(),
-                implode(', ', $types)
-            )
-
+            InvalidTypeException::class,
+            [$property->getName(), $types]
         );
     }
 

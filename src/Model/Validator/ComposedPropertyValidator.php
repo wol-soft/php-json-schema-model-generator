@@ -4,9 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
-use PHPMicroTemplate\Exception\FileSystemException;
-use PHPMicroTemplate\Exception\SyntaxErrorException;
-use PHPMicroTemplate\Exception\UndefinedSymbolException;
+use PHPModelGenerator\Exception\ComposedValue\InvalidComposedValueException;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
@@ -24,10 +22,6 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      * @param CompositionPropertyDecorator[] $composedProperties
      * @param string                         $composedProcessor
      * @param array                          $validatorVariables
-     *
-     * @throws FileSystemException
-     * @throws SyntaxErrorException
-     * @throws UndefinedSymbolException
      */
     public function __construct(
         PropertyInterface $property,
@@ -36,15 +30,10 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         array $validatorVariables
     ) {
         parent::__construct(
-            $this->getRenderer()->renderTemplate(
-                DIRECTORY_SEPARATOR . 'Exception' . DIRECTORY_SEPARATOR . 'ComposedValueException.phptpl',
-                [
-                    'propertyName' => $property->getName(),
-                    'composedErrorMessage' => $validatorVariables['composedErrorMessage'],
-                ]
-            ),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
-            $validatorVariables
+            $validatorVariables,
+            $this->getExceptionByProcessor($composedProcessor),
+            [$property->getName(), '&$succeededCompositionElements', '&$compositionErrorCollection']
         );
 
         $this->composedProcessor = $composedProcessor;
@@ -59,9 +48,28 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
     public function getValidatorSetUp(): string
     {
         return '
-            $i = 0;
             $succeededCompositionElements = 0;
             $compositionErrorCollection = [];
         ';
+    }
+
+    /**
+     * Parse the composition type (allOf, anyOf, ...) from the given processor and get the corresponding exception class
+     *
+     * @param string $composedProcessor
+     *
+     * @return string
+     */
+    private function getExceptionByProcessor(string $composedProcessor): string
+    {
+        return str_replace(
+                DIRECTORY_SEPARATOR,
+                '\\',
+                dirname(str_replace('\\', DIRECTORY_SEPARATOR, InvalidComposedValueException::class))
+            ) . '\\' . str_replace(
+                'Processor',
+                '',
+                substr($composedProcessor, strrpos($composedProcessor, '\\') + 1)
+            ) . 'Exception';
     }
 }

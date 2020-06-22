@@ -1,8 +1,0 @@
-Invalid item in array {{ propertyName }}:"
-  . (function (array $invalidItems): string {
-        $output = '';
-        foreach ($invalidItems as $index => $errors) {
-            $output .= "\n  - invalid item #$index\n    * " . implode("\n    * ", str_replace("\n", "\n    ", $errors));
-        }
-        return $output;
-    })($invalidItems{{ suffix }}) . "

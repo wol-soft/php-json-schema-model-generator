@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Utils;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 
 /**
  * Class RenderHelper
@@ -80,19 +81,23 @@ class RenderHelper
     /**
      * Generate code to handle a validation error
      *
-     * @param string $message
+     * @param PropertyValidatorInterface $validator
      *
      * @return string
      */
-    public function validationError(string $message): string
+    public function validationError(PropertyValidatorInterface $validator): string
     {
+        $exceptionConstructor = sprintf(
+            'new \%s($value ?? null, ...%s)',
+            $validator->getExceptionClass(),
+            preg_replace('/\'&(\$[a-z0-9]+)\'/i', '$1', var_export($validator->getExceptionParams(), true))
+        );
+
         if ($this->generatorConfiguration->collectErrors()) {
-            return '$this->errorRegistry->addError("' . $message . '");';
+            return "\$this->errorRegistry->addError($exceptionConstructor);";
         }
 
-        $exceptionClass = $this->getSimpleClassName($this->generatorConfiguration->getExceptionClass());
-
-        return "throw new $exceptionClass(\"$message\");";
+        return "throw $exceptionConstructor;";
     }
 
     public function implicitNull(PropertyInterface $property): bool

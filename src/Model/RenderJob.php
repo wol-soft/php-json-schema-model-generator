@@ -10,6 +10,11 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Utils\RenderHelper;
 
+/**
+ * Class RenderJob
+ *
+ * @package PHPModelGenerator\Model
+ */
 class RenderJob
 {
     /** @var Schema */
@@ -128,7 +133,7 @@ class RenderJob
                 'Model.phptpl',
                 [
                     'namespace'              => $namespace,
-                    'use'                    => empty($use) ? '' : 'use ' . join(";\nuse ", array_unique($use)) . ';',
+                    'use'                    => 'use ' . join(";\nuse ", array_unique($use)) . ';',
                     'class'                  => $this->className,
                     'baseValidators'         => $this->schema->getBaseValidators(),
                     'properties'             => $this->schema->getProperties(),

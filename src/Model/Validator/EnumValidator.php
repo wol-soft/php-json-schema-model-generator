@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPModelGenerator\Exception\Generic\EnumException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
@@ -26,7 +27,8 @@ class EnumValidator extends PropertyValidator
             '!in_array($value, ' .
                 preg_replace('(\d+\s=>)', '', var_export($allowedValues, true)) .
             ', true)',
-            "Invalid value for {$property->getName()} declined by enum constraint"
+            EnumException::class,
+            [$property->getName(), $allowedValues]
         );
     }
 }

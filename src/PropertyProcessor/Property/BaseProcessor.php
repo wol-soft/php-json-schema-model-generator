@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPMicroTemplate\Exception\FileSystemException;
 use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
+use PHPModelGenerator\Exception\Generic\AdditionalPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -123,7 +124,8 @@ class BaseProcessor extends AbstractPropertyProcessor
                     '$additionalProperties = array_diff(array_keys($modelData), %s)',
                     preg_replace('(\d+\s=>)', '', var_export(array_keys($propertyData['properties'] ?? []), true))
                 ),
-                'Provided JSON contains not allowed additional properties [" . join(", ", $additionalProperties) . "]'
+                AdditionalPropertiesException::class,
+                [$this->schema->getClassName(), '&$additionalProperties']
             )
         );
     }

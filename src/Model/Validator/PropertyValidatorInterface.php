@@ -19,11 +19,18 @@ interface PropertyValidatorInterface
     public function getCheck(): string;
 
     /**
-     * Get the message of the exception which is thrown if the validation fails
+     * Get the class of the exception which is thrown if the validation fails
      *
      * @return string
      */
-    public function getExceptionMessage(): string;
+    public function getExceptionClass(): string;
+
+    /**
+     * Get the additional data of the exception which is thrown if the validation fails
+     *
+     * @return array
+     */
+    public function getExceptionParams(): array;
 
     /**
      * Get the source code which is required to set up the validator (eg. initialize variables)

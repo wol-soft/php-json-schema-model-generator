@@ -144,7 +144,7 @@ class FilterProcessor
                             ReflectionTypeCheckValidator::fromReflectionType($filteredType, $property)->getCheck(),
                             $validator->getCheck()
                         ),
-                        $validator->getExceptionMessage()
+                        $validator->getExceptionClass()
                     ),
                     3
                 );

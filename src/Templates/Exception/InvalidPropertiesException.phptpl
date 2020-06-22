@@ -1,8 +1,0 @@
-{{ error }}"
-  . (function (array $invalidProperties): string {
-        $output = '';
-        foreach ($invalidProperties as $propertyName => $errors) {
-            $output .= "\n  - invalid {{ property }} '$propertyName'\n    * " . implode("\n    * ", str_replace("\n", "\n    ", $errors));
-        }
-        return $output;
-    })($invalidProperties) . "

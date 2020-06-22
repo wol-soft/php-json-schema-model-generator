@@ -64,7 +64,7 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
         {% foreach baseValidators as validator %}
             {{ validator.getValidatorSetUp() }}
              if ({{ validator.getCheck() }}) {
-                {{ viewHelper.validationError(validator.getExceptionMessage()) }}
+                {{ viewHelper.validationError(validator) }}
             }
         {% endforeach %}
 
@@ -172,7 +172,7 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
             {% foreach property.getOrderedValidators() as validator %}
                 {{ validator.getValidatorSetUp() }}
                 if ({{ validator.getCheck() }}) {
-                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
+                    {{ viewHelper.validationError(validator) }}
                 }
             {% endforeach %}
 

@@ -19,7 +19,7 @@
         {% foreach ifProperty.getOrderedValidators() as validator %}
             {{ validator.getValidatorSetUp() }}
             if ({{ validator.getCheck() }}) {
-                {{ viewHelper.validationError(validator.getExceptionMessage()) }}
+                {{ viewHelper.validationError(validator) }}
             }
         {% endforeach %}
 
@@ -46,7 +46,7 @@
             {% foreach thenProperty.getOrderedValidators() as validator %}
                 {{ validator.getValidatorSetUp() }}
                 if ({{ validator.getCheck() }}) {
-                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
+                    {{ viewHelper.validationError(validator) }}
                 }
             {% endforeach %}
         {% endif %}
@@ -57,7 +57,7 @@
             {% foreach elseProperty.getOrderedValidators() as validator %}
                 {{ validator.getValidatorSetUp() }}
                 if ({{ validator.getCheck() }}) {
-                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
+                    {{ viewHelper.validationError(validator) }}
                 }
             {% endforeach %}
         {% endif %}

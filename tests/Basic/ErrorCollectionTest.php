@@ -4,6 +4,10 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use Exception;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
+use PHPModelGenerator\Exception\String\MinLengthException;
+use PHPModelGenerator\Exception\String\PatternException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use PHPModelGenerator\Exception\ErrorRegistryException;
@@ -47,11 +51,32 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
         $value,
         array $messages
     ): void {
-        $this->expectExceptionObject($this->getErrorRegistryException($messages));
+        try {
+            $className = $this->generateClassFromFile('MultipleChecksForSingleProperty.json', new GeneratorConfiguration());
 
-        $className = $this->generateClassFromFile('MultipleChecksForSingleProperty.json', new GeneratorConfiguration());
+            new $className(['property' => $value]);
+        } catch (ErrorRegistryException $e) {
+            $this->assertStringContainsString(join("\n", $messages), $e->getMessage());
+            $this->assertSame(count($messages), count($e->getErrors()));
 
-        new $className(['property' => $value]);
+            foreach ($messages as $expectedExceptionClass => $message) {
+                foreach ($e->getErrors() as $error) {
+                    if ($error instanceof $expectedExceptionClass) {
+                        $this->assertStringContainsString($message, $error->getMessage());
+                        $this->assertSame('property', $error->getPropertyName());
+                        $this->assertSame($value, $error->getProvidedValue());
+
+                        continue 2;
+                    }
+                }
+
+                $this->fail('Error exception not found');
+            }
+
+            return;
+        }
+
+        $this->fail('Exception not thrown');
     }
 
     public function invalidValuesForSinglePropertyDataProvider(): array
@@ -59,25 +84,25 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
         return [
             'pattern invalid' => [
                 '  ',
-                ['property doesn\'t match pattern ^[^\s]+$']
+                [PatternException::class => 'Value for property doesn\'t match pattern ^[^\s]+$']
             ],
             'length invalid' => [
                 'a',
-                ['Value for property must not be shorter than 2']
+                [MinLengthException::class => 'Value for property must not be shorter than 2']
             ],
             'pattern and length invalid' => [
                 ' ',
                 [
-                    'property doesn\'t match pattern ^[^\s]+$',
-                    'Value for property must not be shorter than 2'
+                    PatternException::class => 'Value for property doesn\'t match pattern ^[^\s]+$',
+                    MinLengthException::class => 'Value for property must not be shorter than 2'
                 ]
             ],
-            'null' => [null, ['Invalid type for property']],
-            'int' => [1, ['Invalid type for property']],
-            'float' => [0.92, ['Invalid type for property']],
-            'bool' => [true, ['Invalid type for property']],
-            'array' => [[], ['Invalid type for property']],
-            'object' => [new stdClass(), ['Invalid type for property']],
+            'null' => [null, [InvalidTypeException::class => 'Invalid type for property']],
+            'int' => [1, [InvalidTypeException::class => 'Invalid type for property']],
+            'float' => [0.92, [InvalidTypeException::class => 'Invalid type for property']],
+            'bool' => [true, [InvalidTypeException::class => 'Invalid type for property']],
+            'array' => [[], [InvalidTypeException::class => 'Invalid type for property']],
+            'object' => [new stdClass(), [InvalidTypeException::class => 'Invalid type for property']],
         ];
     }
 
