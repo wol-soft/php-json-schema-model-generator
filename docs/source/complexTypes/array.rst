@@ -56,7 +56,7 @@ With a schema like this all items must contain a string with at least two charac
 
 .. code-block:: none
 
-    Invalid item in array example:
+    Invalid items in array example:
       - invalid item #3
         * Invalid type for item of array example. Requires string, got double
 

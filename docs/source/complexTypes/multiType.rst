@@ -54,6 +54,6 @@ For example if an array **["Hello", 123, "Goodbye"]** is given the validation wi
 
 .. code-block:: none
 
-    Invalid item in array example:
+    Invalid items in array example:
       - invalid item #1
         * Invalid type for item of array example. Requires string, got integer

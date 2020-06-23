@@ -39,7 +39,7 @@ Possible exception (if a string is provided):
 .. code-block:: none
 
     Invalid value for example declined by composition constraint.
-      Requires to match 2 composition elements but matched 0 elements.
+      Requires to match all composition elements but matched 0 elements.
       - Composition element #1: Failed
         * Invalid type for example. Requires float, got string
       - Composition element #2: Failed

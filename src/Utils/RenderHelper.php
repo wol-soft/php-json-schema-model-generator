@@ -85,12 +85,17 @@ class RenderHelper
      *
      * @return string
      */
-    public function validationError(PropertyValidatorInterface $validator): string
+    public function validationError($validator): string
     {
+        if (!$validator instanceof PropertyValidatorInterface) {
+            echo var_export($validator, true);
+            exit;
+        }
+
         $exceptionConstructor = sprintf(
             'new \%s($value ?? null, ...%s)',
             $validator->getExceptionClass(),
-            preg_replace('/\'&(\$[a-z0-9]+)\'/i', '$1', var_export($validator->getExceptionParams(), true))
+            preg_replace('/\'&(\$\w+)\'/i', '$1', var_export($validator->getExceptionParams(), true))
         );
 
         if ($this->generatorConfiguration->collectErrors()) {

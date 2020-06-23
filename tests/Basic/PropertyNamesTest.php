@@ -126,7 +126,7 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTest
                         'abc' => 1,
                     ],
                     <<<ERROR
-Provided JSON contains properties with invalid names.
+contains properties with invalid names.
   - invalid property '12'
     * Value for property name must not be shorter than 3
   - invalid property '123456'
@@ -142,7 +142,7 @@ ERROR
                         'test12w12' => 1,
                     ],
                     <<<ERROR
-Provided JSON contains properties with invalid names.
+contains properties with invalid names.
   - invalid property '12test12'
     * Value for property name doesn't match pattern ^test[0-9]+$
   - invalid property 'test'
@@ -159,7 +159,7 @@ ERROR
                         'test' => 1,
                     ],
                     <<<ERROR
-Provided JSON contains properties with invalid names.
+contains properties with invalid names.
   - invalid property 'test12345a'
     * Value for property name doesn't match pattern ^test[0-9]+$
   - invalid property 'test'
@@ -182,7 +182,7 @@ ERROR
                     'test' => 1,
                 ],
                 <<<ERROR
-Provided JSON contains properties with invalid names.
+contains properties with invalid names.
   - invalid property 'test12345a'
     * Value for property name doesn't match pattern ^test[0-9]+$
   - invalid property 'test'
@@ -198,7 +198,7 @@ ERROR
                     'test' => 1,
                 ],
                 <<<ERROR
-Provided JSON contains properties with invalid names.
+contains properties with invalid names.
   - invalid property 'test12345a'
     * Value for property name doesn't match pattern ^test[0-9]+$
     * Value for property name must not be longer than 8

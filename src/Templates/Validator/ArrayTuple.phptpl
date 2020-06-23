@@ -33,8 +33,8 @@ is_array($value) && (function (&$items) use (&$invalidTuples) {
         } catch (\Exception $e) {
             // collect all errors concerning invalid tuples
             isset($invalidTuples[$index])
-                ? $invalidTuples[$index][] = $e->getMessage()
-                : $invalidTuples[$index] = [$e->getMessage()];
+                ? $invalidTuples[$index][] = $e
+                : $invalidTuples[$index] = [$e];
         }
     {% endforeach %}
 

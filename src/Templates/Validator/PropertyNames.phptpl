@@ -27,8 +27,8 @@
         } catch (\Exception $e) {
             // collect all errors concerning invalid property names
             isset($invalidProperties[$value])
-                ? $invalidProperties[$value][] = $e->getMessage()
-                : $invalidProperties[$value] = [$e->getMessage()];
+                ? $invalidProperties[$value][] = $e
+                : $invalidProperties[$value] = [$e];
         }
     }
 

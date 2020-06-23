@@ -143,7 +143,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
     public function invalidTypedAdditionalPropertiesDataProvider(): array
     {
         $exception = <<<ERROR
-Provided JSON contains invalid additional properties.
+contains invalid additional properties.
   - invalid additional property 'additional1'
     * %s
 ERROR;
@@ -252,7 +252,7 @@ ERROR;
     public function invalidAdditionalPropertiesObjectsDataProvider(): array
     {
         $exception = <<<ERROR
-Provided JSON contains invalid additional properties.
+contains invalid additional properties.
   - invalid additional property 'additional1'
     * %s
 ERROR;
@@ -291,7 +291,7 @@ ERROR;
                 'Multiple violations' => [
                     ['additional1' => ['name' => 12], 'additional2' => ['name' => 'AB', 'age' => '12']],
                     <<<ERROR
-Provided JSON contains invalid additional properties.
+contains invalid additional properties.
   - invalid additional property 'additional1'
     * Invalid type for name. Requires string, got integer
   - invalid additional property 'additional2'

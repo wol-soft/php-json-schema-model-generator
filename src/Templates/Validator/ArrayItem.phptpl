@@ -26,8 +26,8 @@ is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}) {
         } catch (\Exception $e) {
             // collect all errors concerning invalid items
             isset($invalidItems{{ suffix }}[$index])
-                ? $invalidItems{{ suffix }}[$index][] = $e->getMessage()
-                : $invalidItems{{ suffix }}[$index] = [$e->getMessage()];
+                ? $invalidItems{{ suffix }}[$index][] = $e
+                : $invalidItems{{ suffix }}[$index] = [$e];
         }
     }
 

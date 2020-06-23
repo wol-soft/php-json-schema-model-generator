@@ -352,7 +352,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
                     'string',
                     ['a', 'b', 1],
                     <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #2
     * Invalid type for item of array property. Requires string, got integer
 ERROR
@@ -361,7 +361,7 @@ ERROR
                     'integer',
                     [1, 2, 3, '4'],
                     <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #3
     * Invalid type for item of array property. Requires int, got string
 ERROR
@@ -370,7 +370,7 @@ ERROR
                     'integer',
                     [1, 2, 3, 2.5],
                     <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #3
     * Invalid type for item of array property. Requires int, got double
 ERROR
@@ -379,7 +379,7 @@ ERROR
                     'number',
                     [1, 1.1, 4.5, 6, []],
                     <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #4
     * Invalid type for item of array property. Requires float, got array
 ERROR
@@ -388,7 +388,7 @@ ERROR
                     'boolean',
                     [true, false, true, 3],
                     <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #3
     * Invalid type for item of array property. Requires bool, got integer
 ERROR
@@ -397,7 +397,7 @@ ERROR
                     'null',
                     [null, null, 'null'],
                     <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #2
     * Invalid type for item of array property. Requires null, got string
 ERROR
@@ -406,7 +406,7 @@ ERROR
                     'boolean',
                     [true, false, true, 3, true, 'true'],
                     <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #3
     * Invalid type for item of array property. Requires bool, got integer
   - invalid item #5
@@ -417,7 +417,7 @@ ERROR
                     'array","items":{"type":"integer"},"injection":"yes we can',
                     [[1, 2], [], 3],
                     <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #2
     * Invalid type for item of array property. Requires array, got integer
 ERROR
@@ -426,9 +426,9 @@ ERROR
                     'array","items":{"type":"integer"},"injection":"yes we can',
                     [[1, '2'], [], [3]],
                     <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #0
-    * Invalid item in array item of array property:
+    * Invalid items in array item of array property:
       - invalid item #1
         * Invalid type for item of array item of array property. Requires int, got string
 ERROR
@@ -600,7 +600,7 @@ ERROR
                     'invalid type bool' => [
                         [['name' => 'Hannes'], true],
                         <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #1
     * Invalid type for item of array property. Requires object, got boolean
 ERROR
@@ -608,7 +608,7 @@ ERROR
                     'missing property name' => [
                         [['name' => 'Hannes'], ['age' => 42]],
                         <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #1
     * Missing required value for name
 ERROR
@@ -616,7 +616,7 @@ ERROR
                     'invalid type name' => [
                         [['name' => 'Hannes'], ['name' => false, 'age' => 42]],
                         <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #1
     * Invalid type for name. Requires string, got boolean
 ERROR
@@ -624,7 +624,7 @@ ERROR
                     'multiple violations' => [
                         [['name' => false, 'age' => 42], ['name' => 'Frida', 'age' => 'yes'], 5, []],
                         <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #0
     * Invalid type for name. Requires string, got boolean
   - invalid item #1
@@ -651,10 +651,10 @@ ERROR
                     'invalid type bool' => [
                         [['name' => 'Hannes'], true],
                         <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #1
     * Invalid value for item of array property declined by composition constraint.
-      Requires to match 2 composition elements but matched 0 elements.
+      Requires to match all composition elements but matched 0 elements.
       - Composition element #1: Failed
         * Invalid type for item of array property. Requires object, got boolean
       - Composition element #2: Failed
@@ -664,10 +664,10 @@ ERROR
                     'missing property name' => [
                         [['name' => 'Hannes'], ['age' => 42]],
                         <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #1
     * Invalid value for item of array property declined by composition constraint.
-      Requires to match 2 composition elements but matched 1 elements.
+      Requires to match all composition elements but matched 1 elements.
       - Composition element #1: Failed
         * Missing required value for name
         * Invalid type for name. Requires string, got NULL
@@ -677,10 +677,10 @@ ERROR
                     'invalid type name' => [
                         [['name' => 'Hannes'], ['name' => false, 'age' => 42]],
                         <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #1
     * Invalid value for item of array property declined by composition constraint.
-      Requires to match 2 composition elements but matched 1 elements.
+      Requires to match all composition elements but matched 1 elements.
       - Composition element #1: Failed
         * Invalid type for name. Requires string, got boolean
       - Composition element #2: Valid
@@ -689,30 +689,30 @@ ERROR
                     'multiple violations' => [
                         [['name' => false, 'age' => 42], ['name' => 'F', 'age' => 'yes'], 5, []],
                         <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #0
     * Invalid value for item of array property declined by composition constraint.
-      Requires to match 2 composition elements but matched 1 elements.
+      Requires to match all composition elements but matched 1 elements.
       - Composition element #1: Failed
         * Invalid type for name. Requires string, got boolean
       - Composition element #2: Valid
   - invalid item #1
     * Invalid value for item of array property declined by composition constraint.
-      Requires to match 2 composition elements but matched 0 elements.
+      Requires to match all composition elements but matched 0 elements.
       - Composition element #1: Failed
         * Value for name must not be shorter than 2
       - Composition element #2: Failed
         * Invalid type for age. Requires int, got string
   - invalid item #2
     * Invalid value for item of array property declined by composition constraint.
-      Requires to match 2 composition elements but matched 0 elements.
+      Requires to match all composition elements but matched 0 elements.
       - Composition element #1: Failed
         * Invalid type for item of array property. Requires object, got integer
       - Composition element #2: Failed
         * Invalid type for item of array property. Requires object, got integer
   - invalid item #3
     * Invalid value for item of array property declined by composition constraint.
-      Requires to match 2 composition elements but matched 1 elements.
+      Requires to match all composition elements but matched 1 elements.
       - Composition element #1: Failed
         * Missing required value for name
         * Invalid type for name. Requires string, got NULL

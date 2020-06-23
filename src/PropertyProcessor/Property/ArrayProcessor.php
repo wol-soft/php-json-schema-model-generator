@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPMicroTemplate\Exception\FileSystemException;
 use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
+use PHPModelGenerator\Exception\Arrays\AdditionalTupleItemsException;
 use PHPModelGenerator\Exception\Arrays\ContainsException;
 use PHPModelGenerator\Exception\Arrays\MaxItemsException;
 use PHPModelGenerator\Exception\Arrays\MinItemsException;
@@ -199,11 +200,8 @@ class ArrayProcessor extends AbstractTypedValueProcessor
         $property->addValidator(
             new PropertyValidator(
                 '($amount = count($value)) > ' . $expectedAmount,
-                sprintf(
-                    'Tuple array %s contains not allowed additional items. Expected %s items, got $amount',
-                    $property->getName(),
-                    $expectedAmount
-                )
+                AdditionalTupleItemsException::class,
+                [$property->getName(), $expectedAmount, '&$amount']
             )
         );
     }

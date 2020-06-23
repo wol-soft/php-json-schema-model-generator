@@ -82,7 +82,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
             'Array with invalid items' => [
                 ['Hello', 123],
                 <<<ERROR
-Invalid item in array property:
+Invalid items in array property:
   - invalid item #1
     * Invalid type for item of array property. Requires string, got integer
 ERROR
