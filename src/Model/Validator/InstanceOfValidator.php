@@ -4,7 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
-use PHPModelGenerator\Exception\Generic\InvalidInstanceOfException;
+use PHPModelGenerator\Exception\Object\InvalidInstanceOfException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**

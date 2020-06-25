@@ -90,7 +90,6 @@ Method | Configuration | Default
 ``` setSerialization(bool $serialization) ``` <br><br>Example:<br> ``` setSerialization(true) ``` | If set to true the serialization methods `toArray` and `toJSON` will be added to the public interface of the generated classes. | false
 ``` setOutputEnabled(bool $outputEnabled) ``` <br><br>Example:<br> ``` setOutputEnabled(false) ``` | Enable or disable output of the generation process to STDOUT | true
 ``` setErrorRegistryClass(string $exceptionClass) ``` <br><br>Example:<br> ``` setErrorRegistryClass(CustomException::class) ``` | Define a custom exception implementing the ErrorRegistryExceptionInterface to be used. The exception will be thrown if a validation fails and error collection is **enabled** | ErrorRegistryException::class
-``` setExceptionClass(string $exceptionClass) ``` <br><br>Example:<br> ``` setExceptionClass(CustomException::class) ``` | Define a custom exception to be used. The exception will be thrown if a validation fails and error collection is **disabled** | ValidationException::class
 ``` addFilter(FilterInterface $filter) ``` <br><br>Example:<br> ``` addFilter(new CustomFilter()) ``` | Add a custom filter to the generator. Check out the docs for more details. | -
 
 ## Examples ##

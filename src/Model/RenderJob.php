@@ -8,6 +8,7 @@ use PHPMicroTemplate\Exception\PHPMicroTemplateException;
 use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -119,7 +120,7 @@ class RenderJob
             $this->schema->getUsedClasses(),
             $generatorConfiguration->collectErrors()
                 ? [$generatorConfiguration->getErrorRegistryClass()]
-                : [$generatorConfiguration->getExceptionClass()]
+                : [ValidationException::class]
         );
 
         // filter out non-compound uses and uses which link to the current namespace

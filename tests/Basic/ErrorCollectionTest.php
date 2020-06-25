@@ -4,7 +4,6 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
-use Exception;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Exception\String\PatternException;
@@ -46,6 +45,7 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
      * @dataProvider invalidValuesForSinglePropertyDataProvider
      *
      * @param string $value
+     * @param array $messages
      */
     public function testInvalidValuesForMultipleChecksForSinglePropertyThrowsAnException(
         $value,
@@ -60,17 +60,11 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
             $this->assertSame(count($messages), count($e->getErrors()));
 
             foreach ($messages as $expectedExceptionClass => $message) {
-                foreach ($e->getErrors() as $error) {
-                    if ($error instanceof $expectedExceptionClass) {
-                        $this->assertStringContainsString($message, $error->getMessage());
-                        $this->assertSame('property', $error->getPropertyName());
-                        $this->assertSame($value, $error->getProvidedValue());
+                $error = $this->assertErrorRegistryContainsException($e, $expectedExceptionClass);
 
-                        continue 2;
-                    }
-                }
-
-                $this->fail('Error exception not found');
+                $this->assertStringContainsString($message, $error->getMessage());
+                $this->assertSame('property', $error->getPropertyName());
+                $this->assertSame($value, $error->getProvidedValue());
             }
 
             return;

@@ -7,7 +7,7 @@ namespace PHPModelGenerator\Model\Validator;
 use PHPMicroTemplate\Exception\FileSystemException;
 use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
-use PHPModelGenerator\Exception\Generic\InvalidPropertyNamesException;
+use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;

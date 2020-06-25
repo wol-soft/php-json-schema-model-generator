@@ -85,13 +85,8 @@ class RenderHelper
      *
      * @return string
      */
-    public function validationError($validator): string
+    public function validationError(PropertyValidatorInterface $validator): string
     {
-        if (!$validator instanceof PropertyValidatorInterface) {
-            echo var_export($validator, true);
-            exit;
-        }
-
         $exceptionConstructor = sprintf(
             'new \%s($value ?? null, ...%s)',
             $validator->getExceptionClass(),

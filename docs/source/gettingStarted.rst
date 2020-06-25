@@ -195,9 +195,8 @@ Custom exception classes
 .. code-block:: php
 
     setErrorRegistryClass(string $exceptionClass);
-    setExceptionClass(string $exceptionClass);
 
-To set a custom exception thrown if errors occur during validation use *setErrorRegistryClass* if you have enabled error collection, *setExceptionClass* otherwise. The exception provided via *setErrorRegistryClass* must implement the ErrorRegistryExceptionInterface.
+If you want to customize the exception handling you can set an own ErrorRegistryClass to collect all exceptions via *setErrorRegistryClass*. This setting will only affect the generated code if you have enabled error collection. The exception provided via *setErrorRegistryClass* must implement the ErrorRegistryExceptionInterface.
 
 .. code-block:: php
 

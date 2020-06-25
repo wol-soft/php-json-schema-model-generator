@@ -45,6 +45,19 @@ Possible exception (if a string is provided):
       - Composition element #2: Failed
         * Invalid type for example. Requires float, got string
 
+The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\AnyOfException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns a two-dimensional array which contains all validation exceptions grouped by composition elements
+    public function getCompositionErrorCollection(): array
+    // get the amount of succeeded composition elements
+    public function getSucceededCompositionElements(): int
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+
 .. hint::
 
     When combining multiple nested objects with an `anyOf` composition a `merged property <mergedProperty.html>`__ will be generated

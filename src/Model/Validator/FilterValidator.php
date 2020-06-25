@@ -4,8 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
-use PHPModelGenerator\Exception\Generic\IncompatibleFilterException;
-use PHPModelGenerator\Exception\Generic\InvalidFilterValueException;
+use PHPModelGenerator\Exception\Filter\IncompatibleFilterException;
+use PHPModelGenerator\Exception\Filter\InvalidFilterValueException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;

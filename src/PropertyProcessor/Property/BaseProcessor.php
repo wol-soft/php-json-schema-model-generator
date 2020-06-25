@@ -7,7 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPMicroTemplate\Exception\FileSystemException;
 use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
-use PHPModelGenerator\Exception\Generic\AdditionalPropertiesException;
+use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\MaxPropertiesException;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;

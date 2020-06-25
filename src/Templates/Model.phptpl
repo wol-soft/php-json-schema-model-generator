@@ -39,7 +39,7 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
      * @param array $modelData
      {% if generatorConfiguration.collectErrors() %}{% if not initialClass %}* @param {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $errorRegistry{% endif %}{% endif %}
      *
-     * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getExceptionClass()) }}{% endif %}
+     * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
      */
     public function __construct(
         array $modelData = []
@@ -113,7 +113,7 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
              *
              * @param {{ property.getTypeHint() }}{% if viewHelper.implicitNull(property) %}|null{% endif %} ${{ property.getAttribute() }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
              *
-             * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getExceptionClass()) }}{% endif %}{% endif %}
+             * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
              *
              * @return self
              */
@@ -145,7 +145,7 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
          *
          * @param array $modelData
          *
-         * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getExceptionClass()) }}{% endif %}{% endif %}
+         * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
          */
         protected function process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
         {

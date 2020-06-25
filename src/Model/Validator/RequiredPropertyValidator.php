@@ -4,7 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
-use PHPModelGenerator\Exception\Generic\MissingRequiredValueException;
+use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
@@ -23,7 +23,7 @@ class RequiredPropertyValidator extends PropertyValidator
     {
         parent::__construct(
             "!array_key_exists('{$property->getName()}', \$modelData)",
-            MissingRequiredValueException::class,
+            RequiredValueException::class,
             [$property->getName()]
         );
     }

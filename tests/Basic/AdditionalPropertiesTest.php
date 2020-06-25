@@ -2,8 +2,8 @@
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use stdClass;
 
@@ -81,8 +81,10 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
      */
     public function testAdditionalPropertiesThrowAnExceptionWhenSetToFalse(array $propertyValue): void
     {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Provided JSON contains not allowed additional properties [additional]');
+        $this->expectException(AdditionalPropertiesException::class);
+        $this->expectExceptionMessageMatches(
+            '/Provided JSON for .* contains not allowed additional properties \[additional\]/'
+        );
 
         $className = $this->generateClassFromFileTemplate('AdditionalProperties.json', ['false']);
 

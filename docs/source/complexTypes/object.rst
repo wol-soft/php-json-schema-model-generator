@@ -49,6 +49,17 @@ Possible exceptions:
 
 The nested object will be validated in the nested class Car which may throw additional exceptions if invalid data is provided.
 
+The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTypeException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns a string if the property expects exactly one type, an array if the property accepts multiple types
+    public function getExpectedType()
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+
 Namespaces
 ----------
 
@@ -154,6 +165,19 @@ Possible exceptions:
 * Provided object for person must not contain less than 2 properties
 * Provided object for person must not contain more than 3 properties
 
+The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\MaxPropertiesException* or a *PHPModelGenerator\\Exception\\Object\\MinPropertiesException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // for a MaxPropertiesException: get the minimum amount of object properties
+    public function getMaxProperties(): int
+    // for a MinPropertiesException: get the maximum amount of object properties
+    public function getMinProperties(): int
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+
 Additional Properties
 ---------------------
 
@@ -184,17 +208,39 @@ Using the keyword `additionalProperties` the object can be limited to not contai
 
 Possible exceptions:
 
-* Provided JSON contains not allowed additional properties [additional1, additional2]
+* Provided JSON for example contains not allowed additional properties [additional1, additional2]
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\AdditionalPropertiesException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // Get a list of all additional properties which are denied by the schema
+    public function getAdditionalProperties(): array
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
 
 If invalid additional properties are provided a detailed exception will be thrown containing all violations:
 
 .. code-block:: none
 
-    Provided JSON contains invalid additional properties.
+    Provided JSON for example contains invalid additional properties.
       - invalid additional property 'additional1'
         * Invalid type for name. Requires string, got integer
       - invalid additional property 'additional2'
         * Invalid type for age. Requires int, got string
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidAdditionalPropertiesException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns a two-dimensional array which contains all validation exceptions grouped by property names
+    public function getNestedExceptions(): array
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
 
 Recursive Objects
 -----------------
@@ -255,6 +301,7 @@ With the keyword `propertyNames` rules can be defined which must be fulfilled by
 .. code-block:: json
 
     {
+        "$id": "example",
         "type": "object",
         "propertyNames": {
             "pattern": "^test[0-9]+$",
@@ -268,12 +315,24 @@ Exceptions contain detailed information about the violations:
 
 .. code-block:: none
 
-    Provided JSON contains properties with invalid names.
+    Provided JSON for example contains properties with invalid names.
       - invalid property 'test12345a'
         * Value for property name doesn't match pattern ^test[0-9]+$
         * Value for property name must not be longer than 8
       - invalid property 'test123456789'
         * Value for property name must not be longer than 8
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidPropertyNamesException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns a two-dimensional array which contains all validation exceptions grouped by property names
+    // each entry contains all name violations of the given property
+    public function getNestedExceptions(): array
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
 
 Dependencies
 ------------
@@ -312,6 +371,17 @@ Exceptions contain a list of all violated properties which are declared as a dep
 
     Missing required attributes which are dependants of credit_card:
       - billing_address
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Dependency\\InvalidPropertyDependencyException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns an array containing all missing attributes
+    public function getMissingAttributes(): array
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
 
 As stated above the dependency declaration is not bidirectional. If the presence of a billing_address shall also require the credit_card property to be required the dependency has to be declared separately:
 
@@ -397,6 +467,17 @@ Possible exceptions:
 
     Invalid schema which is dependant on credit_card:
       - Missing required value for date_of_birth
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Dependency\\InvalidSchemaDependencyException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // Returns the exception which covers all validation errors of the dependant schema
+    public function getDependencyException(): Throwable
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
 
 Multiple violations against the schema dependency may be included.
 

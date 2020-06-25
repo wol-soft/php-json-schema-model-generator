@@ -4,7 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
-use PHPModelGenerator\Exception\Generic\InvalidAdditionalPropertiesException;
+use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;

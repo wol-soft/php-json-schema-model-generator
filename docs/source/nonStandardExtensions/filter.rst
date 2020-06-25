@@ -1,7 +1,7 @@
 Filter
 ======
 
-Filter can be used to preprocess values. Filters are applied after the required and type validation. If a filter is applied to a property which has a type which is not supported by the filter an exception will be thrown.
+Filter can be used to preprocess values. Filters are applied after the required and type validation. If a filter is applied to a property which has a type which is not supported by the filter an IncompatibleFilterException will be thrown.
 Filters can be either supplied as a string or as a list of filters (multiple filters can be applied to a single property):
 
 .. code-block:: json
@@ -23,7 +23,7 @@ Filters can be either supplied as a string or as a list of filters (multiple fil
         }
     }
 
-If the implementation of a filter throws an exception this exception will be caught by the generated model. The model will either throw the exception directly or insert it into the error collection based on your GeneratorConfiguration (compare `collecting errors <../gettingStarted.html#collect-errors-vs-early-return>`__). This behaviour also allows you to hook into the validation process and execute extended validations on the provided property.
+If the implementation of a filter throws an exception this exception will be caught by the generated model. The model will either throw the exception directly as a InvalidFilterValueException or insert it into the error collection based on your GeneratorConfiguration (compare `collecting errors <../gettingStarted.html#collect-errors-vs-early-return>`__). This behaviour also allows you to hook into the validation process and execute extended validations on the provided property.
 
 If multiple filters are applied to a single property they will be executed in the order of their definition inside the JSON Schema.
 
@@ -92,6 +92,33 @@ The return type of the transforming filter will be used to define the type of th
 
 If you use a filter on a property which accepts multiple types (eg. explicit null ['string', 'null'] or ['string', 'integer']) the filter must accept each of the types defined on the property.
 
+Exceptions from filter
+----------------------
+
+If a filter is called with a type which isn't supported by the filter a *PHPModelGenerator\\Exception\\ValidationException\\IncompatibleFilterException* will be thrown which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns the token of the filter which wasn't able to be processed
+    public function getFilterToken(): string
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+
+If the filter throws an exception during the execution the exception will be caught and converted into a *PHPModelGenerator\\Exception\\Filter\\InvalidFilterValueException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns the token of the filter which wasn't able to be processed
+    public function getFilterToken(): string
+    // Returns the exception which was thrown inside the filter
+    public function getFilterException(): Throwable
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+
 Builtin filter
 --------------
 
@@ -122,7 +149,7 @@ Let's have a look how the generated model behaves:
     $person = new Person([]);
 
     // Throws an exception as the name provides an invalid value after being trimmed.
-    // Exception: 'Value for name must not be shorter than 2'
+    // MinLengthException: 'Value for name must not be shorter than 2'
     $person = new Person(['name' => '   A   ']);
 
     // A valid example
@@ -132,7 +159,7 @@ Let's have a look how the generated model behaves:
     $person->getRawModelDataInput(); // returns ['name' => '   Albert ']
 
     // If setters are generated the setters also execute the filter and perform validations.
-    // Exception: 'Value for name must not be shorter than 2'
+    // MinLengthException: 'Value for name must not be shorter than 2'
     $person->setName('  D ');
 
 If the filter trim is used for a property which doesn't require a string value and a non string value is provided an exception will be thrown:
@@ -211,7 +238,7 @@ Let's have a look how the generated model behaves:
     // valid, the productionDate will be NULL as the productionDate is not required
     $car = new Car([]);
 
-    // Throws an exception as the provided value is not valid for the DateTime constructor
+    // Throws an InvalidFilterValueException as the provided value is not valid for the DateTime constructor
     $car = new Car(['productionDate' => 'Hello']);
 
     // A valid example
