@@ -97,9 +97,11 @@ class FilterProcessor
                         (new RenderHelper($generatorConfiguration))->getSimpleClassName($typeAfterFilter->getName())
                     );
 
-                    $schema
-                        ->addUsedClass($typeAfterFilter->getName())
-                        ->addCustomSerializer(
+                    if (!$typeAfterFilter->isBuiltin()) {
+                        $schema->addUsedClass($typeAfterFilter->getName());
+                    }
+
+                    $schema->addCustomSerializer(
                             $property->getAttribute(),
                             new TransformingFilterSerializer($property->getAttribute(), $filter, $filterOptions)
                         );

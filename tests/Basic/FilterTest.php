@@ -571,6 +571,7 @@ ERROR
         $className = $this->generateClassFromFile(
             'TransformingScalarFilter.json',
             (new GeneratorConfiguration())
+                ->setNamespacePrefix('\MyApp\Model')
                 ->setSerialization(true)
                 ->setImmutable(false)
                 ->addFilter(
@@ -583,7 +584,8 @@ ERROR
                 )
         );
 
-        $object = new $className(['value' => 9]);
+        $fqcn = "\\MyApp\\Model\\$className";
+        $object = new $fqcn(['value' => 9]);
 
         $this->assertSame('1001', $object->getValue());
         $this->assertSame('1010', $object->setValue('1010')->getValue());

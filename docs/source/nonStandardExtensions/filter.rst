@@ -80,7 +80,7 @@ Transforming filter
 
     You may keep it simple and skip this for your first tries and only experiment with non-transforming filters like the trim filter
 
-Filters may change the type of the property. For example the builtin filter **dateTime** creates a DateTime object. Consequently further type-related validations like pattern checks for the string property won't be performed. Additionally enum validations will not be executed if an already transformed value is provided.
+Filters may change the type of the property. For example the builtin filter **dateTime** creates a DateTime object. Consequently further type-related validations like pattern checks for the string property won't be performed. If you use a transforming filter which transforms the value into another accepted type (eg. your property accepts ['string', 'integer'] and your transforming filter transforms provided strings into integers) the additional provided validators for integers (like minimum or maximum checks) will be executed (only if your property accepts integer values; if the property only accepts strings and the transforming filter converts them to integer values integer validators won't be added to the property). Additionally enum validations will not be executed if an already transformed value is provided.
 
 As the required check is executed before the filter a filter may transform a required value into a null value. Be aware when writing custom filters which transform values to not break your validation rules by adding filters to a property.
 
@@ -393,7 +393,7 @@ Custom transforming filter
 
 If you want to provide a custom filter which transforms a value (eg. redirect data into a manually written model, transforming between data types [eg. accepting values as an integer but handle them internally as binary strings]) you must implement the **PHPModelGenerator\\PropertyProcessor\\Filter\\TransformingFilterInterface**. This interface adds the **getSerializer** method to your filter. The method is similar to the **getFilter** method. It must return a callable which is available during the render process as well as during code execution. The returned callable must return null or a string and undo a transformation (eg. the serializer method of the builtin **dateTime** filter transforms a DateTime object back into a formatted string). The serializer method will be called with the current value of the property as the first argument and with the (optionally provided) additional options of the filter as the second argument. Your custom transforming filter might look like:
 
-The custom serializer method will be called if the model utilizing the custom filter is generated with `serialization methods<../gettingStarted.html#serialization-methods>`__ and *toArray* or *toJSON* is called.
+The custom serializer method will be called if the model utilizing the custom filter is generated with `serialization methods <../gettingStarted.html#serialization-methods>`__ and *toArray* or *toJSON* is called.
 
 .. code-block:: php
 
