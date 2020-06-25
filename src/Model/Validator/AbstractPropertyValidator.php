@@ -16,16 +16,24 @@ use PHPModelGenerator\Model\Validator;
 abstract class AbstractPropertyValidator implements PropertyValidatorInterface
 {
     /** @var string */
-    protected $exceptionMessage;
+    protected $exceptionClass;
+    /** @var array */
+    protected $exceptionParams;
 
     /**
-     * Get the message of the exception which is thrown if the validation fails
-     *
-     * @return string
+     * @inheritDoc
      */
-    public function getExceptionMessage(): string
+    public function getExceptionClass(): string
     {
-        return $this->exceptionMessage;
+        return $this->exceptionClass;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getExceptionParams(): array
+    {
+        return $this->exceptionParams;
     }
 
     /**

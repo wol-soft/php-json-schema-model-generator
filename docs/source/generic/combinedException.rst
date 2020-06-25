@@ -60,30 +60,30 @@ The exception which will be thrown (combined array-exception and combined-schema
 
 .. code-block:: none
 
-    Invalid item in array property:
+    Invalid items in array property:
       - invalid item #0
         * Invalid value for item of array property declined by composition constraint.
-          Requires to match 2 composition elements but matched 1 elements.
+          Requires to match all composition elements but matched 1 elements.
           - Composition element #1: Failed
             * Invalid type for name. Requires string, got boolean
           - Composition element #2: Valid
       - invalid item #1
         * Invalid value for item of array property declined by composition constraint.
-          Requires to match 2 composition elements but matched 0 elements.
+          Requires to match all composition elements but matched 0 elements.
           - Composition element #1: Failed
             * Value for name must not be shorter than 2
           - Composition element #2: Failed
             * Invalid type for age. Requires int, got string
       - invalid item #2
         * Invalid value for item of array property declined by composition constraint.
-          Requires to match 2 composition elements but matched 0 elements.
+          Requires to match all composition elements but matched 0 elements.
           - Composition element #1: Failed
             * Invalid type for item of array property. Requires object, got integer
           - Composition element #2: Failed
             * Invalid type for item of array property. Requires object, got integer
       - invalid item #3
         * Invalid value for item of array property declined by composition constraint.
-          Requires to match 2 composition elements but matched 1 elements.
+          Requires to match all composition elements but matched 1 elements.
           - Composition element #1: Failed
             * Missing required value for name
             * Invalid type for name. Requires string, got NULL

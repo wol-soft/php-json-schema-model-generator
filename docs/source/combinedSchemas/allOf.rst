@@ -34,12 +34,12 @@ Generated interface:
     public function getExample(): float;
 
 
-Possible exception (if a string is provided):
+Possible exception (eg. if a string is provided):
 
 .. code-block:: none
 
     Invalid value for example declined by composition constraint.
-      Requires to match 2 composition elements but matched 0 elements.
+      Requires to match all composition elements but matched 0 elements.
       - Composition element #1: Failed
         * Invalid type for example. Requires float, got string
       - Composition element #2: Failed
@@ -54,6 +54,19 @@ Possible exception (if eg. 5 is provided, which matches only one subschema):
       - Composition element #1: Valid
       - Composition element #2: Failed
         * Value for example must be a multiple of 3
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\AllOfException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns a two-dimensional array which contains all validation exceptions grouped by composition elements
+    public function getCompositionErrorCollection(): array
+    // get the amount of succeeded composition elements
+    public function getSucceededCompositionElements(): int
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
 
 .. hint::
 

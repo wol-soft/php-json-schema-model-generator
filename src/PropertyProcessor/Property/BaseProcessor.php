@@ -7,6 +7,9 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPMicroTemplate\Exception\FileSystemException;
 use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
+use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
+use PHPModelGenerator\Exception\Object\MaxPropertiesException;
+use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -123,7 +126,8 @@ class BaseProcessor extends AbstractPropertyProcessor
                     '$additionalProperties = array_diff(array_keys($modelData), %s)',
                     preg_replace('(\d+\s=>)', '', var_export(array_keys($propertyData['properties'] ?? []), true))
                 ),
-                'Provided JSON contains not allowed additional properties [" . join(", ", $additionalProperties) . "]'
+                AdditionalPropertiesException::class,
+                [$this->schema->getClassName(), '&$additionalProperties']
             )
         );
     }
@@ -143,11 +147,8 @@ class BaseProcessor extends AbstractPropertyProcessor
         $this->schema->addBaseValidator(
             new PropertyValidator(
                 sprintf('count($modelData) > %d', $propertyData['maxProperties']),
-                sprintf(
-                    'Provided object for %s must not contain more than %s properties',
-                    $propertyName,
-                    $propertyData['maxProperties']
-                )
+                MaxPropertiesException::class,
+                [$propertyName, $propertyData['maxProperties']]
             )
         );
     }
@@ -167,11 +168,8 @@ class BaseProcessor extends AbstractPropertyProcessor
         $this->schema->addBaseValidator(
             new PropertyValidator(
                 sprintf('count($modelData) < %d', $propertyData['minProperties']),
-                sprintf(
-                    'Provided object for %s must not contain less than %s properties',
-                    $propertyName,
-                    $propertyData['minProperties']
-                )
+                MinPropertiesException::class,
+                [$propertyName, $propertyData['minProperties']]
             )
         );
     }

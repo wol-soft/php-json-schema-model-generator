@@ -26,6 +26,17 @@ Possible exceptions:
 
 * Invalid type for property. Requires [float, string], got __TYPE__
 
+The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTypeException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns a string if the property expects exactly one type, an array if the property accepts multiple types
+    public function getExpectedType()
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+
 Additional validators
 ---------------------
 
@@ -54,6 +65,6 @@ For example if an array **["Hello", 123, "Goodbye"]** is given the validation wi
 
 .. code-block:: none
 
-    Invalid item in array example:
+    Invalid items in array example:
       - invalid item #1
         * Invalid type for item of array example. Requires string, got integer

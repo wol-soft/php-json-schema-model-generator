@@ -25,7 +25,7 @@
             {% foreach property.getOrderedValidators() as validator %}
                 {{ validator.getValidatorSetUp() }}
                 if ({{ validator.getCheck() }}) {
-                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
+                    {{ viewHelper.validationError(validator) }}
                 }
             {% endforeach %}
 

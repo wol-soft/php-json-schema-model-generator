@@ -146,11 +146,14 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->assertEquals($input, $object->jsonSerialize());
         $this->assertEquals('{"name":"Hannes","address":{"street":"Test-Street","number":null}}', $object->toJSON());
 
-        $this->assertEquals(['name' => 'Hannes', 'address' => null], $object->toArray(1));
-        $this->assertEquals('{"name":"Hannes","address":null}', $object->toJSON(0, 1));
+        $this->assertEquals(['name' => 'Hannes', 'address' => null], $object->toArray([], 1));
+        $this->assertEquals('{"name":"Hannes","address":null}', $object->toJSON([], 0, 1));
 
-        $this->assertFalse($object->toArray(0));
-        $this->assertFalse($object->toJSON(0, 0));
+        $this->assertEquals(['name' => 'Hannes'], $object->toArray(['address']));
+        $this->assertEquals('{"name":"Hannes"}', $object->toJSON(['address']));
+
+        $this->assertFalse($object->toArray([], 0));
+        $this->assertFalse($object->toJSON([], 0, 0));
     }
 
     /**

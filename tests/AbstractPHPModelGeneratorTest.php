@@ -14,6 +14,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -306,7 +307,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         }
 
         if ($configuration->collectErrors()) {
-            $this->expectExceptionObject($this->getErrorRegistryException($messages));
+            $this->expectException(ErrorRegistryException::class);
+            $this->expectExceptionMessage(join("\n", $messages));
         } else {
             $this->expectException(ValidationException::class);
             $this->expectExceptionMessage($messages[0]);
@@ -326,9 +328,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         }
 
         if ($configuration->collectErrors()) {
-            $exception = $this->getErrorRegistryException($messages);
-            $this->expectException(get_class($exception));
-            $this->expectExceptionMessageMatches($exception->getMessage());
+            $this->expectException(ErrorRegistryException::class);
+            $this->expectExceptionMessageMatches(join("\n", $messages));
         } else {
             $this->expectException(ValidationException::class);
             $this->expectExceptionMessageMatches($messages[0]);
@@ -351,6 +352,29 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         }
 
         return $errorRegistry;
+    }
+
+    /**
+     * Check if the given error registry exception contains the requested exception.
+     *
+     * @param ErrorRegistryException $registryException
+     * @param string $expectedException
+     *
+     * @return ValidationException
+     *
+     * @throws AssertionFailedError
+     */
+    protected function assertErrorRegistryContainsException(
+        ErrorRegistryException $registryException,
+        string $expectedException
+    ): ValidationException {
+        foreach ($registryException->getErrors() as $error) {
+            if ($error instanceof $expectedException) {
+                return $error;
+            }
+        }
+
+        $this->fail("Error exception $expectedException not found in error registry exception");
     }
 
     public function validationMethodDataProvider(): array {

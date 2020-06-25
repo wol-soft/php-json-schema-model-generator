@@ -2,8 +2,8 @@
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use stdClass;
 
@@ -81,8 +81,10 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
      */
     public function testAdditionalPropertiesThrowAnExceptionWhenSetToFalse(array $propertyValue): void
     {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Provided JSON contains not allowed additional properties [additional]');
+        $this->expectException(AdditionalPropertiesException::class);
+        $this->expectExceptionMessageMatches(
+            '/Provided JSON for .* contains not allowed additional properties \[additional\]/'
+        );
 
         $className = $this->generateClassFromFileTemplate('AdditionalProperties.json', ['false']);
 
@@ -143,7 +145,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
     public function invalidTypedAdditionalPropertiesDataProvider(): array
     {
         $exception = <<<ERROR
-Provided JSON contains invalid additional properties.
+contains invalid additional properties.
   - invalid additional property 'additional1'
     * %s
 ERROR;
@@ -252,7 +254,7 @@ ERROR;
     public function invalidAdditionalPropertiesObjectsDataProvider(): array
     {
         $exception = <<<ERROR
-Provided JSON contains invalid additional properties.
+contains invalid additional properties.
   - invalid additional property 'additional1'
     * %s
 ERROR;
@@ -291,7 +293,7 @@ ERROR;
                 'Multiple violations' => [
                     ['additional1' => ['name' => 12], 'additional2' => ['name' => 'AB', 'age' => '12']],
                     <<<ERROR
-Provided JSON contains invalid additional properties.
+contains invalid additional properties.
   - invalid additional property 'additional1'
     * Invalid type for name. Requires string, got integer
   - invalid additional property 'additional2'

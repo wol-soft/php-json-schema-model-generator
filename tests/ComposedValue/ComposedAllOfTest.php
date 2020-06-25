@@ -68,7 +68,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessageMatches(
             '/^Invalid value for (.*?) declined by composition constraint.\s*' .
-            'Requires to match 2 composition elements but matched 0 elements.\s*$/'
+            'Requires to match all composition elements but matched 0 elements.\s*$/'
         );
 
         $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');

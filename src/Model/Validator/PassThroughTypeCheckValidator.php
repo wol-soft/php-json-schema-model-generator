@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use ReflectionType;
 
@@ -37,12 +38,8 @@ class PassThroughTypeCheckValidator extends PropertyValidator implements TypeChe
                 ReflectionTypeCheckValidator::fromReflectionType($passThroughType, $property)->getCheck(),
                 $typeCheckValidator->getCheck()
             ),
-            sprintf(
-                'Invalid type for %s. Requires [%s, %s], got " . gettype($value) . "',
-                $property->getName(),
-                $passThroughType->getName(),
-                $property->getType()
-            )
+            InvalidTypeException::class,
+            [$property->getName(), [$passThroughType->getName(), $property->getType()]]
         );
     }
 

@@ -4,6 +4,11 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
+use PHPModelGenerator\Exception\Number\ExclusiveMaximumException;
+use PHPModelGenerator\Exception\Number\ExclusiveMinimumException;
+use PHPModelGenerator\Exception\Number\MaximumException;
+use PHPModelGenerator\Exception\Number\MinimumException;
+use PHPModelGenerator\Exception\Number\MultipleOfException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 
@@ -31,11 +36,24 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
     {
         parent::generateValidators($property, $propertyData);
 
-        $this->addRangeValidator($property, $propertyData, self::JSON_FIELD_MINIMUM, '<', 'not be smaller');
-        $this->addRangeValidator($property, $propertyData, self::JSON_FIELD_MAXIMUM, '>', 'not be larger');
+        $this->addRangeValidator($property, $propertyData, self::JSON_FIELD_MINIMUM, '<', MinimumException::class);
+        $this->addRangeValidator($property, $propertyData, self::JSON_FIELD_MAXIMUM, '>', MaximumException::class);
 
-        $this->addRangeValidator($property, $propertyData, self::JSON_FIELD_MINIMUM_EXCLUSIVE, '<=', 'be larger');
-        $this->addRangeValidator($property, $propertyData, self::JSON_FIELD_MAXIMUM_EXCLUSIVE, '>=', 'be smaller');
+        $this->addRangeValidator(
+            $property,
+            $propertyData,
+            self::JSON_FIELD_MINIMUM_EXCLUSIVE,
+            '<=',
+            ExclusiveMinimumException::class
+        );
+
+        $this->addRangeValidator(
+            $property,
+            $propertyData,
+            self::JSON_FIELD_MAXIMUM_EXCLUSIVE,
+            '>=',
+            ExclusiveMaximumException::class
+        );
 
         $this->addMultipleOfValidator($property, $propertyData);
     }
@@ -43,18 +61,18 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
     /**
      * Adds a range validator to the property
      *
-     * @param PropertyInterface $property     The property which shall be validated
-     * @param array             $propertyData The data for the property
-     * @param string            $field        Which field of the property data provides the validation value
-     * @param string            $check        The check to execute (eg. '<', '>')
-     * @param string            $message      Message modifier
+     * @param PropertyInterface $property       The property which shall be validated
+     * @param array             $propertyData   The data for the property
+     * @param string            $field          Which field of the property data provides the validation value
+     * @param string            $check          The check to execute (eg. '<', '>')
+     * @param string            $exceptionClass The exception class for the validation
      */
     protected function addRangeValidator(
         PropertyInterface $property,
         array $propertyData,
         string $field,
         string $check,
-        string $message
+        string $exceptionClass
     ): void {
         if (!isset($propertyData[$field])) {
             return;
@@ -63,7 +81,8 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
         $property->addValidator(
             new PropertyValidator(
                 $this->getTypeCheck() . "\$value $check {$propertyData[$field]}",
-                sprintf(static::LIMIT_MESSAGE, $property->getName(), $message, $propertyData[$field])
+                $exceptionClass,
+                [$property->getName(), $propertyData[$field]]
             )
         );
     }
@@ -90,7 +109,8 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
                             ? $this->getTypeCheck() . "\$value % {$propertyData[self::JSON_FIELD_MULTIPLE]} != 0"
                             : $this->getTypeCheck() . "fmod(\$value, {$propertyData[self::JSON_FIELD_MULTIPLE]}) != 0"
                     ),
-                "Value for {$property->getName()} must be a multiple of {$propertyData[self::JSON_FIELD_MULTIPLE]}"
+                MultipleOfException::class,
+                [$property->getName(), $propertyData[self::JSON_FIELD_MULTIPLE]]
             )
         );
     }

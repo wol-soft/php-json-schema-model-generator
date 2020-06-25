@@ -55,3 +55,14 @@ Generated interface (no typehints are generated as it's an untyped enum):
 Possible exceptions:
 
 * Invalid value for example declined by enum constraint
+
+The thrown exception will be an *PHPModelGenerator\\Exception\\Generic\\EnumException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // get all values which are allowed by the enum
+    public function getAllowedValues(): array
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()

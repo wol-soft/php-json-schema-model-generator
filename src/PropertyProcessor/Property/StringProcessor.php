@@ -5,6 +5,9 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\String\MaxLengthException;
+use PHPModelGenerator\Exception\String\MinLengthException;
+use PHPModelGenerator\Exception\String\PatternException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 
@@ -53,7 +56,8 @@ class StringProcessor extends AbstractTypedValueProcessor
         $property->addValidator(
             new PropertyValidator(
                 $this->getTypeCheck() . "!preg_match('/{$propertyData[static::JSON_FIELD_PATTERN]}/', \$value)",
-                "Value for {$property->getName()} doesn't match pattern {$propertyData[static::JSON_FIELD_PATTERN]}"
+                PatternException::class,
+                [$property->getName(), $propertyData[static::JSON_FIELD_PATTERN]]
             )
         );
     }
@@ -70,11 +74,8 @@ class StringProcessor extends AbstractTypedValueProcessor
             $property->addValidator(
                 new PropertyValidator(
                     $this->getTypeCheck() . "mb_strlen(\$value) < {$propertyData[static::JSON_FIELD_MIN_LENGTH]}",
-                    sprintf(
-                        'Value for %s must not be shorter than %s',
-                        $property->getName(),
-                        $propertyData[static::JSON_FIELD_MIN_LENGTH]
-                    )
+                    MinLengthException::class,
+                    [$property->getName(), $propertyData[static::JSON_FIELD_MIN_LENGTH]]
                 )
             );
         }
@@ -83,11 +84,8 @@ class StringProcessor extends AbstractTypedValueProcessor
             $property->addValidator(
                 new PropertyValidator(
                     $this->getTypeCheck() . "mb_strlen(\$value) > {$propertyData[static::JSON_FIELD_MAX_LENGTH]}",
-                    sprintf(
-                        'Value for %s must not be longer than %s',
-                        $property->getName(),
-                        $propertyData[static::JSON_FIELD_MAX_LENGTH]
-                    )
+                    MaxLengthException::class,
+                    [$property->getName(), $propertyData[static::JSON_FIELD_MAX_LENGTH]]
                 )
             );
         }

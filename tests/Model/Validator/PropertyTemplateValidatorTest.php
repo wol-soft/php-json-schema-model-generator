@@ -2,6 +2,7 @@
 
 namespace PHPModelGenerator\Tests\Model\Validator;
 
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPUnit\Framework\TestCase;
@@ -19,9 +20,10 @@ class PropertyTemplateValidatorTest extends TestCase
         $this->expectExceptionMessage('Can\'t render property validation template UnknownTemplate');
 
         (new PropertyTemplateValidator(
-            'Something went wrong',
             'UnknownTemplate',
-            ['myAssigns' => 1337]
+            ['myAssigns' => 1337],
+            InvalidTypeException::class,
+            [true]
         ))->getCheck();
     }
 }

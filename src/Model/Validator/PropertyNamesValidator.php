@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Validator;
 use PHPMicroTemplate\Exception\FileSystemException;
 use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
+use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
@@ -48,16 +49,14 @@ class PropertyNamesValidator extends PropertyTemplateValidator
             });
 
         parent::__construct(
-            $this->getRenderer()->renderTemplate(
-                DIRECTORY_SEPARATOR . 'Exception' . DIRECTORY_SEPARATOR . 'InvalidPropertiesException.phptpl',
-                ['error' => 'Provided JSON contains properties with invalid names.', 'property' => 'property']
-            ),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PropertyNames.phptpl',
             [
                 'nameValidationProperty' => $nameValidationProperty,
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper'             => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
-            ]
+            ],
+            InvalidPropertyNamesException::class,
+            [$schema->getClassName(), '&$invalidProperties']
         );
     }
 

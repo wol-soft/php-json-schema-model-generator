@@ -16,7 +16,7 @@
             {% foreach validationProperty.getOrderedValidators() as validator %}
                 {{ validator.getValidatorSetUp() }}
                 if ({{ validator.getCheck() }}) {
-                    {{ viewHelper.validationError(validator.getExceptionMessage()) }}
+                    {{ viewHelper.validationError(validator) }}
                 }
             {% endforeach %}
 
@@ -28,8 +28,8 @@
         } catch (\Exception $e) {
             // collect all errors concerning invalid property names
             isset($invalidProperties[$propertyKey])
-                ? $invalidProperties[$propertyKey][] = $e->getMessage()
-                : $invalidProperties[$propertyKey] = [$e->getMessage()];
+                ? $invalidProperties[$propertyKey][] = $e
+                : $invalidProperties[$propertyKey] = [$e];
         }
     }
 

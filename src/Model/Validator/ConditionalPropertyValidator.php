@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\PropertyProcessor\ComposedValue\IfProcessor;
@@ -28,9 +29,10 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
         array $validatorVariables
     ) {
         parent::__construct(
-            "Invalid value for {$property->getName()} declined by conditional composition constraint",
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ConditionalComposedItem.phptpl',
-            $validatorVariables
+            $validatorVariables,
+            ConditionalException::class,
+            [$property->getName()]
         );
 
         $this->composedProcessor = IfProcessor::class;

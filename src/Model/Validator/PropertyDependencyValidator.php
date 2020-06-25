@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPModelGenerator\Exception\Dependency\InvalidPropertyDependencyException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
@@ -22,11 +23,6 @@ class PropertyDependencyValidator extends PropertyTemplateValidator
     public function __construct(PropertyInterface $property, array $dependencies)
     {
         parent::__construct(
-            sprintf(
-                'Missing required attributes which are dependants of %s:' .
-                    '\n  - " . join("\n  - ", $missingAttributes) . "',
-                $property->getName()
-            ),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PropertyDependency.phptpl',
             [
                 'propertyName' => $property->getName(),
@@ -35,7 +31,9 @@ class PropertyDependencyValidator extends PropertyTemplateValidator
                     '',
                     var_export(array_values($dependencies), true)
                 ),
-            ]
+            ],
+            InvalidPropertyDependencyException::class,
+            [$property->getName(), '&$missingAttributes']
         );
     }
 

@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Validator;
 use PHPMicroTemplate\Exception\FileSystemException;
 use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
+use PHPModelGenerator\Exception\Arrays\InvalidItemException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
@@ -61,17 +62,15 @@ class ArrayItemValidator extends PropertyTemplateValidator
         $property->addTypeHintDecorator(new ArrayTypeHintDecorator($nestedProperty));
 
         parent::__construct(
-            $this->getRenderer()->renderTemplate(
-                DIRECTORY_SEPARATOR . 'Exception' . DIRECTORY_SEPARATOR . 'InvalidArrayItemsException.phptpl',
-                ['propertyName' => $property->getName(), 'suffix' => $this->variableSuffix]
-            ),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayItem.phptpl',
             [
                 'nestedProperty' => $nestedProperty,
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'suffix' => $this->variableSuffix,
-            ]
+            ],
+            InvalidItemException::class,
+            [$property->getName(), "&\$invalidItems{$this->variableSuffix}"]
         );
     }
 

@@ -7,6 +7,11 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPMicroTemplate\Exception\FileSystemException;
 use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
+use PHPModelGenerator\Exception\Arrays\AdditionalTupleItemsException;
+use PHPModelGenerator\Exception\Arrays\ContainsException;
+use PHPModelGenerator\Exception\Arrays\MaxItemsException;
+use PHPModelGenerator\Exception\Arrays\MinItemsException;
+use PHPModelGenerator\Exception\Arrays\UniqueItemsException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\AdditionalItemsValidator;
@@ -60,13 +65,12 @@ class ArrayProcessor extends AbstractTypedValueProcessor
      */
     private function addLengthValidation(PropertyInterface $property, array $propertyData): void
     {
-        $limitMessage = "Array %s must not contain %s than %s items";
-
         if (isset($propertyData[self::JSON_FIELD_MIN_ITEMS])) {
             $property->addValidator(
                 new PropertyValidator(
                     $this->getTypeCheck() . "count(\$value) < {$propertyData[self::JSON_FIELD_MIN_ITEMS]}",
-                    sprintf($limitMessage, $property->getName(), 'less', $propertyData[self::JSON_FIELD_MIN_ITEMS])
+                    MinItemsException::class,
+                    [$property->getName(), $propertyData[self::JSON_FIELD_MIN_ITEMS]]
                 )
             );
         }
@@ -75,7 +79,8 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             $property->addValidator(
                 new PropertyValidator(
                     $this->getTypeCheck() . "count(\$value) > {$propertyData[self::JSON_FIELD_MAX_ITEMS]}",
-                    sprintf($limitMessage, $property->getName(), 'more', $propertyData[self::JSON_FIELD_MAX_ITEMS])
+                    MaxItemsException::class,
+                    [$property->getName(), $propertyData[self::JSON_FIELD_MAX_ITEMS]]
                 )
             );
         }
@@ -96,7 +101,8 @@ class ArrayProcessor extends AbstractTypedValueProcessor
         $property->addValidator(
             new PropertyValidator(
                 $this->getTypeCheck() . 'count($value) !== count(array_unique($value, SORT_REGULAR))',
-                "Items of array {$property->getName()} are not unique"
+                UniqueItemsException::class,
+                [$property->getName()]
             )
         );
     }
@@ -194,11 +200,8 @@ class ArrayProcessor extends AbstractTypedValueProcessor
         $property->addValidator(
             new PropertyValidator(
                 '($amount = count($value)) > ' . $expectedAmount,
-                sprintf(
-                    'Tuple array %s contains not allowed additional items. Expected %s items, got $amount',
-                    $property->getName(),
-                    $expectedAmount
-                )
+                AdditionalTupleItemsException::class,
+                [$property->getName(), $expectedAmount, '&$amount']
             )
         );
     }
@@ -229,13 +232,14 @@ class ArrayProcessor extends AbstractTypedValueProcessor
 
         $property->addValidator(
             new PropertyTemplateValidator(
-                "No item in array {$property->getName()} matches contains constraint",
                 DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayContains.phptpl',
                 [
                     'property' => $nestedProperty,
                     'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
                     'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
-                ]
+                ],
+                ContainsException::class,
+                [$property->getName()]
             )
         );
     }

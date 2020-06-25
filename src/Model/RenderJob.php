@@ -8,8 +8,14 @@ use PHPMicroTemplate\Exception\PHPMicroTemplateException;
 use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Utils\RenderHelper;
 
+/**
+ * Class RenderJob
+ *
+ * @package PHPModelGenerator\Model
+ */
 class RenderJob
 {
     /** @var Schema */
@@ -114,7 +120,7 @@ class RenderJob
             $this->schema->getUsedClasses(),
             $generatorConfiguration->collectErrors()
                 ? [$generatorConfiguration->getErrorRegistryClass()]
-                : [$generatorConfiguration->getExceptionClass()]
+                : [ValidationException::class]
         );
 
         // filter out non-compound uses and uses which link to the current namespace
@@ -128,7 +134,7 @@ class RenderJob
                 'Model.phptpl',
                 [
                     'namespace'              => $namespace,
-                    'use'                    => empty($use) ? '' : 'use ' . join(";\nuse ", array_unique($use)) . ';',
+                    'use'                    => 'use ' . join(";\nuse ", array_unique($use)) . ';',
                     'class'                  => $this->className,
                     'baseValidators'         => $this->schema->getBaseValidators(),
                     'properties'             => $this->schema->getProperties(),

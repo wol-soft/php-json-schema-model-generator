@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
@@ -21,15 +23,15 @@ class SchemaDependencyValidator extends PropertyTemplateValidator
     /**
      * SchemaDependencyValidator constructor.
      *
-     * @param SchemaProcessor $schemaProcessor
+     * @param SchemaProcessor   $schemaProcessor
      * @param PropertyInterface $property
-     * @param Schema $schema
+     * @param Schema            $schema
+     *
+     * @throws SchemaException
      */
     public function __construct(SchemaProcessor $schemaProcessor, PropertyInterface $property, Schema $schema)
     {
         parent::__construct(
-            "Invalid schema which is dependant on {$property->getName()}:\\n  - " .
-                '" . preg_replace("/\n([^\s])/m", "\n  - $1", preg_replace("/\n\s/m", "\n     ", $dependencyException->getMessage())) . "',
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'SchemaDependency.phptpl',
             [
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
@@ -42,7 +44,9 @@ class SchemaDependencyValidator extends PropertyTemplateValidator
                         $schema->getClassName(),
                         $schemaProcessor->getGeneratorConfiguration()
                     ))
-            ]
+            ],
+            InvalidSchemaDependencyException::class,
+            [$property->getName(), '&$dependencyException']
         );
     }
 

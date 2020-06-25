@@ -32,7 +32,9 @@ Behaviour with different inputs:
     $example = new Example([]);
     $example->getExample();     // returns "Not provided". If no default value has been defined in the schema NULL would be returned
 
-    // property example explicitly set to null (allowed as the property isn't required)
+    // property example explicitly set to null.
+    // allowed as the property isn't required.
+    // Works only if implicitNull is enabled. Otherwise an exception will be thrown.
     $example = new Example(['example' => null]);
     $example->getExample();     // returns NULL
 
@@ -65,6 +67,15 @@ Generated interface (type hints not nullable any longer):
 Possible exceptions:
 
 * Missing required value for example
+
+The thrown exception will be an *PHPModelGenerator\\Exception\\Object\\RequiredValueException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
 
 Behaviour with different inputs:
 

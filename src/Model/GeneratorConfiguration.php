@@ -36,8 +36,6 @@ class GeneratorConfiguration
     protected $collectErrors = true;
     /** @var string */
     protected $errorRegistryClass = ErrorRegistryException::class;
-    /** @var string */
-    protected $exceptionClass = ValidationException::class;
     /** @var bool */
     protected $serialization = false;
     /** @var ClassNameGeneratorInterface */
@@ -264,26 +262,6 @@ class GeneratorConfiguration
     public function setErrorRegistryClass(string $errorRegistryClass): self
     {
         $this->errorRegistryClass = $errorRegistryClass;
-
-        return $this;
-    }
-
-    /**
-     * @return string
-     */
-    public function getExceptionClass(): string
-    {
-        return $this->exceptionClass;
-    }
-
-    /**
-     * @param string $exceptionClass
-     *
-     * @return GeneratorConfiguration
-     */
-    public function setExceptionClass(string $exceptionClass): self
-    {
-        $this->exceptionClass = $exceptionClass;
 
         return $this;
     }

@@ -4,9 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
-use PHPMicroTemplate\Exception\FileSystemException;
-use PHPMicroTemplate\Exception\SyntaxErrorException;
-use PHPMicroTemplate\Exception\UndefinedSymbolException;
+use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
@@ -31,9 +29,6 @@ class ArrayTupleValidator extends PropertyTemplateValidator
      * @param string          $propertyName
      *
      * @throws SchemaException
-     * @throws FileSystemException
-     * @throws SyntaxErrorException
-     * @throws UndefinedSymbolException
      */
     public function __construct(
         SchemaProcessor $schemaProcessor,
@@ -60,16 +55,14 @@ class ArrayTupleValidator extends PropertyTemplateValidator
         }
 
         parent::__construct(
-            $this->getRenderer()->renderTemplate(
-                DIRECTORY_SEPARATOR . 'Exception' . DIRECTORY_SEPARATOR . 'InvalidArrayTuplesException.phptpl',
-                ['propertyName' => $propertyName]
-            ),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayTuple.phptpl',
             [
                 'tupleProperties' => $tupleProperties,
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
-            ]
+            ],
+            InvalidTupleException::class,
+            [$propertyName, '&$invalidTuples']
         );
     }
 

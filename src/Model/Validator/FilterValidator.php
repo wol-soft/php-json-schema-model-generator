@@ -4,10 +4,11 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPModelGenerator\Exception\Filter\IncompatibleFilterException;
+use PHPModelGenerator\Exception\Filter\InvalidFilterValueException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -27,10 +28,10 @@ class FilterValidator extends PropertyTemplateValidator
     /**
      * FilterValidator constructor.
      *
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param FilterInterface $filter
-     * @param PropertyInterface $property
-     * @param array $filterOptions
+     * @param GeneratorConfiguration           $generatorConfiguration
+     * @param FilterInterface                  $filter
+     * @param PropertyInterface                $property
+     * @param array                            $filterOptions
      * @param TransformingFilterInterface|null $transformingFilter
      *
      * @throws SchemaException
@@ -50,11 +51,6 @@ class FilterValidator extends PropertyTemplateValidator
             : $this->validateFilterCompatibilityWithTransformedType($filter, $transformingFilter, $property);
 
         parent::__construct(
-            sprintf(
-                'Filter %s is not compatible with property type " . gettype($value) . " for property %s',
-                $filter->getToken(),
-                $property->getName()
-            ),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'Filter.phptpl',
             [
                 'skipTransformedValuesCheck' => $transformingFilter !== null ? '!$transformationFailed' : '',
@@ -70,13 +66,15 @@ class FilterValidator extends PropertyTemplateValidator
                 'filterClass' => $filter->getFilter()[0],
                 'filterMethod' => $filter->getFilter()[1],
                 'filterOptions' => var_export($filterOptions, true),
-                'transferExceptionMessage' => sprintf(
-                    'Invalid value for property %s denied by filter %s: {$e->getMessage()}',
-                    $property->getName(),
-                    $filter->getToken()
+                'filterValueValidator' => new PropertyValidator(
+                    '',
+                    InvalidFilterValueException::class,
+                    [$property->getName(), $filter->getToken(), '&$filterException']
                 ),
                 'viewHelper' => new RenderHelper($generatorConfiguration),
-            ]
+            ],
+            IncompatibleFilterException::class,
+            [$property->getName(), $filter->getToken()]
         );
     }
 

@@ -31,6 +31,17 @@ Possible exceptions:
 
 * Invalid type for example. Requires array, got __TYPE__
 
+The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTypeException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns a string if the property expects exactly one type, an array if the property accepts multiple types
+    public function getExpectedType()
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+
 Items
 ^^^^^
 
@@ -56,9 +67,20 @@ With a schema like this all items must contain a string with at least two charac
 
 .. code-block:: none
 
-    Invalid item in array example:
+    Invalid items in array example:
       - invalid item #3
         * Invalid type for item of array example. Requires string, got double
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidItemException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns a two-dimensional array which contains all validation exceptions grouped by item index
+    public function getInvalidItems(): array
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
 
 A more complex array may contain a nested object.
 
@@ -160,6 +182,17 @@ If invalid tuples are provided a detailed exception will be thrown containing al
       - invalid tuple #1
         * Invalid type for name. Requires string, got boolean
 
+The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidTupleException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns a two-dimensional array which contains all validation exceptions grouped by item index
+    public function getInvalidTuples()
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+
 .. hint::
 
     Incomplete tuples are valid. Consequently an empty array provided for the schema shown above would pass the validation. Keep this in mind when designing tuple constraints. To force the given data to provide all tuples use tuple items combined with the `minItems` array size validation.
@@ -202,6 +235,19 @@ Possible exceptions:
 
 * Tuple array example contains not allowed additional items. Expected 2 items, got 3
 
+The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\AdditionalTupleItemsException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // Get the expected tuple amount
+    public function getExpectedAmount(): int
+    // Get the amount of items provided
+    public function getAmount(): int
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+
 If invalid additional items are provided a detailed exception will be thrown containing all violations:
 
 .. code-block:: none
@@ -211,6 +257,17 @@ If invalid additional items are provided a detailed exception will be thrown con
         * Invalid type for name. Requires string, got integer
       - invalid additional item '5'
         * Invalid type for additional item. Requires object, got int
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidAdditionalTupleItemsException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns a two-dimensional array which contains all validation exceptions grouped by item index
+    public function getNestedExceptions(): array
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
 
 Contains
 --------
@@ -236,6 +293,15 @@ Possible exceptions:
 
 * No item in array example matches contains constraint
 
+The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\ContainsException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+
 Size validation
 ---------------
 
@@ -260,6 +326,19 @@ Possible exceptions:
 * Array example must not contain less than 2 items
 * Array example must not contain more than 5 items
 
+The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\MaxItemsException* or a *PHPModelGenerator\\Exception\\Arrays\\MinItemsException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // for a MaxItemsException: get the maximum amount of allowed items
+    public function getMaxItems(): int
+    // for a MinItemsException: get the minimum amount of required items
+    public function getMinItems(): int
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+
 Uniqueness
 ----------
 
@@ -281,3 +360,12 @@ The items of an array can be forced to be unique with the `uniqueItems` keyword.
 Possible exceptions:
 
 * Items of array example are not unique
+
+The thrown exception will be an *PHPModelGenerator\\Exception\\Arrays\\UniqueItemsException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
