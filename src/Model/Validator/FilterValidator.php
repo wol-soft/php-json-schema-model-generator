@@ -22,6 +22,9 @@ use ReflectionMethod;
  */
 class FilterValidator extends PropertyTemplateValidator
 {
+    /** @var FilterInterface $filter */
+    protected $filter;
+
     /**
      * FilterValidator constructor.
      *
@@ -41,6 +44,8 @@ class FilterValidator extends PropertyTemplateValidator
         array $filterOptions = [],
         ?TransformingFilterInterface $transformingFilter = null
     ) {
+        $this->filter = $filter;
+
         $transformingFilter === null
             ? $this->validateFilterCompatibilityWithBaseType($filter, $property)
             : $this->validateFilterCompatibilityWithTransformedType($filter, $transformingFilter, $property);
@@ -48,7 +53,8 @@ class FilterValidator extends PropertyTemplateValidator
         parent::__construct(
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'Filter.phptpl',
             [
-                'skipTransformedValuesCheck' => false,
+                'skipTransformedValuesCheck' => $transformingFilter !== null ? '!$transformationFailed' : '',
+                'isTransformingFilter' => $filter instanceof TransformingFilterInterface,
                 // check if the given value has a type matched by the filter
                 'typeCheck' => !empty($filter->getAcceptedTypes())
                     ? '($value !== null && (' .
@@ -70,6 +76,19 @@ class FilterValidator extends PropertyTemplateValidator
             IncompatibleFilterException::class,
             [$property->getName(), $filter->getToken()]
         );
+    }
+
+    /**
+     * Track if a transformation failed. If a transformation fails don't execute subsequent filter as they'd fail with
+     * an invalid type
+     *
+     * @return string
+     */
+    public function getValidatorSetUp(): string
+    {
+        return $this->filter instanceof TransformingFilterInterface
+            ? '$transformationFailed = false;'
+            : '';
     }
 
     /**

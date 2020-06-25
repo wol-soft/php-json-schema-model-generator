@@ -679,6 +679,29 @@ ERROR
         $this->assertSame(['filteredProperty' => '2020-12-12T00:00:00+0000'], $object->toArray());
     }
 
+    public function testFilterAfterTransformingFilterIsSkippedIfTransformingFilterFails(): void
+    {
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage(
+            'Invalid value for property filteredProperty denied by filter dateTime: Invalid Date Time value "Hello"'
+        );
+
+        $className = $this->generateClassFromFile(
+            'FilterChainMultiType.json',
+            (new GeneratorConfiguration())
+                ->addFilter(
+                    $this->getCustomFilter(
+                        [self::class, 'exceptionFilter'],
+                        'stripTime',
+                        [DateTime::class]
+                    )
+                ),
+            false
+        );
+
+        new $className(['filteredProperty' => 'Hello']);
+    }
+
     public function testFilterWhichAppliesToMultiTypePropertyPartiallyThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
