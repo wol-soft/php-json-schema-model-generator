@@ -11,7 +11,7 @@ The recommended way to install php-json-model-generator is through `Composer <ht
     composer require --dev wol-soft/php-json-schema-model-generator
     composer require wol-soft/php-json-schema-model-generator-production
 
-To avoid adding all dependencies of the php-json-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the php-json-model-generator-exception library. The exception library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment or as a build step of your application (for example you could generate the models in a `composer post-autoload-dump script <https://getcomposer.org/doc/articles/scripts.md#command-events>`__, which is the recommended workflow).
+To avoid adding all dependencies of the php-json-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the php-json-model-generator-exception library. The exception library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment or as a build step of your application (which is the recommended workflow).
 
 Generating classes
 ------------------
