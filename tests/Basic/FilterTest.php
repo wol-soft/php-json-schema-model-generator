@@ -459,14 +459,20 @@ ERROR
         new $className(['created' => 'Hello', 'name' => 12]);
     }
 
-    public function testAdditionalFilterOptions(): void
+    /**
+     * @dataProvider namespaceDataProvider
+     *
+     * @param string $namespace
+     */
+    public function testAdditionalFilterOptions(string $namespace): void
     {
         $className = $this->generateClassFromFile(
             'FilterOptions.json',
-            (new GeneratorConfiguration())->setSerialization(true)
+            (new GeneratorConfiguration())->setSerialization(true)->setNamespacePrefix($namespace)
         );
 
-        $object = new $className(['created' => '10122020']);
+        $fqcn = $namespace . $className;
+        $object = new $fqcn(['created' => '10122020']);
 
         $this->assertSame((new DateTime('2020-12-10'))->format(DATE_ATOM), $object->getCreated()->format(DATE_ATOM));
 
@@ -566,12 +572,17 @@ ERROR
         throw new Exception("Exception filter called with $value");
     }
 
-    public function testTransformingToScalarType()
+    /**
+     * @dataProvider namespaceDataProvider
+     *
+     * @param string $namespace
+     */
+    public function testTransformingToScalarType(string $namespace)
     {
         $className = $this->generateClassFromFile(
             'TransformingScalarFilter.json',
             (new GeneratorConfiguration())
-                ->setNamespacePrefix('\MyApp\Model')
+                ->setNamespacePrefix($namespace)
                 ->setSerialization(true)
                 ->setImmutable(false)
                 ->addFilter(
@@ -584,7 +595,7 @@ ERROR
                 )
         );
 
-        $fqcn = "\\MyApp\\Model\\$className";
+        $fqcn = $namespace . $className;
         $object = new $fqcn(['value' => 9]);
 
         $this->assertSame('1001', $object->getValue());
@@ -645,16 +656,20 @@ ERROR
     }
 
     /**
-     * @dataProvider implicitNullDataProvider
+     * @dataProvider implicitNullNamespaceDataProvider
      *
      * @param bool $implicitNull
+     * @param string $namespace
      */
-    public function testFilterChainWithTransformingFilterOnMultiTypeProperty(bool $implicitNull): void
-    {
+    public function testFilterChainWithTransformingFilterOnMultiTypeProperty(
+        bool $implicitNull,
+        string $namespace
+    ): void {
         $className = $this->generateClassFromFile(
             'FilterChainMultiType.json',
             (new GeneratorConfiguration())
                 ->setImplicitNull($implicitNull)
+                ->setNamespacePrefix($namespace)
                 ->setSerialization(true)
                 ->setImmutable(false)
                 ->addFilter(
@@ -667,7 +682,8 @@ ERROR
             false
         );
 
-        $object = new $className(['filteredProperty' => '2020-12-12 12:12:12']);
+        $fqcn = $namespace . $className;
+        $object = new $fqcn(['filteredProperty' => '2020-12-12 12:12:12']);
 
         $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
         $this->assertSame('2020-12-12T00:00:00+00:00', $object->getFilteredProperty()->format(DateTime::ATOM));
@@ -679,6 +695,14 @@ ERROR
         $this->assertSame('2020-12-12T00:00:00+00:00', $object->getFilteredProperty()->format(DateTime::ATOM));
 
         $this->assertSame(['filteredProperty' => '2020-12-12T00:00:00+0000'], $object->toArray());
+    }
+
+    public function implicitNullNamespaceDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->implicitNullDataProvider(),
+            $this->namespaceDataProvider()
+        );
     }
 
     public function testFilterAfterTransformingFilterIsSkippedIfTransformingFilterFails(): void

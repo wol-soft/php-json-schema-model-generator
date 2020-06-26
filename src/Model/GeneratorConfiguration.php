@@ -141,7 +141,7 @@ class GeneratorConfiguration
      */
     public function setNamespacePrefix(string $namespacePrefix): self
     {
-        $this->namespacePrefix = $namespacePrefix;
+        $this->namespacePrefix = trim($namespacePrefix, '\\');
 
         return $this;
     }

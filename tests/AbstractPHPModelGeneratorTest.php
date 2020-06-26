@@ -392,6 +392,14 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         ];
     }
 
+    public function namespaceDataProvider(): array
+    {
+        return [
+            'No namespace' => [''],
+            'Custom namespace' => ['\MyApp\Model\\'],
+        ];
+    }
+
     /**
      * Get the annotated type for an object property
      *

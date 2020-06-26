@@ -237,11 +237,11 @@ Generated interface:
 
 .. code-block:: php
 
-    public function toArray([int $depth = 512]): array;
-    public function toJSON([int $options = 0 [, int $depth = 512]]): string;
+    public function toArray([array $except = [] [, int $depth = 512]]): array;
+    public function toJSON([array $except = [] [, int $options = 0 [, int $depth = 512]]]): string;
     public function jsonSerialize(): array;
 
-The generated class will implement the interface **PHPModelGenerator\\Interfaces\\SerializationInterface** implemented in the php-json-schema-model-generator-production repository. This interface can be used to write additional generic modules to handle the generated models. The $depth parameter defines the maximum amount of nested objects which are serialized. The $options parameter for the toJSON method provides access to the underlying option bitmask of `json_encode <https://www.php.net/manual/de/function.json-encode.php>`_.
+The generated class will implement the interface **PHPModelGenerator\\Interfaces\\SerializationInterface** implemented in the php-json-schema-model-generator-production repository. This interface can be used to write additional generic modules to handle the generated models. Via the $except parameter you can pass an array of properties which will not be serialized (eg. password data for a user object). The $depth parameter defines the maximum amount of nested objects which are serialized. The $options parameter for the toJSON method provides access to the underlying option bitmask of `json_encode <https://www.php.net/manual/de/function.json-encode.php>`_.
 
 Additionally the class will implement the PHP builtin interface **\JsonSerializable** which allows the direct usage of the generated classes in a custom json_encode.
 
