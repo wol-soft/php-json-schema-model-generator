@@ -43,16 +43,16 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             // @codeCoverageIgnoreEnd
         }
 
-        $properties = $this->getCompositionProperties($property, $propertyData);
-        $availableAmount = count($properties);
+        $compositionProperties = $this->getCompositionProperties($property, $propertyData);
+        $availableAmount = count($compositionProperties);
 
         $property->addValidator(
             new ComposedPropertyValidator(
                 $property,
-                $properties,
+                $compositionProperties,
                 static::class,
                 [
-                    'properties' => $properties,
+                    'properties' => $compositionProperties,
                     'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
                     'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
                     'availableAmount' => $availableAmount,
@@ -63,7 +63,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     'postPropose' => $this instanceof ComposedPropertiesInterface,
                     'mergedProperty' =>
                         $this instanceof MergedComposedPropertiesInterface
-                            ? $this->createMergedProperty($property, $properties, $propertyData)
+                            ? $this->createMergedProperty($property, $compositionProperties, $propertyData)
                             : null,
                     'onlyForDefinedValues' =>
                         $propertyData['onlyForDefinedValues'] && $this instanceof ComposedPropertiesInterface,
@@ -86,7 +86,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
     protected function getCompositionProperties(PropertyInterface $property, array $propertyData): array
     {
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
-        $properties = [];
+        $compositionProperties = [];
 
         foreach ($propertyData['propertyData'][$propertyData['type']] as $compositionElement) {
             $compositionProperty = new CompositionPropertyDecorator(
@@ -113,10 +113,10 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                 $property->addTypeHintDecorator(new CompositionTypeHintDecorator($compositionProperty));
             }
 
-            $properties[] = $compositionProperty;
+            $compositionProperties[] = $compositionProperty;
         }
 
-        return $properties;
+        return $compositionProperties;
     }
 
     /**
@@ -124,25 +124,30 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      *
      * Gather all nested object properties and merge them together into a single merged property
      *
-     * @param PropertyInterface              $compositionProperty
+     * @param PropertyInterface              $property
      * @param CompositionPropertyDecorator[] $properties
      * @param array                          $propertyData
      *
-     * @return PropertyInterface
+     * @return PropertyInterface|null
      *
      * @throws SchemaException
      */
     private function createMergedProperty(
-        PropertyInterface $compositionProperty,
+        PropertyInterface $property,
         array $properties,
         array $propertyData
-    ): PropertyInterface {
-        $mergedClassName = $this->schemaProcessor->getGeneratorConfiguration()->getClassNameGenerator()->getClassName(
-            $compositionProperty->getName(),
-            $propertyData['propertyData'],
-            true,
-            $this->schemaProcessor->getCurrentClassName()
-        );
+    ): ?PropertyInterface {
+        echo var_dump($property);
+
+        $mergedClassName = $this->schemaProcessor
+            ->getGeneratorConfiguration()
+            ->getClassNameGenerator()
+            ->getClassName(
+                $property->getName(),
+                $propertyData['propertyData'],
+                true,
+                $this->schemaProcessor->getCurrentClassName()
+            );
 
         // check if the merged property already has been generated
         if (isset(self::$generatedMergedProperties[$mergedClassName])) {
@@ -161,7 +166,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             $mergedPropertySchema
         );
 
-        $compositionProperty->addTypeHintDecorator(new CompositionTypeHintDecorator($mergedProperty));
+        $property->addTypeHintDecorator(new CompositionTypeHintDecorator($mergedProperty));
 
         return $mergedProperty
             ->addDecorator(

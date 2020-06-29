@@ -6,7 +6,7 @@ Installation
 
 The recommended way to install php-json-model-generator is through `Composer <http://getcomposer.org>`_:
 
-.. code-block:: rconsole
+.. code-block:: console
 
     composer require --dev wol-soft/php-json-schema-model-generator
     composer require wol-soft/php-json-schema-model-generator-production
