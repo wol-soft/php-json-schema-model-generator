@@ -53,7 +53,7 @@ class BaseProcessor extends AbstractPropertyProcessor
             ->setUpDefinitionDictionary($propertyData, $this->schemaProcessor, $this->schema);
 
         // create a property which is used to gather composed properties validators.
-        $property = (new BaseProperty($propertyName, static::TYPE))->setSchema($this->schema);
+        $property = new BaseProperty($propertyName, static::TYPE);
         $this->generateValidators($property, $propertyData);
 
         $this->addPropertyNamesValidator($propertyData);
