@@ -137,8 +137,6 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         array $properties,
         array $propertyData
     ): ?PropertyInterface {
-        echo var_dump($property);
-
         $mergedClassName = $this->schemaProcessor
             ->getGeneratorConfiguration()
             ->getClassNameGenerator()
