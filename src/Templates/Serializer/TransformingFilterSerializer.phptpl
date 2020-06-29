@@ -3,8 +3,5 @@
  */
 protected function serialize{{ viewHelper.ucfirst(property) }}()
 {
-    return call_user_func_array(
-        [\{{ serializerClass }}::class, "{{ serializerMethod }}"],
-        [$this->{{ property }}, {{ serializerOptions }}]
-    );
+    return \{{ serializerClass }}::{{ serializerMethod }}($this->{{ property }}, {{ serializerOptions }});
 }

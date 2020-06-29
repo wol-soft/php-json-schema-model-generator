@@ -12,8 +12,8 @@
     ],
     "require": {
         "symplify/easy-coding-standard": "^7.2.3",
-        "wol-soft/php-json-schema-model-generator-production": "^0.12.0",
-        "wol-soft/php-micro-template": "^1.3.1",
+        "wol-soft/php-json-schema-model-generator-production": "^0.12.1",
+        "wol-soft/php-micro-template": "^1.3.2",
 
         "php": ">=7.2",
         "ext-json": "*",
