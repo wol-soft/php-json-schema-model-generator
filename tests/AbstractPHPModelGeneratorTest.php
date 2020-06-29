@@ -440,6 +440,11 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         return $matches[1];
     }
 
+    protected function getGeneratedFiles(): array
+    {
+        return $this->generatedFiles;
+    }
+
     /**
      * Generate a unique name for a class
      *

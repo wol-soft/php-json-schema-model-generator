@@ -11,7 +11,7 @@ use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\MaxPropertiesException;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Model\Property\Property;
+use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
@@ -53,7 +53,7 @@ class BaseProcessor extends AbstractPropertyProcessor
             ->setUpDefinitionDictionary($propertyData, $this->schemaProcessor, $this->schema);
 
         // create a property which is used to gather composed properties validators.
-        $property = new Property($propertyName, static::TYPE);
+        $property = (new BaseProperty($propertyName, static::TYPE))->setSchema($this->schema);
         $this->generateValidators($property, $propertyData);
 
         $this->addPropertyNamesValidator($propertyData);

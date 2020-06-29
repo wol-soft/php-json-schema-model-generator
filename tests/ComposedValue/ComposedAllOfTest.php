@@ -97,6 +97,9 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
 
         $this->assertRegExp($regexp, $this->getPropertyType($object, 'property'));
         $this->assertRegExp($regexp, $this->getMethodReturnType($object, 'getProperty'));
+
+        // base class, merged property class and two classes for validating the composition components
+        $this->assertCount(4, $this->getGeneratedFiles());
     }
 
     /**
@@ -262,6 +265,9 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
         $object = new $className($input);
         $this->assertSame($stringPropertyValue, $object->getStringProperty());
         $this->assertSame($intPropertyValue, $object->getIntegerProperty());
+
+        // base class and two classes for validating the composition components
+        $this->assertCount(3, $this->getGeneratedFiles());
     }
 
     public function validComposedObjectDataProvider(): array

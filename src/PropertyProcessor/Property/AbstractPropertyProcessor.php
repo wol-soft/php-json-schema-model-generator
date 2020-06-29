@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\EnumValidator;
@@ -161,7 +162,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     protected function addComposedValueValidator(PropertyInterface $property, array $propertyData): void
     {
         $composedValueKeywords = ['allOf', 'anyOf', 'oneOf', 'not', 'if'];
-        $propertyFactory = new PropertyFactory(new ComposedValueProcessorFactory());
+        $propertyFactory = new PropertyFactory(new ComposedValueProcessorFactory($property instanceof BaseProperty));
 
         foreach ($composedValueKeywords as $composedValueKeyword) {
             if (!isset($propertyData[$composedValueKeyword])) {

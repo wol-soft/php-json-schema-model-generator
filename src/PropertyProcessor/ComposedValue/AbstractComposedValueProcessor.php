@@ -19,6 +19,7 @@ use PHPModelGenerator\PropertyProcessor\Property\AbstractValueProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
+use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -28,7 +29,29 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
 {
+    /** @var PropertyInterface[] */
     private static $generatedMergedProperties = [];
+    /** @var bool */
+    private $rootLevelComposition;
+
+    /**
+     * AbstractComposedValueProcessor constructor.
+     *
+     * @param PropertyMetaDataCollection $propertyMetaDataCollection
+     * @param SchemaProcessor $schemaProcessor
+     * @param Schema $schema
+     * @param bool $rootLevelComposition
+     */
+    public function __construct(
+        PropertyMetaDataCollection $propertyMetaDataCollection,
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        bool $rootLevelComposition
+    ) {
+        parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema, '');
+
+        $this->rootLevelComposition = $rootLevelComposition;
+    }
 
     /**
      * @inheritdoc
@@ -62,7 +85,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     // Otherwise (eg. a NotProcessor) the value must be proposed before the validation
                     'postPropose' => $this instanceof ComposedPropertiesInterface,
                     'mergedProperty' =>
-                        $this instanceof MergedComposedPropertiesInterface
+                        !$this->rootLevelComposition && $this instanceof MergedComposedPropertiesInterface
                             ? $this->createMergedProperty($property, $compositionProperties, $propertyData)
                             : null,
                     'onlyForDefinedValues' =>
@@ -125,7 +148,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      * Gather all nested object properties and merge them together into a single merged property
      *
      * @param PropertyInterface              $property
-     * @param CompositionPropertyDecorator[] $properties
+     * @param CompositionPropertyDecorator[] $compositionProperties
      * @param array                          $propertyData
      *
      * @return PropertyInterface|null
@@ -134,7 +157,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      */
     private function createMergedProperty(
         PropertyInterface $property,
-        array $properties,
+        array $compositionProperties,
         array $propertyData
     ): ?PropertyInterface {
         $mergedClassName = $this->schemaProcessor
@@ -156,7 +179,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         $mergedProperty = new Property('MergedProperty', $mergedClassName);
         self::$generatedMergedProperties[$mergedClassName] = $mergedProperty;
 
-        $this->transferPropertiesToMergedSchema($mergedPropertySchema, $properties);
+        $this->transferPropertiesToMergedSchema($mergedPropertySchema, $compositionProperties);
 
         $this->schemaProcessor->generateClassFile(
             $this->schemaProcessor->getCurrentClassPath(),
