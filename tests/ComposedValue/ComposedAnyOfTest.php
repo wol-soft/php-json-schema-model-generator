@@ -123,21 +123,35 @@ ERROR
      * @param string $schema
      * @param string $annotationPattern
      */
-    public function testAnyOfTypePropertyHasTypeAnnotation(string $schema, string $annotationPattern): void
+    public function testAnyOfTypePropertyHasTypeAnnotation(string $schema, string $annotationPattern, int $generatedClasses): void
     {
         $className = $this->generateClassFromFile($schema);
 
         $object = new $className([]);
         $this->assertRegExp($annotationPattern, $this->getPropertyType($object, 'property'));
         $this->assertRegExp($annotationPattern, $this->getMethodReturnType($object, 'getProperty'));
+
+        $this->assertCount($generatedClasses, $this->getGeneratedFiles());
     }
 
     public function annotationDataProvider(): array
     {
         return [
-            'Multiple scalar types' => ['AnyOfType.json', '/string\|int\|bool/'],
-            'Object with scalar type' => ['ReferencedObjectSchema.json', '/string\|Composed[\w]*_Merged_[\w]*/'],
-            'Multiple objects' => ['ReferencedObjectSchema2.json', '/ComposedAnyOfTest[\w]*_Merged_[\w]*/']
+            'Multiple scalar types (no merged property)' => [
+                'AnyOfType.json',
+                '/string\|int\|bool\|null/',
+                1,
+            ],
+            'Object with scalar type (no merged property - redirect to generated object)' => [
+                'ReferencedObjectSchema.json',
+                '/string\|ComposedAnyOfTest[\w]*Property[\w]*\|null/',
+                2,
+            ],
+            'Multiple objects (merged property created)' => [
+                'ReferencedObjectSchema2.json',
+                '/ComposedAnyOfTest[\w]*_Merged_[\w]*\|null/',
+                4,
+            ],
         ];
     }
 

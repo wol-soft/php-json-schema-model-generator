@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "allOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 15
+        }
+      ]
+    }
+  }
+}

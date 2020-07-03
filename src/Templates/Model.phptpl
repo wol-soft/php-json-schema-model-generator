@@ -102,7 +102,7 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
          * @return {{ property.getTypeHint(true) }}{% if viewHelper.implicitNull(property) %}|null{% endif %}
          */
         public function get{{ viewHelper.ucfirst(property.getAttribute()) }}()
-            {% if property.getType(true) %}: {% if not property.isRequired() %}?{% endif %}{{ property.getType(true) }}{% endif %}
+            {% if property.getType(true) %}: {% if viewHelper.implicitNull(property) %}?{% endif %}{{ property.getType(true) }}{% endif %}
         {
             return $this->{{ property.getAttribute() }};
         }

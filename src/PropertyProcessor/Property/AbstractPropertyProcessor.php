@@ -189,10 +189,17 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             }
 
             $property->addTypeHintDecorator(new TypeHintTransferDecorator($composedProperty));
+
+            if (!$property->getType() && $composedProperty->getType()) {
+                $property->setType($composedProperty->getType(), $composedProperty->getType(true));
+            }
         }
     }
 
     /**
+     * If the type of a property containing a composition is defined outside of the composition make sure each
+     * composition which doesn't define a type inherits the type
+     *
      * @param array $propertyData
      * @param string $composedValueKeyword
      *

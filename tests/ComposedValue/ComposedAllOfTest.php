@@ -4,6 +4,7 @@ namespace PHPModelGenerator\Tests\ComposedValue;
 
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use ReflectionMethod;
 use stdClass;
 
 /**
@@ -55,6 +56,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
     {
         return [
             'Property level composition' => ['ExtendedPropertyDefinition.json'],
+            'Property level composition 2' => ['ComposedPropertyDefinition.json'],
             'Multiple objects' => ['ReferencedObjectSchema.json'],
             'Empty all of' => ['EmptyAllOf.json'],
         ];
@@ -103,6 +105,64 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * @dataProvider validComposedPropertyDataProvider
+     *
+     * @param int|null $propertyValue
+     */
+    public function testComposedPropertyDefinitionWithValidValues(?int $propertyValue): void
+    {
+        $className = $this->generateClassFromFile('ComposedPropertyDefinition.json');
+
+        $object = new $className(['property' => $propertyValue]);
+        $this->assertSame($propertyValue, $object->getProperty());
+
+        // check if no merged property is created
+        $this->assertCount(1, $this->getGeneratedFiles());
+
+        // test if the property is typed correctly
+        $returnType = (new ReflectionMethod($object, 'getProperty'))->getReturnType();
+        $this->assertSame('int', $returnType->getName());
+        $this->assertTrue($returnType->allowsNull());
+    }
+
+    public function validComposedPropertyDataProvider(): array
+    {
+        return [
+            'null' => [null],
+            'int 5' => [5],
+            'int 10' => [10],
+        ];
+    }
+
+    /**
+     * @dataProvider invalidComposedPropertyDataProvider
+     *
+     * @param $propertyValue
+     * @param string $exceptionMessage
+     */
+    public function testComposedPropertyDefinitionWithInvalidValuesThrowsAnException(
+        $propertyValue,
+        string $exceptionMessage
+    ): void {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage($exceptionMessage);
+
+        $className = $this->generateClassFromFile('ComposedPropertyDefinition.json');
+
+        new $className(['property' => $propertyValue]);
+    }
+
+    public function invalidComposedPropertyDataProvider(): array
+    {
+        return [
+            'one match - int 4' => [4, 'Invalid value for property declined by composition constraint'],
+            'one match - int 11' => [11, 'Invalid value for property declined by composition constraint'],
+            'int -1' => [-1, 'Invalid value for property declined by composition constraint'],
+            'int 20' => [20, 'Invalid value for property declined by composition constraint'],
+        ];
+    }
+
+    /**
      * @dataProvider validExtendedPropertyDataProvider
      *
      * @param $propertyValue
@@ -114,6 +174,14 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
         $object = new $className(['property' => $propertyValue]);
         // cast expected to float as an int is casted to an float internally for a number property
         $this->assertSame(is_int($propertyValue) ? (float) $propertyValue : $propertyValue, $object->getProperty());
+
+        // check if no merged property is created
+        $this->assertCount(1, $this->getGeneratedFiles());
+
+        // test if the property is typed correctly
+        $returnType = (new ReflectionMethod($object, 'getProperty'))->getReturnType();
+        $this->assertSame('float', $returnType->getName());
+        $this->assertTrue($returnType->allowsNull());
     }
 
     public function validExtendedPropertyDataProvider(): array

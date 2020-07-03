@@ -66,7 +66,7 @@ As an optional parameter you can set up a *GeneratorConfiguration* object to con
 $generator = new Generator(
     (new GeneratorConfiguration())
         ->setNamespacePrefix('\MyApp\Model')
-        ->setImmutable(true)
+        ->setImmutable(false)
 );
 
 $generator

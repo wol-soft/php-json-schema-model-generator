@@ -67,6 +67,9 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         }
 
         $compositionProperties = $this->getCompositionProperties($property, $propertyData);
+
+        $this->transferPropertyType($property, $compositionProperties);
+
         $availableAmount = count($compositionProperties);
 
         $property->addValidator(
@@ -143,8 +146,28 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
     }
 
     /**
-     * TODO: no nested properties --> cancel, only one --> use original model
+     * Check if the provided property can inherit a single type from the composition properties.
      *
+     * @param PropertyInterface $property
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     */
+    private function transferPropertyType(PropertyInterface $property, array $compositionProperties)
+    {
+        $compositionPropertyTypes = array_unique(
+            array_map(
+                function (CompositionPropertyDecorator $property): string {
+                    return $property->getType();
+                },
+                $compositionProperties
+            )
+        );
+
+        if (count($compositionPropertyTypes) === 1 && !($this instanceof NotProcessor)) {
+            $property->setType($compositionPropertyTypes[0]);
+        }
+    }
+
+    /**
      * Gather all nested object properties and merge them together into a single merged property
      *
      * @param PropertyInterface              $property
@@ -160,6 +183,15 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         array $compositionProperties,
         array $propertyData
     ): ?PropertyInterface {
+        $redirectToProperty = $this->redirectMergedProperty($compositionProperties);
+        if ($redirectToProperty === null || $redirectToProperty instanceof PropertyInterface) {
+            if ($redirectToProperty) {
+                $property->addTypeHintDecorator(new CompositionTypeHintDecorator($redirectToProperty));
+            }
+
+            return $redirectToProperty;
+        }
+
         $mergedClassName = $this->schemaProcessor
             ->getGeneratorConfiguration()
             ->getClassNameGenerator()
@@ -197,12 +229,39 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
     }
 
     /**
-     * @param Schema              $mergedPropertySchema
-     * @param PropertyInterface[] $properties
+     * Check if multiple $compositionProperties contain nested schemas. Only in this case a merged property must be
+     * created. If no nested schemas are detected null will be returned. If only one $compositionProperty contains a
+     * nested schema the $compositionProperty will be used as a replacement for the merged property.
+     *
+     * Returns false if a merged property must be created.
+     *
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     *
+     * @return PropertyInterface|null|false
      */
-    protected function transferPropertiesToMergedSchema(Schema $mergedPropertySchema, array $properties): void
+    private function redirectMergedProperty(array $compositionProperties)
     {
-        foreach ($properties as $property) {
+        $redirectToProperty = null;
+        foreach ($compositionProperties as $property) {
+            if ($property->getNestedSchema()) {
+                if ($redirectToProperty !== null) {
+                    return false;
+                }
+
+                $redirectToProperty = $property;
+            }
+        }
+
+        return $redirectToProperty;
+    }
+
+    /**
+     * @param Schema              $mergedPropertySchema
+     * @param PropertyInterface[] $compositionProperties
+     */
+    private function transferPropertiesToMergedSchema(Schema $mergedPropertySchema, array $compositionProperties): void
+    {
+        foreach ($compositionProperties as $property) {
             if (!$property->getNestedSchema()) {
                 continue;
             }
