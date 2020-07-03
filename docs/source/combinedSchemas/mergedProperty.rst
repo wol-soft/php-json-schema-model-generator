@@ -62,7 +62,7 @@ Generated interface:
     public function getAge(): ?int
     public function setAge(?int $name): self
 
-If our composition is defined on object level the object will gain access to all properties of the combined schemas:
+If your composition is defined on object level the object will gain access to all properties of the combined schemas:
 
 .. code-block:: json
 
@@ -89,7 +89,7 @@ If our composition is defined on object level the object will gain access to all
         ]
     }
 
-This schema will generate three classes as no merged property will be created. The main class will be `CEO` and two classes will be generated to validate the subschemas combined with the `allOf` independent:
+This schema will generate three classes as no merged property is created. The main class will be `CEO` and two classes will be generated to validate the subschemas combined with the `allOf` independent:
 
 * Ceo.php
 * Ceo_Ceo5e4a82e39edc3.php

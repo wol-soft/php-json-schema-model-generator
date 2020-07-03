@@ -403,12 +403,12 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     /**
      * Get the annotated type for an object property
      *
-     * @param object $object
+     * @param string|object $object
      * @param string $property
      *
      * @return string
      */
-    protected function getPropertyType(object $object, string $property): string
+    protected function getPropertyType($object, string $property): string
     {
         $matches = [];
         preg_match(
@@ -423,12 +423,12 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     /**
      * Get the annotated return type for an object method
      *
-     * @param object $object
+     * @param string|object $object
      * @param string $method
      *
      * @return string
      */
-    protected function getMethodReturnType(object $object, string $method): string
+    protected function getMethodReturnType($object, string $method): string
     {
         $matches = [];
         preg_match(

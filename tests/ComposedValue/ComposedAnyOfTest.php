@@ -69,8 +69,9 @@ ERROR
         return [
             'Scalar types' => ['AnyOfType.json'],
             'Property level composition' => ['ExtendedPropertyDefinition.json'],
-            'Object with scalar type' => ['ReferencedObjectSchema.json'],
+            'Object with scalar type and one object' => ['ReferencedObjectSchema.json'],
             'Multiple objects' => ['ReferencedObjectSchema2.json'],
+            'Object with scalar type and multiple objects' => ['ReferencedObjectSchema3.json'],
             'Empty any of' => ['EmptyAnyOf.json'],
         ];
     }
@@ -122,14 +123,17 @@ ERROR
      *
      * @param string $schema
      * @param string $annotationPattern
+     * @param int $generatedClasses
      */
-    public function testAnyOfTypePropertyHasTypeAnnotation(string $schema, string $annotationPattern, int $generatedClasses): void
-    {
+    public function testAnyOfTypePropertyHasTypeAnnotation(
+        string $schema,
+        string $annotationPattern,
+        int $generatedClasses
+    ): void {
         $className = $this->generateClassFromFile($schema);
 
-        $object = new $className([]);
-        $this->assertRegExp($annotationPattern, $this->getPropertyType($object, 'property'));
-        $this->assertRegExp($annotationPattern, $this->getMethodReturnType($object, 'getProperty'));
+        $this->assertRegExp($annotationPattern, $this->getPropertyType($className, 'property'));
+        $this->assertRegExp($annotationPattern, $this->getMethodReturnType($className, 'getProperty'));
 
         $this->assertCount($generatedClasses, $this->getGeneratedFiles());
     }
@@ -139,17 +143,27 @@ ERROR
         return [
             'Multiple scalar types (no merged property)' => [
                 'AnyOfType.json',
-                '/string\|int\|bool\|null/',
+                '/^string\|int\|bool\|null$/',
+                1,
+            ],
+            'Multiple scalar types required (no merged property)' => [
+                'AnyOfTypeRequired.json',
+                '/^string\|int\|bool$/',
                 1,
             ],
             'Object with scalar type (no merged property - redirect to generated object)' => [
                 'ReferencedObjectSchema.json',
-                '/string\|ComposedAnyOfTest[\w]*Property[\w]*\|null/',
+                '/^string\|ComposedAnyOfTest[\w]*Property[\w]*\|null$/',
                 2,
             ],
             'Multiple objects (merged property created)' => [
                 'ReferencedObjectSchema2.json',
-                '/ComposedAnyOfTest[\w]*_Merged_[\w]*\|null/',
+                '/^ComposedAnyOfTest[\w]*_Merged_[\w]*\|null$/',
+                4,
+            ],
+            'Scalar type and multiple objects (merged property created)' => [
+                'ReferencedObjectSchema3.json',
+                '/^string\|ComposedAnyOfTest[\w]*_Merged_[\w]*\|null$/',
                 4,
             ],
         ];
@@ -288,11 +302,12 @@ ERROR
     /**
      * @dataProvider composedPropertyWithReferencedSchemaDataProvider
      *
+     * @param string $schema
      * @param $propertyValue
      */
-    public function testMatchingComposedPropertyWithReferencedSchemaIsValid($propertyValue): void
+    public function testMatchingComposedPropertyWithReferencedSchemaIsValid(string $schema, $propertyValue): void
     {
-        $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
+        $className = $this->generateClassFromFile($schema);
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -300,10 +315,16 @@ ERROR
 
     public function composedPropertyWithReferencedSchemaDataProvider(): array
     {
-        return [
-            'null' => [null],
-            'string matching required length' => ['Hanne'],
-        ];
+        return $this->combineDataProvider(
+            [
+                'ReferencedObjectSchema.json' => ['ReferencedObjectSchema.json'],
+                'ReferencedObjectSchema3.json' => ['ReferencedObjectSchema3.json'],
+            ],
+            [
+                'null' => [null],
+                'string matching required length' => ['Hanne'],
+            ]
+        );
     }
 
     /**
@@ -327,12 +348,26 @@ ERROR
         return [
             'ReferencedObjectSchema.json' => ['ReferencedObjectSchema.json'],
             'ReferencedObjectSchema2.json' => ['ReferencedObjectSchema2.json'],
+            'ReferencedObjectSchema3.json' => ['ReferencedObjectSchema3.json'],
         ];
     }
 
-    public function testMatchingObjectPropertyWithReferencedPetSchemaIsValid(): void
+    public function referencedPetDataProvider(): array
     {
-        $className = $this->generateClassFromFile('ReferencedObjectSchema2.json');
+        return [
+            'ReferencedObjectSchema2.json' => ['ReferencedObjectSchema2.json'],
+            'ReferencedObjectSchema3.json' => ['ReferencedObjectSchema3.json'],
+        ];
+    }
+
+    /**
+     * @dataProvider referencedPetDataProvider
+     *
+     * @param string $schema
+     */
+    public function testMatchingObjectPropertyWithReferencedPetSchemaIsValid(string $schema): void
+    {
+        $className = $this->generateClassFromFile($schema);
 
         $object = new $className(['property' => ['race' => 'Horse']]);
 
@@ -381,14 +416,17 @@ ERROR
     /**
      * @dataProvider invalidObjectPropertyWithReferencedPetSchemaDataProvider
      *
+     * @param string $schema
      * @param $propertyValue
      */
-    public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException($propertyValue): void
-    {
+    public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException(
+        string $schema,
+        $propertyValue
+    ): void {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
 
-        $className = $this->generateClassFromFile('ReferencedObjectSchema2.json');
+        $className = $this->generateClassFromFile($schema);
 
         new $className(['property' => $propertyValue]);
     }
@@ -396,13 +434,14 @@ ERROR
     public function invalidObjectPropertyWithReferencedPetSchemaDataProvider(): array
     {
         return $this->combineDataProvider(
-            $this->referencedPersonDataProvider(),
+            $this->referencedPetDataProvider(),
             [
                 'int' => [0],
                 'float' => [0.92],
                 'bool' => [true],
                 'object' => [new stdClass()],
-                'string' => ['Horse'],
+                // a string is allowed by ReferencedObjectSchema3 but must be declined due to length violation
+                'string' => ['Cat'],
                 'empty array' => [[]],
                 'Too many properties' => [['race' => 'Horse', 'alive' => true]],
                 'Matching object with invalid type' => [['race' => 123]],
