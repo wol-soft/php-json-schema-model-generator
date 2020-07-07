@@ -7,7 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Decorator\TypeHint;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
- * Class ArrayTypeHintDecorator
+ * Class CompositionTypeHintDecorator
  *
  * @package PHPModelGenerator\PropertyProcessor\Decorator\Property
  */
@@ -17,7 +17,7 @@ class CompositionTypeHintDecorator implements TypeHintDecoratorInterface
     protected $nestedProperty;
 
     /**
-     * ArrayTypeHintDecorator constructor.
+     * CompositionTypeHintDecorator constructor.
      *
      * @param PropertyInterface $nestedProperty
      */
@@ -31,11 +31,6 @@ class CompositionTypeHintDecorator implements TypeHintDecoratorInterface
      */
     public function decorate(string $input): string
     {
-        // don't add the same type hint multiple times
-        if ($input && in_array($this->nestedProperty->getTypeHint(), explode('|', $input))) {
-            return $input;
-        }
-
-        return ($input ? "$input|" : '') . $this->nestedProperty->getTypeHint();
+        return (new TypeHintDecorator(explode('|', $this->nestedProperty->getTypeHint())))->decorate($input);
     }
 }

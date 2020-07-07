@@ -40,6 +40,9 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertEquals($propertyValue, $object->getProperty());
+
+        $this->assertSame('null|float|string|array', $this->getPropertyType($object, 'property'));
+        $this->assertSame('null|float|string|array', $this->getMethodReturnType($object, 'getProperty'));
     }
 
     public function validValueDataProvider(): array

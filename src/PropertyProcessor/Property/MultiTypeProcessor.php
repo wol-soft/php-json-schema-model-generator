@@ -10,6 +10,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
@@ -26,7 +27,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
     /** @var PropertyProcessorInterface[] */
     protected $propertyProcessors = [];
     /** @var string[] */
-    protected $allowedPropertyTypeChecks = [];
+    protected $allowedPropertyTypes = [];
     /** @var string[] */
     protected $checks = [];
 
@@ -81,13 +82,15 @@ class MultiTypeProcessor extends AbstractValueProcessor
 
         $this->processSubProperties($propertyName, $propertyData, $property);
 
-        if (empty($this->allowedPropertyTypeChecks)) {
+        if (empty($this->allowedPropertyTypes)) {
             return $property;
         }
 
+        $property->addTypeHintDecorator(new TypeHintDecorator($this->allowedPropertyTypes));
+
         return $property->addValidator(
             new MultiTypeCheckValidator(
-                array_unique($this->allowedPropertyTypeChecks),
+                array_unique($this->allowedPropertyTypes),
                 $property,
                 $this->isImplicitNullAllowed($property)
             ),
@@ -108,7 +111,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
 
             // filter out type checks to create a single type check which covers all allowed types
             if ($validator instanceof TypeCheckInterface) {
-                array_push($this->allowedPropertyTypeChecks, ...$validator->getTypes());
+                array_push($this->allowedPropertyTypes, ...$validator->getTypes());
 
                 continue;
             }

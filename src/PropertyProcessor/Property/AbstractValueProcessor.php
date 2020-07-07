@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -54,6 +55,10 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
                 (isset($propertyData['readOnly']) && $propertyData['readOnly'] === true) ||
                 $this->schemaProcessor->getGeneratorConfiguration()->isImmutable()
             );
+
+        if ($this->schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed() && !$property->isRequired()) {
+            $property->addTypeHintDecorator(new TypeHintDecorator(['null']));
+        }
 
         $this->generateValidators($property, $propertyData);
 

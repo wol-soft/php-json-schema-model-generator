@@ -100,7 +100,7 @@ class RenderHelper
         return "throw $exceptionConstructor;";
     }
 
-    public function implicitNull(PropertyInterface $property): bool
+    public function isPropertyNullable(PropertyInterface $property): bool
     {
         return $this->generatorConfiguration->isImplicitNullAllowed() && !$property->isRequired();
     }
