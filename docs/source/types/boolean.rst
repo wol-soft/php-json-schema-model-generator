@@ -19,7 +19,8 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setExample(?bool $example): self;
+    public function setExample(bool $example): self;
+    // As the property is not required it may be initialized with null. Consequently the return value is nullable
     public function getExample(): ?bool;
 
 Possible exceptions:

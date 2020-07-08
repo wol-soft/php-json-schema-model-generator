@@ -1,7 +1,7 @@
 Required values
 ===============
 
-By default the values of a schema are not required. In this case the input is valid if the property is not provided. Additionally an explicit `null` value is also valid. If the value isn't provided an optionally defined default value is used.
+By default the values of a schema are not required. In this case the input is valid if the property is not provided. If the value isn't provided an optionally defined default value is used.
 
 .. code-block:: json
 
@@ -21,7 +21,8 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setExample(?string $example): self;
+    public function setExample(string $example): self;
+    // As the property is not required it may be initialized with null. Consequently the return value is nullable
     public function getExample(): ?string;
 
 Behaviour with different inputs:
@@ -35,6 +36,7 @@ Behaviour with different inputs:
     // property example explicitly set to null.
     // allowed as the property isn't required.
     // Works only if implicitNull is enabled. Otherwise an exception will be thrown.
+    // If implicitNull is enabled the signature of setExample will also change to accept null.
     $example = new Example(['example' => null]);
     $example->getExample();     // returns NULL
 

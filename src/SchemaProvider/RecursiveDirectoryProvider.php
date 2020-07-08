@@ -34,7 +34,7 @@ class RecursiveDirectoryProvider implements SchemaProviderInterface
             throw new FileSystemException("Source directory '$sourceDirectory' doesn't exist");
         }
 
-        $this->sourceDirectory = $sourceDirectory;
+        $this->sourceDirectory = rtrim($sourceDirectory, "\\/");
     }
 
     /**

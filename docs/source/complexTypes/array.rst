@@ -24,7 +24,8 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setExample(?array $example): self;
+    public function setExample(array $example): self;
+    // As the property is not required it may be initialized with null. Consequently the return value is nullable
     public function getExample(): ?array;
 
 Possible exceptions:
@@ -117,17 +118,17 @@ In this case the model generator will generate two classes: **Family** and **Mem
 .. code-block:: php
 
     // class Family
-    public function setMembers(?array $members): self;
+    public function setMembers(array $members): self;
     public function getMembers(): ?array;
 
     // class Member
     public function setName(string $name): self;
     public function getName(): string;
 
-    public function setAge(?int $age): self;
+    public function setAge(int $age): self;
     public function getAge(): ?int;
 
-The *getMembers* function of the class *Family* is typehinted with *@returns Member[]*. Consequently auto completion is available when developing something like:
+The *getMembers* function of the class *Family* is type hinted with *@returns Member[]*. Consequently auto completion is available when developing something like:
 
 .. code-block:: php
 
@@ -137,6 +138,10 @@ The *getMembers* function of the class *Family* is typehinted with *@returns Mem
         // auto completion with available methods on $member
         $member->getName();
     }
+
+.. hint::
+
+    Arrays with item validation don't accept elements which contain `null`. If your array needs to accept `null` entries you have to add null to the type of your items explicitly (eg. "type": ["object", "null"]).
 
 Tuples
 ------

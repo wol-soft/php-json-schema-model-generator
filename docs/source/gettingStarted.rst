@@ -161,6 +161,8 @@ By default the properties are strictly checked against their defined types. Cons
 
 By setting the implicit null option to true all of your object properties which aren't required will implicitly accept null. All properties which are required and don't explicitly allow null in the type definition will still reject null.
 
+If the implicit null option is enabled the interface of your classes may change. If you have disabled immutability the type hints of your optional property setters will be nullable (eg. a string property will be type hinted with `?string`).
+
 .. code-block:: php
 
     setImplicitNull(bool $allowImplicitNull);

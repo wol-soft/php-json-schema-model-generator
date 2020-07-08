@@ -32,15 +32,16 @@ Generated interface:
 .. code-block:: php
 
     // class Person
-    public function setName(?string $name): self;
+    public function setName(string $name): self;
+    // As the property is not required it may be initialized with null. Consequently the return value is nullable
     public function getName(): ?string;
-    public function setCar(?Car $name): self;
+    public function setCar(Car $name): self;
     public function getCar(): ?Car;
 
     // class Car
-    public function setModel(?string $name): self;
+    public function setModel(string $name): self;
     public function getModel(): ?string;
-    public function setPs(?int $name): self;
+    public function setPs(int $name): self;
     public function getPs(): ?int;
 
 Possible exceptions:
@@ -102,9 +103,9 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setUnderscorePropertyMinus(?string $name): self;
+    public function setUnderscorePropertyMinus(string $name): self;
     public function getUnderscorePropertyMinus(): ?string;
-    public function setCapsAndSpace100(?string $name): self;
+    public function setCapsAndSpace100(string $name): self;
     public function getCapsAndSpace100(): ?string;
 
 If the name normalization results in an empty attribute name (eg. '__ -- __') an exception will be thrown.
@@ -283,14 +284,14 @@ Generated interface:
 
 .. code-block:: php
 
-    // class Family, arrays typehinted in docblocks with Family_Person[]
-    public function setMembers(?array $members): self;
+    // class Family, arrays type hinted in docblocks with Family_Person[]
+    public function setMembers(array $members): self;
     public function getMembers(): ?array;
 
-    // class Person, arrays typehinted in docblocks with Family_Person[]
-    public function setName(?string $name): self;
+    // class Person, arrays type hinted in docblocks with Family_Person[]
+    public function setName(string $name): self;
     public function getName(): ?string;
-    public function setChildren(?array $name): self;
+    public function setChildren(array $name): self;
     public function getChildren(): ?array;
 
 Property Names
@@ -448,10 +449,11 @@ Generated interface:
 
     // class CreditCardOwner
     // base properties
-    public function setCreditCard(?int $creditCard): self;
+    public function setCreditCard(int $creditCard): self;
     public function getCreditCard(): ?int;
 
     // inherited properties
+    // the inherited properties will not be type hinted as they may contain any value if credit_card isn't present.
     public function setBillingAddress($billingAddress): self;
     public function getBillingAddress();
     public function setDateOfBirth($dateOfBirth): self;
