@@ -132,8 +132,8 @@ ERROR
     ): void {
         $className = $this->generateClassFromFile($schema);
 
-        $this->assertRegExp($annotationPattern, $this->getPropertyType($className, 'property'));
-        $this->assertRegExp($annotationPattern, $this->getMethodReturnType($className, 'getProperty'));
+        $this->assertRegExp($annotationPattern, $this->getPropertyTypeAnnotation($className, 'property'));
+        $this->assertRegExp($annotationPattern, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
 
         $this->assertCount($generatedClasses, $this->getGeneratedFiles());
     }
@@ -143,7 +143,7 @@ ERROR
         return [
             'Multiple scalar types (no merged property)' => [
                 'AnyOfType.json',
-                '/^string\|int\|bool\|null$/',
+                '/^null\|string\|int\|bool$/',
                 1,
             ],
             'Multiple scalar types required (no merged property)' => [
@@ -153,17 +153,17 @@ ERROR
             ],
             'Object with scalar type (no merged property - redirect to generated object)' => [
                 'ReferencedObjectSchema.json',
-                '/^string\|ComposedAnyOfTest[\w]*Property[\w]*\|null$/',
+                '/^null\|string\|ComposedAnyOfTest[\w]*Property[\w]*$/',
                 2,
             ],
             'Multiple objects (merged property created)' => [
                 'ReferencedObjectSchema2.json',
-                '/^ComposedAnyOfTest[\w]*_Merged_[\w]*\|null$/',
+                '/^null\|ComposedAnyOfTest[\w]*_Merged_[\w]*$/',
                 4,
             ],
             'Scalar type and multiple objects (merged property created)' => [
                 'ReferencedObjectSchema3.json',
-                '/^string\|ComposedAnyOfTest[\w]*_Merged_[\w]*\|null$/',
+                '/^null\|string\|ComposedAnyOfTest[\w]*_Merged_[\w]*$/',
                 4,
             ],
         ];

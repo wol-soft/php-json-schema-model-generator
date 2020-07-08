@@ -408,7 +408,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      *
      * @return string
      */
-    protected function getPropertyType($object, string $property): string
+    protected function getPropertyTypeAnnotation($object, string $property): string
     {
         $matches = [];
         preg_match(
@@ -428,7 +428,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      *
      * @return string
      */
-    protected function getMethodReturnType($object, string $method): string
+    protected function getMethodReturnTypeAnnotation($object, string $method): string
     {
         $matches = [];
         preg_match(

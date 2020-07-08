@@ -130,8 +130,8 @@ ERROR
         $className = $this->generateClassFromFile($schema);
 
         $object = new $className([]);
-        $this->assertRegExp($annotationPattern, $this->getPropertyType($object, 'property'));
-        $this->assertRegExp($annotationPattern, $this->getMethodReturnType($object, 'getProperty'));
+        $this->assertRegExp($annotationPattern, $this->getPropertyTypeAnnotation($object, 'property'));
+        $this->assertRegExp($annotationPattern, $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
     }
 
     public function annotationDataProvider(): array

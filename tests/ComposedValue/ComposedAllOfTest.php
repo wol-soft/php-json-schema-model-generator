@@ -97,8 +97,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
         $object = new $className([]);
         $regexp = '/ComposedAllOfTest[\w]*_Merged_[\w]*/';
 
-        $this->assertRegExp($regexp, $this->getPropertyType($object, 'property'));
-        $this->assertRegExp($regexp, $this->getMethodReturnType($object, 'getProperty'));
+        $this->assertRegExp($regexp, $this->getPropertyTypeAnnotation($object, 'property'));
+        $this->assertRegExp($regexp, $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
 
         // base class, merged property class and two classes for validating the composition components
         $this->assertCount(4, $this->getGeneratedFiles());

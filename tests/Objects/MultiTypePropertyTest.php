@@ -30,6 +30,19 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * @dataProvider implicitNullDataProvider
+     */
+    public function testMultiTypeAnnotation(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile('MultiTypeProperty.json', null, false, $implicitNull);
+
+        $expectedTypeHint = $implicitNull ? 'null|float|string|array' : 'float|string|array';
+
+        $this->assertSame($expectedTypeHint, $this->getPropertyTypeAnnotation($className, 'property'));
+        $this->assertSame($expectedTypeHint, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+    }
+
+    /**
      * @dataProvider validValueDataProvider
      *
      * @param $propertyValue
@@ -40,9 +53,6 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertEquals($propertyValue, $object->getProperty());
-
-        $this->assertSame('null|float|string|array', $this->getPropertyType($object, 'property'));
-        $this->assertSame('null|float|string|array', $this->getMethodReturnType($object, 'getProperty'));
     }
 
     public function validValueDataProvider(): array
