@@ -123,7 +123,6 @@ class Property implements PropertyInterface
             return $input;
         }, $input));
 
-
         return $input ?? 'mixed';
     }
 

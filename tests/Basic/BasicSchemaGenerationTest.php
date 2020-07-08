@@ -9,6 +9,7 @@ use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Interfaces\SerializationInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use ReflectionMethod;
 
 /**
  * Class BasicSchemaGenerationTest
@@ -17,11 +18,19 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
  */
 class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 {
-    public function testGetterAndSetterAreGeneratedForMutableObjects(): void
+    /**
+     * @dataProvider implicitNullDataProvider
+     *
+     * @param bool $implicitNull
+     * @param bool $nullable
+     */
+    public function testGetterAndSetterAreGeneratedForMutableObjects(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setImmutable(false)
+            (new GeneratorConfiguration())->setImmutable(false),
+            false,
+            $implicitNull
         );
 
         $object = new $className(['property' => 'Hello']);
@@ -29,6 +38,18 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->assertTrue(is_callable([$object, 'getProperty']));
         $this->assertTrue(is_callable([$object, 'setProperty']));
         $this->assertSame('Hello', $object->getProperty());
+
+        $this->assertSame($object, $object->setProperty('Bye'));
+        $this->assertSame('Bye', $object->getProperty());
+
+        // test if the property is typed correctly
+        $returnType = (new ReflectionMethod($object, 'getProperty'))->getReturnType();
+        $this->assertSame('string', $returnType->getName());
+        $this->assertSame($implicitNull, $returnType->allowsNull());
+
+        $setType = (new ReflectionMethod($object, 'setProperty'))->getParameters()[0]->getType();
+        $this->assertSame('string', $setType->getName());
+        $this->assertSame($implicitNull, $setType->allowsNull());
     }
 
     public function testGetterAndSetterAreNotGeneratedByDefault(): void

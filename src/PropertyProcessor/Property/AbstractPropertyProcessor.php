@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\EnumValidator;
@@ -161,7 +162,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     protected function addComposedValueValidator(PropertyInterface $property, array $propertyData): void
     {
         $composedValueKeywords = ['allOf', 'anyOf', 'oneOf', 'not', 'if'];
-        $propertyFactory = new PropertyFactory(new ComposedValueProcessorFactory());
+        $propertyFactory = new PropertyFactory(new ComposedValueProcessorFactory($property instanceof BaseProperty));
 
         foreach ($composedValueKeywords as $composedValueKeyword) {
             if (!isset($propertyData[$composedValueKeyword])) {
@@ -188,10 +189,17 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             }
 
             $property->addTypeHintDecorator(new TypeHintTransferDecorator($composedProperty));
+
+            if (!$property->getType() && $composedProperty->getType()) {
+                $property->setType($composedProperty->getType(), $composedProperty->getType(true));
+            }
         }
     }
 
     /**
+     * If the type of a property containing a composition is defined outside of the composition make sure each
+     * composition which doesn't define a type inherits the type
+     *
      * @param array $propertyData
      * @param string $composedValueKeyword
      *

@@ -1,8 +1,11 @@
 Merged Property
 ===============
 
-If multiple subschemas are combined with `oneOf`, `anyOf` or `allOf` and the subschemas contain multiple nested objects all properties of the nested objects will be merged together in a single object.
-For example we combine two objects with `allOf`:
+If multiple subschemas are combined with `oneOf`, `anyOf` or `allOf` and the subschemas contain multiple nested objects all properties of the nested objects will be merged together in a single object representing all composition elements.
+
+If the composition is used on object level no merged property will be generated as the object itself works as a merged property holding all properties of the nested objects from the composition subschemas.
+
+For example we combine two objects with `allOf` for an object property:
 
 .. code-block:: json
 
@@ -54,6 +57,47 @@ Generated interface:
     public function getCeo(): ?Company_Merged_CEO;
 
     # class Company_Merged_CEO
+    public function getName(): ?string
+    public function setName(?string $name): self
+    public function getAge(): ?int
+    public function setAge(?int $name): self
+
+If your composition is defined on object level the object will gain access to all properties of the combined schemas:
+
+.. code-block:: json
+
+    {
+        "$id": "CEO",
+        "type": "object",
+        "allOf": [
+            {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    }
+                }
+            },
+            {
+                "type": "object",
+                "properties": {
+                    "age": {
+                        "type": "integer"
+                    }
+                }
+            }
+        ]
+    }
+
+This schema will generate three classes as no merged property is created. The main class will be `CEO` and two classes will be generated to validate the subschemas combined with the `allOf` independent:
+
+* Ceo.php
+* Ceo_Ceo5e4a82e39edc3.php
+* Ceo_Ceo5e4a82e39fe37.php
+
+.. code-block:: php
+
+    # class CEO
     public function getName(): ?string
     public function setName(?string $name): self
     public function getAge(): ?int

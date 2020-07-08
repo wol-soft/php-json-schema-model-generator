@@ -13,6 +13,19 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
  */
 class ComposedValueProcessorFactory implements ProcessorFactoryInterface
 {
+    /** @var bool */
+    private $rootLevelComposition;
+
+    /**
+     * ComposedValueProcessorFactory constructor.
+     *
+     * @param bool $rootLevelComposition is the composed value on object root level (true) or on property level (false)?
+     */
+    public function __construct(bool $rootLevelComposition)
+    {
+        $this->rootLevelComposition = $rootLevelComposition;
+    }
+
     /**
      * @inheritdoc
      *
@@ -29,6 +42,6 @@ class ComposedValueProcessorFactory implements ProcessorFactoryInterface
             throw new SchemaException("Unsupported composed value type $type");
         }
 
-        return new $processor($propertyMetaDataCollection, $schemaProcessor, $schema);
+        return new $processor($propertyMetaDataCollection, $schemaProcessor, $schema, $this->rootLevelComposition);
     }
 }
