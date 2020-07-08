@@ -51,6 +51,56 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * @dataProvider implicitNullDataProvider
+     */
+    public function testUntypedOptionalArrayType(bool $implicitNull)
+    {
+        $className = $this->generateClassFromFile(
+            'ArrayProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+            false,
+            $implicitNull
+        );
+
+        $expectedAnnotation = $implicitNull ? 'array|null' : 'array';
+
+        $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
+
+        $returnType = $this->getReturnType($className, 'getProperty');
+        $this->assertTrue($returnType->allowsNull());
+        $this->assertSame('array', $returnType->getName());
+
+        $setterType = $this->getParameterType($className, 'setProperty');
+        $this->assertSame($implicitNull, $setterType->allowsNull());
+        $this->assertSame('array', $setterType->getName());
+    }
+
+    /**
+     * @dataProvider implicitNullDataProvider
+     */
+    public function testUntypedRequiredArrayType(bool $implicitNull)
+    {
+        $className = $this->generateClassFromFile(
+            'RequiredUntypedArrayProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+            false,
+            $implicitNull
+        );
+
+        $this->assertSame('array', $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame('array', $this->getPropertyTypeAnnotation($className, 'property'));
+
+        $returnType = $this->getReturnType($className, 'getProperty');
+        $this->assertFalse($returnType->allowsNull());
+        $this->assertSame('array', $returnType->getName());
+
+        $setterType = $this->getParameterType($className, 'setProperty');
+        $this->assertFalse($setterType->allowsNull());
+        $this->assertSame('array', $setterType->getName());
+    }
+
+    /**
      * @dataProvider optionalArrayPropertyDataProvider
      *
      * @param GeneratorConfiguration $configuration
@@ -303,21 +353,97 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
         return $this->combineDataProvider(
             $this->validationMethodDataProvider(),
             [
-                'null' => ['string', null],
-                'Empty array' => ['string', []],
-                'String array' => ['string', ['a', 'b']],
-                'String array with null' => ['string', ['a', 'b', null]],
-                'Int array' => ['integer', [1, 2, 3]],
-                'Int array with null' => ['integer', [1, 2, 3, null]],
+                'null' => ['"string"', null],
+                'Empty array' => ['"string"', []],
+                'String array' => ['"string"', ['a', 'b']],
+                'String array with null' => ['"string"', ['a', 'b', null]],
+                'Int array' => ['"integer"', [1, 2, 3]],
+                'Int array with null' => ['"integer"', [1, 2, 3, null]],
                 // Number array will cast int to float
-                'Number array' => ['number', [1, 1.1, 4.5, 6], [1.0, 1.1, 4.5, 6.0]],
-                'Boolean array' => ['boolean', [true, false, true]],
-                'Null array' => ['null', [null, null]],
-                'Nested array' => ['array","items":{"type":"integer"},"injection":"yes we can', [[1, 2], [], [3], null]]
+                'Number array' => ['"number"', [1, 1.1, 4.5, 6], [1.0, 1.1, 4.5, 6.0]],
+                'Boolean array' => ['"boolean"', [true, false, true]],
+                'Null array' => ['"null"', [null, null]],
+                'Nested array' => ['"array","items":{"type":"integer"}', [[1, 2], [], [3], null]],
+                // Number array will cast int to float
+                'Multi type array' => ['["string", "number"]', ['a', 1, 'b'], ['a', 1.0, 'b']],
             ]
         );
     }
 
+    /**
+     * @dataProvider typedArrayTypeDataProvider
+     *
+     * @param bool $implicitNull
+     * @param string $type
+     * @param string $expectedAnnotation
+     */
+    public function testTypedOptionalArrayType(bool $implicitNull, string $type, string $expectedAnnotation): void
+    {
+        $className = $this->generateClassFromFileTemplate(
+            'ArrayPropertyTyped.json',
+            [$type],
+            (new GeneratorConfiguration())->setImmutable(false),
+            false,
+            $implicitNull
+        );
+
+        if ($implicitNull) {
+            $expectedAnnotation .= '|null';
+        }
+
+        $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
+
+        $returnType = $this->getReturnType($className, 'getProperty');
+        $this->assertTrue($returnType->allowsNull());
+        $this->assertSame('array', $returnType->getName());
+
+        $setterType = $this->getParameterType($className, 'setProperty');
+        $this->assertSame($implicitNull, $setterType->allowsNull());
+        $this->assertSame('array', $setterType->getName());
+    }
+
+    /**
+     * @dataProvider typedArrayTypeDataProvider
+     *
+     * @param bool $implicitNull
+     * @param string $type
+     * @param string $expectedAnnotation
+     */
+    public function testTypedRequiredArrayType(bool $implicitNull, string $type, string $expectedAnnotation): void
+    {
+        $className = $this->generateClassFromFileTemplate(
+            'RequiredTypedArrayProperty.json',
+            [$type],
+            (new GeneratorConfiguration())->setImmutable(false),
+            false,
+            $implicitNull
+        );
+
+        $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
+
+        $returnType = $this->getReturnType($className, 'getProperty');
+        $this->assertFalse($returnType->allowsNull());
+        $this->assertSame('array', $returnType->getName());
+
+        $setterType = $this->getParameterType($className, 'setProperty');
+        $this->assertFalse($setterType->allowsNull());
+        $this->assertSame('array', $setterType->getName());
+    }
+
+    public function typedArrayTypeDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->implicitNullDataProvider(),
+            [
+                'single type' => ['"string"', 'string[]'],
+                'multi type' => ['["string", "integer"]', 'string[]|int[]'],
+                'nested typed array' => ['"array","items":{"type":"integer"}', 'int[][]'],
+                'nested untyped array' => ['"array"', 'array[]'],
+            ]
+        );
+    }
     /**
      * @dataProvider invalidTypedArrayDataProvider
      *
@@ -349,7 +475,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             $this->validationMethodDataProvider(),
             [
                 'String array containing int' => [
-                    'string',
+                    '"string"',
                     ['a', 'b', 1],
                     <<<ERROR
 Invalid items in array property:
@@ -358,7 +484,7 @@ Invalid items in array property:
 ERROR
                 ],
                 'Int array containing string' => [
-                    'integer',
+                    '"integer"',
                     [1, 2, 3, '4'],
                     <<<ERROR
 Invalid items in array property:
@@ -367,7 +493,7 @@ Invalid items in array property:
 ERROR
                 ],
                 'Int array containing float' => [
-                    'integer',
+                    '"integer"',
                     [1, 2, 3, 2.5],
                     <<<ERROR
 Invalid items in array property:
@@ -376,7 +502,7 @@ Invalid items in array property:
 ERROR
                 ],
                 'Number array containing array' => [
-                    'number',
+                    '"number"',
                     [1, 1.1, 4.5, 6, []],
                     <<<ERROR
 Invalid items in array property:
@@ -385,7 +511,7 @@ Invalid items in array property:
 ERROR
                 ],
                 'Boolean array containing int' => [
-                    'boolean',
+                    '"boolean"',
                     [true, false, true, 3],
                     <<<ERROR
 Invalid items in array property:
@@ -394,7 +520,7 @@ Invalid items in array property:
 ERROR
                 ],
                 'Null array containing string' => [
-                    'null',
+                    '"null"',
                     [null, null, 'null'],
                     <<<ERROR
 Invalid items in array property:
@@ -403,7 +529,7 @@ Invalid items in array property:
 ERROR
                 ],
                 'Multiple violations' => [
-                    'boolean',
+                    '"boolean"',
                     [true, false, true, 3, true, 'true'],
                     <<<ERROR
 Invalid items in array property:
@@ -414,7 +540,7 @@ Invalid items in array property:
 ERROR
                 ],
                 'Nested array containing int' => [
-                    'array","items":{"type":"integer"},"injection":"yes we can',
+                    '"array","items":{"type":"integer"}',
                     [[1, 2], [], 3],
                     <<<ERROR
 Invalid items in array property:
@@ -423,7 +549,7 @@ Invalid items in array property:
 ERROR
                 ],
                 'Nested array inner array containing string' => [
-                    'array","items":{"type":"integer"},"injection":"yes we can',
+                    '"array","items":{"type":"integer"}',
                     [[1, '2'], [], [3]],
                     <<<ERROR
 Invalid items in array property:
@@ -432,7 +558,18 @@ Invalid items in array property:
       - invalid item #1
         * Invalid type for item of array item of array property. Requires int, got string
 ERROR
-                ]
+                ],
+                'Multi type array containing invalid values' => [
+                    '["string", "integer"]',
+                    ['a', 1, true, 'true', [], -6],
+                    <<<ERROR
+Invalid items in array property:
+  - invalid item #2
+    * Invalid type for item of array property. Requires [string, int], got boolean
+  - invalid item #4
+    * Invalid type for item of array property. Requires [string, int], got array
+ERROR
+                ],
             ]
         );
     }
@@ -441,7 +578,7 @@ ERROR
      * @dataProvider validArrayContainsDataProvider
      *
      * @param GeneratorConfiguration $configuration
-     * @param string                 $propertyValue
+     * @param array                  $propertyValue
      */
     public function testValidValuesForArrayContains(GeneratorConfiguration $configuration, array $propertyValue): void
     {
@@ -470,7 +607,7 @@ ERROR
      * @dataProvider invalidArrayContainsDataProvider
      *
      * @param GeneratorConfiguration $configuration
-     * @param string                 $propertyValue
+     * @param array                  $propertyValue
      */
     public function testInvalidValuesForArrayContainsTrowsAnException(
         GeneratorConfiguration $configuration,

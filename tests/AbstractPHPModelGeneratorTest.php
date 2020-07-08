@@ -19,6 +19,7 @@ use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
+use ReflectionType;
 
 /**
  * Class AbstractPHPModelGeneratorTest
@@ -132,6 +133,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * @param array                       $values
      * @param GeneratorConfiguration|null $generatorConfiguration
      * @param bool                        $escape
+     * @param bool                        $implicitNull
      *
      * @return string
      *
@@ -143,7 +145,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         string $file,
         array $values,
         GeneratorConfiguration $generatorConfiguration = null,
-        bool $escape = true
+        bool $escape = true,
+        bool $implicitNull = true
     ): string {
         return $this->generateClass(
             call_user_func_array(
@@ -158,7 +161,9 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
                     )
                 )
             ),
-            $generatorConfiguration
+            $generatorConfiguration,
+            false,
+            $implicitNull
         );
     }
 
@@ -438,6 +443,16 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         );
 
         return $matches[1];
+    }
+
+    protected function getParameterType($object, string $method): ReflectionType
+    {
+        return (new ReflectionClass($object))->getMethod($method)->getParameters()[0]->getType();
+    }
+
+    protected function getReturnType($object, string $method): ReflectionType
+    {
+        return (new ReflectionClass($object))->getMethod($method)->getReturnType();
     }
 
     protected function getGeneratedFiles(): array

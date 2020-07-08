@@ -28,10 +28,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testRequiredPropertyIsValidIfProvided(bool $implicitNull, string $propertyValue): void
     {
-        $className = $this->generateClassFromFile(
-            'RequiredStringProperty.json',
-            (new GeneratorConfiguration())->setImplicitNull($implicitNull)
-        );
+        $className = $this->generateClassFromFile('RequiredStringProperty.json', null, false, $implicitNull);
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -64,10 +61,36 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
 
         $className = $this->generateClassFromFile(
             'RequiredStringProperty.json',
-            (new GeneratorConfiguration())->setImplicitNull($implicitNull)->setCollectErrors(false)
+            (new GeneratorConfiguration())->setCollectErrors(false),
+            false,
+            $implicitNull
         );
 
         new $className([]);
+    }
+
+
+    /**
+     * @dataProvider implicitNullDataProvider
+     *
+     * @param bool $implicitNull
+     */
+    public function testRequiredPropertyType(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile(
+            'RequiredStringProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+            false,
+            $implicitNull
+        );
+
+        $returnType = $this->getReturnType($className, 'getProperty');
+        $this->assertSame('string', $returnType->getName());
+        $this->assertFalse($returnType->allowsNull());
+
+        $setType = $this->getParameterType($className, 'setProperty');
+        $this->assertSame('string', $setType->getName());
+        $this->assertFalse($setType->allowsNull());
     }
 
     /**

@@ -56,10 +56,6 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
                 $this->schemaProcessor->getGeneratorConfiguration()->isImmutable()
             );
 
-        if ($this->schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed() && !$property->isRequired()) {
-            $property->addTypeHintDecorator(new TypeHintDecorator(['null']));
-        }
-
         $this->generateValidators($property, $propertyData);
 
         if (isset($propertyData['filter'])) {

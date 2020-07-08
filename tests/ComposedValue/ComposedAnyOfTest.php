@@ -143,7 +143,7 @@ ERROR
         return [
             'Multiple scalar types (no merged property)' => [
                 'AnyOfType.json',
-                '/^null\|string\|int\|bool$/',
+                '/^string\|int\|bool\|null$/',
                 1,
             ],
             'Multiple scalar types required (no merged property)' => [
@@ -153,17 +153,17 @@ ERROR
             ],
             'Object with scalar type (no merged property - redirect to generated object)' => [
                 'ReferencedObjectSchema.json',
-                '/^null\|string\|ComposedAnyOfTest[\w]*Property[\w]*$/',
+                '/^string\|ComposedAnyOfTest[\w]*Property[\w]*\|null$/',
                 2,
             ],
             'Multiple objects (merged property created)' => [
                 'ReferencedObjectSchema2.json',
-                '/^null\|ComposedAnyOfTest[\w]*_Merged_[\w]*$/',
+                '/^ComposedAnyOfTest[\w]*_Merged_[\w]*\|null$/',
                 4,
             ],
             'Scalar type and multiple objects (merged property created)' => [
                 'ReferencedObjectSchema3.json',
-                '/^null\|string\|ComposedAnyOfTest[\w]*_Merged_[\w]*$/',
+                '/^string\|ComposedAnyOfTest[\w]*_Merged_[\w]*\|null$/',
                 4,
             ],
         ];

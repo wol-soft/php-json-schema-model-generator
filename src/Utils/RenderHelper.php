@@ -100,8 +100,23 @@ class RenderHelper
         return "throw $exceptionConstructor;";
     }
 
-    public function isPropertyNullable(PropertyInterface $property): bool
+    public function isPropertyNullable(PropertyInterface $property, bool $setter = false): bool
     {
-        return $this->generatorConfiguration->isImplicitNullAllowed() && !$property->isRequired();
+        return (!$setter || $this->generatorConfiguration->isImplicitNullAllowed()) && !$property->isRequired();
+    }
+
+    public function getTypeHintAnnotation(PropertyInterface $property, bool $outputType = false): string
+    {
+        $typeHint = $property->getTypeHint($outputType);
+
+        if (!$typeHint) {
+            return '';
+        }
+
+        if ((!$outputType || $this->generatorConfiguration->isImplicitNullAllowed()) && !$property->isRequired()) {
+            $typeHint = implode('|', array_unique(array_merge(explode('|', $typeHint), ['null'])));
+        }
+
+        return $typeHint;
     }
 }

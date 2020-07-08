@@ -36,7 +36,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
     {
         $className = $this->generateClassFromFile('MultiTypeProperty.json', null, false, $implicitNull);
 
-        $expectedTypeHint = $implicitNull ? 'null|float|string|array' : 'float|string|array';
+        $expectedTypeHint = $implicitNull ? 'float|string|array|null' : 'float|string|array';
 
         $this->assertSame($expectedTypeHint, $this->getPropertyTypeAnnotation($className, 'property'));
         $this->assertSame($expectedTypeHint, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));

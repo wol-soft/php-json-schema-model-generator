@@ -31,6 +31,8 @@ class ArrayTypeHintDecorator implements TypeHintDecoratorInterface
      */
     public function decorate(string $input): string
     {
-        return "{$this->nestedProperty->getTypeHint()}[]";
+        return implode('|', array_map(function (string $typeHint): string {
+            return "{$typeHint}[]";
+        }, explode('|', $this->nestedProperty->getTypeHint())));
     }
 }
