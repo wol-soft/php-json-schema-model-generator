@@ -80,13 +80,20 @@ class MultiTypeProcessor extends AbstractValueProcessor
             $this->checks[] = $validator->getValidator()->getCheck();
         }
 
-        $this->processSubProperties($propertyName, $propertyData, $property);
+        $subProperties = $this->processSubProperties($propertyName, $propertyData, $property);
 
         if (empty($this->allowedPropertyTypes)) {
             return $property;
         }
 
-        $property->addTypeHintDecorator(new TypeHintDecorator($this->allowedPropertyTypes));
+        $property->addTypeHintDecorator(
+            new TypeHintDecorator(
+                array_map(function (PropertyInterface $subProperty): string {
+                    return $subProperty->getTypeHint();
+                },
+                $subProperties)
+            )
+        );
 
         return $property->addValidator(
             new MultiTypeCheckValidator(
@@ -131,16 +138,19 @@ class MultiTypeProcessor extends AbstractValueProcessor
      * @param array             $propertyData
      * @param PropertyInterface $property
      *
+     * @return PropertyInterface[]
+     *
      * @throws SchemaException
      */
     protected function processSubProperties(
         string $propertyName,
         array $propertyData,
         PropertyInterface $property
-    ): void {
+    ): array {
         $defaultValue = null;
         $invalidDefaultValueException = null;
         $invalidDefaultValues = 0;
+        $subProperties = [];
 
         if (isset($propertyData['default'])) {
             $defaultValue = $propertyData['default'];
@@ -163,10 +173,14 @@ class MultiTypeProcessor extends AbstractValueProcessor
                     $invalidDefaultValueException = $e;
                 }
             }
+
+            $subProperties[] = $subProperty;
         }
 
         if ($invalidDefaultValues === count($this->propertyProcessors)) {
             throw $invalidDefaultValueException;
         }
+
+        return $subProperties;
     }
 }

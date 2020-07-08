@@ -62,10 +62,12 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             $implicitNull
         );
 
-        $expectedAnnotation = $implicitNull ? 'array|null' : 'array';
-
-        $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
-        $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
+        $this->assertSame(
+            $implicitNull ? 'array|null' : 'array',
+            $this->getMethodParameterTypeAnnotation($className, 'setProperty')
+        );
+        $this->assertSame('array|null', $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame('array|null', $this->getPropertyTypeAnnotation($className, 'property'));
 
         $returnType = $this->getReturnType($className, 'getProperty');
         $this->assertTrue($returnType->allowsNull());
@@ -88,6 +90,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             $implicitNull
         );
 
+        $this->assertSame('array', $this->getMethodParameterTypeAnnotation($className, 'setProperty'));
         $this->assertSame('array', $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
         $this->assertSame('array', $this->getPropertyTypeAnnotation($className, 'property'));
 
@@ -356,14 +359,14 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
                 'null' => ['"string"', null],
                 'Empty array' => ['"string"', []],
                 'String array' => ['"string"', ['a', 'b']],
-                'String array with null' => ['"string"', ['a', 'b', null]],
+                'Nullable string array' => ['["string", "null"]', ['a', 'b', null]],
                 'Int array' => ['"integer"', [1, 2, 3]],
-                'Int array with null' => ['"integer"', [1, 2, 3, null]],
                 // Number array will cast int to float
                 'Number array' => ['"number"', [1, 1.1, 4.5, 6], [1.0, 1.1, 4.5, 6.0]],
                 'Boolean array' => ['"boolean"', [true, false, true]],
                 'Null array' => ['"null"', [null, null]],
-                'Nested array' => ['"array","items":{"type":"integer"}', [[1, 2], [], [3], null]],
+                'Nested array' => ['"array","items":{"type":"integer"}', [[1, 2], [], [3]]],
+                'Nullable nested array' => ['["array", "null"],"items":{"type":"integer"}', [[1, 2], [], [3], null]],
                 // Number array will cast int to float
                 'Multi type array' => ['["string", "number"]', ['a', 1, 'b'], ['a', 1.0, 'b']],
             ]
@@ -387,10 +390,13 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             $implicitNull
         );
 
-        if ($implicitNull) {
-            $expectedAnnotation .= '|null';
-        }
+        $this->assertSame(
+            $implicitNull ? $expectedAnnotation . '|null' : $expectedAnnotation,
+            $this->getMethodParameterTypeAnnotation($className, 'setProperty')
+        );
 
+        // an optional property may contain null at the beginning independently of $implicitNull
+        $expectedAnnotation .= '|null';
         $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
 
@@ -420,6 +426,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             $implicitNull
         );
 
+        $this->assertSame($expectedAnnotation, $this->getMethodParameterTypeAnnotation($className, 'setProperty'));
         $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
 
@@ -483,6 +490,15 @@ Invalid items in array property:
     * Invalid type for item of array property. Requires string, got integer
 ERROR
                 ],
+                'String array containing null' => [
+                    '"string"',
+                    ['a', 'b', null],
+                    <<<ERROR
+Invalid items in array property:
+  - invalid item #2
+    * Invalid type for item of array property. Requires string, got NULL
+ERROR
+                ],
                 'Int array containing string' => [
                     '"integer"',
                     [1, 2, 3, '4'],
@@ -537,6 +553,15 @@ Invalid items in array property:
     * Invalid type for item of array property. Requires bool, got integer
   - invalid item #5
     * Invalid type for item of array property. Requires bool, got string
+ERROR
+                ],
+                'Nested array containing null' => [
+                    '"array","items":{"type":"integer"}',
+                    [[1, 2], [], null],
+                    <<<ERROR
+Invalid items in array property:
+  - invalid item #2
+    * Invalid type for item of array property. Requires array, got NULL
 ERROR
                 ],
                 'Nested array containing int' => [
@@ -681,7 +706,6 @@ ERROR
                 $this->validationMethodDataProvider(),
                 [
                     'empty array' => [[]],
-                    'null' => [[null]],
                     'minimal object' => [[['name' => 'Hannes']]],
                     'full object' => [[['name' => 'Hannes', 'age' => 42]]],
                     'additional properties object' => [[['name' => 'Hannes', 'age' => 42, 'alive' => true]]],
@@ -690,7 +714,6 @@ ERROR
                             ['name' => 'Hannes'],
                             ['name' => 'Hannes', 'age' => 42],
                             ['name' => 'Hannes', 'age' => 42, 'alive' => true],
-                            null,
                         ]
                     ],
                 ]
@@ -734,6 +757,14 @@ ERROR
             $this->combineDataProvider(
                 $this->validationMethodDataProvider(),
                 [
+                    'null' => [
+                        [null],
+                        <<<ERROR
+Invalid items in array property:
+  - invalid item #0
+    * Invalid type for item of array property. Requires object, got NULL
+ERROR
+                    ],
                     'invalid type bool' => [
                         [['name' => 'Hannes'], true],
                         <<<ERROR

@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
@@ -20,6 +21,9 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class ArrayTupleValidator extends PropertyTemplateValidator
 {
+    /** @var PropertyInterface[] */
+    private $tupleProperties;
+
     /**
      * ArrayTupleValidator constructor.
      *
@@ -38,32 +42,42 @@ class ArrayTupleValidator extends PropertyTemplateValidator
     ) {
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
-        $tupleProperties = [];
+        $this->tupleProperties = [];
         foreach ($propertiesStructure as $tupleIndex => $tupleItem) {
             $tupleItemName = "tuple item #$tupleIndex of array $propertyName";
 
             // an item of the array behaves like a nested property to add item-level validation
-            $tupleProperties[] = $propertyFactory->create(
+            $this->tupleProperties[] = $propertyFactory->create(
                 new PropertyMetaDataCollection([$tupleItemName]),
                 $schemaProcessor,
                 $schema,
                 $tupleItemName,
                 $tupleItem
             );
-
-            $this->removeRequiredPropertyValidator(end($tupleProperties));
         }
 
         parent::__construct(
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayTuple.phptpl',
             [
-                'tupleProperties' => $tupleProperties,
+                'tupleProperties' => &$this->tupleProperties,
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
             ],
             InvalidTupleException::class,
             [$propertyName, '&$invalidTuples']
         );
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getCheck(): string
+    {
+        foreach ($this->tupleProperties as $tupleProperty) {
+            $this->removeRequiredPropertyValidator($tupleProperty);
+        }
+
+        return parent::getCheck();
     }
 
     /**

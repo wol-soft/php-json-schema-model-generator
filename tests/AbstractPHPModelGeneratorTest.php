@@ -445,12 +445,32 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         return $matches[1];
     }
 
-    protected function getParameterType($object, string $method): ReflectionType
+    /**
+     * Get the annotated parameter type for an object method
+     *
+     * @param string|object $object
+     * @param string $method
+     *
+     * @return string
+     */
+    protected function getMethodParameterTypeAnnotation($object, string $method): string
+    {
+        $matches = [];
+        preg_match(
+            '/@param\s+([^\s]*)\s?\$/',
+            (new ReflectionClass($object))->getMethod($method)->getDocComment(),
+            $matches
+        );
+
+        return $matches[1];
+    }
+
+    protected function getParameterType($object, string $method): ?ReflectionType
     {
         return (new ReflectionClass($object))->getMethod($method)->getParameters()[0]->getType();
     }
 
-    protected function getReturnType($object, string $method): ReflectionType
+    protected function getReturnType($object, string $method): ?ReflectionType
     {
         return (new ReflectionClass($object))->getMethod($method)->getReturnType();
     }

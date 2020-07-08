@@ -53,10 +53,8 @@ abstract class AbstractPropertyValidator implements PropertyValidatorInterface
      */
     protected function removeRequiredPropertyValidator(PropertyInterface $property): void
     {
-        if ($property instanceof Property) {
-            $property->filterValidators(function (Validator $validator): bool {
-                return !is_a($validator->getValidator(), RequiredPropertyValidator::class);
-            });
-        }
+        $property->filterValidators(function (Validator $validator): bool {
+            return !is_a($validator->getValidator(), RequiredPropertyValidator::class);
+        });
     }
 }

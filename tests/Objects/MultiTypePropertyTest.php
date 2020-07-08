@@ -5,6 +5,7 @@ namespace PHPModelGenerator\Tests\Objects;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use PHPModelGenerator\Exception\ValidationException;
 use stdClass;
@@ -32,14 +33,51 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
     /**
      * @dataProvider implicitNullDataProvider
      */
-    public function testMultiTypeAnnotation(bool $implicitNull): void
+    public function testOptionalMultiTypeAnnotation(bool $implicitNull): void
     {
-        $className = $this->generateClassFromFile('MultiTypeProperty.json', null, false, $implicitNull);
+        $className = $this->generateClassFromFile(
+            'MultiTypeProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+            false,
+            $implicitNull
+        );
 
-        $expectedTypeHint = $implicitNull ? 'float|string|array|null' : 'float|string|array';
+        $expectedAnnotation = 'float|string|string[]|null';
 
-        $this->assertSame($expectedTypeHint, $this->getPropertyTypeAnnotation($className, 'property'));
-        $this->assertSame($expectedTypeHint, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        // if implicit null is disabled only the provided types are accepted
+        $this->assertSame(
+            $implicitNull ? $expectedAnnotation : 'float|string|string[]',
+            $this->getMethodParameterTypeAnnotation($className, 'setProperty')
+        );
+
+        $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
+        $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+
+        $this->assertNull($this->getParameterType($className, 'setProperty'));
+        $this->assertNull($this->getReturnType($className, 'getProperty'));
+    }
+
+    /**
+     * @dataProvider implicitNullDataProvider
+     */
+    public function testRequiredMultiTypeAnnotation(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile(
+            'RequiredMultiTypeProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+            false,
+            $implicitNull
+        );
+
+        $expectedAnnotation = 'float|string|string[]';
+
+        $this->assertSame($expectedAnnotation, $this->getMethodParameterTypeAnnotation($className, 'setProperty'));
+
+        $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
+        $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+
+        $this->assertNull($this->getParameterType($className, 'setProperty'));
+        $this->assertNull($this->getReturnType($className, 'getProperty'));
     }
 
     /**

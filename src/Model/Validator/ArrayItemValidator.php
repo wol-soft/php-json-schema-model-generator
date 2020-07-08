@@ -25,7 +25,10 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class ArrayItemValidator extends PropertyTemplateValidator
 {
+    /** @var string */
     private $variableSuffix = '';
+    /** @var PropertyInterface */
+    private $nestedProperty;
 
     /**
      * ArrayItemValidator constructor.
@@ -47,24 +50,24 @@ class ArrayItemValidator extends PropertyTemplateValidator
         PropertyInterface $property
     ) {
         $this->variableSuffix = '_' . uniqid();
+        $nestedPropertyName = "item of array {$property->getName()}";
 
         // an item of the array behaves like a nested property to add item-level validation
-        $nestedProperty = (new PropertyFactory(new PropertyProcessorFactory()))
+        $this->nestedProperty = (new PropertyFactory(new PropertyProcessorFactory()))
             ->create(
-                new PropertyMetaDataCollection(),
+                new PropertyMetaDataCollection([$nestedPropertyName]),
                 $schemaProcessor,
                 $schema,
-                "item of array {$property->getName()}",
+                $nestedPropertyName,
                 $itemStructure
             );
 
-        $this->removeRequiredPropertyValidator($nestedProperty);
-        $property->addTypeHintDecorator(new ArrayTypeHintDecorator($nestedProperty));
+        $property->addTypeHintDecorator(new ArrayTypeHintDecorator($this->nestedProperty));
 
         parent::__construct(
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayItem.phptpl',
             [
-                'nestedProperty' => $nestedProperty,
+                'nestedProperty' => $this->nestedProperty,
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'suffix' => $this->variableSuffix,
@@ -73,6 +76,17 @@ class ArrayItemValidator extends PropertyTemplateValidator
             [$property->getName(), "&\$invalidItems{$this->variableSuffix}"]
         );
     }
+
+    /**
+     * @inheritDoc
+     */
+    public function getCheck(): string
+    {
+        $this->removeRequiredPropertyValidator($this->nestedProperty);
+
+        return parent::getCheck();
+    }
+
 
     /**
      * Initialize all variables which are required to execute a property names validator

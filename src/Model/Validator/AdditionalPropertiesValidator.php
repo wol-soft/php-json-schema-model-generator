@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
@@ -27,6 +28,9 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
 
     protected const EXCEPTION_CLASS = InvalidAdditionalPropertiesException::class;
 
+    /** @var PropertyInterface */
+    private $validationProperty;
+
     /**
      * AdditionalPropertiesValidator constructor.
      *
@@ -45,7 +49,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
     ) {
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
-        $validationProperty = $propertyFactory->create(
+        $this->validationProperty = $propertyFactory->create(
             new PropertyMetaDataCollection([static::PROPERTY_NAME]),
             $schemaProcessor,
             $schema,
@@ -53,23 +57,31 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
             $propertiesStructure[static::ADDITIONAL_PROPERTIES_KEY]
         );
 
-        $this->removeRequiredPropertyValidator($validationProperty);
-
         parent::__construct(
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'AdditionalProperties.phptpl',
             [
-                'validationProperty'     => $validationProperty,
-                'additionalProperties'   => preg_replace(
+                'validationProperty' => $this->validationProperty,
+                'additionalProperties' => preg_replace(
                     '(\d+\s=>)',
                     '',
                     var_export(array_keys($propertiesStructure[static::PROPERTIES_KEY] ?? []), true)
                 ),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
-                'viewHelper'             => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
+                'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
             ],
             static::EXCEPTION_CLASS,
             [$propertyName ?? $schema->getClassName(), '&$invalidProperties']
         );
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getCheck(): string
+    {
+        $this->removeRequiredPropertyValidator($this->validationProperty);
+
+        return parent::getCheck();
     }
 
     /**

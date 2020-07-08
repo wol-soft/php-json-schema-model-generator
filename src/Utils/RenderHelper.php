@@ -113,7 +113,7 @@ class RenderHelper
             return '';
         }
 
-        if ((!$outputType || $this->generatorConfiguration->isImplicitNullAllowed()) && !$property->isRequired()) {
+        if (($outputType || $this->generatorConfiguration->isImplicitNullAllowed()) && !$property->isRequired()) {
             $typeHint = implode('|', array_unique(array_merge(explode('|', $typeHint), ['null'])));
         }
 
