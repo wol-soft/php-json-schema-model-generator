@@ -101,10 +101,17 @@ class FilterProcessor
                         $schema->addUsedClass($typeAfterFilter->getName());
                     }
 
-                    $schema->addCustomSerializer(
-                            $property->getAttribute(),
-                            new TransformingFilterSerializer($property->getAttribute(), $filter, $filterOptions)
+                    if ($generatorConfiguration->hasSerializationEnabled()) {
+                        $schema->addMethod(
+                            "serialize{$property->getAttribute()}",
+                            new TransformingFilterSerializer(
+                                $property->getAttribute(),
+                                $filter,
+                                $filterOptions,
+                                $generatorConfiguration
+                            )
                         );
+                    }
                 }
             }
         }

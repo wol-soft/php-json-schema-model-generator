@@ -13,7 +13,6 @@ use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Utils\ClassNameGeneratorInterface;
 use PHPModelGenerator\Exception\ErrorRegistryException;
-use PHPModelGenerator\Exception\ValidationException;
 
 /**
  * Class GeneratorConfiguration

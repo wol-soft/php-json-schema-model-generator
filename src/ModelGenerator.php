@@ -9,6 +9,8 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\SerializationPostProcessor;
 use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
@@ -24,6 +26,8 @@ class ModelGenerator
 {
     /** @var GeneratorConfiguration */
     protected $generatorConfiguration;
+    /** @var PostProcessorInterface[] */
+    protected $postProcessors = [];
 
     /**
      * Generator constructor.
@@ -33,6 +37,22 @@ class ModelGenerator
     public function __construct(GeneratorConfiguration $generatorConfiguration = null)
     {
         $this->generatorConfiguration = $generatorConfiguration ?? new GeneratorConfiguration();
+
+        if ($this->generatorConfiguration->hasSerializationEnabled()) {
+            $this->addPostProcessor(new SerializationPostProcessor());
+        }
+    }
+
+    /**
+     * @param PostProcessorInterface $postProcessor
+     *
+     * @return $this
+     */
+    public function addPostProcessor(PostProcessorInterface $postProcessor): self
+    {
+        $this->postProcessors[] = $postProcessor;
+
+        return $this;
     }
 
     /**
@@ -93,7 +113,7 @@ class ModelGenerator
         }
 
         // render all collected classes
-        $renderQueue->execute($destination, $this->generatorConfiguration);
+        $renderQueue->execute($destination, $this->generatorConfiguration, $this->postProcessors);
 
         if ($this->generatorConfiguration->hasPrettyPrintEnabled()) {
             // @codeCoverageIgnoreStart

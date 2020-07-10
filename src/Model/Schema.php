@@ -5,7 +5,6 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\Model;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Model\Property\Serializer\TransformingFilterSerializer;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
@@ -22,8 +21,16 @@ class Schema
     protected $className;
     /** @var string */
     protected $classPath;
+
+    /** @var string[] */
+    protected $traits = [];
+    /** @var string[] */
+    protected $interfaces = [];
     /** @var PropertyInterface[] The properties which are part of the class */
     protected $properties = [];
+    /** @var MethodInterface[] */
+    protected $methods = [];
+
     /** @var PropertyValidatorInterface[] A Collection of validators which must be applied
      *                                    before adding properties to the model
      */
@@ -32,8 +39,6 @@ class Schema
     protected $usedClasses = [];
     /** @var SchemaNamespaceTransferDecorator[] */
     protected $namespaceTransferDecorators = [];
-    /** @var TransformingFilterSerializer[] */
-    protected $customSerializer = [];
 
     /** @var SchemaDefinitionDictionary */
     protected $schemaDefinitionDictionary;
@@ -196,23 +201,63 @@ class Schema
     }
 
     /**
-     * @param string $property
-     * @param TransformingFilterSerializer $serializer
+     * @param string $methodKey An unique key in the scope of the schema to identify the method
+     * @param MethodInterface $method
      *
      * @return $this
      */
-    public function addCustomSerializer(string $property, TransformingFilterSerializer $serializer): self
+    public function addMethod(string $methodKey, MethodInterface $method): self
     {
-        $this->customSerializer[$property] = $serializer;
+        $this->methods[$methodKey] = $method;
 
         return $this;
     }
 
     /**
-     * @return TransformingFilterSerializer[]
+     * @return MethodInterface[]
      */
-    public function getCustomSerializer(): array
+    public function getMethods(): array
     {
-        return $this->customSerializer;
+        return $this->methods;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getTraits(): array
+    {
+        return $this->traits;
+    }
+
+    /**
+     * @param string $trait
+     * @return Schema
+     */
+    public function addTrait(string $trait): self
+    {
+        $this->traits[] = $trait;
+        $this->addUsedClass($trait);
+
+        return $this;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getInterfaces(): array
+    {
+        return $this->interfaces;
+    }
+
+    /**
+     * @param string $interface
+     * @return Schema
+     */
+    public function addInterface(string $interface): self
+    {
+        $this->interfaces[] = $interface;
+        $this->addUsedClass($interface);
+
+        return $this;
     }
 }
