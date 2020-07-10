@@ -61,6 +61,16 @@ class RenderHelper
     }
 
     /**
+     * @param array $fqcns
+     *
+     * @return string
+     */
+    public function joinClassNames(array $fqcns): string
+    {
+        return join(', ', array_map([$this, 'getSimpleClassName'], $fqcns));
+    }
+
+    /**
      * Resolve all associated decorators of a property
      *
      * @param PropertyInterface $property

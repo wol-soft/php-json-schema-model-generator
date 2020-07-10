@@ -16,14 +16,9 @@ declare(strict_types = 1);
  * Class {{ class }}
 {% if namespace %} * @package {{ namespace }} {% endif %}
  */
-class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
-{% foreach schema.getInterfaces() as interface %}
-    , {{ viewHelper.getSimpleClassName(interface) }}
-{% endforeach %}
+class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinClassNames(schema.getInterfaces()) }}{% endif %}
 {
-    {% foreach schema.getTraits() as trait %}
-        use {{ viewHelper.getSimpleClassName(trait) }};
-    {% endforeach %}
+    {% if schema.getTraits() %}use {{ viewHelper.joinClassNames(schema.getTraits()) }};{% endif %}
 
     {% foreach schema.getProperties() as property %}
         /**{% if viewHelper.getTypeHintAnnotation(property, true) %} @var {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */

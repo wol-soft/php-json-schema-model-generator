@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model;
 
+use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
@@ -55,6 +56,8 @@ class Schema
         $this->className = $className;
         $this->classPath = $classPath;
         $this->schemaDefinitionDictionary = $dictionary ?? new SchemaDefinitionDictionary('');
+
+        $this->addInterface(JSONModelInterface::class);
     }
 
     /**
