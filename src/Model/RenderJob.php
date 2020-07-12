@@ -55,11 +55,12 @@ class RenderJob
 
     /**
      * @param PostProcessorInterface[] $postProcessors
+     * @param GeneratorConfiguration $generatorConfiguration
      */
-    public function postProcess(array $postProcessors)
+    public function postProcess(array $postProcessors, GeneratorConfiguration $generatorConfiguration)
     {
         foreach ($postProcessors as $postProcessor) {
-            $postProcessor->process($this->schema);
+            $postProcessor->process($this->schema, $generatorConfiguration);
         }
     }
 

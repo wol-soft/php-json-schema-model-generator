@@ -1,0 +1,42 @@
+/**
+ * Update the model with the provided data. If the update fails due to any violations an exception will be thrown and
+ * no properties of the model will be updated.
+ *
+ * @param array $modelData May contain any subset of the models properties
+ *
+ * @return self
+ *
+ * @throws \Exception
+ */
+public function populate(array $modelData): self
+{
+    {% if generatorConfiguration.collectErrors() %}
+        $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+    {% endif%}
+    $rollbackValues = [];
+
+    {% if schema.getBaseValidators() %}
+        $this->executeBaseValidators($modelData);
+    {% endif %}
+
+    {% foreach schema.getProperties() as property %}
+        if (array_key_exists('{{ property.getName() }}', $modelData)) {
+            $rollbackValues['{{ property.getAttribute() }}'] = $this->{{ property.getAttribute() }};
+            $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
+        }
+    {% endforeach %}
+
+    {% if generatorConfiguration.collectErrors() %}
+        if (count($this->errorRegistry->getErrors())) {
+            foreach ($rollbackValues as $property => $value) {
+                $this->{$property} = $value;
+            }
+
+            throw $this->errorRegistry;
+        }
+    {% endif %}
+
+    $this->rawModelDataInput = array_merge($this->rawModelDataInput, $modelData);
+
+    return $this;
+}

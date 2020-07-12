@@ -6,6 +6,7 @@ namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
 use JsonSerializable;
 use PHPModelGenerator\Interfaces\SerializationInterface;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Traits\SerializableTrait;
 
@@ -16,7 +17,7 @@ use PHPModelGenerator\Traits\SerializableTrait;
  */
 class SerializationPostProcessor implements PostProcessorInterface
 {
-    public function process(Schema $schema): void
+    public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
         $schema
             ->addTrait(SerializableTrait::class)

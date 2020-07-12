@@ -146,7 +146,10 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
-                sprintf('count($modelData) > %d', $propertyData['maxProperties']),
+                sprintf(
+                    'count(array_merge(array_keys($this->rawModelDataInput), array_keys($modelData))) > %d',
+                    $propertyData['maxProperties']
+                ),
                 MaxPropertiesException::class,
                 [$propertyName, $propertyData['maxProperties']]
             )
@@ -167,7 +170,10 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
-                sprintf('count($modelData) < %d', $propertyData['minProperties']),
+                sprintf(
+                    'count(array_merge(array_keys($this->rawModelDataInput), array_keys($modelData))) < %d',
+                    $propertyData['minProperties']
+                ),
                 MinPropertiesException::class,
                 [$propertyName, $propertyData['minProperties']]
             )

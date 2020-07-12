@@ -25,7 +25,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
         protected ${{ property.getAttribute() }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
     /** @var array */
-    private $rawModelDataInput;
+    private $rawModelDataInput = [];
 
     {% if generatorConfiguration.collectErrors() %}
         /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} Collect all validation errors */
@@ -57,21 +57,12 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
         {% endif%}
 
         {% if schema.getBaseValidators() %}
-            $value = $modelData;
+            $this->executeBaseValidators($modelData);
         {% endif %}
-
-        {% foreach schema.getBaseValidators() as validator %}
-            {{ validator.getValidatorSetUp() }}
-             if ({{ validator.getCheck() }}) {
-                {{ viewHelper.validationError(validator) }}
-            }
-        {% endforeach %}
 
         {% foreach schema.getProperties() as property %}
             $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
         {% endforeach %}
-
-        $this->rawModelDataInput = $modelData;
 
         {% if generatorConfiguration.collectErrors() %}
             {% if initialClass %}
@@ -80,7 +71,23 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
                 }
             {% endif%}
         {% endif%}
+
+        $this->rawModelDataInput = $modelData;
     }
+
+    {% if schema.getBaseValidators() %}
+        private function executeBaseValidators(array &$modelData): void
+        {
+            $value = $modelData;
+
+            {% foreach schema.getBaseValidators() as validator %}
+                {{ validator.getValidatorSetUp() }}
+                 if ({{ validator.getCheck() }}) {
+                    {{ viewHelper.validationError(validator) }}
+                }
+            {% endforeach %}
+        }
+    {% endif %}
 
     /**
      * Get the raw input used to set up the model
