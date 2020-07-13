@@ -70,6 +70,10 @@ Now let's have a look at the behaviour of the generated model:
     // if the update of the model fails no values will be updated
     $example->getRawModelDataInput(); // returns ['value' => 'Good night!', 'additionalValue' => 12]
 
+.. warning::
+
+    If the **PopulatePostProcessor** is added to your model generator the populate method will be added to the model independently of the `immutable setting <../gettingStarted.html#immutable-classes>`__.
+
 Custom Post Processors
 ----------------------
 
@@ -91,3 +95,7 @@ A custom post processor which adds a custom trait to the generated model (eg. a 
             $schema->addTrait(ActiveRecordTrait::class);
         }
     }
+
+.. hint::
+
+    For examples how to implement a custom post processor have a look at the built in post processors located at **src/SchemaProcessor/PostProcessor/**

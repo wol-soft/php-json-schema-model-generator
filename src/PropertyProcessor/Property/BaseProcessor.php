@@ -33,6 +33,16 @@ class BaseProcessor extends AbstractPropertyProcessor
 {
     protected const TYPE = 'object';
 
+    private const COUNT_PROPERTIES =
+        'count(
+            array_unique(
+                array_merge(
+                    array_keys($this->rawModelDataInput),
+                    array_keys($modelData)
+                )
+            )
+        )';
+
     /**
      * @inheritdoc
      *
@@ -147,7 +157,8 @@ class BaseProcessor extends AbstractPropertyProcessor
         $this->schema->addBaseValidator(
             new PropertyValidator(
                 sprintf(
-                    'count(array_merge(array_keys($this->rawModelDataInput), array_keys($modelData))) > %d',
+                    '%s > %d',
+                    self::COUNT_PROPERTIES,
                     $propertyData['maxProperties']
                 ),
                 MaxPropertiesException::class,
@@ -171,7 +182,8 @@ class BaseProcessor extends AbstractPropertyProcessor
         $this->schema->addBaseValidator(
             new PropertyValidator(
                 sprintf(
-                    'count(array_merge(array_keys($this->rawModelDataInput), array_keys($modelData))) < %d',
+                    '%s < %d',
+                    self::COUNT_PROPERTIES,
                     $propertyData['minProperties']
                 ),
                 MinPropertiesException::class,

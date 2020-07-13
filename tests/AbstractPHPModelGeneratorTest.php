@@ -29,6 +29,7 @@ use ReflectionType;
 abstract class AbstractPHPModelGeneratorTest extends TestCase
 {
     protected const EXTERNAL_JSON_DIRECTORIES = [];
+    protected const POST_PROCESSORS = [];
 
     private $names = [];
 
@@ -238,7 +239,12 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
             default: throw new Exception("Schema provider $schemaProviderClass not supported");
         }
 
-        $generatedFiles = (new ModelGenerator($generatorConfiguration))->generateModels(
+        $generator = new ModelGenerator($generatorConfiguration);
+        foreach (static::POST_PROCESSORS as $postProcessor) {
+            $generator->addPostProcessor(new $postProcessor());
+        }
+
+        $generatedFiles = $generator->generateModels(
             $schemaProvider,
             $baseDir . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR
         );
