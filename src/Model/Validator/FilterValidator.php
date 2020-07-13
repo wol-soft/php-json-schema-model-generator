@@ -24,6 +24,8 @@ class FilterValidator extends PropertyTemplateValidator
 {
     /** @var FilterInterface $filter */
     protected $filter;
+    /** @var array */
+    protected $filterOptions;
 
     /**
      * FilterValidator constructor.
@@ -45,6 +47,7 @@ class FilterValidator extends PropertyTemplateValidator
         ?TransformingFilterInterface $transformingFilter = null
     ) {
         $this->filter = $filter;
+        $this->filterOptions = $filterOptions;
 
         $transformingFilter === null
             ? $this->validateFilterCompatibilityWithBaseType($filter, $property)
@@ -198,5 +201,21 @@ class FilterValidator extends PropertyTemplateValidator
                 default: return $jsonSchemaType;
             }
         }, $acceptedTypes);
+    }
+
+    /**
+     * @return FilterInterface
+     */
+    public function getFilter(): FilterInterface
+    {
+        return $this->filter;
+    }
+
+    /**
+     * @return array
+     */
+    public function getFilterOptions(): array
+    {
+        return $this->filterOptions;
     }
 }

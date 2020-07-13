@@ -100,18 +100,6 @@ class FilterProcessor
                     if (!$typeAfterFilter->isBuiltin()) {
                         $schema->addUsedClass($typeAfterFilter->getName());
                     }
-
-                    if ($generatorConfiguration->hasSerializationEnabled()) {
-                        $schema->addMethod(
-                            "serialize{$property->getAttribute()}",
-                            new TransformingFilterSerializer(
-                                $property->getAttribute(),
-                                $filter,
-                                $filterOptions,
-                                $generatorConfiguration
-                            )
-                        );
-                    }
                 }
             }
         }
