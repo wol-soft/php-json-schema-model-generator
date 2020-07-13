@@ -4,6 +4,7 @@ namespace PHPModelGenerator\Tests;
 
 use Exception;
 use FilesystemIterator;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\SchemaProvider\OpenAPIv3Provider;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
 use PHPModelGenerator\Utils\ClassNameGenerator;
@@ -201,7 +202,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
             $generatorConfiguration->setClassNameGenerator(new class extends ClassNameGenerator {
                 public function getClassName(
                     string $propertyName,
-                    array $schema,
+                    JsonSchema $schema,
                     bool $isMergeClass,
                     string $currentClassName = ''
                 ): string {

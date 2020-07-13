@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Exception\Arrays\InvalidAdditionalTupleItemsException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
@@ -28,7 +29,7 @@ class AdditionalItemsValidator extends AdditionalPropertiesValidator
      *
      * @param SchemaProcessor $schemaProcessor
      * @param Schema          $schema
-     * @param array           $propertiesStructure
+     * @param JsonSchema      $propertiesStructure
      * @param string          $propertyName
      *
      * @throws SchemaException
@@ -36,7 +37,7 @@ class AdditionalItemsValidator extends AdditionalPropertiesValidator
     public function __construct(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        array $propertiesStructure,
+        JsonSchema $propertiesStructure,
         string $propertyName
     ) {
         parent::__construct($schemaProcessor, $schema, $propertiesStructure, $propertyName);

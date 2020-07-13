@@ -39,7 +39,7 @@ class SchemaDependencyValidator extends PropertyTemplateValidator
                 'propertyName' => $property->getName(),
                 'transferProperties' => $schema->getProperties(),
                 // set up a helper property for handling of the nested object
-                'nestedProperty' => (new Property("{$property->getName()}Dependency", ''))
+                'nestedProperty' => (new Property("{$property->getName()}Dependency", '', $schema->getJsonSchema()))
                     ->addDecorator(new ObjectInstantiationDecorator(
                         $schema->getClassName(),
                         $schemaProcessor->getGeneratorConfiguration()

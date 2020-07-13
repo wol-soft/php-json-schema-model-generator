@@ -6,6 +6,8 @@ namespace PHPModelGenerator\Model\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
@@ -18,6 +20,8 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInte
  */
 class Property implements PropertyInterface
 {
+    use JsonSchemaTrait;
+
     /** @var string */
     protected $name = '';
     /** @var string */
@@ -49,15 +53,17 @@ class Property implements PropertyInterface
      *
      * @param string $name
      * @param string $type
+     * @param JsonSchema $jsonSchema
      * @param string $description
      *
      * @throws SchemaException
      */
-    public function __construct(string $name, string $type, string $description = '')
+    public function __construct(string $name, string $type, JsonSchema $jsonSchema, string $description = '')
     {
         $this->attribute = $this->processAttributeName($name);
         $this->name = $name;
         $this->type = $type;
+        $this->jsonSchema = $jsonSchema;
         $this->description = $description;
     }
 

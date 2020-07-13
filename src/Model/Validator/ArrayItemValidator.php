@@ -11,6 +11,7 @@ use PHPModelGenerator\Exception\Arrays\InvalidItemException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
@@ -35,7 +36,7 @@ class ArrayItemValidator extends PropertyTemplateValidator
      *
      * @param SchemaProcessor   $schemaProcessor
      * @param Schema            $schema
-     * @param array             $itemStructure
+     * @param JsonSchema        $itemStructure
      * @param PropertyInterface $property
      *
      * @throws SchemaException
@@ -46,7 +47,7 @@ class ArrayItemValidator extends PropertyTemplateValidator
     public function __construct(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        array $itemStructure,
+        JsonSchema $itemStructure,
         PropertyInterface $property
     ) {
         $this->variableSuffix = '_' . uniqid();

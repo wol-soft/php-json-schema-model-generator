@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\TypeCheckValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -37,18 +38,18 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
 
     /**
      * @param string $propertyName
-     * @param array  $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @return PropertyInterface
      *
      * @throws SchemaException
      */
-    public function process(string $propertyName, array $propertyData): PropertyInterface
+    public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface
     {
-        $property = parent::process($propertyName, $propertyData);
+        $property = parent::process($propertyName, $propertySchema);
 
-        if (isset($propertyData['default'])) {
-            $this->setDefaultValue($property, $propertyData['default']);
+        if (isset($propertySchema->getJson()['default'])) {
+            $this->setDefaultValue($property, $propertySchema->getJson()['default']);
         }
 
         return $property;
@@ -77,9 +78,9 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
     /**
      * @inheritdoc
      */
-    protected function generateValidators(PropertyInterface $property, array $propertyData): void
+    protected function generateValidators(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        parent::generateValidators($property, $propertyData);
+        parent::generateValidators($property, $propertySchema);
 
         $property->addValidator(
             new TypeCheckValidator(static::TYPE, $property, $this->isImplicitNullAllowed($property)),

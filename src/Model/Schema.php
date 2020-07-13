@@ -6,6 +6,8 @@ namespace PHPModelGenerator\Model;
 
 use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
@@ -18,6 +20,8 @@ use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorat
  */
 class Schema
 {
+    use JsonSchemaTrait;
+
     /** @var string */
     protected $className;
     /** @var string */
@@ -47,14 +51,20 @@ class Schema
     /**
      * Schema constructor.
      *
-     * @param string                          $classPath
-     * @param string                          $className
+     * @param string $classPath
+     * @param string $className
+     * @param JsonSchema|null $schema
      * @param SchemaDefinitionDictionary|null $dictionary
      */
-    public function __construct(string $classPath, string $className, SchemaDefinitionDictionary $dictionary = null)
-    {
+    public function __construct(
+        string $classPath,
+        string $className,
+        JsonSchema $schema = null,
+        SchemaDefinitionDictionary $dictionary = null
+    ) {
         $this->className = $className;
         $this->classPath = $classPath;
+        $this->jsonSchema = $schema;
         $this->schemaDefinitionDictionary = $dictionary ?? new SchemaDefinitionDictionary('');
 
         $this->addInterface(JSONModelInterface::class);

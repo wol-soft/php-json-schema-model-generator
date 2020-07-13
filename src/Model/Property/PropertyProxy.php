@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
@@ -218,5 +219,13 @@ class PropertyProxy implements PropertyInterface
     public function getNestedSchema(): ?Schema
     {
         return $this->getProperty()->getNestedSchema();
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getJsonSchema(): JsonSchema
+    {
+        return $this->getProperty()->getJsonSchema();
     }
 }

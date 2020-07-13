@@ -6,6 +6,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
@@ -24,19 +25,19 @@ class ObjectProcessor extends AbstractTypedValueProcessor
      *
      * @throws SchemaException
      */
-    public function process(string $propertyName, array $propertyData): PropertyInterface
+    public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface
     {
-        $property = parent::process($propertyName, $propertyData);
+        $property = parent::process($propertyName, $propertySchema);
 
         $className = $this->schemaProcessor->getGeneratorConfiguration()->getClassNameGenerator()->getClassName(
             $propertyName,
-            $propertyData,
+            $propertySchema,
             false,
             $this->schemaProcessor->getCurrentClassName()
         );
 
         $schema = $this->schemaProcessor->processSchema(
-            $propertyData,
+            $propertySchema,
             $this->schemaProcessor->getCurrentClassPath(),
             $className,
             $this->schema->getSchemaDictionary()
@@ -47,7 +48,7 @@ class ObjectProcessor extends AbstractTypedValueProcessor
         }
 
         // if the generated schema is located in a different namespace (the schema for the given structure in
-        // $propertyData is duplicated) add used classes to the current schema. By importing the class which is
+        // $propertySchema is duplicated) add used classes to the current schema. By importing the class which is
         // represented by $schema and by transferring all imports of $schema as well as imports for all properties
         // of $schema to $this->schema the already generated schema can be used
         if ($schema->getClassPath() !== $this->schema->getClassPath() ||

@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\RenderJob;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
@@ -62,16 +63,15 @@ class SchemaProcessor
     /**
      * Process a given json schema file
      *
-     * @param array $jsonSchema
-     * @param string $sourcePath
+     * @param JsonSchema $jsonSchema
      *
      * @throws SchemaException
      */
-    public function process(array $jsonSchema, string $sourcePath): void
+    public function process(JsonSchema $jsonSchema): void
     {
-        $this->setCurrentClassPath($sourcePath);
+        $this->setCurrentClassPath($jsonSchema->getFile());
         $this->currentClassName = $this->generatorConfiguration->getClassNameGenerator()->getClassName(
-            str_ireplace('.json', '', basename($sourcePath)),
+            str_ireplace('.json', '', basename($jsonSchema->getFile())),
             $jsonSchema,
             false
         );
@@ -80,7 +80,7 @@ class SchemaProcessor
             $jsonSchema,
             $this->currentClassPath,
             $this->currentClassName,
-            new SchemaDefinitionDictionary(dirname($sourcePath)),
+            new SchemaDefinitionDictionary(dirname($jsonSchema->getFile())),
             true
         );
     }
@@ -88,7 +88,7 @@ class SchemaProcessor
     /**
      * Process a JSON schema stored as an associative array
      *
-     * @param array                      $jsonSchema
+     * @param JsonSchema                 $jsonSchema
      * @param string                     $classPath
      * @param string                     $className
      * @param SchemaDefinitionDictionary $dictionary   If a nested object of a schema is processed import the
@@ -101,14 +101,14 @@ class SchemaProcessor
      * @throws SchemaException
      */
     public function processSchema(
-        array $jsonSchema,
+        JsonSchema $jsonSchema,
         string $classPath,
         string $className,
         SchemaDefinitionDictionary $dictionary,
         bool $initialClass = false
     ): ?Schema {
-        if ((!isset($jsonSchema['type']) || $jsonSchema['type'] !== 'object') &&
-            !array_intersect(array_keys($jsonSchema), ['anyOf', 'allOf', 'oneOf', 'if', '$ref'])
+        if ((!isset($jsonSchema->getJson()['type']) || $jsonSchema->getJson()['type'] !== 'object') &&
+            !array_intersect(array_keys($jsonSchema->getJson()), ['anyOf', 'allOf', 'oneOf', 'if', '$ref'])
         ) {
             // skip the JSON schema as neither an object, a reference nor a composition is defined on the root level
             return null;
@@ -122,7 +122,7 @@ class SchemaProcessor
      *
      * @param string                     $classPath
      * @param string                     $className
-     * @param array                      $structure
+     * @param JsonSchema                 $jsonSchema
      * @param SchemaDefinitionDictionary $dictionary
      * @param bool                       $initialClass
      *
@@ -133,11 +133,11 @@ class SchemaProcessor
     protected function generateModel(
         string $classPath,
         string $className,
-        array $structure,
+        JsonSchema $jsonSchema,
         SchemaDefinitionDictionary $dictionary,
         bool $initialClass
     ): Schema {
-        $schemaSignature = md5(json_encode($structure));
+        $schemaSignature = md5(json_encode($jsonSchema->getJson()));
 
         if (!$initialClass && isset($this->processedSchema[$schemaSignature])) {
             if ($this->generatorConfiguration->isOutputEnabled()) {
@@ -148,16 +148,18 @@ class SchemaProcessor
             return $this->processedSchema[$schemaSignature];
         }
 
-        $schema = new Schema($classPath, $className, $dictionary);
+        $schema = new Schema($classPath, $className, $jsonSchema, $dictionary);
+
         $this->processedSchema[$schemaSignature] = $schema;
-        $structure['type'] = 'base';
+        $json = $jsonSchema->getJson();
+        $json['type'] = 'base';
 
         (new PropertyFactory(new PropertyProcessorFactory()))->create(
-            new PropertyMetaDataCollection($structure['required'] ?? []),
+            new PropertyMetaDataCollection($jsonSchema->getJson()['required'] ?? []),
             $this,
             $schema,
             $className,
-            $structure
+            $jsonSchema->withJson($json)
         );
 
         $this->generateClassFile($classPath, $className, $schema, $initialClass);

@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Utils;
 
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+
 /**
  * Class ClassNameGenerator
  *
@@ -16,7 +18,7 @@ class ClassNameGenerator implements ClassNameGeneratorInterface
      */
     public function getClassName(
         string $propertyName,
-        array $schema,
+        JsonSchema $schema,
         bool $isMergeClass,
         string $currentClassName = ''
     ): string {
@@ -24,8 +26,8 @@ class ClassNameGenerator implements ClassNameGeneratorInterface
             $isMergeClass ? '%s_Merged_%s' : '%s_%s',
             $currentClassName,
             ucfirst(
-                isset($schema['$id'])
-                    ? str_replace('#', '', $schema['$id'])
+                isset($schema->getJson()['$id'])
+                    ? str_replace('#', '', $schema->getJson()['$id'])
                     : ($propertyName . ($currentClassName ? uniqid() : ''))
             )
         );

@@ -53,6 +53,8 @@ class SerializationPostProcessor implements PostProcessorInterface
                 if ($validator instanceof FilterValidator &&
                     $validator->getFilter() instanceof TransformingFilterInterface
                 ) {
+                    [$serializerClass, $serializerMethod] = $validator->getFilter()->getSerializer();
+
                     $schema->addMethod(
                         "serialize{$property->getAttribute()}",
                         new RenderedMethod(
@@ -62,8 +64,8 @@ class SerializationPostProcessor implements PostProcessorInterface
                             [
 
                                 'property' => $property->getAttribute(),
-                                'serializerClass' => $validator->getFilter()->getSerializer()[0],
-                                'serializerMethod' => $validator->getFilter()->getSerializer()[1],
+                                'serializerClass' => $serializerClass,
+                                'serializerMethod' => $serializerMethod,
                                 'serializerOptions' => var_export($validator->getFilterOptions(), true),
                             ]
                         )

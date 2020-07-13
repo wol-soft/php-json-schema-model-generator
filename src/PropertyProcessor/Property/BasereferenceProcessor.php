@@ -6,6 +6,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 
 /**
  * Class BaseReferenceProcessor
@@ -19,14 +20,14 @@ class BasereferenceProcessor extends ReferenceProcessor
      *
      * @throws SchemaException
      */
-    public function process(string $propertyName, array $propertyData): PropertyInterface
+    public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface
     {
         // make sure definitions are available. By default the definition dictionary is set up by the BaseProcessor
         $this->schema
             ->getSchemaDictionary()
-            ->setUpDefinitionDictionary($propertyData, $this->schemaProcessor, $this->schema);
+            ->setUpDefinitionDictionary($this->schemaProcessor, $this->schema);
 
-        $property = parent::process($propertyName, $propertyData);
+        $property = parent::process($propertyName, $propertySchema);
 
         if (!$property->getNestedSchema()) {
             throw new SchemaException(

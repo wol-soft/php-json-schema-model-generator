@@ -6,6 +6,7 @@ namespace PHPModelGenerator\SchemaProvider;
 
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RecursiveRegexIterator;
@@ -54,7 +55,7 @@ class RecursiveDirectoryProvider implements SchemaProviderInterface
                 throw new SchemaException("Invalid JSON-Schema file {$file[0]}");
             }
 
-            yield [$file[0], $decodedJsonSchema];
+            yield new JsonSchema($file[0], $decodedJsonSchema);
         }
     }
 

@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
@@ -27,9 +28,11 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
     /**
      * @inheritdoc
      */
-    protected function generateValidators(PropertyInterface $property, array $propertyData): void
+    protected function generateValidators(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        if (!isset($propertyData['propertyData']['then']) && !isset($propertyData['propertyData']['else'])) {
+        $json = $propertySchema->getJson()['propertySchema']->getJson();
+
+        if (!isset($json['then']) && !isset($json['else'])) {
             throw new SchemaException('Incomplete conditional composition');
         }
 
@@ -38,7 +41,7 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
         $properties = [];
 
         foreach (['if', 'then', 'else'] as $compositionElement) {
-            if (!isset($propertyData['propertyData'][$compositionElement])) {
+            if (!isset($json[$compositionElement])) {
                 $properties[$compositionElement] = null;
                 continue;
             }
@@ -50,7 +53,7 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
                         $this->schemaProcessor,
                         $this->schema,
                         $property->getName(),
-                        $propertyData['propertyData'][$compositionElement]
+                        $propertySchema->getJson()['propertySchema']->withJson($json[$compositionElement])
                     )
             );
 
@@ -72,12 +75,12 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
                     'elseProperty' => $properties['else'],
                     'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
                     'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
-                    'onlyForDefinedValues' => $propertyData['onlyForDefinedValues'],
+                    'onlyForDefinedValues' => $propertySchema->getJson()['onlyForDefinedValues'],
                 ]
             ),
             100
         );
 
-        parent::generateValidators($property, $propertyData);
+        //parent::generateValidators($property, $propertySchema);
     }
 }

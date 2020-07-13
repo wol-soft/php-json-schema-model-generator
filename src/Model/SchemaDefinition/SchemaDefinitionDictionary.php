@@ -36,52 +36,55 @@ class SchemaDefinitionDictionary extends ArrayObject
     /**
      * Set up the definition directory for the schema
      *
-     * @param array           $propertyData
      * @param SchemaProcessor $schemaProcessor
-     * @param Schema          $schema
+     * @param Schema $schema
      */
-    public function setUpDefinitionDictionary(
-        array $propertyData,
-        SchemaProcessor $schemaProcessor,
-        Schema $schema
-    ): void {
+    public function setUpDefinitionDictionary(SchemaProcessor $schemaProcessor, Schema $schema): void {
         // attach the root node to the definition dictionary
-        $this->addDefinition('#', new SchemaDefinition($propertyData, $schemaProcessor, $schema));
+        $this->addDefinition('#', new SchemaDefinition($schema->getJsonSchema(), $schemaProcessor, $schema));
 
-        foreach ($propertyData as $key => $propertyEntry) {
+        foreach ($schema->getJsonSchema()->getJson() as $key => $propertyEntry) {
             if (!is_array($propertyEntry)) {
                 continue;
             }
 
             // add the root nodes of the schema to resolve path references
-            $this->addDefinition($key, new SchemaDefinition($propertyEntry, $schemaProcessor, $schema));
+            $this->addDefinition(
+                $key,
+                new SchemaDefinition($schema->getJsonSchema()->withJson($propertyEntry), $schemaProcessor, $schema)
+            );
         }
 
-        $this->fetchDefinitionsById($propertyData, $schemaProcessor, $schema);
+        $this->fetchDefinitionsById($schema->getJsonSchema(), $schemaProcessor, $schema);
     }
 
     /**
      * Fetch all schema definitions with an ID for direct references
      *
-     * @param array           $propertyData
+     * @param JsonSchema      $jsonSchema
      * @param SchemaProcessor $schemaProcessor
      * @param Schema          $schema
      */
-    protected function fetchDefinitionsById(array $propertyData, SchemaProcessor $schemaProcessor, Schema $schema): void
-    {
-        if (isset($propertyData['$id'])) {
+    protected function fetchDefinitionsById(
+        JsonSchema $jsonSchema,
+        SchemaProcessor $schemaProcessor,
+        Schema $schema
+    ): void {
+        $json = $jsonSchema->getJson();
+
+        if (isset($json['$id'])) {
             $this->addDefinition(
-                strpos($propertyData['$id'], '#') === 0 ? $propertyData['$id'] : "#{$propertyData['$id']}",
-                new SchemaDefinition($propertyData, $schemaProcessor, $schema)
+                strpos($json['$id'], '#') === 0 ? $json['$id'] : "#{$json['$id']}",
+                new SchemaDefinition($jsonSchema, $schemaProcessor, $schema)
             );
         }
 
-        foreach ($propertyData as $item) {
+        foreach ($json as $item) {
             if (!is_array($item)) {
                 continue;
             }
 
-            $this->fetchDefinitionsById($item, $schemaProcessor, $schema);
+            $this->fetchDefinitionsById($jsonSchema->withJson($item), $schemaProcessor, $schema);
         }
     }
 
@@ -176,8 +179,14 @@ class SchemaDefinitionDictionary extends ArrayObject
         }
 
         // set up a dummy schema to fetch the definitions from the external file
-        $schema = new Schema('ExternalSchema_' . uniqid(), '', new self(dirname($jsonSchemaFilePath)));
-        $schema->getSchemaDictionary()->setUpDefinitionDictionary($decodedJsonSchema, $schemaProcessor, $schema);
+        $schema = new Schema(
+            'ExternalSchema_' . uniqid(),
+            '',
+            new JsonSchema($jsonSchemaFilePath, $decodedJsonSchema),
+            new self(dirname($jsonSchemaFilePath))
+        );
+
+        $schema->getSchemaDictionary()->setUpDefinitionDictionary($schemaProcessor, $schema);
         $this->parsedExternalFileSchemas[$jsonSchemaFile] = $schema;
 
         return $schema->getSchemaDictionary()->getDefinition($externalKey, $schemaProcessor, $path);

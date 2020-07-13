@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
@@ -36,7 +37,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
      *
      * @param SchemaProcessor $schemaProcessor
      * @param Schema $schema
-     * @param array $propertiesStructure
+     * @param JsonSchema $propertiesStructure
      * @param string|null $propertyName
      *
      * @throws SchemaException
@@ -44,7 +45,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
     public function __construct(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        array $propertiesStructure,
+        JsonSchema $propertiesStructure,
         ?string $propertyName = null
     ) {
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
@@ -54,7 +55,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
             $schemaProcessor,
             $schema,
             static::PROPERTY_NAME,
-            $propertiesStructure[static::ADDITIONAL_PROPERTIES_KEY]
+            $propertiesStructure->withJson($propertiesStructure->getJson()[static::ADDITIONAL_PROPERTIES_KEY])
         );
 
         parent::__construct(
@@ -64,7 +65,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
                 'additionalProperties' => preg_replace(
                     '(\d+\s=>)',
                     '',
-                    var_export(array_keys($propertiesStructure[static::PROPERTIES_KEY] ?? []), true)
+                    var_export(array_keys($propertiesStructure->getJson()[static::PROPERTIES_KEY] ?? []), true)
                 ),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),

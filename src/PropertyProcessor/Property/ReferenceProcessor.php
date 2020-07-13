@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use Exception;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 
 /**
@@ -21,10 +22,10 @@ class ReferenceProcessor extends AbstractTypedValueProcessor
      *
      * @throws SchemaException
      */
-    public function process(string $propertyName, array $propertyData): PropertyInterface
+    public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface
     {
         $path = [];
-        $reference = $propertyData['$ref'];
+        $reference = $propertySchema->getJson()['$ref'];
         $dictionary = $this->schema->getSchemaDictionary();
 
         try {

@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
@@ -65,22 +66,22 @@ class MultiTypeProcessor extends AbstractValueProcessor
      * Process a property
      *
      * @param string $propertyName The name of the property
-     * @param array $propertyData An array containing the data of the property
+     * @param JsonSchema $propertySchema The schema of the property
      *
      * @return PropertyInterface
      *
      * @throws SchemaException
      * @throws ReflectionException
      */
-    public function process(string $propertyName, array $propertyData): PropertyInterface
+    public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface
     {
-        $property = parent::process($propertyName, $propertyData);
+        $property = parent::process($propertyName, $propertySchema);
 
         foreach ($property->getValidators() as $validator) {
             $this->checks[] = $validator->getValidator()->getCheck();
         }
 
-        $subProperties = $this->processSubProperties($propertyName, $propertyData, $property);
+        $subProperties = $this->processSubProperties($propertyName, $propertySchema, $property);
 
         if (empty($this->allowedPropertyTypes)) {
             return $property;
@@ -135,7 +136,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
 
     /**
      * @param string            $propertyName
-     * @param array             $propertyData
+     * @param JsonSchema        $propertySchema
      * @param PropertyInterface $property
      *
      * @return PropertyInterface[]
@@ -144,21 +145,22 @@ class MultiTypeProcessor extends AbstractValueProcessor
      */
     protected function processSubProperties(
         string $propertyName,
-        array $propertyData,
+        JsonSchema $propertySchema,
         PropertyInterface $property
     ): array {
         $defaultValue = null;
         $invalidDefaultValueException = null;
         $invalidDefaultValues = 0;
         $subProperties = [];
+        $json = $propertySchema->getJson();
 
-        if (isset($propertyData['default'])) {
-            $defaultValue = $propertyData['default'];
-            unset($propertyData['default']);
+        if (isset($json['default'])) {
+            $defaultValue = $json['default'];
+            unset($json['default']);
         }
 
         foreach ($this->propertyProcessors as $propertyProcessor) {
-            $subProperty = $propertyProcessor->process($propertyName, $propertyData);
+            $subProperty = $propertyProcessor->process($propertyName, $propertySchema->withJson($json));
             $this->transferValidators($subProperty, $property);
 
             if ($subProperty->hasDecorators()) {

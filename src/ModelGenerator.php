@@ -108,8 +108,8 @@ class ModelGenerator
             $renderQueue
         );
 
-        foreach ($schemaProvider->getSchemas() as [$filePath, $jsonSchema]) {
-            $schemaProcessor->process($jsonSchema, $filePath);
+        foreach ($schemaProvider->getSchemas() as $jsonSchema) {
+            $schemaProcessor->process($jsonSchema);
         }
 
         // render all collected classes

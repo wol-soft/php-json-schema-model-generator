@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\SchemaProvider;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 
 /**
  * Class OpenAPIv3Provider
@@ -52,7 +53,7 @@ class OpenAPIv3Provider implements SchemaProviderInterface
                 $schema['$id'] = $schemaKey;
             }
 
-            yield [$this->sourceFile, $schema];
+            yield new JsonSchema($this->sourceFile, $schema);
         }
     }
 
