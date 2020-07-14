@@ -95,4 +95,12 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTest
             ]
         );
     }
+
+    public function testIncompleteCompositionThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage('Incomplete conditional composition for property');
+
+        $this->generateClassFromFile('IncompleteConditional.json');
+    }
 }

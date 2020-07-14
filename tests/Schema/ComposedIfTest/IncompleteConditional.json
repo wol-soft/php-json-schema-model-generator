@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "country": {
+      "enum": [
+        "USA",
+        "Canada"
+      ]
+    }
+  },
+  "if": {
+    "properties": {
+      "country": {
+        "const": "USA"
+      }
+    }
+  }
+}
