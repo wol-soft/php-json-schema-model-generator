@@ -33,7 +33,13 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
         $json = $propertySchema->getJson()['propertySchema']->getJson();
 
         if (!isset($json['then']) && !isset($json['else'])) {
-            throw new SchemaException('Incomplete conditional composition');
+            throw new SchemaException(
+                sprintf(
+                    'Incomplete conditional composition for property %s in file %s',
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile()
+                )
+            );
         }
 
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());

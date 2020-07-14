@@ -107,7 +107,13 @@ class StringProcessor extends AbstractTypedValueProcessor
     protected function addFormatValidator(PropertyInterface $property, JsonSchema $propertySchema): void
     {
         if (isset($propertySchema->getJson()['format'])) {
-            throw new SchemaException('Format is currently not supported');
+            throw new SchemaException(
+                sprintf(
+                    'Format is currently not supported for property %s in file %s',
+                    $property->getName(),
+                    $propertySchema->getFile()
+                )
+            );
         }
     }
 }

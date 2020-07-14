@@ -31,7 +31,11 @@ class BasereferenceProcessor extends ReferenceProcessor
 
         if (!$property->getNestedSchema()) {
             throw new SchemaException(
-                "A referenced schema on base level must provide an object definition [$propertyName]"
+                sprintf(
+                    'A referenced schema on base level must provide an object definition for property %s in file %s',
+                    $propertyName,
+                    $propertySchema->getFile()
+                )
             );
         }
 

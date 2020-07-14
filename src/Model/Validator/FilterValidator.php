@@ -140,10 +140,11 @@ class FilterValidator extends PropertyTemplateValidator
         ) {
             throw new SchemaException(
                 sprintf(
-                    'Filter %s is not compatible with property type %s for property %s',
+                    'Filter %s is not compatible with property type %s for property %s in file %s',
                     $filter->getToken(),
                     $property->getType(),
-                    $property->getName()
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile()
                 )
             );
         }
@@ -174,10 +175,11 @@ class FilterValidator extends PropertyTemplateValidator
         ) {
             throw new SchemaException(
                 sprintf(
-                    'Filter %s is not compatible with transformed property type %s for property %s',
+                    'Filter %s is not compatible with transformed property type %s for property %s in file %s',
                     $filter->getToken(),
                     $transformedType->getName(),
-                    $property->getName()
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile()
                 )
             );
         }

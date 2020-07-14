@@ -53,13 +53,13 @@ class Schema
      *
      * @param string $classPath
      * @param string $className
-     * @param JsonSchema|null $schema
+     * @param JsonSchema $schema
      * @param SchemaDefinitionDictionary|null $dictionary
      */
     public function __construct(
         string $classPath,
         string $className,
-        JsonSchema $schema = null,
+        JsonSchema $schema,
         SchemaDefinitionDictionary $dictionary = null
     ) {
         $this->className = $className;

@@ -78,7 +78,7 @@ class SchemaDefinition
 
         while ($segment = array_shift($path)) {
             if (!isset($jsonSchema[$segment])) {
-                throw new SchemaException("Unresolved path segment: $segment");
+                throw new SchemaException("Unresolved path segment $segment in file {$this->source->getFile()}");
             }
 
             $jsonSchema = $jsonSchema[$segment];

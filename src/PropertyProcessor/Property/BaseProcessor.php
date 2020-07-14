@@ -254,7 +254,13 @@ class BaseProcessor extends AbstractPropertyProcessor
 
             foreach ($validator->getComposedProperties() as $composedProperty) {
                 if (!$composedProperty->getNestedSchema()) {
-                    throw new SchemaException('No nested schema for composed property found');
+                    throw new SchemaException(
+                        sprintf(
+                            "No nested schema for composed property %s in file %s found",
+                            $property->getName(),
+                            $property->getJsonSchema()->getFile()
+                        )
+                    );
                 }
 
                 foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {

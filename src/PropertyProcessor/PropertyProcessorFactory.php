@@ -42,7 +42,13 @@ class PropertyProcessorFactory implements ProcessorFactoryInterface
             return new MultiTypeProcessor($this, $type, $propertyMetaDataCollection, $schemaProcessor, $schema);
         }
 
-        throw new SchemaException('Invalid property type');
+        throw new SchemaException(
+            sprintf(
+                'Invalid property type %s in file %s',
+                $type,
+                $schema->getJsonSchema()->getFile()
+            )
+        );
     }
 
     /**
@@ -62,7 +68,13 @@ class PropertyProcessorFactory implements ProcessorFactoryInterface
     ): PropertyProcessorInterface {
         $processor = '\\PHPModelGenerator\\PropertyProcessor\\Property\\' . ucfirst(strtolower($type)) . 'Processor';
         if (!class_exists($processor)) {
-            throw new SchemaException("Unsupported property type $type");
+            throw new SchemaException(
+                sprintf(
+                    'Unsupported property type %s in file %s',
+                    $type,
+                    $schema->getJsonSchema()->getFile()
+                )
+            );
         }
 
         return new $processor($propertyMetaDataCollection, $schemaProcessor, $schema);

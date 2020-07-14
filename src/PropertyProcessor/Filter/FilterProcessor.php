@@ -59,7 +59,14 @@ class FilterProcessor
             }
 
             if (!($filter = $generatorConfiguration->getFilter($filterToken))) {
-                throw new SchemaException("Unsupported filter $filterToken");
+                throw new SchemaException(
+                    sprintf(
+                        'Unsupported filter %s on property %s in file %s',
+                        $filterToken,
+                        $property->getName(),
+                        $property->getJsonSchema()->getFile()
+                    )
+                );
             }
 
             $property->addValidator(
@@ -70,12 +77,20 @@ class FilterProcessor
             if ($filter instanceof TransformingFilterInterface) {
                 if ($property->getType() === 'array') {
                     throw new SchemaException(
-                        "Applying a transforming filter to the array property {$property->getName()} is not supported"
+                        sprintf(
+                            'Applying a transforming filter to the array property %s is not supported in file %s',
+                            $property->getName(),
+                            $property->getJsonSchema()->getFile()
+                        )
                     );
                 }
                 if ($transformingFilter) {
                     throw new SchemaException(
-                        "Applying multiple transforming filters for property {$property->getName()} is not supported"
+                        sprintf(
+                            'Applying multiple transforming filters for property %s is not supported in file %s',
+                            $property->getName(),
+                            $property->getJsonSchema()->getFile()
+                        )
                     );
                 }
 

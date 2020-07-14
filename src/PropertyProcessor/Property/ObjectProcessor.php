@@ -44,7 +44,13 @@ class ObjectProcessor extends AbstractTypedValueProcessor
         );
 
         if ($schema === null) {
-            throw new SchemaException("Failed to process schema for object property $propertyName");
+            throw new SchemaException(
+                sprintf(
+                    'Failed to process schema for object property %s in file %s',
+                    $propertyName,
+                    $propertySchema->getFile()
+                )
+            );
         }
 
         // if the generated schema is located in a different namespace (the schema for the given structure in

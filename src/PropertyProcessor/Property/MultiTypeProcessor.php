@@ -169,7 +169,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
 
             if ($defaultValue !== null && $propertyProcessor instanceof AbstractTypedValueProcessor) {
                 try {
-                    $propertyProcessor->setDefaultValue($property, $defaultValue);
+                    $propertyProcessor->setDefaultValue($property, $defaultValue, $propertySchema);
                 } catch (SchemaException $e) {
                     $invalidDefaultValues++;
                     $invalidDefaultValueException = $e;

@@ -49,7 +49,7 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
         $property = parent::process($propertyName, $propertySchema);
 
         if (isset($propertySchema->getJson()['default'])) {
-            $this->setDefaultValue($property, $propertySchema->getJson()['default']);
+            $this->setDefaultValue($property, $propertySchema->getJson()['default'], $propertySchema);
         }
 
         return $property;
@@ -57,11 +57,12 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
 
     /**
      * @param PropertyInterface $property
-     * @param                   $default
+     * @param mixed $default
+     * @param JsonSchema $propertySchema
      *
      * @throws SchemaException
      */
-    public function setDefaultValue(PropertyInterface $property, $default): void
+    public function setDefaultValue(PropertyInterface $property, $default, JsonSchema $propertySchema): void
     {
         // allow integer default values for Number properties
         if ($this instanceof NumberProcessor && is_int($default)) {
@@ -69,7 +70,13 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
         }
 
         if (!$this->getTypeCheckFunction()($default)) {
-            throw new SchemaException("Invalid type for default value of property {$property->getName()}");
+            throw new SchemaException(
+                sprintf(
+                    "Invalid type for default value of property %s in file %s",
+                    $property->getName(),
+                    $propertySchema->getFile()
+                )
+            );
         }
 
         $property->setDefaultValue($default);

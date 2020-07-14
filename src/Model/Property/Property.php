@@ -60,11 +60,12 @@ class Property implements PropertyInterface
      */
     public function __construct(string $name, string $type, JsonSchema $jsonSchema, string $description = '')
     {
-        $this->attribute = $this->processAttributeName($name);
         $this->name = $name;
         $this->type = $type;
         $this->jsonSchema = $jsonSchema;
         $this->description = $description;
+
+        $this->attribute = $this->processAttributeName($name);
     }
 
     /**
@@ -260,7 +261,13 @@ class Property implements PropertyInterface
         $attributeName = lcfirst(join('', $elements));
 
         if (empty($attributeName)) {
-            throw new SchemaException("Property name '$name' results in an empty attribute name");
+            throw new SchemaException(
+                sprintf(
+                    "Property name '%s' results in an empty attribute name in file %s",
+                    $name,
+                    $this->jsonSchema->getFile()
+                )
+            );
         }
 
         return $attributeName;
