@@ -9,6 +9,8 @@ use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\ComposedJsonSchema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
@@ -56,9 +58,11 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
     /**
      * @inheritdoc
      */
-    protected function generateValidators(PropertyInterface $property, array $propertyData): void
+    protected function generateValidators(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        if (empty($propertyData['propertyData'][$propertyData['type']]) &&
+        $json = $propertySchema->getJson()['propertySchema']->getJson();
+
+        if (empty($json[$propertySchema->getJson()['type']]) &&
             $this->schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()
         ) {
             // @codeCoverageIgnoreStart
@@ -66,7 +70,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             // @codeCoverageIgnoreEnd
         }
 
-        $compositionProperties = $this->getCompositionProperties($property, $propertyData);
+        $compositionProperties = $this->getCompositionProperties($property, $propertySchema);
 
         $this->transferPropertyType($property, $compositionProperties);
 
@@ -89,10 +93,11 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     'postPropose' => $this instanceof ComposedPropertiesInterface,
                     'mergedProperty' =>
                         !$this->rootLevelComposition && $this instanceof MergedComposedPropertiesInterface
-                            ? $this->createMergedProperty($property, $compositionProperties, $propertyData)
+                            ? $this->createMergedProperty($property, $compositionProperties, $propertySchema)
                             : null,
                     'onlyForDefinedValues' =>
-                        $propertyData['onlyForDefinedValues'] && $this instanceof ComposedPropertiesInterface,
+                        $propertySchema->getJson()['onlyForDefinedValues']
+                        && $this instanceof ComposedPropertiesInterface,
                 ]
             ),
             100
@@ -100,21 +105,22 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
     }
 
     /**
-     * Set up composition properties for the given propertyData schema
+     * Set up composition properties for the given property schema
      *
      * @param PropertyInterface $property
-     * @param array             $propertyData
+     * @param JsonSchema        $propertySchema
      *
      * @return CompositionPropertyDecorator[]
      *
      * @throws SchemaException
      */
-    protected function getCompositionProperties(PropertyInterface $property, array $propertyData): array
+    protected function getCompositionProperties(PropertyInterface $property, JsonSchema $propertySchema): array
     {
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
         $compositionProperties = [];
+        $json = $propertySchema->getJson()['propertySchema']->getJson();
 
-        foreach ($propertyData['propertyData'][$propertyData['type']] as $compositionElement) {
+        foreach ($json[$propertySchema->getJson()['type']] as $compositionElement) {
             $compositionProperty = new CompositionPropertyDecorator(
                 $propertyFactory
                     ->create(
@@ -122,7 +128,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                         $this->schemaProcessor,
                         $this->schema,
                         $property->getName(),
-                        $compositionElement
+                        $propertySchema->getJson()['propertySchema']->withJson($compositionElement)
                     )
             );
 
@@ -172,7 +178,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      *
      * @param PropertyInterface              $property
      * @param CompositionPropertyDecorator[] $compositionProperties
-     * @param array                          $propertyData
+     * @param JsonSchema                     $propertySchema
      *
      * @return PropertyInterface|null
      *
@@ -181,7 +187,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
     private function createMergedProperty(
         PropertyInterface $property,
         array $compositionProperties,
-        array $propertyData
+        JsonSchema $propertySchema
     ): ?PropertyInterface {
         $redirectToProperty = $this->redirectMergedProperty($compositionProperties);
         if ($redirectToProperty === null || $redirectToProperty instanceof PropertyInterface) {
@@ -197,7 +203,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             ->getClassNameGenerator()
             ->getClassName(
                 $property->getName(),
-                $propertyData['propertyData'],
+                $propertySchema,
                 true,
                 $this->schemaProcessor->getCurrentClassName()
             );
@@ -207,8 +213,9 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             return self::$generatedMergedProperties[$mergedClassName];
         }
 
-        $mergedPropertySchema = new Schema($this->schema->getClassPath(), $mergedClassName);
-        $mergedProperty = new Property('MergedProperty', $mergedClassName);
+        $mergedPropertySchema = new Schema($this->schema->getClassPath(), $mergedClassName, $propertySchema);
+
+        $mergedProperty = new Property('MergedProperty', $mergedClassName, $mergedPropertySchema->getJsonSchema());
         self::$generatedMergedProperties[$mergedClassName] = $mergedProperty;
 
         $this->transferPropertiesToMergedSchema($mergedPropertySchema, $compositionProperties);

@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "maxLength": 8,
+      "pattern": "^[a-zA-Z]*$"
+    },
+    "age": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": {
+    "type": "string"
+  },
+  "propertyNames": {
+    "pattern": "^[a-zA-Z]*$"
+  },
+  "maxProperties": 3,
+  "required": [
+    "name"
+  ]
+}

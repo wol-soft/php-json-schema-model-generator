@@ -4,8 +4,10 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model;
 
+use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Model\Property\Serializer\TransformingFilterSerializer;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
@@ -18,12 +20,22 @@ use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorat
  */
 class Schema
 {
+    use JsonSchemaTrait;
+
     /** @var string */
     protected $className;
     /** @var string */
     protected $classPath;
+
+    /** @var string[] */
+    protected $traits = [];
+    /** @var string[] */
+    protected $interfaces = [];
     /** @var PropertyInterface[] The properties which are part of the class */
     protected $properties = [];
+    /** @var MethodInterface[] */
+    protected $methods = [];
+
     /** @var PropertyValidatorInterface[] A Collection of validators which must be applied
      *                                    before adding properties to the model
      */
@@ -32,8 +44,6 @@ class Schema
     protected $usedClasses = [];
     /** @var SchemaNamespaceTransferDecorator[] */
     protected $namespaceTransferDecorators = [];
-    /** @var TransformingFilterSerializer[] */
-    protected $customSerializer = [];
 
     /** @var SchemaDefinitionDictionary */
     protected $schemaDefinitionDictionary;
@@ -41,15 +51,23 @@ class Schema
     /**
      * Schema constructor.
      *
-     * @param string                          $classPath
-     * @param string                          $className
+     * @param string $classPath
+     * @param string $className
+     * @param JsonSchema $schema
      * @param SchemaDefinitionDictionary|null $dictionary
      */
-    public function __construct(string $classPath, string $className, SchemaDefinitionDictionary $dictionary = null)
-    {
+    public function __construct(
+        string $classPath,
+        string $className,
+        JsonSchema $schema,
+        SchemaDefinitionDictionary $dictionary = null
+    ) {
         $this->className = $className;
         $this->classPath = $classPath;
+        $this->jsonSchema = $schema;
         $this->schemaDefinitionDictionary = $dictionary ?? new SchemaDefinitionDictionary('');
+
+        $this->addInterface(JSONModelInterface::class);
     }
 
     /**
@@ -196,23 +214,63 @@ class Schema
     }
 
     /**
-     * @param string $property
-     * @param TransformingFilterSerializer $serializer
+     * @param string $methodKey An unique key in the scope of the schema to identify the method
+     * @param MethodInterface $method
      *
      * @return $this
      */
-    public function addCustomSerializer(string $property, TransformingFilterSerializer $serializer): self
+    public function addMethod(string $methodKey, MethodInterface $method): self
     {
-        $this->customSerializer[$property] = $serializer;
+        $this->methods[$methodKey] = $method;
 
         return $this;
     }
 
     /**
-     * @return TransformingFilterSerializer[]
+     * @return MethodInterface[]
      */
-    public function getCustomSerializer(): array
+    public function getMethods(): array
     {
-        return $this->customSerializer;
+        return $this->methods;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getTraits(): array
+    {
+        return $this->traits;
+    }
+
+    /**
+     * @param string $trait
+     * @return Schema
+     */
+    public function addTrait(string $trait): self
+    {
+        $this->traits[] = $trait;
+        $this->addUsedClass($trait);
+
+        return $this;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getInterfaces(): array
+    {
+        return $this->interfaces;
+    }
+
+    /**
+     * @param string $interface
+     * @return Schema
+     */
+    public function addInterface(string $interface): self
+    {
+        $this->interfaces[] = $interface;
+        $this->addUsedClass($interface);
+
+        return $this;
     }
 }

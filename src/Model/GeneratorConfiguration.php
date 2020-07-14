@@ -13,7 +13,6 @@ use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Utils\ClassNameGeneratorInterface;
 use PHPModelGenerator\Exception\ErrorRegistryException;
-use PHPModelGenerator\Exception\ValidationException;
 
 /**
  * Class GeneratorConfiguration
@@ -67,22 +66,13 @@ class GeneratorConfiguration
      */
     public function addFilter(FilterInterface $filter): self
     {
-        if (!(count($filter->getFilter()) === 2) ||
-            !is_string($filter->getFilter()[0]) ||
-            !is_string($filter->getFilter()[1]) ||
-            !is_callable($filter->getFilter())
-        ) {
-            throw new InvalidFilterException("Invalid filter callback for filter {$filter->getToken()}");
-        }
+        $this->validateFilterCallback($filter->getFilter(), "Invalid filter callback for filter {$filter->getToken()}");
 
         if ($filter instanceof TransformingFilterInterface) {
-            if (!(count($filter->getSerializer()) === 2) ||
-                !is_string($filter->getSerializer()[0]) ||
-                !is_string($filter->getSerializer()[1]) ||
-                !is_callable($filter->getSerializer())
-            ) {
-                throw new InvalidFilterException("Invalid serializer callback for filter {$filter->getToken()}");
-            }
+            $this->validateFilterCallback(
+                $filter->getSerializer(),
+                "Invalid serializer callback for filter {$filter->getToken()}"
+            );
         }
 
         foreach ($filter->getAcceptedTypes() as $acceptedType) {
@@ -96,6 +86,23 @@ class GeneratorConfiguration
         $this->filter[$filter->getToken()] = $filter;
 
         return $this;
+    }
+
+    /**
+     * @param array $callback
+     * @param string $message
+     *
+     * @throws InvalidFilterException
+     */
+    private function validateFilterCallback(array $callback, string $message): void
+    {
+        if (!(count($callback) === 2) ||
+            !is_string($callback[0]) ||
+            !is_string($callback[1]) ||
+            !is_callable($callback)
+        ) {
+            throw new InvalidFilterException($message);
+        }
     }
 
     /**

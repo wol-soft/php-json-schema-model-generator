@@ -9,6 +9,7 @@ use PHPModelGenerator\Exception\String\MaxLengthException;
 use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Exception\String\PatternException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 
 /**
@@ -26,38 +27,40 @@ class StringProcessor extends AbstractTypedValueProcessor
 
     /**
      * @param PropertyInterface $property
-     * @param array             $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @throws SchemaException
      */
-    protected function generateValidators(PropertyInterface $property, array $propertyData): void
+    protected function generateValidators(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        parent::generateValidators($property, $propertyData);
+        parent::generateValidators($property, $propertySchema);
 
-        $this->addPatternValidator($property, $propertyData);
-        $this->addLengthValidator($property, $propertyData);
-        $this->addFormatValidator($property, $propertyData);
+        $this->addPatternValidator($property, $propertySchema);
+        $this->addLengthValidator($property, $propertySchema);
+        $this->addFormatValidator($property, $propertySchema);
     }
 
     /**
      * Add a regex pattern validator
      *
      * @param PropertyInterface $property
-     * @param array    $propertyData
+     * @param JsonSchema $propertySchema
      */
-    protected function addPatternValidator(PropertyInterface $property, array $propertyData): void
+    protected function addPatternValidator(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        if (!isset($propertyData[static::JSON_FIELD_PATTERN])) {
+        $json = $propertySchema->getJson();
+
+        if (!isset($json[static::JSON_FIELD_PATTERN])) {
             return;
         }
 
-        $propertyData[static::JSON_FIELD_PATTERN] = addcslashes($propertyData[static::JSON_FIELD_PATTERN], "'");
+        $json[static::JSON_FIELD_PATTERN] = addcslashes($json[static::JSON_FIELD_PATTERN], "'");
 
         $property->addValidator(
             new PropertyValidator(
-                $this->getTypeCheck() . "!preg_match('/{$propertyData[static::JSON_FIELD_PATTERN]}/', \$value)",
+                $this->getTypeCheck() . "!preg_match('/{$json[static::JSON_FIELD_PATTERN]}/', \$value)",
                 PatternException::class,
-                [$property->getName(), $propertyData[static::JSON_FIELD_PATTERN]]
+                [$property->getName(), $json[static::JSON_FIELD_PATTERN]]
             )
         );
     }
@@ -65,27 +68,29 @@ class StringProcessor extends AbstractTypedValueProcessor
     /**
      * Add min and max length validator
      *
-     * @param $property
-     * @param $propertyData
+     * @param PropertyInterface $property
+     * @param JsonSchema $propertySchema
      */
-    protected function addLengthValidator(PropertyInterface $property, array $propertyData): void
+    protected function addLengthValidator(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        if (isset($propertyData[static::JSON_FIELD_MIN_LENGTH])) {
+        $json = $propertySchema->getJson();
+
+        if (isset($json[static::JSON_FIELD_MIN_LENGTH])) {
             $property->addValidator(
                 new PropertyValidator(
-                    $this->getTypeCheck() . "mb_strlen(\$value) < {$propertyData[static::JSON_FIELD_MIN_LENGTH]}",
+                    $this->getTypeCheck() . "mb_strlen(\$value) < {$json[static::JSON_FIELD_MIN_LENGTH]}",
                     MinLengthException::class,
-                    [$property->getName(), $propertyData[static::JSON_FIELD_MIN_LENGTH]]
+                    [$property->getName(), $json[static::JSON_FIELD_MIN_LENGTH]]
                 )
             );
         }
 
-        if (isset($propertyData[static::JSON_FIELD_MAX_LENGTH])) {
+        if (isset($json[static::JSON_FIELD_MAX_LENGTH])) {
             $property->addValidator(
                 new PropertyValidator(
-                    $this->getTypeCheck() . "mb_strlen(\$value) > {$propertyData[static::JSON_FIELD_MAX_LENGTH]}",
+                    $this->getTypeCheck() . "mb_strlen(\$value) > {$json[static::JSON_FIELD_MAX_LENGTH]}",
                     MaxLengthException::class,
-                    [$property->getName(), $propertyData[static::JSON_FIELD_MAX_LENGTH]]
+                    [$property->getName(), $json[static::JSON_FIELD_MAX_LENGTH]]
                 )
             );
         }
@@ -95,14 +100,20 @@ class StringProcessor extends AbstractTypedValueProcessor
      * TODO: implement format validations
      *
      * @param PropertyInterface $property
-     * @param array             $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @throws SchemaException
      */
-    protected function addFormatValidator(PropertyInterface $property, array $propertyData): void
+    protected function addFormatValidator(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        if (isset($propertyData['format'])) {
-            throw new SchemaException('Format is currently not supported');
+        if (isset($propertySchema->getJson()['format'])) {
+            throw new SchemaException(
+                sprintf(
+                    'Format is currently not supported for property %s in file %s',
+                    $property->getName(),
+                    $propertySchema->getFile()
+                )
+            );
         }
     }
 }

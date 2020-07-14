@@ -9,6 +9,7 @@ use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -50,6 +51,17 @@ class RenderJob
         $this->className = $className;
         $this->schema = $schema;
         $this->initialClass = $initialClass;
+    }
+
+    /**
+     * @param PostProcessorInterface[] $postProcessors
+     * @param GeneratorConfiguration $generatorConfiguration
+     */
+    public function postProcess(array $postProcessors, GeneratorConfiguration $generatorConfiguration)
+    {
+        foreach ($postProcessors as $postProcessor) {
+            $postProcessor->process($this->schema, $generatorConfiguration);
+        }
     }
 
     /**
@@ -136,9 +148,7 @@ class RenderJob
                     'namespace'              => $namespace,
                     'use'                    => 'use ' . join(";\nuse ", array_unique($use)) . ';',
                     'class'                  => $this->className,
-                    'baseValidators'         => $this->schema->getBaseValidators(),
-                    'properties'             => $this->schema->getProperties(),
-                    'customSerializer'       => $this->schema->getCustomSerializer(),
+                    'schema'                 => $this->schema,
                     'generatorConfiguration' => $generatorConfiguration,
                     'viewHelper'             => new RenderHelper($generatorConfiguration),
                     'initialClass'           => $this->initialClass,

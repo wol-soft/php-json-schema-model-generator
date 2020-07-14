@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
@@ -29,7 +30,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
      *
      * @param SchemaProcessor $schemaProcessor
      * @param Schema          $schema
-     * @param array           $propertiesStructure
+     * @param JsonSchema      $propertiesStructure
      * @param string          $propertyName
      *
      * @throws SchemaException
@@ -37,13 +38,13 @@ class ArrayTupleValidator extends PropertyTemplateValidator
     public function __construct(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        array $propertiesStructure,
+        JsonSchema $propertiesStructure,
         string $propertyName
     ) {
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
         $this->tupleProperties = [];
-        foreach ($propertiesStructure as $tupleIndex => $tupleItem) {
+        foreach ($propertiesStructure->getJson() as $tupleIndex => $tupleItem) {
             $tupleItemName = "tuple item #$tupleIndex of array $propertyName";
 
             // an item of the array behaves like a nested property to add item-level validation
@@ -52,7 +53,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
                 $schemaProcessor,
                 $schema,
                 $tupleItemName,
-                $tupleItem
+                $propertiesStructure->withJson($tupleItem)
             );
         }
 

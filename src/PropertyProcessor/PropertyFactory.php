@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
@@ -36,7 +37,7 @@ class PropertyFactory
      * @param SchemaProcessor            $schemaProcessor
      * @param Schema                     $schema
      * @param string                     $propertyName
-     * @param array                      $propertyStructure
+     * @param JsonSchema                 $propertySchema
      *
      * @return PropertyInterface
      * @throws SchemaException
@@ -46,26 +47,28 @@ class PropertyFactory
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         string $propertyName,
-        array $propertyStructure
+        JsonSchema $propertySchema
     ): PropertyInterface {
+        $json = $propertySchema->getJson();
+
         // redirect properties with a constant value to the ConstProcessor
-        if (isset($propertyStructure['const'])) {
-            $propertyStructure['type'] = 'const';
+        if (isset($json['const'])) {
+            $json['type'] = 'const';
         }
         // redirect references to the ReferenceProcessor
-        if (isset($propertyStructure['$ref'])) {
-            $propertyStructure['type'] = isset($propertyStructure['type']) && $propertyStructure['type'] === 'base'
+        if (isset($json['$ref'])) {
+            $json['type'] = isset($json['type']) && $json['type'] === 'base'
                 ? 'baseReference'
                 : 'reference';
         }
 
         return $this->processorFactory
             ->getProcessor(
-                $propertyStructure['type'] ?? 'any',
+                $json['type'] ?? 'any',
                 $propertyMetaDataCollection,
                 $schemaProcessor,
                 $schema
             )
-            ->process($propertyName, $propertyStructure);
+            ->process($propertyName, $propertySchema);
     }
 }

@@ -3,6 +3,7 @@
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 
 /**
  * Class NotProcessor
@@ -14,13 +15,24 @@ class NotProcessor extends AbstractComposedValueProcessor
     /**
      * @inheritdoc
      */
-    protected function generateValidators(PropertyInterface $property, array $propertyData): void
+    protected function generateValidators(PropertyInterface $property, JsonSchema $propertySchema): void
     {
+        $json = $propertySchema->getJson()['propertySchema']->getJson();
+
         // as the not composition only takes one schema nest it one level deeper to use the ComposedValueProcessor
-        $propertyData['propertyData']['not'] = [$propertyData['propertyData']['not']];
+        $json['not'] = [$json['not']];
+
         // strict type checks for not constraint to avoid issues with null
         $property->setRequired(true);
-        parent::generateValidators($property, $propertyData);
+        parent::generateValidators(
+            $property,
+            $propertySchema->withJson(
+                array_merge(
+                    $propertySchema->getJson(),
+                    ['propertySchema' => $propertySchema->getJson()['propertySchema']->withJson($json)]
+                )
+            )
+        );
     }
 
     /**

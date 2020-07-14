@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "type": "integer",
+      "minimum": 10
+    }
+  ]
+}

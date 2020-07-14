@@ -280,3 +280,8 @@ Custom filter
     addFilter(FilterInterface $customFilter);
 
 Add a custom filter to the generator. For more details see `Filter <nonStandardExtensions/filter.html>`__.
+
+Post Processors
+---------------
+
+Additionally to the described generator configuration options you can add post processors to your model generator object to change or extend the generated code. For more details see `post processors <generator/postProcessor.html>`__.

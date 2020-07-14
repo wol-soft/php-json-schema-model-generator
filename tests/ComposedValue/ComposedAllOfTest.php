@@ -2,6 +2,7 @@
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use ReflectionMethod;
@@ -445,6 +446,14 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
             ['ObjectLevelCompositionNestedObject.json'],
             ['ObjectLevelNestedCompositionNestedObject.json'],
         ];
+    }
+
+    public function testNoNestedSchemaThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage('No nested schema for composed property');
+
+        $this->generateClassFromFile('NoNestedSchema.json');
     }
 
     /*

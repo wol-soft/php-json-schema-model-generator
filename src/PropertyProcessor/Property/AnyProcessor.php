@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 
 /**
  * Class AnyProcessor
@@ -15,16 +16,16 @@ class AnyProcessor extends AbstractValueProcessor
 {
     /**
      * @param string $propertyName
-     * @param array  $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @return PropertyInterface
      */
-    public function process(string $propertyName, array $propertyData): PropertyInterface
+    public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface
     {
-        $property = parent::process($propertyName, $propertyData);
+        $property = parent::process($propertyName, $propertySchema);
 
-        if (isset($propertyData['default'])) {
-            $property->setDefaultValue($propertyData['default']);
+        if (isset($propertySchema->getJson()['default'])) {
+            $property->setDefaultValue($propertySchema->getJson()['default']);
         }
 
         return $property;

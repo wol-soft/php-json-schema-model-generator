@@ -13,6 +13,7 @@ use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
@@ -33,11 +34,21 @@ class BaseProcessor extends AbstractPropertyProcessor
 {
     protected const TYPE = 'object';
 
+    private const COUNT_PROPERTIES =
+        'count(
+            array_unique(
+                array_merge(
+                    array_keys($this->rawModelDataInput),
+                    array_keys($modelData)
+                )
+            )
+        )';
+
     /**
      * @inheritdoc
      *
      * @param string $propertyName
-     * @param array  $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @return PropertyInterface
      *
@@ -46,22 +57,22 @@ class BaseProcessor extends AbstractPropertyProcessor
      * @throws SyntaxErrorException
      * @throws UndefinedSymbolException
      */
-    public function process(string $propertyName, array $propertyData): PropertyInterface
+    public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface
     {
         $this->schema
             ->getSchemaDictionary()
-            ->setUpDefinitionDictionary($propertyData, $this->schemaProcessor, $this->schema);
+            ->setUpDefinitionDictionary($this->schemaProcessor, $this->schema);
 
         // create a property which is used to gather composed properties validators.
-        $property = new BaseProperty($propertyName, static::TYPE);
-        $this->generateValidators($property, $propertyData);
+        $property = new BaseProperty($propertyName, static::TYPE, $propertySchema);
+        $this->generateValidators($property, $propertySchema);
 
-        $this->addPropertyNamesValidator($propertyData);
-        $this->addAdditionalPropertiesValidator($propertyData);
-        $this->addMinPropertiesValidator($propertyName, $propertyData);
-        $this->addMaxPropertiesValidator($propertyName, $propertyData);
+        $this->addPropertyNamesValidator($propertySchema);
+        $this->addAdditionalPropertiesValidator($propertySchema);
+        $this->addMinPropertiesValidator($propertyName, $propertySchema);
+        $this->addMaxPropertiesValidator($propertyName, $propertySchema);
 
-        $this->addPropertiesToSchema($propertyData);
+        $this->addPropertiesToSchema($propertySchema);
         $this->transferComposedPropertiesToSchema($property);
 
         return $property;
@@ -70,16 +81,16 @@ class BaseProcessor extends AbstractPropertyProcessor
     /**
      * Add a validator to check all provided property names
      *
-     * @param array $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @throws SchemaException
      * @throws FileSystemException
      * @throws SyntaxErrorException
      * @throws UndefinedSymbolException
      */
-    protected function addPropertyNamesValidator(array $propertyData): void
+    protected function addPropertyNamesValidator(JsonSchema $propertySchema): void
     {
-        if (!isset($propertyData['propertyNames'])) {
+        if (!isset($propertySchema->getJson()['propertyNames'])) {
             return;
         }
 
@@ -87,7 +98,7 @@ class BaseProcessor extends AbstractPropertyProcessor
             new PropertyNamesValidator(
                 $this->schemaProcessor,
                 $this->schema,
-                $propertyData['propertyNames']
+                $propertySchema->withJson($propertySchema->getJson()['propertyNames'])
             )
         );
     }
@@ -95,25 +106,27 @@ class BaseProcessor extends AbstractPropertyProcessor
     /**
      * Add an object validator to disallow properties which are not defined in the schema
      *
-     * @param array $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @throws FileSystemException
      * @throws SchemaException
      * @throws SyntaxErrorException
      * @throws UndefinedSymbolException
      */
-    protected function addAdditionalPropertiesValidator(array $propertyData): void
+    protected function addAdditionalPropertiesValidator(JsonSchema $propertySchema): void
     {
-        if (!isset($propertyData['additionalProperties']) || $propertyData['additionalProperties'] === true) {
+        $json = $propertySchema->getJson();
+
+        if (!isset($json['additionalProperties']) || $json['additionalProperties'] === true) {
             return;
         }
 
-        if (!is_bool($propertyData['additionalProperties'])) {
+        if (!is_bool($json['additionalProperties'])) {
             $this->schema->addBaseValidator(
                 new AdditionalPropertiesValidator(
                     $this->schemaProcessor,
                     $this->schema,
-                    $propertyData
+                    $propertySchema
                 )
             );
 
@@ -124,7 +137,7 @@ class BaseProcessor extends AbstractPropertyProcessor
             new PropertyValidator(
                 sprintf(
                     '$additionalProperties = array_diff(array_keys($modelData), %s)',
-                    preg_replace('(\d+\s=>)', '', var_export(array_keys($propertyData['properties'] ?? []), true))
+                    preg_replace('(\d+\s=>)', '', var_export(array_keys($json['properties'] ?? []), true))
                 ),
                 AdditionalPropertiesException::class,
                 [$this->schema->getClassName(), '&$additionalProperties']
@@ -136,19 +149,25 @@ class BaseProcessor extends AbstractPropertyProcessor
      * Add an object validator to limit the amount of provided properties
      *
      * @param string $propertyName
-     * @param array  $propertyData
+     * @param JsonSchema $propertySchema
      */
-    protected function addMaxPropertiesValidator(string $propertyName, array $propertyData): void
+    protected function addMaxPropertiesValidator(string $propertyName, JsonSchema $propertySchema): void
     {
-        if (!isset($propertyData['maxProperties'])) {
+        $json = $propertySchema->getJson();
+
+        if (!isset($json['maxProperties'])) {
             return;
         }
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
-                sprintf('count($modelData) > %d', $propertyData['maxProperties']),
+                sprintf(
+                    '%s > %d',
+                    self::COUNT_PROPERTIES,
+                    $json['maxProperties']
+                ),
                 MaxPropertiesException::class,
-                [$propertyName, $propertyData['maxProperties']]
+                [$propertyName, $json['maxProperties']]
             )
         );
     }
@@ -157,19 +176,25 @@ class BaseProcessor extends AbstractPropertyProcessor
      * Add an object validator to force at least the defined amount of properties to be provided
      *
      * @param string $propertyName
-     * @param array  $propertyData
+     * @param JsonSchema $propertySchema
      */
-    protected function addMinPropertiesValidator(string $propertyName, array $propertyData): void
+    protected function addMinPropertiesValidator(string $propertyName, JsonSchema $propertySchema): void
     {
-        if (!isset($propertyData['minProperties'])) {
+        $json = $propertySchema->getJson();
+
+        if (!isset($json['minProperties'])) {
             return;
         }
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
-                sprintf('count($modelData) < %d', $propertyData['minProperties']),
+                sprintf(
+                    '%s < %d',
+                    self::COUNT_PROPERTIES,
+                    $json['minProperties']
+                ),
                 MinPropertiesException::class,
-                [$propertyName, $propertyData['minProperties']]
+                [$propertyName, $json['minProperties']]
             )
         );
     }
@@ -177,26 +202,28 @@ class BaseProcessor extends AbstractPropertyProcessor
     /**
      * Add the properties defined in the JSON schema to the current schema model
      *
-     * @param array $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @throws SchemaException
      */
-    protected function addPropertiesToSchema(array $propertyData)
+    protected function addPropertiesToSchema(JsonSchema $propertySchema): void
     {
+        $json = $propertySchema->getJson();
+
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
         $propertyMetaDataCollection = new PropertyMetaDataCollection(
-            $propertyData['required'] ?? [],
-            $propertyData['dependencies'] ?? []
+            $json['required'] ?? [],
+            $json['dependencies'] ?? []
         );
 
-        foreach ($propertyData['properties'] ?? [] as $propertyName => $propertyStructure) {
+        foreach ($json['properties'] ?? [] as $propertyName => $propertyStructure) {
             $this->schema->addProperty(
                 $propertyFactory->create(
                     $propertyMetaDataCollection,
                     $this->schemaProcessor,
                     $this->schema,
                     $propertyName,
-                    $propertyStructure
+                    $propertySchema->withJson($propertyStructure)
                 )
             );
         }
@@ -210,7 +237,7 @@ class BaseProcessor extends AbstractPropertyProcessor
      *
      * @throws SchemaException
      */
-    protected function transferComposedPropertiesToSchema(PropertyInterface $property)
+    protected function transferComposedPropertiesToSchema(PropertyInterface $property): void
     {
         foreach ($property->getValidators() as $validator) {
             $validator = $validator->getValidator();
@@ -227,7 +254,13 @@ class BaseProcessor extends AbstractPropertyProcessor
 
             foreach ($validator->getComposedProperties() as $composedProperty) {
                 if (!$composedProperty->getNestedSchema()) {
-                    throw new SchemaException('No nested schema for composed property found');
+                    throw new SchemaException(
+                        sprintf(
+                            "No nested schema for composed property %s in file %s found",
+                            $property->getName(),
+                            $property->getJsonSchema()->getFile()
+                        )
+                    );
                 }
 
                 foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {

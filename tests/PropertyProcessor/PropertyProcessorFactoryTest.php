@@ -5,6 +5,7 @@ namespace PHPModelGenerator\Tests\PropertyProcessor;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\Property\ArrayProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\BooleanProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\IntegerProcessor;
@@ -40,7 +41,7 @@ class PropertyProcessorFactoryTest extends TestCase
             $type,
             new PropertyMetaDataCollection(),
             new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),
-            new Schema('', '')
+            new Schema('', '', new JsonSchema('', []))
         );
 
         $this->assertInstanceOf($expectedClass, $propertyProcessor);
@@ -78,7 +79,7 @@ class PropertyProcessorFactoryTest extends TestCase
             'Hello',
             new PropertyMetaDataCollection(),
             new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),
-            new Schema('', '')
+            new Schema('', '', new JsonSchema('', []))
         );
     }
 }

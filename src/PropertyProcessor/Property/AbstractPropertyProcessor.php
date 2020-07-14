@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
@@ -55,11 +56,11 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      * Generates the validators for the property
      *
      * @param PropertyInterface $property
-     * @param array $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @throws SchemaException
      */
-    protected function generateValidators(PropertyInterface $property, array $propertyData): void
+    protected function generateValidators(PropertyInterface $property, JsonSchema $propertySchema): void
     {
         if ($dependencies = $this->propertyMetaDataCollection->getAttributeDependencies($property->getName())) {
             $this->addDependencyValidator($property, $dependencies);
@@ -69,11 +70,11 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             $property->addValidator(new RequiredPropertyValidator($property), 1);
         }
 
-        if (isset($propertyData['enum'])) {
-            $this->addEnumValidator($property, $propertyData['enum']);
+        if (isset($propertySchema->getJson()['enum'])) {
+            $this->addEnumValidator($property, $propertySchema->getJson()['enum']);
         }
 
-        $this->addComposedValueValidator($property, $propertyData);
+        $this->addComposedValueValidator($property, $propertySchema);
     }
 
     /**
@@ -120,7 +121,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
         }
 
         $dependencySchema = $this->schemaProcessor->processSchema(
-            $dependencies,
+            new JsonSchema($this->schema->getJsonSchema()->getFile(), $dependencies),
             $this->schema->getClassPath(),
             ucfirst("{$property->getName()}_Dependency_" . uniqid()),
             $this->schema->getSchemaDictionary()
@@ -155,21 +156,21 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
 
     /**
      * @param PropertyInterface $property
-     * @param array             $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @throws SchemaException
      */
-    protected function addComposedValueValidator(PropertyInterface $property, array $propertyData): void
+    protected function addComposedValueValidator(PropertyInterface $property, JsonSchema $propertySchema): void
     {
         $composedValueKeywords = ['allOf', 'anyOf', 'oneOf', 'not', 'if'];
         $propertyFactory = new PropertyFactory(new ComposedValueProcessorFactory($property instanceof BaseProperty));
 
         foreach ($composedValueKeywords as $composedValueKeyword) {
-            if (!isset($propertyData[$composedValueKeyword])) {
+            if (!isset($propertySchema->getJson()[$composedValueKeyword])) {
                 continue;
             }
 
-            $propertyData = $this->inheritPropertyType($propertyData, $composedValueKeyword);
+            $propertySchema = $this->inheritPropertyType($propertySchema, $composedValueKeyword);
 
             $composedProperty = $propertyFactory
                 ->create(
@@ -177,11 +178,11 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                     $this->schemaProcessor,
                     $this->schema,
                     $property->getName(),
-                    [
+                    $propertySchema->withJson([
                         'type' => $composedValueKeyword,
-                        'propertyData' => $propertyData,
+                        'propertySchema' => $propertySchema,
                         'onlyForDefinedValues' => !($this instanceof BaseProcessor) && !$property->isRequired(),
-                    ]
+                    ])
                 );
 
             foreach ($composedProperty->getValidators() as $validator) {
@@ -200,60 +201,64 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      * If the type of a property containing a composition is defined outside of the composition make sure each
      * composition which doesn't define a type inherits the type
      *
-     * @param array $propertyData
+     * @param JsonSchema $propertySchema
      * @param string $composedValueKeyword
      *
-     * @return array
+     * @return JsonSchema
      */
-    protected function inheritPropertyType(array $propertyData, string $composedValueKeyword): array
+    protected function inheritPropertyType(JsonSchema $propertySchema, string $composedValueKeyword): JsonSchema
     {
-        if (!isset($propertyData['type'])) {
-            return $propertyData;
+        $json = $propertySchema->getJson();
+
+        if (!isset($json['type'])) {
+            return $propertySchema;
         }
 
-        if ($propertyData['type'] === 'base') {
-            $propertyData['type'] = 'object';
+        if ($json['type'] === 'base') {
+            $json['type'] = 'object';
         }
 
         switch ($composedValueKeyword) {
             case 'not':
-                if (!isset($propertyData[$composedValueKeyword]['type'])) {
-                    $propertyData[$composedValueKeyword]['type'] = $propertyData['type'];
+                if (!isset($json[$composedValueKeyword]['type'])) {
+                    $json[$composedValueKeyword]['type'] = $json['type'];
                 }
                 break;
             case 'if':
-                return $this->inheritIfPropertyType($propertyData);
+                return $this->inheritIfPropertyType($propertySchema->withJson($json));
             default:
-                foreach ($propertyData[$composedValueKeyword] as &$composedElement) {
+                foreach ($json[$composedValueKeyword] as &$composedElement) {
                     if (!isset($composedElement['type'])) {
-                        $composedElement['type'] = $propertyData['type'];
+                        $composedElement['type'] = $json['type'];
                     }
                 }
         }
 
-        return $propertyData;
+        return $propertySchema->withJson($json);
     }
 
     /**
      * Inherit the type of a property into all composed components of a conditional composition
      *
-     * @param array $propertyData
+     * @param JsonSchema $propertySchema
      *
-     * @return array
+     * @return JsonSchema
      */
-    protected function inheritIfPropertyType(array $propertyData): array
+    protected function inheritIfPropertyType(JsonSchema $propertySchema): JsonSchema
     {
+        $json = $propertySchema->getJson();
+
         foreach (['if', 'then', 'else'] as $composedValueKeyword) {
-            if (!isset($propertyData[$composedValueKeyword])) {
+            if (!isset($json[$composedValueKeyword])) {
                 continue;
             }
 
-            if (!isset($propertyData[$composedValueKeyword]['type'])) {
-                $propertyData[$composedValueKeyword]['type'] = $propertyData['type'];
+            if (!isset($json[$composedValueKeyword]['type'])) {
+                $json[$composedValueKeyword]['type'] = $json['type'];
             }
         }
 
-        return $propertyData;
+        return $propertySchema->withJson($json);
     }
 
     /**

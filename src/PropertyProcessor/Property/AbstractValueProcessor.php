@@ -8,7 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -47,21 +47,28 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
      * @throws ReflectionException
      * @throws SchemaException
      */
-    public function process(string $propertyName, array $propertyData): PropertyInterface
+    public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface
     {
-        $property = (new Property($propertyName, $this->type, $propertyData['description'] ?? ''))
+        $json = $propertySchema->getJson();
+
+        $property = (new Property(
+            $propertyName,
+            $this->type,
+            $propertySchema,
+            $json['description'] ?? ''
+        ))
             ->setRequired($this->propertyMetaDataCollection->isAttributeRequired($propertyName))
             ->setReadOnly(
-                (isset($propertyData['readOnly']) && $propertyData['readOnly'] === true) ||
+                (isset($json['readOnly']) && $json['readOnly'] === true) ||
                 $this->schemaProcessor->getGeneratorConfiguration()->isImmutable()
             );
 
-        $this->generateValidators($property, $propertyData);
+        $this->generateValidators($property, $propertySchema);
 
-        if (isset($propertyData['filter'])) {
+        if (isset($json['filter'])) {
             (new FilterProcessor())->process(
                 $property,
-                $propertyData['filter'],
+                $json['filter'],
                 $this->schemaProcessor->getGeneratorConfiguration(),
                 $this->schema
             );

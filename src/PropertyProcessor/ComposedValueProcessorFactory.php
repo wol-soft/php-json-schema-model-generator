@@ -38,9 +38,6 @@ class ComposedValueProcessorFactory implements ProcessorFactoryInterface
         Schema $schema
     ): PropertyProcessorInterface {
         $processor = '\\PHPModelGenerator\\PropertyProcessor\\ComposedValue\\' . ucfirst($type) . 'Processor';
-        if (!class_exists($processor)) {
-            throw new SchemaException("Unsupported composed value type $type");
-        }
 
         return new $processor($propertyMetaDataCollection, $schemaProcessor, $schema, $this->rootLevelComposition);
     }

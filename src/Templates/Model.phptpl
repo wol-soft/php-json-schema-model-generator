@@ -16,17 +16,16 @@ declare(strict_types = 1);
  * Class {{ class }}
 {% if namespace %} * @package {{ namespace }} {% endif %}
  */
-class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
-{% if generatorConfiguration.hasSerializationEnabled() %}, \PHPModelGenerator\Interfaces\SerializationInterface, \JsonSerializable{% endif %}
+class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinClassNames(schema.getInterfaces()) }}{% endif %}
 {
-    {% if generatorConfiguration.hasSerializationEnabled() %}use \PHPModelGenerator\Traits\SerializableTrait;{% endif %}
+    {% if schema.getTraits() %}use {{ viewHelper.joinClassNames(schema.getTraits()) }};{% endif %}
 
-    {% foreach properties as property %}
+    {% foreach schema.getProperties() as property %}
         /**{% if viewHelper.getTypeHintAnnotation(property, true) %} @var {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
         protected ${{ property.getAttribute() }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
     /** @var array */
-    private $rawModelDataInput;
+    private $rawModelDataInput = [];
 
     {% if generatorConfiguration.collectErrors() %}
         /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} Collect all validation errors */
@@ -57,22 +56,13 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
             {% endif %}
         {% endif%}
 
-        {% if baseValidators %}
-            $value = $modelData;
+        {% if schema.getBaseValidators() %}
+            $this->executeBaseValidators($modelData);
         {% endif %}
 
-        {% foreach baseValidators as validator %}
-            {{ validator.getValidatorSetUp() }}
-             if ({{ validator.getCheck() }}) {
-                {{ viewHelper.validationError(validator) }}
-            }
-        {% endforeach %}
-
-        {% foreach properties as property %}
+        {% foreach schema.getProperties() as property %}
             $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
         {% endforeach %}
-
-        $this->rawModelDataInput = $modelData;
 
         {% if generatorConfiguration.collectErrors() %}
             {% if initialClass %}
@@ -81,7 +71,23 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
                 }
             {% endif%}
         {% endif%}
+
+        $this->rawModelDataInput = $modelData;
     }
+
+    {% if schema.getBaseValidators() %}
+        private function executeBaseValidators(array &$modelData): void
+        {
+            $value = $modelData;
+
+            {% foreach schema.getBaseValidators() as validator %}
+                {{ validator.getValidatorSetUp() }}
+                 if ({{ validator.getCheck() }}) {
+                    {{ viewHelper.validationError(validator) }}
+                }
+            {% endforeach %}
+        }
+    {% endif %}
 
     /**
      * Get the raw input used to set up the model
@@ -93,7 +99,7 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
         return $this->rawModelDataInput;
     }
 
-    {% foreach properties as property %}
+    {% foreach schema.getProperties() as property %}
         /**
          * Get the value of {{ property.getName() }}.
          *
@@ -180,9 +186,7 @@ class {{ class }} implements \PHPModelGenerator\Interfaces\JSONModelInterface
         }
     {% endforeach %}
 
-    {% if generatorConfiguration.hasSerializationEnabled() %}
-        {% foreach customSerializer as serializer %}
-            {{ serializer.getSerializer(generatorConfiguration) }}
-        {% endforeach %}
-    {% endif %}
+    {% foreach schema.getMethods() as method %}
+        {{ method.getCode(generatorConfiguration) }}
+    {% endforeach %}
 }

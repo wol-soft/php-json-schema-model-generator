@@ -10,6 +10,7 @@ use PHPMicroTemplate\Exception\UndefinedSymbolException;
 use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\PropertyProcessor\Property\StringProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
@@ -27,8 +28,8 @@ class PropertyNamesValidator extends PropertyTemplateValidator
      * PropertyNamesValidator constructor.
      *
      * @param SchemaProcessor $schemaProcessor
-     * @param Schema          $schema
-     * @param array           $propertiesNames
+     * @param Schema $schema
+     * @param JsonSchema $propertiesNames
      *
      * @throws FileSystemException
      * @throws SyntaxErrorException
@@ -38,7 +39,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
     public function __construct(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        array $propertiesNames
+        JsonSchema $propertiesNames
     ) {
         $nameValidationProperty = (new StringProcessor(new PropertyMetaDataCollection(), $schemaProcessor, $schema))
             ->process('property name', $propertiesNames)

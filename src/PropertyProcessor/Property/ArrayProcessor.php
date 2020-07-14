@@ -14,6 +14,7 @@ use PHPModelGenerator\Exception\Arrays\MinItemsException;
 use PHPModelGenerator\Exception\Arrays\UniqueItemsException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AdditionalItemsValidator;
 use PHPModelGenerator\Model\Validator\ArrayItemValidator;
 use PHPModelGenerator\Model\Validator\ArrayTupleValidator;
@@ -40,47 +41,49 @@ class ArrayProcessor extends AbstractTypedValueProcessor
 
     /**
      * @param PropertyInterface $property
-     * @param array             $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @throws FileSystemException
      * @throws SchemaException
      * @throws SyntaxErrorException
      * @throws UndefinedSymbolException
      */
-    protected function generateValidators(PropertyInterface $property, array $propertyData): void
+    protected function generateValidators(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        parent::generateValidators($property, $propertyData);
+        parent::generateValidators($property, $propertySchema);
 
-        $this->addLengthValidation($property, $propertyData);
-        $this->addUniqueItemsValidation($property, $propertyData);
-        $this->addItemsValidation($property, $propertyData);
-        $this->addContainsValidation($property, $propertyData);
+        $this->addLengthValidation($property, $propertySchema);
+        $this->addUniqueItemsValidation($property, $propertySchema);
+        $this->addItemsValidation($property, $propertySchema);
+        $this->addContainsValidation($property, $propertySchema);
     }
 
     /**
      * Add the vaidation for the allowed amount of items in the array
      *
      * @param PropertyInterface $property
-     * @param array    $propertyData
+     * @param JsonSchema $propertySchema
      */
-    private function addLengthValidation(PropertyInterface $property, array $propertyData): void
+    private function addLengthValidation(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        if (isset($propertyData[self::JSON_FIELD_MIN_ITEMS])) {
+        $json = $propertySchema->getJson();
+
+        if (isset($json[self::JSON_FIELD_MIN_ITEMS])) {
             $property->addValidator(
                 new PropertyValidator(
-                    $this->getTypeCheck() . "count(\$value) < {$propertyData[self::JSON_FIELD_MIN_ITEMS]}",
+                    $this->getTypeCheck() . "count(\$value) < {$json[self::JSON_FIELD_MIN_ITEMS]}",
                     MinItemsException::class,
-                    [$property->getName(), $propertyData[self::JSON_FIELD_MIN_ITEMS]]
+                    [$property->getName(), $json[self::JSON_FIELD_MIN_ITEMS]]
                 )
             );
         }
 
-        if (isset($propertyData[self::JSON_FIELD_MAX_ITEMS])) {
+        if (isset($json[self::JSON_FIELD_MAX_ITEMS])) {
             $property->addValidator(
                 new PropertyValidator(
-                    $this->getTypeCheck() . "count(\$value) > {$propertyData[self::JSON_FIELD_MAX_ITEMS]}",
+                    $this->getTypeCheck() . "count(\$value) > {$json[self::JSON_FIELD_MAX_ITEMS]}",
                     MaxItemsException::class,
-                    [$property->getName(), $propertyData[self::JSON_FIELD_MAX_ITEMS]]
+                    [$property->getName(), $json[self::JSON_FIELD_MAX_ITEMS]]
                 )
             );
         }
@@ -90,11 +93,13 @@ class ArrayProcessor extends AbstractTypedValueProcessor
      * Add the validator to check if the items inside an array are unique
      *
      * @param PropertyInterface $property
-     * @param array             $propertyData
+     * @param JsonSchema $propertySchema
      */
-    private function addUniqueItemsValidation(PropertyInterface $property, array $propertyData): void
+    private function addUniqueItemsValidation(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        if (!isset($propertyData['uniqueItems']) || $propertyData['uniqueItems'] !== true) {
+        $json = $propertySchema->getJson();
+
+        if (!isset($json['uniqueItems']) || $json['uniqueItems'] !== true) {
             return;
         }
 
@@ -111,25 +116,27 @@ class ArrayProcessor extends AbstractTypedValueProcessor
      * Add the validator to check for constraints required for each item
      *
      * @param PropertyInterface $property
-     * @param array             $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @throws FileSystemException
      * @throws SchemaException
      * @throws SyntaxErrorException
      * @throws UndefinedSymbolException
      */
-    private function addItemsValidation(PropertyInterface $property, array $propertyData): void
+    private function addItemsValidation(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        if (!isset($propertyData[self::JSON_FIELD_ITEMS])) {
+        $json = $propertySchema->getJson();
+
+        if (!isset($json[self::JSON_FIELD_ITEMS])) {
             return;
         }
 
         // check if the items require a tuple validation
-        if (is_array($propertyData[self::JSON_FIELD_ITEMS]) &&
-            array_keys($propertyData[self::JSON_FIELD_ITEMS]) ===
-                range(0, count($propertyData[self::JSON_FIELD_ITEMS]) - 1)
+        if (is_array($json[self::JSON_FIELD_ITEMS]) &&
+            array_keys($json[self::JSON_FIELD_ITEMS]) ===
+                range(0, count($json[self::JSON_FIELD_ITEMS]) - 1)
         ) {
-            $this->addTupleValidator($property, $propertyData);
+            $this->addTupleValidator($property, $propertySchema);
 
             return;
         }
@@ -138,7 +145,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             new ArrayItemValidator(
                 $this->schemaProcessor,
                 $this->schema,
-                $propertyData[self::JSON_FIELD_ITEMS],
+                $propertySchema->withJson($json[self::JSON_FIELD_ITEMS]),
                 $property
             )
         );
@@ -148,24 +155,26 @@ class ArrayProcessor extends AbstractTypedValueProcessor
      * Add the validator to check a tuple validation for each item of the array
      *
      * @param PropertyInterface $property
-     * @param array $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @throws SchemaException
      * @throws FileSystemException
      * @throws SyntaxErrorException
      * @throws UndefinedSymbolException
      */
-    private function addTupleValidator(PropertyInterface $property, array $propertyData): void
+    private function addTupleValidator(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        if (isset($propertyData['additionalItems']) && $propertyData['additionalItems'] !== true) {
-            $this->addAdditionalItemsValidator($property, $propertyData);
+        $json = $propertySchema->getJson();
+
+        if (isset($json['additionalItems']) && $json['additionalItems'] !== true) {
+            $this->addAdditionalItemsValidator($property, $propertySchema);
         }
 
         $property->addValidator(
             new ArrayTupleValidator(
                 $this->schemaProcessor,
                 $this->schema,
-                $propertyData[self::JSON_FIELD_ITEMS],
+                $propertySchema->withJson($json[self::JSON_FIELD_ITEMS]),
                 $property->getName()
             )
         );
@@ -173,21 +182,23 @@ class ArrayProcessor extends AbstractTypedValueProcessor
 
     /**
      * @param PropertyInterface $property
-     * @param array             $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @throws FileSystemException
      * @throws SchemaException
      * @throws SyntaxErrorException
      * @throws UndefinedSymbolException
      */
-    private function addAdditionalItemsValidator(PropertyInterface $property, array $propertyData): void
+    private function addAdditionalItemsValidator(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        if (!is_bool($propertyData['additionalItems'])) {
+        $json = $propertySchema->getJson();
+
+        if (!is_bool($json['additionalItems'])) {
             $property->addValidator(
                 new AdditionalItemsValidator(
                     $this->schemaProcessor,
                     $this->schema,
-                    $propertyData,
+                    $propertySchema,
                     $property->getName()
                 )
             );
@@ -195,7 +206,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             return;
         }
 
-        $expectedAmount = count($propertyData[self::JSON_FIELD_ITEMS]);
+        $expectedAmount = count($json[self::JSON_FIELD_ITEMS]);
 
         $property->addValidator(
             new PropertyValidator(
@@ -210,13 +221,13 @@ class ArrayProcessor extends AbstractTypedValueProcessor
      * Add the validator to check for constraints required for at least one item
      *
      * @param PropertyInterface $property
-     * @param array             $propertyData
+     * @param JsonSchema $propertySchema
      *
      * @throws SchemaException
      */
-    private function addContainsValidation(PropertyInterface $property, array $propertyData): void
+    private function addContainsValidation(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        if (!isset($propertyData[self::JSON_FIELD_CONTAINS])) {
+        if (!isset($propertySchema->getJson()[self::JSON_FIELD_CONTAINS])) {
             return;
         }
 
@@ -227,7 +238,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                 $this->schemaProcessor,
                 $this->schema,
                 "item of array {$property->getName()}",
-                $propertyData[self::JSON_FIELD_CONTAINS]
+                $propertySchema->withJson($propertySchema->getJson()[self::JSON_FIELD_CONTAINS])
             );
 
         $property->addValidator(

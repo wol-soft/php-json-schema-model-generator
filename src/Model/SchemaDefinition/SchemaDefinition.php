@@ -23,8 +23,8 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
  */
 class SchemaDefinition
 {
-    /** @var array */
-    protected $structure;
+    /** @var JsonSchema */
+    protected $source;
     /** @var SchemaProcessor */
     protected $schemaProcessor;
     /** @var Schema */
@@ -35,13 +35,13 @@ class SchemaDefinition
     /**
      * SchemaDefinition constructor.
      *
-     * @param array           $structure
+     * @param JsonSchema $jsonSchema
      * @param SchemaProcessor $schemaProcessor
-     * @param Schema          $schema
+     * @param Schema $schema
      */
-    public function __construct(array $structure, SchemaProcessor $schemaProcessor, Schema $schema)
+    public function __construct(JsonSchema $jsonSchema, SchemaProcessor $schemaProcessor, Schema $schema)
     {
-        $this->structure = $structure;
+        $this->source = $jsonSchema;
         $this->schemaProcessor = $schemaProcessor;
         $this->schema = $schema;
 
@@ -73,15 +73,15 @@ class SchemaDefinition
         array $path,
         PropertyMetaDataCollection $propertyMetaDataCollection
     ): PropertyInterface {
-        $structure = $this->structure;
+        $jsonSchema = $this->source->getJson();
         $originalPath = $path;
 
         while ($segment = array_shift($path)) {
-            if (!isset($structure[$segment])) {
-                throw new SchemaException("Unresolved path segment: $segment");
+            if (!isset($jsonSchema[$segment])) {
+                throw new SchemaException("Unresolved path segment $segment in file {$this->source->getFile()}");
             }
 
-            $structure = $structure[$segment];
+            $jsonSchema = $jsonSchema[$segment];
         }
 
         $key = implode('-', $originalPath);
@@ -98,7 +98,7 @@ class SchemaDefinition
                         $this->schemaProcessor,
                         $this->schema,
                         $propertyName,
-                        $structure
+                        $this->source->withJson($jsonSchema)
                     )
                 );
             } catch (PHPModelGeneratorException $exception) {

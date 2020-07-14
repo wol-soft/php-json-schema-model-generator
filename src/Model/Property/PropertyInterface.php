@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Property;
 
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
@@ -179,4 +180,11 @@ interface PropertyInterface
      * @return null|Schema
      */
     public function getNestedSchema(): ?Schema;
+
+    /**
+     * Get the JSON schema used to set up the property
+     *
+     * @return JsonSchema
+     */
+    public function getJsonSchema(): JsonSchema;
 }
