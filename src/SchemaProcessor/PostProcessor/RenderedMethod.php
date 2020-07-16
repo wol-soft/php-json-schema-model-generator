@@ -57,6 +57,7 @@ class RenderedMethod implements MethodInterface
             $this->template,
             array_merge(
                 [
+                    'true' => true,
                     'schema' => $this->schema,
                     'viewHelper' => new RenderHelper($this->generatorConfiguration),
                     'generatorConfiguration' => $this->generatorConfiguration,

@@ -27,7 +27,7 @@ class TypeHintDecorator implements TypeHintDecoratorInterface
     /**
      * @inheritdoc
      */
-    public function decorate(string $input): string
+    public function decorate(string $input, bool $outputType = false): string
     {
         return implode('|', array_unique(array_filter(array_merge(explode('|', $input), $this->types))));
     }

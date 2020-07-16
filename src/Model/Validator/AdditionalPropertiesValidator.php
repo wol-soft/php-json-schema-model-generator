@@ -31,6 +31,8 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
 
     /** @var PropertyInterface */
     private $validationProperty;
+    /** @var bool */
+    private $collectAdditionalProperties = false;
 
     /**
      * AdditionalPropertiesValidator constructor.
@@ -69,6 +71,8 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
                 ),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
+                // by default don't collect additional property data
+                'collectAdditionalProperties' => &$this->collectAdditionalProperties,
             ],
             static::EXCEPTION_CLASS,
             [$propertyName ?? $schema->getClassName(), '&$invalidProperties']
@@ -83,6 +87,22 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
         $this->removeRequiredPropertyValidator($this->validationProperty);
 
         return parent::getCheck();
+    }
+
+    /**
+     * @param bool $collectAdditionalProperties
+     */
+    public function setCollectAdditionalProperties(bool $collectAdditionalProperties): void
+    {
+        $this->collectAdditionalProperties = $collectAdditionalProperties;
+    }
+
+    /**
+     * @return PropertyInterface
+     */
+    public function getValidationProperty(): PropertyInterface
+    {
+        return $this->validationProperty;
     }
 
     /**
