@@ -27,7 +27,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterface
 {
     /**
-     * Add serialization support to the provided schema
+     * Add methods to handle additional properties to the provided schema
      *
      * @param Schema $schema
      * @param GeneratorConfiguration $generatorConfiguration
@@ -61,6 +61,12 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
         }
     }
 
+    /**
+     * Adds an array property to the schema which holds all additional properties
+     *
+     * @param Schema $schema
+     * @param PropertyInterface|null $validationProperty
+     */
     private function addAdditionalPropertiesCollectionProperty(
         Schema $schema,
         ?PropertyInterface $validationProperty
@@ -83,6 +89,14 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
         $schema->addProperty($additionalPropertiesCollectionProperty);
     }
 
+    /**
+     * Adds a custom serialization function to the schema to merge all additional properties into the serialization
+     * result on serializations
+     *
+     * @param Schema $schema
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param PropertyInterface|null $validationProperty
+     */
     private function addSerializeAdditionalPropertiesMethod(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
@@ -121,6 +135,13 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
         );
     }
 
+    /**
+     * Adds a method to add or update an additional property
+     *
+     * @param Schema $schema
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param PropertyInterface|null $validationProperty
+     */
     private function addSetAdditionalPropertyMethod(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
@@ -152,6 +173,12 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
         );
     }
 
+    /**
+     * Adds a method to remove an additional property from the object via property key
+     *
+     * @param Schema $schema
+     * @param GeneratorConfiguration $generatorConfiguration
+     */
     private function addRemoveAdditionalPropertyMethod(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration
@@ -181,6 +208,13 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
         );
     }
 
+    /**
+     * Adds a method to get a single additional property via property key
+     *
+     * @param Schema $schema
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param PropertyInterface|null $validationProperty
+     */
     private function addGetAdditionalPropertyMethod(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
