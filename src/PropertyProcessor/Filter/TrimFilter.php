@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
+use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\Trim;
 
 /**

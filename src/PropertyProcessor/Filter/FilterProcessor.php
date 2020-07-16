@@ -5,9 +5,9 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Model\Property\Serializer\TransformingFilterSerializer;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\EnumValidator;

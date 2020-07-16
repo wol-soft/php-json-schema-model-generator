@@ -8,11 +8,11 @@ use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\Filter\FilterInterface;
+use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Filter\Trim;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
-use PHPModelGenerator\PropertyProcessor\Filter\FilterInterface;
-use PHPModelGenerator\PropertyProcessor\Filter\TransformingFilterInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 

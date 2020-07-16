@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
 use PHPModelGenerator\Filter\DateTime;
+use PHPModelGenerator\Filter\TransformingFilterInterface;
 
 /**
  * Class DateTimeFilter

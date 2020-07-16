@@ -283,14 +283,14 @@ You can implement custom filter and use them in your schema files. You must add 
             ->addFilter(new UppercaseFilter())
     );
 
-Your filter must implement the interface **PHPModelGenerator\\PropertyProcessor\\Filter\\FilterInterface**. Make sure the given callable array returned by **getFilter** is accessible as well during the generation process as during code execution using the generated model.
+Your filter must implement the interface **PHPModelGenerator\\Filter\\FilterInterface**. Make sure the given callable array returned by **getFilter** is accessible as well during the generation process as during code execution using the generated model.
 The callable filter method must be a static method. Internally it will be called via *call_user_func_array*. A custom filter may look like:
 
 .. code-block:: php
 
     namespace MyApp\Model\Generator\Filter;
 
-    use PHPModelGenerator\PropertyProcessor\Filter\FilterInterface;
+    use PHPModelGenerator\Filter\FilterInterface;
 
     class UppercaseFilter implements FilterInterface
     {
@@ -391,7 +391,7 @@ The option will be available if your JSON-Schema uses the object-notation for th
 Custom transforming filter
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you want to provide a custom filter which transforms a value (eg. redirect data into a manually written model, transforming between data types [eg. accepting values as an integer but handle them internally as binary strings]) you must implement the **PHPModelGenerator\\PropertyProcessor\\Filter\\TransformingFilterInterface**. This interface adds the **getSerializer** method to your filter. The method is similar to the **getFilter** method. It must return a callable which is available during the render process as well as during code execution. The returned callable must return null or a string and undo a transformation (eg. the serializer method of the builtin **dateTime** filter transforms a DateTime object back into a formatted string). The serializer method will be called with the current value of the property as the first argument and with the (optionally provided) additional options of the filter as the second argument. Your custom transforming filter might look like:
+If you want to provide a custom filter which transforms a value (eg. redirect data into a manually written model, transforming between data types [eg. accepting values as an integer but handle them internally as binary strings]) you must implement the **PHPModelGenerator\\Filter\\TransformingFilterInterface**. This interface adds the **getSerializer** method to your filter. The method is similar to the **getFilter** method. It must return a callable which is available during the render process as well as during code execution. The returned callable must return null or a string and undo a transformation (eg. the serializer method of the builtin **dateTime** filter transforms a DateTime object back into a formatted string). The serializer method will be called with the current value of the property as the first argument and with the (optionally provided) additional options of the filter as the second argument. Your custom transforming filter might look like:
 
 The custom serializer method will be called if the model utilizing the custom filter is generated with `serialization methods <../gettingStarted.html#serialization-methods>`__ and *toArray* or *toJSON* is called.
 
@@ -400,7 +400,7 @@ The custom serializer method will be called if the model utilizing the custom fi
     namespace MyApp\Model\Generator\Filter;
 
     use MyApp\Model\ManuallyWrittenModels\Customer;
-    use PHPModelGenerator\PropertyProcessor\Filter\TransformingFilterInterface;
+    use PHPModelGenerator\Filter\TransformingFilterInterface;
 
     class CustomerFilter implements TransformingFilterInterface
     {

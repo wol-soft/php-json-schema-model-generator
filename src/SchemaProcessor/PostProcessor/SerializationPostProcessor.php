@@ -5,11 +5,11 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
 use JsonSerializable;
+use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Interfaces\SerializationInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\FilterValidator;
-use PHPModelGenerator\PropertyProcessor\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Traits\SerializableTrait;
 
 /**

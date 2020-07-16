@@ -5,10 +5,10 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\Model;
 
 use PHPModelGenerator\Exception\InvalidFilterException;
+use PHPModelGenerator\Filter\FilterInterface;
+use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
-use PHPModelGenerator\PropertyProcessor\Filter\FilterInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
-use PHPModelGenerator\PropertyProcessor\Filter\TransformingFilterInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Utils\ClassNameGeneratorInterface;
