@@ -9,12 +9,20 @@ use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\Object\MaxPropertiesException;
 use PHPModelGenerator\Exception\String\PatternException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
 {
-    protected const POST_PROCESSORS = [PopulatePostProcessor::class];
+    public function setUp(): void
+    {
+        parent::setUp();
+
+        $this->modifyModelGenerator = function (ModelGenerator $generator) {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+    }
 
     public function testPopulateMethod(): void
     {

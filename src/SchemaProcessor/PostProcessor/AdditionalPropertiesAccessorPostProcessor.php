@@ -26,6 +26,21 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
  */
 class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterface
 {
+    /** @var bool */
+    private $addForModelsWithoutAdditionalPropertiesDefinition;
+
+    /**
+     * AdditionalPropertiesAccessorPostProcessor constructor.
+     *
+     * @param bool $addForModelsWithoutAdditionalPropertiesDefinition By default the additional properties accessor
+     * methods will be added only to schemas defining additionalProperties constraints as these models expect additional
+     * properties. If set to true the accessor methods will be generated for models which don't define
+     * additionalProperties constraints.
+     */
+    public function __construct(bool $addForModelsWithoutAdditionalPropertiesDefinition = false)
+    {
+        $this->addForModelsWithoutAdditionalPropertiesDefinition = $addForModelsWithoutAdditionalPropertiesDefinition;
+    }
     /**
      * Add methods to handle additional properties to the provided schema
      *
@@ -36,7 +51,9 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
     {
         $json = $schema->getJsonSchema()->getJson();
 
-        if (!isset($json['additionalProperties']) || $json['additionalProperties'] === false) {
+        if ((!$this->addForModelsWithoutAdditionalPropertiesDefinition && !isset($json['additionalProperties']))
+            || (isset($json['additionalProperties']) && $json['additionalProperties'] === false)
+        ) {
             return;
         }
 
@@ -189,7 +206,7 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
             $minPropertyValidator = new PropertyValidator(
                 sprintf(
                     '%s < %d',
-                    'array_keys($this->rawModelDataInput) - 1',
+                    'count($this->rawModelDataInput) - 1',
                     $json['minProperties']
                 ),
                 MinPropertiesException::class,

@@ -89,10 +89,12 @@ class MultiTypeProcessor extends AbstractValueProcessor
 
         $property->addTypeHintDecorator(
             new TypeHintDecorator(
-                array_map(function (PropertyInterface $subProperty): string {
-                    return $subProperty->getTypeHint();
-                },
-                $subProperties)
+                array_map(
+                    function (PropertyInterface $subProperty): string {
+                        return $subProperty->getTypeHint();
+                    },
+                    $subProperties
+                )
             )
         );
 

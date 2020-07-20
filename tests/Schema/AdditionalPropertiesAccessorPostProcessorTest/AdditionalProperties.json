@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": {
+    "type": "string",
+    "filter": "trim",
+    "maxLength": 15
+  },
+  "propertyNames": {
+    "pattern": "^[a-z0-9]*$"
+  },
+  "minProperties": 2,
+  "maxProperties": 4
+}

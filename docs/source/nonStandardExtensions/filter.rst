@@ -188,9 +188,6 @@ Let's have a look how the generated model behaves:
 
 .. code-block:: php
 
-    // valid, the name will be NULL as the name is not required
-    $family = new Person([]);
-
     // A valid example
     $family = new Family(['members' => [null, null]]]);
     $family->getMembers(); // returns an empty array
