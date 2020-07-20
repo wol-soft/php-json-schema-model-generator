@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": {
+    "type": "string",
+    "filter": [{
+      "filter": "dateTime",
+      "outputFormat": "Ymd"
+    }]
+  }
+}

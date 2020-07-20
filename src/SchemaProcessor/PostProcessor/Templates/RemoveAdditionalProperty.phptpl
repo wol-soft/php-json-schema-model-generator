@@ -1,0 +1,37 @@
+/**
+ * Removes an additional property from the object. Returns true if the property has been removed,
+ * false if the requested additional property doesn't exist
+ *
+ * @param string $property The property key of the additional property
+ *
+ * @return bool
+ *
+ * {% if minPropertyValidator %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+ */
+public function removeAdditionalProperty(string $property): bool
+{
+    if (!array_key_exists($property, $this->additionalProperties)) {
+        return false;
+    }
+
+    {% if minPropertyValidator %}
+        {% if generatorConfiguration.collectErrors() %}
+            $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        {% endif%}
+
+        if ({{ minPropertyValidator.getCheck() }}) {
+            {{ viewHelper.validationError(minPropertyValidator) }}
+        }
+
+        {% if generatorConfiguration.collectErrors() %}
+            if (count($this->errorRegistry->getErrors())) {
+                throw $this->errorRegistry;
+            }
+        {% endif %}
+    {% endif %}
+
+    unset($this->rawModelDataInput[$property]);
+    unset($this->additionalProperties[$property]);
+
+    return true;
+}

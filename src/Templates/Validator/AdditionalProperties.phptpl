@@ -2,6 +2,9 @@
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->errorRegistry;
     {% endif %}
+    {% if collectAdditionalProperties %}
+        $rollbackValues = $this->additionalProperties;
+    {% endif %}
 
     foreach (array_diff(array_keys($properties), {{ additionalProperties }}) as $propertyKey) {
         try {
@@ -25,6 +28,10 @@
                     $invalidProperties[$propertyKey] = $this->errorRegistry->getErrors();
                 }
             {% endif %}
+
+            {% if collectAdditionalProperties %}
+                $this->additionalProperties[$propertyKey] = $value;
+            {% endif %}
         } catch (\Exception $e) {
             // collect all errors concerning invalid property names
             isset($invalidProperties[$propertyKey])
@@ -35,6 +42,12 @@
 
     {% if generatorConfiguration.collectErrors() %}
         $this->errorRegistry = $originalErrorRegistry;
+    {% endif %}
+
+    {% if collectAdditionalProperties %}
+        if (!empty($invalidProperties)) {
+            $this->additionalProperties = $rollbackValues;
+        }
     {% endif %}
 
     return !empty($invalidProperties);

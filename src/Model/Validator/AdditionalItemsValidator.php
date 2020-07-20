@@ -23,23 +23,4 @@ class AdditionalItemsValidator extends AdditionalPropertiesValidator
     protected const ADDITIONAL_PROPERTIES_KEY = 'additionalItems';
 
     protected const EXCEPTION_CLASS = InvalidAdditionalTupleItemsException::class;
-
-    /**
-     * AdditionalItemsValidator constructor.
-     *
-     * @param SchemaProcessor $schemaProcessor
-     * @param Schema          $schema
-     * @param JsonSchema      $propertiesStructure
-     * @param string          $propertyName
-     *
-     * @throws SchemaException
-     */
-    public function __construct(
-        SchemaProcessor $schemaProcessor,
-        Schema $schema,
-        JsonSchema $propertiesStructure,
-        string $propertyName
-    ) {
-        parent::__construct($schemaProcessor, $schema, $propertiesStructure, $propertyName);
-    }
 }

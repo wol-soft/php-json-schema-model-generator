@@ -247,6 +247,10 @@ The generated class will implement the interface **PHPModelGenerator\\Interfaces
 
 Additionally the class will implement the PHP builtin interface **\JsonSerializable** which allows the direct usage of the generated classes in a custom json_encode.
 
+.. warning::
+
+    If you provide `additional properties <complexTypes/object.html#additional-properties>`__ you may want to use the `AdditionalPropertiesAccessorPostProcessor <generator/postProcessor.html#additionalpropertiesaccessorpostprocessor>`__ as the additional properties by default aren't included into the serialization result.
+
 Output generation process
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 

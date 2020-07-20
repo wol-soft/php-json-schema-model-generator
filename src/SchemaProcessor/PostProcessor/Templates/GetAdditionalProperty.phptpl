@@ -1,0 +1,11 @@
+/**
+ * Get the value of an additional property. If the requested additional property doesn't exists null will be returned
+ *
+ * @param string $property The key of the additional property
+ *
+ * {% if validationProperty %}{% if viewHelper.getTypeHintAnnotation(validationProperty, true) %}@return {{ viewHelper.getTypeHintAnnotation(validationProperty, true) }}{% endif %}{% endif %}
+ */
+public function getAdditionalProperty(string $property){% if validationProperty %}{% if validationProperty.getType(true) %}: ?{{ validationProperty.getType(true) }}{% endif %}{% endif %}
+{
+    return $this->additionalProperties[$property] ?? null;
+}

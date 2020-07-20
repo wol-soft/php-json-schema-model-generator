@@ -1,0 +1,40 @@
+/**
+ * Adds or overwrites an additional property on the object
+ *
+ * @param string $property The property key of the additional property
+ * @param {{ viewHelper.getTypeHintAnnotation(validationProperty) }} $value The new value of the additional property
+ *
+ * @return self
+ *
+ * {% if schema.getBaseValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+ * @throws RegularPropertyAsAdditionalPropertyException
+ */
+public function setAdditionalProperty(
+    string $property,
+    {% if validationProperty.getType() %}{% if viewHelper.isPropertyNullable(validationProperty, true) %}?{% endif %}{{ validationProperty.getType() }} {% endif %}$value
+): self {
+    if (in_array($property, {{ objectProperties }})) {
+        throw new RegularPropertyAsAdditionalPropertyException($value, $property, self::class);
+    }
+
+    {% if schema.getBaseValidators() %}
+        {% if generatorConfiguration.collectErrors() %}
+            $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        {% endif %}
+
+        $addedProperty = [$property => $value];
+        $this->executeBaseValidators($addedProperty);
+
+        {% if generatorConfiguration.collectErrors() %}
+            if (count($this->errorRegistry->getErrors())) {
+                throw $this->errorRegistry;
+            }
+        {% endif %}
+    {% else %}
+        $this->additionalProperties[$property] = $value;
+    {% endif %}
+
+    $this->rawModelDataInput[$property] = $value;
+
+    return $this;
+}

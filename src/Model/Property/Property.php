@@ -122,9 +122,9 @@ class Property implements PropertyInterface
             $input = [$this->type, $this->outputType];
         }
 
-        $input = join('|', array_map(function (string $input) {
+        $input = join('|', array_map(function (string $input) use ($outputType): string {
             foreach ($this->typeHintDecorators as $decorator) {
-                $input = $decorator->decorate($input);
+                $input = $decorator->decorate($input, $outputType);
             }
 
             return $input;

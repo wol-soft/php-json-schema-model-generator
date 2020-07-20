@@ -29,8 +29,9 @@ class CompositionTypeHintDecorator implements TypeHintDecoratorInterface
     /**
      * @inheritdoc
      */
-    public function decorate(string $input): string
+    public function decorate(string $input, bool $outputType = false): string
     {
-        return (new TypeHintDecorator(explode('|', $this->nestedProperty->getTypeHint())))->decorate($input);
+        return (new TypeHintDecorator(explode('|', $this->nestedProperty->getTypeHint($outputType))))
+            ->decorate($input, $outputType);
     }
 }

@@ -30,7 +30,8 @@ use ReflectionType;
 abstract class AbstractPHPModelGeneratorTest extends TestCase
 {
     protected const EXTERNAL_JSON_DIRECTORIES = [];
-    protected const POST_PROCESSORS = [];
+
+    protected $modifyModelGenerator = null;
 
     private $names = [];
 
@@ -241,8 +242,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         }
 
         $generator = new ModelGenerator($generatorConfiguration);
-        foreach (static::POST_PROCESSORS as $postProcessor) {
-            $generator->addPostProcessor(new $postProcessor());
+        if (is_callable($this->modifyModelGenerator)) {
+            ($this->modifyModelGenerator)($generator);
         }
 
         $generatedFiles = $generator->generateModels(
@@ -449,7 +450,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
             $matches
         );
 
-        return $matches[1];
+        return $matches[1] ?? '';
     }
 
     /**
@@ -457,24 +458,25 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      *
      * @param string|object $object
      * @param string $method
+     * @param int $parameter
      *
      * @return string
      */
-    protected function getMethodParameterTypeAnnotation($object, string $method): string
+    protected function getMethodParameterTypeAnnotation($object, string $method, int $parameter = 0): string
     {
         $matches = [];
-        preg_match(
+        preg_match_all(
             '/@param\s+([^\s]*)\s?\$/',
             (new ReflectionClass($object))->getMethod($method)->getDocComment(),
             $matches
         );
 
-        return $matches[1];
+        return $matches[1][$parameter];
     }
 
-    protected function getParameterType($object, string $method): ?ReflectionType
+    protected function getParameterType($object, string $method, int $parameter = 0): ?ReflectionType
     {
-        return (new ReflectionClass($object))->getMethod($method)->getParameters()[0]->getType();
+        return (new ReflectionClass($object))->getMethod($method)->getParameters()[$parameter]->getType();
     }
 
     protected function getReturnType($object, string $method): ?ReflectionType

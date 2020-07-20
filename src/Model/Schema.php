@@ -156,7 +156,7 @@ class Schema
      *
      * @return $this
      */
-    public function addBaseValidator(PropertyValidatorInterface $baseValidator)
+    public function addBaseValidator(PropertyValidatorInterface $baseValidator): self
     {
         $this->baseValidators[] = $baseValidator;
 

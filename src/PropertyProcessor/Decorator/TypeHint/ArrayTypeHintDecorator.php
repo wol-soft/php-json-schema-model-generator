@@ -29,10 +29,10 @@ class ArrayTypeHintDecorator implements TypeHintDecoratorInterface
     /**
      * @inheritdoc
      */
-    public function decorate(string $input): string
+    public function decorate(string $input, bool $outputType = false): string
     {
         return implode('|', array_map(function (string $typeHint): string {
             return "{$typeHint}[]";
-        }, explode('|', $this->nestedProperty->getTypeHint())));
+        }, explode('|', $this->nestedProperty->getTypeHint($outputType))));
     }
 }

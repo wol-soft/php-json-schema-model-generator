@@ -184,6 +184,10 @@ Additional Properties
 
 Using the keyword `additionalProperties` the object can be limited to not contain any additional properties by providing `false`. If a schema is provided all additional properties must be valid against the provided schema. Simple checks like 'must provide a string' are possible as well as checks like 'must contain an object with a specific structure'.
 
+.. hint::
+
+    If you define constraints via `additionalProperties` you may want to use the `AdditionalPropertiesAccessorPostProcessor <../generator/postProcessor.html#additionalpropertiesaccessorpostprocessor>`__ to access and modify your additional properties.
+
 .. code-block:: json
 
     {
@@ -242,6 +246,10 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidAdd
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+
+.. warning::
+
+    The validation of additional properties is independently from the `implicit null <../gettingStarted.html#implicit-null>`__ setting. If you require your additional properties to accept null define a `multi type <multiType.html>`__ with explicit null.
 
 Recursive Objects
 -----------------
