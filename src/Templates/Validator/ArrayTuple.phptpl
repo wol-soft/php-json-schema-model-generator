@@ -1,7 +1,7 @@
 is_array($value) && (function (&$items) use (&$invalidTuples) {
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->errorRegistry;
-    {% endif%}
+    {% endif %}
 
     $index = 0;
     {% foreach tupleProperties as tuple %}

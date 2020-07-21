@@ -22,7 +22,10 @@ class InstanceOfValidator extends PropertyValidator
     public function __construct(PropertyInterface $property)
     {
         parent::__construct(
-            sprintf('is_object($value) && !($value instanceof %s)', $property->getType()),
+            sprintf(
+                'is_object($value) && !($value instanceof \Exception) && !($value instanceof %s)',
+                $property->getType()
+            ),
             InvalidInstanceOfException::class,
             [$property->getName(), $property->getType()]
         );

@@ -36,25 +36,14 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
      * {{ class }} constructor.
      *
      * @param array $modelData
-     {% if generatorConfiguration.collectErrors() %}{% if not initialClass %}* @param {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $errorRegistry{% endif %}{% endif %}
      *
      * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
      */
-    public function __construct(
-        array $modelData = []
+    public function __construct(array $modelData = [])
+    {
         {% if generatorConfiguration.collectErrors() %}
-            {% if not initialClass %}
-                , {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $errorRegistry = null
-            {% endif %}
+            $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
-    ) {
-        {% if generatorConfiguration.collectErrors() %}
-            {% if initialClass %}
-                $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-            {% else %}
-                $this->errorRegistry = $errorRegistry;
-            {% endif %}
-        {% endif%}
 
         {% if schema.getBaseValidators() %}
             $this->executeBaseValidators($modelData);
@@ -65,12 +54,10 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
         {% endforeach %}
 
         {% if generatorConfiguration.collectErrors() %}
-            {% if initialClass %}
-                if (count($this->errorRegistry->getErrors())) {
-                    throw $this->errorRegistry;
-                }
-            {% endif%}
-        {% endif%}
+            if (count($this->errorRegistry->getErrors())) {
+                throw $this->errorRegistry;
+            }
+        {% endif %}
 
         $this->rawModelDataInput = $modelData;
     }
@@ -130,7 +117,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
 
                 {% if generatorConfiguration.collectErrors() %}
                     $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-                {% endif%}
+                {% endif %}
 
                 $value = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
 
@@ -138,7 +125,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
                     if ($this->errorRegistry->getErrors()) {
                         throw $this->errorRegistry;
                     }
-                {% endif%}
+                {% endif %}
 
                 $this->{{ property.getAttribute() }} = $value;
 

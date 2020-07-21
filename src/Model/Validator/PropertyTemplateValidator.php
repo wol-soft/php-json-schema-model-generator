@@ -39,8 +39,7 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
         $this->template = $template;
         $this->templateValues = $templateValues;
 
-        $this->exceptionClass = $exceptionClass;
-        $this->exceptionParams = $exceptionParams;
+        parent::__construct($exceptionClass, $exceptionParams);
     }
 
     /**

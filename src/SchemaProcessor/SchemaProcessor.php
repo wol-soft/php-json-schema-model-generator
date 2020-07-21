@@ -162,7 +162,7 @@ class SchemaProcessor
             $jsonSchema->withJson($json)
         );
 
-        $this->generateClassFile($classPath, $className, $schema, $initialClass);
+        $this->generateClassFile($classPath, $className, $schema);
 
         return $schema;
     }
@@ -173,20 +173,18 @@ class SchemaProcessor
      * @param string $classPath
      * @param string $className
      * @param Schema $schema
-     * @param bool   $initialClass
      */
     public function generateClassFile(
         string $classPath,
         string $className,
-        Schema $schema,
-        bool $initialClass = false
+        Schema $schema
     ): void {
         $fileName = join(
             DIRECTORY_SEPARATOR,
             [$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]
         ) . '.php';
 
-        $this->renderQueue->addRenderJob(new RenderJob($fileName, $classPath, $className, $schema, $initialClass));
+        $this->renderQueue->addRenderJob(new RenderJob($fileName, $classPath, $className, $schema));
 
         if ($this->generatorConfiguration->isOutputEnabled()) {
             echo "Generated class {$this->generatorConfiguration->getNamespacePrefix()}\\$classPath\\$className\n";

@@ -12,7 +12,7 @@ public function populate(array $modelData): self
 {
     {% if generatorConfiguration.collectErrors() %}
         $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-    {% endif%}
+    {% endif %}
     $rollbackValues = [];
 
     {% if schema.getBaseValidators() %}
