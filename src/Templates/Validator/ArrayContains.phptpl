@@ -5,7 +5,7 @@ is_array($value) && (function (&$items) {
 
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->errorRegistry;
-    {% endif%}
+    {% endif %}
 
     foreach ($items as &$value) {
         try {
@@ -28,7 +28,7 @@ is_array($value) && (function (&$items) {
                 }
 
                 $this->errorRegistry = $originalErrorRegistry;
-            {% endif%}
+            {% endif %}
 
             // one matched item is enough to pass the contains check
             return false;
@@ -39,7 +39,7 @@ is_array($value) && (function (&$items) {
 
     {% if generatorConfiguration.collectErrors() %}
         $this->errorRegistry = $originalErrorRegistry;
-    {% endif%}
+    {% endif %}
 
     return true;
 })($value)

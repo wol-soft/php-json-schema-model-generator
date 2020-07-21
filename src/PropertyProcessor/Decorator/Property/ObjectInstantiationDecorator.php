@@ -7,7 +7,6 @@ namespace PHPModelGenerator\PropertyProcessor\Decorator\Property;
 use PHPMicroTemplate\Render;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class ObjectInstantiationDecorator
@@ -46,12 +45,15 @@ class ObjectInstantiationDecorator implements PropertyDecoratorInterface
      */
     public function decorate(string $input, PropertyInterface $property): string
     {
+        $template = $this->generatorConfiguration->collectErrors()
+            ? 'ObjectInstantiationDecoratorErrorRegistry.phptpl'
+            : 'ObjectInstantiationDecoratorDirectException.phptpl';
+
         return static::$renderer->renderTemplate(
-            DIRECTORY_SEPARATOR . 'Decorator' . DIRECTORY_SEPARATOR . 'ObjectInstantiationDecorator.phptpl',
+            DIRECTORY_SEPARATOR . 'Decorator' . DIRECTORY_SEPARATOR . $template,
             [
                 'input' => $input,
                 'className' => $this->className,
-                'generatorConfiguration' => $this->generatorConfiguration,
             ]
         );
     }

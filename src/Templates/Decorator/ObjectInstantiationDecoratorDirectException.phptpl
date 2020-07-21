@@ -1,0 +1,1 @@
+(is_array($param = {{ input }}) ? new {{ className }}($param) : $param)

@@ -1,7 +1,0 @@
-(is_array($param = {{ input }})
-   ? new {{ className }}(
-        $param
-        {% if generatorConfiguration.collectErrors() %}, $this->errorRegistry{% endif %}
-     )
-   : $param
-)

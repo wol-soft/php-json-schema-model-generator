@@ -4,7 +4,7 @@ array_key_exists('{{ propertyName }}', $modelData) && (function () use ($modelDa
         $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
     {% else %}
         try {
-    {% endif%}
+    {% endif %}
 
     $value = $modelData;
     {{ viewHelper.resolvePropertyDecorator(nestedProperty) }}

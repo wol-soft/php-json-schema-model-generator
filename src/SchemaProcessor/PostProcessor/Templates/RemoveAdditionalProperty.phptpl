@@ -17,7 +17,7 @@ public function removeAdditionalProperty(string $property): bool
     {% if minPropertyValidator %}
         {% if generatorConfiguration.collectErrors() %}
             $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-        {% endif%}
+        {% endif %}
 
         if ({{ minPropertyValidator.getCheck() }}) {
             {{ viewHelper.validationError(minPropertyValidator) }}

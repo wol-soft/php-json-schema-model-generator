@@ -24,8 +24,8 @@ class PropertyValidator extends AbstractPropertyValidator
     public function __construct(string $check, string $exceptionClass, array $exceptionParams = [])
     {
         $this->check = $check;
-        $this->exceptionClass = $exceptionClass;
-        $this->exceptionParams = $exceptionParams;
+
+        parent::__construct($exceptionClass, $exceptionParams);
     }
 
     /**

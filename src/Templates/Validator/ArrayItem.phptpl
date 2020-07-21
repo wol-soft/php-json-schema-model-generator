@@ -1,12 +1,12 @@
 is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}) {
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->errorRegistry;
-    {% endif%}
+    {% endif %}
 
     foreach ($items as $index => &$value) {
         {% if generatorConfiguration.collectErrors() %}
             $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-        {% endif%}
+        {% endif %}
 
         try {
             {{ viewHelper.resolvePropertyDecorator(nestedProperty) }}

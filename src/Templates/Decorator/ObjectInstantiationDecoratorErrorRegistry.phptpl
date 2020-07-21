@@ -1,0 +1,11 @@
+(function ($value) {
+    try {
+        return is_array($value) ? new {{ className }}($value) : $value;
+    } catch (\Exception $instantiationException) {
+        foreach($instantiationException->getErrors() as $nestedValidationError) {
+            $this->errorRegistry->addError($nestedValidationError);
+        }
+
+        return $instantiationException;
+    }
+})({{ input }})
