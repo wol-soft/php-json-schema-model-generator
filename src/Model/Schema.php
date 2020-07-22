@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
+use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookInterface;
 
 /**
  * Class Schema
@@ -40,10 +41,12 @@ class Schema
      *                                    before adding properties to the model
      */
     protected $baseValidators = [];
-    /** @var array */
+    /** @var string[] */
     protected $usedClasses = [];
     /** @var SchemaNamespaceTransferDecorator[] */
     protected $namespaceTransferDecorators = [];
+    /** @var SchemaHookInterface[] */
+    protected $schemaHooks = [];
 
     /** @var SchemaDefinitionDictionary */
     protected $schemaDefinitionDictionary;
@@ -200,7 +203,7 @@ class Schema
     /**
      * @param Schema[] $visitedSchema
      *
-     * @return array
+     * @return string[]
      */
     public function getUsedClasses(array $visitedSchema = []): array
     {
@@ -244,6 +247,7 @@ class Schema
 
     /**
      * @param string $trait
+     *
      * @return Schema
      */
     public function addTrait(string $trait): self
@@ -264,6 +268,7 @@ class Schema
 
     /**
      * @param string $interface
+     *
      * @return Schema
      */
     public function addInterface(string $interface): self
@@ -272,5 +277,27 @@ class Schema
         $this->addUsedClass($interface);
 
         return $this;
+    }
+
+    /**
+     * Add an additional schema hook
+     *
+     * @param SchemaHookInterface $schemaHook
+     *
+     * @return $this
+     */
+    public function addSchemaHook(SchemaHookInterface $schemaHook): self
+    {
+        $this->schemaHooks[] = $schemaHook;
+
+        return $this;
+    }
+
+    /**
+     * @return SchemaHookInterface[]
+     */
+    public function getSchemaHooks(): array
+    {
+        return $this->schemaHooks;
     }
 }
