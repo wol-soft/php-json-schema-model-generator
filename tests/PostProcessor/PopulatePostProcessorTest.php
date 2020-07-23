@@ -4,13 +4,19 @@ namespace PHPModelGenerator\Tests\PostProcessor;
 
 use Exception;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\Object\MaxPropertiesException;
 use PHPModelGenerator\Exception\String\PatternException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\Hook\SetterAfterValidationHookInterface;
+use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
@@ -19,7 +25,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
     {
         parent::setUp();
 
-        $this->modifyModelGenerator = function (ModelGenerator $generator) {
+        $this->modifyModelGenerator = function (ModelGenerator $generator): void {
             $generator->addPostProcessor(new PopulatePostProcessor());
         };
     }
@@ -75,7 +81,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setCollectErrors($collectErrors)
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setSerialization(true)
         );
         $object = new $className(['name' => 'Albert', 'age' => 30]);
 
@@ -85,6 +91,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
         } catch (Exception $exception) {
             // test if the internal state hasn't been changed
             $this->assertSame(['name' => 'Albert', 'age' => 30], $object->getRawModelDataInput());
+            $this->assertSame(['name' => 'Albert', 'age' => 30], $object->toArray());
 
             throw $exception;
         }
@@ -98,6 +105,18 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
                 false,
                 PatternException::class,
                 "Value for name doesn't match pattern ^[a-zA-Z]*$"
+            ],
+            'No error collection - first value ok second invalid' => [
+                ['name' => 'Hannes', 'age' => false],
+                false,
+                InvalidTypeException::class,
+                "Invalid type for age. Requires int, got boolean"
+            ],
+            'Error collection - first value ok second invalid' => [
+                ['name' => 'Hannes', 'age' => false],
+                true,
+                ErrorRegistryException::class,
+                "Invalid type for age. Requires int, got boolean"
             ],
             'Error collection - multiple violations' => [
                 ['name' => 'Anne-Marie', 'age' => false],
@@ -128,6 +147,106 @@ Invalid type for age. Requires int, got boolean"
                 false,
                 MaxPropertiesException::class,
                 "must not contain more than 3 properties"
+            ],
+        ];
+    }
+
+    public function testSetterBeforeValidationHookInsidePopulateIsResolved(): void
+    {
+        $this->modifyModelGenerator = function (ModelGenerator $modelGenerator): void {
+            $modelGenerator->addPostProcessor(new PopulatePostProcessor());
+            $modelGenerator->addPostProcessor(new class () implements PostProcessorInterface {
+                public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
+                {
+                    $schema->addSchemaHook(new class () implements SetterBeforeValidationHookInterface {
+                        public function getCode(PropertyInterface $property): string
+                        {
+                            return $property->getName() === 'age'
+                                ? 'throw new \Exception("SetterBeforeValidationHook");'
+                                : '';
+                        }
+                    });
+                }
+            });
+        };
+
+        $className = $this->generateClassFromFile('BasicSchema.json');
+
+        $object = new $className(['name' => 'Albert', 'age' => 35]);
+        $object->populate(['name' => 'Hannes']);
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage("SetterBeforeValidationHook");
+
+        $object->populate(['age' => 40]);
+    }
+
+    /**
+     * @dataProvider setterAfterValidationHookDataProvider
+     *
+     * @param string|null $expectedException
+     * @param string|null $expectedExceptionMessage
+     * @param array $populateValues
+     */
+    public function testSetterAfterValidationHookInsidePopulateIsResolved(
+        ?string $expectedException,
+        ?string $expectedExceptionMessage,
+        array $populateValues
+    ): void
+    {
+        $this->modifyModelGenerator = function (ModelGenerator $modelGenerator): void {
+            $modelGenerator->addPostProcessor(new PopulatePostProcessor());
+            $modelGenerator->addPostProcessor(new class () implements PostProcessorInterface {
+                public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
+                {
+                    $schema->addSchemaHook(new class () implements SetterAfterValidationHookInterface {
+                        public function getCode(PropertyInterface $property): string
+                        {
+                            return $property->getName() === 'age'
+                                ? 'throw new \Exception("SetterAfterValidationHook");'
+                                : '';
+                        }
+                    });
+                }
+            });
+        };
+
+        $className = $this->generateClassFromFile('BasicSchema.json');
+
+        $object = new $className(['name' => 'Albert', 'age' => 35]);
+
+        if ($expectedException) {
+            $this->expectException($expectedException);
+            $this->expectExceptionMessage($expectedExceptionMessage);
+        } else {
+            $this->expectNotToPerformAssertions();
+        }
+
+        $object->populate($populateValues);
+    }
+
+    public function setterAfterValidationHookDataProvider(): array
+    {
+        return [
+            'update not hooked value valid' => [
+                null,
+                null,
+                ['name' => 'Hannes'],
+            ],
+            'update not hooked value invalid' => [
+                InvalidTypeException::class,
+                'Invalid type for name. Requires string, got boolean',
+                ['name' => false],
+            ],
+            'update hooked value valid' => [
+                Exception::class,
+                'SetterAfterValidationHook',
+                ['age' => 40],
+            ],
+            'update hooked value invalid' => [
+                InvalidTypeException::class,
+                'Invalid type for age. Requires int, got boolean',
+                ['age' => false],
             ],
         ];
     }

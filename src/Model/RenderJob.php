@@ -9,6 +9,7 @@ use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -144,6 +145,7 @@ class RenderJob
                     'use'                    => 'use ' . join(";\nuse ", array_unique($use)) . ';',
                     'class'                  => $this->className,
                     'schema'                 => $this->schema,
+                    'schemaHookResolver'     => new SchemaHookResolver($this->schema),
                     'generatorConfiguration' => $generatorConfiguration,
                     'viewHelper'             => new RenderHelper($generatorConfiguration),
                     // one hack a day keeps the problems away. Make true literal available for the templating. Easy fix

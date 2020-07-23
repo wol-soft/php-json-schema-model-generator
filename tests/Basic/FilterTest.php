@@ -268,9 +268,14 @@ class FilterTest extends AbstractPHPModelGeneratorTest
 
         $object = new $className(['property' => $input]);
         $this->assertSame($expectedValue, $object->getProperty());
+        $this->assertSame($input, $object->getRawModelDataInput()['property']);
 
         $object->setProperty($input);
         $this->assertSame($expectedValue, $object->getProperty());
+
+        $object->setProperty('hi');
+        $this->assertSame('HI', $object->getProperty());
+        $this->assertSame('hi', $object->getRawModelDataInput()['property']);
     }
 
     public function customFilterDataProvider(): array

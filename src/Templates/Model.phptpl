@@ -45,6 +45,8 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
             $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
 
+        {{ schemaHookResolver.resolveConstructorBeforeValidationHook() }}
+
         {% if schema.getBaseValidators() %}
             $this->executeBaseValidators($modelData);
         {% endif %}
@@ -60,6 +62,8 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
         {% endif %}
 
         $this->rawModelDataInput = $modelData;
+
+        {{ schemaHookResolver.resolveConstructorAfterValidationHook() }}
     }
 
     {% if schema.getBaseValidators() %}
@@ -97,6 +101,8 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
         public function get{{ viewHelper.ucfirst(property.getAttribute()) }}()
             {% if property.getType(true) %}: {% if viewHelper.isPropertyNullable(property) %}?{% endif %}{{ property.getType(true) }}{% endif %}
         {
+            {{ schemaHookResolver.resolveGetterHook(property) }}
+
             return $this->{{ property.getAttribute() }};
         }
 
@@ -113,6 +119,8 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
             public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
                 {% if property.getType() %}{% if viewHelper.isPropertyNullable(property, true) %}?{% endif %}{{ property.getType() }} {% endif %}${{ property.getAttribute() }}
             ): self {
+                {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
+
                 $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute() }};
 
                 {% if generatorConfiguration.collectErrors() %}
@@ -128,6 +136,9 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
                 {% endif %}
 
                 $this->{{ property.getAttribute() }} = $value;
+                $this->rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute() }};
+
+                {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
 
                 return $this;
             }

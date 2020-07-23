@@ -10,10 +10,13 @@
  */
 public function populate(array $modelData): self
 {
+    $rollbackValues = [];
+
     {% if generatorConfiguration.collectErrors() %}
         $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+    {% else %}
+        try {
     {% endif %}
-    $rollbackValues = [];
 
     {% if schema.getBaseValidators() %}
         $this->executeBaseValidators($modelData);
@@ -21,6 +24,8 @@ public function populate(array $modelData): self
 
     {% foreach schema.getProperties() as property %}
         if (array_key_exists('{{ property.getName() }}', $modelData)) {
+            {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
+
             $rollbackValues['{{ property.getAttribute() }}'] = $this->{{ property.getAttribute() }};
             $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
         }
@@ -34,9 +39,25 @@ public function populate(array $modelData): self
 
             throw $this->errorRegistry;
         }
+    {% else %}
+        } catch (ValidationException $exception) {
+            foreach ($rollbackValues as $property => $value) {
+                $this->{$property} = $value;
+            }
+
+            throw $exception;
+        }
     {% endif %}
 
     $this->rawModelDataInput = array_merge($this->rawModelDataInput, $modelData);
+
+    {% foreach schema.getProperties() as property %}
+        {% if schemaHookResolver.resolveSetterAfterValidationHook(property) %}
+            if (array_key_exists('{{ property.getName() }}', $modelData)) {
+                {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
+            }
+        {% endif %}
+    {% endforeach %}
 
     return $this;
 }
