@@ -4,6 +4,7 @@ namespace PHPModelGenerator\Tests\PostProcessor;
 
 use Exception;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\Object\MaxPropertiesException;
@@ -75,7 +76,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setCollectErrors($collectErrors)
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setSerialization(true)
         );
         $object = new $className(['name' => 'Albert', 'age' => 30]);
 
@@ -85,6 +86,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
         } catch (Exception $exception) {
             // test if the internal state hasn't been changed
             $this->assertSame(['name' => 'Albert', 'age' => 30], $object->getRawModelDataInput());
+            $this->assertSame(['name' => 'Albert', 'age' => 30], $object->toArray());
 
             throw $exception;
         }
@@ -98,6 +100,18 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
                 false,
                 PatternException::class,
                 "Value for name doesn't match pattern ^[a-zA-Z]*$"
+            ],
+            'No error collection - first value ok second invalid' => [
+                ['name' => 'Hannes', 'age' => false],
+                false,
+                InvalidTypeException::class,
+                "Invalid type for age. Requires int, got boolean"
+            ],
+            'Error collection - first value ok second invalid' => [
+                ['name' => 'Hannes', 'age' => false],
+                true,
+                ErrorRegistryException::class,
+                "Invalid type for age. Requires int, got boolean"
             ],
             'Error collection - multiple violations' => [
                 ['name' => 'Anne-Marie', 'age' => false],

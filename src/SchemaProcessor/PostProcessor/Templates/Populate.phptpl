@@ -10,10 +10,13 @@
  */
 public function populate(array $modelData): self
 {
+    $rollbackValues = [];
+
     {% if generatorConfiguration.collectErrors() %}
         $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+    {% else %}
+        try {
     {% endif %}
-    $rollbackValues = [];
 
     {% if schema.getBaseValidators() %}
         $this->executeBaseValidators($modelData);
@@ -33,6 +36,14 @@ public function populate(array $modelData): self
             }
 
             throw $this->errorRegistry;
+        }
+    {% else %}
+        } catch (ValidationException $exception) {
+            foreach ($rollbackValues as $property => $value) {
+                $this->{$property} = $value;
+            }
+
+            throw $exception;
         }
     {% endif %}
 
