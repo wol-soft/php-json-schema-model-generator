@@ -136,6 +136,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
                 {% endif %}
 
                 $this->{{ property.getAttribute() }} = $value;
+                $this->rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute() }};
 
                 {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
 

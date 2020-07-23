@@ -147,7 +147,7 @@ Immutable classes
 
     setImmutable(bool $immutable);
 
-If set to true the generated model classes will be delivered without setter methods for the object properties. By default the classes are generated without setter methods.
+If set to true the generated model classes will be delivered without setter methods for the object properties. By default the classes are generated without setter methods. Each setter will validate the provided value and throw either a specific exception or a collection exception depending on the `error collection configuration <#collect-errors-vs-early-return>`__. If all validations pass the internal value will be updated as well as the value which will be returned when `getRawModelDataInput` is called.
 
 .. code-block:: php
 
