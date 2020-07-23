@@ -6,6 +6,7 @@ namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 
 /**
  * Class PopulatePostProcessor
@@ -16,6 +17,14 @@ class PopulatePostProcessor implements PostProcessorInterface
 {
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
-        $schema->addMethod('populate', new RenderedMethod($schema, $generatorConfiguration, 'Populate.phptpl'));
+        $schema->addMethod(
+            'populate',
+            new RenderedMethod(
+                $schema,
+                $generatorConfiguration,
+                'Populate.phptpl',
+                ['schemaHookResolver' => new SchemaHookResolver($schema)]
+            )
+        );
     }
 }
