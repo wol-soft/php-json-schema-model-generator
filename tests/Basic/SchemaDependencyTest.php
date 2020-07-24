@@ -353,8 +353,9 @@ ERROR
 Invalid schema which is dependant on credit_card:
   - Missing required value for billing_address
   - Invalid type for billing_address. Requires string, got NULL
-  - Missing required value for name
-  - Invalid type for name. Requires string, got NULL
+  - Invalid nested object for property owner:
+      - Missing required value for name
+      - Invalid type for name. Requires string, got NULL
 ERROR
             ],
             'invalid data type' => [
@@ -368,7 +369,8 @@ ERROR
                 ],
                 <<<ERROR
 Invalid schema which is dependant on credit_card:
-  - Invalid type for name. Requires string, got boolean
+  - Invalid nested object for property owner:
+      - Invalid type for name. Requires string, got boolean
 ERROR
             ],
         ];
