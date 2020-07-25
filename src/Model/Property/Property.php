@@ -215,10 +215,10 @@ class Property implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function resolveDecorator(string $input): string
+    public function resolveDecorator(string $input, bool $nestedProperty): string
     {
         foreach ($this->decorators as $decorator) {
-            $input = $decorator->decorate($input, $this);
+            $input = $decorator->decorate($input, $this, $nestedProperty);
         }
 
         return $input;

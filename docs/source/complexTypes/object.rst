@@ -46,9 +46,12 @@ Generated interface:
 
 Possible exceptions:
 
-* Invalid type for car. Requires object, got __TYPE__
+.. code-block:: none
 
-The nested object will be validated in the nested class Car which may throw additional exceptions if invalid data is provided.
+    * Invalid type for car. Requires object, got __TYPE__
+
+    * Invalid nested object for property car:
+      - Invalid type for model. Requires string, got __TYPE__
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTypeException* which provides the following methods to get further error details:
 
@@ -60,6 +63,23 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTy
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+
+The nested object will be validated in the nested class Car which may throw additional exceptions if invalid data is provided. If the internal validation of a nested object fails a *PHPModelGenerator\\Exception\\Generic\\NestedObjectException* will be thrown which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // Returns the exception which was thrown in the nested object
+    public function getNestedException()
+    // get the name of the property which contains the nested object
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+
+If `error collection <../gettingStarted.html#collect-errors-vs-early-return>`__ is enabled the nested exception returned by `getNestedException` will be an **ErrorRegistryException** containing all validation errors of the nested object. Otherwise it will contain the first validation error which occurred during the validation of the nested object.
+
+.. hint::
+
+    If the class created for a nested object is instantiated manually you will either get a collection exception or a specific exception based on your error collection configuration if invalid data is provided.
 
 Namespaces
 ----------

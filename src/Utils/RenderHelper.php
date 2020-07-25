@@ -74,18 +74,19 @@ class RenderHelper
      * Resolve all associated decorators of a property
      *
      * @param PropertyInterface $property
+     * @param bool $nestedProperty
      *
      * @return string
      */
-    public function resolvePropertyDecorator(PropertyInterface $property): string
+    public function resolvePropertyDecorator(PropertyInterface $property, bool $nestedProperty = false): string
     {
         if (!$property->hasDecorators()) {
             return '';
         }
 
         return $property->isRequired()
-            ? '$value = ' . $property->resolveDecorator('$value') . ';'
-            : 'if ($value !== null) { $value = ' . $property->resolveDecorator('$value') . '; }';
+            ? '$value = ' . $property->resolveDecorator('$value', $nestedProperty) . ';'
+            : 'if ($value !== null) { $value = ' . $property->resolveDecorator('$value', $nestedProperty) . '; }';
     }
 
     /**

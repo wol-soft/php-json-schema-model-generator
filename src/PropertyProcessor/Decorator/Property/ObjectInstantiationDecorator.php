@@ -5,8 +5,11 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\Decorator\Property;
 
 use PHPMicroTemplate\Render;
+use PHPModelGenerator\Exception\Object\NestedObjectException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class ObjectInstantiationDecorator
@@ -43,17 +46,21 @@ class ObjectInstantiationDecorator implements PropertyDecoratorInterface
     /**
      * @inheritdoc
      */
-    public function decorate(string $input, PropertyInterface $property): string
+    public function decorate(string $input, PropertyInterface $property, bool $nestedProperty): string
     {
-        $template = $this->generatorConfiguration->collectErrors()
-            ? 'ObjectInstantiationDecoratorErrorRegistry.phptpl'
-            : 'ObjectInstantiationDecoratorDirectException.phptpl';
-
         return static::$renderer->renderTemplate(
-            DIRECTORY_SEPARATOR . 'Decorator' . DIRECTORY_SEPARATOR . $template,
+            DIRECTORY_SEPARATOR . 'Decorator' . DIRECTORY_SEPARATOR . 'ObjectInstantiationDecorator.phptpl',
             [
                 'input' => $input,
                 'className' => $this->className,
+                'nestedProperty' => $nestedProperty,
+                'viewHelper' => new RenderHelper($this->generatorConfiguration),
+                'generatorConfiguration' => $this->generatorConfiguration,
+                'nestedValidator' => new PropertyValidator(
+                    '',
+                    NestedObjectException::class,
+                    [$property->getName(), '&$instantiationException']
+                ),
             ]
         );
     }

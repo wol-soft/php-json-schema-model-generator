@@ -16,10 +16,11 @@ interface PropertyDecoratorInterface
     /**
      * Decorate a given string
      *
-     * @param string            $input
+     * @param string $input
      * @param PropertyInterface $property The property getting decorated
+     * @param bool $nestedProperty
      *
      * @return string
      */
-    public function decorate(string $input, PropertyInterface $property): string;
+    public function decorate(string $input, PropertyInterface $property, bool $nestedProperty): string;
 }

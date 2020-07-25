@@ -163,7 +163,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
 
             $value = $modelData['{{ property.getName() }}'] ?? $this->{{ property.getAttribute() }};
 
-            {{ viewHelper.resolvePropertyDecorator(property) }}
+            {{ viewHelper.resolvePropertyDecorator(property, true) }}
 
             $this->{{ property.getAttribute() }} = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
         }

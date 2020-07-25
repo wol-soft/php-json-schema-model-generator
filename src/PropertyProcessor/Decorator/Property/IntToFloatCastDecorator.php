@@ -16,7 +16,7 @@ class IntToFloatCastDecorator implements PropertyDecoratorInterface
     /**
      * @inheritdoc
      */
-    public function decorate(string $input, PropertyInterface $property): string
+    public function decorate(string $input, PropertyInterface $property, bool $nestedProperty): string
     {
         return "is_int($input) ? (float) $input : $input";
     }
