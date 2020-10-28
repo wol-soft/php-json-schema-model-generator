@@ -193,6 +193,10 @@ All collected exceptions from an ErrorRegistryException are accessible via the *
     (new GeneratorConfiguration())
         ->setCollectErrors(false);
 
+.. hint::
+
+    All builtin exceptions provide serialization methods (compare `serialization <#serialization-methods>`_). By default sensitive data (file and line) of the exception will not be serialized. The serialization methods provide another parameter `$stripSensitiveData`. When this parameter is set to false file and line information will be included.
+
 Custom exception classes
 ^^^^^^^^^^^^^^^^^^^^^^^^
 

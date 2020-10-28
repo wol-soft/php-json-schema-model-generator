@@ -119,10 +119,11 @@ interface PropertyInterface
      * Resolve all decorators of the property
      *
      * @param string $input
+     * @param bool $nestedProperty
      *
      * @return string
      */
-    public function resolveDecorator(string $input): string;
+    public function resolveDecorator(string $input, bool $nestedProperty): string;
 
     /**
      * @return bool

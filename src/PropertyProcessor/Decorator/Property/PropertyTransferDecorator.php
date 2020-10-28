@@ -32,8 +32,8 @@ class PropertyTransferDecorator implements PropertyDecoratorInterface
     /**
      * @inheritdoc
      */
-    public function decorate(string $input, PropertyInterface $property): string
+    public function decorate(string $input, PropertyInterface $property, bool $nestedProperty): string
     {
-        return $this->property->resolveDecorator($input);
+        return $this->property->resolveDecorator($input, $nestedProperty);
     }
 }

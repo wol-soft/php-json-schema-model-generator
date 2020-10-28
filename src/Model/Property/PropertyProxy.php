@@ -144,9 +144,9 @@ class PropertyProxy implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function resolveDecorator(string $input): string
+    public function resolveDecorator(string $input, bool $nestedProperty): string
     {
-        return $this->getProperty()->resolveDecorator($input);
+        return $this->getProperty()->resolveDecorator($input, $nestedProperty);
     }
 
     /**

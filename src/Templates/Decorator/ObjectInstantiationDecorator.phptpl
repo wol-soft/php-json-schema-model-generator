@@ -1,0 +1,21 @@
+(function ($value) {
+    try {
+        return is_array($value) ? new {{ className }}($value) : $value;
+    } catch (\Exception $instantiationException) {
+        {% if nestedProperty %}
+            {{ viewHelper.validationError(nestedValidator) }}
+        {% else %}
+            {% if generatorConfiguration.collectErrors() %}
+                foreach($instantiationException->getErrors() as $nestedValidationError) {
+                    $this->errorRegistry->addError($nestedValidationError);
+                }
+            {% else %}
+                throw $instantiationException;
+            {% endif %}
+        {% endif %}
+
+        {% if generatorConfiguration.collectErrors() %}
+            return $instantiationException;
+        {% endif %}
+    }
+})({{ input }})
