@@ -119,13 +119,17 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
             public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
                 {% if property.getType() %}{% if viewHelper.isPropertyNullable(property, true) %}?{% endif %}{{ property.getType() }} {% endif %}${{ property.getAttribute() }}
             ): self {
-                {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
+                if ($this->{{ property.getAttribute() }} === ${{ property.getAttribute() }}) {
+                    return $this;
+                }
 
                 $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute() }};
 
                 {% if generatorConfiguration.collectErrors() %}
                     $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
                 {% endif %}
+
+                {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
 
                 $value = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
 
