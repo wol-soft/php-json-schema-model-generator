@@ -28,6 +28,10 @@ class CompositionValidationPostProcessor implements PostProcessorInterface
 
         $validatorPropertyMap = $this->generateValidatorPropertyMap($schema);
 
+        if (empty($validatorPropertyMap)) {
+            return;
+        }
+
         $this->addValidationMethods($schema, $generatorConfiguration, $validatorPropertyMap);
         $this->addValidationCallsToSetterMethods($schema, $validatorPropertyMap);
     }
