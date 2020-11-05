@@ -21,18 +21,19 @@ class CompositionValidationPostProcessor implements PostProcessorInterface
      */
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
-        // if the generator is immutable no validation on value updates are required
-        if ($generatorConfiguration->isImmutable()) {
-            return;
-        }
-
-        $validatorPropertyMap = $this->generateValidatorPropertyMap($schema);
+        $validatorPropertyMap = $this->generateValidatorPropertyMap($schema, $generatorConfiguration);
 
         if (empty($validatorPropertyMap)) {
             return;
         }
 
         $this->addValidationMethods($schema, $generatorConfiguration, $validatorPropertyMap);
+
+        // if the generator is immutable no validation on value updates are required
+        if ($generatorConfiguration->isImmutable()) {
+            return;
+        }
+
         $this->addValidationCallsToSetterMethods($schema, $validatorPropertyMap);
     }
 
@@ -41,10 +42,11 @@ class CompositionValidationPostProcessor implements PostProcessorInterface
      * the property is updated
      *
      * @param Schema $schema
+     * @param GeneratorConfiguration $generatorConfiguration
      *
      * @return array
      */
-    private function generateValidatorPropertyMap(Schema $schema): array
+    private function generateValidatorPropertyMap(Schema $schema, GeneratorConfiguration $generatorConfiguration): array
     {
         $validatorPropertyMap = [];
 
@@ -63,6 +65,18 @@ class CompositionValidationPostProcessor implements PostProcessorInterface
                     $validatorPropertyMap[$property->getName()][] = $validatorIndex;
                 }
             }
+        }
+
+        if (!empty($validatorPropertyMap) && !$generatorConfiguration->isImmutable()) {
+            $schema->addMethod(
+                'getValidatorPropertyMap',
+                new RenderedMethod(
+                    $schema,
+                    $generatorConfiguration,
+                    'GetValidatorPropertyMap.phptpl',
+                    ['validatorPropertyMap' => var_export($validatorPropertyMap, true)]
+                )
+            );
         }
 
         return $validatorPropertyMap;
@@ -121,12 +135,8 @@ class CompositionValidationPostProcessor implements PostProcessorInterface
                 return join(
                     "\n",
                     array_map(
-                        function ($validatorIndex) use ($property) {
-                            return sprintf(
-                                '$this->validateComposition_%s("%s", $value);',
-                                $validatorIndex,
-                                $property->getName()
-                            );
+                        function ($validatorIndex) {
+                            return sprintf('$this->validateComposition_%s($modelData);', $validatorIndex);
                         },
                         array_unique($this->validatorPropertyMap[$property->getName()])
                     )

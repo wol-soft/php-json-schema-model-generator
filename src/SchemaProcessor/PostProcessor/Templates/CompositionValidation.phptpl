@@ -1,19 +1,22 @@
 /**
- * Validate a change of a property which is part of a composition validation
+ * Validate updated properties which are part of a composition validation
  *
- * @param string $modifiedProperty Which property is updated
- * @param mixed  $modifiedValue    The updated value
- *
- * @return mixed The proposed value of the composition validation
+ * @param array $modifiedModelData An array containing all updated data as key-value pairs
  *
  * {% if not generatorConfiguration.collectErrors() %}@throws ValidationException{% endif %}
  */
-protected function validateComposition_{{ index }}(string $modifiedProperty, $modifiedValue)
+private function validateComposition_{{ index }}(array &$modifiedModelData): void
 {
-    $value = $modelData = array_merge($this->rawModelDataInput, [$modifiedProperty => $modifiedValue]);
+    $value = $modelData = array_merge($this->rawModelDataInput, $modifiedModelData);
 
     {{ validator.getValidatorSetUp() }}
     if ({{ validator.getCheck() }}) {
         {{ viewHelper.validationError(validator) }}
+    }
+
+    foreach (array_keys($modifiedModelData) as $property) {
+        if (!isset($modelData[$property])) {
+            unset($modifiedModelData[$property]);
+        }
     }
 }

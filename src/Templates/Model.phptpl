@@ -71,11 +71,15 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
         {
             $value = $modelData;
 
-            {% foreach schema.getBaseValidators() as validator %}
+            {% foreach baseValidatorsWithoutCompositions as validator %}
                 {{ validator.getValidatorSetUp() }}
                 if ({{ validator.getCheck() }}) {
                     {{ viewHelper.validationError(validator) }}
                 }
+            {% endforeach %}
+
+            {% foreach schema.getCompositionValidatorKeys() as compositionValidatorKey %}
+                $this->validateComposition_{{ compositionValidatorKey }}($modelData);
             {% endforeach %}
         }
     {% endif %}

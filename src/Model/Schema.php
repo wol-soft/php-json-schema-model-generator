@@ -9,6 +9,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
+use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
@@ -152,6 +153,24 @@ class Schema
     public function getBaseValidators(): array
     {
         return $this->baseValidators;
+    }
+
+    /**
+     * Get the keys of all composition base validators
+     *
+     * @return array
+     */
+    public function getCompositionValidatorKeys(): array
+    {
+        $keys = [];
+
+        foreach ($this->baseValidators as $key => $validator) {
+            if (is_a($validator, AbstractComposedPropertyValidator::class)) {
+                $keys[] = $key;
+            }
+        }
+
+        return $keys;
     }
 
     /**

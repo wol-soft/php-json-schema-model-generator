@@ -175,6 +175,9 @@ Invalid type for age. Requires int, got boolean"
         $object = new $className(['name' => 'Albert', 'age' => 35]);
         $object->populate(['name' => 'Hannes']);
 
+        // make sure the setter logic is not executed if the value is not updated due to identical values
+        $object->populate(['age' => 35]);
+
         $this->expectException(Exception::class);
         $this->expectExceptionMessage("SetterBeforeValidationHook");
 

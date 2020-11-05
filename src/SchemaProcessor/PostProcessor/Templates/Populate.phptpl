@@ -23,7 +23,9 @@ public function populate(array $modelData): self
     {% endif %}
 
     {% foreach schema.getProperties() as property %}
-        if (array_key_exists('{{ property.getName() }}', $modelData)) {
+        if (array_key_exists('{{ property.getName() }}', $modelData) &&
+            $modelData['{{ property.getName() }}'] !== $this->{{ property.getAttribute() }}
+        ) {
             {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
 
             $rollbackValues['{{ property.getAttribute() }}'] = $this->{{ property.getAttribute() }};
