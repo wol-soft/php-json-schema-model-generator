@@ -40,7 +40,7 @@ As an optional parameter you can set up a *GeneratorConfiguration* object to con
 
     $generator = new Generator(
         (new GeneratorConfiguration())
-            ->setNamespacePrefix('\MyApp\Model')
+            ->setNamespacePrefix('MyApp\Model')
             ->setImmutable(false)
     );
 
@@ -138,7 +138,7 @@ Further information about the generated namespaces can be found at `Namespaces <
 .. code-block:: php
 
     (new GeneratorConfiguration())
-        ->setNamespacePrefix('\MyApp\Model');
+        ->setNamespacePrefix('MyApp\Model');
 
 Immutable classes
 ^^^^^^^^^^^^^^^^^

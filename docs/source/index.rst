@@ -7,6 +7,7 @@ Generates PHP model classes from JSON-Schema files including validation and prov
     :maxdepth: 2
 
     gettingStarted
+    examples
 
 .. include:: toc-generic.rst
 .. include:: toc-types.rst
