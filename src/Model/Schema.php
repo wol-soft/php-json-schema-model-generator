@@ -28,6 +28,8 @@ class Schema
     protected $className;
     /** @var string */
     protected $classPath;
+    /** @var string */
+    protected $description;
 
     /** @var string[] */
     protected $traits = [];
@@ -70,6 +72,7 @@ class Schema
         $this->classPath = $classPath;
         $this->jsonSchema = $schema;
         $this->schemaDefinitionDictionary = $dictionary ?? new SchemaDefinitionDictionary('');
+        $this->description = $schema->getJson()['description'] ?? '';
 
         $this->addInterface(JSONModelInterface::class);
     }
@@ -88,6 +91,14 @@ class Schema
     public function getClassPath(): string
     {
         return $this->classPath;
+    }
+
+    /**
+     * @return string
+     */
+    public function getDescription(): string
+    {
+        return $this->description;
     }
 
     /**
