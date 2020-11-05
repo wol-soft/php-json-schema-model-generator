@@ -6,7 +6,9 @@ declare(strict_types = 1);
     namespace {{ namespace }};
 {% endif %}
 
-{{ use }}
+{% foreach use as import %}
+    use {{ import }};
+{% endforeach %}
 
 /**
  * This is an auto-implemented class implemented by the php-json-schema-model-generator.

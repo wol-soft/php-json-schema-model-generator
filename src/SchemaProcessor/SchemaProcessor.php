@@ -21,6 +21,26 @@ use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
  */
 class SchemaProcessor
 {
+    private const SCHEMA_SIGNATURE_RELEVANT_FIELDS = [
+        'type',
+        'properties',
+        '$ref',
+        'allOf',
+        'anyOf',
+        'oneOf',
+        'not',
+        'if',
+        'then',
+        'else',
+        'additionalProperties',
+        'required',
+        'propertyNames',
+        'minProperties',
+        'maxProperties',
+        'dependencies',
+        'patternProperties',
+    ];
+
     /** @var GeneratorConfiguration */
     protected $generatorConfiguration;
     /** @var RenderQueue */
@@ -137,7 +157,16 @@ class SchemaProcessor
         SchemaDefinitionDictionary $dictionary,
         bool $initialClass
     ): Schema {
-        $schemaSignature = md5(json_encode($jsonSchema->getJson()));
+        // create the signature from all fields which are directly relevant for the created object. Additional fields
+        // can be ignored as the resulting code will be identical
+        $schemaSignature = md5(
+            json_encode(
+                array_intersect_key(
+                    $jsonSchema->getJson(),
+                    array_fill_keys(self::SCHEMA_SIGNATURE_RELEVANT_FIELDS, null)
+                )
+            )
+        );
 
         if (!$initialClass && isset($this->processedSchema[$schemaSignature])) {
             if ($this->generatorConfiguration->isOutputEnabled()) {

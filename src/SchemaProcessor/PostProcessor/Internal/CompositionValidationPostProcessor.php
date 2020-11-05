@@ -13,6 +13,16 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Utils\RenderHelper;
 
+/**
+ * Class CompositionValidationPostProcessor
+ *
+ * The CompositionValidationPostProcessor adds methods to models which require composition validations on object level
+ * to validate the compositions.
+ *
+ * Additionally extends setter methods to also validate compositions if the updated property is part of a composition
+ *
+ * @package PHPModelGenerator\SchemaProcessor\PostProcessor\Internal
+ */
 class CompositionValidationPostProcessor implements PostProcessorInterface
 {
     /**
