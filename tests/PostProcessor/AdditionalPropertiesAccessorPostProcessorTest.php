@@ -3,6 +3,7 @@
 namespace PHPModelGenerator\Tests\PostProcessor;
 
 use DateTime;
+use Exception;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
@@ -10,8 +11,12 @@ use PHPModelGenerator\Exception\Object\MaxPropertiesException;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\Object\RegularPropertyAsAdditionalPropertyException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 /**
@@ -256,6 +261,38 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
                 ['property2' => 'My much too long property value will fail the validation']
             ],
         ];
+    }
+
+    public function testSetterSchemaHooksAreResolvedInSetAdditionalProperties(): void
+    {
+        $this->modifyModelGenerator = function (ModelGenerator $modelGenerator): void {
+            $modelGenerator
+                ->addPostProcessor(new AdditionalPropertiesAccessorPostProcessor())
+                ->addPostProcessor(new class () implements PostProcessorInterface {
+                    public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
+                    {
+                        $schema->addSchemaHook(new class () implements SetterBeforeValidationHookInterface {
+                            public function getCode(PropertyInterface $property): string
+                            {
+                                return 'throw new \Exception("SetterBeforeValidationHook");';
+                            }
+                        });
+                    }
+                });
+        };
+
+        $className = $this->generateClassFromFile(
+            'AdditionalProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false)
+        );
+
+        $object = new $className(['property1' => 'Hello', 'property2' => 'World']);
+        $object->setAdditionalProperty('property1', 'Hello');
+        $this->assertSame('Hello', $object->getAdditionalProperty('property1'));
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('SetterBeforeValidationHook');
+        $object->setAdditionalProperty('property1', 'Goodbye');
     }
 
     public function testAdditionalPropertiesAreSerialized(): void

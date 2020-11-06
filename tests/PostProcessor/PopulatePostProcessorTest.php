@@ -241,6 +241,11 @@ Invalid type for age. Requires int, got boolean"
                 'Invalid type for name. Requires string, got boolean',
                 ['name' => false],
             ],
+            'update hooked value not changed' => [
+                null,
+                null,
+                ['age' => 35],
+            ],
             'update hooked value valid' => [
                 Exception::class,
                 'SetterAfterValidationHook',

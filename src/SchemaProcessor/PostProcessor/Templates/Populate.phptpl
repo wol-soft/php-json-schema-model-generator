@@ -55,7 +55,7 @@ public function populate(array $modelData): self
 
     {% foreach schema.getProperties() as property %}
         {% if schemaHookResolver.resolveSetterAfterValidationHook(property) %}
-            if (array_key_exists('{{ property.getName() }}', $modelData)) {
+            if (array_key_exists('{{ property.getName() }}', $rollbackValues)) {
                 {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
             }
         {% endif %}

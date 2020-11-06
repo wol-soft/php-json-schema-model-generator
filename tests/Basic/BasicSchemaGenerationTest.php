@@ -15,7 +15,6 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
-use ReflectionMethod;
 
 /**
  * Class BasicSchemaGenerationTest
