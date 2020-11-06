@@ -3,6 +3,7 @@
 namespace PHPModelGenerator\Tests\PostProcessor;
 
 use DateTime;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\Object\MaxPropertiesException;
@@ -305,14 +306,19 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $className = $this->generateClassFromFile(
             'AdditionalPropertiesMultiType.json',
-            (new GeneratorConfiguration())->setImmutable(false)
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)
         );
 
         $object = new $className(['property1' => 'Hello', 'property2' => null]);
+        $this->assertSame('Hello', $object->getAdditionalProperty('property1'));
         $this->assertNull($object->getAdditionalProperty('property2'));
 
         $object->setAdditionalProperty('property1', null);
         $this->assertNull($object->getAdditionalProperty('property1'));
+        $object->setAdditionalProperty('property1', 5);
+        $this->assertSame(5, $object->getAdditionalProperty('property1'));
+        $object->setAdditionalProperty('property1', 'Goodbye');
+        $this->assertSame('Goodbye', $object->getAdditionalProperty('property1'));
 
         // test typing
         $this->assertSame(
@@ -334,5 +340,66 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             $this->getMethodParameterTypeAnnotation($object, 'setAdditionalProperty', 1)
         );
         $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
+
+        // test setting an invalid type for the additional property
+        $this->expectException(InvalidAdditionalPropertiesException::class);
+        $this->expectExceptionMessage(
+            'Invalid type for additional property. Requires [string, int, null], got boolean'
+        );
+        $object->setAdditionalProperty('property1', false);
+    }
+
+    public function testComposedAdditionalProperties(): void
+    {
+        $this->addPostProcessor(true);
+
+        $className = $this->generateClassFromFile(
+            'AdditionalPropertiesComposition.json',
+            (new GeneratorConfiguration())->setImmutable(false)
+        );
+
+        $object = new $className(['property1' => 'Hello', 'property2' => 12345]);
+        $this->assertSame('Hello', $object->getAdditionalProperty('property1'));
+        $this->assertSame(12345, $object->getAdditionalProperty('property2'));
+
+        $object->setAdditionalProperty('property1', 5);
+        $this->assertSame(5, $object->getAdditionalProperty('property1'));
+        $object->setAdditionalProperty('property1', 'Goodbye');
+        $this->assertSame('Goodbye', $object->getAdditionalProperty('property1'));
+
+        // test typing
+        $this->assertSame(
+            'string[]|int[]',
+            $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperties')
+        );
+        $returnType = $this->getReturnType($object, 'getAdditionalProperties');
+        $this->assertSame('array', $returnType->getName());
+        $this->assertFalse($returnType->allowsNull());
+
+        $this->assertSame(
+            'string|int|null',
+            $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperty')
+        );
+        $this->assertNull($this->getReturnType($object, 'getAdditionalProperty'));
+
+        $this->assertSame(
+            'string|int',
+            $this->getMethodParameterTypeAnnotation($object, 'setAdditionalProperty', 1)
+        );
+        $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
+
+        // test setting an invalid type for the additional property
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage(<<<ERROR
+- invalid additional property 'property1'
+    * Invalid value for additional property declined by composition constraint.
+      Requires to match one composition element but matched 0 elements.
+      - Composition element #1: Failed
+        * Invalid type for additional property. Requires string, got NULL
+      - Composition element #2: Failed
+        * Invalid type for additional property. Requires int, got NULL
+ERROR
+        );
+        $object->setAdditionalProperty('property1', null);
     }
 }

@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "minProperties": 2,
+  "maxProperties": 10,
+  "additionalProperties": {
+    "oneOf": [
+      {
+        "type": "string"
+      },
+      {
+        "type": "integer"
+      }
+    ]
+  }
+}
