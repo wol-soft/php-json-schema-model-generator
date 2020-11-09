@@ -1,11 +1,11 @@
 is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}) {
     {% if generatorConfiguration.collectErrors() %}
-        $originalErrorRegistry = $this->errorRegistry;
+        $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
 
     foreach ($items as $index => &$value) {
         {% if generatorConfiguration.collectErrors() %}
-            $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
 
         try {
@@ -19,8 +19,8 @@ is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}) {
             {% endforeach %}
 
             {% if generatorConfiguration.collectErrors() %}
-                if ($this->errorRegistry->getErrors()) {
-                    $invalidItems{{ suffix }}[$index] = $this->errorRegistry->getErrors();
+                if ($this->_errorRegistry->getErrors()) {
+                    $invalidItems{{ suffix }}[$index] = $this->_errorRegistry->getErrors();
                 }
             {% endif %}
         } catch (\Exception $e) {
@@ -32,7 +32,7 @@ is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}) {
     }
 
     {% if generatorConfiguration.collectErrors() %}
-        $this->errorRegistry = $originalErrorRegistry;
+        $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
     return !empty($invalidItems{{ suffix }});

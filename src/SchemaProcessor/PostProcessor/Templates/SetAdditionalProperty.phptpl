@@ -25,22 +25,22 @@ public function setAdditionalProperty(
 
     {% if schema.getBaseValidators() %}
         {% if generatorConfiguration.collectErrors() %}
-            $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
 
         $addedProperty = [$property => $value];
         $this->executeBaseValidators($addedProperty);
 
         {% if generatorConfiguration.collectErrors() %}
-            if (count($this->errorRegistry->getErrors())) {
-                throw $this->errorRegistry;
+            if (count($this->_errorRegistry->getErrors())) {
+                throw $this->_errorRegistry;
             }
         {% endif %}
     {% else %}
         $this->additionalProperties[$property] = $value;
     {% endif %}
 
-    $this->rawModelDataInput[$property] = $value;
+    $this->_rawModelDataInput[$property] = $value;
 
     {{ schemaHookResolver.resolveSetterAfterValidationHook(validationProperty) }}
 

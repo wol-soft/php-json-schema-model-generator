@@ -208,7 +208,7 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
             $minPropertyValidator = new PropertyValidator(
                 sprintf(
                     '%s < %d',
-                    'count($this->rawModelDataInput) - 1',
+                    'count($this->_rawModelDataInput) - 1',
                     $json['minProperties']
                 ),
                 MinPropertiesException::class,

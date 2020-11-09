@@ -5,8 +5,10 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
@@ -86,6 +88,24 @@ class CompositionValidationPostProcessor implements PostProcessorInterface
                     'GetValidatorPropertyMap.phptpl',
                     ['validatorPropertyMap' => var_export($validatorPropertyMap, true)]
                 )
+            );
+
+            $schema->addProperty(
+                (new Property(
+                    'propertyValidationState',
+                    'array',
+                    new JsonSchema(__FILE__, []),
+                    'Track the internal validation state of composed validations'
+                ))
+                    ->setInternal(true)
+                    ->setDefaultValue(
+                        array_fill_keys(
+                            array_unique(
+                                array_merge(...array_values($validatorPropertyMap))
+                            ),
+                            []
+                        )
+                    )
             );
         }
 

@@ -207,13 +207,13 @@ class Schema
     /**
      * Add a class to the schema which is required
      *
-     * @param string $path
+     * @param string $fqcn
      *
      * @return $this
      */
-    public function addUsedClass(string $path): self
+    public function addUsedClass(string $fqcn): self
     {
-        $this->usedClasses[] = trim($path, '\\');
+        $this->usedClasses[] = trim($fqcn, '\\');
 
         return $this;
     }

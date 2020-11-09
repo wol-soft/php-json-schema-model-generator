@@ -225,6 +225,10 @@ If set to false, the generated model classes won't follow coding guidelines (but
     (new GeneratorConfiguration())
         ->setPrettyPrint(true);
 
+.. warning::
+
+    The ECS package must be installed manually: `composer require --dev symplify/easy-coding-standard`
+
 Serialization methods
 ^^^^^^^^^^^^^^^^^^^^^
 

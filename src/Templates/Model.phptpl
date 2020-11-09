@@ -26,14 +26,14 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
 
     {% foreach schema.getProperties() as property %}
         /**{% if viewHelper.getTypeHintAnnotation(property, true) %} @var {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
-        protected ${{ property.getAttribute() }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
+        {% if property.isInternal() %}private{% else %}protected{% endif %} ${{ property.getAttribute() }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
     /** @var array */
-    private $rawModelDataInput = [];
+    private $_rawModelDataInput = [];
 
     {% if generatorConfiguration.collectErrors() %}
         /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} Collect all validation errors */
-        private $errorRegistry;
+        private $_errorRegistry;
     {% endif %}
 
     /**
@@ -46,7 +46,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
     public function __construct(array $modelData = [])
     {
         {% if generatorConfiguration.collectErrors() %}
-            $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
 
         {{ schemaHookResolver.resolveConstructorBeforeValidationHook() }}
@@ -56,16 +56,18 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
         {% endif %}
 
         {% foreach schema.getProperties() as property %}
-            $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
+            {% if not property.isInternal() %}
+                $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
+            {% endif %}
         {% endforeach %}
 
         {% if generatorConfiguration.collectErrors() %}
-            if (count($this->errorRegistry->getErrors())) {
-                throw $this->errorRegistry;
+            if (count($this->_errorRegistry->getErrors())) {
+                throw $this->_errorRegistry;
             }
         {% endif %}
 
-        $this->rawModelDataInput = $modelData;
+        $this->_rawModelDataInput = $modelData;
 
         {{ schemaHookResolver.resolveConstructorAfterValidationHook() }}
     }
@@ -95,105 +97,107 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
      */
     public function getRawModelDataInput(): array
     {
-        return $this->rawModelDataInput;
+        return $this->_rawModelDataInput;
     }
 
     {% foreach schema.getProperties() as property %}
-        /**
-         * Get the value of {{ property.getName() }}.
-         *
-         * {% if property.getDescription() %}{{ property.getDescription() }}{% endif %}
-         *
-         * {% if viewHelper.getTypeHintAnnotation(property, true) %}@return {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}
-         */
-        public function get{{ viewHelper.ucfirst(property.getAttribute()) }}()
-            {% if property.getType(true) %}: {% if viewHelper.isPropertyNullable(property) %}?{% endif %}{{ property.getType(true) }}{% endif %}
-        {
-            {{ schemaHookResolver.resolveGetterHook(property) }}
-
-            return $this->{{ property.getAttribute() }};
-        }
-
-        {% if not property.isReadOnly() %}
+        {% if not property.isInternal() %}
             /**
-             * Set the value of {{ property.getName() }}.
+             * Get the value of {{ property.getName() }}.
              *
-             * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute() }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
+             * {% if property.getDescription() %}{{ property.getDescription() }}{% endif %}
              *
-             * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
-             *
-             * @return self
+             * {% if viewHelper.getTypeHintAnnotation(property, true) %}@return {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}
              */
-            public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
-                {% if property.getType() %}{% if viewHelper.isPropertyNullable(property, true) %}?{% endif %}{{ property.getType() }} {% endif %}${{ property.getAttribute() }}
-            ): self {
-                if ($this->{{ property.getAttribute() }} === ${{ property.getAttribute() }}) {
+            public function get{{ viewHelper.ucfirst(property.getAttribute()) }}()
+                {% if property.getType(true) %}: {% if viewHelper.isPropertyNullable(property) %}?{% endif %}{{ property.getType(true) }}{% endif %}
+            {
+                {{ schemaHookResolver.resolveGetterHook(property) }}
+
+                return $this->{{ property.getAttribute() }};
+            }
+
+            {% if not property.isReadOnly() %}
+                /**
+                 * Set the value of {{ property.getName() }}.
+                 *
+                 * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute() }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
+                 *
+                 * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+                 *
+                 * @return self
+                 */
+                public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
+                    {% if property.getType() %}{% if viewHelper.isPropertyNullable(property, true) %}?{% endif %}{{ property.getType() }} {% endif %}${{ property.getAttribute() }}
+                ): self {
+                    if ($this->{{ property.getAttribute() }} === ${{ property.getAttribute() }}) {
+                        return $this;
+                    }
+
+                    $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute() }};
+
+                    {% if generatorConfiguration.collectErrors() %}
+                        $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+                    {% endif %}
+
+                    {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
+
+                    $value = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
+
+                    {% if generatorConfiguration.collectErrors() %}
+                        if ($this->_errorRegistry->getErrors()) {
+                            throw $this->_errorRegistry;
+                        }
+                    {% endif %}
+
+                    $this->{{ property.getAttribute() }} = $value;
+                    $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute() }};
+
+                    {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
+
                     return $this;
                 }
-
-                $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute() }};
-
-                {% if generatorConfiguration.collectErrors() %}
-                    $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-                {% endif %}
-
-                {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
-
-                $value = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
-
-                {% if generatorConfiguration.collectErrors() %}
-                    if ($this->errorRegistry->getErrors()) {
-                        throw $this->errorRegistry;
-                    }
-                {% endif %}
-
-                $this->{{ property.getAttribute() }} = $value;
-                $this->rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute() }};
-
-                {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
-
-                return $this;
-            }
-        {% endif %}
-
-        /**
-         * Extract the value, perform validations and set the property {{ property.getAttribute() }}
-         *
-         * @param array $modelData
-         *
-         * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
-         */
-        protected function process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
-        {
-            {% if not generatorConfiguration.isImplicitNullAllowed() %}
-                {% if not property.isRequired() %}
-                    if (!array_key_exists('{{ property.getName() }}', $modelData) && $this->{{ property.getAttribute() }} === null) {
-                        return;
-                    }
-                {% endif %}
             {% endif %}
 
-            $value = $modelData['{{ property.getName() }}'] ?? $this->{{ property.getAttribute() }};
+            /**
+             * Extract the value, perform validations and set the property {{ property.getAttribute() }}
+             *
+             * @param array $modelData
+             *
+             * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+             */
+            protected function process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
+            {
+                {% if not generatorConfiguration.isImplicitNullAllowed() %}
+                    {% if not property.isRequired() %}
+                        if (!array_key_exists('{{ property.getName() }}', $modelData) && $this->{{ property.getAttribute() }} === null) {
+                            return;
+                        }
+                    {% endif %}
+                {% endif %}
 
-            {{ viewHelper.resolvePropertyDecorator(property, true) }}
+                $value = $modelData['{{ property.getName() }}'] ?? $this->{{ property.getAttribute() }};
 
-            $this->{{ property.getAttribute() }} = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
-        }
+                {{ viewHelper.resolvePropertyDecorator(property, true) }}
 
-        /**
-         * Execute all validators for the property {{ property.getAttribute() }}
-         */
-        protected function validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, array $modelData)
-        {
-            {% foreach property.getOrderedValidators() as validator %}
-                {{ validator.getValidatorSetUp() }}
-                if ({{ validator.getCheck() }}) {
-                    {{ viewHelper.validationError(validator) }}
-                }
-            {% endforeach %}
+                $this->{{ property.getAttribute() }} = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
+            }
 
-            return $value;
-        }
+            /**
+             * Execute all validators for the property {{ property.getAttribute() }}
+             */
+            protected function validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, array $modelData)
+            {
+                {% foreach property.getOrderedValidators() as validator %}
+                    {{ validator.getValidatorSetUp() }}
+                    if ({{ validator.getCheck() }}) {
+                        {{ viewHelper.validationError(validator) }}
+                    }
+                {% endforeach %}
+
+                return $value;
+            }
+        {% endif %}
     {% endforeach %}
 
     {% foreach schema.getMethods() as method %}

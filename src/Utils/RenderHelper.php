@@ -105,7 +105,7 @@ class RenderHelper
         );
 
         if ($this->generatorConfiguration->collectErrors()) {
-            return "\$this->errorRegistry->addError($exceptionConstructor);";
+            return "\$this->_errorRegistry->addError($exceptionConstructor);";
         }
 
         return "throw $exceptionConstructor;";
