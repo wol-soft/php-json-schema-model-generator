@@ -1,0 +1,18 @@
+is_array($value) && (function (array $items): bool {
+    if (empty($items)) {
+        return false;
+    }
+
+    asort($items);
+    $lastSeen = array_shift($items);
+
+    foreach ($items as $value) {
+        if ($value === $lastSeen) {
+            return true;
+        }
+
+        $lastSeen = $value;
+    }
+
+    return false;
+})($value)

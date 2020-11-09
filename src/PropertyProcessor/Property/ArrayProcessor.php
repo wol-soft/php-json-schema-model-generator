@@ -104,8 +104,9 @@ class ArrayProcessor extends AbstractTypedValueProcessor
         }
 
         $property->addValidator(
-            new PropertyValidator(
-                $this->getTypeCheck() . 'count($value) !== count(array_unique($value, SORT_REGULAR))',
+            new PropertyTemplateValidator(
+                DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayUnique.phptpl',
+                [],
                 UniqueItemsException::class,
                 [$property->getName()]
             )
