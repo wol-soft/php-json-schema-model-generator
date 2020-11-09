@@ -1,10 +1,17 @@
-{%if onlyForDefinedValues %}
+{% if onlyForDefinedValues %}
     $value !== null &&
 {% endif %}
-(function (&$value) use (&$modelData, &$compositionErrorCollection, &$succeededCompositionElements, &$validatorIndex) {
+(function (&$value) use (
+    &$modelData,
+    &$modifiedModelData,
+    &$compositionErrorCollection,
+    &$succeededCompositionElements,
+    &$validatorIndex
+) {
     $succeededCompositionElements = {{ availableAmount }};
     $validatorComponentIndex = 0;
     $originalModelData = $value;
+    $originalPropertyValidationState = $this->_propertyValidationState ?? [];
     $proposedValue = null;
 
     {% if generatorConfiguration.collectErrors() %}
@@ -13,13 +20,29 @@
 
     {% foreach properties as property %}
         try {
-            // check if the state of the validator is already known. If the property is not changed the validator must not
-            // be re-evaluated
-            if ($validatorIndex !== null &&
-                !isset($modelData['{{ property.getName() }}'])
-                && isset($this->_propertyValidationState[$validatorIndex][$validatorComponentIndex])
+            // check if the state of the validator is already known.
+            // If none of the properties affected by the validator are changed the validator must not be re-evaluated
+            if (isset($validatorIndex) &&
+                isset($this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]) &&
+                !array_intersect(
+                    array_keys($modifiedModelData),
+                    [
+                        {% foreach property.getAffectedObjectProperties() as affectedObjectProperty %}
+                            '{{ affectedObjectProperty.getName() }}',
+                        {% endforeach %}
+                    ]
+                )
             ) {
-                if (!$this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]) {
+                {% if generatorConfiguration.collectErrors() %}
+                    $compositionErrorCollection[] = $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex];
+                {% endif %}
+
+                if ({% if generatorConfiguration.collectErrors() %}
+                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]->getErrors()
+                    {% else %}
+                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] !== true
+                    {% endif %}
+                ) {
                     throw new \Exception();
                 }
             } else {
@@ -43,6 +66,7 @@
 
                 {% if generatorConfiguration.collectErrors() %}
                     $compositionErrorCollection[] = $this->_errorRegistry;
+                    isset($validatorIndex) ? $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = $this->_errorRegistry : null;
 
                     // an error inside the composed validation occurred. Throw an exception to count the validity of the
                     // composition item
@@ -55,10 +79,14 @@
                     $proposedValue = $proposedValue ?? $value;
                 {% endif %}
 
-                $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex++] = true;
+                {% if not generatorConfiguration.collectErrors() %}
+                    isset($validatorIndex) ? $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = true : null;
+                {% endif %}
             }
         } catch (\Exception $e) {
-            $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex++] = false;
+            {% if not generatorConfiguration.collectErrors() %}
+                isset($validatorIndex) ? $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = false : null;
+            {% endif %}
 
             {% foreach property.getAffectedObjectProperties() as affectedObjectProperty %}
                 unset($modelData['{{ affectedObjectProperty.getName() }}']);
@@ -66,7 +94,9 @@
 
             $succeededCompositionElements--;
         }
+
         $value = $originalModelData;
+        $validatorComponentIndex++;
     {% endforeach %}
 
     {% if mergedProperty %}
@@ -83,5 +113,11 @@
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
-    return !({{ composedValueValidation }});
+    $result = !({{ composedValueValidation }});
+
+    if ($result) {
+        $this->_propertyValidationState = $originalPropertyValidationState;
+    }
+
+    return $result;
 })($value)

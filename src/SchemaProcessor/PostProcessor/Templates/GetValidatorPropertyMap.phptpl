@@ -1,4 +1,0 @@
-private function getValidatorPropertyMap(): array
-{
-    return {{ validatorPropertyMap }};
-}

@@ -80,16 +80,6 @@ class CompositionValidationPostProcessor implements PostProcessorInterface
         }
 
         if (!empty($validatorPropertyMap) && !$generatorConfiguration->isImmutable()) {
-            $schema->addMethod(
-                'getValidatorPropertyMap',
-                new RenderedMethod(
-                    $schema,
-                    $generatorConfiguration,
-                    'GetValidatorPropertyMap.phptpl',
-                    ['validatorPropertyMap' => var_export($validatorPropertyMap, true)]
-                )
-            );
-
             $schema->addProperty(
                 (new Property(
                     'propertyValidationState',
