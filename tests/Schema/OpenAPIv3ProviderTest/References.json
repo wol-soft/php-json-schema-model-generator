@@ -1,0 +1,38 @@
+{
+  "components": {
+    "modules": {
+      "person": {
+        "$id": "Person",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "%s"
+            },
+            "default": []
+          }
+        }
+      }
+    },
+    "schemas": {
+      "OpenApiPerson": {
+        "$ref": "%s"
+      },
+      "OpenApiCar": {
+        "type": "object",
+        "properties": {
+          "ps": {
+            "type": "integer"
+          },
+          "owner": {
+            "$ref": "%s"
+          }
+        }
+      }
+    }
+  }
+}

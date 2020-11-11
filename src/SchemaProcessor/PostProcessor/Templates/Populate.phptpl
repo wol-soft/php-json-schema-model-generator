@@ -13,7 +13,7 @@ public function populate(array $modelData): self
     $rollbackValues = [];
 
     {% if generatorConfiguration.collectErrors() %}
-        $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
     {% else %}
         try {
     {% endif %}
@@ -23,21 +23,25 @@ public function populate(array $modelData): self
     {% endif %}
 
     {% foreach schema.getProperties() as property %}
-        if (array_key_exists('{{ property.getName() }}', $modelData)) {
-            {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
+        {% if not property.isInternal() %}
+            if (array_key_exists('{{ property.getName() }}', $modelData) &&
+                $modelData['{{ property.getName() }}'] !== $this->{{ property.getAttribute() }}
+            ) {
+                {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
 
-            $rollbackValues['{{ property.getAttribute() }}'] = $this->{{ property.getAttribute() }};
-            $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
-        }
+                $rollbackValues['{{ property.getAttribute() }}'] = $this->{{ property.getAttribute() }};
+                $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
+            }
+        {% endif %}
     {% endforeach %}
 
     {% if generatorConfiguration.collectErrors() %}
-        if (count($this->errorRegistry->getErrors())) {
+        if (count($this->_errorRegistry->getErrors())) {
             foreach ($rollbackValues as $property => $value) {
                 $this->{$property} = $value;
             }
 
-            throw $this->errorRegistry;
+            throw $this->_errorRegistry;
         }
     {% else %}
         } catch (ValidationException $exception) {
@@ -49,13 +53,15 @@ public function populate(array $modelData): self
         }
     {% endif %}
 
-    $this->rawModelDataInput = array_merge($this->rawModelDataInput, $modelData);
+    $this->_rawModelDataInput = array_merge($this->_rawModelDataInput, $modelData);
 
     {% foreach schema.getProperties() as property %}
-        {% if schemaHookResolver.resolveSetterAfterValidationHook(property) %}
-            if (array_key_exists('{{ property.getName() }}', $modelData)) {
-                {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
-            }
+        {% if not property.isInternal() %}
+            {% if schemaHookResolver.resolveSetterAfterValidationHook(property) %}
+                if (array_key_exists('{{ property.getName() }}', $rollbackValues)) {
+                    {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
+                }
+            {% endif %}
         {% endif %}
     {% endforeach %}
 

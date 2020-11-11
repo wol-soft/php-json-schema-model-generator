@@ -9,6 +9,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
+use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
@@ -27,6 +28,8 @@ class Schema
     protected $className;
     /** @var string */
     protected $classPath;
+    /** @var string */
+    protected $description;
 
     /** @var string[] */
     protected $traits = [];
@@ -69,6 +72,7 @@ class Schema
         $this->classPath = $classPath;
         $this->jsonSchema = $schema;
         $this->schemaDefinitionDictionary = $dictionary ?? new SchemaDefinitionDictionary('');
+        $this->description = $schema->getJson()['description'] ?? '';
 
         $this->addInterface(JSONModelInterface::class);
     }
@@ -87,6 +91,14 @@ class Schema
     public function getClassPath(): string
     {
         return $this->classPath;
+    }
+
+    /**
+     * @return string
+     */
+    public function getDescription(): string
+    {
+        return $this->description;
     }
 
     /**
@@ -155,6 +167,24 @@ class Schema
     }
 
     /**
+     * Get the keys of all composition base validators
+     *
+     * @return array
+     */
+    public function getCompositionValidatorKeys(): array
+    {
+        $keys = [];
+
+        foreach ($this->baseValidators as $key => $validator) {
+            if (is_a($validator, AbstractComposedPropertyValidator::class)) {
+                $keys[] = $key;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
      * @param PropertyValidatorInterface $baseValidator
      *
      * @return $this
@@ -177,13 +207,13 @@ class Schema
     /**
      * Add a class to the schema which is required
      *
-     * @param string $path
+     * @param string $fqcn
      *
      * @return $this
      */
-    public function addUsedClass(string $path): self
+    public function addUsedClass(string $fqcn): self
     {
-        $this->usedClasses[] = trim($path, '\\');
+        $this->usedClasses[] = trim($fqcn, '\\');
 
         return $this;
     }

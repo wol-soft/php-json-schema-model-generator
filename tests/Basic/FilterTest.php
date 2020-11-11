@@ -673,7 +673,6 @@ ERROR
         $className = $this->generateClassFromFile(
             'FilterChainMultiType.json',
             (new GeneratorConfiguration())
-                ->setImplicitNull($implicitNull)
                 ->setNamespacePrefix($namespace)
                 ->setSerialization(true)
                 ->setImmutable(false)
@@ -684,7 +683,8 @@ ERROR
                         [DateTime::class]
                     )
                 ),
-            false
+            false,
+            $implicitNull
         );
 
         $fqcn = $namespace . $className;

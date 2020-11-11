@@ -18,6 +18,7 @@ use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
+use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 
 /**
  * Class AdditionalPropertiesAccessorPostProcessor
@@ -185,6 +186,7 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
                 [
                     'validationProperty' => $validationProperty,
                     'objectProperties' => $objectProperties,
+                    'schemaHookResolver' => new SchemaHookResolver($schema),
                 ]
             )
         );
@@ -206,7 +208,7 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
             $minPropertyValidator = new PropertyValidator(
                 sprintf(
                     '%s < %d',
-                    'count($this->rawModelDataInput) - 1',
+                    'count($this->_rawModelDataInput) - 1',
                     $json['minProperties']
                 ),
                 MinPropertiesException::class,

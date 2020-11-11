@@ -1,6 +1,6 @@
 (function ($propertyNames) use (&$invalidProperties) {
     {% if generatorConfiguration.collectErrors() %}
-        $originalErrorRegistry = $this->errorRegistry;
+        $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
 
     foreach ($propertyNames as $value) {
@@ -9,7 +9,7 @@
 
         try {
             {% if generatorConfiguration.collectErrors() %}
-                $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+                $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
             {% endif %}
 
             {% foreach nameValidationProperty.getOrderedValidators() as validator %}
@@ -20,8 +20,8 @@
             {% endforeach %}
 
             {% if generatorConfiguration.collectErrors() %}
-                if ($this->errorRegistry->getErrors()) {
-                    $invalidProperties[$value] = $this->errorRegistry->getErrors();
+                if ($this->_errorRegistry->getErrors()) {
+                    $invalidProperties[$value] = $this->_errorRegistry->getErrors();
                 }
             {% endif %}
         } catch (\Exception $e) {
@@ -33,7 +33,7 @@
     }
 
     {% if generatorConfiguration.collectErrors() %}
-        $this->errorRegistry = $originalErrorRegistry;
+        $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
     return !empty($invalidProperties);

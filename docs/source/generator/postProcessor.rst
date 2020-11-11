@@ -43,10 +43,11 @@ Generated interface with the **PopulatePostProcessor**:
 .. code-block:: php
 
     public function getRawModelDataInput(): array;
-    public function populate(array $modelData): self;
 
     public function setExample(float $example): self;
     public function getExample(): float;
+
+    public function populate(array $modelData): self;
 
 Now let's have a look at the behaviour of the generated model:
 
@@ -79,7 +80,7 @@ Now let's have a look at the behaviour of the generated model:
 
     If the **PopulatePostProcessor** is added to your model generator the populate method will be added to the model independently of the `immutable setting <../gettingStarted.html#immutable-classes>`__.
 
-The **PopulatePostProcessor** will also resolve all hooks which are applied to setters. Added code will be executed for all properties changed by a populate call.
+The **PopulatePostProcessor** will also resolve all hooks which are applied to setters. Added code will be executed for all properties changed by a populate call. Schema hooks which implement the **SetterAfterValidationHookInterface** will only be executed if all provided properties pass the validation.
 
 AdditionalPropertiesAccessorPostProcessor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -170,10 +171,16 @@ What can you do inside your custom post processor?
 
 * Add additional traits and interfaces to your models
 * Add additional methods and properties to your models
-* Hook via SchemaHooks into the generated source code and add your snippets at defined places inside the model:
+* Hook via **SchemaHooks** into the generated source code and add your snippets at defined places inside the model:
 
     * Implement the **ConstructorBeforeValidationHookInterface** to add code to the beginning of your constructor
     * Implement the **ConstructorAfterValidationHookInterface** to add code to the end of your constructor
     * Implement the **GetterHookInterface** to add code to your getter methods
     * Implement the **SetterBeforeValidationHookInterface** to add code to the beginning of your setter methods
     * Implement the **SetterAfterValidationHookInterface** to add code to the end of your setter methods
+
+.. warning::
+
+    If a setter for a property is called with the same value which is already stored internally (consequently no update of the property is required), the setters will return directly and as a result of that the setter hooks will not be executed.
+
+    This behaviour also applies also to properties changed via the *populate* method added by the `PopulatePostProcessor <#populatepostprocessor>`__ and the *setAdditionalProperty* method added by the `AdditionalPropertiesAccessorPostProcessor <#additionalpropertiesaccessorpostprocessor>`__

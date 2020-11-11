@@ -16,6 +16,30 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 class ComposedIfTest extends AbstractPHPModelGeneratorTest
 {
     /**
+     * @dataProvider conditionalKeywordsDataProvider
+     *
+     * @param string $keyword
+     */
+    public function testIncompleteConditionalsOnPropertyLevelResolveToProperties(string $keyword): void
+    {
+        $className = $this->generateClassFromFileTemplate('IncompleteConditionalOnPropertyLevel.json', [$keyword]);
+
+        $object = new $className([$keyword => 'Hello']);
+
+        $getter = 'get' . ucfirst($keyword);
+        $this->assertSame('Hello', $object->$getter());
+    }
+
+    public function conditionalKeywordsDataProvider(): array
+    {
+        return [
+            'if' => ['if'],
+            'then' => ['then'],
+            'else' => ['else'],
+        ];
+    }
+
+    /**
      * @dataProvider validConditionalObjectPropertyDataProvider
      *
      * @param GeneratorConfiguration $configuration

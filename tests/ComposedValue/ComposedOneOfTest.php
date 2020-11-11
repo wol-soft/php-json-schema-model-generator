@@ -2,8 +2,10 @@
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
-use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Exception\ComposedValue\OneOfException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use stdClass;
 
@@ -502,6 +504,101 @@ ERROR
             'only string property' => [['stringProperty' => 'B'], 'B', null],
             'only int property with additional property' => [['integerProperty' => 4, 'test' => 1234], null, 4],
             'only string property with additional property' => [['stringProperty' => 'B', 'test' => 1234], 'B', null],
+        ];
+    }
+
+    /**
+     * @dataProvider validationInSetterDataProvider
+     *
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param string $exceptionMessageBothValid
+     * @param string $exceptionMessageBothInvalid
+     */
+    public function testValidationInSetterMethods(
+        GeneratorConfiguration $generatorConfiguration,
+        string $exceptionMessageBothValid,
+        string $exceptionMessageBothInvalid
+    ): void {
+        $className = $this->generateClassFromFile(
+            'ObjectLevelCompositionRequired.json',
+            $generatorConfiguration->setImmutable(false)
+        );
+
+        $object = new $className(['integerProperty' => 2, 'stringProperty' => 99]);
+
+        // test a valid change
+        $object->setIntegerProperty(4);
+        $this->assertSame(4, $object->getIntegerProperty());
+        $this->assertNull($object->getStringProperty());
+
+        // set the string to null is a valid step as the composition stays valid
+        $object->setStringProperty(null);
+        $this->assertSame(4, $object->getIntegerProperty());
+        $this->assertNull($object->getStringProperty());
+
+        // test an invalid change (both properties valid)
+        try {
+            $object->setStringProperty('Hello');
+            $this->fail('Exception not thrown');
+        } catch (ErrorRegistryException | OneOfException $exception) {
+            $this->assertStringContainsString($exceptionMessageBothValid, $exception->getMessage());
+        }
+
+        // test an invalid change (both properties invalid)
+        try {
+            $object->setIntegerProperty(null);
+            $this->fail('Exception not thrown');
+        } catch (ErrorRegistryException | OneOfException $exception) {
+            $this->assertStringContainsString($exceptionMessageBothInvalid, $exception->getMessage());
+        }
+
+        // make sure the internal state of the object hasn't changed after invalid accesses
+        $this->assertSame(4, $object->getIntegerProperty());
+        $this->assertNull($object->getStringProperty());
+
+        // test valid changes again to make sure the internal validation state is correct after invalid accesses
+        $object->setIntegerProperty(6);
+        $this->assertSame(6, $object->getIntegerProperty());
+        $this->assertNull($object->getStringProperty());
+
+        $object->setStringProperty(null);
+        $this->assertSame(6, $object->getIntegerProperty());
+        $this->assertNull($object->getStringProperty());
+    }
+
+    public function validationInSetterDataProvider(): array
+    {
+        return [
+            'Exception Collection' => [
+                (new GeneratorConfiguration())->setCollectErrors(true),
+                <<<ERROR
+declined by composition constraint.
+  Requires to match one composition element but matched 2 elements.
+  - Composition element #1: Valid
+  - Composition element #2: Valid
+ERROR
+                ,
+                <<<ERROR
+declined by composition constraint.
+  Requires to match one composition element but matched 0 elements.
+  - Composition element #1: Failed
+    * Invalid type for stringProperty. Requires string, got integer
+  - Composition element #2: Failed
+    * Invalid type for integerProperty. Requires int, got NULL
+ERROR
+            ],
+            'Direct Exception' => [
+                (new GeneratorConfiguration())->setCollectErrors(false),
+                <<<ERROR
+declined by composition constraint.
+  Requires to match one composition element but matched 2 elements.
+ERROR
+                ,
+                <<<ERROR
+declined by composition constraint.
+  Requires to match one composition element but matched 0 elements.
+ERROR
+            ],
         ];
     }
 }

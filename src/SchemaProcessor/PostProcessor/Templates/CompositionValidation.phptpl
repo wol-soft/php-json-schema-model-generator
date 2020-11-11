@@ -1,0 +1,21 @@
+/**
+ * Validate updated properties which are part of a composition validation
+ *
+ * @param array $modifiedModelData An array containing all updated data as key-value pairs
+ *
+ * {% if not generatorConfiguration.collectErrors() %}@throws ValidationException{% endif %}
+ */
+private function validateComposition_{{ index }}(array &$modifiedModelData): void
+{
+    $validatorIndex = {{ index }};
+    $value = $modelData = array_merge($this->_rawModelDataInput, $modifiedModelData);
+
+    {{ validator.getValidatorSetUp() }}
+    if ({{ validator.getCheck() }}) {
+        {{ viewHelper.validationError(validator) }}
+    }
+
+    foreach (array_keys($modifiedModelData) as $property) {
+        $modifiedModelData[$property] = $modelData[$property];
+    }
+}

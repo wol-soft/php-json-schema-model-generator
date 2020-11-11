@@ -9,6 +9,7 @@ use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -124,16 +125,18 @@ class RenderJob
         $render = new Render(__DIR__ . '/../Templates/');
         $namespace = trim(join('\\', [$generatorConfiguration->getNamespacePrefix(), $this->classPath]), '\\');
 
-        $use = array_merge(
-            $this->schema->getUsedClasses(),
-            $generatorConfiguration->collectErrors()
-                ? [$generatorConfiguration->getErrorRegistryClass()]
-                : [ValidationException::class]
+        $use = array_unique(
+            array_merge(
+                $this->schema->getUsedClasses(),
+                $generatorConfiguration->collectErrors()
+                    ? [$generatorConfiguration->getErrorRegistryClass()]
+                    : [ValidationException::class]
+            )
         );
 
         // filter out non-compound uses and uses which link to the current namespace
         $use = array_filter($use, function ($classPath) use ($namespace) {
-            return strstr(str_replace($namespace, '', $classPath), '\\') ||
+            return strstr(trim(str_replace("$namespace", '', $classPath), '\\'), '\\') ||
                 (!strstr($classPath, '\\') && !empty($namespace));
         });
 
@@ -141,15 +144,21 @@ class RenderJob
             $class = $render->renderTemplate(
                 'Model.phptpl',
                 [
-                    'namespace'              => $namespace,
-                    'use'                    => 'use ' . join(";\nuse ", array_unique($use)) . ';',
-                    'class'                  => $this->className,
-                    'schema'                 => $this->schema,
-                    'schemaHookResolver'     => new SchemaHookResolver($this->schema),
-                    'generatorConfiguration' => $generatorConfiguration,
-                    'viewHelper'             => new RenderHelper($generatorConfiguration),
+                    'namespace'                         => $namespace,
+                    'use'                               => $use,
+                    'class'                             => $this->className,
+                    'schema'                            => $this->schema,
+                    'schemaHookResolver'                => new SchemaHookResolver($this->schema),
+                    'generatorConfiguration'            => $generatorConfiguration,
+                    'viewHelper'                        => new RenderHelper($generatorConfiguration),
                     // one hack a day keeps the problems away. Make true literal available for the templating. Easy fix
-                    'true'                   => true,
+                    'true'                              => true,
+                    'baseValidatorsWithoutCompositions' => array_filter(
+                        $this->schema->getBaseValidators(),
+                        function ($validator) {
+                            return !is_a($validator, AbstractComposedPropertyValidator::class);
+                        }
+                    ),
                 ]
             );
         } catch (PHPMicroTemplateException $exception) {

@@ -2,14 +2,19 @@
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use Exception;
 use JsonSerializable;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Interfaces\SerializationInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
-use ReflectionMethod;
 
 /**
  * Class BasicSchemaGenerationTest
@@ -42,6 +47,11 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->assertSame($object, $object->setProperty('Bye'));
         $this->assertSame('Bye', $object->getProperty());
 
+        if ($implicitNull) {
+            $this->assertSame($object, $object->setProperty(null));
+            $this->assertNull($object->getProperty());
+        }
+
         // test if the property is typed correctly
         $returnType = $this->getReturnType($object, 'getProperty');
         $this->assertSame('string', $returnType->getName());
@@ -51,6 +61,35 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $setType = $this->getParameterType($object, 'setProperty');
         $this->assertSame('string', $setType->getName());
         $this->assertSame($implicitNull, $setType->allowsNull());
+    }
+
+    public function testSetterLogicIsNotExecutedWhenValueIsIdentical(): void
+    {
+        $this->modifyModelGenerator = function (ModelGenerator $modelGenerator): void {
+            $modelGenerator->addPostProcessor(new class () implements PostProcessorInterface {
+                public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
+                {
+                    $schema->addSchemaHook(new class () implements SetterBeforeValidationHookInterface {
+                        public function getCode(PropertyInterface $property): string
+                        {
+                            return 'throw new \Exception("SetterBeforeValidationHook");';
+                        }
+                    });
+                }
+            });
+        };
+
+        $className = $this->generateClassFromFile(
+            'BasicSchema.json',
+            (new GeneratorConfiguration())->setImmutable(false)
+        );
+
+        $object = new $className(['property' => 'Hello']);
+        $object->setProperty('Hello');
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('SetterBeforeValidationHook');
+        $object->setProperty('Goodbye');
     }
 
     public function testGetterAndSetterAreNotGeneratedByDefault(): void

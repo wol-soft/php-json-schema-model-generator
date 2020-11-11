@@ -2,8 +2,11 @@
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use ReflectionMethod;
 use stdClass;
@@ -456,17 +459,96 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
         $this->generateClassFromFile('NoNestedSchema.json');
     }
 
-    /*
-        public function testObjectLevelCompositionConditional()
-        {
-            $className = $this->generateClassFromFile('ComposedAllOfConditional.json');
+    /**
+     * @dataProvider validationInSetterDataProvider
+     *
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param string $exceptionMessageIntegerPropertyInvalid
+     * @param string $exceptionMessageStringPropertyInvalid
+     */
+    public function testValidationInSetterMethods(
+        GeneratorConfiguration $generatorConfiguration,
+        string $exceptionMessageIntegerPropertyInvalid,
+        string $exceptionMessageStringPropertyInvalid
+    ): void {
+        $className = $this->generateClassFromFile(
+            'ObjectLevelCompositionRequired.json',
+            $generatorConfiguration->setImmutable(false)
+        );
 
-            $object = new $className(['name' => 'Hannes', 'cars' => [['ps' => 112]]]);
+        $object = new $className(['integerProperty' => 2, 'stringProperty' => 'Hello']);
 
-            $this->assertSame('Hannes', $object->getName());
-            $this->assertIsArray($object->getCars());
-            $this->assertCount(1, $object->getCars());
-            $this->assertIsObject($object->getCars()[0]);
-            $this->assertSame(112, $object->getCars()[0]->getPs());
-        }*/
+        // test a valid change
+        $object->setIntegerProperty(4);
+        $this->assertSame(4, $object->getIntegerProperty());
+        $this->assertSame('Hello', $object->getStringProperty());
+
+        $object->setStringProperty('Goodbye');
+        $this->assertSame(4, $object->getIntegerProperty());
+        $this->assertSame('Goodbye', $object->getStringProperty());
+
+        // test an invalid change (only one property valid)
+        try {
+            $object->setIntegerProperty(null);
+            $this->fail('Exception not thrown');
+        } catch (ErrorRegistryException | AllOfException $exception) {
+            $this->assertStringContainsString($exceptionMessageIntegerPropertyInvalid, $exception->getMessage());
+        }
+
+        try {
+            $object->setStringProperty(null);
+            $this->fail('Exception not thrown');
+        } catch (ErrorRegistryException | AllOfException $exception) {
+            $this->assertStringContainsString($exceptionMessageStringPropertyInvalid, $exception->getMessage());
+        }
+
+        // make sure the internal state of the object hasn't changed after invalid accesses
+        $this->assertSame(4, $object->getIntegerProperty());
+        $this->assertSame('Goodbye', $object->getStringProperty());
+
+        // test valid changes again to make sure the internal validation state is correct after invalid accesses
+        $object->setIntegerProperty(6);
+        $this->assertSame(6, $object->getIntegerProperty());
+        $this->assertSame('Goodbye', $object->getStringProperty());
+
+        $object->setStringProperty('Hello again');
+        $this->assertSame(6, $object->getIntegerProperty());
+        $this->assertSame('Hello again', $object->getStringProperty());
+    }
+
+    public function validationInSetterDataProvider(): array
+    {
+        return [
+            'Exception Collection' => [
+                (new GeneratorConfiguration())->setCollectErrors(true),
+                <<<ERROR
+declined by composition constraint.
+  Requires to match all composition elements but matched 1 elements.
+  - Composition element #1: Valid
+  - Composition element #2: Failed
+    * Invalid type for integerProperty. Requires int, got NULL
+ERROR
+                ,
+                <<<ERROR
+declined by composition constraint.
+  Requires to match all composition elements but matched 1 elements.
+  - Composition element #1: Failed
+    * Invalid type for stringProperty. Requires string, got NULL
+  - Composition element #2: Valid
+ERROR
+            ],
+            'Direct Exception' => [
+                (new GeneratorConfiguration())->setCollectErrors(false),
+                <<<ERROR
+declined by composition constraint.
+  Requires to match all composition elements but matched 1 elements.
+ERROR
+                ,
+                <<<ERROR
+declined by composition constraint.
+  Requires to match all composition elements but matched 1 elements.
+ERROR
+            ],
+        ];
+    }
 }

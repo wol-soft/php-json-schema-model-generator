@@ -228,4 +228,20 @@ class PropertyProxy implements PropertyInterface
     {
         return $this->getProperty()->getJsonSchema();
     }
+
+    /**
+     * @inheritdoc
+     */
+    public function setInternal(bool $isPropertyInternal): PropertyInterface
+    {
+        return $this->getProperty()->setInternal($isPropertyInternal);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function isInternal(): bool
+    {
+        return $this->getProperty()->isInternal();
+    }
 }

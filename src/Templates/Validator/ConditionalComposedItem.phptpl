@@ -5,13 +5,13 @@
     $originalModelData = $value;
     $ifValid  = true;
     {% if generatorConfiguration.collectErrors() %}
-        $originalErrorRegistry = $this->errorRegistry;
-        $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        $originalErrorRegistry = $this->_errorRegistry;
+        $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
     {% endif %}
 
     try {
         {% if generatorConfiguration.collectErrors() %}
-            $currentErrors = count($this->errorRegistry->getErrors());
+            $currentErrors = count($this->_errorRegistry->getErrors());
         {% endif %}
 
         {{ viewHelper.resolvePropertyDecorator(ifProperty) }}
@@ -26,7 +26,7 @@
         {% if generatorConfiguration.collectErrors() %}
             // an error inside the composed validation occurred. Throw an exception to count the validity of the
             // composition item
-            if ($currentErrors < count($this->errorRegistry->getErrors())) {
+            if ($currentErrors < count($this->_errorRegistry->getErrors())) {
                 throw new \Exception();
             }
         {% endif %}
@@ -36,7 +36,7 @@
     $value = $originalModelData;
 
     {% if generatorConfiguration.collectErrors() %}
-        $this->errorRegistry = $originalErrorRegistry;
+        $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
     if ($ifValid) {

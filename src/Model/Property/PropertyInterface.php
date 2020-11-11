@@ -145,6 +145,13 @@ interface PropertyInterface
     public function setReadOnly(bool $isPropertyReadOnly): PropertyInterface;
 
     /**
+     * @param bool $isPropertyInternal
+     *
+     * @return PropertyInterface
+     */
+    public function setInternal(bool $isPropertyInternal): PropertyInterface;
+
+    /**
      * @param mixed $defaultValue
      *
      * @return PropertyInterface
@@ -165,6 +172,11 @@ interface PropertyInterface
      * @return bool
      */
     public function isReadOnly(): bool;
+
+    /**
+     * @return bool
+     */
+    public function isInternal(): bool;
 
     /**
      * Set a nested schema

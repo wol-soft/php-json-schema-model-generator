@@ -34,6 +34,8 @@ class Property implements PropertyInterface
     protected $isPropertyRequired = true;
     /** @var bool */
     protected $isPropertyReadOnly = false;
+    /** @var bool */
+    protected $isPropertyInternal = false;
     /** @var string */
     protected $description = '';
     /** @var mixed */
@@ -81,7 +83,7 @@ class Property implements PropertyInterface
      */
     public function getAttribute(): string
     {
-        return $this->attribute;
+        return ($this->isInternal() ? '_' : '') . $this->attribute;
     }
 
     /**
@@ -342,5 +344,22 @@ class Property implements PropertyInterface
     public function getNestedSchema(): ?Schema
     {
         return $this->schema;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function setInternal(bool $isPropertyInternal): PropertyInterface
+    {
+        $this->isPropertyInternal = $isPropertyInternal;
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function isInternal(): bool
+    {
+        return $this->isPropertyInternal;
     }
 }

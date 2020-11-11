@@ -137,6 +137,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * @param GeneratorConfiguration|null $generatorConfiguration
      * @param bool                        $escape
      * @param bool                        $implicitNull
+     * @param string                      $schemaProviderClass
      *
      * @return string
      *
@@ -149,7 +150,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         array $values,
         GeneratorConfiguration $generatorConfiguration = null,
         bool $escape = true,
-        bool $implicitNull = true
+        bool $implicitNull = true,
+        string $schemaProviderClass = RecursiveDirectoryProvider::class
     ): string {
         return $this->generateClass(
             call_user_func_array(
@@ -166,7 +168,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
             ),
             $generatorConfiguration,
             false,
-            $implicitNull
+            $implicitNull,
+            $schemaProviderClass
         );
     }
 
@@ -197,6 +200,13 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
             ->setImplicitNull($implicitNull)
             ->setOutputEnabled(false);
 
+        $baseDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'PHPModelGeneratorTest';
+        foreach ($this->names as $name) {
+            unlink($baseDir . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR . $name . '.php');
+        }
+
+        $className = $this->getClassName();
+
         if (!$originalClassNames) {
             // extend the class name generator to attach a uniqid as multiple test executions use identical $id
             // properties which would lead to name collisions
@@ -211,20 +221,21 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
                         ($currentClassName ? uniqid() : '');
                 }
             });
-        }
 
-        $baseDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'PHPModelGeneratorTest';
-        foreach ($this->names as $name) {
-            unlink($baseDir . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR . $name . '.php');
-        }
+            // generate an object ID for valid JSON schema files to avoid class name collisions in the testing process
+            $jsonSchemaArray = json_decode($jsonSchema, true);
+            if ($jsonSchemaArray) {
+                $jsonSchemaArray['$id'] = $className;
 
-        $className = $this->getClassName();
+                if (isset($jsonSchemaArray['components']['schemas'])) {
+                    $counter = 0;
+                    foreach ($jsonSchemaArray['components']['schemas'] as &$schema) {
+                        $schema['$id'] = $className . '_' . $counter++;
+                    }
+                }
 
-        // generate an object ID for valid JSON schema files to avoid class name collisions in the testing process
-        $jsonSchemaArray = json_decode($jsonSchema, true);
-        if ($jsonSchemaArray) {
-            $jsonSchemaArray['id'] = $className;
-            $jsonSchema = json_encode($jsonSchemaArray);
+                $jsonSchema = json_encode($jsonSchemaArray);
+            }
         }
 
         $mainFile = $baseDir . DIRECTORY_SEPARATOR . $className . '.json';

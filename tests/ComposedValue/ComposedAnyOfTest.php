@@ -2,7 +2,10 @@
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
+use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use stdClass;
 
@@ -560,6 +563,87 @@ ERROR
             'only string property' => [['stringProperty' => 'B'], 'B', null],
             'only int property with additional property' => [['integerProperty' => 4, 'test' => 1234], null, 4],
             'only string property with additional property' => [['stringProperty' => 'B', 'test' => 1234], 'B', null],
+        ];
+    }
+
+    /**
+     * @dataProvider validationInSetterDataProvider
+     *
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param string $exceptionMessageBothInvalid
+     */
+    public function testValidationInSetterMethods(
+        GeneratorConfiguration $generatorConfiguration,
+        string $exceptionMessageBothInvalid
+    ): void {
+        $className = $this->generateClassFromFile(
+            'ObjectLevelCompositionRequired.json',
+            $generatorConfiguration->setImmutable(false)
+        );
+
+        $object = new $className(['integerProperty' => 2]);
+
+        // test a valid change
+        $object->setIntegerProperty(4);
+        $this->assertSame(4, $object->getIntegerProperty());
+        $this->assertNull($object->getStringProperty());
+
+        // set the string to null is a valid step as the composition stays valid
+        $object->setStringProperty(null);
+        $this->assertSame(4, $object->getIntegerProperty());
+        $this->assertNull($object->getStringProperty());
+
+        $object->setStringProperty('Hello');
+        $this->assertSame(4, $object->getIntegerProperty());
+        $this->assertSame('Hello', $object->getStringProperty());
+
+        $object->setIntegerProperty(null);
+        $this->assertNull($object->getIntegerProperty());
+        $this->assertSame('Hello', $object->getStringProperty());
+
+        // test an invalid change (both properties invalid)
+        try {
+            $object->setStringProperty(null);
+            $this->fail('Exception not thrown');
+        } catch (ErrorRegistryException | AnyOfException $exception) {
+            $this->assertStringContainsString($exceptionMessageBothInvalid, $exception->getMessage());
+        }
+
+        // make sure the internal state of the object hasn't changed after an invalid access
+        $this->assertNull($object->getIntegerProperty());
+        $this->assertSame('Hello', $object->getStringProperty());
+
+        // test valid changes again to make sure the internal validation state is correct after invalid accesses
+        $object->setIntegerProperty(6);
+        $this->assertSame(6, $object->getIntegerProperty());
+        $this->assertSame('Hello', $object->getStringProperty());
+
+        $object->setStringProperty(null);
+        $this->assertSame(6, $object->getIntegerProperty());
+        $this->assertNull($object->getStringProperty());
+    }
+
+    public function validationInSetterDataProvider(): array
+    {
+        return [
+            'Exception Collection' => [
+                (new GeneratorConfiguration())->setCollectErrors(true),
+                <<<ERROR
+declined by composition constraint.
+  Requires to match at least one composition element.
+  - Composition element #1: Failed
+    * Invalid type for stringProperty. Requires string, got NULL
+  - Composition element #2: Failed
+    * Invalid type for integerProperty. Requires int, got NULL
+ERROR
+            ],
+            'Direct Exception' => [
+                (new GeneratorConfiguration())->setCollectErrors(false),
+                <<<ERROR
+declined by composition constraint.
+  Requires to match at least one composition element.
+ERROR
+            ],
         ];
     }
 }

@@ -2,6 +2,8 @@
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
+use PHPModelGenerator\Exception\ComposedValue\NotException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -11,6 +13,8 @@ use PHPModelGenerator\Exception\ValidationException;
 use stdClass;
 
 /**
+ * TODO: test object level not
+ *
  * Class ComposedNotTest
  *
  * @package PHPModelGenerator\Tests\ComposedValue
@@ -343,5 +347,64 @@ ERROR
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json', $configuration);
 
         new $className(['person' => ['name' => 'Hannes', 'age' => 42]]);
+    }
+
+    /**
+     * @dataProvider validationInSetterDataProvider
+     *
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param string $exceptionMessage
+     */
+    public function testComposedNotValidationInSetterMethods(
+        GeneratorConfiguration $generatorConfiguration,
+        string $exceptionMessage
+    ): void {
+        $className = $this->generateClassFromFile(
+            'NotOfType.json',
+            $generatorConfiguration->setImmutable(false)
+        );
+
+        $object = new $className(['property' => 2]);
+
+        // test a valid change
+        $object->setProperty(false);
+        $this->assertFalse($object->getProperty());
+
+        // test an invalid change
+        try {
+            $object->setProperty('Hello');
+            $this->fail('Exception not thrown');
+        } catch (ErrorRegistryException | NotException $exception) {
+            $this->assertStringContainsString($exceptionMessage, $exception->getMessage());
+        }
+
+        // make sure the internal state of the object hasn't changed after invalid accesses
+        $this->assertFalse($object->getProperty());
+
+        // test valid changes again to make sure the internal validation state is correct after invalid accesses
+        $object->setProperty(6);
+        $this->assertSame(6, $object->getProperty());
+    }
+
+    public function validationInSetterDataProvider(): array
+    {
+        return [
+            'Exception Collection' => [
+                (new GeneratorConfiguration())->setCollectErrors(true),
+                <<<ERROR
+Invalid value for property declined by composition constraint.
+  Requires to match none composition element but matched 1 elements.
+  - Composition element #1: Valid
+ERROR
+                ,
+            ],
+            'Direct Exception' => [
+                (new GeneratorConfiguration())->setCollectErrors(false),
+                <<<ERROR
+Invalid value for property declined by composition constraint.
+  Requires to match none composition element but matched 1 elements.
+ERROR
+            ],
+        ];
     }
 }

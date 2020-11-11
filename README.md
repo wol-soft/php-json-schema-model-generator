@@ -65,7 +65,7 @@ As an optional parameter you can set up a *GeneratorConfiguration* object to con
 ```php
 $generator = new Generator(
     (new GeneratorConfiguration())
-        ->setNamespacePrefix('\MyApp\Model')
+        ->setNamespacePrefix('MyApp\Model')
         ->setImmutable(false)
 );
 
@@ -82,11 +82,11 @@ The *GeneratorConfiguration* object offers the following methods to configure th
 
 Method | Configuration | Default
 --- | --- | ---
-``` setNamespacePrefix(string $prefix) ``` <br><br>Example:<br> ``` setNamespacePrefix('\MyApp\Model') ``` | Configures a namespace prefix for all generated classes. The namespaces will be extended with the directory structure of the source directory. | Empty string so no namespace prefix will be used
+``` setNamespacePrefix(string $prefix) ``` <br><br>Example:<br> ``` setNamespacePrefix('MyApp\Model') ``` | Configures a namespace prefix for all generated classes. The namespaces will be extended with the directory structure of the source directory. | Empty string so no namespace prefix will be used
 ``` setImmutable(bool $immutable) ``` <br><br>Example:<br> ``` setImmutable(false) ``` | If set to true the generated model classes will be delivered without setter methods for the object properties. | true
 ``` setImplicitNull(bool $allowImplicitNull) ``` <br><br>Example:<br> ``` setImplicitNull(true) ``` | By setting the implicit null option to true all of your object properties which aren't required will implicitly accept null. | false
 ``` setCollectErrors(bool $collectErrors) ``` <br><br>Example:<br> ``` setCollectErrors(false) ``` | By default the complete input is validated and in case of failing validations all error messages will be thrown in a single exception. If set to false the first failing validation will throw an exception. | true
-``` setPrettyPrint(bool $prettyPrint) ``` <br><br>Example:<br> ``` setPrettyPrint(true) ``` | If set to false, the generated model classes won't follow coding guidelines (but the generation is faster). If enabled the package [Symplify/EasyCodingStandard](https://github.com/Symplify/EasyCodingStandard) will be used to clean up the generated code. By default pretty printing is disabled. | false
+``` setPrettyPrint(bool $prettyPrint) ``` <br><br>Example:<br> ``` setPrettyPrint(true) ``` | If set to false, the generated model classes won't follow coding guidelines (but the generation is faster). If enabled the package [Symplify/EasyCodingStandard](https://github.com/Symplify/EasyCodingStandard) will be used to clean up the generated code (the package must be installed manually: `composer require --dev symplify/easy-coding-standard`). By default pretty printing is disabled. | false
 ``` setSerialization(bool $serialization) ``` <br><br>Example:<br> ``` setSerialization(true) ``` | If set to true the serialization methods `toArray` and `toJSON` will be added to the public interface of the generated classes. | false
 ``` setOutputEnabled(bool $outputEnabled) ``` <br><br>Example:<br> ``` setOutputEnabled(false) ``` | Enable or disable output of the generation process to STDOUT | true
 ``` setErrorRegistryClass(string $exceptionClass) ``` <br><br>Example:<br> ``` setErrorRegistryClass(CustomException::class) ``` | Define a custom exception implementing the ErrorRegistryExceptionInterface to be used. The exception will be thrown if a validation fails and error collection is **enabled** | ErrorRegistryException::class
