@@ -28,7 +28,7 @@
                     array_keys($modifiedModelData),
                     [
                         {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
-                            '{{ affectedObjectcompositionProperty.getName() }}',
+                            '{{ affectedObjectProperty.getName() }}',
                         {% endforeach %}
                     ]
                 )
@@ -55,7 +55,7 @@
                     $proposedValue = $proposedValue ?? $value;
                 {% endif %}
 
-                {{ viewHelper.resolvePropertyDecorator(property) }}
+                {{ viewHelper.resolvePropertyDecorator(compositionProperty) }}
 
                 {% foreach compositionProperty.getOrderedValidators() as validator %}
                     {{ validator.getValidatorSetUp() }}
