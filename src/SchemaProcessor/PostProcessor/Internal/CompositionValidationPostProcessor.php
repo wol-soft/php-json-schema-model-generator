@@ -148,17 +148,13 @@ class CompositionValidationPostProcessor implements PostProcessorInterface
 
             public function getCode(PropertyInterface $property): string
             {
-                if (!isset($this->validatorPropertyMap[$property->getName()])) {
-                    return '';
-                }
-
                 return join(
                     "\n",
                     array_map(
                         function ($validatorIndex) {
                             return sprintf('$this->validateComposition_%s($modelData);', $validatorIndex);
                         },
-                        array_unique($this->validatorPropertyMap[$property->getName()])
+                        array_unique($this->validatorPropertyMap[$property->getName()] ?? [])
                     )
                 );
             }

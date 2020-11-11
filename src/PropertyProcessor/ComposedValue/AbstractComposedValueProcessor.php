@@ -82,7 +82,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                 $compositionProperties,
                 static::class,
                 [
-                    'properties' => $compositionProperties,
+                    'compositionProperties' => $compositionProperties,
                     'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
                     'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
                     'availableAmount' => $availableAmount,

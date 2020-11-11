@@ -130,7 +130,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
         $property->addValidator(new SchemaDependencyValidator($this->schemaProcessor, $property, $dependencySchema));
         $this->schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
 
-        $this->transferDependendPropertiesToBaseSchema($dependencySchema);
+        $this->transferDependentPropertiesToBaseSchema($dependencySchema);
     }
 
     /**
@@ -138,7 +138,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      *
      * @param Schema $dependencySchema
      */
-    private function transferDependendPropertiesToBaseSchema(Schema $dependencySchema): void
+    private function transferDependentPropertiesToBaseSchema(Schema $dependencySchema): void
     {
         foreach ($dependencySchema->getProperties() as $property) {
             $this->schema->addProperty(

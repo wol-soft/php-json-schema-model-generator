@@ -134,8 +134,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
 
         // check if the items require a tuple validation
         if (is_array($json[self::JSON_FIELD_ITEMS]) &&
-            array_keys($json[self::JSON_FIELD_ITEMS]) ===
-                range(0, count($json[self::JSON_FIELD_ITEMS]) - 1)
+            array_keys($json[self::JSON_FIELD_ITEMS]) === range(0, count($json[self::JSON_FIELD_ITEMS]) - 1)
         ) {
             $this->addTupleValidator($property, $propertySchema);
 

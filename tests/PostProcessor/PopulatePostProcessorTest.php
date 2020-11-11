@@ -3,6 +3,7 @@
 namespace PHPModelGenerator\Tests\PostProcessor;
 
 use Exception;
+use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
@@ -65,6 +66,55 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
             $object->getRawModelDataInput()
         );
         $this->assertSame(['name' => 'Harry', 'age' => 26], $object->toArray());
+    }
+
+    /**
+     * @dataProvider implicitNullDataProvider
+     *
+     * @param bool $implicitNull
+     */
+    public function testImplicitNullCheckOnPopulateMethodForOptionalProperty(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile('BasicSchema.json', null, false, $implicitNull);
+
+        $object = new $className(['name' => 'Albert']);
+
+        $this->assertSame('Albert', $object->getName());
+        $this->assertNull($object->getAge());
+
+        $object->populate(['age' => 35]);
+        $this->assertSame(35, $object->getAge());
+
+        if (!$implicitNull) {
+            $this->expectException(InvalidTypeException::class);
+            $this->expectExceptionMessage('Invalid type for age. Requires int, got NULL');
+        }
+
+        $object->populate(['age' => null]);
+        $this->assertNull($object->getAge());
+    }
+
+    /**
+     * @dataProvider implicitNullDataProvider
+     *
+     * @param bool $implicitNull
+     */
+    public function testImplicitNullCheckOnPopulateMethodForOptionalRequiredProperty(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile('BasicSchema.json', null, false, $implicitNull);
+
+        $object = new $className(['name' => 'Albert']);
+
+        $this->assertSame('Albert', $object->getName());
+        $this->assertNull($object->getAge());
+
+        $object->populate(['name' => 'Hannes']);
+        $this->assertSame('Hannes', $object->getName());
+
+        $this->expectException(InvalidTypeException::class);
+        $this->expectExceptionMessage('Invalid type for name. Requires string, got NULL');
+
+        $object->populate(['name' => null]);
     }
 
     /**
@@ -255,6 +305,109 @@ Invalid type for age. Requires int, got boolean"
                 InvalidTypeException::class,
                 'Invalid type for age. Requires int, got boolean',
                 ['age' => false],
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider compositionValidationInPopulateDataProvider
+     *
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param string $exceptionMessageBothValid
+     * @param string $exceptionMessageBothInvalid
+     */
+    public function testPopulateComposition(
+        GeneratorConfiguration $generatorConfiguration,
+        string $exceptionMessageBothValid,
+        string $exceptionMessageBothInvalid
+    ): void {
+        $className = $this->generateClassFromFile(
+            'ObjectLevelCompositionRequired.json',
+            $generatorConfiguration->setImmutable(false)
+        );
+
+        $object = new $className(['integerProperty' => 2, 'stringProperty' => 99]);
+
+        // test a valid change
+        $object->populate(['integerProperty' => 4]);
+        $this->assertSame(4, $object->getIntegerProperty());
+        $this->assertNull($object->getStringProperty());
+
+        // test an invalid change (both properties valid)
+        try {
+            $object->populate(['stringProperty' => 'Hello']);
+            $this->fail('Exception not thrown');
+        } catch (ErrorRegistryException | OneOfException $exception) {
+            $this->assertStringContainsString($exceptionMessageBothValid, $exception->getMessage());
+        }
+
+        // test an invalid change (both properties invalid)
+        try {
+            $object->populate(['integerProperty' => null]);
+            $this->fail('Exception not thrown');
+        } catch (ErrorRegistryException | OneOfException $exception) {
+            $this->assertStringContainsString($exceptionMessageBothInvalid, $exception->getMessage());
+        }
+
+        // make sure the internal state of the object hasn't changed after invalid accesses
+        $this->assertSame(4, $object->getIntegerProperty());
+        $this->assertNull($object->getStringProperty());
+
+        // test valid changes again to make sure the internal validation state is correct after invalid accesses
+        $object->populate(['integerProperty' => 6]);
+        $this->assertSame(6, $object->getIntegerProperty());
+        $this->assertNull($object->getStringProperty());
+
+        $object->populate(['stringProperty' => null]);
+        $this->assertSame(6, $object->getIntegerProperty());
+        $this->assertNull($object->getStringProperty());
+
+        // test an invalid change (both properties valid in a single call)
+        try {
+            $object->populate(['stringProperty' => 'Hello', 'integerProperty' => 10]);
+            $this->fail('Exception not thrown');
+        } catch (ErrorRegistryException | OneOfException $exception) {
+            $this->assertStringContainsString($exceptionMessageBothValid, $exception->getMessage());
+        }
+
+        // test updating both values of the composition in a single populate call
+        $object->populate(['stringProperty' => 'Hello', 'integerProperty' => null]);
+        $this->assertNull($object->getIntegerProperty());
+        $this->assertSame('Hello', $object->getStringProperty());
+    }
+
+    public function compositionValidationInPopulateDataProvider(): array
+    {
+        return [
+            'Exception Collection' => [
+                (new GeneratorConfiguration())->setCollectErrors(true),
+                <<<ERROR
+declined by composition constraint.
+  Requires to match one composition element but matched 2 elements.
+  - Composition element #1: Valid
+  - Composition element #2: Valid
+ERROR
+                ,
+                <<<ERROR
+declined by composition constraint.
+  Requires to match one composition element but matched 0 elements.
+  - Composition element #1: Failed
+    * Invalid type for stringProperty. Requires string, got integer
+  - Composition element #2: Failed
+    * Invalid type for integerProperty. Requires int, got NULL
+ERROR
+            ],
+            'Direct Exception' => [
+                (new GeneratorConfiguration())->setCollectErrors(false),
+                <<<ERROR
+declined by composition constraint.
+  Requires to match one composition element but matched 2 elements.
+ERROR
+                ,
+                <<<ERROR
+declined by composition constraint.
+  Requires to match one composition element but matched 0 elements.
+ERROR
             ],
         ];
     }

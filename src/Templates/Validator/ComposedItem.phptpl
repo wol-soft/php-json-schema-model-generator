@@ -18,7 +18,7 @@
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
 
-    {% foreach properties as property %}
+    {% foreach compositionProperties as compositionProperty %}
         try {
             // check if the state of the validator is already known.
             // If none of the properties affected by the validator are changed the validator must not be re-evaluated
@@ -27,8 +27,8 @@
                 !array_intersect(
                     array_keys($modifiedModelData),
                     [
-                        {% foreach property.getAffectedObjectProperties() as affectedObjectProperty %}
-                            '{{ affectedObjectProperty.getName() }}',
+                        {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
+                            '{{ affectedObjectcompositionProperty.getName() }}',
                         {% endforeach %}
                     ]
                 )
@@ -57,7 +57,7 @@
 
                 {{ viewHelper.resolvePropertyDecorator(property) }}
 
-                {% foreach property.getOrderedValidators() as validator %}
+                {% foreach compositionProperty.getOrderedValidators() as validator %}
                     {{ validator.getValidatorSetUp() }}
                     if ({{ validator.getCheck() }}) {
                         {{ viewHelper.validationError(validator) }}
@@ -88,8 +88,8 @@
                 isset($validatorIndex) ? $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = false : null;
             {% endif %}
 
-            {% foreach property.getAffectedObjectProperties() as affectedObjectProperty %}
-                unset($modelData['{{ affectedObjectProperty.getName() }}']);
+            {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
+                $modelData['{{ affectedObjectProperty.getName() }}'] = null;
             {% endforeach %}
 
             $succeededCompositionElements--;

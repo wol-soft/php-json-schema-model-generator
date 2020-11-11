@@ -16,8 +16,6 @@ private function validateComposition_{{ index }}(array &$modifiedModelData): voi
     }
 
     foreach (array_keys($modifiedModelData) as $property) {
-        if (!isset($modelData[$property])) {
-            unset($modifiedModelData[$property]);
-        }
+        $modifiedModelData[$property] = $modelData[$property];
     }
 }

@@ -47,6 +47,11 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
         $this->assertSame($object, $object->setProperty('Bye'));
         $this->assertSame('Bye', $object->getProperty());
 
+        if ($implicitNull) {
+            $this->assertSame($object, $object->setProperty(null));
+            $this->assertNull($object->getProperty());
+        }
+
         // test if the property is typed correctly
         $returnType = $this->getReturnType($object, 'getProperty');
         $this->assertSame('string', $returnType->getName());

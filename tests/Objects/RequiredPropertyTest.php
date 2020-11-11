@@ -109,7 +109,9 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
 
         $className = $this->generateClassFromFile(
             'RequiredStringProperty.json',
-            (new GeneratorConfiguration())->setImplicitNull($implicitNull)->setCollectErrors(false)
+            (new GeneratorConfiguration())->setCollectErrors(false),
+            false,
+            $implicitNull
         );
 
         new $className(['property' => null]);
