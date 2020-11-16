@@ -39,6 +39,8 @@ class Schema
     protected $properties = [];
     /** @var MethodInterface[] */
     protected $methods = [];
+    /** @var bool */
+    protected $initialClass = false;
 
     /** @var PropertyValidatorInterface[] A Collection of validators which must be applied
      *                                    before adding properties to the model
@@ -61,18 +63,21 @@ class Schema
      * @param string $className
      * @param JsonSchema $schema
      * @param SchemaDefinitionDictionary|null $dictionary
+     * @param bool $initialClass
      */
     public function __construct(
         string $classPath,
         string $className,
         JsonSchema $schema,
-        SchemaDefinitionDictionary $dictionary = null
+        SchemaDefinitionDictionary $dictionary = null,
+        bool $initialClass = false
     ) {
         $this->className = $className;
         $this->classPath = $classPath;
         $this->jsonSchema = $schema;
         $this->schemaDefinitionDictionary = $dictionary ?? new SchemaDefinitionDictionary('');
         $this->description = $schema->getJson()['description'] ?? '';
+        $this->initialClass = $initialClass;
 
         $this->addInterface(JSONModelInterface::class);
     }
@@ -329,5 +334,13 @@ class Schema
     public function getSchemaHooks(): array
     {
         return $this->schemaHooks;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isInitialClass(): bool
+    {
+        return $this->initialClass;
     }
 }

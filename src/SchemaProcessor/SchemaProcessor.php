@@ -177,7 +177,7 @@ class SchemaProcessor
             return $this->processedSchema[$schemaSignature];
         }
 
-        $schema = new Schema($classPath, $className, $jsonSchema, $dictionary);
+        $schema = new Schema($classPath, $className, $jsonSchema, $dictionary, $initialClass);
 
         $this->processedSchema[$schemaSignature] = $schema;
         $json = $jsonSchema->getJson();

@@ -33,7 +33,7 @@ class RenderQueue
     }
 
     /**
-     * Render all collected jobs of the RenderProxy and clear the queue
+     * Render all collected jobs of the RenderQueue and clear the queue
      *
      * @param string                   $destination
      * @param GeneratorConfiguration   $generatorConfiguration
