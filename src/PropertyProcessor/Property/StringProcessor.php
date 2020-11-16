@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Exception\String\PatternException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator\FormatValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 
 /**
@@ -22,6 +23,7 @@ class StringProcessor extends AbstractTypedValueProcessor
     protected const TYPE = 'string';
 
     protected const JSON_FIELD_PATTERN = 'pattern';
+    protected const JSON_FIELD_FORMAT = 'format';
     protected const JSON_FIELD_MIN_LENGTH = 'minLength';
     protected const JSON_FIELD_MAX_LENGTH = 'maxLength';
 
@@ -100,8 +102,6 @@ class StringProcessor extends AbstractTypedValueProcessor
     }
 
     /**
-     * TODO: implement format validations
-     *
      * @param PropertyInterface $property
      * @param JsonSchema $propertySchema
      *
@@ -109,14 +109,31 @@ class StringProcessor extends AbstractTypedValueProcessor
      */
     protected function addFormatValidator(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        if (isset($propertySchema->getJson()['format'])) {
+        if (!isset($propertySchema->getJson()[self::JSON_FIELD_FORMAT])) {
+            return;
+        }
+
+        $formatValidator = $this->schemaProcessor
+            ->getGeneratorConfiguration()
+            ->getFormat($propertySchema->getJson()[self::JSON_FIELD_FORMAT]);
+
+        if (!$formatValidator) {
             throw new SchemaException(
                 sprintf(
-                    'Format is currently not supported for property %s in file %s',
+                    'Unsupported format %s for property %s in file %s',
+                    $propertySchema->getJson()[self::JSON_FIELD_FORMAT],
                     $property->getName(),
                     $propertySchema->getFile()
                 )
             );
         }
+
+        $property->addValidator(
+            new FormatValidator(
+                $property,
+                $formatValidator,
+                [$propertySchema->getJson()[self::JSON_FIELD_FORMAT]]
+            )
+        );
     }
 }
