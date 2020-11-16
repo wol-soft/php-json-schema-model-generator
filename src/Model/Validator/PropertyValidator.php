@@ -29,7 +29,7 @@ class PropertyValidator extends AbstractPropertyValidator
     }
 
     /**
-     * Get the source code for the coeck to perform
+     * Get the source code for the check to perform
      *
      * @return string
      */

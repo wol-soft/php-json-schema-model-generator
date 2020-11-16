@@ -7,6 +7,8 @@ namespace PHPModelGenerator\Model;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
+use PHPModelGenerator\Format\FormatValidatorFromRegEx;
+use PHPModelGenerator\Format\FormatValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
@@ -37,10 +39,14 @@ class GeneratorConfiguration
     protected $errorRegistryClass = ErrorRegistryException::class;
     /** @var bool */
     protected $serialization = false;
+
     /** @var ClassNameGeneratorInterface */
     protected $classNameGenerator;
+
     /** @var FilterInterface[] */
     protected $filter;
+    /** @var FormatValidatorInterface[] */
+    protected $formats;
 
     /**
      * GeneratorConfiguration constructor.
@@ -49,10 +55,9 @@ class GeneratorConfiguration
     {
         $this->classNameGenerator = new ClassNameGenerator();
 
-        $this
-            ->addFilter(new DateTimeFilter())
-            ->addFilter(new NotEmptyFilter())
-            ->addFilter(new TrimFilter());
+        // add all built-in filter and format validators
+        $this->initFilter();
+        $this->initFormatValidator();
     }
 
     /**
@@ -86,6 +91,31 @@ class GeneratorConfiguration
         $this->filter[$filter->getToken()] = $filter;
 
         return $this;
+    }
+
+    /**
+     * Add an additional format
+     *
+     * @param string $formatKey
+     * @param FormatValidatorInterface $format
+     *
+     * @return $this
+     */
+    public function addFormat(string $formatKey, FormatValidatorInterface $format): self
+    {
+        $this->formats[$formatKey] = $format;
+
+        return $this;
+    }
+
+    /**
+     * @param string $formatKey
+     *
+     * @return FormatValidatorInterface|null
+     */
+    public function getFormat(string $formatKey): ?FormatValidatorInterface
+    {
+        return $this->formats[$formatKey] ?? null;
     }
 
     /**
@@ -291,5 +321,19 @@ class GeneratorConfiguration
         $this->allowImplicitNull = $allowImplicitNull;
 
         return $this;
+    }
+
+    private function initFilter(): void
+    {
+        $this
+            ->addFilter(new DateTimeFilter())
+            ->addFilter(new NotEmptyFilter())
+            ->addFilter(new TrimFilter());
+    }
+
+    private function initFormatValidator(): void
+    {
+        $this
+            ->addFormat('hostname', new FormatValidatorFromRegEx('/^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$/i'));
     }
 }
