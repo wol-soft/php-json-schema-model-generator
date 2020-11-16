@@ -8,7 +8,7 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\RenderJob;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 
 /**
  * Class RenderQueue
@@ -37,7 +37,7 @@ class RenderQueue
      *
      * @param string                   $destination
      * @param GeneratorConfiguration   $generatorConfiguration
-     * @param PostProcessorInterface[] $postProcessors
+     * @param PostProcessor[] $postProcessors
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -47,9 +47,17 @@ class RenderQueue
         GeneratorConfiguration $generatorConfiguration,
         array $postProcessors
     ): void {
+        foreach ($postProcessors as $postProcessor) {
+            $postProcessor->preProcess();
+        }
+
         foreach ($this->jobs as $job) {
             $job->postProcess($postProcessors, $generatorConfiguration);
             $job->render($destination, $generatorConfiguration);
+        }
+
+        foreach ($postProcessors as $postProcessor) {
+            $postProcessor->postProcess();
         }
 
         $this->jobs = [];

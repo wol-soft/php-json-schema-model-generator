@@ -11,7 +11,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -51,7 +51,7 @@ class RenderJob
     }
 
     /**
-     * @param PostProcessorInterface[] $postProcessors
+     * @param PostProcessor[] $postProcessors
      * @param GeneratorConfiguration $generatorConfiguration
      */
     public function postProcess(array $postProcessors, GeneratorConfiguration $generatorConfiguration)
