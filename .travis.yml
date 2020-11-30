@@ -3,6 +3,15 @@ language: php
 sudo: false
 
 env:
+  - TEST_SUITE="PHPModelGenerator" FILTER="."
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft3]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft3/optional]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft4]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft4/optional]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft6]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft6/optional]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft7]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft7/optional]"
   global:
     - CC_TEST_REPORTER_ID=5e32818628fac9eb11d34e2b35289f88169610cc4a98c6f170c74923342284f1
 
@@ -28,9 +37,12 @@ before_script:
   - mkdir -p build/logs
 
 script:
-  - ./vendor/bin/phpunit --coverage-clover build/logs/clover.xml --testdox
+  - ./vendor/bin/phpunit --coverage-clover build/logs/clover.xml --testdox --testsuite=$TEST_SUITE --filter="$FILTER"
+  allow_failures:
+    - env: SECRET_VAR1=SECRET1 SECRET_VAR2=SECRET2
 
 after_script:
+  - if "PHPModelGenerator" = env(TEST_SUITE)
   - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
   - travis_retry php coveralls.phar -v
   - vendor/bin/test-reporter

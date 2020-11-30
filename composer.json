@@ -19,7 +19,8 @@
         "ext-mbstring": "*"
     },
     "require-dev": {
-        "phpunit/phpunit": "^8.5 || ^9.4"
+        "phpunit/phpunit": "^8.5 || ^9.4",
+        "json-schema/json-schema-test-suite": "2.0.0"
     },
     "suggest": {
         "symplify/easy-coding-standard": "Allows pretty printing of the generated code"
@@ -29,6 +30,20 @@
             "PHPModelGenerator\\": "src"
         }
     },
+    "repositories": [
+        {
+            "type": "package",
+            "package": {
+                "name": "json-schema/json-schema-test-suite",
+                "version": "2.0.0",
+                "source": {
+                    "type": "git",
+                    "url": "https://github.com/json-schema/JSON-Schema-Test-Suite",
+                    "reference": "2.0.0"
+                }
+            }
+        }
+    ],
     "autoload-dev": {
         "psr-4": {
             "PHPModelGenerator\\Tests\\": "tests",
