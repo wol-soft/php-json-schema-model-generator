@@ -14,17 +14,15 @@ env:
   - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft7/optional]"
 
 jobs:
-  include:
-    - env: TEST_SUITE="PHPModelGenerator" FILTER="." CC_TEST_REPORTER_ID=5e32818628fac9eb11d34e2b35289f88169610cc4a98c6f170c74923342284f1
   allow_failures:
-    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft3]"
-    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft3/optional]"
-    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft4]"
-    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft4/optional]"
-    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft6]"
-    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft6/optional]"
-    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft7]"
-    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft7/optional]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft3\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft3/optional\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft4\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft4/optional\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft6\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft6/optional\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft7\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft7/optional\]"
 
 php:
   - 7.2
