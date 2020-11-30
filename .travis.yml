@@ -2,6 +2,17 @@ language: php
 
 sudo: false
 
+env:
+  - TEST_SUITE="PHPModelGenerator" FILTER="." CC_TEST_REPORTER_ID=5e32818628fac9eb11d34e2b35289f88169610cc4a98c6f170c74923342284f1
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft3]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft3/optional]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft4]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft4/optional]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft6]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft6/optional]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft7]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite[draft7/optional]"
+
 jobs:
   include:
     - env: TEST_SUITE="PHPModelGenerator" FILTER="." CC_TEST_REPORTER_ID=5e32818628fac9eb11d34e2b35289f88169610cc4a98c6f170c74923342284f1
