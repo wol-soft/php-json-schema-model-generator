@@ -57,9 +57,11 @@ class JsonSchemaTestSuiteTest extends AbstractPHPModelGeneratorTest
 
         $tests = [];
 
-        foreach ($this->getFilesForDraft('draft7') as $key => $path) {
-            foreach ($this->setUpDataProviderFromSchemaTestSuiteFile($path) as $testSuiteKey => $test) {
-                $tests["Draft suite[$key] - $testSuiteKey"] = $test;
+        foreach ($drafts as $draft) {
+            foreach ($this->getFilesForDraft($draft) as $key => $path) {
+                foreach ($this->setUpDataProviderFromSchemaTestSuiteFile($path) as $testSuiteKey => $test) {
+                    $tests["Draft suite[$draft] $key - $testSuiteKey"] = $test;
+                }
             }
         }
 
