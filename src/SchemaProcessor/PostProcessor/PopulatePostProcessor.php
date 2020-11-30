@@ -13,7 +13,7 @@ use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
  *
  * @package PHPModelGenerator\SchemaProcessor\PostProcessor
  */
-class PopulatePostProcessor implements PostProcessorInterface
+class PopulatePostProcessor extends PostProcessor
 {
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {

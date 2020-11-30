@@ -3,8 +3,26 @@ language: php
 sudo: false
 
 env:
-  global:
-    - CC_TEST_REPORTER_ID=5e32818628fac9eb11d34e2b35289f88169610cc4a98c6f170c74923342284f1
+  - TEST_SUITE="PHPModelGenerator" FILTER="." CC_TEST_REPORTER_ID=5e32818628fac9eb11d34e2b35289f88169610cc4a98c6f170c74923342284f1
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft3\]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft3/optional\]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft4\]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft4/optional\]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft6\]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft6/optional\]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft7\]"
+  - TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft7/optional\]"
+
+jobs:
+  allow_failures:
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft3\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft3/optional\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft4\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft4/optional\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft6\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft6/optional\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft7\]"
+    - env: TEST_SUITE="JsonSchemaTestSuite" FILTER="Draft suite\[draft7/optional\]"
 
 php:
   - 7.2
@@ -28,7 +46,7 @@ before_script:
   - mkdir -p build/logs
 
 script:
-  - ./vendor/bin/phpunit --coverage-clover build/logs/clover.xml --testdox
+  - ./vendor/bin/phpunit --coverage-clover build/logs/clover.xml --testdox --testsuite="$TEST_SUITE" --filter="$FILTER"
 
 after_script:
   - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT

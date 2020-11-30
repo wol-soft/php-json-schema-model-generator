@@ -16,8 +16,14 @@
       <directory>src</directory>
     </include>
   </coverage>
-  <testsuite name="PHPModelGenerator">
-    <directory>tests</directory>
-    <exclude>tests/manual</exclude>
-  </testsuite>
+  <testsuites>
+    <testsuite name="PHPModelGenerator">
+      <directory>tests</directory>
+      <exclude>tests/manual</exclude>
+      <exclude>tests/JsonSchemaTestSuite</exclude>
+    </testsuite>
+    <testsuite name="JsonSchemaTestSuite">
+      <directory>tests/JsonSchemaTestSuite</directory>
+    </testsuite>
+  </testsuites>
 </phpunit>
