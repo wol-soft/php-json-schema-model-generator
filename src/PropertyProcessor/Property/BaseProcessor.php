@@ -12,6 +12,7 @@ use PHPModelGenerator\Exception\Object\MaxPropertiesException;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\BaseProperty;
+use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
@@ -135,12 +136,13 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
+                new Property($this->schema->getClassName(), '', $propertySchema),
                 sprintf(
                     '$additionalProperties = array_diff(array_keys($modelData), %s)',
                     preg_replace('(\d+\s=>)', '', var_export(array_keys($json['properties'] ?? []), true))
                 ),
                 AdditionalPropertiesException::class,
-                [$this->schema->getClassName(), '&$additionalProperties']
+                ['&$additionalProperties']
             )
         );
     }
@@ -150,6 +152,8 @@ class BaseProcessor extends AbstractPropertyProcessor
      *
      * @param string $propertyName
      * @param JsonSchema $propertySchema
+     *
+     * @throws SchemaException
      */
     protected function addMaxPropertiesValidator(string $propertyName, JsonSchema $propertySchema): void
     {
@@ -161,13 +165,14 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
+                new Property($propertyName, '', $propertySchema),
                 sprintf(
                     '%s > %d',
                     self::COUNT_PROPERTIES,
                     $json['maxProperties']
                 ),
                 MaxPropertiesException::class,
-                [$propertyName, $json['maxProperties']]
+                [$json['maxProperties']]
             )
         );
     }
@@ -177,6 +182,8 @@ class BaseProcessor extends AbstractPropertyProcessor
      *
      * @param string $propertyName
      * @param JsonSchema $propertySchema
+     *
+     * @throws SchemaException
      */
     protected function addMinPropertiesValidator(string $propertyName, JsonSchema $propertySchema): void
     {
@@ -188,13 +195,14 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
+                new Property($propertyName, '', $propertySchema),
                 sprintf(
                     '%s < %d',
                     self::COUNT_PROPERTIES,
                     $json['minProperties']
                 ),
                 MinPropertiesException::class,
-                [$propertyName, $json['minProperties']]
+                [$json['minProperties']]
             )
         );
     }

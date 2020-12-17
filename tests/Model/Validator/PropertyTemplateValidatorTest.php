@@ -4,6 +4,8 @@ namespace PHPModelGenerator\Tests\Model\Validator;
 
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\RenderException;
+use PHPModelGenerator\Model\Property\Property;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPUnit\Framework\TestCase;
 
@@ -20,6 +22,7 @@ class PropertyTemplateValidatorTest extends TestCase
         $this->expectExceptionMessage('Can\'t render property validation template UnknownTemplate');
 
         (new PropertyTemplateValidator(
+            new Property('DummyProperty', 'string', new JsonSchema('', [])),
             'UnknownTemplate',
             ['myAssigns' => 1337],
             InvalidTypeException::class,

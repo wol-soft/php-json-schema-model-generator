@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 
 /**
@@ -26,11 +28,20 @@ class CompositionPropertyDecorator extends PropertyProxy
     /**
      * CompositionPropertyDecorator constructor.
      *
+     * @param string $propertyName
+     * @param JsonSchema $jsonSchema
      * @param PropertyInterface $property
+     *
+     * @throws SchemaException
      */
-    public function __construct(PropertyInterface $property)
+    public function __construct(string $propertyName, JsonSchema $jsonSchema, PropertyInterface $property)
     {
-        parent::__construct(new ResolvedDefinitionsCollection([self::PROPERTY_KEY => $property]), self::PROPERTY_KEY);
+        parent::__construct(
+            $propertyName,
+            $jsonSchema,
+            new ResolvedDefinitionsCollection([self::PROPERTY_KEY => $property]),
+            self::PROPERTY_KEY
+        );
     }
 
     /**

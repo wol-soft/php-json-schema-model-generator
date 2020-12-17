@@ -24,11 +24,12 @@ class EnumValidator extends PropertyValidator
     {
 
         parent::__construct(
+            $property,
             '!in_array($value, ' .
                 preg_replace('(\d+\s=>)', '', var_export($allowedValues, true)) .
             ', true)',
             EnumException::class,
-            [$property->getName(), $allowedValues]
+            [$allowedValues]
         );
     }
 }

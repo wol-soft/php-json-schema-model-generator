@@ -80,7 +80,7 @@ class RenderHelper
      */
     public function resolvePropertyDecorator(PropertyInterface $property, bool $nestedProperty = false): string
     {
-        if (!$property->hasDecorators()) {
+        if (!$property->getDecorators()) {
             return '';
         }
 

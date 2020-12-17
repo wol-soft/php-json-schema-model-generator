@@ -21,10 +21,11 @@ class RequiredPropertyValidator extends PropertyValidator
      */
     public function __construct(PropertyInterface $property)
     {
-        parent::__construct(
-            "!array_key_exists('{$property->getName()}', \$modelData)",
-            RequiredValueException::class,
-            [$property->getName()]
-        );
+        parent::__construct($property, '', RequiredValueException::class);
+    }
+
+    public function getCheck(): string
+    {
+        return "!array_key_exists('{$this->property->getName()}', \$modelData)";
     }
 }

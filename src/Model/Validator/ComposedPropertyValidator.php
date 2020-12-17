@@ -30,10 +30,11 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         array $validatorVariables
     ) {
         parent::__construct(
+            $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
             $validatorVariables,
             $this->getExceptionByProcessor($composedProcessor),
-            [$property->getName(), '&$succeededCompositionElements', '&$compositionErrorCollection']
+            ['&$succeededCompositionElements', '&$compositionErrorCollection']
         );
 
         $this->composedProcessor = $composedProcessor;

@@ -32,11 +32,11 @@ class SchemaDependencyValidator extends PropertyTemplateValidator
     public function __construct(SchemaProcessor $schemaProcessor, PropertyInterface $property, Schema $schema)
     {
         parent::__construct(
+            $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'SchemaDependency.phptpl',
             [
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
-                'propertyName' => $property->getName(),
                 'transferProperties' => $schema->getProperties(),
                 // set up a helper property for handling of the nested object
                 'nestedProperty' => (new Property("{$property->getName()}Dependency", '', $schema->getJsonSchema()))
@@ -46,7 +46,7 @@ class SchemaDependencyValidator extends PropertyTemplateValidator
                     ))
             ],
             InvalidSchemaDependencyException::class,
-            [$property->getName(), '&$dependencyException']
+            ['&$dependencyException']
         );
     }
 

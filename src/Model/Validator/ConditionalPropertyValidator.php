@@ -29,10 +29,10 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
         array $validatorVariables
     ) {
         parent::__construct(
+            $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ConditionalComposedItem.phptpl',
             $validatorVariables,
-            ConditionalException::class,
-            [$property->getName()]
+            ConditionalException::class
         );
 
         $this->composedProcessor = IfProcessor::class;

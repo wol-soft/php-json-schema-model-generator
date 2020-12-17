@@ -54,6 +54,7 @@ class FilterValidator extends PropertyTemplateValidator
             : $this->validateFilterCompatibilityWithTransformedType($filter, $transformingFilter, $property);
 
         parent::__construct(
+            $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'Filter.phptpl',
             [
                 'skipTransformedValuesCheck' => $transformingFilter !== null ? '!$transformationFailed' : '',
@@ -70,14 +71,15 @@ class FilterValidator extends PropertyTemplateValidator
                 'filterMethod' => $filter->getFilter()[1],
                 'filterOptions' => var_export($filterOptions, true),
                 'filterValueValidator' => new PropertyValidator(
+                    $property,
                     '',
                     InvalidFilterValueException::class,
-                    [$property->getName(), $filter->getToken(), '&$filterException']
+                    [$filter->getToken(), '&$filterException']
                 ),
                 'viewHelper' => new RenderHelper($generatorConfiguration),
             ],
             IncompatibleFilterException::class,
-            [$property->getName(), $filter->getToken()]
+            [$filter->getToken()]
         );
     }
 

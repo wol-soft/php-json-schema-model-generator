@@ -66,13 +66,6 @@ class ReflectionTypeCheckValidator extends PropertyValidator
             $typeCheck = "!(\$value instanceof $className)";
         }
 
-        parent::__construct(
-            $typeCheck,
-            sprintf(
-                'Invalid type for %s. Requires %s, got " . gettype($value) . "',
-                $property->getName(),
-                $name
-            )
-        );
+        parent::__construct($property, $typeCheck, '');
     }
 }

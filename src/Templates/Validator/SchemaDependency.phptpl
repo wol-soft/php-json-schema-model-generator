@@ -1,4 +1,4 @@
-array_key_exists('{{ propertyName }}', $modelData) && (function () use ($modelData, &$dependencyException) {
+array_key_exists('{{ property.getName() }}', $modelData) && (function () use ($modelData, &$dependencyException) {
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();

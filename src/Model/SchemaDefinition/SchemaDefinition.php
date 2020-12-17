@@ -107,6 +107,6 @@ class SchemaDefinition
             }
         }
 
-        return new PropertyProxy($this->resolvedPaths, $key);
+        return new PropertyProxy($propertyName, $this->source, $this->resolvedPaths, $key);
     }
 }
