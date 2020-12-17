@@ -2,10 +2,12 @@
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use stdClass;
 
@@ -493,5 +495,83 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
                 'Object with additional property' => [['name' => 'Hannes', 'age' => 42, 'stringProperty' => 'Hello']],
             ]
         );
+    }
+
+    public function testMultiplePropertiesWithIdenticalReference(): void
+    {
+        $className = $this->generateClassFromFile('multiplePropertiesIdenticalReference.json');
+
+        $object = new $className([
+            'personA' => ['name' => 'Hannes'],
+            'personB' => ['name' => 'Susi']]
+        );
+
+        $this->assertTrue(is_callable([$object, 'getPersonA']));
+        $this->assertTrue(is_callable([$object, 'getPersonB']));
+
+        // test if the properties are typed correctly
+        $returnTypePersonA = $this->getReturnType($object, 'getPersonA');
+        $returnTypePersonB = $this->getReturnType($object, 'getPersonB');
+        $this->assertSame($returnTypePersonA->getName(), $returnTypePersonB->getName());
+        // as the property is optional they may contain an initial null value
+        $this->assertTrue($returnTypePersonA->allowsNull());
+        $this->assertTrue($returnTypePersonB->allowsNull());
+
+        $this->assertSame('Hannes', $object->getPersonA()->getName());
+        $this->assertSame('Susi', $object->getPersonB()->getName());
+    }
+
+    /**
+     * @dataProvider invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider
+     *
+     * @param array $input
+     * @param string $exceptionMessage
+     */
+    public function testInvalidValuesForMultiplePropertiesWithIdenticalReferenceThrowsAnException(
+        array $input,
+        string $exceptionMessage
+    ): void {
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage($exceptionMessage);
+
+        $className = $this->generateClassFromFile(
+            'multiplePropertiesIdenticalReference.json',
+            (new GeneratorConfiguration())->setCollectErrors(true)
+        );
+
+        new $className($input);
+    }
+
+    public function invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider(): array {
+        return [
+            'Invalid value for personA' => [
+                ['personA' => 10],
+                'Invalid type for personA. Requires object, got integer',
+            ],
+            'Invalid value for both persons' => [
+                ['personA' => 10, 'personB' => false],
+                <<<ERROR
+Invalid type for personA. Requires object, got integer
+Invalid type for personB. Requires object, got boolean
+ERROR
+            ],
+            'Invalid names for personB' => [
+                ['personA' => ['name' => 'A'], 'personB' => ['name' => 10]],
+                <<<ERROR
+Invalid nested object for property personA:
+  - Value for name must not be shorter than 3
+Invalid nested object for property personB:
+  - Invalid type for name. Requires string, got integer
+ERROR
+            ],
+            'Combined top level validation error and nested error' => [
+                ['personA' => ['name' => 'A'], 'personB' => 10],
+                <<<ERROR
+Invalid nested object for property personA:
+  - Value for name must not be shorter than 3
+Invalid type for personB. Requires object, got integer
+ERROR
+            ],
+        ];
     }
 }
