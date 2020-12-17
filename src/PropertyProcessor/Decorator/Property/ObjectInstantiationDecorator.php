@@ -57,9 +57,10 @@ class ObjectInstantiationDecorator implements PropertyDecoratorInterface
                 'viewHelper' => new RenderHelper($this->generatorConfiguration),
                 'generatorConfiguration' => $this->generatorConfiguration,
                 'nestedValidator' => new PropertyValidator(
+                    $property,
                     '',
                     NestedObjectException::class,
-                    [$property->getName(), '&$instantiationException']
+                    ['&$instantiationException']
                 ),
             ]
         );

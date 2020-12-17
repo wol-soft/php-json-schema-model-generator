@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Validator;
 use PHPMicroTemplate\Exception\PHPMicroTemplateException;
 use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\RenderException;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
  * Class PropertyTemplateValidator
@@ -25,12 +26,14 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
     /**
      * PropertyTemplateValidator constructor.
      *
+     * @param PropertyInterface $property
      * @param string $template
      * @param array $templateValues
      * @param string $exceptionClass
      * @param array $exceptionParams
      */
     public function __construct(
+        PropertyInterface $property,
         string $template,
         array $templateValues,
         string $exceptionClass,
@@ -39,7 +42,7 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
         $this->template = $template;
         $this->templateValues = $templateValues;
 
-        parent::__construct($exceptionClass, $exceptionParams);
+        parent::__construct($property, $exceptionClass, $exceptionParams);
     }
 
     /**
@@ -52,7 +55,11 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
     public function getCheck(): string
     {
         try {
-            return $this->getRenderer()->renderTemplate($this->template, $this->templateValues);
+            return $this->getRenderer()->renderTemplate(
+                $this->template,
+                // make sure the current bound property is available in the template
+                $this->templateValues + ['property' => $this->property]
+            );
         } catch (PHPMicroTemplateException $exception) {
             throw new RenderException("Can't render property validation template {$this->template}", 0, $exception);
         }

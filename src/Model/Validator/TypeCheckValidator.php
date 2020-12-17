@@ -29,9 +29,10 @@ class TypeCheckValidator extends PropertyValidator implements TypeCheckInterface
         $this->type = $type;
 
         parent::__construct(
+            $property,
             '!is_' . strtolower($type) . '($value)' . ($allowImplicitNull ? ' && $value !== null' : ''),
             InvalidTypeException::class,
-            [$property->getName(), $type]
+            [$type]
         );
     }
 

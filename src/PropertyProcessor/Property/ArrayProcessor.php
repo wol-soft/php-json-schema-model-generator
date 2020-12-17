@@ -71,9 +71,10 @@ class ArrayProcessor extends AbstractTypedValueProcessor
         if (isset($json[self::JSON_FIELD_MIN_ITEMS])) {
             $property->addValidator(
                 new PropertyValidator(
+                    $property,
                     $this->getTypeCheck() . "count(\$value) < {$json[self::JSON_FIELD_MIN_ITEMS]}",
                     MinItemsException::class,
-                    [$property->getName(), $json[self::JSON_FIELD_MIN_ITEMS]]
+                    [$json[self::JSON_FIELD_MIN_ITEMS]]
                 )
             );
         }
@@ -81,9 +82,10 @@ class ArrayProcessor extends AbstractTypedValueProcessor
         if (isset($json[self::JSON_FIELD_MAX_ITEMS])) {
             $property->addValidator(
                 new PropertyValidator(
+                    $property,
                     $this->getTypeCheck() . "count(\$value) > {$json[self::JSON_FIELD_MAX_ITEMS]}",
                     MaxItemsException::class,
-                    [$property->getName(), $json[self::JSON_FIELD_MAX_ITEMS]]
+                    [$json[self::JSON_FIELD_MAX_ITEMS]]
                 )
             );
         }
@@ -105,10 +107,10 @@ class ArrayProcessor extends AbstractTypedValueProcessor
 
         $property->addValidator(
             new PropertyTemplateValidator(
+                $property,
                 DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayUnique.phptpl',
                 [],
-                UniqueItemsException::class,
-                [$property->getName()]
+                UniqueItemsException::class
             )
         );
     }
@@ -210,9 +212,10 @@ class ArrayProcessor extends AbstractTypedValueProcessor
 
         $property->addValidator(
             new PropertyValidator(
+                $property,
                 '($amount = count($value)) > ' . $expectedAmount,
                 AdditionalTupleItemsException::class,
-                [$property->getName(), $expectedAmount, '&$amount']
+                [$expectedAmount, '&$amount']
             )
         );
     }
@@ -243,14 +246,14 @@ class ArrayProcessor extends AbstractTypedValueProcessor
 
         $property->addValidator(
             new PropertyTemplateValidator(
+                $property,
                 DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayContains.phptpl',
                 [
                     'property' => $nestedProperty,
                     'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
                     'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
                 ],
-                ContainsException::class,
-                [$property->getName()]
+                ContainsException::class
             )
         );
     }

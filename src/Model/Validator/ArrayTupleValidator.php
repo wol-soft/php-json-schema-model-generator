@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
@@ -58,6 +59,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
         }
 
         parent::__construct(
+            new Property($propertyName, '', $propertiesStructure),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayTuple.phptpl',
             [
                 'tupleProperties' => &$this->tupleProperties,
@@ -65,7 +67,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
             ],
             InvalidTupleException::class,
-            [$propertyName, '&$invalidTuples']
+            ['&$invalidTuples']
         );
     }
 

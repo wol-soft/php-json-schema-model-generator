@@ -34,6 +34,7 @@ class MultiTypeCheckValidator extends PropertyValidator implements TypeCheckInte
         }
 
         parent::__construct(
+            $property,
             join(
                 ' && ',
                 array_map(
@@ -44,7 +45,7 @@ class MultiTypeCheckValidator extends PropertyValidator implements TypeCheckInte
                 )
             ) . ($allowImplicitNull ? ' && $value !== null' : ''),
             InvalidTypeException::class,
-            [$property->getName(), $types]
+            [$types]
         );
     }
 

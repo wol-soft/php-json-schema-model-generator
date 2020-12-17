@@ -121,14 +121,18 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         $json = $propertySchema->getJson()['propertySchema']->getJson();
 
         foreach ($json[$propertySchema->getJson()['type']] as $compositionElement) {
+            $compositionSchema = $propertySchema->getJson()['propertySchema']->withJson($compositionElement);
+
             $compositionProperty = new CompositionPropertyDecorator(
+                $property->getName(),
+                $compositionSchema,
                 $propertyFactory
                     ->create(
                         new PropertyMetaDataCollection([$property->getName() => $property->isRequired()]),
                         $this->schemaProcessor,
                         $this->schema,
                         $property->getName(),
-                        $propertySchema->getJson()['propertySchema']->withJson($compositionElement)
+                        $compositionSchema
                     )
             );
 

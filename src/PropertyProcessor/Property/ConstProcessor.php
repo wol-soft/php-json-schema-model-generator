@@ -25,17 +25,20 @@ class ConstProcessor implements PropertyProcessorInterface
     {
         $json = $propertySchema->getJson();
 
-        return (new Property(
+        $property = new Property(
             $propertyName,
             gettype($json['const']),
             $propertySchema,
             $json['description'] ?? ''
-        ))
+        );
+
+        return $property
             ->setRequired(true)
             ->addValidator(new PropertyValidator(
+                $property,
                 '$value !== ' . var_export($json['const'], true),
                 InvalidConstException::class,
-                [$propertyName, $json['const']]
+                [$json['const']]
             ));
     }
 }

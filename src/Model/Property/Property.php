@@ -7,7 +7,6 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
@@ -18,14 +17,8 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInte
  *
  * @package PHPModelGenerator\Model\Property
  */
-class Property implements PropertyInterface
+class Property extends AbstractProperty
 {
-    use JsonSchemaTrait;
-
-    /** @var string */
-    protected $name = '';
-    /** @var string */
-    protected $attribute = '';
     /** @var string */
     protected $type = 'null';
     /** @var string|null */
@@ -62,28 +55,10 @@ class Property implements PropertyInterface
      */
     public function __construct(string $name, string $type, JsonSchema $jsonSchema, string $description = '')
     {
-        $this->name = $name;
+        parent::__construct($name, $jsonSchema);
+
         $this->type = $type;
-        $this->jsonSchema = $jsonSchema;
         $this->description = $description;
-
-        $this->attribute = $this->processAttributeName($name);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getName(): string
-    {
-        return $this->name;
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getAttribute(): string
-    {
-        return ($this->isInternal() ? '_' : '') . $this->attribute;
     }
 
     /**
@@ -229,50 +204,9 @@ class Property implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function hasDecorators(): bool
+    public function getDecorators(): array
     {
-        return count($this->decorators) > 0;
-    }
-
-    /**
-     * Convert a name of a JSON-field into a valid PHP variable name to be used as class attribute
-     *
-     * @param string $name
-     *
-     * @return string
-     *
-     * @throws SchemaException
-     */
-    protected function processAttributeName(string $name): string
-    {
-        $attributeName = preg_replace_callback(
-            '/([a-z][a-z0-9]*)([A-Z])/',
-            function ($matches) {
-                return "{$matches[1]}-{$matches[2]}";
-            },
-            $name
-        );
-
-        $elements = array_map(
-            function ($element) {
-                return ucfirst(strtolower($element));
-            },
-            preg_split('/[^a-z0-9]/i', $attributeName)
-        );
-
-        $attributeName = lcfirst(join('', $elements));
-
-        if (empty($attributeName)) {
-            throw new SchemaException(
-                sprintf(
-                    "Property name '%s' results in an empty attribute name in file %s",
-                    $name,
-                    $this->jsonSchema->getFile()
-                )
-            );
-        }
-
-        return $attributeName;
+        return $this->decorators;
     }
 
     /**

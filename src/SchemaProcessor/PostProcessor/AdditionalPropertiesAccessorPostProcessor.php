@@ -6,6 +6,7 @@ namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\Object\RegularPropertyAsAdditionalPropertyException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\Property;
@@ -197,6 +198,8 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
      *
      * @param Schema $schema
      * @param GeneratorConfiguration $generatorConfiguration
+     *
+     * @throws SchemaException
      */
     private function addRemoveAdditionalPropertyMethod(
         Schema $schema,
@@ -206,13 +209,14 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
         $json = $schema->getJsonSchema()->getJson();
         if (isset($json['minProperties'])) {
             $minPropertyValidator = new PropertyValidator(
+                new Property($schema->getClassName(), '', $schema->getJsonSchema()),
                 sprintf(
                     '%s < %d',
                     'count($this->_rawModelDataInput) - 1',
                     $json['minProperties']
                 ),
                 MinPropertiesException::class,
-                [$schema->getClassName(), $json['minProperties']]
+                [$json['minProperties']]
             );
         }
 

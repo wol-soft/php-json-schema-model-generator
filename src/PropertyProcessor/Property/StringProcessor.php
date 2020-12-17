@@ -58,9 +58,10 @@ class StringProcessor extends AbstractTypedValueProcessor
 
         $property->addValidator(
             new PropertyValidator(
+                $property,
                 $this->getTypeCheck() . "!preg_match('/{$json[static::JSON_FIELD_PATTERN]}/', \$value)",
                 PatternException::class,
-                [$property->getName(), $json[static::JSON_FIELD_PATTERN]]
+                [$json[static::JSON_FIELD_PATTERN]]
             )
         );
     }
@@ -78,9 +79,10 @@ class StringProcessor extends AbstractTypedValueProcessor
         if (isset($json[static::JSON_FIELD_MIN_LENGTH])) {
             $property->addValidator(
                 new PropertyValidator(
+                    $property,
                     $this->getTypeCheck() . "mb_strlen(\$value) < {$json[static::JSON_FIELD_MIN_LENGTH]}",
                     MinLengthException::class,
-                    [$property->getName(), $json[static::JSON_FIELD_MIN_LENGTH]]
+                    [$json[static::JSON_FIELD_MIN_LENGTH]]
                 )
             );
         }
@@ -88,9 +90,10 @@ class StringProcessor extends AbstractTypedValueProcessor
         if (isset($json[static::JSON_FIELD_MAX_LENGTH])) {
             $property->addValidator(
                 new PropertyValidator(
+                    $property,
                     $this->getTypeCheck() . "mb_strlen(\$value) > {$json[static::JSON_FIELD_MAX_LENGTH]}",
                     MaxLengthException::class,
-                    [$property->getName(), $json[static::JSON_FIELD_MAX_LENGTH]]
+                    [$json[static::JSON_FIELD_MAX_LENGTH]]
                 )
             );
         }
