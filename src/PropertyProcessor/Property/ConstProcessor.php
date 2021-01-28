@@ -18,16 +18,23 @@ use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
  */
 class ConstProcessor implements PropertyProcessorInterface
 {
+    const TYPE_MAP = [
+        'boolean' => 'bool',
+        'integer' => 'int',
+        'double' => 'float',
+    ];
+
     /**
      * @inheritdoc
      */
     public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface
     {
         $json = $propertySchema->getJson();
+        $type = gettype($json['const']);
 
         $property = new Property(
             $propertyName,
-            gettype($json['const']),
+            self::TYPE_MAP[gettype($json['const'])] ?? $type,
             $propertySchema,
             $json['description'] ?? ''
         );

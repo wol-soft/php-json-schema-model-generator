@@ -127,10 +127,14 @@ class GeneratorConfiguration
 
     /**
      * @param ClassNameGeneratorInterface $classNameGenerator
+     *
+     * @return $this
      */
-    public function setClassNameGenerator(ClassNameGeneratorInterface $classNameGenerator): void
+    public function setClassNameGenerator(ClassNameGeneratorInterface $classNameGenerator): self
     {
         $this->classNameGenerator = $classNameGenerator;
+
+        return $this;
     }
 
     /**
