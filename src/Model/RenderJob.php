@@ -64,15 +64,14 @@ class RenderJob
     /**
      * Execute the render job and render the class
      *
-     * @param string                 $destination
      * @param GeneratorConfiguration $generatorConfiguration
      *
      * @throws FileSystemException
      * @throws RenderException
      */
-    public function render(string $destination, GeneratorConfiguration $generatorConfiguration): void
+    public function render(GeneratorConfiguration $generatorConfiguration): void
     {
-        $this->generateModelDirectory($destination, $this->classPath);
+        $this->generateModelDirectory();
 
         $class = $this->renderClass($generatorConfiguration);
 
@@ -94,21 +93,13 @@ class RenderJob
     /**
      * Generate the directory structure for saving a generated class
      *
-     * @param string $destination
-     * @param string $classPath
-     *
      * @throws FileSystemException
      */
-    protected function generateModelDirectory(string $destination, string $classPath): void
+    protected function generateModelDirectory(): void
     {
-        $subDirectoryPath = '';
-        foreach (explode('\\', $classPath) as $directory) {
-            $subDirectoryPath .= "/$directory";
-            $fullPath = $destination . $subDirectoryPath;
-
-            if (!is_dir($fullPath) && !mkdir($fullPath)) {
-                throw new FileSystemException("Can't create path $fullPath");
-            }
+        $destination = dirname($this->fileName);
+        if (!is_dir($destination) && !mkdir($destination, 0777, true)) {
+            throw new FileSystemException("Can't create path $destination");
         }
     }
 

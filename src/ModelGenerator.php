@@ -117,7 +117,7 @@ class ModelGenerator
         }
 
         // render all collected classes
-        $renderQueue->execute($destination, $this->generatorConfiguration, $this->postProcessors);
+        $renderQueue->execute($this->generatorConfiguration, $this->postProcessors);
 
         if ($this->generatorConfiguration->hasPrettyPrintEnabled()) {
             // @codeCoverageIgnoreStart
