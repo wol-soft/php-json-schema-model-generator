@@ -122,30 +122,14 @@ class RenderJob
      */
     protected function renderClass(GeneratorConfiguration $generatorConfiguration): string
     {
-        $render = new Render(__DIR__ . '/../Templates/');
         $namespace = trim(join('\\', [$generatorConfiguration->getNamespacePrefix(), $this->classPath]), '\\');
 
-        $use = array_unique(
-            array_merge(
-                $this->schema->getUsedClasses(),
-                $generatorConfiguration->collectErrors()
-                    ? [$generatorConfiguration->getErrorRegistryClass()]
-                    : [ValidationException::class]
-            )
-        );
-
-        // filter out non-compound uses and uses which link to the current namespace
-        $use = array_filter($use, function ($classPath) use ($namespace) {
-            return strstr(trim(str_replace("$namespace", '', $classPath), '\\'), '\\') ||
-                (!strstr($classPath, '\\') && !empty($namespace));
-        });
-
         try {
-            $class = $render->renderTemplate(
+            $class = (new Render(__DIR__ . '/../Templates/'))->renderTemplate(
                 'Model.phptpl',
                 [
                     'namespace'                         => $namespace,
-                    'use'                               => $use,
+                    'use'                               => $this->getUseForSchema($generatorConfiguration, $namespace),
                     'class'                             => $this->className,
                     'schema'                            => $this->schema,
                     'schemaHookResolver'                => new SchemaHookResolver($this->schema),
@@ -166,5 +150,31 @@ class RenderJob
         }
 
         return $class;
+    }
+
+    /**
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param string $namespace
+     *
+     * @return string[]
+     */
+    protected function getUseForSchema(GeneratorConfiguration $generatorConfiguration, string $namespace): array
+    {
+        $use = array_unique(
+            array_merge(
+                $this->schema->getUsedClasses(),
+                $generatorConfiguration->collectErrors()
+                    ? [$generatorConfiguration->getErrorRegistryClass()]
+                    : [ValidationException::class]
+            )
+        );
+
+        // filter out non-compound uses and uses which link to the current namespace
+        $use = array_filter($use, function ($classPath) use ($namespace) {
+            return strstr(trim(str_replace("$namespace", '', $classPath), '\\'), '\\') ||
+                (!strstr($classPath, '\\') && !empty($namespace));
+        });
+
+        return $use;
     }
 }
