@@ -3,6 +3,7 @@
 namespace PHPModelGenerator\Tests\ComposedValue;
 
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\Number\MultipleOfException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -40,20 +41,68 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * @dataProvider validConditionalPropertyDefinitionDataProvider
+     * @param int $value
+     */
+    public function testConditionalPropertyDefinition(int $value): void
+    {
+        $className = $this->generateClassFromFile('ConditionalPropertyDefinition.json');
+
+        $object = new $className(['property' => $value]);
+        $this->assertSame($value, $object->getProperty());
+    }
+
+    public function validConditionalPropertyDefinitionDataProvider(): array
+    {
+        return [
+            'zero' => [0],
+            'negative multiple of else' => [-30],
+            'positive multiple of else 1' => [30],
+            'positive multiple of else 2' => [60],
+            'exactly on minimum' => [100],
+            'positive multiple of then' => [150],
+        ];
+    }
+
+    /**
+     * @dataProvider invalidConditionalPropertyDefinitionDataProvider
+     * @param int $value
+     */
+    public function testInvalidConditionalPropertyDefinition(int $value): void
+    {
+        $this->expectException(MultipleOfException::class);
+        $this->expectExceptionMessage("Value for property must be a multiple of");
+
+        $className = $this->generateClassFromFile('ConditionalPropertyDefinition.json');
+        new $className(['property' => $value]);
+    }
+
+    public function invalidConditionalPropertyDefinitionDataProvider(): array
+    {
+        return [
+            'invalid negative' => [-50],
+            'invalid positive else' => [50],
+            'invalid positive then' => [120],
+        ];
+    }
+
+    /**
      * @dataProvider validConditionalObjectPropertyDataProvider
      *
+     * @param string $schemaFile
      * @param GeneratorConfiguration $configuration
-     * @param string $streetAddress
-     * @param string $country
-     * @param string $postalCode
+     * @param string|null $streetAddress
+     * @param string|null $country
+     * @param string|null $postalCode
      */
     public function testConditionalObjectProperty(
+        string $schemaFile,
         GeneratorConfiguration $configuration,
         ?string $streetAddress,
         ?string $country,
         ?string $postalCode
     ): void {
-        $className = $this->generateClassFromFile('ConditionalObjectProperty.json', $configuration);
+        $className = $this->generateClassFromFile($schemaFile, $configuration);
 
         $object = new $className([
             'street_address' => $streetAddress,
@@ -66,39 +115,55 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTest
         $this->assertSame($postalCode, $object->getPostalCode());
     }
 
+    public function objectLevelConditionalSchemaDataProvider(): array
+    {
+        return [
+            'Object top level conditional composition' => ['ConditionalObjectProperty.json'],
+            'Conditional composition nested in another composition' => ['NestedIfInComposition.json'],
+        ];
+    }
+
     public function validConditionalObjectPropertyDataProvider(): array
     {
         return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
-            [
-                'not provided postal code' => ['1600 Pennsylvania Avenue NW', 'USA', null],
-                'USA postal code' => ['1600 Pennsylvania Avenue NW', 'USA', '20500'],
-                'Canada postal code' => ['24 Sussex Drive', 'Canada', 'K1M 1M4'],
-            ]
+            $this->objectLevelConditionalSchemaDataProvider(),
+            $this->combineDataProvider(
+                $this->validationMethodDataProvider(),
+                [
+                    'not provided postal code' => ['1600 Pennsylvania Avenue NW', 'USA', null],
+                    'USA postal code' => ['1600 Pennsylvania Avenue NW', 'USA', '20500'],
+                    'Canada postal code' => ['24 Sussex Drive', 'Canada', 'K1M 1M4'],
+                ]
+            )
         );
     }
 
     /**
      * @dataProvider invalidConditionalObjectPropertyDataProvider
      *
+     * @param string $schemaFile
      * @param GeneratorConfiguration $configuration
-     * @param string $streetAddress
-     * @param string $country
-     * @param string $postalCode
+     * @param string|null $streetAddress
+     * @param string|null $country
+     * @param string|null $postalCode
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
     public function testInvalidConditionalObjectPropertyThrowsAnException(
+        string $schemaFile,
         GeneratorConfiguration $configuration,
         ?string $streetAddress,
         ?string $country,
         ?string $postalCode
     ): void {
-        $this->expectValidationErrorRegExp($configuration, '/postal_code doesn\'t match pattern .*/');
+        $this->expectValidationErrorRegExp(
+            $configuration,
+            '/(Invalid value for .*? declined by composition constraint|postal_code doesn\'t match pattern .*)/'
+        );
 
-        $className = $this->generateClassFromFile('ConditionalObjectProperty.json', $configuration);
+        $className = $this->generateClassFromFile($schemaFile, $configuration);
 
         new $className([
             'street_address' => $streetAddress,
@@ -110,13 +175,16 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTest
     public function invalidConditionalObjectPropertyDataProvider(): array
     {
         return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
-            [
-                'empty provided postal code' => ['1600 Pennsylvania Avenue NW', 'USA', ''],
-                'Canadian postal code for USA' => ['1600 Pennsylvania Avenue NW', 'USA', 'K1M 1M4'],
-                'USA postal code for Canada' => ['24 Sussex Drive', 'Canada', '20500'],
-                'Unmatching postal code for both' => ['24 Sussex Drive', 'Canada', 'djqwWDJId8juw9duq9'],
-            ]
+            $this->objectLevelConditionalSchemaDataProvider(),
+            $this->combineDataProvider(
+                $this->validationMethodDataProvider(),
+                [
+                    'empty provided postal code' => ['1600 Pennsylvania Avenue NW', 'USA', ''],
+                    'Canadian postal code for USA' => ['1600 Pennsylvania Avenue NW', 'USA', 'K1M 1M4'],
+                    'USA postal code for Canada' => ['24 Sussex Drive', 'Canada', '20500'],
+                    'Unmatching postal code for both' => ['24 Sussex Drive', 'Canada', 'djqwWDJId8juw9duq9'],
+                ]
+            )
         );
     }
 

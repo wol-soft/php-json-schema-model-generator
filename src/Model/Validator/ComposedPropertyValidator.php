@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Exception\ComposedValue\InvalidComposedValueException;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Validator;
 
 /**
  * Class ComposedPropertyValidator
@@ -52,6 +53,25 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             $succeededCompositionElements = 0;
             $compositionErrorCollection = [];
         ';
+    }
+
+    /**
+     * Creates a copy of the validator and strips all nested composition validations from the composed properties.
+     * See usage in BaseProcessor for more details why the nested validators can be filtered out.
+     *
+     * @return $this
+     */
+    public function withoutNestedCompositionValidation(): self
+    {
+        $validator = clone $this;
+
+        foreach ($validator->composedProperties as $composedProperty) {
+            $composedProperty->filterValidators(function (Validator $validator): bool {
+                return !is_a($validator->getValidator(), AbstractComposedPropertyValidator::class);
+            });
+        }
+
+        return $validator;
     }
 
     /**

@@ -18,6 +18,7 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
+use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyNamesValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -253,8 +254,16 @@ class BaseProcessor extends AbstractPropertyProcessor
             if (!is_a($validator, AbstractComposedPropertyValidator::class)) {
                 continue;
             }
-            /** @var AbstractComposedPropertyValidator $validator */
-            $this->schema->addBaseValidator($validator);
+
+            // If the transferred validator of the composed property is also a composed property strip the nested
+            // composition validations from the added validator. The nested composition will be validated in the object
+            // generated for the nested composition which will be executed via an instanciation. Consequently the
+            // validation must not be executed in the outer composition.
+            $this->schema->addBaseValidator(
+                ($validator instanceof ComposedPropertyValidator)
+                    ? $validator->withoutNestedCompositionValidation()
+                    : $validator
+            );
 
             if (!is_a($validator->getComposedProcessor(), ComposedPropertiesInterface::class, true)) {
                 continue;
