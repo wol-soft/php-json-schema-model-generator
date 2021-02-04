@@ -111,9 +111,25 @@ class RenderHelper
         return "throw $exceptionConstructor;";
     }
 
-    public function isPropertyNullable(PropertyInterface $property, bool $setter = false): bool
+    /**
+     * check if the property may contain/accept null
+     * - if the property is required the property may never contain null (if it's a null property null is already
+     *   contained in the proprety type hints)
+     * - if the output type is requested null may be contained (if the property was not set)
+     *   if implicitNull is enabled null may be set for the property
+     * - except the property contains a default value and implicit null is disabled. in this case null is not
+     *   possible
+     *
+     * @param PropertyInterface $property
+     * @param bool $outputType
+     *
+     * @return bool
+     */
+    public function isPropertyNullable(PropertyInterface $property, bool $outputType = false): bool
     {
-        return (!$setter || $this->generatorConfiguration->isImplicitNullAllowed()) && !$property->isRequired();
+        return !$property->isRequired()
+            && ($outputType || $this->generatorConfiguration->isImplicitNullAllowed())
+            && !($property->getDefaultValue() && !$this->generatorConfiguration->isImplicitNullAllowed());
     }
 
     public function getTypeHintAnnotation(PropertyInterface $property, bool $outputType = false): string
@@ -121,10 +137,10 @@ class RenderHelper
         $typeHint = $property->getTypeHint($outputType);
 
         if (!$typeHint) {
-            return '';
+            return 'mixed';
         }
 
-        if (($outputType || $this->generatorConfiguration->isImplicitNullAllowed()) && !$property->isRequired()) {
+        if ($this->isPropertyNullable($property, $outputType)) {
             $typeHint = implode('|', array_unique(array_merge(explode('|', $typeHint), ['null'])));
         }
 

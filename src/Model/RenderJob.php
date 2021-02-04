@@ -86,7 +86,13 @@ class RenderJob
         }
 
         if ($generatorConfiguration->isOutputEnabled()) {
-            echo "Rendered class {$generatorConfiguration->getNamespacePrefix()}\\$this->classPath\\$this->className\n";
+            echo sprintf(
+                "Rendered class %s\n",
+                join(
+                    '\\',
+                    array_filter([$generatorConfiguration->getNamespacePrefix(), $this->classPath, $this->className])
+                )
+            );
         }
     }
 
