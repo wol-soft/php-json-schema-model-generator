@@ -159,9 +159,9 @@ interface PropertyInterface
     public function setDefaultValue($defaultValue): PropertyInterface;
 
     /**
-     * @return mixed
+     * @return string|null
      */
-    public function getDefaultValue();
+    public function getDefaultValue(): ?string;
 
     /**
      * @return bool

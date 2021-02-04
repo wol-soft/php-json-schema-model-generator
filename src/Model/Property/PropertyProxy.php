@@ -205,7 +205,7 @@ class PropertyProxy extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function getDefaultValue()
+    public function getDefaultValue(): ?string
     {
         return $this->getProperty()->getDefaultValue();
     }

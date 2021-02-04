@@ -242,9 +242,9 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function getDefaultValue()
+    public function getDefaultValue(): ?string
     {
-        return var_export($this->defaultValue, true);
+        return $this->defaultValue !== null ? var_export($this->defaultValue, true) : null;
     }
 
     /**
