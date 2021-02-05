@@ -43,7 +43,7 @@ class FilterProcessor
         GeneratorConfiguration $generatorConfiguration,
         Schema $schema
     ): void {
-        if (is_string($filterList)) {
+        if (is_string($filterList) || (is_array($filterList) && isset($filterList['filter']))) {
             $filterList = [$filterList];
         }
 

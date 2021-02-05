@@ -3,13 +3,11 @@
   "properties": {
     "created": {
       "type": "string",
-      "filter": [
-        {
-          "filter": "dateTime",
-          "createFromFormat": "!dmY",
-          "outputFormat": "Ymd"
-        }
-      ]
+      "filter": {
+        "filter": "dateTime",
+        "createFromFormat": "!dmY",
+        "outputFormat": "Ymd"
+      }
     }
   }
 }

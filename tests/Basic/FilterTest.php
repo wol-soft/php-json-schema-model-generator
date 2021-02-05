@@ -465,14 +465,15 @@ ERROR
     }
 
     /**
-     * @dataProvider namespaceDataProvider
+     * @dataProvider additionalFilterOptionsDataProvider
      *
      * @param string $namespace
+     * @param string $schemaFile
      */
-    public function testAdditionalFilterOptions(string $namespace): void
+    public function testAdditionalFilterOptions(string $namespace, string $schemaFile): void
     {
         $className = $this->generateClassFromFile(
-            'FilterOptions.json',
+            $schemaFile,
             (new GeneratorConfiguration())->setSerialization(true)->setNamespacePrefix($namespace)
         );
 
@@ -484,6 +485,17 @@ ERROR
         $expectedSerialization = ['created' => '20201210'];
         $this->assertSame($expectedSerialization, $object->toArray());
         $this->assertSame(json_encode($expectedSerialization), $object->toJSON());
+    }
+
+    public function additionalFilterOptionsDataProvider(): array
+    {
+        return $this->combineDataProvider(
+            $this->namespaceDataProvider(),
+            [
+                'Chain notation' => ['FilterOptionsChainNotation.json'],
+                'Single filter notation' => ['FilterOptions.json'],
+            ]
+        );
     }
 
     public function testTransformingFilterAppliedToAnArrayPropertyThrowsAnException(): void
