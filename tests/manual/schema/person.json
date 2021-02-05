@@ -2,9 +2,18 @@
   "$id": "Person",
   "type": "object",
   "properties": {
+    "name": {
+      "type": "string",
+      "description": "The name of the person",
+      "example": "Lawrence"
+    },
     "age": {
       "type": "integer",
-      "enum": [42, 10]
+      "description": "The age of the person",
+      "example": 42
     }
-  }
+  },
+  "required": [
+    "name"
+  ]
 }
