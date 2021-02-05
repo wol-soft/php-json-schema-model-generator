@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "integer",
+      "if": {
+        "minimum": 100
+      },
+      "then": {
+        "multipleOf": 50
+      },
+      "else": {
+        "multipleOf": 30
+      }
+    }
+  }
+}

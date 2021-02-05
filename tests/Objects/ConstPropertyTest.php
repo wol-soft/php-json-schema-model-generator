@@ -25,9 +25,10 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTest
     {
         $className = $this->generateClassFromFile('ConstProperty.json');
 
-        $object = new $className(['property' => 'MyConstValue']);
+        $object = new $className(['stringProperty' => 'MyConstValue', 'integerProperty' => 42]);
 
-        $this->assertSame('MyConstValue', $object->getProperty());
+        $this->assertSame('MyConstValue', $object->getStringProperty());
+        $this->assertSame(42, $object->getIntegerProperty());
     }
 
     /**
@@ -38,7 +39,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTest
     public function testNotProvidedConstPropertyThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by const constraint');
+        $this->expectExceptionMessage('Invalid value for stringProperty declined by const constraint');
 
         $className = $this->generateClassFromFile('ConstProperty.json');
 
@@ -57,11 +58,11 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTest
     public function testNotMatchingProvidedDataThrowsAnException($propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by const constraint');
+        $this->expectExceptionMessage('Invalid value for stringProperty declined by const constraint');
 
         $className = $this->generateClassFromFile('ConstProperty.json');
 
-        new $className(['property' => $propertyValue]);
+        new $className(['stringProperty' => $propertyValue]);
     }
 
     public function invalidPropertyDataProvider(): array

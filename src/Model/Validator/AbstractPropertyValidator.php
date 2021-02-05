@@ -18,17 +18,32 @@ abstract class AbstractPropertyValidator implements PropertyValidatorInterface
     protected $exceptionClass;
     /** @var array */
     protected $exceptionParams;
+    /** @var PropertyInterface */
+    protected $property;
 
     /**
      * AbstractPropertyValidator constructor.
      *
+     * @param PropertyInterface $property
      * @param string $exceptionClass
      * @param array $exceptionParams
      */
-    public function __construct(string $exceptionClass, array $exceptionParams = [])
+    public function __construct(PropertyInterface $property, string $exceptionClass, array $exceptionParams = [])
     {
+        $this->property = $property;
         $this->exceptionClass = $exceptionClass;
         $this->exceptionParams = $exceptionParams;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function withProperty(PropertyInterface $property): PropertyValidatorInterface
+    {
+        $clone = clone $this;
+        $clone->property = $property;
+
+        return $clone;
     }
 
     /**
@@ -44,7 +59,7 @@ abstract class AbstractPropertyValidator implements PropertyValidatorInterface
      */
     public function getExceptionParams(): array
     {
-        return $this->exceptionParams;
+        return array_merge([$this->property->getName()], $this->exceptionParams);
     }
 
     /**

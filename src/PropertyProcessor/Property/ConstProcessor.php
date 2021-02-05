@@ -10,6 +10,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
+use PHPModelGenerator\Utils\TypeConverter;
 
 /**
  * Class ConstProcessor
@@ -25,17 +26,20 @@ class ConstProcessor implements PropertyProcessorInterface
     {
         $json = $propertySchema->getJson();
 
-        return (new Property(
+        $property = new Property(
             $propertyName,
-            gettype($json['const']),
+            TypeConverter::gettypeToInternal(gettype($json['const'])),
             $propertySchema,
             $json['description'] ?? ''
-        ))
+        );
+
+        return $property
             ->setRequired(true)
             ->addValidator(new PropertyValidator(
+                $property,
                 '$value !== ' . var_export($json['const'], true),
                 InvalidConstException::class,
-                [$propertyName, $json['const']]
+                [$json['const']]
             ));
     }
 }

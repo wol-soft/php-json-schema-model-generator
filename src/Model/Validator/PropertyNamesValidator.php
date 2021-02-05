@@ -4,11 +4,9 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
-use PHPMicroTemplate\Exception\FileSystemException;
-use PHPMicroTemplate\Exception\SyntaxErrorException;
-use PHPMicroTemplate\Exception\UndefinedSymbolException;
 use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
@@ -31,9 +29,6 @@ class PropertyNamesValidator extends PropertyTemplateValidator
      * @param Schema $schema
      * @param JsonSchema $propertiesNames
      *
-     * @throws FileSystemException
-     * @throws SyntaxErrorException
-     * @throws UndefinedSymbolException
      * @throws SchemaException
      */
     public function __construct(
@@ -50,6 +45,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
             });
 
         parent::__construct(
+            new Property($schema->getClassName(), '', $propertiesNames),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PropertyNames.phptpl',
             [
                 'nameValidationProperty' => $nameValidationProperty,
@@ -57,7 +53,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
                 'viewHelper'             => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
             ],
             InvalidPropertyNamesException::class,
-            [$schema->getClassName(), '&$invalidProperties']
+            ['&$invalidProperties']
         );
     }
 

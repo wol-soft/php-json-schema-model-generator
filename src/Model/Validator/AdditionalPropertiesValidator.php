@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
@@ -61,6 +62,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
         );
 
         parent::__construct(
+            new Property($propertyName ?? $schema->getClassName(), '', $propertiesStructure),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'AdditionalProperties.phptpl',
             [
                 'validationProperty' => $this->validationProperty,
@@ -75,7 +77,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
                 'collectAdditionalProperties' => &$this->collectAdditionalProperties,
             ],
             static::EXCEPTION_CLASS,
-            [$propertyName ?? $schema->getClassName(), '&$invalidProperties']
+            ['&$invalidProperties']
         );
     }
 

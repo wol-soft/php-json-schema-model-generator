@@ -126,9 +126,9 @@ interface PropertyInterface
     public function resolveDecorator(string $input, bool $nestedProperty): string;
 
     /**
-     * @return bool
+     * @return PropertyDecoratorInterface[]
      */
-    public function hasDecorators(): bool;
+    public function getDecorators(): array;
 
     /**
      * @param bool $isPropertyRequired
@@ -159,9 +159,9 @@ interface PropertyInterface
     public function setDefaultValue($defaultValue): PropertyInterface;
 
     /**
-     * @return mixed
+     * @return string|null
      */
-    public function getDefaultValue();
+    public function getDefaultValue(): ?string;
 
     /**
      * @return bool

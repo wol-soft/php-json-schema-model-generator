@@ -81,9 +81,10 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
 
         $property->addValidator(
             new PropertyValidator(
+                $property,
                 $this->getTypeCheck() . "\$value $check {$json[$field]}",
                 $exceptionClass,
-                [$property->getName(), $json[$field]]
+                [$json[$field]]
             )
         );
     }
@@ -104,6 +105,7 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
 
         $property->addValidator(
             new PropertyValidator(
+                $property,
                 // type unsafe comparison to be compatible with int and float
                 $json[self::JSON_FIELD_MULTIPLE] == 0
                     ? $this->getTypeCheck() . '$value != 0'
@@ -113,7 +115,7 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
                             : $this->getTypeCheck() . "fmod(\$value, {$json[self::JSON_FIELD_MULTIPLE]}) != 0"
                     ),
                 MultipleOfException::class,
-                [$property->getName(), $json[self::JSON_FIELD_MULTIPLE]]
+                [$json[self::JSON_FIELD_MULTIPLE]]
             )
         );
     }

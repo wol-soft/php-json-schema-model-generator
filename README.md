@@ -99,7 +99,7 @@ The directory `./tests/manual` contains some easy examples which show the usage.
 Let's have a look into an easy example. We create a simple model for a person with a name and an optional age. Our resulting JSON-Schema:
 ```json
 {
-  "id": "Person",
+  "$id": "Person",
   "type": "object",
   "properties": {
     "name": {

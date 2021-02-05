@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\Schema;
@@ -16,21 +17,35 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInte
  *
  * @package PHPModelGenerator\Model
  */
-class PropertyProxy implements PropertyInterface
+class PropertyProxy extends AbstractProperty
 {
     /** @var string */
     protected $key;
+    /** @var string */
+    protected $name;
     /** @var ResolvedDefinitionsCollection */
     protected $definitionsCollection;
 
     /**
      * PropertyProxy constructor.
      *
+     * @param string $name The name must be provided separately as the name is not bound to the structure of a
+     * referenced schema. Consequently two properties with different names can refer an identical schema utilizing the
+     * PropertyProxy. By providing a name to each of the proxies the resulting properties will get the correct names.
+     * @param JsonSchema $jsonSchema
      * @param ResolvedDefinitionsCollection $definitionsCollection
-     * @param string                        $key
+     * @param string $key
+     *
+     * @throws SchemaException
      */
-    public function __construct(ResolvedDefinitionsCollection $definitionsCollection, string $key)
-    {
+    public function __construct(
+        string $name,
+        JsonSchema $jsonSchema,
+        ResolvedDefinitionsCollection $definitionsCollection,
+        string $key
+    ) {
+        parent::__construct($name, $jsonSchema);
+
         $this->key = $key;
         $this->definitionsCollection = $definitionsCollection;
     }
@@ -43,22 +58,6 @@ class PropertyProxy implements PropertyInterface
     protected function getProperty(): PropertyInterface
     {
         return $this->definitionsCollection->offsetGet($this->key);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getName(): string
-    {
-        return $this->getProperty()->getName();
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getAttribute(): string
-    {
-        return $this->getProperty()->getAttribute();
     }
 
     /**
@@ -130,7 +129,9 @@ class PropertyProxy implements PropertyInterface
      */
     public function getOrderedValidators(): array
     {
-        return $this->getProperty()->getOrderedValidators();
+        return array_map(function (PropertyValidatorInterface $propertyValidator): PropertyValidatorInterface {
+            return $propertyValidator->withProperty($this);
+        }, $this->getProperty()->getOrderedValidators());
     }
 
     /**
@@ -146,15 +147,19 @@ class PropertyProxy implements PropertyInterface
      */
     public function resolveDecorator(string $input, bool $nestedProperty): string
     {
-        return $this->getProperty()->resolveDecorator($input, $nestedProperty);
+        foreach ($this->getProperty()->getDecorators() as $decorator) {
+            $input = $decorator->decorate($input, $this, $nestedProperty);
+        }
+
+        return $input;
     }
 
     /**
      * @inheritdoc
      */
-    public function hasDecorators(): bool
+    public function getDecorators(): array
     {
-        return $this->getProperty()->hasDecorators();
+        return $this->getProperty()->getDecorators();
     }
 
     /**
@@ -200,7 +205,7 @@ class PropertyProxy implements PropertyInterface
     /**
      * @inheritdoc
      */
-    public function getDefaultValue()
+    public function getDefaultValue(): ?string
     {
         return $this->getProperty()->getDefaultValue();
     }

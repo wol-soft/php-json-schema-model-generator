@@ -165,7 +165,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
             $subProperty = $propertyProcessor->process($propertyName, $propertySchema->withJson($json));
             $this->transferValidators($subProperty, $property);
 
-            if ($subProperty->hasDecorators()) {
+            if ($subProperty->getDecorators()) {
                 $property->addDecorator(new PropertyTransferDecorator($subProperty));
             }
 

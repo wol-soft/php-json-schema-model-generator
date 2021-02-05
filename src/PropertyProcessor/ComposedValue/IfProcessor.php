@@ -52,14 +52,18 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
                 continue;
             }
 
+            $compositionSchema = $propertySchema->getJson()['propertySchema']->withJson($json[$compositionElement]);
+
             $compositionProperty = new CompositionPropertyDecorator(
+                $property->getName(),
+                $compositionSchema,
                 $propertyFactory
                     ->create(
                         new PropertyMetaDataCollection([$property->getName() => $property->isRequired()]),
                         $this->schemaProcessor,
                         $this->schema,
                         $property->getName(),
-                        $propertySchema->getJson()['propertySchema']->withJson($json[$compositionElement])
+                        $compositionSchema
                     )
             );
 

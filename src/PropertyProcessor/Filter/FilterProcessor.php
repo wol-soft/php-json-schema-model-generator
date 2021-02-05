@@ -149,15 +149,20 @@ class FilterProcessor
                     return !is_a($validator->getValidator(), EnumValidator::class);
                 });
 
+                // shift the name from the validator to avoid adding it twice by wrapping the validator into another one
+                $exceptionParams = $validator->getExceptionParams();
+                array_shift($exceptionParams);
+
                 $property->addValidator(
                     new PropertyValidator(
+                        $property,
                         sprintf(
                             "%s && %s",
                             ReflectionTypeCheckValidator::fromReflectionType($filteredType, $property)->getCheck(),
                             $validator->getCheck()
                         ),
                         $validator->getExceptionClass(),
-                        $validator->getExceptionParams()
+                        $exceptionParams
                     ),
                     3
                 );

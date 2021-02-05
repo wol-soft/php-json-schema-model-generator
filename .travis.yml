@@ -10,6 +10,7 @@ php:
   - 7.2
   - 7.3
   - 7.4
+  - 8.0
   - nightly
 
 install:
@@ -28,7 +29,7 @@ before_script:
   - mkdir -p build/logs
 
 script:
-  - ./vendor/bin/phpunit --coverage-clover build/logs/clover.xml --testdox
+  - XDEBUG_MODE=coverage ./vendor/bin/phpunit --coverage-clover build/logs/clover.xml --testdox
 
 after_script:
   - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT

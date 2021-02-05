@@ -64,15 +64,14 @@ class RenderJob
     /**
      * Execute the render job and render the class
      *
-     * @param string                 $destination
      * @param GeneratorConfiguration $generatorConfiguration
      *
      * @throws FileSystemException
      * @throws RenderException
      */
-    public function render(string $destination, GeneratorConfiguration $generatorConfiguration): void
+    public function render(GeneratorConfiguration $generatorConfiguration): void
     {
-        $this->generateModelDirectory($destination, $this->classPath);
+        $this->generateModelDirectory();
 
         $class = $this->renderClass($generatorConfiguration);
 
@@ -87,28 +86,26 @@ class RenderJob
         }
 
         if ($generatorConfiguration->isOutputEnabled()) {
-            echo "Rendered class {$generatorConfiguration->getNamespacePrefix()}\\$this->classPath\\$this->className\n";
+            echo sprintf(
+                "Rendered class %s\n",
+                join(
+                    '\\',
+                    array_filter([$generatorConfiguration->getNamespacePrefix(), $this->classPath, $this->className])
+                )
+            );
         }
     }
 
     /**
      * Generate the directory structure for saving a generated class
      *
-     * @param string $destination
-     * @param string $classPath
-     *
      * @throws FileSystemException
      */
-    protected function generateModelDirectory(string $destination, string $classPath): void
+    protected function generateModelDirectory(): void
     {
-        $subDirectoryPath = '';
-        foreach (explode('\\', $classPath) as $directory) {
-            $subDirectoryPath .= "/$directory";
-            $fullPath = $destination . $subDirectoryPath;
-
-            if (!is_dir($fullPath) && !mkdir($fullPath)) {
-                throw new FileSystemException("Can't create path $fullPath");
-            }
+        $destination = dirname($this->fileName);
+        if (!is_dir($destination) && !mkdir($destination, 0777, true)) {
+            throw new FileSystemException("Can't create path $destination");
         }
     }
 
@@ -122,30 +119,14 @@ class RenderJob
      */
     protected function renderClass(GeneratorConfiguration $generatorConfiguration): string
     {
-        $render = new Render(__DIR__ . '/../Templates/');
         $namespace = trim(join('\\', [$generatorConfiguration->getNamespacePrefix(), $this->classPath]), '\\');
 
-        $use = array_unique(
-            array_merge(
-                $this->schema->getUsedClasses(),
-                $generatorConfiguration->collectErrors()
-                    ? [$generatorConfiguration->getErrorRegistryClass()]
-                    : [ValidationException::class]
-            )
-        );
-
-        // filter out non-compound uses and uses which link to the current namespace
-        $use = array_filter($use, function ($classPath) use ($namespace) {
-            return strstr(trim(str_replace("$namespace", '', $classPath), '\\'), '\\') ||
-                (!strstr($classPath, '\\') && !empty($namespace));
-        });
-
         try {
-            $class = $render->renderTemplate(
+            $class = (new Render(__DIR__ . '/../Templates/'))->renderTemplate(
                 'Model.phptpl',
                 [
                     'namespace'                         => $namespace,
-                    'use'                               => $use,
+                    'use'                               => $this->getUseForSchema($generatorConfiguration, $namespace),
                     'class'                             => $this->className,
                     'schema'                            => $this->schema,
                     'schemaHookResolver'                => new SchemaHookResolver($this->schema),
@@ -166,5 +147,31 @@ class RenderJob
         }
 
         return $class;
+    }
+
+    /**
+     * @param GeneratorConfiguration $generatorConfiguration
+     * @param string $namespace
+     *
+     * @return string[]
+     */
+    protected function getUseForSchema(GeneratorConfiguration $generatorConfiguration, string $namespace): array
+    {
+        $use = array_unique(
+            array_merge(
+                $this->schema->getUsedClasses(),
+                $generatorConfiguration->collectErrors()
+                    ? [$generatorConfiguration->getErrorRegistryClass()]
+                    : [ValidationException::class]
+            )
+        );
+
+        // filter out non-compound uses and uses which link to the current namespace
+        $use = array_filter($use, function ($classPath) use ($namespace) {
+            return strstr(trim(str_replace("$namespace", '', $classPath), '\\'), '\\') ||
+                (!strstr($classPath, '\\') && !empty($namespace));
+        });
+
+        return $use;
     }
 }

@@ -23,9 +23,9 @@ class PropertyDependencyValidator extends PropertyTemplateValidator
     public function __construct(PropertyInterface $property, array $dependencies)
     {
         parent::__construct(
+            $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PropertyDependency.phptpl',
             [
-                'propertyName' => $property->getName(),
                 'dependencies' => preg_replace(
                     '(\d+\s=>)',
                     '',
@@ -33,7 +33,7 @@ class PropertyDependencyValidator extends PropertyTemplateValidator
                 ),
             ],
             InvalidPropertyDependencyException::class,
-            [$property->getName(), '&$missingAttributes']
+            ['&$missingAttributes']
         );
     }
 

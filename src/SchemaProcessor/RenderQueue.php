@@ -35,25 +35,20 @@ class RenderQueue
     /**
      * Render all collected jobs of the RenderQueue and clear the queue
      *
-     * @param string                   $destination
      * @param GeneratorConfiguration   $generatorConfiguration
      * @param PostProcessor[] $postProcessors
      *
      * @throws FileSystemException
      * @throws RenderException
      */
-    public function execute(
-        string $destination,
-        GeneratorConfiguration $generatorConfiguration,
-        array $postProcessors
-    ): void {
+    public function execute(GeneratorConfiguration $generatorConfiguration, array $postProcessors): void {
         foreach ($postProcessors as $postProcessor) {
             $postProcessor->preProcess();
         }
 
         foreach ($this->jobs as $job) {
             $job->postProcess($postProcessors, $generatorConfiguration);
-            $job->render($destination, $generatorConfiguration);
+            $job->render($generatorConfiguration);
         }
 
         foreach ($postProcessors as $postProcessor) {

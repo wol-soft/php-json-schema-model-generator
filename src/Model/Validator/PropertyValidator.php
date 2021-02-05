@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPModelGenerator\Model\Property\PropertyInterface;
+
 /**
  * Class PropertyValidator
  *
@@ -17,15 +19,20 @@ class PropertyValidator extends AbstractPropertyValidator
     /**
      * PropertyValidator constructor.
      *
-     * @param string $check
-     * @param string $exceptionClass
-     * @param array  $exceptionParams
+     * @param PropertyInterface $property
+     * @param string            $check
+     * @param string            $exceptionClass
+     * @param array             $exceptionParams
      */
-    public function __construct(string $check, string $exceptionClass, array $exceptionParams = [])
-    {
+    public function __construct(
+        PropertyInterface $property,
+        string $check,
+        string $exceptionClass,
+        array $exceptionParams = []
+    ) {
         $this->check = $check;
 
-        parent::__construct($exceptionClass, $exceptionParams);
+        parent::__construct($property, $exceptionClass, $exceptionParams);
     }
 
     /**

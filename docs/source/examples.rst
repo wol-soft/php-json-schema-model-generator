@@ -21,7 +21,6 @@ The Ebay OpenAPIv3 spec for the sell-inventory API is an around 6000 lines API d
         file_get_contents('https://developer.ebay.com/api-docs/master/sell/inventory/openapi/3/sell_inventory_v1_oas3.json')
     );
 
-    $start = microtime(true);
     $generator
         ->generateModelDirectory($resultDir)
         ->generateModels(new OpenAPIv3Provider($file), $resultDir);

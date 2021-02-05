@@ -5,6 +5,7 @@ namespace PHPModelGenerator\Tests\Basic;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 /**
@@ -37,6 +38,57 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
         $object = new $className([]);
 
         $this->assertSame($object->getProperty(), $compareValue);
+    }
+
+    public function testTypedPropertyTypeHintsWithImplicitNullEnabledAcceptNull(): void
+    {
+        $className = $this->generateClassFromFileTemplate(
+            'DefaultValueTypedProperty.json',
+            ['"integer"', 10],
+            (new GeneratorConfiguration())->setImmutable(false),
+            false
+        );
+
+        $object = new $className([]);
+
+        $this->assertSame('int|null', $this->getPropertyTypeAnnotation($object, 'property'));
+
+        $this->assertSame('int|null', $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
+        $returnType = $this->getReturnType($object, 'getProperty');
+        $this->assertSame('int', $returnType->getName());
+        // as implicit null is enabled the default value may be overwritten by a null value
+        $this->assertTrue($returnType->allowsNull());
+
+        $this->assertSame('int|null', $this->getMethodParameterTypeAnnotation($object, 'setProperty'));
+        $parameterType = $this->getParameterType($object, 'setProperty');
+        $this->assertSame('int', $parameterType->getName());
+        // as implicit null is enabled the default value may be overwritten by a null value
+        $this->assertTrue($parameterType->allowsNull());
+    }
+
+    public function testTypedPropertyTypeHintsWithImplicitNullDisabledDeclinesNull(): void
+    {
+        $className = $this->generateClassFromFileTemplate(
+            'DefaultValueTypedProperty.json',
+            ['"integer"', 10],
+            (new GeneratorConfiguration())->setImmutable(false),
+            false,
+            false
+        );
+
+        $object = new $className([]);
+
+        $this->assertSame('int', $this->getPropertyTypeAnnotation($object, 'property'));
+
+        $this->assertSame('int', $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
+        $returnType = $this->getReturnType($object, 'getProperty');
+        $this->assertSame('int', $returnType->getName());
+        $this->assertFalse($returnType->allowsNull());
+
+        $this->assertSame('int', $this->getMethodParameterTypeAnnotation($object, 'setProperty'));
+        $parameterType = $this->getParameterType($object, 'setProperty');
+        $this->assertSame('int', $parameterType->getName());
+        $this->assertFalse($parameterType->allowsNull());
     }
 
     public function defaultValueForTypedPropertyDataProvider(): array
@@ -150,5 +202,29 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
             'string' => ['"Hey"', 'Hey'],
             'array' => ['[]', []],
         ];
+    }
+
+    /**
+     * @dataProvider implicitNullDataProvider
+     */
+    public function testUntypedPropertyTypeAnnotationsAreMixed(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFileTemplate(
+            'DefaultValueUntypedProperty.json',
+            [10],
+            (new GeneratorConfiguration())->setImmutable(false),
+            false,
+            $implicitNull
+        );
+
+        $object = new $className([]);
+
+        $this->assertSame('mixed', $this->getPropertyTypeAnnotation($object, 'property'));
+
+        $this->assertSame('mixed', $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
+        $this->assertNull($this->getReturnType($object, 'getProperty'));
+
+        $this->assertSame('mixed', $this->getMethodParameterTypeAnnotation($object, 'setProperty'));
+        $this->assertNull($this->getParameterType($object, 'setProperty'));
     }
 }

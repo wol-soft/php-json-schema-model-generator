@@ -12,11 +12,13 @@ use PHPModelGenerator\Exception\Object\MaxPropertiesException;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\BaseProperty;
+use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
+use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyNamesValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -135,12 +137,13 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
+                new Property($this->schema->getClassName(), '', $propertySchema),
                 sprintf(
                     '$additionalProperties = array_diff(array_keys($modelData), %s)',
                     preg_replace('(\d+\s=>)', '', var_export(array_keys($json['properties'] ?? []), true))
                 ),
                 AdditionalPropertiesException::class,
-                [$this->schema->getClassName(), '&$additionalProperties']
+                ['&$additionalProperties']
             )
         );
     }
@@ -150,6 +153,8 @@ class BaseProcessor extends AbstractPropertyProcessor
      *
      * @param string $propertyName
      * @param JsonSchema $propertySchema
+     *
+     * @throws SchemaException
      */
     protected function addMaxPropertiesValidator(string $propertyName, JsonSchema $propertySchema): void
     {
@@ -161,13 +166,14 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
+                new Property($propertyName, '', $propertySchema),
                 sprintf(
                     '%s > %d',
                     self::COUNT_PROPERTIES,
                     $json['maxProperties']
                 ),
                 MaxPropertiesException::class,
-                [$propertyName, $json['maxProperties']]
+                [$json['maxProperties']]
             )
         );
     }
@@ -177,6 +183,8 @@ class BaseProcessor extends AbstractPropertyProcessor
      *
      * @param string $propertyName
      * @param JsonSchema $propertySchema
+     *
+     * @throws SchemaException
      */
     protected function addMinPropertiesValidator(string $propertyName, JsonSchema $propertySchema): void
     {
@@ -188,13 +196,14 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
+                new Property($propertyName, '', $propertySchema),
                 sprintf(
                     '%s < %d',
                     self::COUNT_PROPERTIES,
                     $json['minProperties']
                 ),
                 MinPropertiesException::class,
-                [$propertyName, $json['minProperties']]
+                [$json['minProperties']]
             )
         );
     }
@@ -245,8 +254,16 @@ class BaseProcessor extends AbstractPropertyProcessor
             if (!is_a($validator, AbstractComposedPropertyValidator::class)) {
                 continue;
             }
-            /** @var AbstractComposedPropertyValidator $validator */
-            $this->schema->addBaseValidator($validator);
+
+            // If the transferred validator of the composed property is also a composed property strip the nested
+            // composition validations from the added validator. The nested composition will be validated in the object
+            // generated for the nested composition which will be executed via an instanciation. Consequently the
+            // validation must not be executed in the outer composition.
+            $this->schema->addBaseValidator(
+                ($validator instanceof ComposedPropertyValidator)
+                    ? $validator->withoutNestedCompositionValidation()
+                    : $validator
+            );
 
             if (!is_a($validator->getComposedProcessor(), ComposedPropertiesInterface::class, true)) {
                 continue;

@@ -210,13 +210,16 @@ class SchemaProcessor
     ): void {
         $fileName = join(
             DIRECTORY_SEPARATOR,
-            [$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]
+            array_filter([$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className])
         ) . '.php';
 
         $this->renderQueue->addRenderJob(new RenderJob($fileName, $classPath, $className, $schema));
 
         if ($this->generatorConfiguration->isOutputEnabled()) {
-            echo "Generated class {$this->generatorConfiguration->getNamespacePrefix()}\\$classPath\\$className\n";
+            echo sprintf(
+                "Generated class %s\n",
+                join('\\', array_filter([$this->generatorConfiguration->getNamespacePrefix(), $classPath, $className]))
+            );
         }
 
         $this->generatedFiles[] = $fileName;
