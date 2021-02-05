@@ -15,11 +15,13 @@ use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\PropertyProcessor\ComposedValueProcessorFactory;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\TypeConverter;
 
 /**
  * Class AbstractPropertyProcessor
@@ -82,14 +84,43 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      *
      * @param PropertyInterface $property
      * @param array             $allowedValues
+     *
+     * @throws SchemaException
      */
     protected function addEnumValidator(PropertyInterface $property, array $allowedValues): void
     {
-        if ($this->isImplicitNullAllowed($property)) {
+        if (empty($allowedValues)) {
+            throw new SchemaException(
+                sprintf(
+                    "Empty enum property %s in file %s",
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile()
+                )
+            );
+        }
+
+        $allowedValues = array_unique($allowedValues);
+
+        // no type information provided - inherit the types from the enum values
+        if (empty($property->getType())) {
+            $typesOfEnum = array_unique(array_map(
+                function ($value): string {
+                    return TypeConverter::gettypeToInternal(gettype($value));
+                },
+                $allowedValues
+            ));
+
+            if (count($typesOfEnum) === 1) {
+                $property->setType($typesOfEnum[0]);
+            }
+            $property->addTypeHintDecorator(new TypeHintDecorator($typesOfEnum));
+        }
+
+        if ($this->isImplicitNullAllowed($property) && !in_array(null, $allowedValues)) {
             $allowedValues[] = null;
         }
 
-        $property->addValidator(new EnumValidator($property, array_unique($allowedValues)), 3);
+        $property->addValidator(new EnumValidator($property, $allowedValues), 3);
     }
 
     /**
