@@ -27,7 +27,7 @@ If the implementation of a filter throws an exception this exception will be cau
 
 If multiple filters are applied to a single property they will be executed in the order of their definition inside the JSON Schema.
 
-If a list is used filters may include additional option parameters. In this case a single filter must be provided as an object with the key **filter** defining the filter:
+Filters may include additional option parameters. In this case a single filter must be provided as an object with the key **filter** defining the filter (possible as a single filter or as a list):
 
 .. code-block:: json
 
@@ -35,6 +35,13 @@ If a list is used filters may include additional option parameters. In this case
         "type": "object",
         "properties": {
             "created": {
+                "type": "string",
+                "filter": {
+                    "filter": "dateTime",
+                    "denyEmptyValue": true
+                }
+            },
+            "updated": {
                 "type": "string",
                 "filter": [
                     {
