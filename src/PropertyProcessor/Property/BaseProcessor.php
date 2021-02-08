@@ -23,6 +23,7 @@ use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyNamesValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\PropertyProcessor\ComposedValue\AllOfProcessor;
 use PHPModelGenerator\PropertyProcessor\ComposedValue\ComposedPropertiesInterface;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
@@ -266,7 +267,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                     : $validator
             );
 
-            if (!is_a($validator->getComposedProcessor(), ComposedPropertiesInterface::class, true)) {
+            if (!is_a($validator->getCompositionProcessor(), ComposedPropertiesInterface::class, true)) {
                 continue;
             }
 
@@ -283,16 +284,44 @@ class BaseProcessor extends AbstractPropertyProcessor
 
                 foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
                     $this->schema->addProperty(
-                        (clone $property)
-                            ->setRequired(false)
-                            ->filterValidators(function (Validator $validator): bool {
-                                return is_a($validator->getValidator(), PropertyTemplateValidator::class);
-                            })
+                        $this->cloneTransferredProperty($property, $validator->getCompositionProcessor())
                     );
 
                     $composedProperty->appendAffectedObjectProperty($property);
                 }
             }
         }
+    }
+
+    /**
+     * Clone the provided property to transfer it to a schema. Sets the nullability and required flag based on the
+     * composition processor used to set up the composition
+     *
+     * @param PropertyInterface $property
+     * @param string $compositionProcessor
+     *
+     * @return PropertyInterface
+     */
+    private function cloneTransferredProperty(
+        PropertyInterface $property,
+        string $compositionProcessor
+    ): PropertyInterface {
+        $transferredProperty = (clone $property)
+            ->filterValidators(function (Validator $validator): bool {
+                return is_a($validator->getValidator(), PropertyTemplateValidator::class);
+            });
+
+        if (!is_a($compositionProcessor, AllOfProcessor::class, true)) {
+            $transferredProperty->setRequired(false);
+
+            if ($transferredProperty->getType()) {
+                $transferredProperty->setType(
+                    new PropertyType($transferredProperty->getType()->getName(), true),
+                    new PropertyType($transferredProperty->getType(true)->getName(), true)
+                );
+            }
+        }
+
+        return $transferredProperty;
     }
 }
