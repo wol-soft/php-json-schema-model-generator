@@ -128,7 +128,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
                  * @return self
                  */
                 public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
-                    {% if property.getType() %}{{ viewHelper.getType(property) }} {% endif %}${{ property.getAttribute() }}
+                    {{ viewHelper.getType(property) }} ${{ property.getAttribute() }}
                 ): self {
                     if ($this->{{ property.getAttribute() }} === ${{ property.getAttribute() }}) {
                         return $this;
