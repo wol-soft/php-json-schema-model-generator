@@ -84,9 +84,7 @@ class RenderHelper
             return '';
         }
 
-        return $property->isRequired()
-            ? '$value = ' . $property->resolveDecorator('$value', $nestedProperty) . ';'
-            : 'if ($value !== null) { $value = ' . $property->resolveDecorator('$value', $nestedProperty) . '; }';
+        return '$value = ' . $property->resolveDecorator('$value', $nestedProperty) . ';';
     }
 
     /**
@@ -132,18 +130,31 @@ class RenderHelper
             && !($property->getDefaultValue() && !$this->generatorConfiguration->isImplicitNullAllowed());
     }
 
+    public function getType(PropertyInterface $property, bool $outputType = false): string
+    {
+        $type = $property->getType($outputType);
+
+        if (!$type) {
+            return '';
+        }
+
+        $nullable = ($type->isNullable() ?? $this->isPropertyNullable($property, $outputType)) ? '?' : '';
+
+        return "$nullable{$type->getName()}";
+    }
+
     public function getTypeHintAnnotation(PropertyInterface $property, bool $outputType = false): string
     {
         $typeHint = $property->getTypeHint($outputType);
+        $hasDefinedNullability = ($type = $property->getType($outputType)) && $type->isNullable() !== null;
 
-        if (!$typeHint) {
-            return 'mixed';
+        if ((($hasDefinedNullability && $type->isNullable())
+                || (!$hasDefinedNullability && $this->isPropertyNullable($property, $outputType))
+            ) && !strstr($typeHint, 'mixed')
+        ) {
+            $typeHint = "$typeHint|null";
         }
 
-        if ($this->isPropertyNullable($property, $outputType)) {
-            $typeHint = implode('|', array_unique(array_merge(explode('|', $typeHint), ['null'])));
-        }
-
-        return $typeHint;
+        return implode('|', array_unique(explode('|', $typeHint)));
     }
 }

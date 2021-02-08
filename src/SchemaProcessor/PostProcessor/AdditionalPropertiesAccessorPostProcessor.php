@@ -11,6 +11,7 @@ use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SerializedValue;
@@ -92,7 +93,7 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
     ): void {
         $additionalPropertiesCollectionProperty = (new Property(
             'additionalProperties',
-            'array',
+            new PropertyType('array'),
             new JsonSchema(__FILE__, []),
             'Collect all additional properties provided to the schema'
         ))
@@ -209,7 +210,7 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
         $json = $schema->getJsonSchema()->getJson();
         if (isset($json['minProperties'])) {
             $minPropertyValidator = new PropertyValidator(
-                new Property($schema->getClassName(), '', $schema->getJsonSchema()),
+                new Property($schema->getClassName(), null, $schema->getJsonSchema()),
                 sprintf(
                     '%s < %d',
                     'count($this->_rawModelDataInput) - 1',
@@ -243,6 +244,14 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
         GeneratorConfiguration $generatorConfiguration,
         ?PropertyInterface $validationProperty
     ): void {
+        // return type of the additional property must always be nullable as a non existent key can be requested
+        if ($validationProperty && $validationProperty->getType()) {
+            $validationProperty = (clone $validationProperty)->setType(
+                $validationProperty->getType(),
+                new PropertyType($validationProperty->getType(true)->getName(), true)
+            );
+        }
+
         $schema->addMethod(
             'getAdditionalProperty',
             new RenderedMethod(
@@ -251,7 +260,8 @@ class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterfac
                 'GetAdditionalProperty.phptpl',
                 [
                     'validationProperty' => $validationProperty
-                        // type hint always with null as a non existent property may be requested
+                        // type hint always with null as a non existent property may be requested (casually covered by
+                        // the nullable type, except for multi type properties)
                         ? (clone $validationProperty)->addTypeHintDecorator(new TypeHintDecorator(['null']))
                         : null
                 ]

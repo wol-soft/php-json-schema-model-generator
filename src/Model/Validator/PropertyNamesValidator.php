@@ -45,7 +45,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
             });
 
         parent::__construct(
-            new Property($schema->getClassName(), '', $propertiesNames),
+            new Property($schema->getClassName(), null, $propertiesNames),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PropertyNames.phptpl',
             [
                 'nameValidationProperty' => $nameValidationProperty,

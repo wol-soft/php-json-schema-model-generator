@@ -110,7 +110,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
              * {% if viewHelper.getTypeHintAnnotation(property, true) %}@return {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}
              */
             public function get{{ viewHelper.ucfirst(property.getAttribute()) }}()
-                {% if property.getType(true) %}: {% if viewHelper.isPropertyNullable(property, true) %}?{% endif %}{{ property.getType(true) }}{% endif %}
+                {% if property.getType(true) %}: {{ viewHelper.getType(property, true) }}{% endif %}
             {
                 {{ schemaHookResolver.resolveGetterHook(property) }}
 
@@ -128,7 +128,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
                  * @return self
                  */
                 public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
-                    {% if property.getType() %}{% if viewHelper.isPropertyNullable(property) %}?{% endif %}{{ property.getType() }} {% endif %}${{ property.getAttribute() }}
+                    {% if property.getType() %}{{ viewHelper.getType(property) }} {% endif %}${{ property.getAttribute() }}
                 ): self {
                     if ($this->{{ property.getAttribute() }} === ${{ property.getAttribute() }}) {
                         return $this;

@@ -11,7 +11,7 @@
  */
 public function setAdditionalProperty(
     string $property,
-    {% if validationProperty.getType() %}{% if viewHelper.isPropertyNullable(validationProperty) %}?{% endif %}{{ validationProperty.getType() }} {% endif %}$value
+    {% if validationProperty.getType() %}{{ viewHelper.getType(validationProperty) }} {% endif %}$value
 ): self {
     if (in_array($property, {{ objectProperties }})) {
         throw new RegularPropertyAsAdditionalPropertyException($value, $property, self::class);

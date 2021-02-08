@@ -14,6 +14,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
@@ -66,7 +67,7 @@ class BaseProcessor extends AbstractPropertyProcessor
             ->setUpDefinitionDictionary($this->schemaProcessor, $this->schema);
 
         // create a property which is used to gather composed properties validators.
-        $property = new BaseProperty($propertyName, static::TYPE, $propertySchema);
+        $property = new BaseProperty($propertyName, new PropertyType(static::TYPE), $propertySchema);
         $this->generateValidators($property, $propertySchema);
 
         $this->addPropertyNamesValidator($propertySchema);
@@ -137,7 +138,7 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
-                new Property($this->schema->getClassName(), '', $propertySchema),
+                new Property($this->schema->getClassName(), null, $propertySchema),
                 sprintf(
                     '$additionalProperties = array_diff(array_keys($modelData), %s)',
                     preg_replace('(\d+\s=>)', '', var_export(array_keys($json['properties'] ?? []), true))
@@ -166,7 +167,7 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
-                new Property($propertyName, '', $propertySchema),
+                new Property($propertyName, null, $propertySchema),
                 sprintf(
                     '%s > %d',
                     self::COUNT_PROPERTIES,
@@ -196,7 +197,7 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
-                new Property($propertyName, '', $propertySchema),
+                new Property($propertyName, null, $propertySchema),
                 sprintf(
                     '%s < %d',
                     self::COUNT_PROPERTIES,

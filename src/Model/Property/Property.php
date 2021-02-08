@@ -19,9 +19,9 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInte
  */
 class Property extends AbstractProperty
 {
-    /** @var string */
-    protected $type = 'null';
-    /** @var string|null */
+    /** @var PropertyType */
+    protected $type;
+    /** @var PropertyType|null */
     protected $outputType = null;
     /** @var bool */
     protected $isPropertyRequired = true;
@@ -47,13 +47,13 @@ class Property extends AbstractProperty
      * Property constructor.
      *
      * @param string $name
-     * @param string $type
+     * @param PropertyType|null $type
      * @param JsonSchema $jsonSchema
      * @param string $description
      *
      * @throws SchemaException
      */
-    public function __construct(string $name, string $type, JsonSchema $jsonSchema, string $description = '')
+    public function __construct(string $name, ?PropertyType $type, JsonSchema $jsonSchema, string $description = '')
     {
         parent::__construct($name, $jsonSchema);
 
@@ -64,13 +64,17 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function getType(bool $outputType = false): string
+    public function getType(bool $outputType = false): ?PropertyType
     {
         // If the output type differs from an input type also accept the output type
         // (in this case the transforming filter is skipped)
         // TODO: PHP 8 use union types to accept multiple input types
-        if (!$outputType && $this->outputType !== null && $this->outputType !== $this->type) {
-            return '';
+        if (!$outputType
+            && $this->type
+            && $this->outputType
+            && $this->outputType->getName() !== $this->type->getName()
+        ) {
+            return null;
         }
 
         return $outputType && $this->outputType !== null ? $this->outputType : $this->type;
@@ -79,7 +83,7 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function setType(string $type, ?string $outputType = null): PropertyInterface
+    public function setType(PropertyType $type = null, PropertyType $outputType = null): PropertyInterface
     {
         $this->type = $type;
         $this->outputType = $outputType;
@@ -99,15 +103,17 @@ class Property extends AbstractProperty
             $input = [$this->type, $this->outputType];
         }
 
-        $input = join('|', array_map(function (string $input) use ($outputType): string {
+        $input = join('|', array_filter(array_map(function (?PropertyType $input) use ($outputType): string {
+            $typeHint = $input ? $input->getName() : '';
+
             foreach ($this->typeHintDecorators as $decorator) {
-                $input = $decorator->decorate($input, $outputType);
+                $typeHint = $decorator->decorate($typeHint, $outputType);
             }
 
-            return $input;
-        }, $input));
+            return $typeHint;
+        }, $input)));
 
-        return $input ?? 'mixed';
+        return $input ?: 'mixed';
     }
 
     /**

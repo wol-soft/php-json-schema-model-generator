@@ -28,7 +28,7 @@ class NullProcessor extends AbstractTypedValueProcessor
     public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface
     {
         return (parent::process($propertyName, $propertySchema))
-            ->setType('')
+            ->setType(null)
             ->addTypeHintDecorator(new TypeHintDecorator(['null']));
     }
 }

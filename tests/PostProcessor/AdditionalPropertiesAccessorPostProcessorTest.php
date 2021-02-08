@@ -295,13 +295,20 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $object->setAdditionalProperty('property1', 'Goodbye');
     }
 
-    public function testAdditionalPropertiesAreSerialized(): void
+    /**
+     * @dataProvider implicitNullDataProvider
+     *
+     * @param bool $implicitNull
+     */
+    public function testAdditionalPropertiesAreSerialized(bool $implicitNull): void
     {
         $this->addPostProcessor(true);
 
         $className = $this->generateClassFromFile(
             'AdditionalPropertiesTransformingFilter.json',
-            (new GeneratorConfiguration())->setSerialization(true)->setImmutable(false)
+            (new GeneratorConfiguration())->setSerialization(true)->setImmutable(false),
+            false,
+            $implicitNull
         );
 
         $object = new $className(['name' => 'Late autumn', 'start' => '2020-10-10']);

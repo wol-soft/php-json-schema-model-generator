@@ -138,13 +138,14 @@ class FilterValidator extends PropertyTemplateValidator
     {
         if (!empty($filter->getAcceptedTypes()) &&
             $property->getType() &&
-            !in_array($property->getType(), $this->mapDataTypes($filter->getAcceptedTypes()))
+            $property->getType()->getName() &&
+            !in_array($property->getType()->getName(), $this->mapDataTypes($filter->getAcceptedTypes()))
         ) {
             throw new SchemaException(
                 sprintf(
                     'Filter %s is not compatible with property type %s for property %s in file %s',
                     $filter->getToken(),
-                    $property->getType(),
+                    $property->getType()->getName(),
                     $property->getName(),
                     $property->getJsonSchema()->getFile()
                 )

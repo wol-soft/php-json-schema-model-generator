@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\ComposedJsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
@@ -164,16 +165,18 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
     private function transferPropertyType(PropertyInterface $property, array $compositionProperties)
     {
         $compositionPropertyTypes = array_unique(
-            array_map(
-                function (CompositionPropertyDecorator $property): string {
-                    return $property->getType();
-                },
-                $compositionProperties
+            array_filter(
+                array_map(
+                    function (CompositionPropertyDecorator $property): string {
+                        return $property->getType() ? $property->getType()->getName() : '';
+                    },
+                    $compositionProperties
+                )
             )
         );
 
         if (count($compositionPropertyTypes) === 1 && !($this instanceof NotProcessor)) {
-            $property->setType($compositionPropertyTypes[0]);
+            $property->setType(new PropertyType($compositionPropertyTypes[0]));
         }
     }
 
@@ -219,7 +222,12 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
 
         $mergedPropertySchema = new Schema($this->schema->getClassPath(), $mergedClassName, $propertySchema);
 
-        $mergedProperty = new Property('MergedProperty', $mergedClassName, $mergedPropertySchema->getJsonSchema());
+        $mergedProperty = new Property(
+            'MergedProperty',
+            new PropertyType($mergedClassName),
+            $mergedPropertySchema->getJsonSchema()
+        );
+
         self::$generatedMergedProperties[$mergedClassName] = $mergedProperty;
 
         $this->transferPropertiesToMergedSchema($mergedPropertySchema, $compositionProperties);

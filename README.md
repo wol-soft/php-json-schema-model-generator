@@ -60,7 +60,7 @@ OpenAPIv3Provider | Fetches all objects defined in the `#/components/schemas sec
 
 The second parameter must point to an existing and empty directory (you may use the `generateModelDirectory` helper method to create your destination directory). This directory will contain the generated PHP classes after the generator is finished.
 
-As an optional parameter you can set up a *GeneratorConfiguration* object to configure your Generator and/or use the method *generateModelDirectory* to generate your model directory (will generate the directory if it doesn't exist; if it exists, all contained files and folders will be removed for a clean generation process):
+As an optional parameter you can set up a *GeneratorConfiguration* object (check out the docs for all available options) to configure your Generator and/or use the method *generateModelDirectory* to generate your model directory (will generate the directory if it doesn't exist; if it exists, all contained files and folders will be removed for a clean generation process):
 
 ```php
 $generator = new Generator(
@@ -75,22 +75,6 @@ $generator
 ```
 
 The generator will check the given source directory recursive and convert all found *.json files to models. All JSON-Schema files inside the source directory must provide a schema of an object.
-
-## Configuring using the GeneratorConfiguration ##
-
-The *GeneratorConfiguration* object offers the following methods to configure the generator in a fluid interface:
-
-Method | Configuration | Default
---- | --- | ---
-``` setNamespacePrefix(string $prefix) ``` <br><br>Example:<br> ``` setNamespacePrefix('MyApp\Model') ``` | Configures a namespace prefix for all generated classes. The namespaces will be extended with the directory structure of the source directory. | Empty string so no namespace prefix will be used
-``` setImmutable(bool $immutable) ``` <br><br>Example:<br> ``` setImmutable(false) ``` | If set to true the generated model classes will be delivered without setter methods for the object properties. | true
-``` setImplicitNull(bool $allowImplicitNull) ``` <br><br>Example:<br> ``` setImplicitNull(true) ``` | By setting the implicit null option to true all of your object properties which aren't required will implicitly accept null. | false
-``` setCollectErrors(bool $collectErrors) ``` <br><br>Example:<br> ``` setCollectErrors(false) ``` | By default the complete input is validated and in case of failing validations all error messages will be thrown in a single exception. If set to false the first failing validation will throw an exception. | true
-``` setPrettyPrint(bool $prettyPrint) ``` <br><br>Example:<br> ``` setPrettyPrint(true) ``` | If set to false, the generated model classes won't follow coding guidelines (but the generation is faster). If enabled the package [Symplify/EasyCodingStandard](https://github.com/Symplify/EasyCodingStandard) will be used to clean up the generated code (the package must be installed manually: `composer require --dev symplify/easy-coding-standard`). By default pretty printing is disabled. | false
-``` setSerialization(bool $serialization) ``` <br><br>Example:<br> ``` setSerialization(true) ``` | If set to true the serialization methods `toArray` and `toJSON` will be added to the public interface of the generated classes. | false
-``` setOutputEnabled(bool $outputEnabled) ``` <br><br>Example:<br> ``` setOutputEnabled(false) ``` | Enable or disable output of the generation process to STDOUT | true
-``` setErrorRegistryClass(string $exceptionClass) ``` <br><br>Example:<br> ``` setErrorRegistryClass(CustomException::class) ``` | Define a custom exception implementing the ErrorRegistryExceptionInterface to be used. The exception will be thrown if a validation fails and error collection is **enabled** | ErrorRegistryException::class
-``` addFilter(FilterInterface $filter) ``` <br><br>Example:<br> ``` addFilter(new CustomFilter()) ``` | Add a custom filter to the generator. Check out the docs for more details. | -
 
 ## Examples ##
 
