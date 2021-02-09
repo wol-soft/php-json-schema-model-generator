@@ -92,6 +92,10 @@ AdditionalPropertiesAccessorPostProcessor
 
 The **AdditionalPropertiesAccessorPostProcessor** adds methods to your model to work with `additional properties <../complexTypes/object.html#additional-properties>`__ on your objects. By default the post processor only adds methods to objects from a schema which defines constraints for additional properties. If the first constructor parameter *$addForModelsWithoutAdditionalPropertiesDefinition* is set to true the methods will also be added to objects generated from a schema which doesn't define additional properties constraints. If the *additionalProperties* keyword in a schema is set to false the methods will never be added.
 
+.. note::
+
+    If the `deny additional properties setting <../gettingStarted.html#deny-additional-properties>`__ is set to true the setting *$addForModelsWithoutAdditionalPropertiesDefinition* is ignored as all objects which don't define additional properties are restricted to the defined properties
+
 Added methods
 ~~~~~~~~~~~~~
 

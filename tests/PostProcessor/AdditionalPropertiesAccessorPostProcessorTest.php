@@ -62,6 +62,29 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
      *
      * @param bool $addForModelsWithoutAdditionalPropertiesDefinition
      */
+    public function testAdditionalPropertiesAccessorsAreNotGeneratedWhenAdditionalPropertiesAreDenied(
+        bool $addForModelsWithoutAdditionalPropertiesDefinition
+    ): void {
+        $this->addPostProcessor($addForModelsWithoutAdditionalPropertiesDefinition);
+
+        $className = $this->generateClassFromFile(
+            'AdditionalPropertiesNotDefined.json',
+            (new GeneratorConfiguration())->setDenyAdditionalProperties(true)
+        );
+
+        $object = new $className();
+
+        $this->assertFalse(is_callable([$object, 'getAdditionalProperties']));
+        $this->assertFalse(is_callable([$object, 'getAdditionalProperty']));
+        $this->assertFalse(is_callable([$object, 'setAdditionalProperty']));
+        $this->assertFalse(is_callable([$object, 'removeAdditionalProperty']));
+    }
+
+    /**
+     * @dataProvider additionalPropertiesAccessorPostProcessorConfigurationDataProvider
+     *
+     * @param bool $addForModelsWithoutAdditionalPropertiesDefinition
+     */
     public function testAdditionalPropertiesAccessorsDependOnConfigurationForAdditionalPropertiesNotDefined(
         bool $addForModelsWithoutAdditionalPropertiesDefinition
     ): void {
@@ -103,7 +126,11 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
     ): void {
         $this->addPostProcessor($addForModelsWithoutAdditionalPropertiesDefinition);
 
-        $className = $this->generateClassFromFile('AdditionalProperties.json');
+        $className = $this->generateClassFromFile(
+            'AdditionalProperties.json',
+            // make sure the deny additional properties setting doesn't affect specified additional properties
+            (new GeneratorConfiguration())->setDenyAdditionalProperties(true)
+        );
 
         $object = new $className(['property1' => 'Hello', 'property2' => 'World']);
 

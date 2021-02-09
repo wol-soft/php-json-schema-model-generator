@@ -172,6 +172,22 @@ If the implicit null option is enabled the interface of your classes may change.
     (new GeneratorConfiguration())
         ->setImplicitNull(true);
 
+Deny additional properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default each generated object accepts additional properties. For strict property checks which error if undefined properties are provided each object must contain the *additionalProperties* kes set to *false*.
+
+By setting the **denyAdditionalProperties** option each object which doesn't specify a value for *additionalProperties* is restricted to the defined properties.
+
+.. code-block:: php
+
+    setDenyAdditionalProperties(bool $denyAdditionalProperties);
+
+.. code-block:: php
+
+    (new GeneratorConfiguration())
+        ->setDenyAdditionalProperties(true);
+
 Collect errors vs. early return
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

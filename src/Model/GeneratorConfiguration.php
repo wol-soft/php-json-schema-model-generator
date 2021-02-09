@@ -28,6 +28,8 @@ class GeneratorConfiguration
     /** @var bool */
     protected $allowImplicitNull = false;
     /** @var bool */
+    protected $denyAdditionalProperties = false;
+    /** @var bool */
     protected $prettyPrint = false;
     /** @var bool */
     protected $outputEnabled = true;
@@ -173,6 +175,26 @@ class GeneratorConfiguration
     public function setImmutable(bool $immutable): self
     {
         $this->immutable = $immutable;
+
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function denyAdditionalProperties(): bool
+    {
+        return $this->denyAdditionalProperties;
+    }
+
+    /**
+     * @param bool $denyAdditionalProperties
+     *
+     * @return $this
+     */
+    public function setDenyAdditionalProperties(bool $denyAdditionalProperties): self
+    {
+        $this->denyAdditionalProperties = $denyAdditionalProperties;
 
         return $this;
     }
