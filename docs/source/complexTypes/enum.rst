@@ -45,7 +45,7 @@ An enum can also be defined without a specific type.
         }
     }
 
-Generated interface (no typehints are generated as it's an untyped enum):
+Generated interface (no typehints are generated as it's a mixed untyped enum. If all values in the untyped enum are of the same type [eg. only strings] the generated interface will contain type hinting):
 
 .. code-block:: php
 

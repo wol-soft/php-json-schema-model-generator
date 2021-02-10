@@ -2,8 +2,8 @@
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
+use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\Number\MultipleOfException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -66,12 +66,13 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTest
 
     /**
      * @dataProvider invalidConditionalPropertyDefinitionDataProvider
+     *
      * @param int $value
+     * @param string $expectedExceptionMessage
      */
-    public function testInvalidConditionalPropertyDefinition(int $value): void
-    {
-        $this->expectException(MultipleOfException::class);
-        $this->expectExceptionMessage("Value for property must be a multiple of");
+    public function testInvalidConditionalPropertyDefinition(int $value, string $expectedExceptionMessage): void {
+        $this->expectException(ConditionalException::class);
+        $this->expectExceptionMessage($expectedExceptionMessage);
 
         $className = $this->generateClassFromFile('ConditionalPropertyDefinition.json');
         new $className(['property' => $value]);
@@ -80,9 +81,35 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTest
     public function invalidConditionalPropertyDefinitionDataProvider(): array
     {
         return [
-            'invalid negative' => [-50],
-            'invalid positive else' => [50],
-            'invalid positive then' => [120],
+            'invalid negative' => [
+                -50,
+                <<<ERROR
+Invalid value for property declined by conditional composition constraint
+  - Condition: Failed
+    * Value for property must not be smaller than 100
+  - Conditional branch failed:
+    * Value for property must be a multiple of 30
+ERROR
+            ],
+            'invalid positive else' => [
+                50,
+                <<<ERROR
+Invalid value for property declined by conditional composition constraint
+  - Condition: Failed
+    * Value for property must not be smaller than 100
+  - Conditional branch failed:
+    * Value for property must be a multiple of 30
+ERROR
+            ],
+            'invalid positive then' => [
+                120,
+                <<<ERROR
+Invalid value for property declined by conditional composition constraint
+  - Condition: Valid
+  - Conditional branch failed:
+    * Value for property must be a multiple of 50
+ERROR
+            ],
         ];
     }
 

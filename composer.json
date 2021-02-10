@@ -11,7 +11,7 @@
         }
     ],
     "require": {
-        "wol-soft/php-json-schema-model-generator-production": "^0.15",
+        "wol-soft/php-json-schema-model-generator-production": "dev-master",
         "wol-soft/php-micro-template": "^1.3.2",
 
         "php": ">=7.2",
