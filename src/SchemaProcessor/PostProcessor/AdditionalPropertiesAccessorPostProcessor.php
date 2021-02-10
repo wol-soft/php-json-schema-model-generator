@@ -26,7 +26,7 @@ use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
  *
  * @package PHPModelGenerator\SchemaProcessor\PostProcessor
  */
-class AdditionalPropertiesAccessorPostProcessor implements PostProcessorInterface
+class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
 {
     /** @var bool */
     private $addForModelsWithoutAdditionalPropertiesDefinition;

@@ -16,7 +16,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 /**
@@ -295,7 +295,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->modifyModelGenerator = function (ModelGenerator $modelGenerator): void {
             $modelGenerator
                 ->addPostProcessor(new AdditionalPropertiesAccessorPostProcessor())
-                ->addPostProcessor(new class () implements PostProcessorInterface {
+                ->addPostProcessor(new class () extends PostProcessor {
                     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
                     {
                         $schema->addSchemaHook(new class () implements SetterBeforeValidationHookInterface {
