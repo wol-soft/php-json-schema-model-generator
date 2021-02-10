@@ -78,7 +78,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\String\\MinLengthE
 Pattern validation
 ------------------
 
-To add a pattern validation to the property use `pattern` keyword.
+To add a pattern validation to the property use the `pattern` keyword.
 
 .. warning::
 
@@ -115,4 +115,66 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\String\\PatternExc
 Format
 ------
 
-String formats are currently not supported.
+To add a format validation to the property use the `format` keyword.
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "string",
+                "format": "myFormat"
+            }
+        }
+    }
+
+Possible exceptions:
+
+* Value for property must match the format __FORMAT__
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\String\\FormatException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // get the expected format
+    public function getExpectedFormat(): string
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+
+Builtin formats
+^^^^^^^^^^^^^^^
+
+Currently no builtin formats are available.
+
+Custom formats
+^^^^^^^^^^^^^^
+
+You can implement custom format validators and use them in your schema files. You must add your custom format to the generator configuration to make them available.
+
+.. code-block:: php
+
+    $generator = new Generator(
+        (new GeneratorConfiguration())
+            ->addFormat(new MyCustomFormat())
+    );
+
+Your format validator must implement the interface **PHPModelGenerator\\Format\\FormatValidatorInterface**.
+
+If your custom format is representable by a regular expression you can bypass implementing an own class and simply add a **FormatValidatorFromRegEx** (for example a string which must contain only numbers):
+
+.. code-block:: php
+
+    $generator = new Generator(
+        (new GeneratorConfiguration())
+            ->addFormat(new FormatValidatorFromRegEx('/^\d*$/'))
+    );
+
+.. hint::
+
+    Pull requests for common usable format validators are always welcome.
+    A new format validator must be added in the *GeneratorConfiguration* method *initFormatValidator*.
+    If the format validator requires a class implementation and can't be added via the *FormatValidatorFromRegEx* the class must be added to the *wol-soft/php-json-schema-model-generator-production* repository.

@@ -2,9 +2,11 @@
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Format\FormatValidatorFromRegEx;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use stdClass;
@@ -249,11 +251,50 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
         );
     }
 
-    public function testStringFormatCheckThrowsNotSupportedException(): void
+    public function testUnknownFormatThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage('Format is currently not supported');
+        $this->expectExceptionMessage('Unsupported format onyNumbers');
 
         $this->generateClassFromFile('StringPropertyFormat.json');
+    }
+
+    public function testStringFormatCheckIsValid(): void
+    {
+        $className = $this->generateClassFromFile(
+            'StringPropertyFormat.json',
+            (new GeneratorConfiguration())->addFormat('onyNumbers', new FormatValidatorFromRegEx('/^\d+$/'))
+        );
+
+        $object = new $className(['property' => '12345']);
+        $this->assertSame('12345', $object->getProperty());
+    }
+
+    /**
+     * @dataProvider invalidStringFormatDataProvider
+     *
+     * @param string $value
+     */
+    public function testInvalidStringFormatCheck(string $value): void
+    {
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage('Value for property must match the format onyNumbers');
+
+        $className = $this->generateClassFromFile(
+            'StringPropertyFormat.json',
+            (new GeneratorConfiguration())->addFormat('onyNumbers', new FormatValidatorFromRegEx('/^\d+$/'))
+        );
+
+        new $className(['property' => $value]);
+    }
+
+    public function invalidStringFormatDataProvider(): array
+    {
+        return [
+            'empty string' => [''],
+            'spaces' => ['    '],
+            'only non numeric chars' => ['abc'],
+            'mixed string' => ['1234a'],
+        ];
     }
 }
