@@ -14,12 +14,14 @@ use PHPModelGenerator\Exception\Arrays\MinItemsException;
 use PHPModelGenerator\Exception\Arrays\UniqueItemsException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AdditionalItemsValidator;
 use PHPModelGenerator\Model\Validator\ArrayItemValidator;
 use PHPModelGenerator\Model\Validator\ArrayTupleValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\DefaultArrayToEmptyArrayDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
@@ -56,6 +58,23 @@ class ArrayProcessor extends AbstractTypedValueProcessor
         $this->addUniqueItemsValidation($property, $propertySchema);
         $this->addItemsValidation($property, $propertySchema);
         $this->addContainsValidation($property, $propertySchema);
+
+        if (!$property->isRequired() &&
+            $this->schemaProcessor->getGeneratorConfiguration()->isDefaultArraysToEmptyArrayEnabled()
+        ) {
+            $property->addDecorator(new DefaultArrayToEmptyArrayDecorator());
+
+            if ($property->getType()) {
+                $property->setType(
+                    $property->getType(),
+                    new PropertyType($property->getType(true)->getName(), false)
+                );
+            }
+
+            if (!$property->getDefaultValue()) {
+                $property->setDefaultValue([]);
+            }
+        }
     }
 
     /**

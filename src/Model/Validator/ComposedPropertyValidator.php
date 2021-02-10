@@ -21,24 +21,24 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      *
      * @param PropertyInterface              $property
      * @param CompositionPropertyDecorator[] $composedProperties
-     * @param string                         $composedProcessor
+     * @param string                         $compositionProcessor
      * @param array                          $validatorVariables
      */
     public function __construct(
         PropertyInterface $property,
         array $composedProperties,
-        string $composedProcessor,
+        string $compositionProcessor,
         array $validatorVariables
     ) {
         parent::__construct(
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
             $validatorVariables,
-            $this->getExceptionByProcessor($composedProcessor),
+            $this->getExceptionByProcessor($compositionProcessor),
             ['&$succeededCompositionElements', '&$compositionErrorCollection']
         );
 
-        $this->composedProcessor = $composedProcessor;
+        $this->compositionProcessor = $compositionProcessor;
         $this->composedProperties = $composedProperties;
     }
 
@@ -77,11 +77,11 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
     /**
      * Parse the composition type (allOf, anyOf, ...) from the given processor and get the corresponding exception class
      *
-     * @param string $composedProcessor
+     * @param string $compositionProcessor
      *
      * @return string
      */
-    private function getExceptionByProcessor(string $composedProcessor): string
+    private function getExceptionByProcessor(string $compositionProcessor): string
     {
         return str_replace(
                 DIRECTORY_SEPARATOR,
@@ -90,7 +90,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             ) . '\\' . str_replace(
                 'Processor',
                 '',
-                substr($composedProcessor, strrpos($composedProcessor, '\\') + 1)
+                substr($compositionProcessor, strrpos($compositionProcessor, '\\') + 1)
             ) . 'Exception';
     }
 }

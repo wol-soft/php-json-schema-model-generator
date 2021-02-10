@@ -7,6 +7,7 @@ namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
@@ -83,7 +84,7 @@ class CompositionValidationPostProcessor extends PostProcessor
             $schema->addProperty(
                 (new Property(
                     'propertyValidationState',
-                    'array',
+                    new PropertyType('array'),
                     new JsonSchema(__FILE__, []),
                     'Track the internal validation state of composed validations'
                 ))

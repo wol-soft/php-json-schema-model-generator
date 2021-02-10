@@ -14,6 +14,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
@@ -22,6 +23,7 @@ use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyNamesValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\PropertyProcessor\ComposedValue\AllOfProcessor;
 use PHPModelGenerator\PropertyProcessor\ComposedValue\ComposedPropertiesInterface;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
@@ -66,7 +68,7 @@ class BaseProcessor extends AbstractPropertyProcessor
             ->setUpDefinitionDictionary($this->schemaProcessor, $this->schema);
 
         // create a property which is used to gather composed properties validators.
-        $property = new BaseProperty($propertyName, static::TYPE, $propertySchema);
+        $property = new BaseProperty($propertyName, new PropertyType(static::TYPE), $propertySchema);
         $this->generateValidators($property, $propertySchema);
 
         $this->addPropertyNamesValidator($propertySchema);
@@ -143,7 +145,7 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
-                new Property($this->schema->getClassName(), '', $propertySchema),
+                new Property($this->schema->getClassName(), null, $propertySchema),
                 sprintf(
                     '$additionalProperties = array_diff(array_keys($modelData), %s)',
                     preg_replace('(\d+\s=>)', '', var_export(array_keys($json['properties'] ?? []), true))
@@ -172,7 +174,7 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
-                new Property($propertyName, '', $propertySchema),
+                new Property($propertyName, null, $propertySchema),
                 sprintf(
                     '%s > %d',
                     self::COUNT_PROPERTIES,
@@ -202,7 +204,7 @@ class BaseProcessor extends AbstractPropertyProcessor
 
         $this->schema->addBaseValidator(
             new PropertyValidator(
-                new Property($propertyName, '', $propertySchema),
+                new Property($propertyName, null, $propertySchema),
                 sprintf(
                     '%s < %d',
                     self::COUNT_PROPERTIES,
@@ -271,7 +273,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                     : $validator
             );
 
-            if (!is_a($validator->getComposedProcessor(), ComposedPropertiesInterface::class, true)) {
+            if (!is_a($validator->getCompositionProcessor(), ComposedPropertiesInterface::class, true)) {
                 continue;
             }
 
@@ -288,16 +290,44 @@ class BaseProcessor extends AbstractPropertyProcessor
 
                 foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
                     $this->schema->addProperty(
-                        (clone $property)
-                            ->setRequired(false)
-                            ->filterValidators(function (Validator $validator): bool {
-                                return is_a($validator->getValidator(), PropertyTemplateValidator::class);
-                            })
+                        $this->cloneTransferredProperty($property, $validator->getCompositionProcessor())
                     );
 
                     $composedProperty->appendAffectedObjectProperty($property);
                 }
             }
         }
+    }
+
+    /**
+     * Clone the provided property to transfer it to a schema. Sets the nullability and required flag based on the
+     * composition processor used to set up the composition
+     *
+     * @param PropertyInterface $property
+     * @param string $compositionProcessor
+     *
+     * @return PropertyInterface
+     */
+    private function cloneTransferredProperty(
+        PropertyInterface $property,
+        string $compositionProcessor
+    ): PropertyInterface {
+        $transferredProperty = (clone $property)
+            ->filterValidators(function (Validator $validator): bool {
+                return is_a($validator->getValidator(), PropertyTemplateValidator::class);
+            });
+
+        if (!is_a($compositionProcessor, AllOfProcessor::class, true)) {
+            $transferredProperty->setRequired(false);
+
+            if ($transferredProperty->getType()) {
+                $transferredProperty->setType(
+                    new PropertyType($transferredProperty->getType()->getName(), true),
+                    new PropertyType($transferredProperty->getType(true)->getName(), true)
+                );
+            }
+        }
+
+        return $transferredProperty;
     }
 }

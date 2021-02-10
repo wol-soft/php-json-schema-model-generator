@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\EnumValidator;
@@ -102,7 +103,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
         $allowedValues = array_unique($allowedValues);
 
         // no type information provided - inherit the types from the enum values
-        if (empty($property->getType())) {
+        if (!$property->getType()) {
             $typesOfEnum = array_unique(array_map(
                 function ($value): string {
                     return TypeConverter::gettypeToInternal(gettype($value));
@@ -111,7 +112,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             ));
 
             if (count($typesOfEnum) === 1) {
-                $property->setType($typesOfEnum[0]);
+                $property->setType(new PropertyType($typesOfEnum[0]));
             }
             $property->addTypeHintDecorator(new TypeHintDecorator($typesOfEnum));
         }
@@ -177,7 +178,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                 // property defining the dependency isn't present
                 (clone $property)
                     ->setRequired(false)
-                    ->setType('')
+                    ->setType(null)
                     ->filterValidators(function (): bool {
                         return false;
                     })

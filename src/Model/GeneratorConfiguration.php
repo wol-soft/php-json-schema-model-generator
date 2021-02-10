@@ -30,6 +30,8 @@ class GeneratorConfiguration
     /** @var bool */
     protected $allowImplicitNull = false;
     /** @var bool */
+    protected $defaultArraysToEmptyArray = false;
+    /** @var bool */
     protected $denyAdditionalProperties = false;
     /** @var bool */
     protected $prettyPrint = false;
@@ -185,6 +187,26 @@ class GeneratorConfiguration
     public function setNamespacePrefix(string $namespacePrefix): self
     {
         $this->namespacePrefix = trim($namespacePrefix, '\\');
+
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDefaultArraysToEmptyArrayEnabled(): bool
+    {
+        return $this->defaultArraysToEmptyArray;
+    }
+
+    /**
+     * @param bool $defaultArraysToEmptyArray
+     *
+     * @return GeneratorConfiguration
+     */
+    public function setDefaultArraysToEmptyArray(bool $defaultArraysToEmptyArray): self
+    {
+        $this->defaultArraysToEmptyArray = $defaultArraysToEmptyArray;
 
         return $this;
     }

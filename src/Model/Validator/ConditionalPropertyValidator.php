@@ -36,7 +36,7 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
             ['&$ifException', '&$thenException', '&$elseException']
         );
 
-        $this->composedProcessor = IfProcessor::class;
+        $this->compositionProcessor = IfProcessor::class;
         $this->composedProperties = $composedProperties;
     }
 

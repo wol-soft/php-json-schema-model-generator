@@ -14,16 +14,16 @@ use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 abstract class AbstractComposedPropertyValidator extends PropertyTemplateValidator
 {
     /** @var string */
-    protected $composedProcessor;
+    protected $compositionProcessor;
     /** @var CompositionPropertyDecorator[] */
     protected $composedProperties;
 
     /**
      * @return string
      */
-    public function getComposedProcessor(): string
+    public function getCompositionProcessor(): string
     {
-        return $this->composedProcessor;
+        return $this->compositionProcessor;
     }
 
     /**

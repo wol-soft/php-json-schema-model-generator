@@ -55,6 +55,44 @@ ERROR
     }
 
     /**
+     * @dataProvider implicitNullDataProvider
+     *
+     * @param bool $implicitNull
+     */
+    public function testCompositionTypes(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile(
+            'ObjectLevelCompositionTypeCheck.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+            false,
+            $implicitNull
+        );
+
+        $this->assertSame('int|null', $this->getPropertyTypeAnnotation($className, 'age'));
+        $this->assertSame('string|null', $this->getPropertyTypeAnnotation($className, 'name'));
+
+        $this->assertSame('int|null', $this->getMethodParameterTypeAnnotation($className, 'setAge'));
+        $setAgeParamType = $this->getParameterType($className, 'setAge');
+        $this->assertSame('int', $setAgeParamType->getName());
+        $this->assertTrue($setAgeParamType->allowsNull());
+
+        $this->assertSame('string|null', $this->getMethodParameterTypeAnnotation($className, 'setName'));
+        $setNameParamType = $this->getParameterType($className, 'setName');
+        $this->assertSame('string', $setNameParamType->getName());
+        $this->assertTrue($setNameParamType->allowsNull());
+
+        $this->assertSame('int|null', $this->getMethodReturnTypeAnnotation($className, 'getAge'));
+        $getAgeReturnType = $this->getReturnType($className, 'getAge');
+        $this->assertSame('int', $getAgeReturnType->getName());
+        $this->assertTrue($getAgeReturnType->allowsNull());
+
+        $this->assertSame('string|null', $this->getMethodReturnTypeAnnotation($className, 'getName'));
+        $getNameReturnType = $this->getReturnType($className, 'getName');
+        $this->assertSame('string', $getNameReturnType->getName());
+        $this->assertTrue($getNameReturnType->allowsNull());
+    }
+
+    /**
      * @dataProvider propertyLevelAnyOfSchemaFileDataProvider
      *
      * @param string $schema

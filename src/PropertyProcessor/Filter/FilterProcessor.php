@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
@@ -75,7 +76,7 @@ class FilterProcessor
             );
 
             if ($filter instanceof TransformingFilterInterface) {
-                if ($property->getType() === 'array') {
+                if ($property->getType() && $property->getType()->getName() === 'array') {
                     throw new SchemaException(
                         sprintf(
                             'Applying a transforming filter to the array property %s is not supported in file %s',
@@ -102,14 +103,18 @@ class FilterProcessor
 
                 if ($typeAfterFilter &&
                     $typeAfterFilter->getName() &&
-                    $property->getType() !== $typeAfterFilter->getName()
+                    (!$property->getType() || $property->getType()->getName() !== $typeAfterFilter->getName())
                 ) {
                     $this->addTransformedValuePassThrough($property, $filter, $typeAfterFilter);
                     $this->extendTypeCheckValidatorToAllowTransformedValue($property, $typeAfterFilter);
 
                     $property->setType(
                         $property->getType(),
-                        (new RenderHelper($generatorConfiguration))->getSimpleClassName($typeAfterFilter->getName())
+                        new PropertyType(
+                            (new RenderHelper($generatorConfiguration))
+                                ->getSimpleClassName($typeAfterFilter->getName()),
+                            $typeAfterFilter->allowsNull()
+                        )
                     );
 
                     if (!$typeAfterFilter->isBuiltin()) {

@@ -59,7 +59,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
         }
 
         parent::__construct(
-            new Property($propertyName, '', $propertiesStructure),
+            new Property($propertyName, null, $propertiesStructure),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayTuple.phptpl',
             [
                 'tupleProperties' => &$this->tupleProperties,

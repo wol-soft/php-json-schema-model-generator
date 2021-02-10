@@ -53,7 +53,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
     /**
      * @dataProvider implicitNullDataProvider
      */
-    public function testUntypedOptionalArrayType(bool $implicitNull)
+    public function testUntypedOptionalArrayType(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile(
             'ArrayProperty.json',
@@ -81,7 +81,67 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
     /**
      * @dataProvider implicitNullDataProvider
      */
-    public function testUntypedRequiredArrayType(bool $implicitNull)
+    public function testNotProvidedValueDefaultsToEmptyArrayWithDefaultArraysToEmptyArrayEnabled(
+        bool $implicitNull
+    ): void {
+        $className = $this->generateClassFromFile(
+            'ArrayProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setDefaultArraysToEmptyArray(true),
+            false,
+            $implicitNull
+        );
+
+        $object = new $className();
+
+        $this->assertSame([], $object->getProperty());
+
+        $this->assertSame(
+            $implicitNull ? 'array|null' : 'array',
+            $this->getMethodParameterTypeAnnotation($className, 'setProperty')
+        );
+        $this->assertSame('array', $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame('array', $this->getPropertyTypeAnnotation($className, 'property'));
+
+        $returnType = $this->getReturnType($className, 'getProperty');
+        $this->assertFalse($returnType->allowsNull());
+        $this->assertSame('array', $returnType->getName());
+
+        $setterType = $this->getParameterType($className, 'setProperty');
+        $this->assertSame($implicitNull, $setterType->allowsNull());
+        $this->assertSame('array', $setterType->getName());
+    }
+
+    /**
+     * @dataProvider defaultArraysToEmptyArrayDataProvider
+     *
+     * @param $input
+     * @param array $expectedOutput
+     */
+    public function testValidValueWithDefaultArraysToEmptyArrayEnabled($input, array $expectedOutput): void
+    {
+        $className = $this->generateClassFromFile(
+            'ArrayProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setDefaultArraysToEmptyArray(true)
+        );
+
+        $object = new $className(['property' => $input]);
+
+        $this->assertSame($expectedOutput, $object->getProperty());
+    }
+
+    public function defaultArraysToEmptyArrayDataProvider(): array
+    {
+        return [
+            'null' => [null, []],
+            'empty array' => [[], []],
+            'filled array' => [[1, 2], [1, 2]],
+        ];
+    }
+
+    /**
+     * @dataProvider implicitNullDataProvider
+     */
+    public function testUntypedRequiredArrayType(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile(
             'RequiredUntypedArrayProperty.json',

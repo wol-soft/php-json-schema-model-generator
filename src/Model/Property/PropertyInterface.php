@@ -31,18 +31,18 @@ interface PropertyInterface
     /**
      * @param bool $outputType If set to true the output type will be returned (may differ from the base type)
      *
-     * @return string
+     * @return PropertyType|null
      */
-    public function getType(bool $outputType = false): string;
+    public function getType(bool $outputType = false): ?PropertyType;
 
     /**
-     * @param string $type
-     * @param string|null $outputType By default the output type will be equal to the base type but due to applied
-     *                                filters the output type may change
+     * @param PropertyType|null $type
+     * @param PropertyType|null $outputType By default the output type will be equal to the base type but due to applied
+     *                                      filters the output type may change
      *
      * @return PropertyInterface
      */
-    public function setType(string $type, ?string $outputType = null): PropertyInterface;
+    public function setType(PropertyType $type, PropertyType $outputType = null): PropertyInterface;
 
     /**
      * @param bool $outputType If set to true the output type hint will be returned (may differ from the base type)

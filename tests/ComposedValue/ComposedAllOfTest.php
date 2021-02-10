@@ -83,6 +83,47 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * @dataProvider implicitNullDataProvider
+     *
+     * @param bool $implicitNull
+     */
+    public function testCompositionTypes(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile(
+            'ObjectLevelCompositionTypeCheck.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+            false,
+            $implicitNull
+        );
+
+        $this->assertSame('int|null', $this->getPropertyTypeAnnotation($className, 'age'));
+        $this->assertSame('string', $this->getPropertyTypeAnnotation($className, 'name'));
+
+        $this->assertSame(
+            $implicitNull ? 'int|null' : 'int',
+            $this->getMethodParameterTypeAnnotation($className, 'setAge')
+        );
+        $setAgeParamType = $this->getParameterType($className, 'setAge');
+        $this->assertSame('int', $setAgeParamType->getName());
+        $this->assertSame($implicitNull, $setAgeParamType->allowsNull());
+
+        $this->assertSame('string', $this->getMethodParameterTypeAnnotation($className, 'setName'));
+        $setNameParamType = $this->getParameterType($className, 'setName');
+        $this->assertSame('string', $setNameParamType->getName());
+        $this->assertFalse($setNameParamType->allowsNull());
+
+        $this->assertSame('int|null', $this->getMethodReturnTypeAnnotation($className, 'getAge'));
+        $getAgeReturnType = $this->getReturnType($className, 'getAge');
+        $this->assertSame('int', $getAgeReturnType->getName());
+        $this->assertTrue($getAgeReturnType->allowsNull());
+
+        $this->assertSame('string', $this->getMethodReturnTypeAnnotation($className, 'getName'));
+        $getNameReturnType = $this->getReturnType($className, 'getName');
+        $this->assertSame('string', $getNameReturnType->getName());
+        $this->assertFalse($getNameReturnType->allowsNull());
+    }
+
+    /**
      * Throws an exception as it's not valid against any of the given schemas
      */
     public function testNotProvidedObjectLevelAllOfMatchingAllOptionsIsValid(): void
@@ -489,14 +530,14 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
 
         // test an invalid change (only one property valid)
         try {
-            $object->setIntegerProperty(null);
+            $object->setIntegerProperty(-1);
             $this->fail('Exception not thrown');
         } catch (ErrorRegistryException | AllOfException $exception) {
             $this->assertStringContainsString($exceptionMessageIntegerPropertyInvalid, $exception->getMessage());
         }
 
         try {
-            $object->setStringProperty(null);
+            $object->setStringProperty('');
             $this->fail('Exception not thrown');
         } catch (ErrorRegistryException | AllOfException $exception) {
             $this->assertStringContainsString($exceptionMessageStringPropertyInvalid, $exception->getMessage());
@@ -526,14 +567,14 @@ declined by composition constraint.
   Requires to match all composition elements but matched 1 elements.
   - Composition element #1: Valid
   - Composition element #2: Failed
-    * Invalid type for integerProperty. Requires int, got NULL
+    * Value for integerProperty must not be smaller than 1
 ERROR
                 ,
                 <<<ERROR
 declined by composition constraint.
   Requires to match all composition elements but matched 1 elements.
   - Composition element #1: Failed
-    * Invalid type for stringProperty. Requires string, got NULL
+    * Value for stringProperty must not be shorter than 2
   - Composition element #2: Valid
 ERROR
             ],

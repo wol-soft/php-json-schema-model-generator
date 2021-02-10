@@ -172,6 +172,33 @@ If the implicit null option is enabled the interface of your classes may change.
     (new GeneratorConfiguration())
         ->setImplicitNull(true);
 
+Default arrays to empty arrays
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default optional properties which contain an `array <complexTypes/array.html>`__ will contain **null** if no array is provided (or null is provided with the `implicit null <#implicit-null>`_ setting enabled). For using the generated getter methods for those properties without a fallback the generator can be configured to default not provided arrays and null values to an empty array (by default this setting is disabled). By enabling this setting it's ensured that all optional arrays will always contain an array even if no default value or null is provided.
+
+.. code-block:: php
+
+    // accessing an array property which may contain null may require a fallback
+    foreach ($generatedObject->getItems() ?? [] as $item) {
+
+    // by enabling the default to empty array setting the value returned by getItems will always contain an array
+    // consequently no fallback is necessary
+    foreach ($generatedObject->getItems() as $item) {
+
+.. hint::
+
+    This setting affects only optional properties.
+
+.. code-block:: php
+
+    setDefaultArraysToEmptyArray(bool $defaultArraysToEmptyArray);
+
+.. code-block:: php
+
+    (new GeneratorConfiguration())
+        ->setDefaultArraysToEmptyArray(true);
+
 Deny additional properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 

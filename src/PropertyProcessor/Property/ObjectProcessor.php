@@ -6,6 +6,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
@@ -71,7 +72,7 @@ class ObjectProcessor extends AbstractTypedValueProcessor
                     $this->schemaProcessor->getGeneratorConfiguration()
                 )
             )
-            ->setType($schema->getClassName())
+            ->setType(new PropertyType($schema->getClassName()))
             ->setNestedSchema($schema);
 
         return $property->addValidator(new InstanceOfValidator($property), 3);

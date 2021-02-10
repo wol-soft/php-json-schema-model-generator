@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPModelGenerator\Exception\Generic\InvalidConstException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
@@ -28,7 +29,7 @@ class ConstProcessor implements PropertyProcessorInterface
 
         $property = new Property(
             $propertyName,
-            TypeConverter::gettypeToInternal(gettype($json['const'])),
+            new PropertyType(TypeConverter::gettypeToInternal(gettype($json['const']))),
             $propertySchema,
             $json['description'] ?? ''
         );

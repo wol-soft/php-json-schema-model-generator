@@ -4,7 +4,8 @@
       "type": "object",
       "properties": {
         "stringProperty": {
-          "type": "string"
+          "type": "string",
+          "minLength": 2
         }
       },
       "required": ["stringProperty"]
@@ -13,7 +14,8 @@
       "type": "object",
       "properties": {
         "integerProperty": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 1
         }
       },
       "required": ["integerProperty"]
