@@ -12,7 +12,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -26,7 +26,7 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * @package PHPModelGenerator\SchemaProcessor\PostProcessor\Internal
  */
-class CompositionValidationPostProcessor implements PostProcessorInterface
+class CompositionValidationPostProcessor extends PostProcessor
 {
     /**
      * @param Schema $schema

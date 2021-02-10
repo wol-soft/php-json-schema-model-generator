@@ -17,7 +17,7 @@ use PHPModelGenerator\Traits\SerializableTrait;
  *
  * @package PHPModelGenerator\SchemaProcessor\PostProcessor
  */
-class SerializationPostProcessor implements PostProcessorInterface
+class SerializationPostProcessor extends PostProcessor
 {
     /**
      * Add serialization support to the provided schema

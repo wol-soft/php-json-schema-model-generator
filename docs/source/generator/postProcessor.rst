@@ -92,6 +92,10 @@ AdditionalPropertiesAccessorPostProcessor
 
 The **AdditionalPropertiesAccessorPostProcessor** adds methods to your model to work with `additional properties <../complexTypes/object.html#additional-properties>`__ on your objects. By default the post processor only adds methods to objects from a schema which defines constraints for additional properties. If the first constructor parameter *$addForModelsWithoutAdditionalPropertiesDefinition* is set to true the methods will also be added to objects generated from a schema which doesn't define additional properties constraints. If the *additionalProperties* keyword in a schema is set to false the methods will never be added.
 
+.. note::
+
+    If the `deny additional properties setting <../gettingStarted.html#deny-additional-properties>`__ is set to true the setting *$addForModelsWithoutAdditionalPropertiesDefinition* is ignored as all objects which don't define additional properties are restricted to the defined properties
+
 Added methods
 ~~~~~~~~~~~~~
 
@@ -144,7 +148,7 @@ By default additional properties are not included in serialized models. If the *
 Custom Post Processors
 ----------------------
 
-You can implement custom post processors to accomplish your tasks. Each post processor must implement the **PHPModelGenerator\\SchemaProcessor\\PostProcessor\\PostProcessorInterface**. If you have implemented a post processor add the post processor to your `ModelGenerator` and the post processor will be executed for each class.
+You can implement custom post processors to accomplish your tasks. Each post processor must extend the class **PHPModelGenerator\\SchemaProcessor\\PostProcessor\\PostProcessor**. If you have implemented a post processor add the post processor to your `ModelGenerator` and the post processor will be executed for each class.
 
 A custom post processor which adds a custom trait to the generated model (eg. a trait adding methods for an active record pattern implementation) may look like:
 
@@ -153,9 +157,9 @@ A custom post processor which adds a custom trait to the generated model (eg. a 
     namespace MyApp\Model\Generator\PostProcessor;
 
     use MyApp\Model\ActiveRecordTrait;
-    use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
+    use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 
-    class ActiveRecordPostProcessor implements PostProcessorInterface
+    class ActiveRecordPostProcessor extends PostProcessor
     {
         public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
         {
@@ -184,3 +188,5 @@ What can you do inside your custom post processor?
     If a setter for a property is called with the same value which is already stored internally (consequently no update of the property is required), the setters will return directly and as a result of that the setter hooks will not be executed.
 
     This behaviour also applies also to properties changed via the *populate* method added by the `PopulatePostProcessor <#populatepostprocessor>`__ and the *setAdditionalProperty* method added by the `AdditionalPropertiesAccessorPostProcessor <#additionalpropertiesaccessorpostprocessor>`__
+
+To execute code before/after the processing of the schemas override the methods **preProcess** and **postProcess** inside your custom post processor.

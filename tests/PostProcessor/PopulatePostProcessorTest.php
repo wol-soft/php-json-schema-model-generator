@@ -17,7 +17,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterAfterValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
@@ -205,7 +205,7 @@ Invalid type for age. Requires int, got boolean"
     {
         $this->modifyModelGenerator = function (ModelGenerator $modelGenerator): void {
             $modelGenerator->addPostProcessor(new PopulatePostProcessor());
-            $modelGenerator->addPostProcessor(new class () implements PostProcessorInterface {
+            $modelGenerator->addPostProcessor(new class () extends PostProcessor {
                 public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
                 {
                     $schema->addSchemaHook(new class () implements SetterBeforeValidationHookInterface {
@@ -249,7 +249,7 @@ Invalid type for age. Requires int, got boolean"
     {
         $this->modifyModelGenerator = function (ModelGenerator $modelGenerator): void {
             $modelGenerator->addPostProcessor(new PopulatePostProcessor());
-            $modelGenerator->addPostProcessor(new class () implements PostProcessorInterface {
+            $modelGenerator->addPostProcessor(new class () extends PostProcessor {
                 public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
                 {
                     $schema->addSchemaHook(new class () implements SetterAfterValidationHookInterface {

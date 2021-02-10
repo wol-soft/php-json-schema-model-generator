@@ -121,6 +121,12 @@ class BaseProcessor extends AbstractPropertyProcessor
     {
         $json = $propertySchema->getJson();
 
+        if (!isset($json['additionalProperties']) &&
+            $this->schemaProcessor->getGeneratorConfiguration()->denyAdditionalProperties()
+        ) {
+            $json['additionalProperties'] = false;
+        }
+
         if (!isset($json['additionalProperties']) || $json['additionalProperties'] === true) {
             return;
         }

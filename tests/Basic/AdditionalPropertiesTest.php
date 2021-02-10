@@ -35,7 +35,12 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
      */
     public function testAdditionalPropertiesAreIgnoredWhenSetToTrue(array $propertyValue): void
     {
-        $className = $this->generateClassFromFileTemplate('AdditionalProperties.json', ['true']);
+        $className = $this->generateClassFromFileTemplate(
+            'AdditionalProperties.json',
+            ['true'],
+            // make sure the deny additional properties setting doesn't affect specified additional properties
+            (new GeneratorConfiguration())->setDenyAdditionalProperties(true)
+        );
 
         $object = new $className($propertyValue);
         $this->assertSame($propertyValue['name'] ?? null, $object->getName());
@@ -87,6 +92,27 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
         );
 
         $className = $this->generateClassFromFileTemplate('AdditionalProperties.json', ['false']);
+
+        new $className($propertyValue);
+    }
+
+    /**
+     * @dataProvider additionalPropertiesDataProvider
+     *
+     * @param array $propertyValue
+     */
+    public function testAdditionalPropertiesThrowAnExceptionWhenNotDefinedAndDeniedByGeneratorConfiguration(
+        array $propertyValue
+    ): void {
+        $this->expectException(AdditionalPropertiesException::class);
+        $this->expectExceptionMessageMatches(
+            '/Provided JSON for .* contains not allowed additional properties \[additional\]/'
+        );
+
+        $className = $this->generateClassFromFile(
+            'AdditionalPropertiesNotDefined.json',
+            (new GeneratorConfiguration())->setDenyAdditionalProperties(true)->setCollectErrors(false)
+        );
 
         new $className($propertyValue);
     }

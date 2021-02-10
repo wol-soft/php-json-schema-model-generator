@@ -10,7 +10,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\CompositionValidationPostProcessor;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\SerializationPostProcessor;
 use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -27,7 +27,7 @@ class ModelGenerator
 {
     /** @var GeneratorConfiguration */
     protected $generatorConfiguration;
-    /** @var PostProcessorInterface[] */
+    /** @var PostProcessor[] */
     protected $postProcessors = [];
 
     /**
@@ -48,11 +48,11 @@ class ModelGenerator
     }
 
     /**
-     * @param PostProcessorInterface $postProcessor
+     * @param PostProcessor $postProcessor
      *
      * @return $this
      */
-    public function addPostProcessor(PostProcessorInterface $postProcessor): self
+    public function addPostProcessor(PostProcessor $postProcessor): self
     {
         $this->postProcessors[] = $postProcessor;
 

@@ -15,7 +15,7 @@ use PHPModelGenerator\SchemaProcessor\Hook\GetterHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterAfterValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 /**
@@ -184,7 +184,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTest
     protected function addSchemaHook(SchemaHookInterface $schemaHook): void
     {
         $this->modifyModelGenerator = function (ModelGenerator $modelGenerator) use ($schemaHook): void {
-            $modelGenerator->addPostProcessor(new class ($schemaHook) implements PostProcessorInterface {
+            $modelGenerator->addPostProcessor(new class ($schemaHook) extends PostProcessor {
                 private $schemaHook;
 
                 public function __construct(SchemaHookInterface $schemaHook)

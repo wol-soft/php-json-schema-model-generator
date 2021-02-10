@@ -16,7 +16,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessorInterface;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
 /**
@@ -48,6 +48,29 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->addPostProcessor($addForModelsWithoutAdditionalPropertiesDefinition);
 
         $className = $this->generateClassFromFile('AdditionalPropertiesFalse.json');
+
+        $object = new $className();
+
+        $this->assertFalse(is_callable([$object, 'getAdditionalProperties']));
+        $this->assertFalse(is_callable([$object, 'getAdditionalProperty']));
+        $this->assertFalse(is_callable([$object, 'setAdditionalProperty']));
+        $this->assertFalse(is_callable([$object, 'removeAdditionalProperty']));
+    }
+
+    /**
+     * @dataProvider additionalPropertiesAccessorPostProcessorConfigurationDataProvider
+     *
+     * @param bool $addForModelsWithoutAdditionalPropertiesDefinition
+     */
+    public function testAdditionalPropertiesAccessorsAreNotGeneratedWhenAdditionalPropertiesAreDenied(
+        bool $addForModelsWithoutAdditionalPropertiesDefinition
+    ): void {
+        $this->addPostProcessor($addForModelsWithoutAdditionalPropertiesDefinition);
+
+        $className = $this->generateClassFromFile(
+            'AdditionalPropertiesNotDefined.json',
+            (new GeneratorConfiguration())->setDenyAdditionalProperties(true)
+        );
 
         $object = new $className();
 
@@ -103,7 +126,11 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
     ): void {
         $this->addPostProcessor($addForModelsWithoutAdditionalPropertiesDefinition);
 
-        $className = $this->generateClassFromFile('AdditionalProperties.json');
+        $className = $this->generateClassFromFile(
+            'AdditionalProperties.json',
+            // make sure the deny additional properties setting doesn't affect specified additional properties
+            (new GeneratorConfiguration())->setDenyAdditionalProperties(true)
+        );
 
         $object = new $className(['property1' => 'Hello', 'property2' => 'World']);
 
@@ -268,7 +295,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->modifyModelGenerator = function (ModelGenerator $modelGenerator): void {
             $modelGenerator
                 ->addPostProcessor(new AdditionalPropertiesAccessorPostProcessor())
-                ->addPostProcessor(new class () implements PostProcessorInterface {
+                ->addPostProcessor(new class () extends PostProcessor {
                     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
                     {
                         $schema->addSchemaHook(new class () implements SetterBeforeValidationHookInterface {
