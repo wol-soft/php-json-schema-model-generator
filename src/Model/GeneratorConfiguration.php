@@ -67,32 +67,34 @@ class GeneratorConfiguration
     /**
      * Add an additional filter
      *
-     * @param FilterInterface $filter
+     * @param FilterInterface ...$additionalFilter
      *
      * @return $this
      *
      * @throws InvalidFilterException
      */
-    public function addFilter(FilterInterface $filter): self
+    public function addFilter(FilterInterface ...$additionalFilter): self
     {
-        $this->validateFilterCallback($filter->getFilter(), "Invalid filter callback for filter {$filter->getToken()}");
+        foreach ($additionalFilter as $filter) {
+            $this->validateFilterCallback($filter->getFilter(), "Invalid filter callback for filter {$filter->getToken()}");
 
-        if ($filter instanceof TransformingFilterInterface) {
-            $this->validateFilterCallback(
-                $filter->getSerializer(),
-                "Invalid serializer callback for filter {$filter->getToken()}"
-            );
-        }
-
-        foreach ($filter->getAcceptedTypes() as $acceptedType) {
-            if (!in_array($acceptedType, ['integer', 'number', 'boolean', 'string', 'array', 'null']) &&
-                !class_exists($acceptedType)
-            ) {
-                throw new InvalidFilterException('Filter accepts invalid types');
+            if ($filter instanceof TransformingFilterInterface) {
+                $this->validateFilterCallback(
+                    $filter->getSerializer(),
+                    "Invalid serializer callback for filter {$filter->getToken()}"
+                );
             }
-        }
 
-        $this->filter[$filter->getToken()] = $filter;
+            foreach ($filter->getAcceptedTypes() as $acceptedType) {
+                if (!in_array($acceptedType, ['integer', 'number', 'boolean', 'string', 'array', 'null']) &&
+                    !class_exists($acceptedType)
+                ) {
+                    throw new InvalidFilterException('Filter accepts invalid types');
+                }
+            }
+
+            $this->filter[$filter->getToken()] = $filter;
+        }
 
         return $this;
     }
