@@ -2,7 +2,7 @@
  * Adds or overwrites an additional property on the object
  *
  * @param string $property The property key of the additional property
- * @param {{ viewHelper.getTypeHintAnnotation(validationProperty) }} $value The new value of the additional property
+ * @param {% if validationProperty %}{{ viewHelper.getTypeHintAnnotation(validationProperty) }}{% else %}mixed{% endif %} $value The new value of the additional property
  *
  * @return self
  *
@@ -11,7 +11,7 @@
  */
 public function setAdditionalProperty(
     string $property,
-    {{ viewHelper.getType(validationProperty) }} $value
+    {% if validationProperty %}{{ viewHelper.getType(validationProperty) }}{% endif %} $value
 ): self {
     if (in_array($property, {{ objectProperties }})) {
         throw new RegularPropertyAsAdditionalPropertyException($value, $property, self::class);
@@ -21,7 +21,7 @@ public function setAdditionalProperty(
         return $this;
     }
 
-    {{ schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) }}
+    {% if validationProperty %}{{ schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) }}{% endif %}
 
     {% if schema.getBaseValidators() %}
         {% if generatorConfiguration.collectErrors() %}
@@ -42,7 +42,7 @@ public function setAdditionalProperty(
 
     $this->_rawModelDataInput[$property] = $value;
 
-    {{ schemaHookResolver.resolveSetterAfterValidationHook(validationProperty) }}
+    {% if validationProperty %}{{ schemaHookResolver.resolveSetterAfterValidationHook(validationProperty) }}{% endif %}
 
     return $this;
 }
