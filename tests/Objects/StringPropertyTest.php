@@ -100,7 +100,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
                 'float' => [0.92],
                 'bool' => [true],
                 'array' => [[]],
-                'object' => [new stdClass()]
+                'object' => [new stdClass()],
             ]
         );
     }

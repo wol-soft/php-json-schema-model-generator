@@ -20,6 +20,7 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyNamesValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -72,7 +73,9 @@ class BaseProcessor extends AbstractPropertyProcessor
         $this->generateValidators($property, $propertySchema);
 
         $this->addPropertyNamesValidator($propertySchema);
+        $this->addPatternPropertiesValidator($propertySchema);
         $this->addAdditionalPropertiesValidator($propertySchema);
+
         $this->addMinPropertiesValidator($propertyName, $propertySchema);
         $this->addMaxPropertiesValidator($propertyName, $propertySchema);
 
@@ -108,7 +111,7 @@ class BaseProcessor extends AbstractPropertyProcessor
     }
 
     /**
-     * Add an object validator to disallow properties which are not defined in the schema
+     * Add an object validator to specify constraints for properties which are not defined in the schema
      *
      * @param JsonSchema $propertySchema
      *
@@ -154,6 +157,37 @@ class BaseProcessor extends AbstractPropertyProcessor
                 ['&$additionalProperties']
             )
         );
+    }
+
+    /**
+     * @param JsonSchema $propertySchema
+     *
+     * @throws SchemaException
+     */
+    protected function addPatternPropertiesValidator(JsonSchema $propertySchema): void
+    {
+        $json = $propertySchema->getJson();
+
+        if (!isset($json['patternProperties'])) {
+            return;
+        }
+
+        foreach ($json['patternProperties'] as $pattern => $schema) {
+            if (preg_match("/$pattern/", '') === false) {
+                throw new SchemaException(
+                    "Invalid pattern $pattern for pattern property in file {$propertySchema->getFile()}"
+                );
+            }
+
+            $this->schema->addBaseValidator(
+                new PatternPropertiesValidator(
+                    $this->schemaProcessor,
+                    $this->schema,
+                    $pattern,
+                    $propertySchema->withJson($schema)
+                )
+            );
+        }
     }
 
     /**

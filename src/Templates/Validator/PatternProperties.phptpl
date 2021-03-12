@@ -1,0 +1,44 @@
+(function () use ($properties, &$invalidProperties) {
+    {% if generatorConfiguration.collectErrors() %}
+        $originalErrorRegistry = $this->_errorRegistry;
+    {% endif %}
+
+    foreach ($properties as $propertyKey => $value) {
+        try {
+            if (!preg_match("{{ pattern }}", $propertyKey)) {
+                continue;
+            }
+
+            {% if generatorConfiguration.collectErrors() %}
+                $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            {% endif %}
+
+            {{ viewHelper.resolvePropertyDecorator(validationProperty) }}
+
+            {% foreach validationProperty.getOrderedValidators() as validator %}
+                {{ validator.getValidatorSetUp() }}
+                if ({{ validator.getCheck() }}) {
+                    {{ viewHelper.validationError(validator) }}
+                }
+            {% endforeach %}
+
+            {% if generatorConfiguration.collectErrors() %}
+                if ($this->_errorRegistry->getErrors()) {
+                    $invalidProperties[$propertyKey] = $this->_errorRegistry->getErrors();
+                }
+            {% endif %}
+
+        } catch (\Exception $e) {
+            // collect all errors concerning invalid property names
+            isset($invalidProperties[$propertyKey])
+                ? $invalidProperties[$propertyKey][] = $e
+                : $invalidProperties[$propertyKey] = [$e];
+        }
+    }
+
+    {% if generatorConfiguration.collectErrors() %}
+        $this->_errorRegistry = $originalErrorRegistry;
+    {% endif %}
+
+    return !empty($invalidProperties);
+})()
