@@ -38,7 +38,7 @@ jobs:
         if: ${{ matrix.php == '8.0' }}
         run: |
           composer global require php-coveralls/php-coveralls
-          php-coveralls --coverage_clover=build/logs/clover.xml -v
+          php-coveralls -v
         env:
           COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
