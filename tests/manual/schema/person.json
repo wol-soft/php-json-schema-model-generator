@@ -13,20 +13,6 @@
       "example": 42
     }
   },
-  "patternProperties": {
-    "^n": {
-      "key": "StringProperties",
-      "type": "string",
-      "minLength": 5
-    },
-    "^[A-Z]_": {
-      "key": "StringPropertiesShort",
-      "type": "string"
-    }
-  },
-  "additionalProperties": {
-    "type": "string"
-  },
   "required": [
     "name"
   ]
