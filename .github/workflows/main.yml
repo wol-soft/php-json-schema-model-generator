@@ -1,0 +1,46 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['7.2', '7.3', '7.4', '8.0', '8.1']
+
+    name: PHP ${{ matrix.php }} tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-versions }}
+          extensions: mbstring, json
+          coverage: xdebug
+
+      - name: Install dependencies
+        run: composer install
+
+      - name: Prepare codeclimate test reporter
+        run: |
+          curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+          chmod +x ./cc-test-reporter
+          ./cc-test-reporter before-build
+
+      - name: Execute tests
+        run: XDEBUG_MODE=coverage ./vendor/bin/phpunit --coverage-clover build/logs/clover.xml --testdox
+
+      - name: Upload the reports to coveralls.io
+        run: |
+          composer global require cedx/coveralls --no-interaction --no-suggest
+          $HOME/.composer/vendor/bin/coveralls clover.xml
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload the reports to codeclimate
+        run: sudo ./cc-test-reporter after-build -r $CC_TEST_REPORTER_ID
+        env:
+          CC_TEST_REPORTER_ID: 5e32818628fac9eb11d34e2b35289f88169610cc4a98c6f170c74923342284f1
