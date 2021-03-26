@@ -32,7 +32,7 @@ jobs:
           ./cc-test-reporter before-build
 
       - name: Execute tests
-        run: XDEBUG_MODE=coverage ./vendor/bin/phpunit --coverage-clover build/logs/clover.xml --testdox
+        run: XDEBUG_MODE=coverage ./vendor/bin/phpunit --coverage-clover clover.xml --testdox
 
       - name: Upload the reports to coveralls.io
         if: ${{ matrix.php == '8.0' }}
