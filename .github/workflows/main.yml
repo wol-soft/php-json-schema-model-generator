@@ -31,21 +31,14 @@ jobs:
           chmod +x ./cc-test-reporter
           ./cc-test-reporter before-build
 
-      - name: Prepare coveralls test reporter
-        if: ${{ matrix.php == '8.0' }}
-        run: |
-          wget -c -nc --retry-connrefused --tries=0 https://github.com/php-coveralls/php-coveralls/releases/download/v2.0.0/php-coveralls.phar -O coveralls.phar
-          chmod +x coveralls.phar
-          php coveralls.phar --version
-
       - name: Execute tests
         run: XDEBUG_MODE=coverage ./vendor/bin/phpunit --coverage-clover clover.xml --testdox
 
       - name: Upload the reports to coveralls.io
         if: ${{ matrix.php == '8.0' }}
         run: |
-          php coveralls.phar clover.xml
-          vendor/bin/test-reporter
+          composer global require php-coveralls/php-coveralls
+          php-coveralls --coverage_clover=clover.xml -v
         env:
           COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
