@@ -33,7 +33,7 @@
                 $this->additionalProperties[$propertyKey] = $value;
             {% endif %}
         } catch (\Exception $e) {
-            // collect all errors concerning invalid property names
+            // collect all errors concerning invalid additional properties
             isset($invalidProperties[$propertyKey])
                 ? $invalidProperties[$propertyKey][] = $e
                 : $invalidProperties[$propertyKey] = [$e];

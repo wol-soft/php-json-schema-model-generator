@@ -20,6 +20,7 @@ public function populate(array $modelData): self
 
     {% if schema.getBaseValidators() %}
         $this->executeBaseValidators($modelData);
+        $hasExecutedBaseValidators = true;
     {% endif %}
 
     {% foreach schema.getProperties() as property %}

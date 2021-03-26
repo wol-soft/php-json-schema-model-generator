@@ -116,6 +116,23 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         }
     }
 
+    public function testAdditionalPropertiesSettersForMutableObjectsWithoutAdditionalPropertiesDefinition(): void
+    {
+        $this->addPostProcessor(true);
+        $className = $this->generateClassFromFile(
+            'AdditionalPropertiesNotDefined.json',
+            (new GeneratorConfiguration())->setImmutable(false)
+        );
+
+        $object = new $className();
+
+        $this->assertTrue(is_callable([$object, 'setAdditionalProperty']));
+        $this->assertTrue(is_callable([$object, 'removeAdditionalProperty']));
+
+        $this->assertSame('mixed', $this->getMethodParameterTypeAnnotation($object, 'setAdditionalProperty', 1));
+        $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
+    }
+
     /**
      * @dataProvider additionalPropertiesAccessorPostProcessorConfigurationDataProvider
      *

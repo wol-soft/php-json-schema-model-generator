@@ -10,8 +10,8 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\CompositionValidationPostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\SerializationPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\SerializationPostProcessor;
 use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
@@ -43,7 +43,7 @@ class ModelGenerator
             $this->addPostProcessor(new SerializationPostProcessor());
         }
 
-        // add internal post processors
+        // add internal post processors which must always be executed
         $this->addPostProcessor(new CompositionValidationPostProcessor());
     }
 

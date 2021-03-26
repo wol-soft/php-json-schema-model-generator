@@ -2,6 +2,9 @@
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
+    {% if collectPatternProperties %}
+        $rollbackValues = $this->_patternProperties;
+    {% endif %}
 
     foreach ($properties as $propertyKey => $value) {
         try {
@@ -28,8 +31,13 @@
                 }
             {% endif %}
 
+            {% if collectPatternProperties %}
+                if (!isset($this->_patternPropertiesMap[$propertyKey])) {
+                    $this->_patternProperties['{{ patternHash }}'][$propertyKey] = $value;
+                }
+            {% endif %}
         } catch (\Exception $e) {
-            // collect all errors concerning invalid property names
+            // collect all errors concerning invalid pattern properties
             isset($invalidProperties[$propertyKey])
                 ? $invalidProperties[$propertyKey][] = $e
                 : $invalidProperties[$propertyKey] = [$e];
@@ -38,6 +46,12 @@
 
     {% if generatorConfiguration.collectErrors() %}
         $this->_errorRegistry = $originalErrorRegistry;
+    {% endif %}
+
+    {% if collectPatternProperties %}
+        if (!empty($invalidProperties)) {
+            $this->_patternProperties = $rollbackValues;
+        }
     {% endif %}
 
     return !empty($invalidProperties);

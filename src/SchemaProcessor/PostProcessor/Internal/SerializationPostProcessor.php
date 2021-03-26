@@ -2,7 +2,7 @@
 
 declare(strict_types = 1);
 
-namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
+namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 
 use JsonSerializable;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
@@ -10,6 +10,8 @@ use PHPModelGenerator\Interfaces\SerializationInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\FilterValidator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Traits\SerializableTrait;
 
 /**

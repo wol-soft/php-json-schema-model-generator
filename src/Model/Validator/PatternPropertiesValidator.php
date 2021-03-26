@@ -25,6 +25,10 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
 {
     /** @var PropertyInterface */
     private $validationProperty;
+    /** @var string */
+    private $pattern;
+    /** @var bool */
+    private $collectPatternProperties = false;
 
     /**
      * PatternPropertiesValidator constructor.
@@ -42,6 +46,7 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
         string $pattern,
         JsonSchema $propertyStructure
     ) {
+        $this->pattern = $pattern;
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
         $this->validationProperty = $propertyFactory->create(
@@ -56,14 +61,25 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
             new Property($schema->getClassName(), null, $propertyStructure),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PatternProperties.phptpl',
             [
-                'pattern' => "/$pattern/",
+                'patternHash' => md5($propertyStructure->getJson()['key'] ?? $this->pattern),
+                'pattern' => "/{$this->pattern}/",
                 'validationProperty' => $this->validationProperty,
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
+                'collectPatternProperties' => &$this->collectPatternProperties,
+                'schemaProperties' => $schema->getProperties(),
             ],
             InvalidPatternPropertiesException::class,
-            [$pattern, '&$invalidProperties']
+            [$this->pattern, '&$invalidProperties']
         );
+    }
+
+    /**
+     * @param bool $collectPatternProperties
+     */
+    public function setCollectPatternProperties(bool $collectPatternProperties): void
+    {
+        $this->collectPatternProperties = $collectPatternProperties;
     }
 
     /**
@@ -74,6 +90,14 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
         $this->removeRequiredPropertyValidator($this->validationProperty);
 
         return parent::getCheck();
+    }
+
+    /**
+     * @return string
+     */
+    public function getPattern(): string
+    {
+        return $this->pattern;
     }
 
     /**

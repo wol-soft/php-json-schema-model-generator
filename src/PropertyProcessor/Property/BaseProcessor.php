@@ -72,15 +72,15 @@ class BaseProcessor extends AbstractPropertyProcessor
         $property = new BaseProperty($propertyName, new PropertyType(static::TYPE), $propertySchema);
         $this->generateValidators($property, $propertySchema);
 
+        $this->addPropertiesToSchema($propertySchema);
+        $this->transferComposedPropertiesToSchema($property);
+
         $this->addPropertyNamesValidator($propertySchema);
         $this->addPatternPropertiesValidator($propertySchema);
         $this->addAdditionalPropertiesValidator($propertySchema);
 
         $this->addMinPropertiesValidator($propertyName, $propertySchema);
         $this->addMaxPropertiesValidator($propertyName, $propertySchema);
-
-        $this->addPropertiesToSchema($propertySchema);
-        $this->transferComposedPropertiesToSchema($property);
 
         return $property;
     }
@@ -179,14 +179,14 @@ class BaseProcessor extends AbstractPropertyProcessor
                 );
             }
 
-            $this->schema->addBaseValidator(
-                new PatternPropertiesValidator(
-                    $this->schemaProcessor,
-                    $this->schema,
-                    $pattern,
-                    $propertySchema->withJson($schema)
-                )
+            $validator = new PatternPropertiesValidator(
+                $this->schemaProcessor,
+                $this->schema,
+                $pattern,
+                $propertySchema->withJson($schema)
             );
+
+            $this->schema->addBaseValidator($validator);
         }
     }
 

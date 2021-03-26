@@ -144,7 +144,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             new RenderedMethod(
                 $schema,
                 $generatorConfiguration,
-                'AdditionalPropertiesSerializer.phptpl',
+                'AdditionalProperties/AdditionalPropertiesSerializer.phptpl',
                 [
                     'serializerClass' => $serializerClass ?? null,
                     'serializerMethod' => $serializerMethod ?? null,
@@ -185,7 +185,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             new RenderedMethod(
                 $schema,
                 $generatorConfiguration,
-                'SetAdditionalProperty.phptpl',
+                'AdditionalProperties/SetAdditionalProperty.phptpl',
                 [
                     'validationProperty' => $validationProperty,
                     'objectProperties' => $objectProperties,
@@ -227,7 +227,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             new RenderedMethod(
                 $schema,
                 $generatorConfiguration,
-                'RemoveAdditionalProperty.phptpl',
+                'AdditionalProperties/RemoveAdditionalProperty.phptpl',
                 ['minPropertyValidator' => $minPropertyValidator]
             )
         );
@@ -258,7 +258,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             new RenderedMethod(
                 $schema,
                 $generatorConfiguration,
-                'GetAdditionalProperty.phptpl',
+                'AdditionalProperties/GetAdditionalProperty.phptpl',
                 [
                     'validationProperty' => $validationProperty
                         // type hint always with null as a non existent property may be requested (casually covered by

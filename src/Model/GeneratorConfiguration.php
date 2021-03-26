@@ -7,7 +7,6 @@ namespace PHPModelGenerator\Model;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
-use PHPModelGenerator\Format\FormatValidatorFromRegEx;
 use PHPModelGenerator\Format\FormatValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;

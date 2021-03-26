@@ -33,5 +33,11 @@ public function removeAdditionalProperty(string $property): bool
     unset($this->_rawModelDataInput[$property]);
     unset($this->additionalProperties[$property]);
 
+    if (isset($this->_patternProperties)) {
+        foreach ($this->_patternProperties as $patternHash => $_) {
+            unset($this->_patternProperties[$patternHash][$property]);
+        }
+    }
+
     return true;
 }
