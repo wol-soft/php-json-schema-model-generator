@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Generic\EnumException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class EnumValidator
@@ -25,9 +26,7 @@ class EnumValidator extends PropertyValidator
 
         parent::__construct(
             $property,
-            '!in_array($value, ' .
-                preg_replace('(\d+\s=>)', '', var_export($allowedValues, true)) .
-            ', true)',
+            '!in_array($value, ' . RenderHelper::varExportArray($allowedValues) . ', true)',
             EnumException::class,
             [$allowedValues]
         );

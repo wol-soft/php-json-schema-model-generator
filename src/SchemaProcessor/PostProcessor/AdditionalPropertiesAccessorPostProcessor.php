@@ -23,6 +23,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class AdditionalPropertiesAccessorPostProcessor
@@ -179,15 +180,10 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         GeneratorConfiguration $generatorConfiguration,
         ?PropertyInterface $validationProperty
     ): void {
-        $objectProperties = preg_replace(
-            '(\d+\s=>)',
-            '',
-            var_export(
-                array_map(function (PropertyInterface $property): string {
-                    return $property->getName();
-                }, $schema->getProperties()),
-                true
-            )
+        $objectProperties = RenderHelper::varExportArray(
+            array_map(function (PropertyInterface $property): string {
+                return $property->getName();
+            }, $schema->getProperties())
         );
 
         $schema->addUsedClass(RegularPropertyAsAdditionalPropertyException::class);
@@ -295,6 +291,8 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             new class ($schema) extends PropertyTemplateValidator {
                 public function __construct(Schema $schema)
                 {
+                    $patternProperties = array_keys($schema->getJsonSchema()->getJson()['patternProperties'] ?? []);
+
                     parent::__construct(
                         new Property($schema->getClassName(), null, $schema->getJsonSchema()),
                         join(
@@ -309,13 +307,11 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                             ]
                         ),
                         [
-                            'additionalProperties' => preg_replace(
-                                '(\d+\s=>)',
-                                '',
-                                var_export(
-                                    array_keys($schema->getJsonSchema()->getJson()['properties'] ?? []),
-                                    true
-                                )
+                            'patternProperties' => $patternProperties
+                                ? RenderHelper::varExportArray($patternProperties)
+                                : null,
+                            'additionalProperties' => RenderHelper::varExportArray(
+                                array_keys($schema->getJsonSchema()->getJson()['properties'] ?? [])
                             ),
                         ],
                         Exception::class

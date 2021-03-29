@@ -157,4 +157,9 @@ class RenderHelper
 
         return implode('|', array_unique(explode('|', $typeHint)));
     }
+
+    public static function varExportArray(array $values): string
+    {
+        return preg_replace('(\d+\s=>)', '', var_export($values, true));
+    }
 }

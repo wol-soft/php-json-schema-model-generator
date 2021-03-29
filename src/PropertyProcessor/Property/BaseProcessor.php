@@ -29,6 +29,7 @@ use PHPModelGenerator\PropertyProcessor\ComposedValue\ComposedPropertiesInterfac
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class BaseObjectProcessor
@@ -151,7 +152,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                 new Property($this->schema->getClassName(), null, $propertySchema),
                 sprintf(
                     '$additionalProperties = array_diff(array_keys($modelData), %s)',
-                    preg_replace('(\d+\s=>)', '', var_export(array_keys($json['properties'] ?? []), true))
+                    RenderHelper::varExportArray(array_keys($json['properties'] ?? []))
                 ),
                 AdditionalPropertiesException::class,
                 ['&$additionalProperties']
@@ -173,9 +174,9 @@ class BaseProcessor extends AbstractPropertyProcessor
         }
 
         foreach ($json['patternProperties'] as $pattern => $schema) {
-            if (preg_match("/$pattern/", '') === false) {
+            if (@preg_match("/$pattern/", '') === false) {
                 throw new SchemaException(
-                    "Invalid pattern $pattern for pattern property in file {$propertySchema->getFile()}"
+                    "Invalid pattern '$pattern' for pattern property in file {$propertySchema->getFile()}"
                 );
             }
 

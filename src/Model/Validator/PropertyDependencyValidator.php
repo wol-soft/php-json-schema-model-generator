@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Dependency\InvalidPropertyDependencyException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class PropertyDependencyValidator
@@ -26,11 +27,7 @@ class PropertyDependencyValidator extends PropertyTemplateValidator
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PropertyDependency.phptpl',
             [
-                'dependencies' => preg_replace(
-                    '(\d+\s=>)',
-                    '',
-                    var_export(array_values($dependencies), true)
-                ),
+                'dependencies' => RenderHelper::varExportArray(array_values($dependencies)),
             ],
             InvalidPropertyDependencyException::class,
             ['&$missingAttributes']

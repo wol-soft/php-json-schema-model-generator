@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\PostProcessor;
 use Exception;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\UnknownPatternPropertyException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
@@ -40,6 +41,15 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
         $object = new $className();
 
         $this->assertFalse(is_callable([$object, 'getPatternProperties']));
+    }
+
+    public function testDuplicatePatternPropertiesAccessKeyThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches("/Duplicate pattern property access key 'Numerics' in file .*\.json/");
+
+        $this->addPostProcessors(new PatternPropertiesAccessorPostProcessor());
+        $this->generateClassFromFile('DuplicateKey.json');
     }
 
     public function testAccessingPatternProperties(): void
@@ -102,33 +112,27 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
 
         $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $object->getPatternProperties('Numerics'));
         $this->assertEqualsCanonicalizing(['beta' => null], $object->getPatternProperties('^b'));
-        $this->assertEqualsCanonicalizing(['a0' => 100], $object->getAdditionalProperties());
+        $this->assertSame([], $object->getAdditionalProperties());
 
         $object->setAdditionalProperty('b0', 'Hello');
         $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $object->getPatternProperties('Numerics'));
         $this->assertEqualsCanonicalizing(['beta' => null, 'b0' => 'Hello'], $object->getPatternProperties('^b'));
-        $this->assertEqualsCanonicalizing(['a0' => 100, 'b0' => 'Hello'], $object->getAdditionalProperties());
+        $this->assertSame([], $object->getAdditionalProperties());
 
         $object->setAdditionalProperty('c0', false);
         $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $object->getPatternProperties('Numerics'));
-        $this->assertEqualsCanonicalizing(['beta' => null, 'b0' => 'Hello'], $object->getPatternProperties('^b'));
-        $this->assertEqualsCanonicalizing(
-            ['a0' => 100, 'b0' => 'Hello', 'c0' => false],
-            $object->getAdditionalProperties()
-        );
+        $this->assertSame(['beta' => null, 'b0' => 'Hello'], $object->getPatternProperties('^b'));
+        $this->assertSame(['c0' => false], $object->getAdditionalProperties());
 
         $object->setAdditionalProperty('a0', 10);
         $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 10], $object->getPatternProperties('Numerics'));
         $this->assertEqualsCanonicalizing(['beta' => null, 'b0' => 'Hello'], $object->getPatternProperties('^b'));
-        $this->assertEqualsCanonicalizing(
-            ['a0' => 10, 'b0' => 'Hello', 'c0' => false],
-            $object->getAdditionalProperties()
-        );
+        $this->assertSame(['c0' => false], $object->getAdditionalProperties());
 
         $object->removeAdditionalProperty('a0');
         $this->assertEqualsCanonicalizing(['alpha' => null], $object->getPatternProperties('Numerics'));
         $this->assertEqualsCanonicalizing(['beta' => null, 'b0' => 'Hello'], $object->getPatternProperties('^b'));
-        $this->assertEqualsCanonicalizing(['b0' => 'Hello', 'c0' => false], $object->getAdditionalProperties());
+        $this->assertSame(['c0' => false], $object->getAdditionalProperties());
     }
 
     /**

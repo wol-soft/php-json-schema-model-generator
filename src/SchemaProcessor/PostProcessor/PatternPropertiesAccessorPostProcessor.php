@@ -49,9 +49,9 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
                 $key = $json['patternProperties'][$validator->getPattern()]['key'] ?? $validator->getPattern();
                 $hash = md5($key);
 
-                if (in_array($hash, $patternHashes)) {
+                if (array_key_exists($hash, $patternHashes)) {
                     throw new SchemaException(
-                        "Duplicate pattern property key '$key' in file {$schema->getJsonSchema()->getFile()}"
+                        "Duplicate pattern property access key '$key' in file {$schema->getJsonSchema()->getFile()}"
                     );
                 }
 

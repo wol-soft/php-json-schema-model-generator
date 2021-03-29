@@ -4,12 +4,26 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use stdClass;
 
+/**
+ * Class PatternPropertiesTest
+ *
+ * @package PHPModelGenerator\Tests\Basic
+ */
 class PatternPropertiesTest extends AbstractPHPModelGeneratorTest
 {
+    public function testInvalidPatternThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches("/Invalid pattern 'ab\[c' for pattern property in file .*\.json/");
+
+        $this->generateClassFromFile('InvalidPattern.json');
+    }
+
     /**
      * @dataProvider invalidTypedPatternPropertyDataProvider
      */

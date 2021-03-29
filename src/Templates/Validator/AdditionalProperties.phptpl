@@ -7,6 +7,14 @@
     {% endif %}
 
     foreach (array_diff(array_keys($properties), {{ additionalProperties }}) as $propertyKey) {
+        {% if patternProperties %}
+            foreach ({{ patternProperties }} as $pattern) {
+                if (preg_match("/$pattern/", $property)) {
+                    continue 2;
+                }
+            }
+        {% endif %}
+
         try {
             $value = $properties[$propertyKey];
 
