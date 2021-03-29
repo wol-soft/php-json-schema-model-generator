@@ -33,7 +33,9 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     public function testNotResolvedReferenceThrowsAnException(string $reference): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches("/Unresolved Reference $reference in file .*\.json/");
+        $this->expectExceptionMessageMatches(
+            sprintf('/Unresolved Reference %s in file .*\.json/', str_replace('/', '\/', $reference))
+        );
 
         $this->generateClassFromFileTemplate('NotResolvedReference.json', [$reference]);
     }
