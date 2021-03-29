@@ -1,0 +1,7 @@
+(function () use ($value) {
+    foreach (array_diff(array_keys($value), {{ additionalProperties }}) as $propertyKey) {
+        $this->additionalProperties[$propertyKey] = $value[$propertyKey];
+    }
+
+    return false;
+})()

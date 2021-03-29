@@ -136,7 +136,7 @@ Generated interface with the **AdditionalPropertiesAccessorPostProcessor**:
 
 **getAdditionalProperty**: Returns the current value of a single additional property. If the requested property doesn't exist null will be returned. Returns as well as *getAdditionalProperties* the processed values.
 
-**setAdditionalProperty**: Adds or updates an additional property. Performs all necessary validations like property names or min and max properties validations will be performed. If the additional properties are processed via a transforming filter an already transformed value will be accepted. If a property which is regularly defined in the schema a *RegularPropertyAsAdditionalPropertyException* will be thrown. If the change is valid and performed also the output of *getRawModelDataInput* will be updated.
+**setAdditionalProperty**: Adds or updates an additional property. Performs all necessary validations like property names or min and max properties validations. If the additional properties are processed via a transforming filter an already transformed value will be accepted. If a property which is regularly defined in the schema a *RegularPropertyAsAdditionalPropertyException* will be thrown. If the change is valid and performed also the output of *getRawModelDataInput* will be updated.
 
 **removeAdditionalProperty**: Removes an existing additional property from the model. Returns true if the additional property has been removed, false otherwise (if no additional property with the requested key exists). May throw a *MinPropertiesException* if the change would result in an invalid model state. If the change is valid and performed also the output of *getRawModelDataInput* will be updated.
 

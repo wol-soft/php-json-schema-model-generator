@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "alpha": {
+      "type": "integer",
+      "minimum": 10
+    },
+    "beta": {
+      "type": "string",
+      "minLength": 5
+    }
+  },
+  "patternProperties": {
+    "^a": {
+      "type": "integer",
+      "multipleOf": 10,
+      "key": "Numerics"
+    },
+    "^b": {
+      "type": "string",
+      "pattern": "[a-zA-Z]*"
+    }
+  }
+}

@@ -111,7 +111,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             $this->assertSame('array', $returnType->getName());
             $this->assertFalse($returnType->allowsNull());
 
-            $this->assertEmpty($this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperty'));
+            $this->assertSame('mixed', $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperty'));
             $this->assertNull($this->getReturnType($object, 'getAdditionalProperty'));
         }
     }
@@ -124,13 +124,24 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             (new GeneratorConfiguration())->setImmutable(false)
         );
 
-        $object = new $className();
-
-        $this->assertTrue(is_callable([$object, 'setAdditionalProperty']));
-        $this->assertTrue(is_callable([$object, 'removeAdditionalProperty']));
+        $object = new $className(['property1' => 100]);
 
         $this->assertSame('mixed', $this->getMethodParameterTypeAnnotation($object, 'setAdditionalProperty', 1));
         $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
+        $this->assertSame('mixed', $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperty'));
+
+        $this->assertSame(100, $object->getAdditionalProperty('property1'));
+        $this->assertEqualsCanonicalizing(['property1' => 100], $object->getAdditionalProperties());
+
+        $object->setAdditionalProperty('property2', 200);
+        $this->assertEqualsCanonicalizing(['property1' => 100, 'property2' => 200], $object->getAdditionalProperties());
+
+        $object->setAdditionalProperty('property1', 10);
+        $this->assertEqualsCanonicalizing(['property1' => 10, 'property2' => 200], $object->getAdditionalProperties());
+
+        $object->removeAdditionalProperty('property1');
+        $this->assertEqualsCanonicalizing(['property2' => 200], $object->getAdditionalProperties());
+        $this->assertNull($object->getAdditionalProperty('property1'));
     }
 
     /**
@@ -156,7 +167,10 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertFalse(is_callable([$object, 'setAdditionalProperty']));
         $this->assertFalse(is_callable([$object, 'removeAdditionalProperty']));
 
-        $this->assertSame(['property1' => 'Hello', 'property2' => 'World'], $object->getAdditionalProperties());
+        $this->assertEqualsCanonicalizing(
+            ['property1' => 'Hello', 'property2' => 'World'],
+             $object->getAdditionalProperties()
+         );
         $this->assertSame('Hello', $object->getAdditionalProperty('property1'));
         $this->assertSame('World', $object->getAdditionalProperty('property2'));
         $this->assertNull($object->getAdditionalProperty('property3'));
@@ -187,11 +201,11 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         // test adding a new additional property
         $object->setAdditionalProperty('property3', '  Good night  ');
-        $this->assertSame(
+        $this->assertEqualsCanonicalizing(
             ['property1' => 'Hello', 'property2' => 'World', 'property3' => 'Good night'],
             $object->getAdditionalProperties()
         );
-        $this->assertSame(
+        $this->assertEqualsCanonicalizing(
             ['property1' => '  Hello  ', 'property2' => 'World', 'property3' => '  Good night  '],
             $object->getRawModelDataInput()
         );
@@ -200,22 +214,22 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         // test removing an additional property
         $this->assertTrue($object->removeAdditionalProperty('property2'));
         $this->assertFalse($object->removeAdditionalProperty('property2'));
-        $this->assertSame(
+        $this->assertEqualsCanonicalizing(
             ['property1' => 'Hello', 'property3' => 'Good night'],
             $object->getAdditionalProperties()
         );
-        $this->assertSame(
+        $this->assertEqualsCanonicalizing(
             ['property1' => '  Hello  ', 'property3' => '  Good night  '],
             $object->getRawModelDataInput()
         );
 
         // test update an existing additional property
         $object->setAdditionalProperty('property3', '  !Good night!  ');
-        $this->assertSame(
+        $this->assertEqualsCanonicalizing(
             ['property1' => 'Hello', 'property3' => '!Good night!'],
             $object->getAdditionalProperties()
         );
-        $this->assertSame(
+        $this->assertEqualsCanonicalizing(
             ['property1' => '  Hello  ', 'property3' => '  !Good night!  '],
             $object->getRawModelDataInput()
         );
@@ -363,7 +377,10 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertInstanceOf(DateTime::class, $object->getAdditionalProperty('end'));
         $this->assertInstanceOf(DateTime::class, $object->getAdditionalProperties()['end']);
 
-        $this->assertSame(['name' => 'Late autumn', 'start' => '20201010', 'end' => '20201212'], $object->toArray());
+        $this->assertEqualsCanonicalizing(
+            ['name' => 'Late autumn', 'start' => '20201010', 'end' => '20201212'],
+            $object->toArray()
+        );
 
         // test adding a transformed value
         $object->setAdditionalProperty('now', new DateTime());

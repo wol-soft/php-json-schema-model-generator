@@ -49,6 +49,23 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     }
 
     /**
+     * Polyfill for assertRegEx to avoid warnings during test execution
+     *
+     * TODO: remove and switch all calls to assertMatchesRegularExpression when dropping support for PHPUnit < 9.1
+     * TODO: (dropping support for PHP < 7.4)
+     *
+     * @param string $pattern
+     * @param string $string
+     * @param string $message
+     */
+    public static function assertRegExp(string $pattern, string $string, string $message = ''): void
+    {
+        is_callable([parent::class, 'assertMatchesRegularExpression'])
+            ? parent::assertMatchesRegularExpression($pattern, $string, $message)
+            : parent::assertRegExp($pattern, $string, $message);
+    }
+
+    /**
      * Check if the test has failed. In this case move all JSON files and generated classes in a directory for debugging
      *
      * Additionally clear the test folder so the next test starts in an empty environment

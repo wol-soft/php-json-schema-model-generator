@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
+use Exception;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\Object\RegularPropertyAsAdditionalPropertyException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -17,6 +18,7 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SerializedValue;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
+use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
@@ -44,11 +46,14 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
     {
         $this->addForModelsWithoutAdditionalPropertiesDefinition = $addForModelsWithoutAdditionalPropertiesDefinition;
     }
+
     /**
      * Add methods to handle additional properties to the provided schema
      *
      * @param Schema $schema
      * @param GeneratorConfiguration $generatorConfiguration
+     *
+     * @throws SchemaException
      */
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
@@ -80,6 +85,10 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             $this->addSetAdditionalPropertyMethod($schema, $generatorConfiguration, $validationProperty);
             $this->addRemoveAdditionalPropertyMethod($schema, $generatorConfiguration);
         }
+
+        if (!isset($json['additionalProperties']) || $json['additionalProperties'] === true) {
+            $this->addUpdateAdditionalProperties($schema);
+        }
     }
 
     /**
@@ -87,6 +96,8 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
      *
      * @param Schema $schema
      * @param PropertyInterface|null $validationProperty
+     *
+     * @throws SchemaException
      */
     private function addAdditionalPropertiesCollectionProperty(
         Schema $schema,
@@ -267,6 +278,50 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                         : null
                 ]
             )
+        );
+    }
+
+    /**
+     * Usually the AdditionalPropertiesValidator validates all additional properties against the constraints and updates
+     * the internal storage of the additional properties. If no additional property constraints are defined for the
+     * schema the provided additional properties must be updated separately as no AdditionalPropertiesValidator is added
+     * to the generated class.
+     *
+     * @param Schema $schema
+     */
+    private function addUpdateAdditionalProperties(Schema $schema): void
+    {
+        $schema->addBaseValidator(
+            new class ($schema) extends PropertyTemplateValidator {
+                public function __construct(Schema $schema)
+                {
+                    parent::__construct(
+                        new Property($schema->getClassName(), null, $schema->getJsonSchema()),
+                        join(
+                            DIRECTORY_SEPARATOR,
+                            [
+                                '..',
+                                'SchemaProcessor',
+                                'PostProcessor',
+                                'Templates',
+                                'AdditionalProperties',
+                                'UpdateAdditionalProperties.phptpl',
+                            ]
+                        ),
+                        [
+                            'additionalProperties' => preg_replace(
+                                '(\d+\s=>)',
+                                '',
+                                var_export(
+                                    array_keys($schema->getJsonSchema()->getJson()['properties'] ?? []),
+                                    true
+                                )
+                            ),
+                        ],
+                        Exception::class
+                    );
+                }
+            }
         );
     }
 }
