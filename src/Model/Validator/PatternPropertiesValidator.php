@@ -27,6 +27,8 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
     private $validationProperty;
     /** @var string */
     private $pattern;
+    /** @var string */
+    private $key;
     /** @var bool */
     private $collectPatternProperties = false;
 
@@ -47,6 +49,8 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
         JsonSchema $propertyStructure
     ) {
         $this->pattern = $pattern;
+        $this->key = md5($propertyStructure->getJson()['key'] ?? $this->pattern);
+
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
         $this->validationProperty = $propertyFactory->create(
@@ -61,7 +65,7 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
             new Property($schema->getClassName(), null, $propertyStructure),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PatternProperties.phptpl',
             [
-                'patternHash' => md5($propertyStructure->getJson()['key'] ?? $this->pattern),
+                'patternHash' => $this->key,
                 'pattern' => "/{$this->pattern}/",
                 'validationProperty' => $this->validationProperty,
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
@@ -98,6 +102,22 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
     public function getPattern(): string
     {
         return $this->pattern;
+    }
+
+    /**
+     * @return string
+     */
+    public function getKey(): string
+    {
+        return $this->key;
+    }
+
+    /**
+     * @return PropertyInterface
+     */
+    public function getValidationProperty(): PropertyInterface
+    {
+        return $this->validationProperty;
     }
 
     /**

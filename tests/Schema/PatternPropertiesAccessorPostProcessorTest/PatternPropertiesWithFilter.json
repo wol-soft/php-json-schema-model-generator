@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "alpha": {
+      "type": "string"
+    }
+  },
+  "patternProperties": {
+    "^a": {
+      "type": "string",
+      "filter": {
+        "filter": "dateTime",
+        "outputFormat": "d.m.Y"
+      }
+    }
+  }
+}

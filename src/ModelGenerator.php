@@ -9,8 +9,11 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\CompositionValidationPostProcessor;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\SerializationPostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\ {
+    CompositionValidationPostProcessor,
+    ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor,
+    SerializationPostProcessor
+};
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -39,12 +42,14 @@ class ModelGenerator
     {
         $this->generatorConfiguration = $generatorConfiguration ?? new GeneratorConfiguration();
 
+        // add internal post processors which must always be executed
+        $this
+            ->addPostProcessor(new CompositionValidationPostProcessor())
+            ->addPostProcessor(new ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor());
+
         if ($this->generatorConfiguration->hasSerializationEnabled()) {
             $this->addPostProcessor(new SerializationPostProcessor());
         }
-
-        // add internal post processors which must always be executed
-        $this->addPostProcessor(new CompositionValidationPostProcessor());
     }
 
     /**

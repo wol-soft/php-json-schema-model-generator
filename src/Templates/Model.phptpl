@@ -1,5 +1,8 @@
 <?php
 
+// @codingStandardsIgnoreFile
+// @codeCoverageIgnoreStart
+
 declare(strict_types = 1);
 
 {% if namespace %}
@@ -75,7 +78,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
     {% if schema.getBaseValidators() %}
         private function executeBaseValidators(array &$modelData): void
         {
-            $value = $modelData;
+            $value = &$modelData;
 
             {% foreach baseValidatorsWithoutCompositions as validator %}
                 {{ validator.getValidatorSetUp() }}
@@ -204,3 +207,5 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
         {{ method.getCode(generatorConfiguration) }}
     {% endforeach %}
 }
+
+// @codeCoverageIgnoreEnd

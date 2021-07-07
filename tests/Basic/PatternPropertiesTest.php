@@ -75,4 +75,14 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTest
             'mixed string' => ['1234a'],
         ];
     }
+
+    public function testMultipleTransformingFiltersForPatternPropertiesAndObjectPropertyThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage(
+            'Applying multiple transforming filters for property alpha is not supported'
+        );
+
+        $this->generateClassFromFile('MultipleTransformingFilters.json');
+    }
 }

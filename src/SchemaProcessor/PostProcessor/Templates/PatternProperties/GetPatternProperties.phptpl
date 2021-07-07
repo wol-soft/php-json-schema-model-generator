@@ -3,7 +3,7 @@
  *
  * @param string $key The key of the pattern properties
  *
- * @return array
+ * @return {{ returnTypeAnnotation }}
  *
  * @throws UnknownPatternPropertyException if pattern properties with an unknown key are requested
  */

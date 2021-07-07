@@ -330,7 +330,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
                     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
                     {
                         $schema->addSchemaHook(new class () implements SetterBeforeValidationHookInterface {
-                            public function getCode(PropertyInterface $property): string
+                            public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
                             {
                                 return 'throw new \Exception("SetterBeforeValidationHook");';
                             }

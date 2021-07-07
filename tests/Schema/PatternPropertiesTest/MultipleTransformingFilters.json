@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "alpha": {
+      "type": "string",
+      "filter": "dateTime"
+    }
+  },
+  "patternProperties": {
+    "^a": {
+      "type": "string",
+      "filter": "dateTime"
+    }
+  }
+}

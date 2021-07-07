@@ -29,17 +29,22 @@ class SchemaHookResolver
 
     public function resolveGetterHook(PropertyInterface $property): string
     {
-        return $this->resolveHookWithProperty(GetterHookInterface::class, $property);
+        return $this->resolveHook(GetterHookInterface::class, $property);
     }
 
-    public function resolveSetterBeforeValidationHook(PropertyInterface $property): string
+    public function resolveSetterBeforeValidationHook(PropertyInterface $property, bool $batchUpdate = false): string
     {
-        return $this->resolveHookWithProperty(SetterBeforeValidationHookInterface::class, $property);
+        return $this->resolveHook(SetterBeforeValidationHookInterface::class, $property, $batchUpdate);
     }
 
-    public function resolveSetterAfterValidationHook(PropertyInterface $property): string
+    public function resolveSetterAfterValidationHook(PropertyInterface $property, bool $batchUpdate = false): string
     {
-        return $this->resolveHookWithProperty(SetterAfterValidationHookInterface::class, $property);
+        return $this->resolveHook(SetterAfterValidationHookInterface::class, $property, $batchUpdate);
+    }
+
+    public function resolveSerializationHook(): string
+    {
+        return $this->resolveHook(SerializationHookInterface::class);
     }
 
     private function getHooks(string $filterHook): array
@@ -52,22 +57,12 @@ class SchemaHookResolver
         );
     }
 
-    private function resolveHook(string $filterHook): string
+    private function resolveHook(string $filterHook, ...$parameters): string
     {
         return join(
             "\n\n",
-            array_map(function ($hook): string {
-                return $hook->getCode();
-            }, $this->getHooks($filterHook))
-        );
-    }
-
-    private function resolveHookWithProperty(string $filterHook, PropertyInterface $property): string
-    {
-        return join(
-            "\n\n",
-            array_map(function ($hook) use ($property): string {
-                return $hook->getCode($property);
+            array_map(function ($hook) use ($parameters): string {
+                return $hook->getCode(...$parameters);
             }, $this->getHooks($filterHook))
         );
     }

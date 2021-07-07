@@ -14,7 +14,6 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\ConstructorBeforeValidationHookInterface;
-use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 
 /**
  * Class PatternPropertiesAccessorPostProcessor
@@ -40,22 +39,24 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
         }
 
         $patternHashes = [];
+        $patternTypes = [];
         $schemaProperties = array_keys($json['properties'] ?? []);
 
         foreach ($schema->getBaseValidators() as $validator) {
             if (is_a($validator, PatternPropertiesValidator::class)) {
                 $validator->setCollectPatternProperties(true);
 
-                $key = $json['patternProperties'][$validator->getPattern()]['key'] ?? $validator->getPattern();
-                $hash = md5($key);
+                array_push($patternTypes, $validator->getValidationProperty()->getType(true));
 
-                if (array_key_exists($hash, $patternHashes)) {
+                if (array_key_exists($validator->getKey(), $patternHashes)) {
+                    $key = $json['patternProperties'][$validator->getPattern()]['key'] ?? $validator->getPattern();
+
                     throw new SchemaException(
                         "Duplicate pattern property access key '$key' in file {$schema->getJsonSchema()->getFile()}"
                     );
                 }
 
-                $patternHashes[$hash] = array_reduce(
+                $patternHashes[$validator->getKey()] = array_reduce(
                     $schema->getProperties(),
                     function (array $carry, PropertyInterface $property) use ($schemaProperties, $validator): array {
                         if (in_array($property->getName(), $schemaProperties) &&
@@ -72,11 +73,10 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
         }
 
         $this->initObjectPropertiesMatchingPatternProperties($schema, $patternHashes);
-        $this->extendObjectPropertiesMatchingPatternValidation($schema);
 
         $this->addPatternPropertiesCollectionProperty($schema, array_keys($patternHashes));
         $this->addPatternPropertiesMapProperty($schema);
-        $this->addGetPatternPropertiesMethod($schema, $generatorConfiguration);
+        $this->addGetPatternPropertiesMethod($schema, $generatorConfiguration, $patternTypes);
     }
 
     /**
@@ -134,10 +134,12 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
      *
      * @param Schema $schema
      * @param GeneratorConfiguration $generatorConfiguration
+     * @param PropertyType[] $patternTypes
      */
     private function addGetPatternPropertiesMethod(
         Schema $schema,
-        GeneratorConfiguration $generatorConfiguration
+        GeneratorConfiguration $generatorConfiguration,
+        array $patternTypes
     ): void {
         $schema
             ->addUsedClass(UnknownPatternPropertyException::class)
@@ -146,7 +148,10 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
                 new RenderedMethod(
                     $schema,
                     $generatorConfiguration,
-                    'PatternProperties/GetPatternProperties.phptpl'
+                    'PatternProperties/GetPatternProperties.phptpl',
+                    [
+                        'returnTypeAnnotation' => $this->getReturnTypeAnnotationForGetPatternProperties($patternTypes),
+                    ]
                 )
             );
     }
@@ -196,45 +201,31 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
     }
 
     /**
-     * Each setter call
-     * @param Schema $schema
+     * @param PropertyType[] $patternTypes
+     *
+     * @return string
      */
-    private function extendObjectPropertiesMatchingPatternValidation(Schema $schema): void
+    private function getReturnTypeAnnotationForGetPatternProperties(array $patternTypes): string
     {
-        $schema->addSchemaHook(
-            new class (
-                array_keys($schema->getJsonSchema()->getJson()['patternProperties'])
-            ) implements SetterBeforeValidationHookInterface {
-                /** @var array */
-                private $pattern;
-
-                public function __construct(array $pattern)
-                {
-                    $this->pattern = $pattern;
-                }
-
-                public function getCode(PropertyInterface $property): string
-                {
-                    $matchesAnyPattern = false;
-                    foreach ($this->pattern as $pattern) {
-                        if (preg_match("/$pattern/", $property->getName())) {
-                            $matchesAnyPattern = true;
-                            break;
-                        }
-                    }
-
-                    // TODO: extract pattern property validation from the base validator into a separate method and
-                    // TODO: call only the pattern property validation at this location to avoid executing unnecessary
-                    // TODO: validators
-                    return $matchesAnyPattern ? sprintf('
-                        if (!isset($hasExecutedBaseValidators)) {
-                            $modelData = array_merge($this->_rawModelDataInput, ["%s" => $value]);
-                            $this->executeBaseValidators($modelData);
-                        }',
-                        $property->getName()
-                    ) : '';
-                }
-            }
+        $baseTypes = array_unique(array_map(
+                function (PropertyType $type): string {
+                    return $type->getName();
+                },
+                $patternTypes)
         );
+
+        $nullable = array_reduce(
+            $patternTypes,
+            function (bool $carry, PropertyType $type): bool {
+                return $carry || $type->isNullable();
+            },
+            false
+        );
+
+        if ($nullable) {
+            array_push($baseTypes, 'null');
+        }
+
+        return join('[]|', $baseTypes) . '[]';
     }
 }

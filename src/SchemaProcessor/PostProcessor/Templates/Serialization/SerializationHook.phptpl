@@ -1,0 +1,8 @@
+{% if schemaHookResolver.resolveSerializationHook() %}
+    protected function resolveSerializationHook(array $data, int $depth, array $except): array
+    {
+        {{ schemaHookResolver.resolveSerializationHook() }}
+
+        return $data;
+    }
+{% endif %}

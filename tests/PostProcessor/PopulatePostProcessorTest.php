@@ -212,7 +212,7 @@ Invalid type for age. Requires int, got boolean"
                 public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
                 {
                     $schema->addSchemaHook(new class () implements SetterBeforeValidationHookInterface {
-                        public function getCode(PropertyInterface $property): string
+                        public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
                         {
                             return $property->getName() === 'age'
                                 ? 'throw new \Exception("SetterBeforeValidationHook");'
@@ -256,7 +256,7 @@ Invalid type for age. Requires int, got boolean"
                 public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
                 {
                     $schema->addSchemaHook(new class () implements SetterAfterValidationHookInterface {
-                        public function getCode(PropertyInterface $property): string
+                        public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
                         {
                             return $property->getName() === 'age'
                                 ? 'throw new \Exception("SetterAfterValidationHook");'

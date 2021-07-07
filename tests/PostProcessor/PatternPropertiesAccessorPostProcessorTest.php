@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\PostProcessor;
 
+use DateTime;
 use Exception;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\UnknownPatternPropertyException;
@@ -174,9 +175,8 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
         $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $object->getPatternProperties('Numerics'));
         $this->assertSame('Hello', $object->getPatternProperties('^b')['b0']);
 
-        // TODO: bug: value gets updated
-        // $this->assertEqualsCanonicalizing(['a0' => 100, 'b0' => 'Hello'], $object->getAdditionalProperties());
-        // $this->assertEqualsCanonicalizing(['a0' => 100, 'b0' => 'Hello'], $object->getRawModelDataInput());
+        $this->assertSame([], $object->getAdditionalProperties());
+        $this->assertEqualsCanonicalizing(['a0' => 100, 'b0' => 'Hello'], $object->getRawModelDataInput());
     }
 
     public function invalidPatternPropertiesDataProvider(): array
@@ -208,12 +208,23 @@ ERROR
 
     public function testModifyingPatternPropertiesViaPopulate(): void
     {
-        $this->addPostProcessors(new PatternPropertiesAccessorPostProcessor(), new PopulatePostProcessor());
-        $className = $this->generateClassFromFile('PatternProperties.json');
+        $this->addPostProcessors(
+            new PatternPropertiesAccessorPostProcessor(),
+            new PopulatePostProcessor(),
+            new AdditionalPropertiesAccessorPostProcessor(true)
+        );
+
+        $className = $this->generateClassFromFile(
+            'PatternProperties.json',
+            (new GeneratorConfiguration())->setSerialization(true)
+        );
 
         $object = new $className(['a0' => 100]);
+        $this->assertNull($object->getAlpha());
         $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $object->getPatternProperties('Numerics'));
         $this->assertEqualsCanonicalizing(['beta' => null], $object->getPatternProperties('^b'));
+        $this->assertSame([], $object->getAdditionalProperties());
+        $this->assertEqualsCanonicalizing(['a0' => 100, 'alpha' => null, 'beta' => null], $object->toArray());
 
         $object->populate(['a1' => 0, 'a2' => 10, 'b1' => 'Hello', 'c1' => 'World']);
         $this->assertEqualsCanonicalizing(
@@ -221,15 +232,35 @@ ERROR
             $object->getPatternProperties('Numerics')
         );
         $this->assertEqualsCanonicalizing(['beta' => null, 'b1' => 'Hello'], $object->getPatternProperties('^b'));
-
-        $object->populate(['a1' => -10, 'b2' => 'World']);
+        $this->assertSame(['c1' => 'World'], $object->getAdditionalProperties());
         $this->assertEqualsCanonicalizing(
-            ['alpha' => null, 'a0' => 100, 'a1' => -10, 'a2' => 10],
+            ['a0' => 100, 'a1' => 0, 'a2' => 10, 'b1' => 'Hello', 'c1' => 'World', 'alpha' => null, 'beta' => null],
+            $object->toArray()
+        );
+
+        $object->populate(['alpha' => 100, 'a1' => -10, 'b2' => 'World']);
+        $this->assertSame(100, $object->getAlpha());
+        $this->assertEqualsCanonicalizing(
+            ['alpha' => 100, 'a0' => 100, 'a1' => -10, 'a2' => 10],
             $object->getPatternProperties('Numerics')
         );
         $this->assertEqualsCanonicalizing(
             ['beta' => null, 'b1' => 'Hello', 'b2' => 'World'],
             $object->getPatternProperties('^b')
+        );
+        $this->assertSame(['c1' => 'World'], $object->getAdditionalProperties());
+        $this->assertEqualsCanonicalizing(
+            [
+                'a0' => 100,
+                'a1' => -10,
+                'a2' => 10,
+                'b1' => 'Hello',
+                'b2' => 'World',
+                'c1' => 'World',
+                'alpha' => 100,
+                'beta' => null,
+            ],
+            $object->toArray()
         );
     }
 
@@ -365,5 +396,44 @@ Value for alpha must not be smaller than 10
 ERROR
             ],
         ];
+    }
+
+    public function testPatternPropertiesWithFilter(): void
+    {
+        $this->addPostProcessors(
+            new PatternPropertiesAccessorPostProcessor(),
+            new AdditionalPropertiesAccessorPostProcessor(true)
+        );
+
+        $className = $this->generateClassFromFile(
+            'PatternPropertiesWithFilter.json',
+            (new GeneratorConfiguration())->setSerialization(true)->setImmutable(false)
+        );
+
+        $data = ['alpha' => '01.01.1970', 'a0' => '31.12.2020', 'b' => '11.11.2011'];
+        $object = new $className($data);
+        $this->assertInstanceOf(DateTime::class, $object->getAlpha());
+        $this->assertInstanceOf(DateTime::class, $object->getPatternProperties('^a')['a0']);
+
+        $this->assertSame('01.01.1970', $object->getAlpha()->format('d.m.Y'));
+        $this->assertSame('11.11.2011', $object->getAdditionalProperty('b'));
+
+        // test correct serialization
+        $this->assertEqualsCanonicalizing($data, $object->toArray());
+        $this->assertSame(json_encode($data), $object->toJson());
+
+        // test typing
+        $this->assertSame('DateTime|null', $this->getMethodReturnTypeAnnotation($object, 'getAlpha'));
+        $returnType = $this->getReturnType($object, 'getAlpha');
+        $this->assertSame('DateTime', $returnType->getName());
+        $this->assertTrue($returnType->allowsNull());
+
+        $this->assertSame('string|DateTime|null', $this->getMethodParameterTypeAnnotation($object, 'setAlpha'));
+        $this->assertNull($this->getParameterType($object, 'setAlpha'));
+
+        $this->assertSame('DateTime[]|null[]', $this->getMethodReturnTypeAnnotation($object, 'getPatternProperties'));
+        $returnType = $this->getReturnType($object, 'getPatternProperties');
+        $this->assertSame('array', $returnType->getName());
+        $this->assertFalse($returnType->allowsNull());
     }
 }
