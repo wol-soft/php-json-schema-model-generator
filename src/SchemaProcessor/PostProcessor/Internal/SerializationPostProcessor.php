@@ -130,7 +130,6 @@ class SerializationPostProcessor extends PostProcessor
                 $generatorConfiguration,
                 join(DIRECTORY_SEPARATOR, ['Serialization', 'SerializationHook.phptpl']),
                 [
-
                     'schemaHookResolver' => new SchemaHookResolver($schema),
                 ]
             )
