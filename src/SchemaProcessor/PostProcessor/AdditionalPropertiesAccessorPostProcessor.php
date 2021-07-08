@@ -103,9 +103,17 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         ?PropertyInterface $validationProperty
     ): void {
         $objectProperties = RenderHelper::varExportArray(
-            array_map(function (PropertyInterface $property): string {
-                return $property->getName();
-            }, $schema->getProperties())
+            array_map(
+                function (PropertyInterface $property): string {
+                    return $property->getName();
+                },
+                array_filter(
+                    $schema->getProperties(),
+                    function (PropertyInterface $property): bool {
+                        return !$property->isInternal();
+                    }
+                )
+            )
         );
 
         $schema->addUsedClass(RegularPropertyAsAdditionalPropertyException::class);

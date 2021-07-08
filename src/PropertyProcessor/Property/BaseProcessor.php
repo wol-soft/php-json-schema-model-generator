@@ -7,7 +7,6 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
 use PHPMicroTemplate\Exception\FileSystemException;
 use PHPMicroTemplate\Exception\SyntaxErrorException;
 use PHPMicroTemplate\Exception\UndefinedSymbolException;
-use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\MaxPropertiesException;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -20,6 +19,7 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\NoAdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyNamesValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
@@ -29,7 +29,6 @@ use PHPModelGenerator\PropertyProcessor\ComposedValue\ComposedPropertiesInterfac
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
-use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class BaseObjectProcessor
@@ -148,14 +147,9 @@ class BaseProcessor extends AbstractPropertyProcessor
         }
 
         $this->schema->addBaseValidator(
-            new PropertyValidator(
+            new NoAdditionalPropertiesValidator(
                 new Property($this->schema->getClassName(), null, $propertySchema),
-                sprintf(
-                    '$additionalProperties = array_diff(array_keys($modelData), %s)',
-                    RenderHelper::varExportArray(array_keys($json['properties'] ?? []))
-                ),
-                AdditionalPropertiesException::class,
-                ['&$additionalProperties']
+                $json
             )
         );
     }

@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\PostProcessor;
 use DateTime;
 use Exception;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\UnknownPatternPropertyException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
@@ -458,5 +459,28 @@ ERROR
         $returnType = $this->getReturnType($object, 'getPatternProperties');
         $this->assertSame('array', $returnType->getName());
         $this->assertFalse($returnType->allowsNull());
+    }
+
+    public function testPatternPropertiesCanBeAddedWhenAdditionalPropertiesAreDenied(): void
+    {
+        $this->addPostProcessors(new PatternPropertiesAccessorPostProcessor(), new PopulatePostProcessor());
+
+        $className = $this->generateClassFromFile(
+            'PatternPropertiesWithAdditionalPropertiesDenied.json',
+            (new GeneratorConfiguration())->setSerialization(true)->setImmutable(false)->setCollectErrors(false)
+        );
+
+        $object = new $className(['a0' => 'Hello', 'a1' => 'World']);
+        $this->assertEqualsCanonicalizing(['a0' => 'Hello', 'a1' => 'World'], $object->toArray());
+
+        $object->populate(['a0' => 'Goodbye', 'a2' => 'cya']);
+        $this->assertEqualsCanonicalizing(['a0' => 'Goodbye', 'a1' => 'World', 'a2' => 'cya'], $object->toArray());
+
+        $this->expectException(AdditionalPropertiesException::class);
+        $this->expectExceptionMessageMatches(
+            '/Provided JSON for .* contains not allowed additional properties \[b1\]/'
+        );
+
+        $object->populate(['a0' => 'Hello', 'b1' => 'not allowed']);
     }
 }

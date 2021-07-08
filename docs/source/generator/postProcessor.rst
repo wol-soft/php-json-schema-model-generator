@@ -243,6 +243,7 @@ What can you do inside your custom post processor?
     * Implement the **GetterHookInterface** to add code to your getter methods
     * Implement the **SetterBeforeValidationHookInterface** to add code to the beginning of your setter methods
     * Implement the **SetterAfterValidationHookInterface** to add code to the end of your setter methods
+    * Implement the **SerializationHookInterface** to add code to the end of your serialization process
 
 .. warning::
 

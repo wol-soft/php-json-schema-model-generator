@@ -1,0 +1,15 @@
+$additionalProperties =  (function () use ($modelData): array {
+    $additionalProperties = array_diff(array_keys($modelData), {{ properties }});
+
+    {% if pattern %}
+        // filter out all pattern properties
+        $additionalProperties = array_filter(
+            $additionalProperties,
+            function (string $property): bool {
+                return preg_match('/{{ pattern }}/', $property) !== 1;
+            }
+        );
+    {% endif %}
+
+    return $additionalProperties;
+})()
