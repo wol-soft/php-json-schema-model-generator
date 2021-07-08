@@ -234,7 +234,7 @@ ERROR
         $this->assertEqualsCanonicalizing(['beta' => null, 'b1' => 'Hello'], $object->getPatternProperties('^b'));
         $this->assertSame(['c1' => 'World'], $object->getAdditionalProperties());
         $this->assertEqualsCanonicalizing(
-            ['a0' => 100, 'a1' => 0, 'a2' => 10, 'b1' => 'Hello', 'c1' => 'World', 'alpha' => null, 'beta' => null],
+            ['c1' => 'World', 'alpha' => null, 'a0' => 100, 'a1' => 0, 'a2' => 10, 'beta' => null, 'b1' => 'Hello'],
             $object->toArray()
         );
 
