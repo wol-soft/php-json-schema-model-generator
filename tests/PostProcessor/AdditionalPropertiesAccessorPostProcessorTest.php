@@ -16,6 +16,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 
@@ -403,6 +404,66 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         );
 
         $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
+    }
+
+
+    public function testAdditionalPropertiesAreSerializedWithoutAdditionalPropertiesAccessorPostProcessor(): void
+    {
+        $this->modifyModelGenerator = function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
+        $className = $this->generateClassFromFile(
+            'AdditionalPropertiesTransformingFilter.json',
+            (new GeneratorConfiguration())->setSerialization(true)
+        );
+
+        $object = new $className(['name' => 'Late autumn', 'start' => '2020-10-10']);
+        $this->assertEqualsCanonicalizing(['name' => 'Late autumn', 'start' => '20201010'], $object->toArray());
+
+        $object->populate(['end' => '20201212']);
+        $this->assertEqualsCanonicalizing(
+            ['name' => 'Late autumn', 'start' => '20201010', 'end' => '20201212'],
+            $object->toArray()
+        );
+    }
+
+    public function testAdditionalPropertiesAreNotSerializedWhenNotDefinedWithoutExplicitAccessorMethods(): void
+    {
+        $this->modifyModelGenerator = function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
+        $className = $this->generateClassFromFile(
+            'AdditionalPropertiesNotDefined.json',
+            (new GeneratorConfiguration())->setSerialization(true)
+        );
+
+        $object = new $className(['a' => 1, 'b' => 2]);
+        $this->assertSame([], $object->toArray());
+
+        $object->populate(['a' => 3, 'c' => 4]);
+        $this->assertSame([], $object->toArray());
+    }
+
+    public function testAdditionalPropertiesAreSerializedWhenNotDefinedWithExplicitAccessorMethods(): void
+    {
+        $this->modifyModelGenerator = function (ModelGenerator $generator): void {
+            $generator
+                ->addPostProcessor(new PopulatePostProcessor())
+                ->addPostProcessor(new AdditionalPropertiesAccessorPostProcessor(true));
+        };
+
+        $className = $this->generateClassFromFile(
+            'AdditionalPropertiesNotDefined.json',
+            (new GeneratorConfiguration())->setSerialization(true)
+        );
+
+        $object = new $className(['a' => 1, 'b' => 2]);
+        $this->assertEqualsCanonicalizing(['a' => 1, 'b' => 2], $object->toArray());
+
+        $object->populate(['a' => 3, 'c' => 4]);
+        $this->assertEqualsCanonicalizing(['a' => 3, 'b' => 2, 'c' => 4], $object->toArray());
     }
 
     public function testMultiTypeAdditionalProperties(): void

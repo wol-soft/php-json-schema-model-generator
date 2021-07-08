@@ -249,19 +249,42 @@ ERROR
             $object->getPatternProperties('^b')
         );
         $this->assertSame(['c1' => 'World'], $object->getAdditionalProperties());
-        $this->assertEqualsCanonicalizing(
-            [
-                'a0' => 100,
-                'a1' => -10,
-                'a2' => 10,
-                'b1' => 'Hello',
-                'b2' => 'World',
-                'c1' => 'World',
-                'alpha' => 100,
-                'beta' => null,
-            ],
-            $object->toArray()
+
+        $state = [
+            'a0' => 100,
+            'a1' => -10,
+            'a2' => 10,
+            'b1' => 'Hello',
+            'b2' => 'World',
+            'c1' => 'World',
+            'alpha' => 100,
+            'beta' => null,
+        ];
+        $this->assertEqualsCanonicalizing($state, $object->toArray());
+
+        // make sure the pattern properties are not changed when a validation error occurs
+        try {
+            $object->populate(['a0' => 50, 'a1' => 60, 'beta' => false]);
+            $this->fail('Exception not thrown');
+        } catch (Exception $exception) {
+            $this->assertEqualsCanonicalizing($state, $object->toArray());
+        }
+    }
+
+    public function testPatternPropertiesAreSerializedWithoutPatternPropertiesAccessorPostProcessor(): void
+    {
+        $this->addPostProcessors(new PopulatePostProcessor());
+
+        $className = $this->generateClassFromFile(
+            'PatternProperties.json',
+            (new GeneratorConfiguration())->setSerialization(true)
         );
+
+        $object = new $className(['a0' => 100]);
+        $this->assertEqualsCanonicalizing(['alpha' => null, 'beta' => null, 'a0' => 100], $object->toArray());
+
+        $object->populate(['alpha' => 30, 'a0' => 10, 'a1' => 20]);
+        $this->assertEqualsCanonicalizing(['alpha' => 30, 'beta' => null, 'a0' => 10, 'a1' => 20], $object->toArray());
     }
 
     /**
