@@ -420,7 +420,7 @@ ERROR
 
         // test correct serialization
         $this->assertEqualsCanonicalizing($data, $object->toArray());
-        $this->assertSame(json_encode($data), $object->toJson());
+        $this->assertEqualsCanonicalizing($data, json_decode($object->toJson(), true));
 
         // test typing
         $this->assertSame('DateTime|null', $this->getMethodReturnTypeAnnotation($object, 'getAlpha'));

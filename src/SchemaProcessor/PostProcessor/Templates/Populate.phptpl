@@ -18,6 +18,12 @@ public function populate(array $modelData): self
         try {
     {% endif %}
 
+    foreach (['_additionalProperties', '_patternProperties'] as $property) {
+        if (isset($this->{$property})) {
+            $rollbackValues[$property] = $this->{$property};
+        }
+    }
+
     {% if schema.getBaseValidators() %}
         $this->executeBaseValidators($modelData);
     {% endif %}

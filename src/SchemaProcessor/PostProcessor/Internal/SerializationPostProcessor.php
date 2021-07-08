@@ -9,6 +9,7 @@ use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Interfaces\SerializationInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
@@ -40,7 +41,12 @@ class SerializationPostProcessor extends PostProcessor
         $this->addSerializeFunctionsForTransformingFilters($schema, $generatorConfiguration);
         $this->addSerializationHookMethod($schema, $generatorConfiguration);
 
-        $this->addPatternPropertiesSerialization($schema);
+        $this->addPatternPropertiesSerialization($schema, $generatorConfiguration);
+
+        $json = $schema->getJsonSchema()->getJson();
+        if (isset($json['additionalProperties']) && $json['additionalProperties'] !== false) {
+            $this->addAdditionalPropertiesSerialization($schema, $generatorConfiguration);
+        }
     }
 
     /**
@@ -140,32 +146,85 @@ class SerializationPostProcessor extends PostProcessor
      * Adds code to merge serialized pattern properties into the serialization result
      *
      * @param Schema $schema
+     * @param GeneratorConfiguration $generatorConfiguration
      */
-    private function addPatternPropertiesSerialization(Schema $schema): void {
+    private function addPatternPropertiesSerialization(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration
+    ): void {
         if (!isset($schema->getJsonSchema()->getJson()['patternProperties'])) {
             return;
         }
+
+        $schema->addMethod(
+            'serializePatternProperties',
+            new RenderedMethod($schema, $generatorConfiguration, 'Serialization/PatternPropertiesSerializer.phptpl')
+        );
 
         $schema->addSchemaHook(
             new class () implements SerializationHookInterface {
                 public function getCode(): string
                 {
-                    return '
-                        $serializedPatternProperties = [];
-                        foreach ($this->_patternProperties as $patternKey => $properties) {
-                            if ($customSerializer = $this->_getCustomSerializerMethod($patternKey)) {
-                                foreach ($this->{$customSerializer}() as $propertyKey => $value) {
-                                    $this->handleSerializedValue($serializedPatternProperties, $propertyKey, $value, $depth, $except);
-                                }
-                                continue;
-                            }
+                    return '$data = array_merge($this->serializePatternProperties($depth, $except), $data);';
+                }
+            }
+        );
+    }
 
-                            foreach ($properties as $propertyKey => $value) {
-                                $serializedPatternProperties[$propertyKey] = $this->_getSerializedValue($value, $depth, $except);
-                            }
-                        }
-                        $data = array_merge($serializedPatternProperties, $data);
-                    ';
+    /**
+     * Adds a custom serialization function to the schema to merge all additional properties into the serialization
+     * result on serializations
+     *
+     * @param Schema $schema
+     * @param GeneratorConfiguration $generatorConfiguration
+     */
+    public function addAdditionalPropertiesSerialization(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration
+    ): void {
+        $validationProperty = null;
+        foreach ($schema->getBaseValidators() as $validator) {
+            if (is_a($validator, AdditionalPropertiesValidator::class)) {
+                $validationProperty = $validator->getValidationProperty();
+            }
+        }
+
+        $transformingFilterValidator = null;
+
+        if ($validationProperty) {
+            foreach ($validationProperty->getValidators() as $validator) {
+                $validator = $validator->getValidator();
+
+                if ($validator instanceof FilterValidator &&
+                    $validator->getFilter() instanceof TransformingFilterInterface
+                ) {
+                    $transformingFilterValidator = $validator;
+                    [$serializerClass, $serializerMethod] = $validator->getFilter()->getSerializer();
+                }
+            }
+        }
+
+        $schema->addMethod(
+            'serializeAdditionalProperties',
+            new RenderedMethod(
+                $schema,
+                $generatorConfiguration,
+                'Serialization/AdditionalPropertiesSerializer.phptpl',
+                [
+                    'serializerClass' => $serializerClass ?? null,
+                    'serializerMethod' => $serializerMethod ?? null,
+                    'serializerOptions' => $transformingFilterValidator
+                        ? var_export($transformingFilterValidator->getFilterOptions(), true)
+                        : [],
+                ]
+            )
+        );
+
+        $schema->addSchemaHook(
+            new class () implements SerializationHookInterface {
+                public function getCode(): string
+                {
+                    return '$data = array_merge($this->serializeAdditionalProperties($depth, $except), $data);';
                 }
             }
         );

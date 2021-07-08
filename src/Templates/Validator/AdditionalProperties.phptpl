@@ -3,7 +3,7 @@
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
     {% if collectAdditionalProperties %}
-        $rollbackValues = $this->additionalProperties;
+        $rollbackValues = $this->_additionalProperties;
     {% endif %}
 
     foreach (array_diff(array_keys($properties), {{ additionalProperties }}) as $propertyKey) {
@@ -38,7 +38,7 @@
             {% endif %}
 
             {% if collectAdditionalProperties %}
-                $this->additionalProperties[$propertyKey] = $value;
+                $this->_additionalProperties[$propertyKey] = $value;
             {% endif %}
         } catch (\Exception $e) {
             // collect all errors concerning invalid additional properties
@@ -54,7 +54,7 @@
 
     {% if collectAdditionalProperties %}
         if (!empty($invalidProperties)) {
-            $this->additionalProperties = $rollbackValues;
+            $this->_additionalProperties = $rollbackValues;
         }
     {% endif %}
 

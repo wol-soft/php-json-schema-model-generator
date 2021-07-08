@@ -29,8 +29,6 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
     private $pattern;
     /** @var string */
     private $key;
-    /** @var bool */
-    private $collectPatternProperties = false;
 
     /**
      * PatternPropertiesValidator constructor.
@@ -70,20 +68,11 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
                 'validationProperty' => $this->validationProperty,
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
-                'collectPatternProperties' => &$this->collectPatternProperties,
                 'schemaProperties' => $schema->getProperties(),
             ],
             InvalidPatternPropertiesException::class,
             [$this->pattern, '&$invalidProperties']
         );
-    }
-
-    /**
-     * @param bool $collectPatternProperties
-     */
-    public function setCollectPatternProperties(bool $collectPatternProperties): void
-    {
-        $this->collectPatternProperties = $collectPatternProperties;
     }
 
     /**

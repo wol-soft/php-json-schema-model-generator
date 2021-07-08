@@ -10,8 +10,10 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\ {
+    AdditionalPropertiesPostProcessor,
     CompositionValidationPostProcessor,
     ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor,
+    PatternPropertiesPostProcessor,
     SerializationPostProcessor
 };
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
@@ -45,6 +47,8 @@ class ModelGenerator
         // add internal post processors which must always be executed
         $this
             ->addPostProcessor(new CompositionValidationPostProcessor())
+            ->addPostProcessor(new AdditionalPropertiesPostProcessor())
+            ->addPostProcessor(new PatternPropertiesPostProcessor())
             ->addPostProcessor(new ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor());
 
         if ($this->generatorConfiguration->hasSerializationEnabled()) {

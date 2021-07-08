@@ -52,7 +52,10 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
             ['name' => 'Albert', 'birthdate' => '10.10.1990'],
             $object->getRawModelDataInput()
         );
-        $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => null], $object->toArray());
+        $this->assertEqualsCanonicalizing(
+            ['name' => 'Albert', 'age' => null, 'birthdate' => '10.10.1990'],
+            $object->toArray()
+        );
 
         // test overwriting a single property
         $object->populate(['age' => 30]);
@@ -60,7 +63,10 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
             ['name' => 'Albert', 'birthdate' => '10.10.1990', 'age' => 30],
             $object->getRawModelDataInput()
         );
-        $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => 30], $object->toArray());
+        $this->assertEqualsCanonicalizing(
+            ['name' => 'Albert', 'age' => 30, 'birthdate' => '10.10.1990'],
+            $object->toArray()
+        );
 
         // test overwriting multiple properties
         $object->populate(['age' => 26, 'name' => 'Harry']);
@@ -68,7 +74,10 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
             ['name' => 'Harry', 'birthdate' => '10.10.1990', 'age' => 26],
             $object->getRawModelDataInput()
         );
-        $this->assertEqualsCanonicalizing(['name' => 'Harry', 'age' => 26], $object->toArray());
+        $this->assertEqualsCanonicalizing(
+            ['name' => 'Harry', 'age' => 26, 'birthdate' => '10.10.1990'],
+            $object->toArray()
+        );
     }
 
     /**
