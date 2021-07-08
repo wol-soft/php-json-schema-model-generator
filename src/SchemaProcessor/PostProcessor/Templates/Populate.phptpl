@@ -18,6 +18,12 @@ public function populate(array $modelData): self
         try {
     {% endif %}
 
+    foreach (['_additionalProperties', '_patternProperties'] as $property) {
+        if (isset($this->{$property})) {
+            $rollbackValues[$property] = $this->{$property};
+        }
+    }
+
     {% if schema.getBaseValidators() %}
         $this->executeBaseValidators($modelData);
     {% endif %}
@@ -27,7 +33,7 @@ public function populate(array $modelData): self
             if (array_key_exists('{{ property.getName() }}', $modelData) &&
                 $modelData['{{ property.getName() }}'] !== $this->{{ property.getAttribute() }}
             ) {
-                {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
+                {{ schemaHookResolver.resolveSetterBeforeValidationHook(property, true) }}
 
                 $rollbackValues['{{ property.getAttribute() }}'] = $this->{{ property.getAttribute() }};
                 $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
@@ -59,7 +65,7 @@ public function populate(array $modelData): self
         {% if not property.isInternal() %}
             {% if schemaHookResolver.resolveSetterAfterValidationHook(property) %}
                 if (array_key_exists('{{ property.getName() }}', $rollbackValues)) {
-                    {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
+                    {{ schemaHookResolver.resolveSetterAfterValidationHook(property, true) }}
                 }
             {% endif %}
         {% endif %}

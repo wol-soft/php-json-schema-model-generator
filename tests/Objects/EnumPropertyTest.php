@@ -377,7 +377,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
     public function testEmptyEnumThrowsSchemaException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage('Empty enum property property in file');
+        $this->expectExceptionMessageMatches('/Empty enum property property in file .*\.json/');
         $this->generateEnumClass('string', []);
     }
 

@@ -160,8 +160,8 @@ The class generation process basically splits up into three to four steps:
 
 - Scan the given source directory to find all *.json files which should be processed.
 - Loop over all schemas which should be generated. This is the main step of the class generation. Now each schema is parsed and a Schema model class which holds the properties for the generated model is populated. All validation rules defined in the JSON-Schema are translated into plain PHP code. After the model is finished a RenderJob is generated and added to the RenderQueue. If a JSON-Schema contains nested objects or references multiple RenderJobs may be added to the RenderQueue for a given schema file.
+- If post processors are defined for the generation process the post processors will be applied.
 - After all schema files have been parsed without an error the RenderQueue will be worked off. All previous added RenderJobs will be executed and the PHP classes will be saved to the filesystem at the given destination directory.
-- If pretty printing is enabled the generated PHP classes will be cleaned up for a better code formatting. Done.
 
 ## Tests ##
 

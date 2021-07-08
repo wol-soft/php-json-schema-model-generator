@@ -136,14 +136,75 @@ Generated interface with the **AdditionalPropertiesAccessorPostProcessor**:
 
 **getAdditionalProperty**: Returns the current value of a single additional property. If the requested property doesn't exist null will be returned. Returns as well as *getAdditionalProperties* the processed values.
 
-**setAdditionalProperty**: Adds or updates an additional property. Performs all necessary validations like property names or min and max properties validations will be performed. If the additional properties are processed via a transforming filter an already transformed value will be accepted. If a property which is regularly defined in the schema a *RegularPropertyAsAdditionalPropertyException* will be thrown. If the change is valid and performed also the output of *getRawModelDataInput* will be updated.
+**setAdditionalProperty**: Adds or updates an additional property. Performs all necessary validations like property names or min and max properties validations. If the additional properties are processed via a transforming filter an already transformed value will be accepted. If a property which is regularly defined in the schema a *RegularPropertyAsAdditionalPropertyException* will be thrown. If the change is valid and performed also the output of *getRawModelDataInput* will be updated.
 
 **removeAdditionalProperty**: Removes an existing additional property from the model. Returns true if the additional property has been removed, false otherwise (if no additional property with the requested key exists). May throw a *MinPropertiesException* if the change would result in an invalid model state. If the change is valid and performed also the output of *getRawModelDataInput* will be updated.
 
 Serialization
 ~~~~~~~~~~~~~
 
-By default additional properties are not included in serialized models. If the **AdditionalPropertiesAccessorPostProcessor** is applied and `serialization <../gettingStarted.html#serialization-methods>`__ is enabled the additional properties will be merged into the serialization result. If the additional properties are processed via a transforming filter each value will be serialized via the serialisation method of the transforming filter.
+By default additional properties are only included in the serialized models if the *additionalProperties* field is set to true or contains further restrictions. If the option *$addForModelsWithoutAdditionalPropertiesDefinition* is set to true also additional properties for entities which don't define the *additionalProperties* field will be included in the serialization result. If the **AdditionalPropertiesAccessorPostProcessor** is applied and `serialization <../gettingStarted.html#serialization-methods>`__ is enabled the additional properties will be merged into the serialization result. If the additional properties are processed via a transforming filter each value will be serialized via the serialisation method of the transforming filter.
+
+PatternPropertiesAccessorPostProcessor
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: php
+
+    $generator = new ModelGenerator();
+    $generator->addPostProcessor(new PatternPropertiesAccessorPostProcessor());
+
+The **PatternPropertiesAccessorPostProcessor** adds methods to your model to work with `pattern properties <../complexTypes/object.html#pattern-properties>`__ on your objects. The methods will only be added if the schema for the object defines pattern properties.
+
+Added methods
+~~~~~~~~~~~~~
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "string"
+            }
+        },
+        "patternProperties": {
+            "^a": {
+                "type": "string"
+            },
+            "^b": {
+                "key": "numbers"
+                "type": "integer"
+            },
+        }
+    }
+
+Generated interface with the **AdditionalPropertiesAccessorPostProcessor**:
+
+.. code-block:: php
+
+    public function getRawModelDataInput(): array;
+
+    public function setExample(float $example): self;
+    public function getExample(): float;
+
+    public function getPatternProperties(string $key): array;
+
+The added method **getPatternProperties** can be used to fetch a list of all properties matching the given pattern. As *$key* you have to provide the pattern you want to fetch. Alternatively you can define a key in your schema and use the key to fetch the properties.
+
+.. code-block:: php
+
+    $myObject = new Example('a1' => 'Hello', 'b1' => 100);
+
+    // fetches all properties matching the pattern '^a', consequently will return ['a1' => 'Hello']
+    $myObject->getPatternProperties('^a');
+
+    // fetches all properties matching the pattern '^b' (which has a defined key), consequently will return ['b1' => 100]
+    $myObject->getPatternProperties('numbers');
+
+.. note::
+
+    If you want to add or remove pattern properties to your object after the object instantiation you can use the `AdditionalPropertiesAccessorPostProcessor <generator/postProcessor.html#additionalpropertiesaccessorpostprocessor>`__ or the `PopulatePostProcessor <generator/postProcessor.html#populatepostprocessor>`__
 
 Custom Post Processors
 ----------------------

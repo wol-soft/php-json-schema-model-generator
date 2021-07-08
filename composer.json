@@ -11,7 +11,7 @@
         }
     ],
     "require": {
-        "wol-soft/php-json-schema-model-generator-production": "^0.16.0",
+        "wol-soft/php-json-schema-model-generator-production": "dev-PatternProperties",
         "wol-soft/php-micro-template": "^1.3.2",
 
         "php": ">=7.2",
@@ -20,9 +20,6 @@
     },
     "require-dev": {
         "phpunit/phpunit": "^8.5 || ^9.4"
-    },
-    "suggest": {
-        "symplify/easy-coding-standard": "Allows pretty printing of the generated code"
     },
     "autoload": {
         "psr-4": {

@@ -50,7 +50,7 @@ class FilterProcessor
 
         $transformingFilter = null;
         // apply a different priority to each filter to make sure the order is kept
-        $filterPriority = 10;
+        $filterPriority = 10 + count($property->getValidators());
 
         foreach ($filterList as $filterToken) {
             $filterOptions = [];

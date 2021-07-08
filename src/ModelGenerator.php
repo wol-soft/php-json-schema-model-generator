@@ -9,9 +9,14 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\CompositionValidationPostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\ {
+    AdditionalPropertiesPostProcessor,
+    CompositionValidationPostProcessor,
+    ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor,
+    PatternPropertiesPostProcessor,
+    SerializationPostProcessor
+};
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\SerializationPostProcessor;
 use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
@@ -39,12 +44,16 @@ class ModelGenerator
     {
         $this->generatorConfiguration = $generatorConfiguration ?? new GeneratorConfiguration();
 
+        // add internal post processors which must always be executed
+        $this
+            ->addPostProcessor(new CompositionValidationPostProcessor())
+            ->addPostProcessor(new AdditionalPropertiesPostProcessor())
+            ->addPostProcessor(new PatternPropertiesPostProcessor())
+            ->addPostProcessor(new ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor());
+
         if ($this->generatorConfiguration->hasSerializationEnabled()) {
             $this->addPostProcessor(new SerializationPostProcessor());
         }
-
-        // add internal post processors
-        $this->addPostProcessor(new CompositionValidationPostProcessor());
     }
 
     /**
@@ -118,13 +127,6 @@ class ModelGenerator
 
         // render all collected classes
         $renderQueue->execute($this->generatorConfiguration, $this->postProcessors);
-
-        if ($this->generatorConfiguration->hasPrettyPrintEnabled()) {
-            // @codeCoverageIgnoreStart
-            $out = $this->generatorConfiguration->isOutputEnabled() ? '' : '2>&1';
-            shell_exec(__DIR__ . "/../vendor/bin/ecs check $destination --config " . __DIR__ . "/cs.yml --fix $out");
-            // @codeCoverageIgnoreEnd
-        }
 
         return $schemaProcessor->getGeneratedFiles();
     }

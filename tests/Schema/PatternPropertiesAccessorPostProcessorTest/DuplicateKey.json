@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "patternProperties": {
+    "^a": {
+      "type": "integer",
+      "key": "Numerics"
+    },
+    "^b": {
+      "type": "integer",
+      "key": "Numerics"
+    }
+  }
+}

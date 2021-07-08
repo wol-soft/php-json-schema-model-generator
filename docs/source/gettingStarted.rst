@@ -11,7 +11,7 @@ The recommended way to install php-json-model-generator is through `Composer <ht
     composer require --dev wol-soft/php-json-schema-model-generator
     composer require wol-soft/php-json-schema-model-generator-production
 
-To avoid adding all dependencies of the php-json-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the php-json-model-generator-exception library. The exception library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment or as a build step of your application (which is the recommended workflow).
+To avoid adding all dependencies of the php-json-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the php-json-model-generator-production library. The production library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment or as a build step of your application (which is the recommended workflow).
 
 Generating classes
 ------------------
@@ -253,24 +253,6 @@ If you want to customize the exception handling you can set an own ErrorRegistry
 
     (new GeneratorConfiguration())
         ->setErrorRegistryClass(MyCustomException::class);
-
-Code style of the generated classes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: php
-
-    setPrettyPrint(bool $prettyPrint);
-
-If set to false, the generated model classes won't follow coding guidelines (but the generation is faster). If enabled the package `Symplify/EasyCodingStandard <https://github.com/Symplify/EasyCodingStandard>`_ will be used to clean up the generated code. By default pretty printing is disabled.
-
-.. code-block:: php
-
-    (new GeneratorConfiguration())
-        ->setPrettyPrint(true);
-
-.. warning::
-
-    The ECS package must be installed manually: `composer require --dev symplify/easy-coding-standard`
 
 Serialization methods
 ^^^^^^^^^^^^^^^^^^^^^

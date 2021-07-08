@@ -1,0 +1,53 @@
+(function () use ($properties, &$invalidProperties) {
+    {% if generatorConfiguration.collectErrors() %}
+        $originalErrorRegistry = $this->_errorRegistry;
+    {% endif %}
+
+    $rollbackValues = $this->_patternProperties;
+
+    foreach ($properties as $propertyKey => $value) {
+        try {
+            if (!preg_match("{{ pattern }}", $propertyKey)) {
+                continue;
+            }
+
+            {% if generatorConfiguration.collectErrors() %}
+                $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            {% endif %}
+
+            {{ viewHelper.resolvePropertyDecorator(validationProperty) }}
+
+            {% foreach validationProperty.getOrderedValidators() as validator %}
+                {{ validator.getValidatorSetUp() }}
+                if ({{ validator.getCheck() }}) {
+                    {{ viewHelper.validationError(validator) }}
+                }
+            {% endforeach %}
+
+            {% if generatorConfiguration.collectErrors() %}
+                if ($this->_errorRegistry->getErrors()) {
+                    $invalidProperties[$propertyKey] = $this->_errorRegistry->getErrors();
+                }
+            {% endif %}
+
+            if (!isset($this->_patternPropertiesMap[$propertyKey])) {
+                $this->_patternProperties['{{ patternHash }}'][$propertyKey] = $value;
+            }
+        } catch (\Exception $e) {
+            // collect all errors concerning invalid pattern properties
+            isset($invalidProperties[$propertyKey])
+                ? $invalidProperties[$propertyKey][] = $e
+                : $invalidProperties[$propertyKey] = [$e];
+        }
+    }
+
+    {% if generatorConfiguration.collectErrors() %}
+        $this->_errorRegistry = $originalErrorRegistry;
+    {% endif %}
+
+    if (!empty($invalidProperties)) {
+        $this->_patternProperties = $rollbackValues;
+    }
+
+    return !empty($invalidProperties);
+})()

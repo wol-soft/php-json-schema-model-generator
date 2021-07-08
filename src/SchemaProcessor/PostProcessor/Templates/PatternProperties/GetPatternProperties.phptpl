@@ -1,0 +1,19 @@
+/**
+ * Get a list of all properties which matched the requested pattern
+ *
+ * @param string $key The key of the pattern properties
+ *
+ * @return {{ returnTypeAnnotation }}
+ *
+ * @throws UnknownPatternPropertyException if pattern properties with an unknown key are requested
+ */
+public function getPatternProperties(string $key): array
+{
+    $hash = md5($key);
+
+    if (!isset($this->_patternProperties[$hash])) {
+        throw new UnknownPatternPropertyException("Tried to access unknown pattern properties with key $key");
+    }
+
+    return $this->_patternProperties[$hash];
+}

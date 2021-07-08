@@ -1,0 +1,15 @@
+protected function serializeAdditionalProperties(int $depth, array $except): array
+{
+    {% if serializerClass %}
+        $serializedValues = [];
+        foreach ($this->_additionalProperties as $key => $value) {
+            $serializedValues[$key] = \{{ serializerClass }}::{{ serializerMethod }}($value, {{ serializerOptions }});
+        }
+    {% endif %}
+
+    return $this->_getSerializedValue(
+        {% if serializerClass %}$serializedValues{% else %}$this->_additionalProperties{% endif %},
+        $depth,
+        $except
+    );
+}

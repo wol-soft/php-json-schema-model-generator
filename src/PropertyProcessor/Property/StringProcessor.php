@@ -47,6 +47,8 @@ class StringProcessor extends AbstractTypedValueProcessor
      *
      * @param PropertyInterface $property
      * @param JsonSchema $propertySchema
+     *
+     * @throws SchemaException
      */
     protected function addPatternValidator(PropertyInterface $property, JsonSchema $propertySchema): void
     {
@@ -54,6 +56,17 @@ class StringProcessor extends AbstractTypedValueProcessor
 
         if (!isset($json[static::JSON_FIELD_PATTERN])) {
             return;
+        }
+
+        if (@preg_match("/{$json[static::JSON_FIELD_PATTERN]}/", '') === false) {
+            throw new SchemaException(
+                sprintf(
+                    "Invalid pattern '%s' for property '%s' in file %s",
+                    $json[static::JSON_FIELD_PATTERN],
+                    $property->getName(),
+                    $propertySchema->getFile()
+                )
+            );
         }
 
         $json[static::JSON_FIELD_PATTERN] = addcslashes($json[static::JSON_FIELD_PATTERN], "'");

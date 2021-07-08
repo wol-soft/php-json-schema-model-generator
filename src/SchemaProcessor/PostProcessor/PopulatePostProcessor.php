@@ -23,7 +23,10 @@ class PopulatePostProcessor extends PostProcessor
                 $schema,
                 $generatorConfiguration,
                 'Populate.phptpl',
-                ['schemaHookResolver' => new SchemaHookResolver($schema)]
+                [
+                    'schemaHookResolver' => new SchemaHookResolver($schema),
+                    'true' => true,
+                ]
             )
         );
     }

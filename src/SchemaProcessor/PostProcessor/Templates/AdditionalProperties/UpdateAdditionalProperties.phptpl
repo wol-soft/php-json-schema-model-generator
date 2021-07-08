@@ -1,0 +1,15 @@
+(function () use ($value) {
+    foreach (array_diff(array_keys($value), {{ additionalProperties }}) as $propertyKey) {
+        {% if patternProperties %}
+            foreach ({{ patternProperties }} as $pattern) {
+                if (preg_match("/$pattern/", $propertyKey)) {
+                    continue 2;
+                }
+            }
+        {% endif %}
+
+        $this->_additionalProperties[$propertyKey] = $value[$propertyKey];
+    }
+
+    return false;
+})()

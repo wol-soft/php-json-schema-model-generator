@@ -514,4 +514,48 @@ Multiple violations against the schema dependency may be included.
 Pattern Properties
 ------------------
 
-Pattern properties are currently not supported.
+Using the keyword `patternProperties` further restrictions for properties matching a pattern can be defined.
+
+.. hint::
+
+    If you define constraints via `patternProperties` you may want to use the `PatternPropertiesAccessorPostProcessor <../generator/postProcessor.html#patternpropertiesaccessorpostprocessor>`__ to access your pattern properties.
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "integer"
+            }
+        },
+        "patternProperties": {
+            "^a": {
+                "type": "string"
+            }
+        }
+    }
+
+Possible exceptions:
+
+If invalid pattern properties are provided a detailed exception will be thrown containing all violations:
+
+.. code-block:: none
+
+    Provided JSON for Example contains invalid pattern properties.
+      - invalid property 'a0' matching pattern '\^a'
+        * Invalid type for pattern property. Requires string, got integer
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidPatternPropertiesException* which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns a two-dimensional array which contains all validation exceptions grouped by property names
+    public function getNestedExceptions(): array
+    // get the pattern which lead to the error
+    public function getPattern(): string
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()

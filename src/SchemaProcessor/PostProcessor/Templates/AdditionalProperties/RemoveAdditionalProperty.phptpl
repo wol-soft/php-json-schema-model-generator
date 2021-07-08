@@ -10,7 +10,16 @@
  */
 public function removeAdditionalProperty(string $property): bool
 {
-    if (!array_key_exists($property, $this->additionalProperties)) {
+    if (isset($this->_patternProperties)) {
+        foreach ($this->_patternProperties as $patternHash => $_) {
+            if (isset($this->_patternProperties[$patternHash][$property])) {
+                unset($this->_patternProperties[$patternHash][$property]);
+                unset($this->_rawModelDataInput[$property]);
+            }
+        }
+    }
+
+    if (!array_key_exists($property, $this->_additionalProperties)) {
         return false;
     }
 
@@ -31,7 +40,7 @@ public function removeAdditionalProperty(string $property): bool
     {% endif %}
 
     unset($this->_rawModelDataInput[$property]);
-    unset($this->additionalProperties[$property]);
+    unset($this->_additionalProperties[$property]);
 
     return true;
 }

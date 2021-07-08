@@ -44,28 +44,40 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
         // test an empty populate call doesn't change the internal behaviour
         $object->populate([]);
         $this->assertSame(['name' => 'Albert'], $object->getRawModelDataInput());
-        $this->assertSame(['name' => 'Albert', 'age' => null], $object->toArray());
+        $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => null], $object->toArray());
 
         // test adding an additional property to the model
         $object->populate(['birthdate' => '10.10.1990']);
-        $this->assertSame(['name' => 'Albert', 'birthdate' => '10.10.1990'], $object->getRawModelDataInput());
-        $this->assertSame(['name' => 'Albert', 'age' => null], $object->toArray());
+        $this->assertEqualsCanonicalizing(
+            ['name' => 'Albert', 'birthdate' => '10.10.1990'],
+            $object->getRawModelDataInput()
+        );
+        $this->assertEqualsCanonicalizing(
+            ['name' => 'Albert', 'age' => null, 'birthdate' => '10.10.1990'],
+            $object->toArray()
+        );
 
         // test overwriting a single property
         $object->populate(['age' => 30]);
-        $this->assertSame(
+        $this->assertEqualsCanonicalizing(
             ['name' => 'Albert', 'birthdate' => '10.10.1990', 'age' => 30],
             $object->getRawModelDataInput()
         );
-        $this->assertSame(['name' => 'Albert', 'age' => 30], $object->toArray());
+        $this->assertEqualsCanonicalizing(
+            ['name' => 'Albert', 'age' => 30, 'birthdate' => '10.10.1990'],
+            $object->toArray()
+        );
 
         // test overwriting multiple properties
         $object->populate(['age' => 26, 'name' => 'Harry']);
-        $this->assertSame(
+        $this->assertEqualsCanonicalizing(
             ['name' => 'Harry', 'birthdate' => '10.10.1990', 'age' => 26],
             $object->getRawModelDataInput()
         );
-        $this->assertSame(['name' => 'Harry', 'age' => 26], $object->toArray());
+        $this->assertEqualsCanonicalizing(
+            ['name' => 'Harry', 'age' => 26, 'birthdate' => '10.10.1990'],
+            $object->toArray()
+        );
     }
 
     /**
@@ -140,8 +152,8 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
             $this->fail('No exception thrown');
         } catch (Exception $exception) {
             // test if the internal state hasn't been changed
-            $this->assertSame(['name' => 'Albert', 'age' => 30], $object->getRawModelDataInput());
-            $this->assertSame(['name' => 'Albert', 'age' => 30], $object->toArray());
+            $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => 30], $object->getRawModelDataInput());
+            $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => 30], $object->toArray());
 
             throw $exception;
         }
@@ -209,7 +221,7 @@ Invalid type for age. Requires int, got boolean"
                 public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
                 {
                     $schema->addSchemaHook(new class () implements SetterBeforeValidationHookInterface {
-                        public function getCode(PropertyInterface $property): string
+                        public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
                         {
                             return $property->getName() === 'age'
                                 ? 'throw new \Exception("SetterBeforeValidationHook");'
@@ -253,7 +265,7 @@ Invalid type for age. Requires int, got boolean"
                 public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
                 {
                     $schema->addSchemaHook(new class () implements SetterAfterValidationHookInterface {
-                        public function getCode(PropertyInterface $property): string
+                        public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
                         {
                             return $property->getName() === 'age'
                                 ? 'throw new \Exception("SetterAfterValidationHook");'

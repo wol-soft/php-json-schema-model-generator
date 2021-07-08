@@ -7,7 +7,6 @@ namespace PHPModelGenerator\Model;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
-use PHPModelGenerator\Format\FormatValidatorFromRegEx;
 use PHPModelGenerator\Format\FormatValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
@@ -33,8 +32,6 @@ class GeneratorConfiguration
     protected $defaultArraysToEmptyArray = false;
     /** @var bool */
     protected $denyAdditionalProperties = false;
-    /** @var bool */
-    protected $prettyPrint = false;
     /** @var bool */
     protected $outputEnabled = true;
     /** @var bool */
@@ -76,7 +73,10 @@ class GeneratorConfiguration
     public function addFilter(FilterInterface ...$additionalFilter): self
     {
         foreach ($additionalFilter as $filter) {
-            $this->validateFilterCallback($filter->getFilter(), "Invalid filter callback for filter {$filter->getToken()}");
+            $this->validateFilterCallback(
+                $filter->getFilter(),
+                "Invalid filter callback for filter {$filter->getToken()}"
+            );
 
             if ($filter instanceof TransformingFilterInterface) {
                 $this->validateFilterCallback(
@@ -249,26 +249,6 @@ class GeneratorConfiguration
     public function setDenyAdditionalProperties(bool $denyAdditionalProperties): self
     {
         $this->denyAdditionalProperties = $denyAdditionalProperties;
-
-        return $this;
-    }
-
-    /**
-     * @return bool
-     */
-    public function hasPrettyPrintEnabled(): bool
-    {
-        return $this->prettyPrint;
-    }
-
-    /**
-     * @param bool $prettyPrint
-     *
-     * @return $this
-     */
-    public function setPrettyPrint(bool $prettyPrint): self
-    {
-        $this->prettyPrint = $prettyPrint;
 
         return $this;
     }

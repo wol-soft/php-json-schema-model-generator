@@ -20,6 +20,7 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyNamesValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -28,6 +29,7 @@ use PHPModelGenerator\PropertyProcessor\ComposedValue\ComposedPropertiesInterfac
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class BaseObjectProcessor
@@ -71,13 +73,15 @@ class BaseProcessor extends AbstractPropertyProcessor
         $property = new BaseProperty($propertyName, new PropertyType(static::TYPE), $propertySchema);
         $this->generateValidators($property, $propertySchema);
 
-        $this->addPropertyNamesValidator($propertySchema);
-        $this->addAdditionalPropertiesValidator($propertySchema);
-        $this->addMinPropertiesValidator($propertyName, $propertySchema);
-        $this->addMaxPropertiesValidator($propertyName, $propertySchema);
-
         $this->addPropertiesToSchema($propertySchema);
         $this->transferComposedPropertiesToSchema($property);
+
+        $this->addPropertyNamesValidator($propertySchema);
+        $this->addPatternPropertiesValidator($propertySchema);
+        $this->addAdditionalPropertiesValidator($propertySchema);
+
+        $this->addMinPropertiesValidator($propertyName, $propertySchema);
+        $this->addMaxPropertiesValidator($propertyName, $propertySchema);
 
         return $property;
     }
@@ -108,7 +112,7 @@ class BaseProcessor extends AbstractPropertyProcessor
     }
 
     /**
-     * Add an object validator to disallow properties which are not defined in the schema
+     * Add an object validator to specify constraints for properties which are not defined in the schema
      *
      * @param JsonSchema $propertySchema
      *
@@ -148,12 +152,43 @@ class BaseProcessor extends AbstractPropertyProcessor
                 new Property($this->schema->getClassName(), null, $propertySchema),
                 sprintf(
                     '$additionalProperties = array_diff(array_keys($modelData), %s)',
-                    preg_replace('(\d+\s=>)', '', var_export(array_keys($json['properties'] ?? []), true))
+                    RenderHelper::varExportArray(array_keys($json['properties'] ?? []))
                 ),
                 AdditionalPropertiesException::class,
                 ['&$additionalProperties']
             )
         );
+    }
+
+    /**
+     * @param JsonSchema $propertySchema
+     *
+     * @throws SchemaException
+     */
+    protected function addPatternPropertiesValidator(JsonSchema $propertySchema): void
+    {
+        $json = $propertySchema->getJson();
+
+        if (!isset($json['patternProperties'])) {
+            return;
+        }
+
+        foreach ($json['patternProperties'] as $pattern => $schema) {
+            if (@preg_match("/$pattern/", '') === false) {
+                throw new SchemaException(
+                    "Invalid pattern '$pattern' for pattern property in file {$propertySchema->getFile()}"
+                );
+            }
+
+            $validator = new PatternPropertiesValidator(
+                $this->schemaProcessor,
+                $this->schema,
+                $pattern,
+                $propertySchema->withJson($schema)
+            );
+
+            $this->schema->addBaseValidator($validator);
+        }
     }
 
     /**

@@ -17,7 +17,7 @@ public function setAdditionalProperty(
         throw new RegularPropertyAsAdditionalPropertyException($value, $property, self::class);
     }
 
-    if (isset($this->additionalProperties[$property]) && $this->additionalProperties[$property] === $value) {
+    if (isset($this->_additionalProperties[$property]) && $this->_additionalProperties[$property] === $value) {
         return $this;
     }
 
@@ -37,7 +37,7 @@ public function setAdditionalProperty(
             }
         {% endif %}
     {% else %}
-        $this->additionalProperties[$property] = $value;
+        $this->_additionalProperties[$property] = $value;
     {% endif %}
 
     $this->_rawModelDataInput[$property] = $value;

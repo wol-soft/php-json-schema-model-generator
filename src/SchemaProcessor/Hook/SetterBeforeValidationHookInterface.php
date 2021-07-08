@@ -8,5 +8,5 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 
 interface SetterBeforeValidationHookInterface extends SchemaHookInterface
 {
-    public function getCode(PropertyInterface $property): string;
+    public function getCode(PropertyInterface $property, bool $batchUpdate = false): string;
 }

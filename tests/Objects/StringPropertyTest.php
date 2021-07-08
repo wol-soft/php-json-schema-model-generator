@@ -100,7 +100,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
                 'float' => [0.92],
                 'bool' => [true],
                 'array' => [[]],
-                'object' => [new stdClass()]
+                'object' => [new stdClass()],
             ]
         );
     }
@@ -193,6 +193,14 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
+    }
+
+    public function testInvalidPatternThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches("/Invalid pattern 'ab\[c' for property 'property' in file .*\.json/");
+
+        $this->generateClassFromFileTemplate('StringPropertyPattern.json', ['ab[c']);
     }
 
     public function validPatternProvider(): array

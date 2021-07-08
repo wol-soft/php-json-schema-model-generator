@@ -147,7 +147,7 @@ class CompositionValidationPostProcessor extends PostProcessor
                 $this->validatorPropertyMap = $validatorPropertyMap;
             }
 
-            public function getCode(PropertyInterface $property): string
+            public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
             {
                 return join(
                     "\n",

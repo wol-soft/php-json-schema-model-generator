@@ -25,4 +25,4 @@ The Ebay OpenAPIv3 spec for the sell-inventory API is an around 6000 lines API d
         ->generateModelDirectory($resultDir)
         ->generateModels(new OpenAPIv3Provider($file), $resultDir);
 
-Measured runtime of the script (Pretty printing is disabled) is around 3 seconds at a memory peak consumption between 5 and 6 MB.
+Measured runtime of the script is around 3 seconds at a memory peak consumption between 5 and 6 MB.

@@ -1,0 +1,19 @@
+protected function serializePatternProperties(int $depth, array $except): array
+{
+    $serializedPatternProperties = [];
+
+    foreach ($this->_patternProperties as $patternKey => $properties) {
+        if ($customSerializer = $this->_getCustomSerializerMethod($patternKey)) {
+            foreach ($this->{$customSerializer}() as $propertyKey => $value) {
+                $serializedPatternProperties[$propertyKey] = $this->_getSerializedValue($value, $depth, $except);
+            }
+            continue;
+        }
+
+        foreach ($properties as $propertyKey => $value) {
+            $serializedPatternProperties[$propertyKey] = $this->_getSerializedValue($value, $depth, $except);
+        }
+    }
+
+    return $serializedPatternProperties;
+}

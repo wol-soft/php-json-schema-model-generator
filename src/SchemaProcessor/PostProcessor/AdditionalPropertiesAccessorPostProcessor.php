@@ -7,20 +7,19 @@ namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\Object\RegularPropertyAsAdditionalPropertyException;
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-use PHPModelGenerator\Model\SerializedValue;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
-use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\AdditionalPropertiesPostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\SerializationPostProcessor;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class AdditionalPropertiesAccessorPostProcessor
@@ -44,11 +43,14 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
     {
         $this->addForModelsWithoutAdditionalPropertiesDefinition = $addForModelsWithoutAdditionalPropertiesDefinition;
     }
+
     /**
      * Add methods to handle additional properties to the provided schema
      *
      * @param Schema $schema
      * @param GeneratorConfiguration $generatorConfiguration
+     *
+     * @throws SchemaException
      */
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
@@ -64,96 +66,28 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         $validationProperty = null;
         foreach ($schema->getBaseValidators() as $validator) {
             if (is_a($validator, AdditionalPropertiesValidator::class)) {
-                $validator->setCollectAdditionalProperties(true);
                 $validationProperty = $validator->getValidationProperty();
             }
         }
 
-        $this->addAdditionalPropertiesCollectionProperty($schema, $validationProperty);
-        $this->addGetAdditionalPropertyMethod($schema, $generatorConfiguration, $validationProperty);
-
-        if ($generatorConfiguration->hasSerializationEnabled()) {
-            $this->addSerializeAdditionalPropertiesMethod($schema, $generatorConfiguration, $validationProperty);
+        // check if basic code must be added
+        if ($this->addForModelsWithoutAdditionalPropertiesDefinition && !isset($json['additionalProperties'])) {
+            (new AdditionalPropertiesPostProcessor())->addAdditionalPropertiesCollectionProperty($schema);
         }
+        if ($generatorConfiguration->hasSerializationEnabled() &&
+            $this->addForModelsWithoutAdditionalPropertiesDefinition &&
+            !isset($json['additionalProperties'])
+        ) {
+            (new SerializationPostProcessor())->addAdditionalPropertiesSerialization($schema, $generatorConfiguration);
+        }
+
+        $this->addGetAdditionalPropertiesMethod($schema, $generatorConfiguration, $validationProperty);
+        $this->addGetAdditionalPropertyMethod($schema, $generatorConfiguration, $validationProperty);
 
         if (!$generatorConfiguration->isImmutable()) {
             $this->addSetAdditionalPropertyMethod($schema, $generatorConfiguration, $validationProperty);
             $this->addRemoveAdditionalPropertyMethod($schema, $generatorConfiguration);
         }
-    }
-
-    /**
-     * Adds an array property to the schema which holds all additional properties
-     *
-     * @param Schema $schema
-     * @param PropertyInterface|null $validationProperty
-     */
-    private function addAdditionalPropertiesCollectionProperty(
-        Schema $schema,
-        ?PropertyInterface $validationProperty
-    ): void {
-        $additionalPropertiesCollectionProperty = (new Property(
-            'additionalProperties',
-            new PropertyType('array'),
-            new JsonSchema(__FILE__, []),
-            'Collect all additional properties provided to the schema'
-        ))
-            ->setDefaultValue([])
-            ->setReadOnly(true);
-
-        if ($validationProperty) {
-            $additionalPropertiesCollectionProperty->addTypeHintDecorator(
-                new ArrayTypeHintDecorator($validationProperty)
-            );
-        }
-
-        $schema->addProperty($additionalPropertiesCollectionProperty);
-    }
-
-    /**
-     * Adds a custom serialization function to the schema to merge all additional properties into the serialization
-     * result on serializations
-     *
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param PropertyInterface|null $validationProperty
-     */
-    private function addSerializeAdditionalPropertiesMethod(
-        Schema $schema,
-        GeneratorConfiguration $generatorConfiguration,
-        ?PropertyInterface $validationProperty
-    ): void {
-        $transformingFilterValidator = null;
-
-        if ($validationProperty) {
-            foreach ($validationProperty->getValidators() as $validator) {
-                $validator = $validator->getValidator();
-
-                if ($validator instanceof FilterValidator &&
-                    $validator->getFilter() instanceof TransformingFilterInterface
-                ) {
-                    $transformingFilterValidator = $validator;
-                    [$serializerClass, $serializerMethod] = $validator->getFilter()->getSerializer();
-                }
-            }
-        }
-
-        $schema->addUsedClass(SerializedValue::class);
-        $schema->addMethod(
-            'serializeAdditionalProperties',
-            new RenderedMethod(
-                $schema,
-                $generatorConfiguration,
-                'AdditionalPropertiesSerializer.phptpl',
-                [
-                    'serializerClass' => $serializerClass ?? null,
-                    'serializerMethod' => $serializerMethod ?? null,
-                    'serializerOptions' => $transformingFilterValidator
-                        ? var_export($transformingFilterValidator->getFilterOptions(), true)
-                        : [],
-                ]
-            )
-        );
     }
 
     /**
@@ -168,15 +102,10 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         GeneratorConfiguration $generatorConfiguration,
         ?PropertyInterface $validationProperty
     ): void {
-        $objectProperties = preg_replace(
-            '(\d+\s=>)',
-            '',
-            var_export(
-                array_map(function (PropertyInterface $property): string {
-                    return $property->getName();
-                }, $schema->getProperties()),
-                true
-            )
+        $objectProperties = RenderHelper::varExportArray(
+            array_map(function (PropertyInterface $property): string {
+                return $property->getName();
+            }, $schema->getProperties())
         );
 
         $schema->addUsedClass(RegularPropertyAsAdditionalPropertyException::class);
@@ -185,7 +114,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             new RenderedMethod(
                 $schema,
                 $generatorConfiguration,
-                'SetAdditionalProperty.phptpl',
+                'AdditionalProperties/SetAdditionalProperty.phptpl',
                 [
                     'validationProperty' => $validationProperty,
                     'objectProperties' => $objectProperties,
@@ -227,7 +156,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             new RenderedMethod(
                 $schema,
                 $generatorConfiguration,
-                'RemoveAdditionalProperty.phptpl',
+                'AdditionalProperties/RemoveAdditionalProperty.phptpl',
                 ['minPropertyValidator' => $minPropertyValidator]
             )
         );
@@ -258,13 +187,46 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             new RenderedMethod(
                 $schema,
                 $generatorConfiguration,
-                'GetAdditionalProperty.phptpl',
+                'AdditionalProperties/GetAdditionalProperty.phptpl',
                 [
                     'validationProperty' => $validationProperty
                         // type hint always with null as a non existent property may be requested (casually covered by
                         // the nullable type, except for multi type properties)
                         ? (clone $validationProperty)->addTypeHintDecorator(new TypeHintDecorator(['null']))
                         : null
+                ]
+            )
+        );
+    }
+
+    private function addGetAdditionalPropertiesMethod(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+        ?PropertyInterface $validationProperty
+    ): void {
+        $validationProperty = $validationProperty
+            // type hint always without null as the getter always returns an array
+            ? (clone $validationProperty)
+                ->setRequired(true)
+                ->addTypeHintDecorator(new ArrayTypeHintDecorator($validationProperty))
+            : null;
+
+        if ($validationProperty && $validationProperty->getType(true)) {
+            $validationProperty->setType(
+                $validationProperty->getType(),
+                new PropertyType($validationProperty->getType(true)->getName(), false)
+            );
+        }
+
+        $schema->addMethod(
+            'getAdditionalProperties',
+            new RenderedMethod(
+                $schema,
+                $generatorConfiguration,
+                'AdditionalProperties/GetAdditionalProperties.phptpl',
+                [
+                    'validationProperty' => $validationProperty,
+
                 ]
             )
         );

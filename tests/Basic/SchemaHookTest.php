@@ -13,6 +13,7 @@ use PHPModelGenerator\SchemaProcessor\Hook\ConstructorAfterValidationHookInterfa
 use PHPModelGenerator\SchemaProcessor\Hook\ConstructorBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\GetterHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookInterface;
+use PHPModelGenerator\SchemaProcessor\Hook\SerializationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterAfterValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
@@ -109,7 +110,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTest
     public function testSetterBeforeValidationHookIsResolved(): void
     {
         $this->addSchemaHook(new class () implements SetterBeforeValidationHookInterface {
-            public function getCode(PropertyInterface $property): string
+            public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
             {
                 return $property->getName() === 'age' ? 'throw new \Exception("SetterBeforeValidationHook");' : '';
             }
@@ -144,7 +145,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTest
         string $expectedExceptionMessage
     ): void {
         $this->addSchemaHook(new class () implements SetterAfterValidationHookInterface {
-            public function getCode(PropertyInterface $property): string
+            public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
             {
                 return $property->getName() === 'age' ? 'throw new \Exception("SetterAfterValidationHook");' : '';
             }
@@ -179,6 +180,28 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTest
                 'SetterAfterValidationHook',
             ],
         ];
+    }
+
+    public function testSerializationHookIsResolved(): void
+    {
+        $this->addSchemaHook(new class () implements SerializationHookInterface {
+            public function getCode(): string
+            {
+                return 'throw new \Exception("SerializationHookInterface");';
+            }
+        });
+
+        $className = $this->generateClassFromFile(
+            'BasicSchema.json',
+            (new GeneratorConfiguration())->setSerialization(true)
+        );
+
+        $object = new $className(['name' => 'Albert', 'age' => 35]);
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage("SerializationHookInterface");
+
+        $object->toArray();
     }
 
     protected function addSchemaHook(SchemaHookInterface $schemaHook): void
