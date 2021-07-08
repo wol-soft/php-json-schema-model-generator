@@ -128,13 +128,6 @@ class ModelGenerator
         // render all collected classes
         $renderQueue->execute($this->generatorConfiguration, $this->postProcessors);
 
-        if ($this->generatorConfiguration->hasPrettyPrintEnabled()) {
-            // @codeCoverageIgnoreStart
-            $out = $this->generatorConfiguration->isOutputEnabled() ? '' : '2>&1';
-            shell_exec(__DIR__ . "/../vendor/bin/ecs check $destination --config " . __DIR__ . "/cs.yml --fix $out");
-            // @codeCoverageIgnoreEnd
-        }
-
         return $schemaProcessor->getGeneratedFiles();
     }
 }

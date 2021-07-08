@@ -33,8 +33,6 @@ class GeneratorConfiguration
     /** @var bool */
     protected $denyAdditionalProperties = false;
     /** @var bool */
-    protected $prettyPrint = false;
-    /** @var bool */
     protected $outputEnabled = true;
     /** @var bool */
     protected $collectErrors = true;
@@ -251,26 +249,6 @@ class GeneratorConfiguration
     public function setDenyAdditionalProperties(bool $denyAdditionalProperties): self
     {
         $this->denyAdditionalProperties = $denyAdditionalProperties;
-
-        return $this;
-    }
-
-    /**
-     * @return bool
-     */
-    public function hasPrettyPrintEnabled(): bool
-    {
-        return $this->prettyPrint;
-    }
-
-    /**
-     * @param bool $prettyPrint
-     *
-     * @return $this
-     */
-    public function setPrettyPrint(bool $prettyPrint): self
-    {
-        $this->prettyPrint = $prettyPrint;
 
         return $this;
     }

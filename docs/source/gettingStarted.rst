@@ -254,24 +254,6 @@ If you want to customize the exception handling you can set an own ErrorRegistry
     (new GeneratorConfiguration())
         ->setErrorRegistryClass(MyCustomException::class);
 
-Code style of the generated classes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: php
-
-    setPrettyPrint(bool $prettyPrint);
-
-If set to false, the generated model classes won't follow coding guidelines (but the generation is faster). If enabled the package `Symplify/EasyCodingStandard <https://github.com/Symplify/EasyCodingStandard>`_ will be used to clean up the generated code. By default pretty printing is disabled.
-
-.. code-block:: php
-
-    (new GeneratorConfiguration())
-        ->setPrettyPrint(true);
-
-.. warning::
-
-    The ECS package must be installed manually: `composer require --dev symplify/easy-coding-standard`
-
 Serialization methods
 ^^^^^^^^^^^^^^^^^^^^^
 

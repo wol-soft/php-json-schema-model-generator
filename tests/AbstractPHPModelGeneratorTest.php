@@ -213,7 +213,6 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         string $schemaProviderClass = RecursiveDirectoryProvider::class
     ): string {
         $generatorConfiguration = ($generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false))
-            ->setPrettyPrint(false)
             ->setImplicitNull($implicitNull)
             ->setOutputEnabled(false);
 
