@@ -1,10 +1,18 @@
 Examples
 ========
 
+On this site you can find some examples using the schema model generator.
+
+.. toctree::
+    :caption: Patterns using the schema model generator
+    :maxdepth: 1
+
+    examples/scenarioBasedTesting
+
 Ebay OpenAPIv3 spec
 -------------------
 
-The Ebay OpenAPIv3 spec for the sell-inventory API is an around 6000 lines API definition. Using a script like the example below you can create ~120 PHP classes to handle requests, responses and all nested objects from the API spec:
+The Ebay OpenAPIv3 spec for the `sell-inventory API <https://developer.ebay.com/api-docs/sell/inventory/static/overview.html>`_ is an around 6000 lines API definition. Using a script like the example below you can create ~120 PHP classes to handle requests, responses and all nested objects from the API spec:
 
 .. code-block:: php
 
