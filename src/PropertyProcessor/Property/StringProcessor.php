@@ -69,7 +69,7 @@ class StringProcessor extends AbstractTypedValueProcessor
             );
         }
 
-        $json[static::JSON_FIELD_PATTERN] = addcslashes($json[static::JSON_FIELD_PATTERN], "'");
+        $json[static::JSON_FIELD_PATTERN] = addcslashes($json[static::JSON_FIELD_PATTERN], "'\\");
 
         $property->addValidator(
             new PropertyValidator(
