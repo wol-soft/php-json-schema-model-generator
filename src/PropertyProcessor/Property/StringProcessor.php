@@ -58,7 +58,7 @@ class StringProcessor extends AbstractTypedValueProcessor
             return;
         }
 
-        $escapedPattern = addcslashes(str_replace('\\\\', '\\\\\\\\', $json[static::JSON_FIELD_PATTERN]), '/');
+        $escapedPattern = addcslashes($json[static::JSON_FIELD_PATTERN], '/');
 
         if (@preg_match("/$escapedPattern/", '') === false) {
             throw new SchemaException(
