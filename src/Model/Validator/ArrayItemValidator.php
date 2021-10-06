@@ -44,8 +44,8 @@ class ArrayItemValidator extends PropertyTemplateValidator
         JsonSchema $itemStructure,
         PropertyInterface $property
     ) {
-        $this->variableSuffix = '_' . uniqid();
         $nestedPropertyName = "item of array {$property->getName()}";
+        $this->variableSuffix = '_' . md5($nestedPropertyName);
 
         // an item of the array behaves like a nested property to add item-level validation
         $this->nestedProperty = (new PropertyFactory(new PropertyProcessorFactory()))

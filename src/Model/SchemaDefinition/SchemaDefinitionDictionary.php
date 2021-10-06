@@ -180,7 +180,7 @@ class SchemaDefinitionDictionary extends ArrayObject
 
         // set up a dummy schema to fetch the definitions from the external file
         $schema = new Schema(
-            'ExternalSchema_' . uniqid(),
+            'ExternalSchema',
             '',
             new JsonSchema($jsonSchemaFilePath, $decodedJsonSchema),
             new self(dirname($jsonSchemaFilePath))

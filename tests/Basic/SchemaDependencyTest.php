@@ -228,7 +228,7 @@ ERROR
                 ['credit_card' => 12345],
                 <<<ERROR
 Invalid schema which is dependant on credit_card:
-  - Invalid value for Credit_card_Dependency_(.*) declined by composition constraint.
+  - Invalid value for SchemaDependencyTest_\w+_credit_card_Dependency declined by composition constraint.
       Requires to match all composition elements but matched 0 elements.
       - Composition element #1: Failed
         \* Missing required value for name
@@ -242,7 +242,7 @@ ERROR
                 ['credit_card' => 12345, 'age' => 42],
                 <<<ERROR
 Invalid schema which is dependant on credit_card:
-  - Invalid value for Credit_card_Dependency_(.*) declined by composition constraint.
+  - Invalid value for SchemaDependencyTest_\w+_credit_card_Dependency declined by composition constraint.
       Requires to match all composition elements but matched 1 elements.
       - Composition element #1: Failed
         \* Missing required value for name
@@ -255,7 +255,7 @@ ERROR
                 ['credit_card' => 12345, 'name' => false, 'age' => 42],
                 <<<ERROR
 Invalid schema which is dependant on credit_card:
-  - Invalid value for Credit_card_Dependency_(.*) declined by composition constraint.
+  - Invalid value for SchemaDependencyTest_\w+_credit_card_Dependency declined by composition constraint.
       Requires to match all composition elements but matched 1 elements.
       - Composition element #1: Failed
         \* Invalid type for name. Requires string, got boolean
