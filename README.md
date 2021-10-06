@@ -1,7 +1,6 @@
 [![Latest Version](https://img.shields.io/packagist/v/wol-soft/php-json-schema-model-generator.svg)](https://packagist.org/packages/wol-soft/php-json-schema-model-generator)
 [![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%207.2-8892BF.svg)](https://php.net/)
 [![Maintainability](https://api.codeclimate.com/v1/badges/7eb29e7366dc3d6a5f44/maintainability)](https://codeclimate.com/github/wol-soft/php-json-schema-model-generator/maintainability)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/7eb29e7366dc3d6a5f44/test_coverage)](https://codeclimate.com/github/wol-soft/php-json-schema-model-generator/test_coverage)
 [![Build Status](https://github.com/wol-soft/php-json-schema-model-generator/actions/workflows/main.yml/badge.svg)](https://github.com/wol-soft/php-json-schema-model-generator/actions/workflows/main.yml)
 [![Coverage Status](https://coveralls.io/repos/github/wol-soft/php-json-schema-model-generator/badge.svg?branch=master)](https://coveralls.io/github/wol-soft/php-json-schema-model-generator?branch=master)
 [![MIT License](https://img.shields.io/packagist/l/wol-soft/php-json-schema-model-generator.svg)](https://github.com/wol-soft/php-json-schema-model-generator/blob/master/LICENSE)

@@ -58,7 +58,9 @@ class StringProcessor extends AbstractTypedValueProcessor
             return;
         }
 
-        if (@preg_match("/{$json[static::JSON_FIELD_PATTERN]}/", '') === false) {
+        $escapedPattern = addcslashes(str_replace('\\\\', '\\\\\\\\', $json[static::JSON_FIELD_PATTERN]), '/');
+
+        if (@preg_match("/$escapedPattern/", '') === false) {
             throw new SchemaException(
                 sprintf(
                     "Invalid pattern '%s' for property '%s' in file %s",
@@ -69,12 +71,12 @@ class StringProcessor extends AbstractTypedValueProcessor
             );
         }
 
-        $json[static::JSON_FIELD_PATTERN] = addcslashes($json[static::JSON_FIELD_PATTERN], "'");
+        $encodedPattern = base64_encode("/$escapedPattern/");
 
         $property->addValidator(
             new PropertyValidator(
                 $property,
-                $this->getTypeCheck() . "!preg_match('/{$json[static::JSON_FIELD_PATTERN]}/', \$value)",
+                $this->getTypeCheck() . "!preg_match(base64_decode('$encodedPattern'), \$value)",
                 PatternException::class,
                 [$json[static::JSON_FIELD_PATTERN]]
             )

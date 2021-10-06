@@ -353,7 +353,7 @@ Finally we've written our first scenario with a few entities. Now let's write a 
             $pet = self::$scenario->getPet('doggie');
 
             // execute the API request
-            $response = $this->request('GET', "/pet/{$pet->getId}");
+            $response = $this->request('GET', "/pet/{$pet->getId()}");
 
             // execute assertions
             $this->assertSame('doggie', $response->getBody()['name']);

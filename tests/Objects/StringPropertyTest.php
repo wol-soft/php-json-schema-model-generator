@@ -189,7 +189,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
         string $pattern,
         ?string $propertyValue
     ): void {
-        $className = $this->generateClassFromFileTemplate('StringPropertyPattern.json', [$pattern], $configuration);
+        $className = $this->generateClassFromFileTemplate('StringPropertyPattern.json', [$pattern], $configuration, false);
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertSame($propertyValue, $object->getProperty());
@@ -210,12 +210,13 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
             [
                 'Null' => ['^The', null],
                 'String starts with' => ['^The', 'The Test starts with The'],
-                'No spaces in string' => ['^[^\\s]+$', 'ThisStringContainsNoSpace'],
+                'No spaces in string' => ['^[^\\\\s]+$', 'ThisStringContainsNoSpace'],
                 'A formatted date' => ['^[0-9]{4}-[0-9]{2}-[0-9]{2}$', '2018-12-12'],
                 'A formatted date inside a text' => [
                     '[0-9]{4}-[0-9]{2}-[0-9]{2}',
                     'Contains a Date 2018-12-12 and something else'
                 ],
+                'Regex escape test' => ['^\\\\\\\\/\'$', '\\\\/\''],
             ]
         );
     }
