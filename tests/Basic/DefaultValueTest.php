@@ -44,7 +44,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
     {
         $className = $this->generateClassFromFileTemplate(
             'DefaultValueTypedProperty.json',
-            ['"integer"', 10],
+            ['"integer"', 0],
             (new GeneratorConfiguration())->setImmutable(false),
             false
         );
@@ -70,7 +70,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
     {
         $className = $this->generateClassFromFileTemplate(
             'DefaultValueTypedProperty.json',
-            ['"integer"', 10],
+            ['"integer"', 0],
             (new GeneratorConfiguration())->setImmutable(false),
             false,
             false

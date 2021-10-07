@@ -127,7 +127,7 @@ class RenderHelper
     {
         return !$property->isRequired()
             && ($outputType || $this->generatorConfiguration->isImplicitNullAllowed())
-            && !($property->getDefaultValue() && !$this->generatorConfiguration->isImplicitNullAllowed());
+            && !($property->getDefaultValue() !== null && !$this->generatorConfiguration->isImplicitNullAllowed());
     }
 
     public function getType(PropertyInterface $property, bool $outputType = false): string
