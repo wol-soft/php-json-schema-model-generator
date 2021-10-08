@@ -262,7 +262,14 @@ class BaseProcessor extends AbstractPropertyProcessor
             $json['dependencies'] ?? []
         );
 
-        foreach ($json['properties'] ?? [] as $propertyName => $propertyStructure) {
+        $json['properties'] = $json['properties'] ?? [];
+        // setup empty properties for required properties which aren't defined in the properties section of the schema
+        $json['properties'] += array_fill_keys(
+            array_diff($json['required'] ?? [], array_keys($json['properties'])),
+            []
+        );
+
+        foreach ($json['properties'] as $propertyName => $propertyStructure) {
             $this->schema->addProperty(
                 $propertyFactory->create(
                     $propertyMetaDataCollection,

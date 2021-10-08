@@ -392,7 +392,13 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
 
         return $this->generateClassFromFileTemplate(
             'EnumProperty.json',
-            [$type, sprintf('[%s]', join(',', $enumValues)), $required ? 'property' : '']
+            [
+                $type,
+                str_replace("'", '"', sprintf('[%s]', join(',', $enumValues))),
+                $required ? ',"required": ["property"]' : '',
+            ],
+            null,
+            false
         );
     }
 }

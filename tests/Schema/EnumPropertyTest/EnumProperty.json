@@ -5,6 +5,6 @@
       "type": "%s",
       "enum": %s
     }
-  },
-  "required": ["%s"]
+  }
+  %s
 }

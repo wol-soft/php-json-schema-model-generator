@@ -158,9 +158,11 @@ Possible exceptions:
 
 * Missing required value for name
 
-.. warning::
+.. hint::
 
-    Properties defined in the `required` array but not defined in the `properties` section of the object aren't validated. Consequently provided objects missing these fields may be considered valid.
+    Properties defined in the `required` array but not defined in the `properties` will be added to the interface of the generated class.
+
+    A schema defining only the required property `example` consequently will provide the methods `getExample(): mixed` and `setExample(mixed $value): self`.
 
 Size
 ----
