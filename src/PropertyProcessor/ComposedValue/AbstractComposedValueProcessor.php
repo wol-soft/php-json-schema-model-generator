@@ -164,13 +164,15 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      */
     private function transferPropertyType(PropertyInterface $property, array $compositionProperties)
     {
-        $compositionPropertyTypes = array_unique(
-            array_filter(
-                array_map(
-                    function (CompositionPropertyDecorator $property): string {
-                        return $property->getType() ? $property->getType()->getName() : '';
-                    },
-                    $compositionProperties
+        $compositionPropertyTypes = array_values(
+            array_unique(
+                array_filter(
+                    array_map(
+                        function (CompositionPropertyDecorator $property): string {
+                            return $property->getType() ? $property->getType()->getName() : '';
+                        },
+                        $compositionProperties
+                    )
                 )
             )
         );
