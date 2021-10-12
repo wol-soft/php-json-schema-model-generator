@@ -34,7 +34,7 @@ class SchemaNamespaceTransferDecorator
     public function resolve(array $visitedSchema): array
     {
         // avoid an endless loop while resolving recursive schema objects
-        if (in_array($this->schema, $visitedSchema)) {
+        if (in_array($this->schema, $visitedSchema, true)) {
             return [];
         }
 

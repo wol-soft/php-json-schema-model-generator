@@ -10,7 +10,6 @@ use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\Model\SchemaDefinition\ComposedJsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
@@ -51,7 +50,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         Schema $schema,
         bool $rootLevelComposition
     ) {
-        parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema, '');
+        parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
 
         $this->rootLevelComposition = $rootLevelComposition;
     }
