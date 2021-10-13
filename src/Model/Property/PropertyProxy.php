@@ -21,8 +21,6 @@ class PropertyProxy extends AbstractProperty
 {
     /** @var string */
     protected $key;
-    /** @var string */
-    protected $name;
     /** @var ResolvedDefinitionsCollection */
     protected $definitionsCollection;
 
@@ -248,5 +246,12 @@ class PropertyProxy extends AbstractProperty
     public function isInternal(): bool
     {
         return $this->getProperty()->isInternal();
+    }
+
+    public function __clone()
+    {
+        $cloneKey = $this->key . uniqid();
+        $this->definitionsCollection->offsetSet($cloneKey, clone $this->definitionsCollection->offsetGet($this->key));
+        $this->key = $cloneKey;
     }
 }
