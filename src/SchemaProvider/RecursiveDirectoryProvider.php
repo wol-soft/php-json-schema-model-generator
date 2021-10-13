@@ -47,15 +47,21 @@ class RecursiveDirectoryProvider implements SchemaProviderInterface
     {
         $directory = new RecursiveDirectoryIterator($this->sourceDirectory);
         $iterator = new RecursiveIteratorIterator($directory);
+        $schemaFiles = [];
 
-        foreach (new RegexIterator($iterator, '/^.+\.json$/i', RecursiveRegexIterator::GET_MATCH) as $file) {
-            $jsonSchema = file_get_contents($file[0]);
+        foreach (new RegexIterator($iterator, '/^.+\.json$/i', RegexIterator::GET_MATCH) as $file) {
+            $schemaFiles[] = $file[0];
+        }
+
+        sort($schemaFiles, SORT_REGULAR);
+        foreach ($schemaFiles as $file) {
+            $jsonSchema = file_get_contents($file);
 
             if (!$jsonSchema || !($decodedJsonSchema = json_decode($jsonSchema, true))) {
                 throw new SchemaException("Invalid JSON-Schema file {$file[0]}");
             }
 
-            yield new JsonSchema($file[0], $decodedJsonSchema);
+            yield new JsonSchema($file, $decodedJsonSchema);
         }
     }
 
