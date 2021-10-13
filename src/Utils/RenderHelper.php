@@ -39,7 +39,7 @@ class RenderHelper
     }
 
     /**
-     * @param $value
+     * @param mixed $value
      *
      * @return bool
      */

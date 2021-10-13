@@ -31,7 +31,7 @@ class FilterProcessor
 {
     /**
      * @param PropertyInterface $property
-     * @param $filterList
+     * @param mixed $filterList
      * @param GeneratorConfiguration $generatorConfiguration
      * @param Schema $schema
      *
