@@ -50,7 +50,6 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
 
                     $matchesAnyPattern = false;
 
-                    /** @var PatternPropertiesValidator $patternPropertiesValidator */
                     foreach (array_keys($json['patternProperties']) as $pattern) {
                         if (preg_match("/{$pattern}/", $property->getName())) {
                             $matchesAnyPattern = true;
