@@ -42,7 +42,7 @@ interface PropertyInterface
      *
      * @return PropertyInterface
      */
-    public function setType(PropertyType $type, PropertyType $outputType = null): PropertyInterface;
+    public function setType(PropertyType $type = null, PropertyType $outputType = null): PropertyInterface;
 
     /**
      * @param bool $outputType If set to true the output type hint will be returned (may differ from the base type)
