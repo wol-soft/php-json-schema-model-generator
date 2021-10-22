@@ -140,4 +140,76 @@ ERROR
             ]
         ];
     }
+
+    /**
+     * @dataProvider nestedObjectDataProvider
+     */
+    public function testValidNestedObjectInMultiTypePropertyIsValidWithNestedObjectProvided(
+        ?array $propertyValue,
+        ?string $expected
+    ): void {
+        $className = $this->generateClassFromFile('MultiTypeObjectProperty.json');
+
+        $object = new $className(['property' => $propertyValue]);
+
+        if ($propertyValue === null) {
+            $this->assertNull($object->getProperty());
+        } else {
+            $this->assertIsObject($object->getProperty());
+            $this->assertSame($expected, $object->getProperty()->getName());
+        }
+    }
+
+    public function nestedObjectDataProvider(): array
+    {
+        return [
+            'not provided' => [null, null],
+            'empty nested object' => [[], null],
+            'empty string' => [['name' => ''], ''],
+            'name provided' => [['name' => 'Hans'], 'Hans'],
+        ];
+    }
+
+    public function testStringForMultiTypePropertyWithNestedObjectIsValid(): void
+    {
+        $className = $this->generateClassFromFile('MultiTypeObjectProperty.json');
+
+        $object = new $className(['property' => 'Hello']);
+        $this->assertSame('Hello', $object->getProperty());
+    }
+
+    /**
+     * @dataProvider invalidNestedObjectDataProvider
+     */
+    public function testInvalidNestedObjectInMultiTypePropertyThrowsAnException(
+        array $propertyValue,
+        string $exceptionMessage
+    ): void {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessageMatches("/$exceptionMessage/");
+
+        $className = $this->generateClassFromFile('MultiTypeObjectProperty.json');
+
+        new $className(['property' => $propertyValue]);
+    }
+
+    public function invalidNestedObjectDataProvider(): array
+    {
+        return [
+            'invalid type' => [
+                ['name' => 42],
+                <<<ERROR
+Invalid nested object for property property:
+  - Invalid type for name. Requires string, got integer
+ERROR,
+            ],
+            'invalid additional property' => [
+                ['name' => 'Hans', 'age' => 42],
+                <<<ERROR
+Invalid nested object for property property:
+  - Provided JSON for MultiTypePropertyTest_\w+ contains not allowed additional properties \[age\]
+ERROR,
+            ],
+        ];
+    }
 }

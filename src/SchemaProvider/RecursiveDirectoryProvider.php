@@ -9,7 +9,6 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use RecursiveRegexIterator;
 use RegexIterator;
 
 /**

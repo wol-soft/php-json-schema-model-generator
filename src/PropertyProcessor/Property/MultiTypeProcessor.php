@@ -53,7 +53,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
         parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
 
         foreach ($types as $type) {
-            $this->propertyProcessors[] = $propertyProcessorFactory->getProcessor(
+            $this->propertyProcessors[$type] = $propertyProcessorFactory->getProcessor(
                 $type,
                 $propertyMetaDataCollection,
                 $schemaProcessor,
@@ -161,7 +161,9 @@ class MultiTypeProcessor extends AbstractValueProcessor
             unset($json['default']);
         }
 
-        foreach ($this->propertyProcessors as $propertyProcessor) {
+        foreach ($this->propertyProcessors as $type => $propertyProcessor) {
+            $json['type'] = $type;
+
             $subProperty = $propertyProcessor->process($propertyName, $propertySchema->withJson($json));
             $this->transferValidators($subProperty, $property);
 

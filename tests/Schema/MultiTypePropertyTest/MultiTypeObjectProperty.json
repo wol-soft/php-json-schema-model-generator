@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": ["string", "object"],
+      "minLength": 4,
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

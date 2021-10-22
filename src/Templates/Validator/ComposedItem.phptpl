@@ -80,12 +80,16 @@
                 {% endif %}
 
                 {% if not generatorConfiguration.collectErrors() %}
-                    isset($validatorIndex) ? $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = true : null;
+                    if (isset($validatorIndex)) {
+                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = true;
+                    }
                 {% endif %}
             }
         } catch (\Exception $e) {
             {% if not generatorConfiguration.collectErrors() %}
-                isset($validatorIndex) ? $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = false : null;
+                if (isset($validatorIndex)) {
+                    $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = false;
+                }
             {% endif %}
 
             {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
