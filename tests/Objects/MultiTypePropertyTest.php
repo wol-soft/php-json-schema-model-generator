@@ -201,14 +201,14 @@ ERROR
                 <<<ERROR
 Invalid nested object for property property:
   - Invalid type for name. Requires string, got integer
-ERROR,
+ERROR
             ],
             'invalid additional property' => [
                 ['name' => 'Hans', 'age' => 42],
                 <<<ERROR
 Invalid nested object for property property:
   - Provided JSON for MultiTypePropertyTest_\w+ contains not allowed additional properties \[age\]
-ERROR,
+ERROR
             ],
         ];
     }

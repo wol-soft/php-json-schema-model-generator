@@ -66,7 +66,9 @@
 
                 {% if generatorConfiguration.collectErrors() %}
                     $compositionErrorCollection[] = $this->_errorRegistry;
-                    isset($validatorIndex) ? $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = $this->_errorRegistry : null;
+                    if (isset($validatorIndex)) {
+                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = $this->_errorRegistry;
+                    }
 
                     // an error inside the composed validation occurred. Throw an exception to count the validity of the
                     // composition item
