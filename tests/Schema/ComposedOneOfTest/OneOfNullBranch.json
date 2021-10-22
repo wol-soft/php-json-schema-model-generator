@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

@@ -639,4 +639,28 @@ ERROR
             ],
         ];
     }
+
+    public function testTypesForComposedPropertyWithNullBranch(): void
+    {
+        $className = $this->generateClassFromFile(
+            'OneOfNullBranch.json',
+            (new GeneratorConfiguration())->setImmutable(false)
+        );
+
+        $object = new $className([]);
+
+        $this->assertSame('int[]|null', $this->getPropertyTypeAnnotation($object, 'property'));
+
+        $this->assertSame('int[]|null', $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
+        $returnType = $this->getReturnType($object, 'getProperty');
+        $this->assertSame('array', $returnType->getName());
+        // as implicit null is enabled the default value may be overwritten by a null value
+        $this->assertTrue($returnType->allowsNull());
+
+        $this->assertSame('int[]|null', $this->getMethodParameterTypeAnnotation($object, 'setProperty'));
+        $parameterType = $this->getParameterType($object, 'setProperty');
+        $this->assertSame('array', $parameterType->getName());
+        // as implicit null is enabled the default value may be overwritten by a null value
+        $this->assertTrue($parameterType->allowsNull());
+    }
 }

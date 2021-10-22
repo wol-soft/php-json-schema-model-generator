@@ -16,6 +16,7 @@ use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Property\AbstractValueProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
@@ -120,6 +121,10 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         $compositionProperties = [];
         $json = $propertySchema->getJson()['propertySchema']->getJson();
 
+        // clear the base type of the property to keep only the types of the composition.
+        // This avoids e.g. "array|int[]" for a property which is known to contain always an integer array
+        $property->addTypeHintDecorator(new ClearTypeHintDecorator());
+
         foreach ($json[$propertySchema->getJson()['type']] as $compositionElement) {
             $compositionSchema = $propertySchema->getJson()['propertySchema']->withJson($compositionElement);
 
@@ -165,19 +170,24 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
     {
         $compositionPropertyTypes = array_values(
             array_unique(
-                array_filter(
-                    array_map(
-                        function (CompositionPropertyDecorator $property): string {
-                            return $property->getType() ? $property->getType()->getName() : '';
-                        },
-                        $compositionProperties
-                    )
+                array_map(
+                    function (CompositionPropertyDecorator $property): string {
+                        return $property->getType() ? $property->getType()->getName() : '';
+                    },
+                    $compositionProperties
                 )
             )
         );
 
-        if (count($compositionPropertyTypes) === 1 && !($this instanceof NotProcessor)) {
-            $property->setType(new PropertyType($compositionPropertyTypes[0]));
+        $nonEmptyCompositionPropertyTypes = array_values(array_filter($compositionPropertyTypes));
+
+        if (count($nonEmptyCompositionPropertyTypes) === 1 && !($this instanceof NotProcessor)) {
+            $property->setType(
+                new PropertyType(
+                    $nonEmptyCompositionPropertyTypes[0],
+                    count($compositionPropertyTypes) > 1 ? true : null
+                )
+            );
         }
     }
 
