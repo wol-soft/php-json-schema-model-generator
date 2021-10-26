@@ -61,11 +61,11 @@ class FilterValidator extends PropertyTemplateValidator
                 'isTransformingFilter' => $filter instanceof TransformingFilterInterface,
                 // check if the given value has a type matched by the filter
                 'typeCheck' => !empty($filter->getAcceptedTypes())
-                    ? '($value !== null && (' .
+                    ? '(' .
                         implode(' && ', array_map(function (string $type) use ($property): string {
                             return ReflectionTypeCheckValidator::fromType($type, $property)->getCheck();
                         }, $this->mapDataTypes($filter->getAcceptedTypes()))) .
-                        '))'
+                      ')'
                     : '',
                 'filterClass' => $filter->getFilter()[0],
                 'filterMethod' => $filter->getFilter()[1],
@@ -136,10 +136,17 @@ class FilterValidator extends PropertyTemplateValidator
      */
     private function validateFilterCompatibilityWithBaseType(FilterInterface $filter, PropertyInterface $property)
     {
-        if (!empty($filter->getAcceptedTypes()) &&
-            $property->getType() &&
-            $property->getType()->getName() &&
-            !in_array($property->getType()->getName(), $this->mapDataTypes($filter->getAcceptedTypes()))
+        if (empty($filter->getAcceptedTypes()) || !$property->getType()) {
+            return;
+        }
+
+        if (
+            (
+                $property->getType()->getName() &&
+                !in_array($property->getType()->getName(), $this->mapDataTypes($filter->getAcceptedTypes()))
+            ) || (
+                $property->getType()->isNullable() && !in_array('null', $filter->getAcceptedTypes())
+            )
         ) {
             throw new SchemaException(
                 sprintf(
@@ -174,13 +181,18 @@ class FilterValidator extends PropertyTemplateValidator
         ))->getReturnType();
 
         if (!empty($filter->getAcceptedTypes()) &&
-            !in_array($transformedType->getName(), $this->mapDataTypes($filter->getAcceptedTypes()))
+            (
+                !in_array($transformedType->getName(), $this->mapDataTypes($filter->getAcceptedTypes())) ||
+                ($transformedType->allowsNull() && !in_array('null', $filter->getAcceptedTypes()))
+            )
         ) {
             throw new SchemaException(
                 sprintf(
                     'Filter %s is not compatible with transformed property type %s for property %s in file %s',
                     $filter->getToken(),
-                    $transformedType->getName(),
+                    $transformedType->allowsNull()
+                        ? "[null, {$transformedType->getName()}]"
+                        : $transformedType->getName(),
                     $property->getName(),
                     $property->getJsonSchema()->getFile()
                 )

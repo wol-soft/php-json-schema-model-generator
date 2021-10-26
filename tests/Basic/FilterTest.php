@@ -80,7 +80,7 @@ class FilterTest extends AbstractPHPModelGeneratorTest
     protected function getCustomFilter(
         array $customFilter,
         string $token = 'customFilter',
-        array $acceptedTypes = ['string']
+        array $acceptedTypes = ['string', 'null']
     ): FilterInterface {
         return new class ($customFilter, $token, $acceptedTypes) implements FilterInterface {
             private $customFilter;
@@ -532,7 +532,7 @@ ERROR
                 new class () extends DateTimeFilter {
                     public function getAcceptedTypes(): array
                     {
-                        return [DateTime::class];
+                        return [DateTime::class, 'null'];
                     }
 
                     public function getToken(): string
@@ -590,11 +590,12 @@ ERROR
     }
 
     /**
-     * @dataProvider namespaceDataProvider
+     * @dataProvider implicitNullNamespaceDataProvider
      *
+     * @param bool $implicitNull
      * @param string $namespace
      */
-    public function testTransformingToScalarType(string $namespace)
+    public function testTransformingToScalarType(bool $implicitNull, string $namespace)
     {
         $className = $this->generateClassFromFile(
             'TransformingScalarFilter.json',
@@ -609,7 +610,9 @@ ERROR
                         'binary',
                         ['integer']
                     )
-                )
+                ),
+            false,
+            $implicitNull
         );
 
         $fqcn = $namespace . $className;
@@ -621,6 +624,15 @@ ERROR
 
         $this->assertSame(['value' => 11], $object->toArray());
         $this->assertSame('{"value":11}', $object->toJSON());
+
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage(
+            $implicitNull
+                ? 'Filter binary is not compatible with property type NULL for property value'
+                : 'Invalid type for value. Requires [string, int], got NULL'
+        );
+
+        new $fqcn(['value' => null]);
     }
 
     public static function filterIntToBinary(int $value): string
@@ -637,7 +649,8 @@ ERROR
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage(
-            'Filter trim is not compatible with transformed property type DateTime for property filteredProperty'
+            'Filter trim is not compatible with transformed property type ' .
+            '[null, DateTime] for property filteredProperty'
         );
 
         $this->generateClassFromFileTemplate('FilterChain.json', ['["dateTime", "trim"]'], null, false);
@@ -654,7 +667,7 @@ ERROR
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilter'],
                         'stripTime',
-                        [DateTime::class]
+                        [DateTime::class, 'null']
                     )
                 ),
             false
@@ -692,7 +705,7 @@ ERROR
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilter'],
                         'stripTime',
-                        [DateTime::class]
+                        [DateTime::class, 'null']
                     )
                 ),
             false,
@@ -722,6 +735,27 @@ ERROR
         );
     }
 
+    public function testFilterChainWithIncompatibleFilterAfterTransformingFilterOnMultiTypeProperty(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage(
+            'Filter stripTime is not compatible with transformed ' .
+            'property type [null, DateTime] for property filteredProperty'
+        );
+
+        $this->generateClassFromFile(
+            'FilterChainMultiType.json',
+            (new GeneratorConfiguration())
+                ->addFilter(
+                    $this->getCustomFilter(
+                        [self::class, 'stripTimeFilterStrict'],
+                        'stripTime',
+                        [DateTime::class]
+                    )
+                )
+        );
+    }
+
     public function testFilterAfterTransformingFilterIsSkippedIfTransformingFilterFails(): void
     {
         $this->expectException(ErrorRegistryException::class);
@@ -736,7 +770,7 @@ ERROR
                     $this->getCustomFilter(
                         [self::class, 'exceptionFilter'],
                         'stripTime',
-                        [DateTime::class]
+                        [DateTime::class, 'null']
                     )
                 ),
             false
@@ -766,7 +800,7 @@ ERROR
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilter'],
                         'stripTime',
-                        [DateTime::class]
+                        [DateTime::class, 'null']
                     )
                 ),
             false
@@ -776,6 +810,11 @@ ERROR
     public static function stripTimeFilter(?DateTime $value): ?DateTime
     {
         return $value !== null ? $value->setTime(0, 0) : null;
+    }
+
+    public static function stripTimeFilterStrict(DateTime $value): DateTime
+    {
+        return $value->setTime(0, 0);
     }
 
     /**
