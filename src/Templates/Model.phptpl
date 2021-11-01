@@ -32,11 +32,11 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
         {% if property.isInternal() %}private{% else %}protected{% endif %} ${{ property.getAttribute() }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
     /** @var array */
-    private $_rawModelDataInput = [];
+    protected $_rawModelDataInput = [];
 
     {% if generatorConfiguration.collectErrors() %}
         /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} Collect all validation errors */
-        private $_errorRegistry;
+        protected $_errorRegistry;
     {% endif %}
 
     /**
@@ -76,7 +76,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
     }
 
     {% if schema.getBaseValidators() %}
-        private function executeBaseValidators(array &$modelData): void
+        protected function executeBaseValidators(array &$modelData): void
         {
             $value = &$modelData;
 
