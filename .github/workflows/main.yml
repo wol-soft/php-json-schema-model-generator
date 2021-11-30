@@ -25,7 +25,7 @@ jobs:
         run: composer install
 
       - name: Prepare codeclimate test reporter
-        if: ${{ matrix.php == '8.0' }}
+        if: ${{ matrix.php == '7.4' }}
         run: |
           curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
           chmod +x ./cc-test-reporter
