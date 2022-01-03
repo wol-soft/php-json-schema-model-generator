@@ -159,7 +159,7 @@ You can implement custom format validators and use them in your schema files. Yo
 
     $generator = new Generator(
         (new GeneratorConfiguration())
-            ->addFormat(new MyCustomFormat())
+            ->addFormat('customFormat', new MyCustomFormat())
     );
 
 Your format validator must implement the interface **PHPModelGenerator\\Format\\FormatValidatorInterface**.
@@ -170,7 +170,7 @@ If your custom format is representable by a regular expression you can bypass im
 
     $generator = new Generator(
         (new GeneratorConfiguration())
-            ->addFormat(new FormatValidatorFromRegEx('/^\d*$/'))
+            ->addFormat('numeric', new FormatValidatorFromRegEx('/^\d*$/'))
     );
 
 .. hint::
