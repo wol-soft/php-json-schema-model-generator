@@ -43,7 +43,7 @@ class BaseProcessor extends AbstractPropertyProcessor
         'count(
             array_unique(
                 array_merge(
-                    array_keys($this->_rawModelDataInput),
+                    array_keys($this->modelData),
                     array_keys($modelData)
                 )
             )

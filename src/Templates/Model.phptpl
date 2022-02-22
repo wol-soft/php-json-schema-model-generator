@@ -32,7 +32,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
         {% if property.isInternal() %}private{% else %}protected{% endif %} ${{ property.getAttribute() }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
     /** @var array */
-    protected $_rawModelDataInput = [];
+    protected $modelData = [];
 
     {% if generatorConfiguration.collectErrors() %}
         /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} Collect all validation errors */
@@ -70,7 +70,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
             }
         {% endif %}
 
-        $this->_rawModelDataInput = $modelData;
+        $this->modelData = $modelData;
 
         {{ schemaHookResolver.resolveConstructorAfterValidationHook() }}
     }
@@ -100,7 +100,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
      */
     public function getRawModelDataInput(): array
     {
-        return $this->_rawModelDataInput;
+        return $this->modelData;
     }
 
     {% foreach schema.getProperties() as property %}
@@ -154,7 +154,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
                     {% endif %}
 
                     $this->{{ property.getAttribute() }} = $value;
-                    $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute() }};
+                    $this->modelData['{{ property.getName() }}'] = ${{ property.getAttribute() }};
 
                     {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
 
