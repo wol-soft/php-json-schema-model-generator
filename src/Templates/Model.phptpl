@@ -70,7 +70,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
             }
         {% endif %}
 
-        $this->modelData = $modelData;
+        $this->_modelData = $modelData;
 
         {{ schemaHookResolver.resolveConstructorAfterValidationHook() }}
     }
@@ -100,7 +100,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
      */
     public function getRawModelDataInput(): array
     {
-        return $this->modelData;
+        return $this->_modelData;
     }
 
     {% foreach schema.getProperties() as property %}
@@ -154,7 +154,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
                     {% endif %}
 
                     $this->{{ property.getAttribute() }} = $value;
-                    $this->modelData['{{ property.getName() }}'] = ${{ property.getAttribute() }};
+                    $this->_modelData['{{ property.getName() }}'] = ${{ property.getAttribute() }};
 
                     {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
 

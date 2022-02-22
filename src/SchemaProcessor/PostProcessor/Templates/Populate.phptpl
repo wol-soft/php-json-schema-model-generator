@@ -59,7 +59,7 @@ public function populate(array $modelData): self
         }
     {% endif %}
 
-    $this->modelData = array_merge($this->modelData, $modelData);
+    $this->_modelData = array_merge($this->_modelData, $modelData);
 
     {% foreach schema.getProperties() as property %}
         {% if not property.isInternal() %}
