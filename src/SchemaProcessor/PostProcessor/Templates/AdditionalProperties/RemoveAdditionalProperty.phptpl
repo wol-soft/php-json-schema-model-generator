@@ -14,7 +14,7 @@ public function removeAdditionalProperty(string $property): bool
         foreach ($this->_patternProperties as $patternHash => $_) {
             if (isset($this->_patternProperties[$patternHash][$property])) {
                 unset($this->_patternProperties[$patternHash][$property]);
-                unset($this->_rawModelDataInput[$property]);
+                unset($this->_modelData[$property]);
             }
         }
     }
@@ -39,7 +39,7 @@ public function removeAdditionalProperty(string $property): bool
         {% endif %}
     {% endif %}
 
-    unset($this->_rawModelDataInput[$property]);
+    unset($this->_modelData[$property]);
     unset($this->_additionalProperties[$property]);
 
     return true;
