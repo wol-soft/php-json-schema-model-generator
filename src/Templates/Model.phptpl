@@ -42,11 +42,11 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
     /**
      * {{ class }} constructor.
      *
-     * @param array $modelData
+     * @param array $rawModelDataInput
      *
      * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
      */
-    public function __construct(array $modelData = [])
+    public function __construct(array $rawModelDataInput = [])
     {
         {% if generatorConfiguration.collectErrors() %}
             $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
@@ -55,12 +55,12 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
         {{ schemaHookResolver.resolveConstructorBeforeValidationHook() }}
 
         {% if schema.getBaseValidators() %}
-            $this->executeBaseValidators($modelData);
+            $this->executeBaseValidators($rawModelDataInput);
         {% endif %}
 
         {% foreach schema.getProperties() as property %}
             {% if not property.isInternal() %}
-                $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
+                $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($rawModelDataInput);
             {% endif %}
         {% endforeach %}
 
@@ -70,7 +70,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
             }
         {% endif %}
 
-        $this->_rawModelDataInput = $modelData;
+        $this->_rawModelDataInput = $rawModelDataInput;
 
         {{ schemaHookResolver.resolveConstructorAfterValidationHook() }}
     }
