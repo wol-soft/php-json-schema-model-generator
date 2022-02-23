@@ -64,7 +64,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                     // TODO: call only the pattern property validation at this location to avoid executing unnecessary
                     // TODO: validators
                     return sprintf('
-                            $modelData = array_merge($this->_modelData, ["%s" => $value]);
+                            $modelData = array_merge($this->_rawModelDataInput, ["%s" => $value]);
                             $this->executeBaseValidators($modelData);
                         ',
                         $property->getName()

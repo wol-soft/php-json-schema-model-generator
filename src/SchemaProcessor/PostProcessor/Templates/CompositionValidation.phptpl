@@ -8,7 +8,7 @@
 private function validateComposition_{{ index }}(array &$modifiedModelData): void
 {
     $validatorIndex = {{ index }};
-    $value = $modelData = array_merge($this->_modelData, $modifiedModelData);
+    $value = $modelData = array_merge($this->_rawModelDataInput, $modifiedModelData);
 
     {{ validator.getValidatorSetUp() }}
     if ({{ validator.getCheck() }}) {

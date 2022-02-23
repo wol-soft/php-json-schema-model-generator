@@ -40,7 +40,7 @@ public function setAdditionalProperty(
         $this->_additionalProperties[$property] = $value;
     {% endif %}
 
-    $this->_modelData[$property] = $value;
+    $this->_rawModelDataInput[$property] = $value;
 
     {% if validationProperty %}{{ schemaHookResolver.resolveSetterAfterValidationHook(validationProperty) }}{% endif %}
 
