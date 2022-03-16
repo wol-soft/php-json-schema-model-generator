@@ -24,9 +24,12 @@ interface PropertyInterface
     public function getName(): string;
 
     /**
+     * @param bool $variableName If set to true the name for the variable is returned. Otherwise, the name for functions
+     *                           will be returned
+     *
      * @return string
      */
-    public function getAttribute(): string;
+    public function getAttribute(bool $variableName = false): string;
 
     /**
      * @param bool $outputType If set to true the output type will be returned (may differ from the base type)

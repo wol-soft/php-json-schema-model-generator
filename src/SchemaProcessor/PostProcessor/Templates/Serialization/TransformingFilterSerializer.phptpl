@@ -1,7 +1,7 @@
 /**
- * serialize the property {{ property }}
+ * serialize the property {{ property.getAttribute() }}
  */
-protected function serialize{{ viewHelper.ucfirst(property) }}()
+protected function serialize{{ viewHelper.ucfirst(property.getAttribute()) }}()
 {
-    return \{{ serializerClass }}::{{ serializerMethod }}($this->{{ property }}, {{ serializerOptions }});
+    return \{{ serializerClass }}::{{ serializerMethod }}($this->{{ property.getAttribute(true) }}, {{ serializerOptions }});
 }
