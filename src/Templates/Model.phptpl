@@ -29,7 +29,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
 
     {% foreach schema.getProperties() as property %}
         /**{% if viewHelper.getTypeHintAnnotation(property, true) %} @var {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
-        {% if property.isInternal() %}private{% else %}protected{% endif %} ${{ property.getAttribute() }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
+        {% if property.isInternal() %}private{% else %}protected{% endif %} ${{ property.getAttribute(true) }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
     /** @var array */
     protected $_rawModelDataInput = [];
@@ -117,27 +117,27 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
             {
                 {{ schemaHookResolver.resolveGetterHook(property) }}
 
-                return $this->{{ property.getAttribute() }};
+                return $this->{{ property.getAttribute(true) }};
             }
 
             {% if not property.isReadOnly() %}
                 /**
                  * Set the value of {{ property.getName() }}.
                  *
-                 * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute() }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
+                 * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute(true) }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
                  *
                  * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
                  *
                  * @return self
                  */
                 public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
-                    {{ viewHelper.getType(property) }} ${{ property.getAttribute() }}
+                    {{ viewHelper.getType(property) }} ${{ property.getAttribute(true) }}
                 ): self {
-                    if ($this->{{ property.getAttribute() }} === ${{ property.getAttribute() }}) {
+                    if ($this->{{ property.getAttribute(true) }} === ${{ property.getAttribute(true) }}) {
                         return $this;
                     }
 
-                    $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute() }};
+                    $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
 
                     {% if generatorConfiguration.collectErrors() %}
                         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
@@ -153,8 +153,8 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
                         }
                     {% endif %}
 
-                    $this->{{ property.getAttribute() }} = $value;
-                    $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute() }};
+                    $this->{{ property.getAttribute(true) }} = $value;
+                    $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
 
                     {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
 
@@ -173,17 +173,17 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
             {
                 {% if not generatorConfiguration.isImplicitNullAllowed() %}
                     {% if not property.isRequired() %}
-                        if (!array_key_exists('{{ property.getName() }}', $modelData) && $this->{{ property.getAttribute() }} === null) {
+                        if (!array_key_exists('{{ property.getName() }}', $modelData) && $this->{{ property.getAttribute(true) }} === null) {
                             return;
                         }
                     {% endif %}
                 {% endif %}
 
-                $value = array_key_exists('{{ property.getName() }}', $modelData) ? $modelData['{{ property.getName() }}'] : $this->{{ property.getAttribute() }};
+                $value = array_key_exists('{{ property.getName() }}', $modelData) ? $modelData['{{ property.getName() }}'] : $this->{{ property.getAttribute(true) }};
 
                 {{ viewHelper.resolvePropertyDecorator(property, true) }}
 
-                $this->{{ property.getAttribute() }} = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
+                $this->{{ property.getAttribute(true) }} = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
             }
 
             /**

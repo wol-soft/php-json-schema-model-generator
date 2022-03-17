@@ -107,7 +107,7 @@ class PatternPropertiesPostProcessor extends PostProcessor
 
         foreach ($schema->getProperties() as $property) {
             if (!$property->isInternal()) {
-                $properties[$property->getName()] = $property->getAttribute();
+                $properties[$property->getName()] = $property->getAttribute(true);
             }
         }
 
@@ -157,7 +157,7 @@ class PatternPropertiesPostProcessor extends PostProcessor
                             '$this->_patternProperties["%s"]["%s"] = &$this->%s;' . PHP_EOL,
                             $hash,
                             $matchingProperty->getName(),
-                            $matchingProperty->getAttribute()
+                            $matchingProperty->getAttribute(true)
                         );
                     }
                 }

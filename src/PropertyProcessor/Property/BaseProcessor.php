@@ -275,7 +275,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                     $propertyMetaDataCollection,
                     $this->schemaProcessor,
                     $this->schema,
-                    $propertyName,
+                    (string) $propertyName,
                     $propertySchema->withJson($propertyStructure)
                 )
             );

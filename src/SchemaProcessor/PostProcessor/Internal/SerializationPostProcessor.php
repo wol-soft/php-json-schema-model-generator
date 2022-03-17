@@ -79,7 +79,7 @@ class SerializationPostProcessor extends PostProcessor
                                 ['Serialization', 'TransformingFilterSerializer.phptpl']
                             ),
                             [
-                                'property' => $property->getAttribute(),
+                                'property' => $property,
                                 'serializerClass' => $serializerClass,
                                 'serializerMethod' => $serializerMethod,
                                 'serializerOptions' => var_export($validator->getFilterOptions(), true),

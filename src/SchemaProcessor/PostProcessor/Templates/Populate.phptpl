@@ -31,11 +31,11 @@ public function populate(array $modelData): self
     {% foreach schema.getProperties() as property %}
         {% if not property.isInternal() %}
             if (array_key_exists('{{ property.getName() }}', $modelData) &&
-                $modelData['{{ property.getName() }}'] !== $this->{{ property.getAttribute() }}
+                $modelData['{{ property.getName() }}'] !== $this->{{ property.getAttribute(true) }}
             ) {
                 {{ schemaHookResolver.resolveSetterBeforeValidationHook(property, true) }}
 
-                $rollbackValues['{{ property.getAttribute() }}'] = $this->{{ property.getAttribute() }};
+                $rollbackValues['{{ property.getAttribute(true) }}'] = $this->{{ property.getAttribute(true) }};
                 $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
             }
         {% endif %}
