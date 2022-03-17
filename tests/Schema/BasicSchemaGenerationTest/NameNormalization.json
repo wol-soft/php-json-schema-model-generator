@@ -15,6 +15,12 @@
     },
     "numeric42": {
       "type": "integer"
+    },
+    "1000": {
+      "type": "integer"
+    },
+    "1000string": {
+      "type": "string"
     }
   }
 }
