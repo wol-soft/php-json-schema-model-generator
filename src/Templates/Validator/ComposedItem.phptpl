@@ -11,8 +11,11 @@
     $succeededCompositionElements = {{ availableAmount }};
     $validatorComponentIndex = 0;
     $originalModelData = $value;
-    $originalPropertyValidationState = $this->_propertyValidationState ?? [];
     $proposedValue = null;
+
+    {% if not generatorConfiguration.isImmutable() %}
+        $originalPropertyValidationState = $this->_propertyValidationState ?? [];
+    {% endif %}
 
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
@@ -20,32 +23,35 @@
 
     {% foreach compositionProperties as compositionProperty %}
         try {
-            // check if the state of the validator is already known.
-            // If none of the properties affected by the validator are changed the validator must not be re-evaluated
-            if (isset($validatorIndex) &&
-                isset($this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]) &&
-                !array_intersect(
-                    array_keys($modifiedModelData),
-                    [
-                        {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
-                            '{{ affectedObjectProperty.getName() }}',
-                        {% endforeach %}
-                    ]
-                )
-            ) {
-                {% if generatorConfiguration.collectErrors() %}
-                    $compositionErrorCollection[] = $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex];
-                {% endif %}
-
-                if ({% if generatorConfiguration.collectErrors() %}
-                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]->getErrors()
-                    {% else %}
-                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] !== true
-                    {% endif %}
+            {% if not generatorConfiguration.isImmutable() %}
+                // check if the state of the validator is already known.
+                // If none of the properties affected by the validator are changed the validator must not be re-evaluated
+                if (isset($validatorIndex) &&
+                    isset($this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]) &&
+                    !array_intersect(
+                        array_keys($modifiedModelData),
+                        [
+                            {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
+                                '{{ affectedObjectProperty.getName() }}',
+                            {% endforeach %}
+                        ]
+                    )
                 ) {
-                    throw new \Exception();
-                }
-            } else {
+                    {% if generatorConfiguration.collectErrors() %}
+                        $compositionErrorCollection[] = $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex];
+                    {% endif %}
+
+                    if ({% if generatorConfiguration.collectErrors() %}
+                            $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]->getErrors()
+                        {% else %}
+                            $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] !== true
+                        {% endif %}
+                    ) {
+                        throw new \Exception();
+                    }
+                } else {
+            {% endif %}
+
                 {% if generatorConfiguration.collectErrors() %}
                     // collect errors for each composition element
                     $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
@@ -66,9 +72,12 @@
 
                 {% if generatorConfiguration.collectErrors() %}
                     $compositionErrorCollection[] = $this->_errorRegistry;
-                    if (isset($validatorIndex)) {
-                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = $this->_errorRegistry;
-                    }
+
+                    {% if not generatorConfiguration.isImmutable() %}
+                        if (isset($validatorIndex)) {
+                            $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = $this->_errorRegistry;
+                        }
+                    {% endif %}
 
                     // an error inside the composed validation occurred. Throw an exception to count the validity of the
                     // composition item
@@ -81,12 +90,14 @@
                     $proposedValue = $proposedValue ?? $value;
                 {% endif %}
 
+            {% if not generatorConfiguration.isImmutable() %}
                 {% if not generatorConfiguration.collectErrors() %}
                     if (isset($validatorIndex)) {
                         $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = true;
                     }
                 {% endif %}
             }
+            {% endif %}
         } catch (\Exception $e) {
             {% if not generatorConfiguration.collectErrors() %}
                 if (isset($validatorIndex)) {
@@ -121,9 +132,11 @@
 
     $result = !({{ composedValueValidation }});
 
-    if ($result) {
-        $this->_propertyValidationState = $originalPropertyValidationState;
-    }
+    {% if not generatorConfiguration.isImmutable() %}
+        if ($result) {
+            $this->_propertyValidationState = $originalPropertyValidationState;
+        }
+    {% endif %}
 
     return $result;
 })($value)
