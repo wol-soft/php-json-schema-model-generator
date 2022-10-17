@@ -11,6 +11,7 @@ use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Filter\Trim;
+use PHPModelGenerator\Filter\ValidateOptionsInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
@@ -288,6 +289,97 @@ class FilterTest extends AbstractPHPModelGeneratorTest
             'uppercase string' => ['ABC', 'ABC'],
             'mixed string' => ['Hello World!', 'HELLO WORLD!'],
         ];
+    }
+
+    /**
+     * @dataProvider invalidEncodingFilterConfigurationsDataProvider
+     */
+    public function testInvalidCustomFilterOptionValidation(string $configuration, string $expectedErrorMessage): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/Invalid filter options on filter encode on property .*\: $expectedErrorMessage/"
+        );
+
+        $this->generateClassFromFileTemplate(
+            'Encode.json',
+            [$configuration],
+            (new GeneratorConfiguration())->setImmutable(false)->addFilter($this->getEncodeFilter()),
+            false
+        );
+    }
+
+    public function invalidEncodingFilterConfigurationsDataProvider(): array
+    {
+        return [
+            'simple notation without options' => ['"encode"', 'Missing charset configuration'],
+            'object notation without charset configuration' => ['{"filter": "encode"}', 'Missing charset configuration'],
+            'Invalid charset configuration' => ['{"filter": "encode", "charset": 1}', 'Unsupported charset'],
+            'Invalid charset configuration 2' => ['{"filter": "encode", "charset": "UTF-16"}', 'Unsupported charset'],
+        ];
+    }
+
+    /**
+     * @dataProvider validEncodingsDataProvider
+     */
+    public function testValidCustomFilterOptionValidation(string $encoding, string $input, string $output): void
+    {
+        $classname = $this->generateClassFromFileTemplate(
+            'Encode.json',
+            [sprintf('{"filter": "encode", "charset": "%s"}', $encoding)],
+            (new GeneratorConfiguration())->setImmutable(false)->addFilter($this->getEncodeFilter()),
+            false
+        );
+
+        $object = new $classname(['property' => $input]);
+
+        $this->assertSame($encoding, mb_detect_encoding($object->getProperty()));
+        $this->assertSame($output, $object->getProperty());
+    }
+
+    public function validEncodingsDataProvider(): array
+    {
+        return [
+            'ASCII to ASCII' => ['ASCII', 'Hello World', 'Hello World'],
+            'UTF-8 to ASCII' => ['ASCII', 'áéó', '???'],
+            'UTF-8 to UTF-8' => ['UTF-8', 'áéó', 'áéó'],
+        ];
+    }
+
+    private function getEncodeFilter()
+    {
+        return new class () implements FilterInterface, ValidateOptionsInterface {
+            public function getAcceptedTypes(): array
+            {
+                return ['string'];
+            }
+
+            public function getToken(): string
+            {
+                return 'encode';
+            }
+
+            public function getFilter(): array
+            {
+                return [FilterTest::class, 'encode'];
+            }
+
+            public function validateOptions(array $options): void
+            {
+                if (!isset($options['charset'])) {
+                    throw new Exception('Missing charset configuration');
+                }
+
+                if (!in_array($options['charset'], ['UTF-8', 'ASCII'])) {
+                    throw new Exception('Unsupported charset');
+                }
+            }
+        };
+    }
+
+    public static function encode(string $value, array $options): string
+    {
+        return mb_convert_encoding($value, $options['charset'], 'auto');
     }
 
     /**

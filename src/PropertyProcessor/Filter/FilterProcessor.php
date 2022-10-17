@@ -4,8 +4,10 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
+use Exception;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
+use PHPModelGenerator\Filter\ValidateOptionsInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
@@ -68,6 +70,22 @@ class FilterProcessor
                         $property->getJsonSchema()->getFile()
                     )
                 );
+            }
+
+            if ($filter instanceof ValidateOptionsInterface) {
+                try {
+                    $filter->validateOptions($filterOptions);
+                } catch (Exception $exception) {
+                    throw new SchemaException(
+                        sprintf(
+                            'Invalid filter options on filter %s on property %s in file %s: %s',
+                            $filterToken,
+                            $property->getName(),
+                            $property->getJsonSchema()->getFile(),
+                            $exception->getMessage()
+                        )
+                    );
+                }
             }
 
             $property->addValidator(

@@ -392,6 +392,19 @@ The option will be available if your JSON-Schema uses the object-notation for th
         }
     }
 
+Validating filter options
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If your filter accepts additional filter options you may want to validate the provided options during the model generation process to avoid runtime errors.
+To achieve a validation of the options your custom filter must implement the **PHPModelGenerator\\Filter\\ValidateOptionsInterface**.
+This interface adds the following method to your implementation:
+
+.. code-block:: php
+    public function validateOptions(array $options): void;
+
+The options provided in the schema which utilizes the filter are passed to the method during the model generation.
+If invalid options are detected just throw an exception which will result in a **SchemaException**.
+
 Custom transforming filter
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
