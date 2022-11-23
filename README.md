@@ -35,7 +35,8 @@ Simple example from a PHP application: you define and document an API with swagg
 The recommended way to install php-json-schema-model-generator is through [Composer](http://getcomposer.org):
 ```
 $ composer require --dev wol-soft/php-json-schema-model-generator
-$ composer require wol-soft/php-json-schema-model-generator-production
+
+$ composer require wol-soft/php-json-schema-model-generator
 ```
 
 To avoid adding all dependencies of the php-json-schema-model-generator to your production dependencies it's recommended to add the library as a dev-dependency and include the [wol-soft/php-json-schema-model-generator-production](https://github.com/wol-soft/php-json-schema-model-generator-production) library. The production library provides all classes to run the generated code. Generating the classes should either be a step done in the development environment or as a build step of your application (which is the recommended workflow).
