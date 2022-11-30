@@ -400,6 +400,7 @@ To achieve a validation of the options your custom filter must implement the **P
 This interface adds the following method to your implementation:
 
 .. code-block:: php
+
     public function validateOptions(array $options): void;
 
 The options provided in the schema which utilizes the filter are passed to the method during the model generation.
