@@ -7,7 +7,7 @@
 
     foreach ($properties as $propertyKey => $value) {
         try {
-            if (!preg_match("{{ pattern }}", $propertyKey)) {
+            if (!preg_match(base64_decode('{{ pattern }}'), $propertyKey)) {
                 continue;
             }
 

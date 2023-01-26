@@ -53,7 +53,7 @@ class PatternPropertiesPostProcessor extends PostProcessor
                     $schema->getProperties(),
                     function (array $carry, PropertyInterface $property) use ($schemaProperties, $validator): array {
                         if (in_array($property->getName(), $schemaProperties) &&
-                            preg_match("/{$validator->getPattern()}/", $property->getName())
+                            preg_match('/' . addcslashes($validator->getPattern(), '/') . '/', $property->getName())
                         ) {
                             $carry[] = $property;
                         }

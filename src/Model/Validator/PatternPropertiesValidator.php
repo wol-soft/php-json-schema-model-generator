@@ -64,7 +64,7 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PatternProperties.phptpl',
             [
                 'patternHash' => $this->key,
-                'pattern' => "/{$this->pattern}/",
+                'pattern' => base64_encode('/' . addcslashes($this->pattern, '/') . '/'),
                 'validationProperty' => $this->validationProperty,
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),

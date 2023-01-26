@@ -1,7 +1,7 @@
 {
   "type": "object",
   "patternProperties": {
-    "ab[c": {
+    "%s": {
       "type": "string"
     }
   }

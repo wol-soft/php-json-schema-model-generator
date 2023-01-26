@@ -43,7 +43,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                 {
                     $json = $this->schema->getJsonSchema()->getJson();
                     // A batch update must execute the base validators to check the integrity of the object.
-                    // Consequently the schema hook must not add validation code in that places.
+                    // Consequently, the schema hook must not add validation code in that places.
                     if ($batchUpdate || !isset($json['patternProperties'])) {
                         return '';
                     }
@@ -51,7 +51,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                     $matchesAnyPattern = false;
 
                     foreach (array_keys($json['patternProperties']) as $pattern) {
-                        if (preg_match("/{$pattern}/", $property->getName())) {
+                        if (preg_match('/' . addcslashes($pattern, '/') . '/', $property->getName())) {
                             $matchesAnyPattern = true;
                         }
                     }
@@ -107,8 +107,11 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
 
             /** @var PatternPropertiesValidator $patternPropertiesValidator */
             foreach ($patternPropertiesValidators as $patternPropertiesValidator) {
-                if (!preg_match("/{$patternPropertiesValidator->getPattern()}/", $property->getName()) ||
-                    !isset(
+                if (!preg_match(
+                        '/' . addcslashes($patternPropertiesValidator->getPattern(), '/') . '/',
+                        $property->getName()
+                    )
+                    || !isset(
                         $schema->getJsonSchema()->getJson()
                             ['patternProperties']
                             [$patternPropertiesValidator->getPattern()]

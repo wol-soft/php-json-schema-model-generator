@@ -21,7 +21,7 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTest
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches("/Invalid pattern 'ab\[c' for pattern property in file .*\.json/");
 
-        $this->generateClassFromFile('InvalidPattern.json');
+        $this->generateClassFromFileTemplate('PatternProperty.json', ['ab[c']);
     }
 
     /**
@@ -84,5 +84,16 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTest
         );
 
         $this->generateClassFromFile('MultipleTransformingFilters.json');
+    }
+
+    /**
+     * https://github.com/wol-soft/php-json-schema-model-generator/issues/65
+     */
+    public function testPatternEscaping(): void
+    {
+        $className = $this->generateClassFromFileTemplate('PatternProperty.json', ['a/(b|c)']);
+        $object = new $className(['a/b' => 'Hello']);
+
+        $this->assertSame(['a/b' => 'Hello'], $object->getRawModelDataInput());
     }
 }

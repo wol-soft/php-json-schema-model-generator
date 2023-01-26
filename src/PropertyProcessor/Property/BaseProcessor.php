@@ -168,7 +168,9 @@ class BaseProcessor extends AbstractPropertyProcessor
         }
 
         foreach ($json['patternProperties'] as $pattern => $schema) {
-            if (@preg_match("/$pattern/", '') === false) {
+            $escapedPattern = addcslashes($pattern, '/');
+
+            if (@preg_match("/$escapedPattern/", '') === false) {
                 throw new SchemaException(
                     "Invalid pattern '$pattern' for pattern property in file {$propertySchema->getFile()}"
                 );
