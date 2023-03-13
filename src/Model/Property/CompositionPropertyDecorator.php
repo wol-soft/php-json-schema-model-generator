@@ -42,6 +42,10 @@ class CompositionPropertyDecorator extends PropertyProxy
             new ResolvedDefinitionsCollection([self::PROPERTY_KEY => $property]),
             self::PROPERTY_KEY
         );
+
+        $property->onResolve(function () {
+            $this->resolve();
+        });
     }
 
     /**

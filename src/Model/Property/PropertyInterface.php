@@ -49,10 +49,11 @@ interface PropertyInterface
 
     /**
      * @param bool $outputType If set to true the output type hint will be returned (may differ from the base type)
-     *
+     * @param string[] $skipDecorators Provide a set of decorators (FQCN) which shouldn't be applied
+     *                                 (might be necessary to avoid infinite loops for recursive calls)
      * @return string
      */
-    public function getTypeHint(bool $outputType = false): string;
+    public function getTypeHint(bool $outputType = false, array $skipDecorators = []): string;
 
     /**
      * @param TypeHintDecoratorInterface $typeHintDecorator
@@ -61,6 +62,7 @@ interface PropertyInterface
      */
     public function addTypeHintDecorator(TypeHintDecoratorInterface $typeHintDecorator): PropertyInterface;
 
+    public function getTypeHintDecorators(): array;
     /**
      * Get a description for the property. If no description is available an empty string will be returned
      *
@@ -203,4 +205,14 @@ interface PropertyInterface
      * @return JsonSchema
      */
     public function getJsonSchema(): JsonSchema;
+
+    /**
+     * Adds a callback which will be executed after the property is set up completely
+     */
+    public function onResolve(callable $callback): PropertyInterface;
+
+    /**
+     * Check if the property set up is finished
+     */
+    public function isResolved(): bool;
 }

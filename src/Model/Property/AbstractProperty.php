@@ -22,6 +22,11 @@ abstract class AbstractProperty implements PropertyInterface
     /** @var string */
     protected $attribute = '';
 
+    /** @var callable[] */
+    protected $onResolveCallbacks = [];
+    /** @var bool */
+    protected $resolved = false;
+
     /**
      * Property constructor.
      *
@@ -56,6 +61,20 @@ abstract class AbstractProperty implements PropertyInterface
             : $this->attribute;
 
         return ($this->isInternal() ? '_' : '') . $attribute;
+    }
+
+    public function onResolve(callable $callback): PropertyInterface
+    {
+        $this->resolved
+            ? $callback()
+            : $this->onResolveCallbacks[] = $callback;
+
+        return $this;
+    }
+
+    public function isResolved(): bool
+    {
+        return $this->resolved;
     }
 
     /**

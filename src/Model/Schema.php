@@ -56,6 +56,11 @@ class Schema
     /** @var SchemaDefinitionDictionary */
     protected $schemaDefinitionDictionary;
 
+    /** @var int */
+    private $resolvedProperties = 0;
+    /** @var callable[] */
+    private $onAllPropertiesResolvedCallbacks = [];
+
     /**
      * Schema constructor.
      *
@@ -106,6 +111,15 @@ class Schema
         return $this->description;
     }
 
+    public function onAllPropertiesResolved(callable $callback): self
+    {
+        $this->resolvedProperties === count($this->properties)
+            ? $callback()
+            : $this->onAllPropertiesResolvedCallbacks[] = $callback;
+
+        return $this;
+    }
+
     /**
      * @return PropertyInterface[]
      */
@@ -152,6 +166,16 @@ class Schema
     {
         if (!isset($this->properties[$property->getName()])) {
             $this->properties[$property->getName()] = $property;
+
+            $property->onResolve(function () {
+                if (++$this->resolvedProperties === count($this->properties)) {
+                    foreach ($this->onAllPropertiesResolvedCallbacks as $callback) {
+                        $callback();
+
+                        $this->onAllPropertiesResolvedCallbacks = [];
+                    }
+                }
+            });
         } else {
             // TODO tests:
             // testConditionalObjectProperty
@@ -270,6 +294,11 @@ class Schema
     public function getMethods(): array
     {
         return $this->methods;
+    }
+
+    public function hasMethod(string $methodKey): bool
+    {
+        return isset($this->methods[$methodKey]);
     }
 
     /**

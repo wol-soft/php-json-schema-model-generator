@@ -48,6 +48,23 @@ class PropertyProxy extends AbstractProperty
         $this->definitionsCollection = $definitionsCollection;
     }
 
+    public function resolve(): PropertyInterface
+    {
+        if ($this->resolved) {
+            return $this;
+        }
+
+        $this->resolved = true;
+
+        foreach ($this->onResolveCallbacks as $callback) {
+            $callback();
+        }
+
+        $this->onResolveCallbacks = [];
+
+        return $this;
+    }
+
     /**
      * Get the property out of the resolved definitions collection to proxy function calls
      *
@@ -77,9 +94,9 @@ class PropertyProxy extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function getTypeHint(bool $outputType = false): string
+    public function getTypeHint(bool $outputType = false, array $skipDecorators = []): string
     {
-        return $this->getProperty()->getTypeHint($outputType);
+        return $this->getProperty()->getTypeHint($outputType, $skipDecorators);
     }
 
     /**
@@ -88,6 +105,13 @@ class PropertyProxy extends AbstractProperty
     public function addTypeHintDecorator(TypeHintDecoratorInterface $typeHintDecorator): PropertyInterface
     {
         return $this->getProperty()->addTypeHintDecorator($typeHintDecorator);
+    }
+    /**
+     * @inheritdoc
+     */
+    public function getTypeHintDecorators(): array
+    {
+        return $this->getProperty()->getTypeHintDecorators();
     }
 
     /**

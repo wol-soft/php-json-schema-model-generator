@@ -62,6 +62,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
             new Property($propertyName, null, $propertiesStructure),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayTuple.phptpl',
             [
+                'schema' => $schema,
                 'tupleProperties' => &$this->tupleProperties,
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),

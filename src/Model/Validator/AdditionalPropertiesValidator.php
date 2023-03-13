@@ -67,6 +67,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
             new Property($propertyName ?? $schema->getClassName(), null, $propertiesStructure),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'AdditionalProperties.phptpl',
             [
+                'schema' => $schema,
                 'validationProperty' => $this->validationProperty,
                 'additionalProperties' => RenderHelper::varExportArray(
                     array_keys($propertiesStructure->getJson()[static::PROPERTIES_KEY] ?? [])

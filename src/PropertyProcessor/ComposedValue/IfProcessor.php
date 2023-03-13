@@ -67,9 +67,11 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
                     )
             );
 
-            $compositionProperty->filterValidators(function (Validator $validator): bool {
-                return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                    !is_a($validator->getValidator(), ComposedPropertyValidator::class);
+            $compositionProperty->onResolve(function () use ($compositionProperty) {
+                $compositionProperty->filterValidators(function (Validator $validator): bool {
+                    return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
+                        !is_a($validator->getValidator(), ComposedPropertyValidator::class);
+                });
             });
 
             $properties[$compositionElement] = $compositionProperty;
@@ -77,6 +79,7 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
 
         $property->addValidator(
             new ConditionalPropertyValidator(
+                $this->schemaProcessor->getGeneratorConfiguration(),
                 $property,
                 $properties,
                 [

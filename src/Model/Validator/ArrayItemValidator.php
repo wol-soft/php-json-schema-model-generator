@@ -63,6 +63,7 @@ class ArrayItemValidator extends PropertyTemplateValidator
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayItem.phptpl',
             [
+                'schema' => $schema,
                 'nestedProperty' => $this->nestedProperty,
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),

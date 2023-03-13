@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\ComposedValue\InvalidComposedValueException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
@@ -16,21 +17,15 @@ use PHPModelGenerator\Model\Validator;
  */
 class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 {
-    /**
-     * ComposedPropertyValidator constructor.
-     *
-     * @param PropertyInterface              $property
-     * @param CompositionPropertyDecorator[] $composedProperties
-     * @param string                         $compositionProcessor
-     * @param array                          $validatorVariables
-     */
     public function __construct(
+        GeneratorConfiguration $generatorConfiguration,
         PropertyInterface $property,
         array $composedProperties,
         string $compositionProcessor,
         array $validatorVariables
     ) {
         parent::__construct(
+            $generatorConfiguration,
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
             $validatorVariables,
@@ -65,9 +60,12 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
     {
         $validator = clone $this;
 
+        /** @var CompositionPropertyDecorator $composedProperty */
         foreach ($validator->composedProperties as $composedProperty) {
-            $composedProperty->filterValidators(function (Validator $validator): bool {
-                return !is_a($validator->getValidator(), AbstractComposedPropertyValidator::class);
+            $composedProperty->onResolve(function () use ($composedProperty) {
+                $composedProperty->filterValidators(function (Validator $validator): bool {
+                    return !is_a($validator->getValidator(), AbstractComposedPropertyValidator::class);
+                });
             });
         }
 

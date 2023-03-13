@@ -7,7 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor\Decorator\TypeHint;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 
 /**
- * Class ArrayTypeHintDecorator
+ * Class TypeHintTransferDecorator
  *
  * @package PHPModelGenerator\PropertyProcessor\Decorator\Property
  */

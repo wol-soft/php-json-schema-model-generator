@@ -16,6 +16,8 @@ class ArrayTypeHintDecorator implements TypeHintDecoratorInterface
     /** @var PropertyInterface */
     protected $nestedProperty;
 
+    private $recursiveArrayCheck = 0;
+
     /**
      * ArrayTypeHintDecorator constructor.
      *
@@ -31,8 +33,23 @@ class ArrayTypeHintDecorator implements TypeHintDecoratorInterface
      */
     public function decorate(string $input, bool $outputType = false): string
     {
-        return implode('|', array_map(function (string $typeHint): string {
-            return "{$typeHint}[]";
-        }, explode('|', $this->nestedProperty->getTypeHint($outputType))));
+        // TODO: provide better type hints. Currently provides e.g. "string|array[]" instead of "string|string[]" for a recursive string array
+        if (++$this->recursiveArrayCheck > 1) {
+            return $this->nestedProperty->getTypeHint($outputType, [self::class]);
+        }
+
+        $result = implode(
+            '|',
+            array_map(
+                function (string $typeHint): string {
+                    return "{$typeHint}[]";
+                },
+                explode('|', $this->nestedProperty->getTypeHint($outputType))
+            )
+        );
+
+        $this->recursiveArrayCheck--;
+
+        return $result;
     }
 }

@@ -31,6 +31,8 @@ class SchemaDefinition
     protected $schema;
     /** @var ResolvedDefinitionsCollection */
     protected $resolvedPaths;
+    /** @var array */
+    protected $unresolvedProxies = [];
 
     /**
      * SchemaDefinition constructor.
@@ -92,21 +94,35 @@ class SchemaDefinition
             $this->resolvedPaths->offsetSet($key, null);
 
             try {
-                $this->resolvedPaths->offsetSet($key, (new PropertyFactory(new PropertyProcessorFactory()))
+                $property =  (new PropertyFactory(new PropertyProcessorFactory()))
                     ->create(
                         $propertyMetaDataCollection,
                         $this->schemaProcessor,
                         $this->schema,
                         $propertyName,
                         $this->source->withJson($jsonSchema)
-                    )
-                );
+                    );
+                $this->resolvedPaths->offsetSet($key, $property);
+
+                /** @var PropertyProxy $proxy */
+                foreach ($this->unresolvedProxies[$key] ?? [] as $proxy) {
+                    $proxy->resolve();
+                }
+
+                unset($this->unresolvedProxies[$key]);
             } catch (PHPModelGeneratorException $exception) {
                 $this->resolvedPaths->offsetUnset($key);
                 throw $exception;
             }
         }
 
-        return new PropertyProxy($propertyName, $this->source, $this->resolvedPaths, $key);
+        $proxy = new PropertyProxy($propertyName, $this->source, $this->resolvedPaths, $key);
+        $this->unresolvedProxies[$key][] = $proxy;
+
+        if ($this->resolvedPaths->offsetGet($key)) {
+            $proxy->resolve();
+        }
+
+        return $proxy;
     }
 }

@@ -36,6 +36,8 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
     private static $generatedMergedProperties = [];
     /** @var bool */
     private $rootLevelComposition;
+    /** @var PropertyInterface|null */
+    private $mergedProperty = null;
 
     /**
      * AbstractComposedValueProcessor constructor.
@@ -73,12 +75,26 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
 
         $compositionProperties = $this->getCompositionProperties($property, $propertySchema);
 
-        $this->transferPropertyType($property, $compositionProperties);
+        $resolvedCompositions = 0;
+        foreach ($compositionProperties as $compositionProperty) {
+            $compositionProperty->onResolve(
+                function () use (&$resolvedCompositions, $property, $compositionProperties, $propertySchema) {
+                    if (++$resolvedCompositions === count($compositionProperties)) {
+                        $this->transferPropertyType($property, $compositionProperties);
+
+                        $this->mergedProperty = !$this->rootLevelComposition && $this instanceof MergedComposedPropertiesInterface
+                            ? $this->createMergedProperty($property, $compositionProperties, $propertySchema)
+                            : null;
+                    }
+                }
+            );
+        }
 
         $availableAmount = count($compositionProperties);
 
         $property->addValidator(
             new ComposedPropertyValidator(
+                $this->schemaProcessor->getGeneratorConfiguration(),
                 $property,
                 $compositionProperties,
                 static::class,
@@ -89,13 +105,10 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     'availableAmount' => $availableAmount,
                     'composedValueValidation' => $this->getComposedValueValidation($availableAmount),
                     // if the property is a composed property the resulting value of a validation must be proposed
-                    // to be the final value after the validations (eg. object instantiations may be performed).
+                    // to be the final value after the validations (e.g. object instantiations may be performed).
                     // Otherwise (eg. a NotProcessor) the value must be proposed before the validation
                     'postPropose' => $this instanceof ComposedPropertiesInterface,
-                    'mergedProperty' =>
-                        !$this->rootLevelComposition && $this instanceof MergedComposedPropertiesInterface
-                            ? $this->createMergedProperty($property, $compositionProperties, $propertySchema)
-                            : null,
+                    'mergedProperty' => &$this->mergedProperty,
                     'onlyForDefinedValues' =>
                         $propertySchema->getJson()['onlyForDefinedValues']
                         && $this instanceof ComposedPropertiesInterface,
@@ -141,18 +154,20 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     )
             );
 
-            $compositionProperty->filterValidators(function (Validator $validator): bool {
-                return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                    !is_a($validator->getValidator(), ComposedPropertyValidator::class);
-            });
+            $compositionProperty->onResolve(function () use ($compositionProperty, $property) {
+                $compositionProperty->filterValidators(function (Validator $validator): bool {
+                    return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
+                        !is_a($validator->getValidator(), ComposedPropertyValidator::class);
+                });
 
-            // only create a composed type hint if we aren't a AnyOf or an AllOf processor and the compositionProperty
-            // contains no object. This results in objects being composed each separately for a OneOf processor
-            // (eg. string|ObjectA|ObjectB). For a merged composed property the objects are merged together so it
-            // results in string|MergedObject
-            if (!($this instanceof MergedComposedPropertiesInterface && $compositionProperty->getNestedSchema())) {
-                $property->addTypeHintDecorator(new CompositionTypeHintDecorator($compositionProperty));
-            }
+                // only create a composed type hint if we aren't a AnyOf or an AllOf processor and the
+                // compositionProperty contains no object. This results in objects being composed each separately for a
+                // OneOf processor (e.g. string|ObjectA|ObjectB). For a merged composed property the objects are merged
+                // together, so it results in string|MergedObject
+                if (!($this instanceof MergedComposedPropertiesInterface && $compositionProperty->getNestedSchema())) {
+                    $property->addTypeHintDecorator(new CompositionTypeHintDecorator($compositionProperty));
+                }
+            });
 
             $compositionProperties[] = $compositionProperty;
         }
@@ -296,24 +311,28 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                 continue;
             }
 
-            foreach ($property->getNestedSchema()->getProperties() as $nestedProperty) {
-                $mergedPropertySchema->addProperty(
-                    // don't validate fields in merged properties. All fields were validated before corresponding to
-                    // the defined constraints of the composition property.
-                    (clone $nestedProperty)->filterValidators(function (): bool {
-                        return false;
-                    })
-                );
+            $property->getNestedSchema()->onAllPropertiesResolved(function () use ($property, $mergedPropertySchema) {
+                foreach ($property->getNestedSchema()->getProperties() as $nestedProperty) {
+                    $mergedPropertySchema->addProperty(
+                        // don't validate fields in merged properties. All fields were validated before corresponding to
+                        // the defined constraints of the composition property.
+                        (clone $nestedProperty)->filterValidators(function (): bool {
+                            return false;
+                        })
+                    );
 
-                // the parent schema needs to know about all imports of the nested classes as all properties of the
-                // nested classes are available in the parent schema (combined schema merging)
-                $this->schema->addNamespaceTransferDecorator(
-                    new SchemaNamespaceTransferDecorator($property->getNestedSchema())
-                );
-            }
+                    // the parent schema needs to know about all imports of the nested classes as all properties of the
+                    // nested classes are available in the parent schema (combined schema merging)
+                    $this->schema->addNamespaceTransferDecorator(
+                        new SchemaNamespaceTransferDecorator($property->getNestedSchema())
+                    );
+                }
 
-            // make sure the merged schema knows all imports of the parent schema
-            $mergedPropertySchema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($this->schema));
+                // make sure the merged schema knows all imports of the parent schema
+                $mergedPropertySchema->addNamespaceTransferDecorator(
+                    new SchemaNamespaceTransferDecorator($this->schema)
+                );
+            });
         }
     }
 

@@ -6,6 +6,8 @@ namespace PHPModelGenerator\Utils;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 
 /**
@@ -156,6 +158,24 @@ class RenderHelper
         }
 
         return implode('|', array_unique(explode('|', $typeHint)));
+    }
+
+    public function renderValidator(PropertyValidatorInterface $validator, Schema $schema): string
+    {
+        if (!$validator instanceof ExtractedMethodValidator) {
+            return "
+{$validator->getValidatorSetUp()}
+if ({$validator->getCheck()}) {
+    {$this->validationError($validator)}
+}
+";
+        }
+
+        if (!$schema->hasMethod($validator->getExtractedMethodName())) {
+            $schema->addMethod($validator->getExtractedMethodName(), $validator->getMethod());
+        }
+
+        return "\$this->{$validator->getExtractedMethodName()}(\$value);";
     }
 
     public static function varExportArray(array $values): string

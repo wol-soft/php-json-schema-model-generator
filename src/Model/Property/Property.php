@@ -37,11 +37,13 @@ class Property extends AbstractProperty
     /** @var Validator[] */
     protected $validators = [];
     /** @var Schema */
-    protected $schema;
+    protected $nestedSchema;
     /** @var PropertyDecoratorInterface[] */
     public $decorators = [];
     /** @var TypeHintDecoratorInterface[] */
     public $typeHintDecorators = [];
+
+    private $renderedTypeHints = [];
 
     /**
      * Property constructor.
@@ -59,6 +61,9 @@ class Property extends AbstractProperty
 
         $this->type = $type;
         $this->description = $description;
+
+        // a concrete property doesn't need to be resolved
+        $this->resolved = true;
     }
 
     /**
@@ -94,8 +99,17 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function getTypeHint(bool $outputType = false): string
+    public function getTypeHint(bool $outputType = false, array $skipDecorators = []): string
     {
+        if (isset($this->renderedTypeHints[$outputType])) {
+            return $this->renderedTypeHints[$outputType];
+        }
+
+        static $skipDec = [];
+
+        $additionalSkips = array_diff($skipDecorators, $skipDec);
+        $skipDec = array_merge($skipDec, $additionalSkips);
+
         $input = [$outputType && $this->outputType !== null ? $this->outputType : $this->type];
 
         // If the output type differs from an input type also accept the output type
@@ -103,17 +117,29 @@ class Property extends AbstractProperty
             $input = [$this->type, $this->outputType];
         }
 
-        $input = join('|', array_filter(array_map(function (?PropertyType $input) use ($outputType): string {
-            $typeHint = $input ? $input->getName() : '';
+        $input = join(
+            '|',
+            array_filter(array_map(function (?PropertyType $input) use ($outputType, $skipDec): string {
+                $typeHint = $input ? $input->getName() : '';
 
-            foreach ($this->typeHintDecorators as $decorator) {
-                $typeHint = $decorator->decorate($typeHint, $outputType);
-            }
+                $filteredDecorators = array_filter(
+                    $this->typeHintDecorators,
+                    function (TypeHintDecoratorInterface $decorator) use ($skipDec) {
+                        return !in_array(get_class($decorator), $skipDec);
+                    }
+                );
 
-            return $typeHint;
-        }, $input)));
+                foreach ($filteredDecorators as $decorator) {
+                    $typeHint = $decorator->decorate($typeHint, $outputType);
+                }
 
-        return $input ?: 'mixed';
+                return $typeHint;
+            }, $input))
+        );
+
+        $skipDec = array_diff($skipDec, $additionalSkips);
+
+        return $this->renderedTypeHints[$outputType] = $input ?: 'mixed';
     }
 
     /**
@@ -124,6 +150,14 @@ class Property extends AbstractProperty
         $this->typeHintDecorators[] = $typeHintDecorator;
 
         return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getTypeHintDecorators(): array
+    {
+        return $this->typeHintDecorators;
     }
 
     /**
@@ -274,7 +308,7 @@ class Property extends AbstractProperty
      */
     public function setNestedSchema(Schema $schema): PropertyInterface
     {
-        $this->schema = $schema;
+        $this->nestedSchema = $schema;
         return $this;
     }
 
@@ -283,7 +317,7 @@ class Property extends AbstractProperty
      */
     public function getNestedSchema(): ?Schema
     {
-        return $this->schema;
+        return $this->nestedSchema;
     }
 
     /**
