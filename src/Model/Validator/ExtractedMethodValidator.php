@@ -28,7 +28,7 @@ class ExtractedMethodValidator extends PropertyTemplateValidator
         $this->extractedMethodName = sprintf(
             'validate%s_%s_%s',
             str_replace(' ', '', ucfirst($property->getAttribute())),
-            str_replace('Validator', '', basename(static::class)),
+            str_replace('Validator', '', substr(strrchr(static::class, '\\'), 1)),
             uniqid()
         );
 
