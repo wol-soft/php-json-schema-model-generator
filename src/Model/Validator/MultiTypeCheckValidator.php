@@ -38,7 +38,7 @@ class MultiTypeCheckValidator extends PropertyValidator implements TypeCheckInte
             join(
                 ' && ',
                 array_map(
-                    function (string $allowedType) use ($property) : string {
+                    static function (string $allowedType) use ($property) : string {
                         return ReflectionTypeCheckValidator::fromType($allowedType, $property)->getCheck();
                     },
                     $types

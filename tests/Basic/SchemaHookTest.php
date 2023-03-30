@@ -206,7 +206,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTest
 
     protected function addSchemaHook(SchemaHookInterface $schemaHook): void
     {
-        $this->modifyModelGenerator = function (ModelGenerator $modelGenerator) use ($schemaHook): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator) use ($schemaHook): void {
             $modelGenerator->addPostProcessor(new class ($schemaHook) extends PostProcessor {
                 private $schemaHook;
 

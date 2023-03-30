@@ -79,16 +79,18 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
      */
     private function getReturnTypeAnnotationForGetPatternProperties(array $patternTypes): string
     {
-        $baseTypes = array_unique(array_map(
-                function (PropertyType $type): string {
+        $baseTypes = array_unique(
+            array_map(
+                static function (PropertyType $type): string {
                     return $type->getName();
                 },
-                $patternTypes)
+                $patternTypes
+            )
         );
 
         $nullable = array_reduce(
             $patternTypes,
-            function (bool $carry, PropertyType $type): bool {
+            static function (bool $carry, PropertyType $type): bool {
                 return $carry || $type->isNullable();
             },
             false

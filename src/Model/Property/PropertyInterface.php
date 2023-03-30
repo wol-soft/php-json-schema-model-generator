@@ -10,13 +10,14 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInterface;
+use PHPModelGenerator\Utils\ResolvableInterface;
 
 /**
  * Interface PropertyInterface
  *
  * @package PHPModelGenerator\Model
  */
-interface PropertyInterface
+interface PropertyInterface extends ResolvableInterface
 {
     /**
      * @return string
@@ -49,10 +50,11 @@ interface PropertyInterface
 
     /**
      * @param bool $outputType If set to true the output type hint will be returned (may differ from the base type)
-     *
+     * @param string[] $skipDecorators Provide a set of decorators (FQCN) which shouldn't be applied
+     *                                 (might be necessary to avoid infinite loops for recursive calls)
      * @return string
      */
-    public function getTypeHint(bool $outputType = false): string;
+    public function getTypeHint(bool $outputType = false, array $skipDecorators = []): string;
 
     /**
      * @param TypeHintDecoratorInterface $typeHintDecorator

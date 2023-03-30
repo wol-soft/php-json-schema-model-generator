@@ -37,11 +37,15 @@ class Property extends AbstractProperty
     /** @var Validator[] */
     protected $validators = [];
     /** @var Schema */
-    protected $schema;
+    protected $nestedSchema;
     /** @var PropertyDecoratorInterface[] */
     public $decorators = [];
     /** @var TypeHintDecoratorInterface[] */
     public $typeHintDecorators = [];
+
+    private $renderedTypeHints = [];
+    /** @var int Track the amount of unresolved validators */
+    private $pendingValidators = 0;
 
     /**
      * Property constructor.
@@ -59,6 +63,8 @@ class Property extends AbstractProperty
 
         $this->type = $type;
         $this->description = $description;
+
+        $this->resolve();
     }
 
     /**
@@ -94,8 +100,17 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function getTypeHint(bool $outputType = false): string
+    public function getTypeHint(bool $outputType = false, array $skipDecorators = []): string
     {
+        if (isset($this->renderedTypeHints[$outputType])) {
+            return $this->renderedTypeHints[$outputType];
+        }
+
+        static $skipDec = [];
+
+        $additionalSkips = array_diff($skipDecorators, $skipDec);
+        $skipDec = array_merge($skipDec, $additionalSkips);
+
         $input = [$outputType && $this->outputType !== null ? $this->outputType : $this->type];
 
         // If the output type differs from an input type also accept the output type
@@ -103,17 +118,29 @@ class Property extends AbstractProperty
             $input = [$this->type, $this->outputType];
         }
 
-        $input = join('|', array_filter(array_map(function (?PropertyType $input) use ($outputType): string {
-            $typeHint = $input ? $input->getName() : '';
+        $input = join(
+            '|',
+            array_filter(array_map(function (?PropertyType $input) use ($outputType, $skipDec): string {
+                $typeHint = $input ? $input->getName() : '';
 
-            foreach ($this->typeHintDecorators as $decorator) {
-                $typeHint = $decorator->decorate($typeHint, $outputType);
-            }
+                $filteredDecorators = array_filter(
+                    $this->typeHintDecorators,
+                    static function (TypeHintDecoratorInterface $decorator) use ($skipDec): bool {
+                        return !in_array(get_class($decorator), $skipDec);
+                    }
+                );
 
-            return $typeHint;
-        }, $input)));
+                foreach ($filteredDecorators as $decorator) {
+                    $typeHint = $decorator->decorate($typeHint, $outputType);
+                }
 
-        return $input ?: 'mixed';
+                return $typeHint;
+            }, $input))
+        );
+
+        $skipDec = array_diff($skipDec, $additionalSkips);
+
+        return $this->renderedTypeHints[$outputType] = $input ?: 'mixed';
     }
 
     /**
@@ -139,6 +166,18 @@ class Property extends AbstractProperty
      */
     public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): PropertyInterface
     {
+        if (!$validator->isResolved()) {
+            $this->isResolved = false;
+
+            $this->pendingValidators++;
+
+            $validator->onResolve(function () {
+                if (--$this->pendingValidators === 0) {
+                    $this->resolve();
+                }
+            });
+        }
+
         $this->validators[] = new Validator($validator, $priority);
 
         return $this;
@@ -169,7 +208,7 @@ class Property extends AbstractProperty
     {
         usort(
             $this->validators,
-            function (Validator $validator, Validator $comparedValidator) {
+            static function (Validator $validator, Validator $comparedValidator): int {
                 if ($validator->getPriority() == $comparedValidator->getPriority()) {
                     return 0;
                 }
@@ -178,7 +217,7 @@ class Property extends AbstractProperty
         );
 
         return array_map(
-            function (Validator $validator) {
+            static function (Validator $validator): PropertyValidatorInterface {
                 return $validator->getValidator();
             },
             $this->validators
@@ -274,7 +313,7 @@ class Property extends AbstractProperty
      */
     public function setNestedSchema(Schema $schema): PropertyInterface
     {
-        $this->schema = $schema;
+        $this->nestedSchema = $schema;
         return $this;
     }
 
@@ -283,7 +322,7 @@ class Property extends AbstractProperty
      */
     public function getNestedSchema(): ?Schema
     {
-        return $this->schema;
+        return $this->nestedSchema;
     }
 
     /**

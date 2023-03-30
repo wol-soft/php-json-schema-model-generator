@@ -56,6 +56,11 @@ class Schema
     /** @var SchemaDefinitionDictionary */
     protected $schemaDefinitionDictionary;
 
+    /** @var int */
+    private $resolvedProperties = 0;
+    /** @var callable[] */
+    private $onAllPropertiesResolvedCallbacks = [];
+
     /**
      * Schema constructor.
      *
@@ -106,12 +111,21 @@ class Schema
         return $this->description;
     }
 
+    public function onAllPropertiesResolved(callable $callback): self
+    {
+        $this->resolvedProperties === count($this->properties)
+            ? $callback()
+            : $this->onAllPropertiesResolvedCallbacks[] = $callback;
+
+        return $this;
+    }
+
     /**
      * @return PropertyInterface[]
      */
     public function getProperties(): array
     {
-        $hasSchemaDependencyValidator = function (PropertyInterface $property): bool {
+        $hasSchemaDependencyValidator = static function (PropertyInterface $property): bool {
             foreach ($property->getValidators() as $validator) {
                 if ($validator->getValidator() instanceof SchemaDependencyValidator) {
                     return true;
@@ -125,7 +139,7 @@ class Schema
         // of the validation process for correct exception order of the messages
         usort(
             $this->properties,
-            function (
+            static function (
                 PropertyInterface $property,
                 PropertyInterface $comparedProperty
             ) use ($hasSchemaDependencyValidator): int {
@@ -152,6 +166,16 @@ class Schema
     {
         if (!isset($this->properties[$property->getName()])) {
             $this->properties[$property->getName()] = $property;
+
+            $property->onResolve(function (): void {
+                if (++$this->resolvedProperties === count($this->properties)) {
+                    foreach ($this->onAllPropertiesResolvedCallbacks as $callback) {
+                        $callback();
+
+                        $this->onAllPropertiesResolvedCallbacks = [];
+                    }
+                }
+            });
         } else {
             // TODO tests:
             // testConditionalObjectProperty
@@ -270,6 +294,11 @@ class Schema
     public function getMethods(): array
     {
         return $this->methods;
+    }
+
+    public function hasMethod(string $methodKey): bool
+    {
+        return isset($this->methods[$methodKey]);
     }
 
     /**

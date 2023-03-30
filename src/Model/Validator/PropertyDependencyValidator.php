@@ -23,6 +23,8 @@ class PropertyDependencyValidator extends PropertyTemplateValidator
      */
     public function __construct(PropertyInterface $property, array $dependencies)
     {
+        $this->isResolved = true;
+
         parent::__construct(
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PropertyDependency.phptpl',

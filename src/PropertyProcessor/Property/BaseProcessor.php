@@ -316,23 +316,29 @@ class BaseProcessor extends AbstractPropertyProcessor
             }
 
             foreach ($validator->getComposedProperties() as $composedProperty) {
-                if (!$composedProperty->getNestedSchema()) {
-                    throw new SchemaException(
-                        sprintf(
-                            "No nested schema for composed property %s in file %s found",
-                            $property->getName(),
-                            $property->getJsonSchema()->getFile()
-                        )
-                    );
-                }
+                $composedProperty->onResolve(function () use ($composedProperty, $property, $validator): void {
+                    if (!$composedProperty->getNestedSchema()) {
+                        throw new SchemaException(
+                            sprintf(
+                                "No nested schema for composed property %s in file %s found",
+                                $property->getName(),
+                                $property->getJsonSchema()->getFile()
+                            )
+                        );
+                    }
 
-                foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
-                    $this->schema->addProperty(
-                        $this->cloneTransferredProperty($property, $validator->getCompositionProcessor())
-                    );
+                    $composedProperty->getNestedSchema()->onAllPropertiesResolved(
+                        function () use ($composedProperty, $validator): void {
+                            foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
+                                $this->schema->addProperty(
+                                    $this->cloneTransferredProperty($property, $validator->getCompositionProcessor())
+                                );
 
-                    $composedProperty->appendAffectedObjectProperty($property);
-                }
+                                $composedProperty->appendAffectedObjectProperty($property);
+                            }
+                        }
+                    );
+                });
             }
         }
     }
@@ -351,7 +357,7 @@ class BaseProcessor extends AbstractPropertyProcessor
         string $compositionProcessor
     ): PropertyInterface {
         $transferredProperty = (clone $property)
-            ->filterValidators(function (Validator $validator): bool {
+            ->filterValidators(static function (Validator $validator): bool {
                 return is_a($validator->getValidator(), PropertyTemplateValidator::class);
             });
 

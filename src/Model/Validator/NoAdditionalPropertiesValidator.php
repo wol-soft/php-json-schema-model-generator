@@ -23,6 +23,8 @@ class NoAdditionalPropertiesValidator extends PropertyTemplateValidator
      */
     public function __construct(PropertyInterface $property, array $json)
     {
+        $this->isResolved = true;
+
         parent::__construct(
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'NoAdditionalProperties.phptpl',

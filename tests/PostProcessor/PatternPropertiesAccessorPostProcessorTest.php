@@ -28,7 +28,7 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
 {
     protected function addPostProcessors(PostProcessor ...$postProcessors): void
     {
-        $this->modifyModelGenerator = function (ModelGenerator $generator) use ($postProcessors): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator) use ($postProcessors): void {
             foreach ($postProcessors as $postProcessor) {
                 $generator->addPostProcessor($postProcessor);
             }

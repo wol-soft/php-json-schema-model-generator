@@ -29,9 +29,9 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 {
     protected function addPostProcessor(bool $addForModelsWithoutAdditionalPropertiesDefinition)
     {
-        $this->modifyModelGenerator = function (ModelGenerator $generator) use (
+        $this->modifyModelGenerator = static function (ModelGenerator $generator) use (
             $addForModelsWithoutAdditionalPropertiesDefinition
-        ) {
+        ): void {
             $generator->addPostProcessor(
                 new AdditionalPropertiesAccessorPostProcessor($addForModelsWithoutAdditionalPropertiesDefinition)
             );
@@ -324,7 +324,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
     public function testSetterSchemaHooksAreResolvedInSetAdditionalProperties(): void
     {
-        $this->modifyModelGenerator = function (ModelGenerator $modelGenerator): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {
             $modelGenerator
                 ->addPostProcessor(new AdditionalPropertiesAccessorPostProcessor())
                 ->addPostProcessor(new class () extends PostProcessor {
@@ -409,7 +409,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
     public function testAdditionalPropertiesAreSerializedWithoutAdditionalPropertiesAccessorPostProcessor(): void
     {
-        $this->modifyModelGenerator = function (ModelGenerator $generator): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
             $generator->addPostProcessor(new PopulatePostProcessor());
         };
 
@@ -430,7 +430,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
     public function testAdditionalPropertiesAreNotSerializedWhenNotDefinedWithoutExplicitAccessorMethods(): void
     {
-        $this->modifyModelGenerator = function (ModelGenerator $generator): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
             $generator->addPostProcessor(new PopulatePostProcessor());
         };
 
@@ -448,7 +448,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
     public function testAdditionalPropertiesAreSerializedWhenNotDefinedWithExplicitAccessorMethods(): void
     {
-        $this->modifyModelGenerator = function (ModelGenerator $generator): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
             $generator
                 ->addPostProcessor(new PopulatePostProcessor())
                 ->addPostProcessor(new AdditionalPropertiesAccessorPostProcessor(true));

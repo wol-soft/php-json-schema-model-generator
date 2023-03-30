@@ -59,6 +59,10 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
             $propertyStructure
         );
 
+        $this->validationProperty->onResolve(function (): void {
+            $this->resolve();
+        });
+
         parent::__construct(
             new Property($schema->getClassName(), null, $propertyStructure),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'PatternProperties.phptpl',

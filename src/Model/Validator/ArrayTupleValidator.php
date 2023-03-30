@@ -45,23 +45,29 @@ class ArrayTupleValidator extends PropertyTemplateValidator
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
         $this->tupleProperties = [];
+
         foreach ($propertiesStructure->getJson() as $tupleIndex => $tupleItem) {
             $tupleItemName = "tuple item #$tupleIndex of array $propertyName";
 
             // an item of the array behaves like a nested property to add item-level validation
-            $this->tupleProperties[] = $propertyFactory->create(
+            $tupleProperty = $propertyFactory->create(
                 new PropertyMetaDataCollection([$tupleItemName]),
                 $schemaProcessor,
                 $schema,
                 $tupleItemName,
                 $propertiesStructure->withJson($tupleItem)
             );
+
+            $this->tupleProperties[] = $tupleProperty;
         }
+
+        $this->resolve();
 
         parent::__construct(
             new Property($propertyName, null, $propertiesStructure),
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayTuple.phptpl',
             [
+                'schema' => $schema,
                 'tupleProperties' => &$this->tupleProperties,
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),

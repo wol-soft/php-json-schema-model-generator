@@ -11,7 +11,7 @@ use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
  *
  * @package PHPModelGenerator\Model\Validator
  */
-abstract class AbstractComposedPropertyValidator extends PropertyTemplateValidator
+abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidator
 {
     /** @var string */
     protected $compositionProcessor;

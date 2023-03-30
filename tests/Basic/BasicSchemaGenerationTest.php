@@ -65,7 +65,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 
     public function testSetterLogicIsNotExecutedWhenValueIsIdentical(): void
     {
-        $this->modifyModelGenerator = function (ModelGenerator $modelGenerator): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {
             $modelGenerator->addPostProcessor(new class () extends PostProcessor {
                 public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
                 {

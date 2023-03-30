@@ -2,7 +2,10 @@
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Exception\Arrays\InvalidItemException;
+use PHPModelGenerator\Exception\Arrays\MinItemsException;
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -120,7 +123,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidValueDataProvider()
+    public function invalidValueDataProvider(): array
     {
         return [
             'Bool' => [true, 'Invalid type for property. Requires [float, string, array], got boolean'],
@@ -208,6 +211,85 @@ ERROR
                 <<<ERROR
 Invalid nested object for property property:
   - Provided JSON for MultiTypePropertyTest_\w+ contains not allowed additional properties \[age\]
+ERROR
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider validRecursiveMultiTypeDataProvider
+     */
+    public function testValidRecursiveMultiType($input): void
+    {
+
+        $className = $this->generateClassFromFile('RecursiveMultiTypeProperty.json');
+
+        $object = new $className(['property' => $input]);
+        $this->assertSame($input, $object->getProperty());
+    }
+
+    public function validRecursiveMultiTypeDataProvider(): array
+    {
+        return [
+            'string'       => ['Test'],
+            'array'        => [['Test1', 'Test2']],
+            'nested array' => [[['Test1', 'Test2'], 'Test3']],
+        ];
+    }
+
+    /**
+     * @dataProvider invalidRecursiveMultiTypeDataProvider
+     */
+    public function testInvalidRecursiveMultiType($input, string $expectedException, string $exceptionMessage): void
+    {
+        $this->expectException($expectedException);
+        $this->expectExceptionMessage($exceptionMessage);
+
+        $className = $this->generateClassFromFile('RecursiveMultiTypeProperty.json');
+
+        new $className(['property' => $input]);
+    }
+
+    public function invalidRecursiveMultiTypeDataProvider(): array
+    {
+        return [
+            'int' => [
+                1,
+                InvalidTypeException::class,
+                'Invalid type for property. Requires [string, array], got integer',
+            ],
+            'invalid item in array' => [
+                ['Test1', 1],
+                InvalidItemException::class,
+                <<<ERROR
+Invalid items in array item of array property:
+  - invalid item #1
+    * Invalid type for item of array property. Requires [string, array], got integer
+ERROR
+            ],
+            'invalid array length' => [
+                [],
+                MinItemsException::class,
+                'Array property must not contain less than 2 items',
+            ],
+            'invalid item in nested array' => [
+                ['Test1', [3, 'Test3']],
+                InvalidItemException::class,
+                <<<ERROR
+Invalid items in array item of array property:
+  - invalid item #1
+    * Invalid items in array item of array property:
+      - invalid item #0
+        * Invalid type for item of array property. Requires [string, array], got integer
+ERROR
+            ],
+            'invalid array length in nested array' => [
+                ['Test1', []],
+                InvalidItemException::class,
+                <<<ERROR
+Invalid items in array item of array property:
+  - invalid item #1
+    * Array item of array property must not contain less than 2 items
 ERROR
             ],
         ];

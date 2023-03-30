@@ -12,10 +12,7 @@ is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}) {
             {{ viewHelper.resolvePropertyDecorator(nestedProperty) }}
 
             {% foreach nestedProperty.getOrderedValidators() as validator %}
-                {{ validator.getValidatorSetUp() }}
-                if ({{ validator.getCheck() }}) {
-                    {{ viewHelper.validationError(validator) }}
-                }
+                {{ viewHelper.renderValidator(validator, schema) }}
             {% endforeach %}
 
             {% if generatorConfiguration.collectErrors() %}

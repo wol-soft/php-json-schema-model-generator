@@ -5,13 +5,14 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Utils\ResolvableInterface;
 
 /**
  * Interface PropertyValidatorInterface
  *
  * @package PHPModelGenerator\Model\Validator
  */
-interface PropertyValidatorInterface
+interface PropertyValidatorInterface extends ResolvableInterface
 {
     /**
      * Get the source code for the check to perform

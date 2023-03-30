@@ -1,4 +1,4 @@
-is_array($value) && (function (array $items): bool {
+is_array($value) && (static function (array $items): bool {
     if (empty($items)) {
         return false;
     }

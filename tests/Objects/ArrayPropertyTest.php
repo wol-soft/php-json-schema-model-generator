@@ -2,6 +2,8 @@
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Exception\Arrays\InvalidItemException;
+use PHPModelGenerator\Exception\Arrays\MinItemsException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -867,6 +869,7 @@ ERROR
             )
         );
     }
+
     public function invalidCombinedObjectArrayDataProvider(): array
     {
         return $this->combineDataProvider(
@@ -950,5 +953,50 @@ ERROR
                 ]
             )
         );
+    }
+
+    /**
+     * @dataProvider validRecursiveArrayDataProvider
+     */
+    public function testValidRecursiveArray(array $input): void
+    {
+        $className = $this->generateClassFromFile('RecursiveArray.json');
+
+        $object = new $className(['property' => $input]);
+
+        $this->assertSame($input, $object->getProperty());
+    }
+
+    public function validRecursiveArrayDataProvider(): array
+    {
+        return [
+            'only string' => [['Hello']],
+            'only nested array' => [[['Hello']]],
+            'string and nested array' => [[['Hello'], 'World']],
+            'two level nested array' => [[[['Hello'], 'World'], '!']],
+        ];
+    }
+
+    /**
+     * @dataProvider invalidRecursiveArrayDataProvider
+     */
+    public function testInvalidRecursiveArrayThrowsAnException(string $expectedException, array $input): void
+    {
+        $this->expectException($expectedException);
+
+        $className = $this->generateClassFromFile('RecursiveArray.json');
+
+        new $className(['property' => $input]);
+    }
+
+    public function invalidRecursiveArrayDataProvider(): array
+    {
+        return [
+            'empty array' => [MinItemsException::class, []],
+            'empty nested array' => [InvalidItemException::class, [[]]],
+            'string with empty nested array' => [InvalidItemException::class, ['Hello', []]],
+            'invalid type' => [InvalidItemException::class, [2]],
+            'invalid nested type' => [InvalidItemException::class, ['Hello', [2]]],
+        ];
     }
 }

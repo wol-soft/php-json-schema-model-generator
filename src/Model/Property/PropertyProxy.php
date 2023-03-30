@@ -28,7 +28,7 @@ class PropertyProxy extends AbstractProperty
      * PropertyProxy constructor.
      *
      * @param string $name The name must be provided separately as the name is not bound to the structure of a
-     * referenced schema. Consequently two properties with different names can refer an identical schema utilizing the
+     * referenced schema. Consequently, two properties with different names can refer an identical schema utilizing the
      * PropertyProxy. By providing a name to each of the proxies the resulting properties will get the correct names.
      * @param JsonSchema $jsonSchema
      * @param ResolvedDefinitionsCollection $definitionsCollection
@@ -77,9 +77,9 @@ class PropertyProxy extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function getTypeHint(bool $outputType = false): string
+    public function getTypeHint(bool $outputType = false, array $skipDecorators = []): string
     {
-        return $this->getProperty()->getTypeHint($outputType);
+        return $this->getProperty()->getTypeHint($outputType, $skipDecorators);
     }
 
     /**
@@ -127,9 +127,12 @@ class PropertyProxy extends AbstractProperty
      */
     public function getOrderedValidators(): array
     {
-        return array_map(function (PropertyValidatorInterface $propertyValidator): PropertyValidatorInterface {
-            return $propertyValidator->withProperty($this);
-        }, $this->getProperty()->getOrderedValidators());
+        return array_map(
+            function (PropertyValidatorInterface $propertyValidator): PropertyValidatorInterface {
+                return $propertyValidator->withProperty($this);
+            },
+            $this->getProperty()->getOrderedValidators()
+        );
     }
 
     /**
@@ -246,12 +249,5 @@ class PropertyProxy extends AbstractProperty
     public function isInternal(): bool
     {
         return $this->getProperty()->isInternal();
-    }
-
-    public function __clone()
-    {
-        $cloneKey = $this->key . uniqid();
-        $this->definitionsCollection->offsetSet($cloneKey, clone $this->definitionsCollection->offsetGet($this->key));
-        $this->key = $cloneKey;
     }
 }

@@ -136,7 +136,7 @@ class RenderJob
                     'true'                              => true,
                     'baseValidatorsWithoutCompositions' => array_filter(
                         $this->schema->getBaseValidators(),
-                        function ($validator) {
+                        static function ($validator): bool {
                             return !is_a($validator, AbstractComposedPropertyValidator::class);
                         }
                     ),
@@ -167,7 +167,7 @@ class RenderJob
         );
 
         // filter out non-compound uses and uses which link to the current namespace
-        $use = array_filter($use, function ($classPath) use ($namespace) {
+        $use = array_filter($use, static function ($classPath) use ($namespace): bool {
             return strstr(trim(str_replace("$namespace", '', $classPath), '\\'), '\\') ||
                 (!strstr($classPath, '\\') && !empty($namespace));
         });

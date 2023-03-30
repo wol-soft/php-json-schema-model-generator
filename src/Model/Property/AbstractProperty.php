@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
+use PHPModelGenerator\Utils\ResolvableTrait;
 
 /**
  * Class AbstractProperty
@@ -15,7 +16,7 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
  */
 abstract class AbstractProperty implements PropertyInterface
 {
-    use JsonSchemaTrait;
+    use JsonSchemaTrait, ResolvableTrait;
 
     /** @var string */
     protected $name = '';
@@ -71,14 +72,14 @@ abstract class AbstractProperty implements PropertyInterface
     {
         $attributeName = preg_replace_callback(
             '/([a-z][a-z0-9]*)([A-Z])/',
-            function ($matches) {
+            static function (array $matches): string {
                 return "{$matches[1]}-{$matches[2]}";
             },
             $name
         );
 
         $elements = array_map(
-            function ($element) {
+            static function (string $element): string {
                 return ucfirst(strtolower($element));
             },
             preg_split('/[^a-z0-9]/i', $attributeName)
