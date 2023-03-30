@@ -156,14 +156,6 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function getTypeHintDecorators(): array
-    {
-        return $this->typeHintDecorators;
-    }
-
-    /**
-     * @inheritdoc
-     */
     public function getDescription(): string
     {
         return $this->description;

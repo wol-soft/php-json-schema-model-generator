@@ -63,7 +63,6 @@ interface PropertyInterface extends ResolvableInterface
      */
     public function addTypeHintDecorator(TypeHintDecoratorInterface $typeHintDecorator): PropertyInterface;
 
-    public function getTypeHintDecorators(): array;
     /**
      * Get a description for the property. If no description is available an empty string will be returned
      *

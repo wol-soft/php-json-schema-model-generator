@@ -97,7 +97,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTest
         $this->assertSame(get_class($object1->getMember()), get_class($object2->getMember()));
     }
 
-    public function identicalReferencedSchemaDataProvider()
+    public function identicalReferencedSchemaDataProvider(): array
     {
         return [
             'In same namespace' => [

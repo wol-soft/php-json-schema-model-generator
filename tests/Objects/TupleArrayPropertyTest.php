@@ -2,6 +2,7 @@
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -417,5 +418,49 @@ ERROR
                 ],
             ]
         );
+    }
+
+    /**
+     * @dataProvider validRecursiveTupleDataProvider
+     */
+    public function testValidRecursiveTuple(array $input): void
+    {
+        $className = $this->generateClassFromFile('RecursiveTupleArray.json');
+
+        $object = new $className(['property' => $input]);
+
+        $this->assertSame($input, $object->getProperty());
+    }
+
+    public function validRecursiveTupleDataProvider(): array
+    {
+        return [
+            'string' => [['abc', 'def']],
+            'one level nested' => [['abc', ['abc', 'def']]],
+            'two level nested' => [['abc', ['abc', ['abc', 'def']]]],
+        ];
+    }
+
+    /**
+     * @dataProvider invalidRecursiveTupleDataProvider
+     */
+    public function testInvalidRecursiveTuple(array $input): void
+    {
+        $this->expectException(InvalidTupleException::class);
+
+        $className = $this->generateClassFromFile('RecursiveTupleArray.json');
+
+        new $className(['property' => $input]);
+    }
+
+    public function invalidRecursiveTupleDataProvider(): array
+    {
+        return [
+            'invalid first tuple' => [[1, 'def']],
+            'invalid second tuple' => [['abc', 1]],
+            'one level nested - invalid first tuple' => [[1, ['abc', 'def']]],
+            'one level nested - invalid nested first tuple' => [['abc', [1, 'def']]],
+            'one level nested - invalid nested second tuple' => [['abc', ['abc', 1]]],
+        ];
     }
 }

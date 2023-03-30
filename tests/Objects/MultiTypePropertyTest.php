@@ -120,7 +120,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidValueDataProvider()
+    public function invalidValueDataProvider(): array
     {
         return [
             'Bool' => [true, 'Invalid type for property. Requires [float, string, array], got boolean'],

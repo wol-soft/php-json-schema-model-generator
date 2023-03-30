@@ -1,0 +1,29 @@
+{
+  "definitions": {
+    "list": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string"
+        },
+        {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/list"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "minItems": 1
+    }
+  },
+  "type": "object",
+  "properties": {
+    "property": {
+      "$ref": "#/definitions/list"
+    }
+  }
+}

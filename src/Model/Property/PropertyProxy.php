@@ -89,13 +89,6 @@ class PropertyProxy extends AbstractProperty
     {
         return $this->getProperty()->addTypeHintDecorator($typeHintDecorator);
     }
-    /**
-     * @inheritdoc
-     */
-    public function getTypeHintDecorators(): array
-    {
-        return $this->getProperty()->getTypeHintDecorators();
-    }
 
     /**
      * @inheritdoc
@@ -256,12 +249,5 @@ class PropertyProxy extends AbstractProperty
     public function isInternal(): bool
     {
         return $this->getProperty()->isInternal();
-    }
-
-    public function __clone()
-    {
-        $cloneKey = $this->key . uniqid();
-        $this->definitionsCollection->offsetSet($cloneKey, clone $this->definitionsCollection->offsetGet($this->key));
-        $this->key = $cloneKey;
     }
 }

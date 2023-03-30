@@ -46,7 +46,6 @@ class ArrayTupleValidator extends PropertyTemplateValidator
 
         $this->tupleProperties = [];
 
-        $pendingTuples = 0;
         foreach ($propertiesStructure->getJson() as $tupleIndex => $tupleItem) {
             $tupleItemName = "tuple item #$tupleIndex of array $propertyName";
 
@@ -59,21 +58,10 @@ class ArrayTupleValidator extends PropertyTemplateValidator
                 $propertiesStructure->withJson($tupleItem)
             );
 
-            if (!$tupleProperty->isResolved()) {
-                $pendingTuples++;
-                $tupleProperty->onResolve(function () use (&$pendingTuples): void {
-                    if (--$pendingTuples === 0) {
-                        $this->resolve();
-                    }
-                });
-            }
-
             $this->tupleProperties[] = $tupleProperty;
         }
 
-        if ($pendingTuples === 0) {
-            $this->resolve();
-        }
+        $this->resolve();
 
         parent::__construct(
             new Property($propertyName, null, $propertiesStructure),

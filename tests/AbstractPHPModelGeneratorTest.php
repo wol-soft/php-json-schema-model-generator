@@ -417,7 +417,8 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         $this->fail("Error exception $expectedException not found in error registry exception");
     }
 
-    public function validationMethodDataProvider(): array {
+    public function validationMethodDataProvider(): array
+    {
         return [
             'Error Collection' => [new GeneratorConfiguration()],
             'Direct Exception' => [(new GeneratorConfiguration())->setCollectErrors(false)],
