@@ -44,6 +44,8 @@ class Property extends AbstractProperty
     public $typeHintDecorators = [];
 
     private $renderedTypeHints = [];
+    /** @var int Track the amount of unresolved validators */
+    private $pendingValidators = 0;
 
     /**
      * Property constructor.
@@ -62,8 +64,7 @@ class Property extends AbstractProperty
         $this->type = $type;
         $this->description = $description;
 
-        // a concrete property doesn't need to be resolved
-        $this->resolved = true;
+        $this->resolve();
     }
 
     /**
@@ -124,7 +125,7 @@ class Property extends AbstractProperty
 
                 $filteredDecorators = array_filter(
                     $this->typeHintDecorators,
-                    function (TypeHintDecoratorInterface $decorator) use ($skipDec) {
+                    static function (TypeHintDecoratorInterface $decorator) use ($skipDec): bool {
                         return !in_array(get_class($decorator), $skipDec);
                     }
                 );
@@ -173,6 +174,18 @@ class Property extends AbstractProperty
      */
     public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): PropertyInterface
     {
+        if (!$validator->isResolved()) {
+            $this->isResolved = false;
+
+            $this->pendingValidators++;
+
+            $validator->onResolve(function () {
+                if (--$this->pendingValidators === 0) {
+                    $this->resolve();
+                }
+            });
+        }
+
         $this->validators[] = new Validator($validator, $priority);
 
         return $this;
@@ -203,7 +216,7 @@ class Property extends AbstractProperty
     {
         usort(
             $this->validators,
-            function (Validator $validator, Validator $comparedValidator) {
+            static function (Validator $validator, Validator $comparedValidator): int {
                 if ($validator->getPriority() == $comparedValidator->getPriority()) {
                     return 0;
                 }
@@ -212,7 +225,7 @@ class Property extends AbstractProperty
         );
 
         return array_map(
-            function (Validator $validator) {
+            static function (Validator $validator): PropertyValidatorInterface {
                 return $validator->getValidator();
             },
             $this->validators

@@ -26,7 +26,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
     {
         parent::setUp();
 
-        $this->modifyModelGenerator = function (ModelGenerator $generator): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
             $generator->addPostProcessor(new PopulatePostProcessor());
         };
     }
@@ -215,7 +215,7 @@ Invalid type for age. Requires int, got boolean"
 
     public function testSetterBeforeValidationHookInsidePopulateIsResolved(): void
     {
-        $this->modifyModelGenerator = function (ModelGenerator $modelGenerator): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {
             $modelGenerator->addPostProcessor(new PopulatePostProcessor());
             $modelGenerator->addPostProcessor(new class () extends PostProcessor {
                 public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
@@ -259,7 +259,7 @@ Invalid type for age. Requires int, got boolean"
         array $populateValues
     ): void
     {
-        $this->modifyModelGenerator = function (ModelGenerator $modelGenerator): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {
             $modelGenerator->addPostProcessor(new PopulatePostProcessor());
             $modelGenerator->addPostProcessor(new class () extends PostProcessor {
                 public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void

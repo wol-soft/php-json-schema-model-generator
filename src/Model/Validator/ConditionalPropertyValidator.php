@@ -22,6 +22,8 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
         array $composedProperties,
         array $validatorVariables
     ) {
+        $this->isResolved = true;
+
         parent::__construct(
             $generatorConfiguration,
             $property,

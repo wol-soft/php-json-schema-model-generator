@@ -61,6 +61,10 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
             $propertiesStructure->withJson($propertiesStructure->getJson()[static::ADDITIONAL_PROPERTIES_KEY])
         );
 
+        $this->validationProperty->onResolve(function (): void {
+            $this->resolve();
+        });
+
         $patternProperties = array_keys($schema->getJsonSchema()->getJson()['patternProperties'] ?? []);
 
         parent::__construct(

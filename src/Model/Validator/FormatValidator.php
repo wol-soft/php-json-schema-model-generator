@@ -31,6 +31,7 @@ class FormatValidator extends AbstractPropertyValidator
         FormatValidatorInterface $validator,
         array $exceptionParams = []
     ) {
+        $this->isResolved = true;
         $this->validator = $validator;
 
         parent::__construct($property, FormatException::class, $exceptionParams);

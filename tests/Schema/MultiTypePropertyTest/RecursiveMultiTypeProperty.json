@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "definitions": {
+    "property": {
+      "type": ["string", "array"],
+      "minLength": 4,
+      "items": {
+        "$ref": "#/definitions/property"
+      },
+      "minItems": 2
+    }
+  },
+  "properties": {
+    "property": {
+      "$ref": "#/definitions/property"
+    }
+  }
+}

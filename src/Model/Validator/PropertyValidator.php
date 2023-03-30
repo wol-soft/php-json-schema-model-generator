@@ -30,6 +30,7 @@ class PropertyValidator extends AbstractPropertyValidator
         string $exceptionClass,
         array $exceptionParams = []
     ) {
+        $this->isResolved = true;
         $this->check = $check;
 
         parent::__construct($property, $exceptionClass, $exceptionParams);

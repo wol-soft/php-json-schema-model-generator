@@ -234,7 +234,7 @@ class SchemaProcessor
     {
         $path = str_replace($this->baseSource, '', dirname($jsonSchemaFile));
         $pieces = array_map(
-            function ($directory) {
+            static function (string $directory): string {
                 return ucfirst($directory);
             },
             explode(DIRECTORY_SEPARATOR, $path)

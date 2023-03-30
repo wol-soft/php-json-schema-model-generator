@@ -150,7 +150,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      * Generate a class from a file template and apply all $values via sprintf to the template
      *
      * @param string                      $file
-     * @param array                       $values
+     * @param string[]                    $values
      * @param GeneratorConfiguration|null $generatorConfiguration
      * @param bool                        $escape
      * @param bool                        $implicitNull
@@ -176,7 +176,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
                 array_merge(
                     [file_get_contents(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $file)],
                     array_map(
-                        function ($item) use ($escape) {
+                        static function (string $item) use ($escape): string {
                             return $escape ? str_replace("'", '"', addcslashes($item, '"\\')) : $item;
                         },
                         $values

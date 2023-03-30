@@ -28,7 +28,7 @@ class PropertyProxy extends AbstractProperty
      * PropertyProxy constructor.
      *
      * @param string $name The name must be provided separately as the name is not bound to the structure of a
-     * referenced schema. Consequently two properties with different names can refer an identical schema utilizing the
+     * referenced schema. Consequently, two properties with different names can refer an identical schema utilizing the
      * PropertyProxy. By providing a name to each of the proxies the resulting properties will get the correct names.
      * @param JsonSchema $jsonSchema
      * @param ResolvedDefinitionsCollection $definitionsCollection
@@ -46,23 +46,6 @@ class PropertyProxy extends AbstractProperty
 
         $this->key = $key;
         $this->definitionsCollection = $definitionsCollection;
-    }
-
-    public function resolve(): PropertyInterface
-    {
-        if ($this->resolved) {
-            return $this;
-        }
-
-        $this->resolved = true;
-
-        foreach ($this->onResolveCallbacks as $callback) {
-            $callback();
-        }
-
-        $this->onResolveCallbacks = [];
-
-        return $this;
     }
 
     /**
@@ -151,9 +134,12 @@ class PropertyProxy extends AbstractProperty
      */
     public function getOrderedValidators(): array
     {
-        return array_map(function (PropertyValidatorInterface $propertyValidator): PropertyValidatorInterface {
-            return $propertyValidator->withProperty($this);
-        }, $this->getProperty()->getOrderedValidators());
+        return array_map(
+            function (PropertyValidatorInterface $propertyValidator): PropertyValidatorInterface {
+                return $propertyValidator->withProperty($this);
+            },
+            $this->getProperty()->getOrderedValidators()
+        );
     }
 
     /**

@@ -78,13 +78,14 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         $resolvedCompositions = 0;
         foreach ($compositionProperties as $compositionProperty) {
             $compositionProperty->onResolve(
-                function () use (&$resolvedCompositions, $property, $compositionProperties, $propertySchema) {
+                function () use (&$resolvedCompositions, $property, $compositionProperties, $propertySchema): void {
                     if (++$resolvedCompositions === count($compositionProperties)) {
                         $this->transferPropertyType($property, $compositionProperties);
 
-                        $this->mergedProperty = !$this->rootLevelComposition && $this instanceof MergedComposedPropertiesInterface
-                            ? $this->createMergedProperty($property, $compositionProperties, $propertySchema)
-                            : null;
+                        $this->mergedProperty = !$this->rootLevelComposition
+                            && $this instanceof MergedComposedPropertiesInterface
+                                ? $this->createMergedProperty($property, $compositionProperties, $propertySchema)
+                                : null;
                     }
                 }
             );
@@ -154,8 +155,8 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     )
             );
 
-            $compositionProperty->onResolve(function () use ($compositionProperty, $property) {
-                $compositionProperty->filterValidators(function (Validator $validator): bool {
+            $compositionProperty->onResolve(function () use ($compositionProperty, $property): void {
+                $compositionProperty->filterValidators(static function (Validator $validator): bool {
                     return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
                         !is_a($validator->getValidator(), ComposedPropertyValidator::class);
                 });
@@ -186,7 +187,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         $compositionPropertyTypes = array_values(
             array_unique(
                 array_map(
-                    function (CompositionPropertyDecorator $property): string {
+                    static function (CompositionPropertyDecorator $property): string {
                         return $property->getType() ? $property->getType()->getName() : '';
                     },
                     $compositionProperties
@@ -311,28 +312,30 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                 continue;
             }
 
-            $property->getNestedSchema()->onAllPropertiesResolved(function () use ($property, $mergedPropertySchema) {
-                foreach ($property->getNestedSchema()->getProperties() as $nestedProperty) {
-                    $mergedPropertySchema->addProperty(
-                        // don't validate fields in merged properties. All fields were validated before corresponding to
-                        // the defined constraints of the composition property.
-                        (clone $nestedProperty)->filterValidators(function (): bool {
-                            return false;
-                        })
-                    );
+            $property->getNestedSchema()->onAllPropertiesResolved(
+                function () use ($property, $mergedPropertySchema): void {
+                    foreach ($property->getNestedSchema()->getProperties() as $nestedProperty) {
+                        $mergedPropertySchema->addProperty(
+                            // don't validate fields in merged properties. All fields were validated before
+                            // corresponding to the defined constraints of the composition property.
+                            (clone $nestedProperty)->filterValidators(static function (): bool {
+                                return false;
+                            })
+                        );
 
-                    // the parent schema needs to know about all imports of the nested classes as all properties of the
-                    // nested classes are available in the parent schema (combined schema merging)
-                    $this->schema->addNamespaceTransferDecorator(
-                        new SchemaNamespaceTransferDecorator($property->getNestedSchema())
+                        // the parent schema needs to know about all imports of the nested classes as all properties
+                        // of the nested classes are available in the parent schema (combined schema merging)
+                        $this->schema->addNamespaceTransferDecorator(
+                            new SchemaNamespaceTransferDecorator($property->getNestedSchema())
+                        );
+                    }
+
+                    // make sure the merged schema knows all imports of the parent schema
+                    $mergedPropertySchema->addNamespaceTransferDecorator(
+                        new SchemaNamespaceTransferDecorator($this->schema)
                     );
                 }
-
-                // make sure the merged schema knows all imports of the parent schema
-                $mergedPropertySchema->addNamespaceTransferDecorator(
-                    new SchemaNamespaceTransferDecorator($this->schema)
-                );
-            });
+            );
         }
     }
 

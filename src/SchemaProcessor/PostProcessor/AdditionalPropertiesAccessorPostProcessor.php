@@ -104,12 +104,12 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
     ): void {
         $objectProperties = RenderHelper::varExportArray(
             array_map(
-                function (PropertyInterface $property): string {
+                static function (PropertyInterface $property): string {
                     return $property->getName();
                 },
                 array_filter(
                     $schema->getProperties(),
-                    function (PropertyInterface $property): bool {
+                    static function (PropertyInterface $property): bool {
                         return !$property->isInternal();
                     }
                 )

@@ -384,7 +384,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
     protected function generateEnumClass(string $type, array $enumValues, $required = false): string
     {
         $enumValues = array_map(
-            function ($item) {
+            static function ($item): string {
                 return var_export($item, true);
             },
             $enumValues

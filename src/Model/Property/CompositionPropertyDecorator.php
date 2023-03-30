@@ -43,7 +43,7 @@ class CompositionPropertyDecorator extends PropertyProxy
             self::PROPERTY_KEY
         );
 
-        $property->onResolve(function () {
+        $property->onResolve(function (): void {
             $this->resolve();
         });
     }

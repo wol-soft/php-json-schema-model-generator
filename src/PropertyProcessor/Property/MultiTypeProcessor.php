@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
@@ -77,35 +78,39 @@ class MultiTypeProcessor extends AbstractValueProcessor
     {
         $property = parent::process($propertyName, $propertySchema);
 
-        foreach ($property->getValidators() as $validator) {
-            $this->checks[] = $validator->getValidator()->getCheck();
-        }
+        $property->onResolve(function () use ($property, $propertyName, $propertySchema): void {
+            foreach ($property->getValidators() as $validator) {
+                $this->checks[] = $validator->getValidator()->getCheck();
+            }
 
-        $subProperties = $this->processSubProperties($propertyName, $propertySchema, $property);
+            $subProperties = $this->processSubProperties($propertyName, $propertySchema, $property);
 
-        if (empty($this->allowedPropertyTypes)) {
-            return $property;
-        }
+            if (empty($this->allowedPropertyTypes)) {
+                return;
+            }
 
-        $property->addTypeHintDecorator(
-            new TypeHintDecorator(
-                array_map(
-                    function (PropertyInterface $subProperty): string {
-                        return $subProperty->getTypeHint();
-                    },
-                    $subProperties
+            $property->addTypeHintDecorator(
+                new TypeHintDecorator(
+                    array_map(
+                        static function (PropertyInterface $subProperty): string {
+                            return $subProperty->getTypeHint();
+                        },
+                        $subProperties
+                    )
                 )
-            )
-        );
+            );
 
-        return $property->addValidator(
-            new MultiTypeCheckValidator(
-                array_unique($this->allowedPropertyTypes),
-                $property,
-                $this->isImplicitNullAllowed($property)
-            ),
-            2
-        );
+            $property->addValidator(
+                new MultiTypeCheckValidator(
+                    array_unique($this->allowedPropertyTypes),
+                    $property,
+                    $this->isImplicitNullAllowed($property)
+                ),
+                2
+            );
+        });
+
+        return $property;
     }
 
     /**
@@ -165,11 +170,14 @@ class MultiTypeProcessor extends AbstractValueProcessor
             $json['type'] = $type;
 
             $subProperty = $propertyProcessor->process($propertyName, $propertySchema->withJson($json));
-            $this->transferValidators($subProperty, $property);
 
-            if ($subProperty->getDecorators()) {
-                $property->addDecorator(new PropertyTransferDecorator($subProperty));
-            }
+            $subProperty->onResolve(function () use ($property, $subProperty): void {
+                $this->transferValidators($subProperty, $property);
+
+                if ($subProperty->getDecorators()) {
+                    $property->addDecorator(new PropertyTransferDecorator($subProperty));
+                }
+            });
 
             if ($defaultValue !== null && $propertyProcessor instanceof AbstractTypedValueProcessor) {
                 try {

@@ -105,7 +105,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
         // no type information provided - inherit the types from the enum values
         if (!$property->getType()) {
             $typesOfEnum = array_unique(array_map(
-                function ($value): string {
+                static function ($value): string {
                     return TypeConverter::gettypeToInternal(gettype($value));
                 },
                 $allowedValues
@@ -137,7 +137,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
 
         array_walk(
             $dependencies,
-            function ($dependency, $index) use (&$propertyDependency): void {
+            static function ($dependency, $index) use (&$propertyDependency): void {
                 $propertyDependency = $propertyDependency && is_int($index) && is_string($dependency);
             }
         );
@@ -179,7 +179,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                 (clone $property)
                     ->setRequired(false)
                     ->setType(null)
-                    ->filterValidators(function (): bool {
+                    ->filterValidators(static function (): bool {
                         return false;
                     })
             );

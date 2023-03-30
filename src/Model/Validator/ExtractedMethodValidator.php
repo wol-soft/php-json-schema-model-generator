@@ -9,8 +9,13 @@ use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Utils\RenderHelper;
 
-class ExtractedMethodValidator extends PropertyTemplateValidator
+/**
+ * Renders the validator in a separate method. Might be required for recursive validations which would otherwise cause
+ * infinite loops during validator rendering
+ */
+abstract class ExtractedMethodValidator extends PropertyTemplateValidator
 {
+    /** @var string */
     private $extractedMethodName;
     /** @var GeneratorConfiguration */
     private $generatorConfiguration;

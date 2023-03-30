@@ -51,7 +51,10 @@ class PatternPropertiesPostProcessor extends PostProcessor
 
                 $patternHashes[$validator->getKey()] = array_reduce(
                     $schema->getProperties(),
-                    function (array $carry, PropertyInterface $property) use ($schemaProperties, $validator): array {
+                    static function (
+                        array $carry,
+                        PropertyInterface $property
+                    ) use ($schemaProperties, $validator): array {
                         if (in_array($property->getName(), $schemaProperties) &&
                             preg_match('/' . addcslashes($validator->getPattern(), '/') . '/', $property->getName())
                         ) {

@@ -88,13 +88,13 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTest
             'Empty data path reference' => [
                 '#/components/modules/person',
                 [],
-                function ($person) {
+                function ($person): void {
                     $this->assertNull($person->getName());
                     $this->assertIsArray($person->getChildren());
                     $this->assertEmpty($person->getChildren());
                 },
                 [],
-                function ($car) {
+                function ($car): void {
                     $this->assertNull($car->getPs());
                     $this->assertNull($car->getOwner());
                 },
@@ -109,7 +109,7 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTest
                         ],
                     ],
                 ],
-                function ($person) {
+                function ($person): void {
                     $this->assertSame('Hannes', $person->getName());
                     $this->assertCount(1, $person->getChildren());
                     $this->assertSame('Erwin', $person->getChildren()[0]->getName());
@@ -121,7 +121,7 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTest
                         'name' => 'Susi',
                     ],
                 ],
-                function ($car) {
+                function ($car): void {
                     $this->assertSame(150, $car->getPs());
                     $this->assertSame('Susi', $car->getOwner()->getName());
                     $this->assertEmpty($car->getOwner()->getChildren());
@@ -142,7 +142,7 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTest
                         ],
                     ],
                 ],
-                function ($person) {
+                function ($person): void {
                     $this->assertSame('Hannes', $person->getName());
                     $this->assertCount(1, $person->getChildren());
                     $this->assertSame('Erwin', $person->getChildren()[0]->getName());
@@ -161,7 +161,7 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTest
                         ],
                     ],
                 ],
-                function ($car) {
+                function ($car): void {
                     $this->assertSame(150, $car->getPs());
                     $this->assertSame('Susi', $car->getOwner()->getName());
                     $this->assertCount(1, $car->getOwner()->getChildren());

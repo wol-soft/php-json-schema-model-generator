@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Utils\ResolvableTrait;
 
 /**
  * Class AbstractPropertyValidator
@@ -14,6 +15,8 @@ use PHPModelGenerator\Model\Validator;
  */
 abstract class AbstractPropertyValidator implements PropertyValidatorInterface
 {
+    use ResolvableTrait;
+
     /** @var string */
     protected $exceptionClass;
     /** @var array */
@@ -79,8 +82,10 @@ abstract class AbstractPropertyValidator implements PropertyValidatorInterface
      */
     protected function removeRequiredPropertyValidator(PropertyInterface $property): void
     {
-        $property->filterValidators(function (Validator $validator): bool {
-            return !is_a($validator->getValidator(), RequiredPropertyValidator::class);
+        $property->onResolve(static function () use ($property): void {
+            $property->filterValidators(static function (Validator $validator): bool {
+                return !is_a($validator->getValidator(), RequiredPropertyValidator::class);
+            });
         });
     }
 }

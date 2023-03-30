@@ -10,13 +10,14 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInterface;
+use PHPModelGenerator\Utils\ResolvableInterface;
 
 /**
  * Interface PropertyInterface
  *
  * @package PHPModelGenerator\Model
  */
-interface PropertyInterface
+interface PropertyInterface extends ResolvableInterface
 {
     /**
      * @return string
@@ -205,9 +206,4 @@ interface PropertyInterface
      * @return JsonSchema
      */
     public function getJsonSchema(): JsonSchema;
-
-    /**
-     * Adds a callback which will be executed after the property is set up completely
-     */
-    public function onResolve(callable $callback): PropertyInterface;
 }

@@ -178,6 +178,18 @@ if ({$validator->getCheck()}) {
         return "\$this->{$validator->getExtractedMethodName()}(\$value);";
     }
 
+    public function renderMethods(Schema $schema): string
+    {
+        $renderedMethods = '';
+
+        // don't change to a foreach loop as the render process of a method might add additional methods
+        for ($i = 0; $i < count($schema->getMethods()); $i++) {
+            $renderedMethods .= $schema->getMethods()[array_keys($schema->getMethods())[$i]]->getCode();
+        }
+
+        return $renderedMethods;
+    }
+
     public static function varExportArray(array $values): string
     {
         return preg_replace('(\d+\s=>)', '', var_export($values, true));

@@ -152,7 +152,7 @@ class CompositionValidationPostProcessor extends PostProcessor
                 return join(
                     "\n",
                     array_map(
-                        function ($validatorIndex) {
+                        static function (int $validatorIndex): string {
                             return sprintf('$this->validateComposition_%s($modelData);', $validatorIndex);
                         },
                         array_unique($this->validatorPropertyMap[$property->getName()] ?? [])

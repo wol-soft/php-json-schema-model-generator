@@ -31,6 +31,8 @@ class SchemaDependencyValidator extends PropertyTemplateValidator
      */
     public function __construct(SchemaProcessor $schemaProcessor, PropertyInterface $property, Schema $schema)
     {
+        $this->isResolved = true;
+
         parent::__construct(
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'SchemaDependency.phptpl',

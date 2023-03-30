@@ -24,6 +24,8 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         string $compositionProcessor,
         array $validatorVariables
     ) {
+        $this->isResolved = true;
+
         parent::__construct(
             $generatorConfiguration,
             $property,
@@ -62,8 +64,8 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 
         /** @var CompositionPropertyDecorator $composedProperty */
         foreach ($validator->composedProperties as $composedProperty) {
-            $composedProperty->onResolve(function () use ($composedProperty) {
-                $composedProperty->filterValidators(function (Validator $validator): bool {
+            $composedProperty->onResolve(static function () use ($composedProperty): void {
+                $composedProperty->filterValidators(static function (Validator $validator): bool {
                     return !is_a($validator->getValidator(), AbstractComposedPropertyValidator::class);
                 });
             });

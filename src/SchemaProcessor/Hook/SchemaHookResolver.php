@@ -51,7 +51,7 @@ class SchemaHookResolver
     {
         return array_filter(
             $this->schema->getSchemaHooks(),
-            function (SchemaHookInterface $hook) use ($filterHook): bool {
+            static function (SchemaHookInterface $hook) use ($filterHook): bool {
                 return is_a($hook, $filterHook);
             }
         );
@@ -61,7 +61,7 @@ class SchemaHookResolver
     {
         return join(
             "\n\n",
-            array_map(function ($hook) use ($parameters): string {
+            array_map(static function ($hook) use ($parameters): string {
                 return $hook->getCode(...$parameters);
             }, $this->getHooks($filterHook))
         );

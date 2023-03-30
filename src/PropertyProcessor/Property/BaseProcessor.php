@@ -316,7 +316,7 @@ class BaseProcessor extends AbstractPropertyProcessor
             }
 
             foreach ($validator->getComposedProperties() as $composedProperty) {
-                $composedProperty->onResolve(function () use ($composedProperty, $property, $validator) {
+                $composedProperty->onResolve(function () use ($composedProperty, $property, $validator): void {
                     if (!$composedProperty->getNestedSchema()) {
                         throw new SchemaException(
                             sprintf(
@@ -328,7 +328,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                     }
 
                     $composedProperty->getNestedSchema()->onAllPropertiesResolved(
-                        function () use ($composedProperty, $validator) {
+                        function () use ($composedProperty, $validator): void {
                             foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
                                 $this->schema->addProperty(
                                     $this->cloneTransferredProperty($property, $validator->getCompositionProcessor())
@@ -357,7 +357,7 @@ class BaseProcessor extends AbstractPropertyProcessor
         string $compositionProcessor
     ): PropertyInterface {
         $transferredProperty = (clone $property)
-            ->filterValidators(function (Validator $validator): bool {
+            ->filterValidators(static function (Validator $validator): bool {
                 return is_a($validator->getValidator(), PropertyTemplateValidator::class);
             });
 

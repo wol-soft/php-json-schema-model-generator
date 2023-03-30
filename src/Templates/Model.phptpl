@@ -200,9 +200,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
         {% endif %}
     {% endforeach %}
 
-    {% foreach schema.getMethods() as method %}
-        {{ method.getCode(generatorConfiguration) }}
-    {% endforeach %}
+    {{ viewHelper.renderMethods(schema) }}
 }
 
 // @codeCoverageIgnoreEnd

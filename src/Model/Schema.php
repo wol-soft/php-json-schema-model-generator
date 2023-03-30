@@ -125,7 +125,7 @@ class Schema
      */
     public function getProperties(): array
     {
-        $hasSchemaDependencyValidator = function (PropertyInterface $property): bool {
+        $hasSchemaDependencyValidator = static function (PropertyInterface $property): bool {
             foreach ($property->getValidators() as $validator) {
                 if ($validator->getValidator() instanceof SchemaDependencyValidator) {
                     return true;
@@ -139,7 +139,7 @@ class Schema
         // of the validation process for correct exception order of the messages
         usort(
             $this->properties,
-            function (
+            static function (
                 PropertyInterface $property,
                 PropertyInterface $comparedProperty
             ) use ($hasSchemaDependencyValidator): int {
@@ -167,7 +167,7 @@ class Schema
         if (!isset($this->properties[$property->getName()])) {
             $this->properties[$property->getName()] = $property;
 
-            $property->onResolve(function () {
+            $property->onResolve(function (): void {
                 if (++$this->resolvedProperties === count($this->properties)) {
                     foreach ($this->onAllPropertiesResolvedCallbacks as $callback) {
                         $callback();

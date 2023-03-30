@@ -21,7 +21,7 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * @package PHPModelGenerator\Model\Validator
  */
-class ArrayItemValidator extends PropertyTemplateValidator
+class ArrayItemValidator extends ExtractedMethodValidator
 {
     /** @var string */
     private $variableSuffix = '';
@@ -57,9 +57,14 @@ class ArrayItemValidator extends PropertyTemplateValidator
                 $itemStructure
             );
 
-        $property->addTypeHintDecorator(new ArrayTypeHintDecorator($this->nestedProperty));
+        $this->nestedProperty->onResolve(function () use ($property): void {
+            $this->resolve();
+
+            $property->addTypeHintDecorator(new ArrayTypeHintDecorator($this->nestedProperty));
+        });
 
         parent::__construct(
+            $schemaProcessor->getGeneratorConfiguration(),
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayItem.phptpl',
             [

@@ -212,4 +212,25 @@ ERROR
             ],
         ];
     }
+
+    /**
+     * @dataProvider validRecursiveMultiTypeDataProvider
+     */
+    public function testValidRecursiveMultiType($input): void
+    {
+
+        $className = $this->generateClassFromFile('RecursiveMultiTypeProperty.json');
+
+        $object = new $className(['property' => $input]);
+        $this->assertSame($input, $object->getProperty());
+    }
+
+    public function validRecursiveMultiTypeDataProvider(): array
+    {
+        return [
+            'string'       => ['Test'],
+           # 'array'        => [['Test1', 'Test2']],
+           # 'nested array' => [[['Test1', 'Test2'], 'Test3']],
+        ];
+    }
 }

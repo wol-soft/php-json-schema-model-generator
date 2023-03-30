@@ -168,7 +168,7 @@ class FilterProcessor
             }
 
             if ($validator instanceof EnumValidator) {
-                $property->filterValidators(function (Validator $validator): bool {
+                $property->filterValidators(static function (Validator $validator): bool {
                     return !is_a($validator->getValidator(), EnumValidator::class);
                 });
 
@@ -206,7 +206,7 @@ class FilterProcessor
     ): void {
         $typeCheckValidator = null;
 
-        $property->filterValidators(function (Validator $validator) use (&$typeCheckValidator): bool {
+        $property->filterValidators(static function (Validator $validator) use (&$typeCheckValidator): bool {
             if (is_a($validator->getValidator(), TypeCheckValidator::class)) {
                 $typeCheckValidator = $validator->getValidator();
                 return false;

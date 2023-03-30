@@ -86,7 +86,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
     ): void {
         $patternPropertiesValidators = array_filter(
             $schema->getBaseValidators(),
-            function (PropertyValidatorInterface $validator): bool {
+            static function (PropertyValidatorInterface $validator): bool {
                 return $validator instanceof PatternPropertiesValidator;
             });
 
@@ -98,7 +98,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
             $propertyHasTransformingFilter = !empty(
                 array_filter(
                     $property->getValidators(),
-                    function (Validator $validator): bool {
+                    static function (Validator $validator): bool {
                         return $validator->getValidator() instanceof FilterValidator &&
                             $validator->getValidator()->getFilter() instanceof TransformingFilterInterface;
                     }

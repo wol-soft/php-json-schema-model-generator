@@ -110,6 +110,8 @@ class SchemaDefinition
                 }
 
                 unset($this->unresolvedProxies[$key]);
+
+                return $property;
             } catch (PHPModelGeneratorException $exception) {
                 $this->resolvedPaths->offsetUnset($key);
                 throw $exception;
