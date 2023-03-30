@@ -25,10 +25,6 @@ trait ResolvableTrait
 
     public function resolve(): void
     {
-        if ($this->isResolved) {
-            return;
-        }
-
         $this->isResolved = true;
 
         foreach ($this->onResolveCallbacks as $callback) {
