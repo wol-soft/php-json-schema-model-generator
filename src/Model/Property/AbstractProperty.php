@@ -72,11 +72,6 @@ abstract class AbstractProperty implements PropertyInterface
         return $this;
     }
 
-    public function isResolved(): bool
-    {
-        return $this->resolved;
-    }
-
     /**
      * Convert a name of a JSON-field into a valid PHP variable name to be used as class attribute
      *

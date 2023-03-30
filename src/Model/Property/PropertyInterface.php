@@ -210,9 +210,4 @@ interface PropertyInterface
      * Adds a callback which will be executed after the property is set up completely
      */
     public function onResolve(callable $callback): PropertyInterface;
-
-    /**
-     * Check if the property set up is finished
-     */
-    public function isResolved(): bool;
 }
