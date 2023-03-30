@@ -85,29 +85,36 @@ class MultiTypeProcessor extends AbstractValueProcessor
 
             $subProperties = $this->processSubProperties($propertyName, $propertySchema, $property);
 
-            if (empty($this->allowedPropertyTypes)) {
-                return;
+            $processedSubProperties = 0;
+            foreach ($subProperties as $subProperty) {
+                $subProperty->onResolve(function () use ($property, $subProperties, &$processedSubProperties) {
+                    if (++$processedSubProperties === count($subProperties)) {
+                        if (empty($this->allowedPropertyTypes)) {
+                            return;
+                        }
+
+                        $property->addTypeHintDecorator(
+                            new TypeHintDecorator(
+                                array_map(
+                                    static function (PropertyInterface $subProperty): string {
+                                        return $subProperty->getTypeHint();
+                                    },
+                                    $subProperties
+                                )
+                            )
+                        );
+
+                        $property->addValidator(
+                            new MultiTypeCheckValidator(
+                                array_unique($this->allowedPropertyTypes),
+                                $property,
+                                $this->isImplicitNullAllowed($property)
+                            ),
+                            2
+                        );
+                    }
+                });
             }
-
-            $property->addTypeHintDecorator(
-                new TypeHintDecorator(
-                    array_map(
-                        static function (PropertyInterface $subProperty): string {
-                            return $subProperty->getTypeHint();
-                        },
-                        $subProperties
-                    )
-                )
-            );
-
-            $property->addValidator(
-                new MultiTypeCheckValidator(
-                    array_unique($this->allowedPropertyTypes),
-                    $property,
-                    $this->isImplicitNullAllowed($property)
-                ),
-                2
-            );
         });
 
         return $property;
