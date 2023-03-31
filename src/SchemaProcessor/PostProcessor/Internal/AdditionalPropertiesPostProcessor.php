@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 
-use Exception;
+use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\Property;
@@ -114,7 +114,7 @@ class AdditionalPropertiesPostProcessor extends PostProcessor
                                 array_keys($schema->getJsonSchema()->getJson()['properties'] ?? [])
                             ),
                         ],
-                        Exception::class
+                        InvalidAdditionalPropertiesException::class
                     );
                 }
             }

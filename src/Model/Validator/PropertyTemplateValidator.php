@@ -8,6 +8,7 @@ use PHPMicroTemplate\Exception\PHPMicroTemplateException;
 use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Schema;
 
 /**
  * Class PropertyTemplateValidator
@@ -43,6 +44,13 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
         $this->templateValues = $templateValues;
 
         parent::__construct($property, $exceptionClass, $exceptionParams);
+    }
+
+    public function setScope(Schema $schema): void
+    {
+        if (isset($this->templateValues['schema'])) {
+            $this->templateValues['schema'] = $schema;
+        }
     }
 
     /**

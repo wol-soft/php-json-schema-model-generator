@@ -8,6 +8,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
+use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 
 /**
@@ -162,6 +163,12 @@ class RenderHelper
 
     public function renderValidator(PropertyValidatorInterface $validator, Schema $schema): string
     {
+        // scoping of the validator might be required as validators from a composition might be transferred to a
+        // different schema
+        if ($validator instanceof PropertyTemplateValidator) {
+            $validator->setScope($schema);
+        }
+
         if (!$validator instanceof ExtractedMethodValidator) {
             return "
 {$validator->getValidatorSetUp()}
@@ -184,7 +191,7 @@ if ({$validator->getCheck()}) {
 
         // don't change to a foreach loop as the render process of a method might add additional methods
         for ($i = 0; $i < count($schema->getMethods()); $i++) {
-            $renderedMethods .= $schema->getMethods()[array_keys($schema->getMethods())[$i]]->getCode();
+            $renderedMethods .= $schema->getMethods()[array_keys($schema->getMethods())[$i]]->getCode() . "\n\n";
         }
 
         return $renderedMethods;
