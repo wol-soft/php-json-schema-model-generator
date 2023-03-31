@@ -138,7 +138,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         string $schemaProviderClass = RecursiveDirectoryProvider::class
     ): string {
         return $this->generateClass(
-            file_get_contents(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $file),
+            file_get_contents($this->getSchemaFilePath($file)),
             $generatorConfiguration,
             $originalClassNames,
             $implicitNull,
@@ -171,16 +171,13 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         string $schemaProviderClass = RecursiveDirectoryProvider::class
     ): string {
         return $this->generateClass(
-            call_user_func_array(
-                'sprintf',
-                array_merge(
-                    [file_get_contents(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $file)],
-                    array_map(
-                        static function (string $item) use ($escape): string {
-                            return $escape ? str_replace("'", '"', addcslashes($item, '"\\')) : $item;
-                        },
-                        $values
-                    )
+            sprintf(
+                file_get_contents($this->getSchemaFilePath($file)),
+                ...array_map(
+                    static function (string $item) use ($escape): string {
+                        return $escape ? str_replace("'", '"', addcslashes($item, '"\\')) : $item;
+                    },
+                    $values
                 )
             ),
             $generatorConfiguration,
@@ -517,6 +514,11 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         return $this->generatedFiles;
     }
 
+    protected function getSchemaFilePath(string $file): string
+    {
+        return __DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $file;
+    }
+
     /**
      * Generate a unique name for a class
      *
@@ -536,7 +538,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         return $name;
     }
 
-    private function getStaticClassName(): string
+    protected function getStaticClassName(): string
     {
         $parts = explode('\\', static::class);
 

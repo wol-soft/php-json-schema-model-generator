@@ -303,7 +303,7 @@ class BaseProcessor extends AbstractPropertyProcessor
 
             // If the transferred validator of the composed property is also a composed property strip the nested
             // composition validations from the added validator. The nested composition will be validated in the object
-            // generated for the nested composition which will be executed via an instanciation. Consequently the
+            // generated for the nested composition which will be executed via an instantiation. Consequently, the
             // validation must not be executed in the outer composition.
             $this->schema->addBaseValidator(
                 ($validator instanceof ComposedPropertyValidator)
