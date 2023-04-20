@@ -20,7 +20,7 @@ declare(strict_types = 1);
 {% if schema.getDescription() %} * {{ schema.getDescription() }}
  *{% endif %}
  * This is an auto-implemented class implemented by the php-json-schema-model-generator.
- * If you need to implement something in this class use inheritance. Else you will loose your changes if the classes
+ * If you need to implement something in this class use inheritance. Else you will lose your changes if the classes
  * are re-generated.
  */
 class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinClassNames(schema.getInterfaces()) }}{% endif %}
