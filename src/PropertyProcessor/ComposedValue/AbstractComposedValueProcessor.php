@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -117,6 +118,10 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             ),
             100
         );
+
+        if (!$this->schema->hasMethod('_getModifiedValues')) {
+            $this->addGetModifiedValuesMethodToSchema($compositionProperties);
+        }
     }
 
     /**
@@ -337,6 +342,64 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                 }
             );
         }
+    }
+
+    /**
+     * Add a method to the schema to gather values from a nested object which are modified. This is required to adopt
+     * filter changes to the values which are passed into a merged property
+     *
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     */
+    private function addGetModifiedValuesMethodToSchema(array $compositionProperties): void
+    {
+        $this->schema->addMethod('_getModifiedValues', new class ($compositionProperties) implements MethodInterface {
+            /** @var CompositionPropertyDecorator[] $compositionProperties */
+            private $compositionProperties;
+
+            public function __construct(array $compositionProperties)
+            {
+                $this->compositionProperties = $compositionProperties;
+            }
+
+            public function getCode(): string
+            {
+                $defaultValueMap = [];
+                $propertyAccessors = [];
+                foreach ($this->compositionProperties as $compositionProperty) {
+                    if (!$compositionProperty->getNestedSchema()) {
+                        continue;
+                    }
+
+                    foreach ($compositionProperty->getNestedSchema()->getProperties() as $property) {
+                        $propertyAccessors[$property->getName()] = 'get' . ucfirst($property->getAttribute());
+
+                        if ($property->getDefaultValue() !== null) {
+                            $defaultValueMap[] = $property->getName();
+                        }
+                    }
+                }
+
+                return sprintf('
+                    private function _getModifiedValues(array $originalModelData, object $nestedCompositionObject): array {
+                        $modifiedValues = [];
+                        $defaultValueMap = %s;
+
+                        foreach (%s as $key => $accessor) {
+                            if ((isset($originalModelData[$key]) || in_array($key, $defaultValueMap))
+                                && method_exists($nestedCompositionObject, $accessor)
+                                && ($modifiedValue = $nestedCompositionObject->$accessor()) !== ($originalModelData[$key] ?? !$modifiedValue)
+                            ) {
+                                $modifiedValues[$key] = $modifiedValue;
+                            }
+                        }
+
+                        return $modifiedValues;
+                    }',
+                    var_export($defaultValueMap, true),
+                    var_export($propertyAccessors, true)
+                );
+            }
+        });
     }
 
     /**

@@ -12,6 +12,7 @@
     $validatorComponentIndex = 0;
     $originalModelData = $value;
     $proposedValue = null;
+    $modifiedValues = [];
 
     {% if not generatorConfiguration.isImmutable() %}
         $originalPropertyValidationState = $this->_propertyValidationState ?? [];
@@ -90,6 +91,9 @@
                     $proposedValue = $proposedValue ?? $value;
                 {% endif %}
 
+                if (is_object($value)) {
+                    $modifiedValues = array_merge($modifiedValues, $this->_getModifiedValues($originalModelData, $value));
+                }
             {% if not generatorConfiguration.isImmutable() %}
                 {% if not generatorConfiguration.collectErrors() %}
                     if (isset($validatorIndex)) {
@@ -118,6 +122,10 @@
 
     {% if mergedProperty %}
         if (is_object($proposedValue)) {
+            if ($modifiedValues) {
+                $value = array_merge($value, $modifiedValues);
+            }
+
             {{ viewHelper.resolvePropertyDecorator(mergedProperty) }}
         } else {
             $value = $proposedValue;

@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items":{
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "title"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "property": {
+                "type": "string",
+                "filter": "%s",
+                "default": "now"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
