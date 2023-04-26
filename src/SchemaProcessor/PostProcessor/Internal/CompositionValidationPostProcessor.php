@@ -80,7 +80,7 @@ class CompositionValidationPostProcessor extends PostProcessor
             }
         }
 
-        if (!empty($validatorPropertyMap) && !$generatorConfiguration->isImmutable()) {
+        if (!empty($validatorPropertyMap)) {
             $schema->addProperty(
                 (new Property(
                     'propertyValidationState',
@@ -114,6 +114,11 @@ class CompositionValidationPostProcessor extends PostProcessor
         array $validatorPropertyMap
     ): void {
         foreach (array_unique(array_merge(...array_values($validatorPropertyMap))) as $validatorIndex) {
+            /** @var AbstractComposedPropertyValidator $compositionValidator */
+            $compositionValidator = $schema->getBaseValidators()[$validatorIndex];
+
+            $compositionValidator->setScope($schema);
+
             $schema->addMethod(
                 "validateComposition_$validatorIndex",
                 new RenderedMethod(
@@ -121,7 +126,8 @@ class CompositionValidationPostProcessor extends PostProcessor
                     $generatorConfiguration,
                     'CompositionValidation.phptpl',
                     [
-                        'validator' => $schema->getBaseValidators()[$validatorIndex],
+                        'validator' => $compositionValidator,
+                        'schema' => $schema,
                         'index' => $validatorIndex,
                         'viewHelper' => new RenderHelper($generatorConfiguration),
                     ]

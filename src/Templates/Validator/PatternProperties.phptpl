@@ -18,10 +18,7 @@
             {{ viewHelper.resolvePropertyDecorator(validationProperty) }}
 
             {% foreach validationProperty.getOrderedValidators() as validator %}
-                {{ validator.getValidatorSetUp() }}
-                if ({{ validator.getCheck() }}) {
-                    {{ viewHelper.validationError(validator) }}
-                }
+                {{ viewHelper.renderValidator(validator, schema) }}
             {% endforeach %}
 
             {% if generatorConfiguration.collectErrors() %}

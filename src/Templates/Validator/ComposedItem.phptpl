@@ -65,10 +65,7 @@
                 {{ viewHelper.resolvePropertyDecorator(compositionProperty) }}
 
                 {% foreach compositionProperty.getOrderedValidators() as validator %}
-                    {{ validator.getValidatorSetUp() }}
-                    if ({{ validator.getCheck() }}) {
-                        {{ viewHelper.validationError(validator) }}
-                    }
+                    {{ viewHelper.renderValidator(validator, schema) }}
                 {% endforeach %}
 
                 {% if generatorConfiguration.collectErrors() %}
@@ -92,7 +89,7 @@
                 {% endif %}
 
                 if (is_object($value)) {
-                    $modifiedValues = array_merge($modifiedValues, $this->_getModifiedValues($originalModelData, $value));
+                    $modifiedValues = array_merge($modifiedValues, $this->{{ modifiedValuesMethod }}($originalModelData, $value));
                 }
             {% if not generatorConfiguration.isImmutable() %}
                 {% if not generatorConfiguration.collectErrors() %}

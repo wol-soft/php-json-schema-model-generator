@@ -53,6 +53,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
                 'nameValidationProperty' => $nameValidationProperty,
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper'             => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
+                'schema'                 => $schema,
             ],
             InvalidPropertyNamesException::class,
             ['&$invalidProperties']

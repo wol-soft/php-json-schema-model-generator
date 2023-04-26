@@ -1,33 +1,38 @@
 {
-  "type": "object",
-  "properties": {
-    "items": {
-      "type": "array",
-      "items":{
-        "allOf": [
-          {
-            "type": "object",
-            "properties": {
-              "title": {
-                "type": "string"
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items":{
+            "allOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "filter": "trim"
+                  }
+                },
+                "required": [
+                  "title"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "property": {
+                    "type": "string",
+                    "filter": "%s",
+                    "default": "now"
+                  }
+                }
               }
-            },
-            "required": [
-              "title"
             ]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "property": {
-                "type": "string",
-                "filter": "%s",
-                "default": "now"
-              }
-            }
           }
-        ]
+        }
       }
     }
-  }
+  ]
 }

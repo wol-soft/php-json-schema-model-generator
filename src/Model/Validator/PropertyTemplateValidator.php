@@ -21,6 +21,9 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
     protected $template;
     /** @var array */
     protected $templateValues;
+    /** @var Schema|null */
+    protected $scope = null;
+
     /** @var Render */
     static private $renderer;
 
@@ -48,6 +51,8 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
 
     public function setScope(Schema $schema): void
     {
+        $this->scope = $schema;
+
         if (isset($this->templateValues['schema'])) {
             $this->templateValues['schema'] = $schema;
         }

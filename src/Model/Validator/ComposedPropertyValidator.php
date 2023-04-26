@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\ComposedValue\InvalidComposedValueException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
@@ -17,6 +18,8 @@ use PHPModelGenerator\Model\Validator;
  */
 class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 {
+    private $modifiedValuesMethod;
+
     public function __construct(
         GeneratorConfiguration $generatorConfiguration,
         PropertyInterface $property,
@@ -24,19 +27,88 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         string $compositionProcessor,
         array $validatorVariables
     ) {
+        $this->modifiedValuesMethod = '_getModifiedValues_' . substr(md5(spl_object_hash($this)), 0, 5);
         $this->isResolved = true;
 
         parent::__construct(
             $generatorConfiguration,
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
-            $validatorVariables,
+            array_merge($validatorVariables, ['modifiedValuesMethod' => $this->modifiedValuesMethod]),
             $this->getExceptionByProcessor($compositionProcessor),
             ['&$succeededCompositionElements', '&$compositionErrorCollection']
         );
 
         $this->compositionProcessor = $compositionProcessor;
         $this->composedProperties = $composedProperties;
+    }
+
+    /**
+     * TODO: add method only if nested objects contain filter (else also skip method call)
+     */
+    public function getCheck(): string
+    {
+        /**
+         * Add a method to the schema to gather values from a nested object which are modified.
+         * This is required to adopt filter changes to the values which are passed into a merged property
+         */
+        $this->scope->addMethod(
+            $this->modifiedValuesMethod,
+            new class ($this->composedProperties, $this->modifiedValuesMethod) implements MethodInterface {
+                /** @var CompositionPropertyDecorator[] $compositionProperties */
+                private $compositionProperties;
+                /** @var string */
+                private $modifiedValuesMethod;
+
+                public function __construct(array $compositionProperties, string $modifiedValuesMethod)
+                {
+                    $this->compositionProperties = $compositionProperties;
+                    $this->modifiedValuesMethod = $modifiedValuesMethod;
+                }
+
+                public function getCode(): string
+                {
+                    $defaultValueMap = [];
+                    $propertyAccessors = [];
+                    foreach ($this->compositionProperties as $compositionProperty) {
+                        if (!$compositionProperty->getNestedSchema()) {
+                            continue;
+                        }
+
+                        foreach ($compositionProperty->getNestedSchema()->getProperties() as $property) {
+                            $propertyAccessors[$property->getName()] = 'get' . ucfirst($property->getAttribute());
+
+                            if ($property->getDefaultValue() !== null) {
+                                $defaultValueMap[] = $property->getName();
+                            }
+                        }
+                    }
+
+                    return sprintf('
+                        private function %s(array $originalModelData, object $nestedCompositionObject): array {
+                            $modifiedValues = [];
+                            $defaultValueMap = %s;
+    
+                            foreach (%s as $key => $accessor) {
+                                if ((isset($originalModelData[$key]) || in_array($key, $defaultValueMap))
+                                    && method_exists($nestedCompositionObject, $accessor)
+                                    && ($modifiedValue = $nestedCompositionObject->$accessor()) !== ($originalModelData[$key] ?? !$modifiedValue)
+                                ) {
+                                    $modifiedValues[$key] = $modifiedValue;
+                                }
+                            }
+    
+                            return $modifiedValues;
+                        }',
+                        $this->modifiedValuesMethod,
+                        var_export($defaultValueMap, true),
+                        var_export($propertyAccessors, true)
+                    );
+                }
+            }
+        );
+
+        return parent::getCheck();
     }
 
     /**

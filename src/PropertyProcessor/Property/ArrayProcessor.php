@@ -269,6 +269,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                 DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayContains.phptpl',
                 [
                     'property' => $nestedProperty,
+                    'schema' => $this->schema,
                     'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
                     'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
                 ],

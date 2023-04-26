@@ -31,14 +31,14 @@ class Issue70Test extends AbstractIssueTest
     public function validInputDataProvider(): array
     {
         return [
-            'basic filter - default value' => ['trim', ['items' => [['title' => 'Hello']]], 'now'],
-            'basic filter - custom value - not modified' => ['trim', ['items' => [['title' => 'Hello', 'property' => 'later']]], 'later'],
-            'basic filter - custom value - modified' => ['trim', ['items' => [['title' => 'Hello', 'property' => '   later   ']]], 'later'],
-            'basic filter - null' => ['trim', ['items' => [['title' => 'Hello', 'property' => null]]], null],
-            'transforming filter - default value' => ['countChars', ['items' => [['title' => 'Hello']]], 3],
-            'transforming filter - transformed value' => ['countChars', ['items' => [['title' => 'Hello', 'property' => 5]]], 5],
-            'transforming filter - custom value' => ['countChars', ['items' => [['title' => 'Hello', 'property' => 'Hello World']]], 11],
-            'transforming filter - null' => ['countChars', ['items' => [['title' => 'Hello', 'property' => null]]], null],
+            'basic filter - default value' => ['trim', ['items' => [['title' => ' Hello ']]], 'now'],
+            'basic filter - custom value - not modified' => ['trim', ['items' => [['title' => ' Hello ', 'property' => 'later']]], 'later'],
+            'basic filter - custom value - modified' => ['trim', ['items' => [['title' => ' Hello ', 'property' => '   later   ']]], 'later'],
+            'basic filter - null' => ['trim', ['items' => [['title' => ' Hello ', 'property' => null]]], null],
+            'transforming filter - default value' => ['countChars', ['items' => [['title' => ' Hello ']]], 3],
+            'transforming filter - transformed value' => ['countChars', ['items' => [['title' => ' Hello ', 'property' => 5]]], 5],
+            'transforming filter - custom value' => ['countChars', ['items' => [['title' => ' Hello ', 'property' => 'Hello World']]], 11],
+            'transforming filter - null' => ['countChars', ['items' => [['title' => ' Hello ', 'property' => null]]], null],
         ];
     }
 

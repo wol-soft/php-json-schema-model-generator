@@ -70,9 +70,10 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
                 'patternHash' => $this->key,
                 'pattern' => base64_encode('/' . addcslashes($this->pattern, '/') . '/'),
                 'validationProperty' => $this->validationProperty,
+                'schema' => $schema,
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
-                'schemaProperties' => $schema->getProperties(),
+              #  'schemaProperties' => $schema->getProperties(),
             ],
             InvalidPatternPropertiesException::class,
             [$this->pattern, '&$invalidProperties']
