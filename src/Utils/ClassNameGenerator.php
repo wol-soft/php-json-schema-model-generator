@@ -22,12 +22,16 @@ class ClassNameGenerator implements ClassNameGeneratorInterface
         bool $isMergeClass,
         string $currentClassName = ''
     ): string {
+        $json = $isMergeClass && isset($schema->getJson()['propertySchema'])
+            ? $schema->getJson()['propertySchema']->getJson()
+            : $schema->getJson();
+
         $className = sprintf(
             $isMergeClass ? '%s_Merged_%s' : '%s_%s',
             $currentClassName,
             ucfirst(
-                isset($schema->getJson()['$id'])
-                    ? str_replace('#', '', $schema->getJson()['$id'])
+                isset($json['$id'])
+                    ? str_replace('#', '', $json['$id'])
                     : ($propertyName . ($currentClassName ? uniqid() : ''))
             )
         );
