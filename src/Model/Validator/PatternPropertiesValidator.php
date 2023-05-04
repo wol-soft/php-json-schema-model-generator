@@ -73,7 +73,6 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
                 'schema' => $schema,
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
-              #  'schemaProperties' => $schema->getProperties(),
             ],
             InvalidPatternPropertiesException::class,
             [$this->pattern, '&$invalidProperties']
