@@ -33,8 +33,6 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
 {
-    /** @var PropertyInterface[] */
-    private static $generatedMergedProperties = [];
     /** @var bool */
     private $rootLevelComposition;
     /** @var PropertyInterface|null */
@@ -85,7 +83,12 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
 
                         $this->mergedProperty = !$this->rootLevelComposition
                             && $this instanceof MergedComposedPropertiesInterface
-                                ? $this->createMergedProperty($property, $compositionProperties, $propertySchema)
+                                ? $this->schemaProcessor->createMergedProperty(
+                                    $this->schema,
+                                    $property,
+                                    $compositionProperties,
+                                    $propertySchema
+                                  )
                                 : null;
                     }
                 }
@@ -205,138 +208,6 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     $nonEmptyCompositionPropertyTypes[0],
                     count($compositionPropertyTypes) > 1 ? true : null
                 )
-            );
-        }
-    }
-
-    /**
-     * Gather all nested object properties and merge them together into a single merged property
-     *
-     * @param PropertyInterface              $property
-     * @param CompositionPropertyDecorator[] $compositionProperties
-     * @param JsonSchema                     $propertySchema
-     *
-     * @return PropertyInterface|null
-     *
-     * @throws SchemaException
-     */
-    private function createMergedProperty(
-        PropertyInterface $property,
-        array $compositionProperties,
-        JsonSchema $propertySchema
-    ): ?PropertyInterface {
-        $redirectToProperty = $this->redirectMergedProperty($compositionProperties);
-        if ($redirectToProperty === null || $redirectToProperty instanceof PropertyInterface) {
-            if ($redirectToProperty) {
-                $property->addTypeHintDecorator(new CompositionTypeHintDecorator($redirectToProperty));
-            }
-
-            return $redirectToProperty;
-        }
-
-        $mergedClassName = $this->schemaProcessor
-            ->getGeneratorConfiguration()
-            ->getClassNameGenerator()
-            ->getClassName(
-                $property->getName(),
-                $propertySchema,
-                true,
-                $this->schemaProcessor->getCurrentClassName()
-            );
-
-        // check if the merged property already has been generated
-        if (isset(self::$generatedMergedProperties[$mergedClassName])) {
-            return self::$generatedMergedProperties[$mergedClassName];
-        }
-
-        $mergedPropertySchema = new Schema($this->schema->getClassPath(), $mergedClassName, $propertySchema);
-
-        $mergedProperty = new Property(
-            'MergedProperty',
-            new PropertyType($mergedClassName),
-            $mergedPropertySchema->getJsonSchema()
-        );
-
-        self::$generatedMergedProperties[$mergedClassName] = $mergedProperty;
-
-        $this->transferPropertiesToMergedSchema($mergedPropertySchema, $compositionProperties);
-
-        $this->schemaProcessor->generateClassFile(
-            $this->schemaProcessor->getCurrentClassPath(),
-            $mergedClassName,
-            $mergedPropertySchema
-        );
-
-        $property->addTypeHintDecorator(new CompositionTypeHintDecorator($mergedProperty));
-
-        return $mergedProperty
-            ->addDecorator(
-                new ObjectInstantiationDecorator($mergedClassName, $this->schemaProcessor->getGeneratorConfiguration())
-            )
-            ->setNestedSchema($mergedPropertySchema);
-    }
-
-    /**
-     * Check if multiple $compositionProperties contain nested schemas. Only in this case a merged property must be
-     * created. If no nested schemas are detected null will be returned. If only one $compositionProperty contains a
-     * nested schema the $compositionProperty will be used as a replacement for the merged property.
-     *
-     * Returns false if a merged property must be created.
-     *
-     * @param CompositionPropertyDecorator[] $compositionProperties
-     *
-     * @return PropertyInterface|null|false
-     */
-    private function redirectMergedProperty(array $compositionProperties)
-    {
-        $redirectToProperty = null;
-        foreach ($compositionProperties as $property) {
-            if ($property->getNestedSchema()) {
-                if ($redirectToProperty !== null) {
-                    return false;
-                }
-
-                $redirectToProperty = $property;
-            }
-        }
-
-        return $redirectToProperty;
-    }
-
-    /**
-     * @param Schema              $mergedPropertySchema
-     * @param PropertyInterface[] $compositionProperties
-     */
-    private function transferPropertiesToMergedSchema(Schema $mergedPropertySchema, array $compositionProperties): void
-    {
-        foreach ($compositionProperties as $property) {
-            if (!$property->getNestedSchema()) {
-                continue;
-            }
-
-            $property->getNestedSchema()->onAllPropertiesResolved(
-                function () use ($property, $mergedPropertySchema): void {
-                    foreach ($property->getNestedSchema()->getProperties() as $nestedProperty) {
-                        $mergedPropertySchema->addProperty(
-                            // don't validate fields in merged properties. All fields were validated before
-                            // corresponding to the defined constraints of the composition property.
-                            (clone $nestedProperty)->filterValidators(static function (): bool {
-                                return false;
-                            })
-                        );
-
-                        // the parent schema needs to know about all imports of the nested classes as all properties
-                        // of the nested classes are available in the parent schema (combined schema merging)
-                        $this->schema->addNamespaceTransferDecorator(
-                            new SchemaNamespaceTransferDecorator($property->getNestedSchema())
-                        );
-                    }
-
-                    // make sure the merged schema knows all imports of the parent schema
-                    $mergedPropertySchema->addNamespaceTransferDecorator(
-                        new SchemaNamespaceTransferDecorator($this->schema)
-                    );
-                }
             );
         }
     }
