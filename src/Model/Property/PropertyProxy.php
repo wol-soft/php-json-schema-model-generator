@@ -198,9 +198,9 @@ class PropertyProxy extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function setDefaultValue($defaultValue): PropertyInterface
+    public function setDefaultValue($defaultValue, bool $raw = false): PropertyInterface
     {
-        return $this->getProperty()->setDefaultValue($defaultValue);
+        return $this->getProperty()->setDefaultValue($defaultValue, $raw);
     }
 
     /**

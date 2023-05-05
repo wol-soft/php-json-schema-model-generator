@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model;
 
+use Exception;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
@@ -68,6 +69,7 @@ class GeneratorConfiguration
      *
      * @return $this
      *
+     * @throws Exception
      * @throws InvalidFilterException
      */
     public function addFilter(FilterInterface ...$additionalFilter): self
@@ -91,6 +93,10 @@ class GeneratorConfiguration
                 ) {
                     throw new InvalidFilterException('Filter accepts invalid types');
                 }
+            }
+
+            if (isset($this->filter[$filter->getToken()])) {
+                throw new Exception("duplicate filter token {$filter->getToken()}");
             }
 
             $this->filter[$filter->getToken()] = $filter;

@@ -158,10 +158,12 @@ interface PropertyInterface extends ResolvableInterface
 
     /**
      * @param mixed $defaultValue
+     * @param bool $raw By default, the provided value will be added to the generated code via var_export. If the raw
+     * option is enabled the value provided in $defaultValue will not be changed.
      *
      * @return PropertyInterface
      */
-    public function setDefaultValue($defaultValue): PropertyInterface;
+    public function setDefaultValue($defaultValue, bool $raw = false): PropertyInterface;
 
     /**
      * @return string|null

@@ -4,7 +4,9 @@
   "properties": {
     "name": {
       "type": "string",
+      "enum": ["Lawrence", "Hans"],
       "description": "The name of the person",
+      "default": "Hans",
       "example": "Lawrence"
     },
     "age": {

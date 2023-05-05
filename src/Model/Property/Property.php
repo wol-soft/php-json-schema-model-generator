@@ -277,9 +277,9 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function setDefaultValue($defaultValue): PropertyInterface
+    public function setDefaultValue($defaultValue, bool $raw = false): PropertyInterface
     {
-        $this->defaultValue = $defaultValue;
+        $this->defaultValue = $defaultValue !== null && !$raw ? var_export($defaultValue, true) : $defaultValue;
 
         return $this;
     }
@@ -289,7 +289,7 @@ class Property extends AbstractProperty
      */
     public function getDefaultValue(): ?string
     {
-        return $this->defaultValue !== null ? var_export($this->defaultValue, true) : null;
+        return $this->defaultValue;
     }
 
     /**

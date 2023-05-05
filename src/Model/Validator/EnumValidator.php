@@ -23,7 +23,6 @@ class EnumValidator extends PropertyValidator
      */
     public function __construct(PropertyInterface $property, array $allowedValues)
     {
-
         parent::__construct(
             $property,
             '!in_array($value, ' . RenderHelper::varExportArray($allowedValues) . ', true)',

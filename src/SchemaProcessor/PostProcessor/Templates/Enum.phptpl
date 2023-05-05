@@ -1,0 +1,11 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+enum {{ name }}{% if backedType %}: {{ backedType }}{% endif %} {
+    {% foreach cases as case, value %}
+        case {{ case }}{% if backedType %} = {{ value }}{% endif %};
+    {% endforeach %}
+}
