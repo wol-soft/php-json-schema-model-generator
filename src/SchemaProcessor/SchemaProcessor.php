@@ -260,8 +260,23 @@ class SchemaProcessor
 
             $this->transferPropertiesToMergedSchema($schema, $mergedPropertySchema, $compositionProperties);
 
+            // make sure the merged schema knows all imports of the parent schema
+            $mergedPropertySchema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($schema));
+
             $this->generateClassFile($this->getCurrentClassPath(), $mergedClassName, $mergedPropertySchema);
         }
+
+        $mergedSchema = $this->processedMergedProperties[$schemaSignature]->getNestedSchema();
+        $schema->addUsedClass(
+            join(
+                '\\',
+                array_filter([
+                    $this->generatorConfiguration->getNamespacePrefix(),
+                    $mergedSchema->getClassPath(),
+                    $mergedSchema->getClassName(),
+                ])
+            )
+        );
 
         $property->addTypeHintDecorator(
             new CompositionTypeHintDecorator($this->processedMergedProperties[$schemaSignature])
@@ -322,16 +337,7 @@ class SchemaProcessor
                                 return false;
                             })
                         );
-
-                        // the parent schema needs to know about all imports of the nested classes as all properties
-                        // of the nested classes are available in the parent schema (combined schema merging)
-                        $schema->addNamespaceTransferDecorator(
-                            new SchemaNamespaceTransferDecorator($property->getNestedSchema())
-                        );
                     }
-
-                    // make sure the merged schema knows all imports of the parent schema
-                    $mergedPropertySchema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($schema));
                 }
             );
         }
