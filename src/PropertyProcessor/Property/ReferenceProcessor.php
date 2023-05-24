@@ -35,8 +35,8 @@ class ReferenceProcessor extends AbstractTypedValueProcessor
                 if ($this->schema->getClassPath() !== $definition->getSchema()->getClassPath() ||
                     $this->schema->getClassName() !== $definition->getSchema()->getClassName() ||
                     (
-                        $this->schema->getClassPath() === 'ExternalSchema' &&
-                        $definition->getSchema()->getClassPath() === 'ExternalSchema'
+                        $this->schema->getClassName() === 'ExternalSchema' &&
+                        $definition->getSchema()->getClassName() === 'ExternalSchema'
                     )
                 ) {
                     $this->schema->addNamespaceTransferDecorator(

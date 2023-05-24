@@ -11,6 +11,26 @@ namespace PHPModelGenerator\Model\SchemaDefinition;
  */
 class JsonSchema
 {
+    private const SCHEMA_SIGNATURE_RELEVANT_FIELDS = [
+        'type',
+        'properties',
+        '$ref',
+        'allOf',
+        'anyOf',
+        'oneOf',
+        'not',
+        'if',
+        'then',
+        'else',
+        'additionalProperties',
+        'required',
+        'propertyNames',
+        'minProperties',
+        'maxProperties',
+        'dependencies',
+        'patternProperties',
+    ];
+
     /** @var array */
     protected $json;
     /** @var string */
@@ -34,6 +54,19 @@ class JsonSchema
     public function getJson(): array
     {
         return $this->json;
+    }
+
+    /**
+     * create the signature from all fields which are directly relevant for the created object. Additional fields
+     * can be ignored as the resulting code will be identical
+     */
+    public function getSignature(): string
+    {
+        return md5(
+            json_encode(
+                array_intersect_key($this->json, array_fill_keys(self::SCHEMA_SIGNATURE_RELEVANT_FIELDS, null))
+            )
+        );
     }
 
     /**

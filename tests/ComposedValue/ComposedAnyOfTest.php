@@ -494,9 +494,9 @@ ERROR
     }
 
     /**
-     * @ dataProvider validComposedObjectDataProvider
+     * @dataProvider validComposedObjectDataProvider
      * @dataProvider validComposedObjectDataProviderRequired
-     * @ dataProvider validComposedObjectWithRequiredPropertiesDataProvider
+     * @dataProvider validComposedObjectWithRequiredPropertiesDataProvider
      *
      * @param array       $input
      * @param string|null $stringPropertyValue
@@ -527,12 +527,12 @@ ERROR
     {
         return [
             'negative int' => [['integerProperty' => -10, 'stringProperty' => -10], null, -10],
-            # 'zero int' => [['integerProperty' => 0, 'stringProperty' => 0], null, 0],
-            # 'positive int' => [['integerProperty' => 10, 'stringProperty' => 10], null, 10],
-            # 'empty string' => [['integerProperty' => '', 'stringProperty' => ''], '', null],
-            # 'numeric string' => [['integerProperty' => '100', 'stringProperty' => '100'], '100', null],
-            # 'filled string' => [['integerProperty' => 'Hello', 'stringProperty' => 'Hello'], 'Hello', null],
-            # 'additional property' => [['integerProperty' => 'A', 'stringProperty' => 'A', 'test' => 1234], 'A', null],
+            'zero int' => [['integerProperty' => 0, 'stringProperty' => 0], null, 0],
+            'positive int' => [['integerProperty' => 10, 'stringProperty' => 10], null, 10],
+            'empty string' => [['integerProperty' => '', 'stringProperty' => ''], '', null],
+            'numeric string' => [['integerProperty' => '100', 'stringProperty' => '100'], '100', null],
+            'filled string' => [['integerProperty' => 'Hello', 'stringProperty' => 'Hello'], 'Hello', null],
+            'additional property' => [['integerProperty' => 'A', 'stringProperty' => 'A', 'test' => 1234], 'A', null],
         ];
     }
 

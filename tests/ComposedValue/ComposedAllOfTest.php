@@ -594,4 +594,41 @@ ERROR
             ],
         ];
     }
+
+    public function testIdenticalMergedSchemaIsRedirected(): void
+    {
+        $className = $this->generateClassFromFile(
+            'IdenticalMergedSchema.json',
+            (new GeneratorConfiguration())->setImmutable(false)
+        );
+
+        // main class, merged class, two separate for referenced objects
+        $this->assertCount(4, $this->getGeneratedFiles());
+
+        $object = new $className([
+            'name' => 'Funny Toys',
+            'CEO' => ['name' => 'Hans', 'salary' => 100000],
+            'CFO' => ['name' => 'Dieter', 'salary' => 75000],
+        ]);
+
+        $this->assertSame(get_class($object->getCEO()), get_class($object->getCFO()));
+
+        $this->assertRegExp(
+            '/ComposedAllOfTest_\w+_Merged_CEO\w+\|null$/',
+            $this->getPropertyTypeAnnotation($className, 'ceo')
+        );
+        $this->assertSame(
+            $this->getPropertyTypeAnnotation($className, 'ceo'),
+            $this->getPropertyTypeAnnotation($className, 'cfo')
+        );
+
+        $this->assertRegExp(
+            '/ComposedAllOfTest_\w+_Merged_CEO\w+\|null$/',
+            $this->getMethodParameterTypeAnnotation($className, 'setCeo')
+        );
+        $this->assertSame(
+            $this->getMethodParameterTypeAnnotation($className, 'setCeo'),
+            $this->getMethodParameterTypeAnnotation($className, 'setCfo')
+        );
+    }
 }
