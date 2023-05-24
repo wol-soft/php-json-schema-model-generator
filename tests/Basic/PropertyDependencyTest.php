@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;

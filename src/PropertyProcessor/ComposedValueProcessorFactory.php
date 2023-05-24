@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\PropertyProcessor;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\PropertyProcessor\ComposedValue\AbstractComposedValueProcessor;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
@@ -39,6 +42,12 @@ class ComposedValueProcessorFactory implements ProcessorFactoryInterface
     ): PropertyProcessorInterface {
         $processor = '\\PHPModelGenerator\\PropertyProcessor\\ComposedValue\\' . ucfirst($type) . 'Processor';
 
-        return new $processor($propertyMetaDataCollection, $schemaProcessor, $schema, $this->rootLevelComposition);
+        $params = [$propertyMetaDataCollection, $schemaProcessor, $schema];
+
+        if (is_a($processor, AbstractComposedValueProcessor::class, true)) {
+            $params[] = $this->rootLevelComposition;
+        }
+
+        return new $processor(...$params);
     }
 }

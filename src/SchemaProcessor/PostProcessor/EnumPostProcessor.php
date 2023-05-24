@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
+use Exception;
 use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
@@ -19,19 +20,34 @@ use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 
 class EnumPostProcessor extends PostProcessor
 {
+    private $generatedEnums = [];
+
     /** @var string */
     private $namespace;
     /** @var Render */
     private $renderer;
     /** @var string */
     private $targetDirectory;
+    /** @var bool */
+    private $skipNonMappedEnums;
 
     private $hasAddedFilter = false;
 
-    public function __construct(string $targetDirectory, string $namespace)
-    {
+    /**
+     * @param string $targetDirectory  The directory where to put the generated PHP enums
+     * @param string $namespace        The namespace for the generated enums
+     * @param bool $skipNonMappedEnums By default, enums which not contain only strings and don't provide a mapping for
+     *                                 the enum will throw an exception. If set to true, those enums will be skipped
+     *
+     * @throws Exception
+     */
+    public function __construct(
+        string $targetDirectory,
+        string $namespace,
+        bool $skipNonMappedEnums = false
+    ) {
         if (PHP_VERSION_ID < 80100) {
-            throw new \Exception('Enumerations are only allowed since PHP 8.1');
+            throw new Exception('Enumerations are only allowed since PHP 8.1');
         }
 
         (new ModelGenerator())->generateModelDirectory($targetDirectory);
@@ -39,6 +55,7 @@ class EnumPostProcessor extends PostProcessor
         $this->renderer = new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);
         $this->namespace = trim($namespace, '\\');
         $this->targetDirectory = $targetDirectory;
+        $this->skipNonMappedEnums = $skipNonMappedEnums;
     }
 
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
@@ -49,41 +66,29 @@ class EnumPostProcessor extends PostProcessor
         }
 
         foreach ($schema->getProperties() as $property) {
-            if (!isset($property->getJsonSchema()->getJson()['enum'])) {
+            $json = $property->getJsonSchema()->getJson();
+
+            if (!isset($json['enum']) || !$this->validateEnum($property)) {
                 continue;
             }
 
             $this->checkForExistingTransformingFilter($property);
 
-            $values = $property->getJsonSchema()->getJson()['enum'];
+            $values = $json['enum'];
             sort($values);
+            $hash = md5(print_r($values, true));
 
-            $name = $schema->getClassName() . ucfirst($property->getName());
-            file_put_contents(
-                $this->targetDirectory . DIRECTORY_SEPARATOR . $name . '.php',
-                $this->renderer->renderTemplate(
-                    'Enum.phptpl',
-                    [
-                        'namespace' => $this->namespace,
-                        'name' => $name,
-                        'backedType' => 'string',
-                        'cases' => array_combine(
-                            $values,
-                            array_map(
-                                static function ($value): string {
-                                    return var_export($value, true);
-                                },
-                                $values
-                            )
-                        ),
-                    ]
-                )
-            );
-
-            $fqcn = "$this->namespace\\$name";
-            if ($generatorConfiguration->isOutputEnabled()) {
-                echo "Rendered enum $fqcn\n";
+            if (!isset($this->generatedEnums[$hash])) {
+                $this->generatedEnums[$hash] = $this->renderEnum(
+                    $generatorConfiguration,
+                    $json['$id'] ?? $schema->getClassName() . ucfirst($property->getName()),
+                    $values,
+                    $json['map'] ?? null
+                );
             }
+
+            $fqcn = $this->generatedEnums[$hash];
+            $name = substr($fqcn, strrpos($fqcn, "\\") + 1);
 
             $inputType = $property->getType();
 
@@ -103,7 +108,6 @@ class EnumPostProcessor extends PostProcessor
 
             // remove the enum validator as the validation is performed by the PHP enum
             $property->filterValidators(static function (Validator $validator): bool {
-                echo "filter validator: " . $validator->getValidator()::class . PHP_EOL;
                 return !is_a($validator->getValidator(), EnumValidator::class);
             });
         }
@@ -128,7 +132,88 @@ class EnumPostProcessor extends PostProcessor
     public function postProcess(): void
     {
         $this->hasAddedFilter = false;
+        $this->generatedEnums = [];
 
         parent::postProcess();
+    }
+
+    private function validateEnum(PropertyInterface $property): bool
+    {
+        $throw = fn (string $message) => throw new SchemaException(
+            sprintf(
+                $message,
+                $property->getName(),
+                $property->getJsonSchema()->getFile()
+            )
+        );
+
+        $json = $property->getJsonSchema()->getJson();
+
+        $types = $this->getArrayTypes($json['enum']);
+
+        if ($types !== ['string'] && !isset($json['map'])) {
+            if ($this->skipNonMappedEnums) {
+                return false;
+            }
+
+            $throw('Unmapped enum %s in file %s');
+        }
+
+        if (isset($json['map'])) {
+            if (count(array_uintersect(
+                    $json['map'],
+                    $json['enum'],
+                    fn($a, $b) => $a === $b ? 0 : 1
+                )) !== count($json['enum'])
+            ) {
+                $throw('invalid enum map %s in file %s');
+            }
+        }
+
+        return true;
+    }
+
+    private function getArrayTypes(array $array): array
+    {
+        return array_unique(array_map(
+            static function ($item): string {
+                return gettype($item);
+            },
+            $array
+        ));
+    }
+
+    private function renderEnum(
+        GeneratorConfiguration $generatorConfiguration,
+        string $name,
+        array $values,
+        ?array $map
+    ): string {
+        $cases = [];
+
+        foreach ($values as $value) {
+            $cases[$map ? array_search($value, $map) : $value] = var_export($value, true);
+        }
+
+        file_put_contents(
+            $this->targetDirectory . DIRECTORY_SEPARATOR . $name . '.php',
+            $this->renderer->renderTemplate(
+                'Enum.phptpl',
+                [
+                    'namespace' => $this->namespace,
+                    'name' => $name,
+                    'backedType' => $this->getArrayTypes($values) === ['int'] ? 'int' : 'string',
+                    'cases' => $cases,
+                ]
+            )
+        );
+
+        $fqcn = "$this->namespace\\$name";
+
+        if ($generatorConfiguration->isOutputEnabled()) {
+            echo "Rendered enum $fqcn\n";
+        }
+
+        return $fqcn;
     }
 }

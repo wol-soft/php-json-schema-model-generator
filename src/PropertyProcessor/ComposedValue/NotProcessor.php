@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
 use PHPModelGenerator\Model\Property\PropertyInterface;

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests;
 
 use Exception;
@@ -21,6 +23,7 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
 use ReflectionType;
+use SplFileInfo;
 
 /**
  * Class AbstractPHPModelGeneratorTest
@@ -108,9 +111,10 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         foreach (static::EXTERNAL_JSON_DIRECTORIES as $directory) {
             $di = new RecursiveDirectoryIterator($copyBaseDir . $directory, FilesystemIterator::SKIP_DOTS);
 
+            /** @var SplFileInfo $file */
             foreach (new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST) as $file) {
-                @mkdir($baseDir . dirname(str_replace($copyBaseDir, '', $file)), 0777, true);
-                @copy($file, $baseDir . str_replace($copyBaseDir, '', $file));
+                @mkdir($baseDir . dirname(str_replace($copyBaseDir, '', $file->getFilename())), 0777, true);
+                @copy($file->getFilename(), $baseDir . str_replace($copyBaseDir, '', $file->getFilename()));
             }
         }
     }

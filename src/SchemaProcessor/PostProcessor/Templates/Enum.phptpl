@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
-enum {{ name }}{% if backedType %}: {{ backedType }}{% endif %} {
+enum {{ name }}: {{ backedType }} {
     {% foreach cases as case, value %}
-        case {{ case }}{% if backedType %} = {{ value }}{% endif %};
+        case {{ case }} = {{ value }};
     {% endforeach %}
 }

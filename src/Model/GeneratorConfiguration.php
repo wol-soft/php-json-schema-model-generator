@@ -95,10 +95,6 @@ class GeneratorConfiguration
                 }
             }
 
-            if (isset($this->filter[$filter->getToken()])) {
-                throw new Exception("duplicate filter token {$filter->getToken()}");
-            }
-
             $this->filter[$filter->getToken()] = $filter;
         }
 

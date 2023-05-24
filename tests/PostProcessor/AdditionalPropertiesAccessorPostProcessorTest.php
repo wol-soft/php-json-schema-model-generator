@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests\PostProcessor;
 
 use DateTime;
@@ -27,7 +29,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
  */
 class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGeneratorTest
 {
-    protected function addPostProcessor(bool $addForModelsWithoutAdditionalPropertiesDefinition)
+    protected function addPostProcessor(bool $addForModelsWithoutAdditionalPropertiesDefinition): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator) use (
             $addForModelsWithoutAdditionalPropertiesDefinition

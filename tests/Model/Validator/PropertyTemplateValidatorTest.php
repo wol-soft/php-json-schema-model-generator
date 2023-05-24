@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests\Model\Validator;
 
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
