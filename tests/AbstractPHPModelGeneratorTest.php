@@ -23,7 +23,6 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
 use ReflectionType;
-use SplFileInfo;
 
 /**
  * Class AbstractPHPModelGeneratorTest
@@ -111,10 +110,9 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         foreach (static::EXTERNAL_JSON_DIRECTORIES as $directory) {
             $di = new RecursiveDirectoryIterator($copyBaseDir . $directory, FilesystemIterator::SKIP_DOTS);
 
-            /** @var SplFileInfo $file */
             foreach (new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST) as $file) {
-                @mkdir($baseDir . dirname(str_replace($copyBaseDir, '', $file->getFilename())), 0777, true);
-                @copy($file->getFilename(), $baseDir . str_replace($copyBaseDir, '', $file->getFilename()));
+                @mkdir($baseDir . dirname(str_replace($copyBaseDir, '', (string) $file)), 0777, true);
+                @copy((string) $file, $baseDir . str_replace($copyBaseDir, '', (string) $file));
             }
         }
     }
