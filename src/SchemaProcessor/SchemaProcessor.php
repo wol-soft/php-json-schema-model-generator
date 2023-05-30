@@ -330,13 +330,15 @@ class SchemaProcessor
             $property->getNestedSchema()->onAllPropertiesResolved(
                 function () use ($property, $schema, $mergedPropertySchema): void {
                     foreach ($property->getNestedSchema()->getProperties() as $nestedProperty) {
-                        $mergedPropertySchema->addProperty(
+                        $attachProperty = clone $nestedProperty;
+
                         // don't validate fields in merged properties. All fields were validated before
                         // corresponding to the defined constraints of the composition property.
-                            (clone $nestedProperty)->filterValidators(static function (): bool {
-                                return false;
-                            })
-                        );
+                        $attachProperty->filterValidators(static function (): bool {
+                            return false;
+                        });
+
+                        $mergedPropertySchema->addProperty($attachProperty);
                     }
                 }
             );
