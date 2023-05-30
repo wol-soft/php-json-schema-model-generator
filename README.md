@@ -44,10 +44,10 @@ To avoid adding all dependencies of the php-json-schema-model-generator to your 
 
 Check out the [docs](https://php-json-schema-model-generator.readthedocs.io/en/latest/) for more details.
 
-The base object for generating models is the *Generator*. After you have created a Generator you can use the object to generate your model classes without any further configuration:
+The base object for generating models is the *ModelGenerator*. After you have created a Generator you can use the object to generate your model classes without any further configuration:
 
 ```php
-(new Generator())
+(new ModelGenerator())
     ->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
 ```
 The first parameter of the *generateModels* method must be a class implementing the *SchemaProviderInterface*. The provider fetches the JSON schema files and provides them for the generator. The following providers are available:
@@ -62,7 +62,7 @@ The second parameter must point to an existing and empty directory (you may use 
 As an optional parameter you can set up a *GeneratorConfiguration* object (check out the docs for all available options) to configure your Generator and/or use the method *generateModelDirectory* to generate your model directory (will generate the directory if it doesn't exist; if it exists, all contained files and folders will be removed for a clean generation process):
 
 ```php
-$generator = new Generator(
+$generator = new ModelGenerator(
     (new GeneratorConfiguration())
         ->setNamespacePrefix('MyApp\Model')
         ->setImmutable(false)
