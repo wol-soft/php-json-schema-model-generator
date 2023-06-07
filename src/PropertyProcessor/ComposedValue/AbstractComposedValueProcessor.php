@@ -5,9 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
-use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
@@ -16,7 +14,6 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
-use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Property\AbstractValueProcessor;
@@ -90,6 +87,10 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                                     $propertySchema
                                   )
                                 : null;
+
+                        if ($this->mergedProperty) {
+                            $property->setNestedSchema($this->mergedProperty->getNestedSchema());
+                        }
                     }
                 }
             );
@@ -174,6 +175,20 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     $property->addTypeHintDecorator(new CompositionTypeHintDecorator($compositionProperty));
                 }
             });
+
+            if ($compositionProperty->isResolved()
+                && $this instanceof OneOfProcessor
+                && count($compositionProperty->getJsonSchema()->getJson()) === 1
+                && array_key_exists('example', $compositionProperty->getJsonSchema()->getJson())
+            ) {
+                if ($this->schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
+                    // @codeCoverageIgnoreStart
+                    echo "Warning: example OneOf branch for {$property->getName()} may lead to unexpected results, skipping branch\n";
+                    // @codeCoverageIgnoreEnd
+                }
+
+                continue;
+            }
 
             $compositionProperties[] = $compositionProperty;
         }

@@ -1,0 +1,60 @@
+{
+  "definitions": {
+    "basic": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/identification"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "yearsInCompany": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    },
+    "identification": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/contract"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "contract": {
+      "type": "object",
+      "properties": {
+        "salary": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "CEO": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/basic"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "assistance": {
+              "$ref": "#/definitions/basic"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

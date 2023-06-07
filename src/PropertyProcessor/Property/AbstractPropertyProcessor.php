@@ -217,6 +217,10 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                     ])
                 );
 
+            if ($composedProperty->getNestedSchema()) {
+                $property->setNestedSchema($composedProperty->getNestedSchema());
+            }
+
             foreach ($composedProperty->getValidators() as $validator) {
                 $property->addValidator($validator->getValidator(), $validator->getPriority());
             }
