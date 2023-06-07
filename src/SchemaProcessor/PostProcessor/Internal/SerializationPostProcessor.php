@@ -8,7 +8,11 @@ use JsonSerializable;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Interfaces\SerializationInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Property\Property;
+use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
@@ -40,6 +44,7 @@ class SerializationPostProcessor extends PostProcessor
 
         $this->addSerializeFunctionsForTransformingFilters($schema, $generatorConfiguration);
         $this->addSerializationHookMethod($schema, $generatorConfiguration);
+        $this->addSkipNotProvidedPropertiesMap($schema, $generatorConfiguration);
 
         $this->addPatternPropertiesSerialization($schema, $generatorConfiguration);
 
@@ -227,6 +232,38 @@ class SerializationPostProcessor extends PostProcessor
                     return '$data = array_merge($this->serializeAdditionalProperties($depth, $except), $data);';
                 }
             }
+        );
+    }
+
+    private function addSkipNotProvidedPropertiesMap(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration
+    ): void {
+        if ($generatorConfiguration->isImplicitNullAllowed()) {
+            return;
+        }
+
+        $skipNotProvidedValues = array_map(
+            static function (PropertyInterface $property): string {
+                return $property->getAttribute(true);
+            },
+            array_filter(
+                $schema->getProperties(),
+                static function (PropertyInterface $property): bool {
+                    return !$property->isRequired() && !$property->getDefaultValue();
+                }
+            )
+        );
+
+        $schema->addProperty(
+            (new Property(
+                'skipNotProvidedPropertiesMap',
+                new PropertyType('array'),
+                new JsonSchema(__FILE__, []),
+                'Values which might be skipped for serialization if not provided'
+            ))
+                ->setDefaultValue($skipNotProvidedValues)
+                ->setInternal(true)
         );
     }
 }
