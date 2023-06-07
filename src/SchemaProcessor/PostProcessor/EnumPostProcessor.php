@@ -124,7 +124,11 @@ class EnumPostProcessor extends PostProcessor
             if ($validator instanceof FilterValidator
                 && $validator->getFilter() instanceof TransformingFilterInterface
             ) {
-                throw new SchemaException("Can't apply enum filter to an already transformed value");
+                throw new SchemaException(sprintf(
+                    "Can't apply enum filter to an already transformed value on property %s in file %s",
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile()
+                ));
             }
         }
     }

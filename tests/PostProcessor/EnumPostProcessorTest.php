@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\PostProcessor;
 
 use PHPModelGenerator\Exception\Generic\EnumException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
@@ -25,7 +26,10 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
             $generator->addPostProcessor(
-                new EnumPostProcessor(join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']), 'Enum')
+                new EnumPostProcessor(
+                    join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
+                    'Enum'
+                )
             );
         };
     }
@@ -75,5 +79,14 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
 
         new $className(['property' => 'Meier']);
+    }
+
+    public function testEnumPropertyWithTransformingFilterThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage("Can't apply enum filter to an already transformed value");
+
+        $this->addPostProcessor();
+        $this->generateClassFromFile('EnumPropertyWithTransformingFilter.json');
     }
 }
