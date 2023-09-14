@@ -56,6 +56,8 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
         if (isset($this->templateValues['schema'])) {
             $this->templateValues['schema'] = $schema;
         }
+
+        $this->templateValues['isBaseValidator'] = in_array($this, $schema->getBaseValidators());
     }
 
     /**

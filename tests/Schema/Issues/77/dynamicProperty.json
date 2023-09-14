@@ -1,0 +1,79 @@
+{
+  "type": "object",
+  "definitions": {
+    "number": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "values": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "#/definitions/number"
+          },
+          {
+            "type": "integer",
+            "minimum": 1
+          }
+        ]
+      }
+    },
+    "pet": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/pets/dog"
+        },
+        {
+          "$ref": "#/definitions/pets/spider"
+        }
+      ]
+    },
+    "pets": {
+      "dog": {
+        "type": "object",
+        "$id": "dog",
+        "properties": {
+          "age": {
+            "$ref": "#/definitions/number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "const": "dog"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "spider": {
+        "type": "object",
+        "properties": {
+          "age": {
+            "$ref": "#/definitions/number"
+          },
+          "weight": {
+            "type": "number"
+          },
+          "type": {
+            "const": "spider"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      }
+    }
+  },
+  "properties": {
+    "values": {
+      "$ref": "#/definitions/values"
+    },
+    "pet": {
+      "$ref": "#/definitions/pet"
+    }
+  }
+}
