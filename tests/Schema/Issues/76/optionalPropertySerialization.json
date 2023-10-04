@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "property1": {
+      "type": "string"
+    },
+    "property2": {
+      "type": "string"
+    },
+    "property3": {
+      "type": "string",
+      "default": "Moin"
+    }
+  },
+  "required": [
+    "property1"
+  ]
+}

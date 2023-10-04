@@ -197,6 +197,11 @@ if ({$validator->getCheck()}) {
         return $renderedMethods;
     }
 
+    public function isMutableBaseValidator(GeneratorConfiguration $generatorConfiguration, bool $isBaseValidator): bool
+    {
+        return !$generatorConfiguration->isImmutable() && $isBaseValidator;
+    }
+
     public static function varExportArray(array $values): string
     {
         return preg_replace('(\d+\s=>)', '', var_export($values, true));

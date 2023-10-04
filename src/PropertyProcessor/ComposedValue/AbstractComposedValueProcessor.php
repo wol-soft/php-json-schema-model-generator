@@ -5,9 +5,7 @@ declare(strict_types = 1);
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
-use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
@@ -15,8 +13,6 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
-use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
-use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Property\AbstractValueProcessor;
