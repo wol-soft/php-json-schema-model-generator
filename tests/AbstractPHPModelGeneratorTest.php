@@ -94,7 +94,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
                 copy(
                     $file,
-                    $failedResultDir . $nestedDir . DIRECTORY_SEPARATOR . basename($file),
+                    $failedResultDir . $nestedDir . DIRECTORY_SEPARATOR . basename($file)
                 );
             }
         }
