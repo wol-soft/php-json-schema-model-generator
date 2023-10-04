@@ -52,11 +52,11 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
         // if implicit null is disabled only the provided types are accepted
         $this->assertSame(
             $implicitNull ? $expectedAnnotation : 'float|string|string[]',
-            $this->getMethodParameterTypeAnnotation($className, 'setProperty')
+            $this->getParameterTypeAnnotation($className, 'setProperty')
         );
 
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
-        $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame($expectedAnnotation, $this->getReturnTypeAnnotation($className, 'getProperty'));
 
         $this->assertNull($this->getParameterType($className, 'setProperty'));
         $this->assertNull($this->getReturnType($className, 'getProperty'));
@@ -76,10 +76,10 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
 
         $expectedAnnotation = 'float|string|string[]';
 
-        $this->assertSame($expectedAnnotation, $this->getMethodParameterTypeAnnotation($className, 'setProperty'));
+        $this->assertSame($expectedAnnotation, $this->getParameterTypeAnnotation($className, 'setProperty'));
 
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
-        $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame($expectedAnnotation, $this->getReturnTypeAnnotation($className, 'getProperty'));
 
         $this->assertNull($this->getParameterType($className, 'setProperty'));
         $this->assertNull($this->getReturnType($className, 'getProperty'));

@@ -69,8 +69,11 @@ class PropertyProxy extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function setType(PropertyType $type = null, PropertyType $outputType = null): PropertyInterface
-    {
+    public function setType(
+        PropertyType $type = null,
+        PropertyType $outputType = null,
+        bool $reset = false
+    ): PropertyInterface {
         return $this->getProperty()->setType($type, $outputType);
     }
 
