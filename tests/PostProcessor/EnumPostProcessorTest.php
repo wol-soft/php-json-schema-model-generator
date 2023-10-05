@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\PostProcessor;
 
+use BackedEnum;
 use PHPModelGenerator\Exception\Generic\EnumException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -22,51 +23,60 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         parent::setUp();
     }
 
-    protected function addPostProcessor(): void
-    {
-        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
-            $generator->addPostProcessor(
-                new EnumPostProcessor(
-                    join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
-                    'Enum'
-                )
-            );
-        };
-    }
-
-    protected function includeGeneratedEnums(int $expectedGeneratedEnums): void
-    {
-        $dir = sys_get_temp_dir() . '/PHPModelGeneratorTest/Enum';
-        $files = array_diff(scandir($dir), ['.', '..']);
-
-        $this->assertCount($expectedGeneratedEnums, $files);
-
-        foreach ($files as $file) {
-            require_once $dir . DIRECTORY_SEPARATOR . $file;
-        }
-    }
-
     public function testStringOnlyEnum(): void
     {
         $this->addPostProcessor();
 
         $className = $this->generateClassFromFileTemplate(
             'EnumProperty.json',
-            ['["Hans", "Dieter"]'],
-            (new GeneratorConfiguration())->setImmutable(false),
+            ['["hans", "dieter"]'],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
             false
         );
 
         $this->includeGeneratedEnums(1);
 
-        $object = new $className(['property' => 'Hans']);
-        $this->assertSame('Hans', $object->getProperty()->value);
+        $object = new $className(['property' => 'hans']);
+        $this->assertSame('hans', $object->getProperty()->value);
 
-        $object->setProperty('Dieter');
-        $this->assertSame('Dieter', $object->getProperty()->value);
+        $object->setProperty('dieter');
+        $this->assertSame('dieter', $object->getProperty()->value);
 
         $object->setProperty(null);
         $this->assertNull($object->getProperty());
+
+        $returnType = $this->getReturnType($object, 'getProperty');
+        $this->assertTrue($returnType->allowsNull());
+        $enum = $returnType->getName();
+
+        $this->assertEqualsCanonicalizing(
+            [basename($enum), 'null'],
+            explode('|', $this->getReturnTypeAnnotation($object, 'getProperty'))
+        );
+
+        $this->assertTrue(enum_exists($enum));
+
+        $this->assertEqualsCanonicalizing(
+            ['Hans', 'Dieter'],
+            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases())
+        );
+        $this->assertEqualsCanonicalizing(
+            ['hans', 'dieter'],
+            array_map(function (BackedEnum $value): string { return $value->value; }, $enum::cases())
+        );
+
+        $object->setProperty($enum::Dieter);
+        $this->assertSame('dieter', $object->getProperty()->value);
+
+        $this->assertNull($this->getParameterType($object, 'setProperty'));
+        $this->assertEqualsCanonicalizing(
+            [basename($enum), 'string', 'null'],
+            explode('|', $this->getParameterTypeAnnotation($object, 'setProperty'))
+        );
+
+        $this->expectException(EnumException::class);
+        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+        $object->setProperty('Meier');
     }
 
     public function testInvalidStringOnlyEnumValue(): void
@@ -88,5 +98,29 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $this->addPostProcessor();
         $this->generateClassFromFile('EnumPropertyWithTransformingFilter.json');
+    }
+
+    private function addPostProcessor(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(
+                new EnumPostProcessor(
+                    join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
+                    'Enum'
+                )
+            );
+        };
+    }
+
+    private function includeGeneratedEnums(int $expectedGeneratedEnums): void
+    {
+        $dir = sys_get_temp_dir() . '/PHPModelGeneratorTest/Enum';
+        $files = array_diff(scandir($dir), ['.', '..']);
+
+        $this->assertCount($expectedGeneratedEnums, $files);
+
+        foreach ($files as $file) {
+            require_once $dir . DIRECTORY_SEPARATOR . $file;
+        }
     }
 }

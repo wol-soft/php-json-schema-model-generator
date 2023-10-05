@@ -14,7 +14,7 @@
     $proposedValue = null;
     $modifiedValues = [];
 
-    {% if not generatorConfiguration.isImmutable() %}
+    {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
         $originalPropertyValidationState = $this->_propertyValidationState ?? [];
     {% endif %}
 
@@ -24,7 +24,7 @@
 
     {% foreach compositionProperties as compositionProperty %}
         try {
-            {% if not generatorConfiguration.isImmutable() %}
+            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
                 // check if the state of the validator is already known.
                 // If none of the properties affected by the validator are changed the validator must not be re-evaluated
                 if (isset($validatorIndex) &&
@@ -71,7 +71,7 @@
                 {% if generatorConfiguration.collectErrors() %}
                     $compositionErrorCollection[] = $this->_errorRegistry;
 
-                    {% if not generatorConfiguration.isImmutable() %}
+                    {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
                         if (isset($validatorIndex)) {
                             $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = $this->_errorRegistry;
                         }
@@ -91,7 +91,7 @@
                 if (is_object($value)) {
                     $modifiedValues = array_merge($modifiedValues, $this->{{ modifiedValuesMethod }}($originalModelData, $value));
                 }
-            {% if not generatorConfiguration.isImmutable() %}
+            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
                 {% if not generatorConfiguration.collectErrors() %}
                     if (isset($validatorIndex)) {
                         $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = true;
@@ -100,10 +100,12 @@
             }
             {% endif %}
         } catch (\Exception $e) {
-            {% if not generatorConfiguration.collectErrors() %}
-                if (isset($validatorIndex)) {
-                    $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = false;
-                }
+            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
+                {% if not generatorConfiguration.collectErrors() %}
+                    if (isset($validatorIndex)) {
+                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = false;
+                    }
+                {% endif %}
             {% endif %}
 
             {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
@@ -137,7 +139,7 @@
 
     $result = !({{ composedValueValidation }});
 
-    {% if not generatorConfiguration.isImmutable() %}
+    {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
         if ($result) {
             $this->_propertyValidationState = $originalPropertyValidationState;
         }

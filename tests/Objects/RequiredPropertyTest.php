@@ -122,10 +122,10 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
         );
 
         $this->assertNull($this->getReturnType($className, 'getProperty'));
-        $this->assertSame('mixed', $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame('mixed', $this->getReturnTypeAnnotation($className, 'getProperty'));
 
         $this->assertNull($this->getParameterType($className, 'setProperty'));
-        $this->assertSame('mixed', $this->getMethodParameterTypeAnnotation($className, 'setProperty'));
+        $this->assertSame('mixed', $this->getParameterTypeAnnotation($className, 'setProperty'));
     }
 
     /**

@@ -16,8 +16,12 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 
+/**
+ * Generates a PHP enum for enums from JSON schemas which are automatically mapped for properties holding the enum
+ */
 class EnumPostProcessor extends PostProcessor
 {
     private $generatedEnums = [];
@@ -30,8 +34,6 @@ class EnumPostProcessor extends PostProcessor
     private $targetDirectory;
     /** @var bool */
     private $skipNonMappedEnums;
-
-    private $hasAddedFilter = false;
 
     /**
      * @param string $targetDirectory  The directory where to put the generated PHP enums
@@ -60,10 +62,7 @@ class EnumPostProcessor extends PostProcessor
 
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
-        if (!$this->hasAddedFilter) {
-            $generatorConfiguration->addFilter(new EnumFilter());
-            $this->hasAddedFilter = true;
-        }
+        $generatorConfiguration->addFilter(new EnumFilter());
 
         foreach ($schema->getProperties() as $property) {
             $json = $property->getJsonSchema()->getJson();
@@ -94,13 +93,13 @@ class EnumPostProcessor extends PostProcessor
 
             (new FilterProcessor())->process(
                 $property,
-                ['filter' => 'php_model_generator_enum', 'fqcn' => $fqcn],
+                ['filter' => (new EnumFilter())->getToken(), 'fqcn' => $fqcn],
                 $generatorConfiguration,
                 $schema
             );
 
             $schema->addUsedClass($fqcn);
-            $property->setType($inputType, new PropertyType($name, !$property->isRequired()));
+            $property->setType($inputType, new PropertyType($name, !$property->isRequired()), true);
 
             if ($property->getDefaultValue() && in_array($property->getJsonSchema()->getJson()['default'], $values)) {
                 $property->setDefaultValue("$name::{$property->getJsonSchema()->getJson()['default']}", true);
@@ -135,7 +134,6 @@ class EnumPostProcessor extends PostProcessor
 
     public function postProcess(): void
     {
-        $this->hasAddedFilter = false;
         $this->generatedEnums = [];
 
         parent::postProcess();
@@ -155,6 +153,8 @@ class EnumPostProcessor extends PostProcessor
 
         $types = $this->getArrayTypes($json['enum']);
 
+        // the enum must contain either only string or int values to be represented by a backed enum or provide a value
+        // map to resolve the values
         if ($types !== ['string'] && !isset($json['map'])) {
             if ($this->skipNonMappedEnums) {
                 return false;
@@ -196,7 +196,7 @@ class EnumPostProcessor extends PostProcessor
         $cases = [];
 
         foreach ($values as $value) {
-            $cases[$map ? array_search($value, $map) : $value] = var_export($value, true);
+            $cases[ucfirst($map ? array_search($value, $map) : $value)] = var_export($value, true);
         }
 
         file_put_contents(
@@ -206,8 +206,12 @@ class EnumPostProcessor extends PostProcessor
                 [
                     'namespace' => $this->namespace,
                     'name' => $name,
-                    'backedType' => $this->getArrayTypes($values) === ['int'] ? 'int' : 'string',
                     'cases' => $cases,
+                    'backedType' => match ($this->getArrayTypes($values)) {
+                        ['string'] => 'string',
+                        ['int'] => 'int',
+                        default => null,
+                    },
                 ]
             )
         );

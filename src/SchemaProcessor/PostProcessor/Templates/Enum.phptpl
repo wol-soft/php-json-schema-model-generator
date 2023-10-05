@@ -4,8 +4,31 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
-enum {{ name }}: {{ backedType }} {
+enum {{ name }}{% if backedType %}: {{ backedType }}{% endif %} {
     {% foreach cases as case, value %}
-        case {{ case }} = {{ value }};
+        case {{ case }}{% if backedType %} = {{ value }}{% endif %};
     {% endforeach %}
+
+    {% if not backedType %}
+        public static function from(mixed $value): self
+        {
+            switch ($value) {
+                {% foreach cases as case, value %}
+                    case {{ value }}: return self::{{ case }};
+                {% endforeach %}
+                default: throw new ValueError(
+                    sprintf('Invalid enum value %s for enum %s', var_export($value, true), self::class)
+                );
+            }
+        }
+
+        public function to(): mixed
+        {
+            switch ($this) {
+                {% foreach cases as case, value %}
+                    case self::{{ case }}: return {{ value }};
+                {% endforeach %}
+            }
+        }
+    {% endif %}
 }

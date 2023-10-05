@@ -89,8 +89,15 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function setType(PropertyType $type = null, PropertyType $outputType = null): PropertyInterface
-    {
+    public function setType(
+        PropertyType $type = null,
+        PropertyType $outputType = null,
+        $reset = false
+    ): PropertyInterface {
+        if ($reset) {
+            $this->typeHintDecorators = [];
+        }
+
         $this->type = $type;
         $this->outputType = $outputType;
 

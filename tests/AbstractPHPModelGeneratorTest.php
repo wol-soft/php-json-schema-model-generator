@@ -78,19 +78,23 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
         if ($this->hasFailed()) {
             $failedResultDir = FAILED_CLASSES_PATH . preg_replace( '/[^a-z0-9]+/i', '-', $this->getName());
+            $dir = sys_get_temp_dir() . '/PHPModelGeneratorTest';
 
-            @mkdir($failedResultDir, 0777, true);
-            foreach ($this->names as $name) {
-                copy(
-                    sys_get_temp_dir() . '/PHPModelGeneratorTest/' . $name . '.json',
-                    $failedResultDir . DIRECTORY_SEPARATOR . $name . '.json'
-                );
-            }
+            foreach (
+                new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS))
+                as
+                $item
+            ) {
+                $file = (string) $item;
+                $nestedDir = dirname(str_replace($dir, '', $file));
 
-            foreach ($this->generatedFiles as $file) {
+                if (!is_dir($failedResultDir . $nestedDir)) {
+                    @mkdir($failedResultDir . $nestedDir, 0755, true);
+                }
+
                 copy(
                     $file,
-                    $failedResultDir . DIRECTORY_SEPARATOR . basename($file)
+                    $failedResultDir . $nestedDir . DIRECTORY_SEPARATOR . basename($file)
                 );
             }
         }
@@ -216,8 +220,13 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
             ->setOutputEnabled(false);
 
         $baseDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'PHPModelGeneratorTest';
-        foreach ($this->names as $name) {
-            unlink($baseDir . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR . $name . '.php');
+
+        foreach (
+            new RecursiveIteratorIterator(new RecursiveDirectoryIterator($baseDir, FilesystemIterator::SKIP_DOTS))
+            as
+            $item
+        ) {
+            unlink((string) $item);
         }
 
         $className = $this->getClassName();
@@ -468,7 +477,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      *
      * @return string
      */
-    protected function getMethodReturnTypeAnnotation($object, string $method): string
+    protected function getReturnTypeAnnotation($object, string $method): string
     {
         $matches = [];
         preg_match(
@@ -489,7 +498,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      *
      * @return string
      */
-    protected function getMethodParameterTypeAnnotation($object, string $method, int $parameter = 0): string
+    protected function getParameterTypeAnnotation($object, string $method, int $parameter = 0): string
     {
         $matches = [];
         preg_match_all(
