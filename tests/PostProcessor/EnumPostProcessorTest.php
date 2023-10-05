@@ -11,6 +11,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use ReflectionClass;
 
 class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 {
@@ -48,9 +49,10 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $returnType = $this->getReturnType($object, 'getProperty');
         $this->assertTrue($returnType->allowsNull());
         $enum = $returnType->getName();
+        $enumName = (new ReflectionClass($enum))->getShortName();
 
         $this->assertEqualsCanonicalizing(
-            [basename($enum), 'null'],
+            [$enumName, 'null'],
             explode('|', $this->getReturnTypeAnnotation($object, 'getProperty'))
         );
 
@@ -70,7 +72,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $this->assertNull($this->getParameterType($object, 'setProperty'));
         $this->assertEqualsCanonicalizing(
-            [basename($enum), 'string', 'null'],
+            [$enumName, 'string', 'null'],
             explode('|', $this->getParameterTypeAnnotation($object, 'setProperty'))
         );
 
@@ -89,6 +91,52 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
 
         new $className(['property' => 'Meier']);
+    }
+
+    /**
+     * @dataProvider unmappedEnumThrowsAnExceptionDataProvider
+     */
+    public function testUnmappedEnumThrowsAnException(string $enumValues): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage("Unmapped enum property in file");
+
+        $this->addPostProcessor();
+
+        $this->generateClassFromFileTemplate('EnumProperty.json', [$enumValues], null, false);
+    }
+
+    public function unmappedEnumThrowsAnExceptionDataProvider(): array
+    {
+        return [
+            'int enum'                         => ['[0, 1, 2]'],
+            'mixed enum with string values'    => ['["dieter", 1, "hans"]'],
+            'mixed enum without string values' => ['[0, 1, false, true]'],
+        ];
+    }
+
+    /**
+     * @dataProvider invalidEnumMapThrowsAnExceptionDataProvider
+     */
+    public function testInvalidEnumMapThrowsAnException(string $enumValues, string $enumMap): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage("invalid enum map property in file");
+
+        $this->addPostProcessor();
+
+        $this->generateClassFromFileTemplate('EnumPropertyMapped.json', [$enumValues, $enumMap], null, false);
+    }
+
+    public function invalidEnumMapThrowsAnExceptionDataProvider(): array
+    {
+        return [
+            'invalid map (int)' => ['[0, 1, 2]', '100'],
+            'invalid map (array)' => ['[0, 1, 2]', '[0, 1, 2]'],
+            'missing mapped elements' => ['[0, 1, 2]', '{"a": 0, "b": 1}'],
+            'too many mapped elements' => ['[0, 1]', '{"a": 0, "b": 1, "c": 2}'],
+            'wrong elements mapped' => ['[0, 1]', '{"a": 0, "c": 2}'],
+        ];
     }
 
     public function testEnumPropertyWithTransformingFilterThrowsAnException(): void

@@ -16,7 +16,6 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\ModelGenerator;
-use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 
 /**
@@ -82,7 +81,7 @@ class EnumPostProcessor extends PostProcessor
                     $generatorConfiguration,
                     $json['$id'] ?? $schema->getClassName() . ucfirst($property->getName()),
                     $values,
-                    $json['map'] ?? null
+                    $json['enum-map'] ?? null
                 );
             }
 
@@ -153,9 +152,8 @@ class EnumPostProcessor extends PostProcessor
 
         $types = $this->getArrayTypes($json['enum']);
 
-        // the enum must contain either only string or int values to be represented by a backed enum or provide a value
-        // map to resolve the values
-        if ($types !== ['string'] && !isset($json['map'])) {
+        // the enum must contain either only string values or provide a value map to resolve the values
+        if ($types !== ['string'] && !isset($json['enum-map'])) {
             if ($this->skipNonMappedEnums) {
                 return false;
             }
@@ -163,15 +161,18 @@ class EnumPostProcessor extends PostProcessor
             $throw('Unmapped enum %s in file %s');
         }
 
-        if (isset($json['map'])) {
-            if (count(array_uintersect(
-                    $json['map'],
-                    $json['enum'],
-                    fn($a, $b) => $a === $b ? 0 : 1
-                )) !== count($json['enum'])
-            ) {
-                $throw('invalid enum map %s in file %s');
-            }
+        if (isset($json['enum-map']) &&
+            (
+                !is_array($json['enum-map'])
+                    || $this->getArrayTypes(array_keys($json['enum-map'])) !== ['string']
+                    || count(array_uintersect(
+                            $json['enum-map'],
+                            $json['enum'],
+                            fn($a, $b) => $a === $b ? 0 : 1
+                        )) !== count($json['enum'])
+            )
+        ) {
+            $throw('invalid enum map %s in file %s');
         }
 
         return true;
