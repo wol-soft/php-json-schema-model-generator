@@ -11,7 +11,7 @@ class EnumFilter implements TransformingFilterInterface
 {
     public function getAcceptedTypes(): array
     {
-        return ['string', 'null'];
+        return ['string', 'integer', 'null'];
     }
 
     public function getToken(): string

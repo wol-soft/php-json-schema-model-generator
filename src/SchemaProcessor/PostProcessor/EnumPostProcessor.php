@@ -210,7 +210,7 @@ class EnumPostProcessor extends PostProcessor
                     'cases' => $cases,
                     'backedType' => match ($this->getArrayTypes($values)) {
                         ['string'] => 'string',
-                        ['int'] => 'int',
+                        ['integer'] => 'int',
                         default => null,
                     },
                 ]

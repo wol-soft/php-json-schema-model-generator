@@ -22,7 +22,7 @@ enum {{ name }}{% if backedType %}: {{ backedType }}{% endif %} {
             }
         }
 
-        public function to(): mixed
+        public function value(): mixed
         {
             switch ($this) {
                 {% foreach cases as case, value %}

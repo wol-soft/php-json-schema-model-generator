@@ -5,26 +5,31 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\PostProcessor;
 
 use BackedEnum;
+use Exception;
 use PHPModelGenerator\Exception\Generic\EnumException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
-use ReflectionClass;
 use ReflectionEnum;
 
 class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 {
-    public function setUp(): void
+    /**
+     * @requires PHP < 8.1
+     */
+    public function testEnumPostProcessorThrowsAnExceptionPriorToPhp81(): void
     {
-        if (PHP_VERSION_ID < 80100) {
-            $this->markTestSkipped('Enumerations are only allowed since PHP 8.1');
-        }
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('Enumerations are only allowed since PHP 8.1');
 
-        parent::setUp();
+        new EnumPostProcessor('', '');
     }
 
+    /**
+     * @requires PHP >= 8.1
+     */
     public function testStringOnlyEnum(): void
     {
         $this->addPostProcessor();
@@ -50,6 +55,8 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $returnType = $this->getReturnType($object, 'getProperty');
         $this->assertTrue($returnType->allowsNull());
         $enum = $returnType->getName();
+        $this->assertTrue(enum_exists($enum));
+
         $reflectionEnum = new ReflectionEnum($enum);
         $enumName = $reflectionEnum->getShortName();
 
@@ -83,6 +90,9 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $object->setProperty('Meier');
     }
 
+    /**
+     * @requires PHP >= 8.1
+     */
     public function testInvalidStringOnlyEnumValue(): void
     {
         $this->addPostProcessor();
@@ -95,6 +105,9 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         new $className(['property' => 'Meier']);
     }
 
+    /**
+     * @requires PHP >= 8.1
+     */
     public function testMappedStringOnlyEnum(): void
     {
         $this->addPostProcessor();
@@ -141,6 +154,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
     /**
      * @dataProvider unmappedEnumThrowsAnExceptionDataProvider
+     * @requires PHP >= 8.1
      */
     public function testUnmappedEnumThrowsAnException(string $enumValues): void
     {
@@ -163,6 +177,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
     /**
      * @dataProvider invalidEnumMapThrowsAnExceptionDataProvider
+     * @requires PHP >= 8.1
      */
     public function testInvalidEnumMapThrowsAnException(string $enumValues, string $enumMap): void
     {
@@ -188,6 +203,72 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         ];
     }
 
+    /**
+     * @requires PHP >= 8.1
+     */
+    public function testIntOnlyEnum(): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFileTemplate(
+            'EnumPropertyMapped.json',
+            ['[10, 100]', '{"a": 10, "b": 100}'],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            false
+        );
+
+        $this->includeGeneratedEnums(1);
+
+        $object = new $className(['property' => 10]);
+        $this->assertSame(10, $object->getProperty()->value);
+
+        $object->setProperty(100);
+        $this->assertSame(100, $object->getProperty()->value);
+
+        $object->setProperty(null);
+        $this->assertNull($object->getProperty());
+
+        $returnType = $this->getReturnType($object, 'getProperty');
+        $this->assertTrue($returnType->allowsNull());
+        $enum = $returnType->getName();
+
+        $this->assertTrue(enum_exists($enum));
+        $reflectionEnum = new ReflectionEnum($enum);
+        $enumName = $reflectionEnum->getShortName();
+
+        $this->assertEqualsCanonicalizing(
+            [$enumName, 'null'],
+            explode('|', $this->getReturnTypeAnnotation($object, 'getProperty'))
+        );
+
+        $this->assertSame('int', $reflectionEnum->getBackingType()->getName());
+
+        $this->assertEqualsCanonicalizing(
+            ['A', 'B'],
+            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases())
+        );
+        $this->assertEqualsCanonicalizing(
+            [10, 100],
+            array_map(function (BackedEnum $value): int { return $value->value; }, $enum::cases())
+        );
+
+        $object->setProperty($enum::A);
+        $this->assertSame(10, $object->getProperty()->value);
+
+        $this->assertNull($this->getParameterType($object, 'setProperty'));
+        $this->assertEqualsCanonicalizing(
+            [$enumName, 'int', 'null'],
+            explode('|', $this->getParameterTypeAnnotation($object, 'setProperty'))
+        );
+
+        $this->expectException(EnumException::class);
+        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+        $object->setProperty(1);
+    }
+
+    /**
+     * @requires PHP >= 8.1
+     */
     public function testEnumPropertyWithTransformingFilterThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
