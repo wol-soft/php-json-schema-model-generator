@@ -12,6 +12,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use ReflectionClass;
+use ReflectionEnum;
 
 class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 {
@@ -49,14 +50,15 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $returnType = $this->getReturnType($object, 'getProperty');
         $this->assertTrue($returnType->allowsNull());
         $enum = $returnType->getName();
-        $enumName = (new ReflectionClass($enum))->getShortName();
+        $reflectionEnum = new ReflectionEnum($enum);
+        $enumName = $reflectionEnum->getShortName();
 
         $this->assertEqualsCanonicalizing(
             [$enumName, 'null'],
             explode('|', $this->getReturnTypeAnnotation($object, 'getProperty'))
         );
 
-        $this->assertTrue(enum_exists($enum));
+        $this->assertSame('string', $reflectionEnum->getBackingType()->getName());
 
         $this->assertEqualsCanonicalizing(
             ['Hans', 'Dieter'],
@@ -91,6 +93,50 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
 
         new $className(['property' => 'Meier']);
+    }
+
+    public function testMappedStringOnlyEnum(): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFileTemplate(
+            'EnumPropertyMapped.json',
+            ['["Hans", "Dieter"]', '{"CEO": "Hans", "CTO": "Dieter"}'],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            false
+        );
+
+        $this->includeGeneratedEnums(1);
+
+        $object = new $className(['property' => 'Hans']);
+        $this->assertSame('Hans', $object->getProperty()->value);
+        $this->assertSame('CEO', $object->getProperty()->name);
+
+        $object->setProperty('Dieter');
+        $this->assertSame('Dieter', $object->getProperty()->value);
+        $this->assertSame('CTO', $object->getProperty()->name);
+
+        $object->setProperty(null);
+        $this->assertNull($object->getProperty());
+
+        $returnType = $this->getReturnType($object, 'getProperty');
+        $this->assertTrue($returnType->allowsNull());
+        $enum = $returnType->getName();
+
+        $this->assertSame('string', (new ReflectionEnum($enum))->getBackingType()->getName());
+
+        $this->assertEqualsCanonicalizing(
+            ['CEO', 'CTO'],
+            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases())
+        );
+        $this->assertEqualsCanonicalizing(
+            ['Hans', 'Dieter'],
+            array_map(function (BackedEnum $value): string { return $value->value; }, $enum::cases())
+        );
+
+        $object->setProperty($enum::CEO);
+        $this->assertSame('Hans', $object->getProperty()->value);
+        $this->assertSame('CEO', $object->getProperty()->name);
     }
 
     /**
@@ -131,11 +177,14 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
     public function invalidEnumMapThrowsAnExceptionDataProvider(): array
     {
         return [
-            'invalid map (int)' => ['[0, 1, 2]', '100'],
-            'invalid map (array)' => ['[0, 1, 2]', '[0, 1, 2]'],
-            'missing mapped elements' => ['[0, 1, 2]', '{"a": 0, "b": 1}'],
-            'too many mapped elements' => ['[0, 1]', '{"a": 0, "b": 1, "c": 2}'],
-            'wrong elements mapped' => ['[0, 1]', '{"a": 0, "c": 2}'],
+            'invalid map (int)'                 => ['[0, 1, 2]',       '100'],
+            'invalid map (array)'               => ['[0, 1, 2]',       '[0, 1, 2]'],
+            'missing mapped elements (int)'     => ['[0, 1, 2]',       '{"a": 0, "b": 1}'],
+            'too many mapped elements (int)'    => ['[0, 1]',          '{"a": 0, "b": 1, "c": 2}'],
+            'wrong elements mapped (int)'       => ['[0, 1]',          '{"a": 0, "c": 2}'],
+            'missing mapped elements (string)'  => ['["a", "b", "c"]', '{"x": "a", "y": "b"}'],
+            'too many mapped elements (string)' => ['["a", "b"]',      '{"x": "a", "y": "b", "z": "c"}'],
+            'wrong elements mapped (string)'    => ['["a", "b"]',      '{"x": "a", "y": "c"}'],
         ];
     }
 
