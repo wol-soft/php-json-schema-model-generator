@@ -14,6 +14,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use ReflectionEnum;
 
+// TODO: mixed enums, multiple enums, enum redirect
 class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 {
     /**

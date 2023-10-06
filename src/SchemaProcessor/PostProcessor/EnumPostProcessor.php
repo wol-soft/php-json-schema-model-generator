@@ -138,15 +138,20 @@ class EnumPostProcessor extends PostProcessor
         parent::postProcess();
     }
 
+    /**
+     * @throws SchemaException
+     */
     private function validateEnum(PropertyInterface $property): bool
     {
-        $throw = fn (string $message) => throw new SchemaException(
-            sprintf(
-                $message,
-                $property->getName(),
-                $property->getJsonSchema()->getFile()
-            )
-        );
+        $throw = function (string $message) use ($property): void {
+            throw new SchemaException(
+                sprintf(
+                    $message,
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile()
+                )
+            );
+        };
 
         $json = $property->getJsonSchema()->getJson();
 
@@ -168,7 +173,7 @@ class EnumPostProcessor extends PostProcessor
                     || count(array_uintersect(
                             $json['enum-map'],
                             $json['enum'],
-                            fn($a, $b) => $a === $b ? 0 : 1
+                            function ($a, $b): int { return $a === $b ? 0 : 1; }
                         )) !== count($json['enum'])
             )
         ) {
@@ -200,6 +205,12 @@ class EnumPostProcessor extends PostProcessor
             $cases[ucfirst($map ? array_search($value, $map) : $value)] = var_export($value, true);
         }
 
+        $backedType = null;
+        switch ($this->getArrayTypes($values)) {
+            case ['string']: $backedType = 'string'; break;
+            case ['integer']: $backedType = 'int'; break;
+        }
+
         file_put_contents(
             $this->targetDirectory . DIRECTORY_SEPARATOR . $name . '.php',
             $this->renderer->renderTemplate(
@@ -208,11 +219,7 @@ class EnumPostProcessor extends PostProcessor
                     'namespace' => $this->namespace,
                     'name' => $name,
                     'cases' => $cases,
-                    'backedType' => match ($this->getArrayTypes($values)) {
-                        ['string'] => 'string',
-                        ['integer'] => 'int',
-                        default => null,
-                    },
+                    'backedType' => $backedType,
                 ]
             )
         );
