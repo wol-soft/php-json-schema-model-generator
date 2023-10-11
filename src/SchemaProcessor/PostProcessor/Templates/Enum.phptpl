@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
+{% if not backedType %}
+    use ValueError;
+{% endif %}
+
 enum {{ name }}{% if backedType %}: {{ backedType }}{% endif %} {
     {% foreach cases as case, value %}
         case {{ case }}{% if backedType %} = {{ value }}{% endif %};
@@ -12,13 +16,22 @@ enum {{ name }}{% if backedType %}: {{ backedType }}{% endif %} {
     {% if not backedType %}
         public static function from(mixed $value): self
         {
-            switch ($value) {
+            switch (true) {
                 {% foreach cases as case, value %}
-                    case {{ value }}: return self::{{ case }};
+                    case $value === {{ value }}: return self::{{ case }};
                 {% endforeach %}
                 default: throw new ValueError(
                     sprintf('Invalid enum value %s for enum %s', var_export($value, true), self::class)
                 );
+            }
+        }
+
+        public static function tryFrom(mixed $value): ?self
+        {
+            try {
+                return self::from($value);
+            } catch (ValueError) {
+                return null;
             }
         }
 

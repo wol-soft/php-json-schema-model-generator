@@ -13,8 +13,9 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use ReflectionEnum;
+use UnitEnum;
 
-// TODO: mixed enums, multiple enums, enum redirect
+// TODO: multiple enums, enum redirect
 class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 {
     /**
@@ -261,6 +262,65 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
             [$enumName, 'int', 'null'],
             explode('|', $this->getParameterTypeAnnotation($object, 'setProperty'))
         );
+
+        $this->expectException(EnumException::class);
+        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+        $object->setProperty(1);
+    }
+
+    /**
+     * @requires PHP >= 8.1
+     */
+    public function testMixedEnum(): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFileTemplate(
+            'EnumPropertyMapped.json',
+            ['["Hans", 100, true]', '{"a": "Hans", "b": 100, "c": true}'],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            false
+        );
+
+        $this->includeGeneratedEnums(1);
+
+        $object = new $className(['property' => 'Hans']);
+        $this->assertSame('Hans', $object->getProperty()->value());
+
+        $object->setProperty(100);
+        $this->assertSame(100, $object->getProperty()->value());
+
+        $object->setProperty(null);
+        $this->assertNull($object->getProperty());
+
+        $returnType = $this->getReturnType($object, 'getProperty');
+        $this->assertTrue($returnType->allowsNull());
+        $enum = $returnType->getName();
+
+        $this->assertTrue(enum_exists($enum));
+        $reflectionEnum = new ReflectionEnum($enum);
+        $enumName = $reflectionEnum->getShortName();
+
+        $this->assertEqualsCanonicalizing(
+            [$enumName, 'null'],
+            explode('|', $this->getReturnTypeAnnotation($object, 'getProperty'))
+        );
+
+        $this->assertNull($reflectionEnum->getBackingType());
+
+        $this->assertEqualsCanonicalizing(
+            ['A', 'B', 'C'],
+            array_map(function (UnitEnum $value): string { return $value->name; }, $enum::cases())
+        );
+
+        $object->setProperty($enum::C);
+        $this->assertSame(true, $object->getProperty()->value());
+
+        $this->assertNull($this->getParameterType($object, 'setProperty'));
+
+        $this->assertSame($enum::A, $enum::from('Hans'));
+        $this->assertSame($enum::A, $enum::tryFrom('Hans'));
+        $this->assertNull($enum::tryFrom('Dieter'));
 
         $this->expectException(EnumException::class);
         $this->expectExceptionMessage('Invalid value for property declined by enum constraint');

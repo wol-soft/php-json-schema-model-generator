@@ -202,7 +202,7 @@ class EnumPostProcessor extends PostProcessor
         $cases = [];
 
         foreach ($values as $value) {
-            $cases[ucfirst($map ? array_search($value, $map) : $value)] = var_export($value, true);
+            $cases[ucfirst($map ? array_search($value, $map, true) : $value)] = var_export($value, true);
         }
 
         $backedType = null;
