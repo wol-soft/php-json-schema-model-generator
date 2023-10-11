@@ -48,7 +48,9 @@ class EnumPostProcessor extends PostProcessor
         bool $skipNonMappedEnums = false
     ) {
         if (PHP_VERSION_ID < 80100) {
+            // @codeCoverageIgnoreStart
             throw new Exception('Enumerations are only allowed since PHP 8.1');
+            // @codeCoverageIgnoreEnd
         }
 
         (new ModelGenerator())->generateModelDirectory($targetDirectory);
@@ -227,7 +229,9 @@ class EnumPostProcessor extends PostProcessor
         $fqcn = "$this->namespace\\$name";
 
         if ($generatorConfiguration->isOutputEnabled()) {
+            // @codeCoverageIgnoreStart
             echo "Rendered enum $fqcn\n";
+            // @codeCoverageIgnoreEnd
         }
 
         return $fqcn;

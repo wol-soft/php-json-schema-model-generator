@@ -3,6 +3,9 @@
   "properties": {
     "property": {
       "enum": %s
+    },
+    "stringProperty": {
+      "type": "string"
     }
   }
 }

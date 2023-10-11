@@ -45,8 +45,9 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $this->includeGeneratedEnums(1);
 
-        $object = new $className(['property' => 'hans']);
+        $object = new $className(['property' => 'hans', 'stringProperty' => 'abc']);
         $this->assertSame('hans', $object->getProperty()->value);
+        $this->assertSame('abc', $object->getStringProperty());
 
         $object->setProperty('dieter');
         $this->assertSame('dieter', $object->getProperty()->value);
@@ -175,6 +176,26 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
             'mixed enum with string values'    => ['["dieter", 1, "hans"]'],
             'mixed enum without string values' => ['[0, 1, false, true]'],
         ];
+    }
+
+    public function testUnmappedEnumIsSkippedWithEnabledSkipOption(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(
+                new EnumPostProcessor(
+                    join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
+                    'Enum',
+                    true
+                )
+            );
+        };
+
+        $className = $this->generateClassFromFileTemplate('EnumProperty.json', ['[0, 1, 2]'], null, false);
+
+        $this->includeGeneratedEnums(0);
+
+        $object = new $className(['property' => 1]);
+        $this->assertSame(1, $object->getProperty());
     }
 
     /**
