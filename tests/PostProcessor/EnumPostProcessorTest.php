@@ -178,6 +178,9 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         ];
     }
 
+    /**
+     * @requires PHP >= 8.1
+     */
     public function testUnmappedEnumIsSkippedWithEnabledSkipOption(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
