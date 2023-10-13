@@ -15,7 +15,6 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
 use ReflectionEnum;
 use UnitEnum;
 
-// TODO: multiple enums, enum redirect
 class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 {
     /**
@@ -361,6 +360,100 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $this->addPostProcessor();
         $this->generateClassFromFile('EnumPropertyWithTransformingFilter.json');
+    }
+
+    /**
+     * @dataProvider identicalEnumsDataProvider
+     */
+    public function testIdenticalEnumsAreMappedToOneEnum(string $file, array $enums): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFileTemplate(
+            $file,
+            $enums,
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            false
+        );
+
+        $this->includeGeneratedEnums(1);
+
+        $object = new $className(['property1' => 'Hans', 'property2' => 'Dieter']);
+        $this->assertSame('Hans', $object->getProperty1()->value);
+        $this->assertSame('Dieter', $object->getProperty2()->value);
+
+        $this->assertSame(get_class($object->getProperty1()), get_class($object->getProperty2()));
+    }
+
+    public function identicalEnumsDataProvider(): array
+    {
+        return [
+            'simple enum' => [
+                'MultipleEnumProperties.json',
+                ['["Hans", "Dieter"]', '["Dieter", "Hans"]'],
+            ],
+            'mapped enum' => [
+                'MultipleEnumPropertiesMapped.json',
+                [
+                    '"names"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
+                    '"names"', '["Dieter", "Hans"]', '{"b": "Dieter", "a": "Hans"}',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider differentEnumsDataProvider
+     */
+    public function testDifferentEnumsAreNotMappedToOneEnum(string $file, array $enums): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFileTemplate(
+            $file,
+            $enums,
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            false
+        );
+
+        $this->includeGeneratedEnums(2);
+        $object = new $className(['property1' => 'Hans', 'property2' => 'Dieter']);
+
+        $this->assertSame('Hans', $object->getProperty1()->value);
+        $this->assertSame('Dieter', $object->getProperty2()->value);
+
+        $this->assertNotSame(get_class($object->getProperty1()), get_class($object->getProperty2()));
+    }
+
+    public function differentEnumsDataProvider(): array
+    {
+        return [
+            'different values' => [
+                'MultipleEnumProperties.json',
+                ['["Hans", "Dieter"]', '["Dieter", "Anna"]'],
+            ],
+            'different $id' => [
+                'MultipleEnumPropertiesMapped.json',
+                [
+                    '"names"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
+                    '"attendees"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
+                ],
+            ],
+            'different values mapped enum' => [
+                'MultipleEnumPropertiesMapped.json',
+                [
+                    '"names"', '["Hans", "Anna"]', '{"a": "Hans", "b": "Anna"}',
+                    '"names"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
+                ],
+            ],
+            'different mapping' => [
+                'MultipleEnumPropertiesMapped.json',
+                [
+                    '"names"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
+                    '"names"', '["Hans", "Dieter"]', '{"a": "Dieter", "b": "Hans"}',
+                ],
+            ],
+        ];
     }
 
     private function addPostProcessor(): void

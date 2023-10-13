@@ -11,6 +11,7 @@
         }
     ],
     "require": {
+        "symfony/polyfill-php81": "^1.28",
         "wol-soft/php-json-schema-model-generator-production": "dev-enumPostProcessor",
         "wol-soft/php-micro-template": "^1.9.0",
 

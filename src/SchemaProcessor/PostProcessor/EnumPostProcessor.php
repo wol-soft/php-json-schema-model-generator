@@ -17,6 +17,7 @@ use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
+use PHPModelGenerator\Utils\ArrayHash;
 
 /**
  * Generates a PHP enum for enums from JSON schemas which are automatically mapped for properties holding the enum
@@ -75,19 +76,22 @@ class EnumPostProcessor extends PostProcessor
             $this->checkForExistingTransformingFilter($property);
 
             $values = $json['enum'];
-            sort($values);
-            $hash = md5(print_r($values, true));
+            $enumSignature = ArrayHash::hash($json, ['enum', 'enum-map', '$id']);
+            $enumName = $json['$id'] ?? $schema->getClassName() . ucfirst($property->getName());
 
-            if (!isset($this->generatedEnums[$hash])) {
-                $this->generatedEnums[$hash] = $this->renderEnum(
-                    $generatorConfiguration,
-                    $json['$id'] ?? $schema->getClassName() . ucfirst($property->getName()),
-                    $values,
-                    $json['enum-map'] ?? null
-                );
+            if (!isset($this->generatedEnums[$enumSignature])) {
+                $this->generatedEnums[$enumSignature] = [
+                    'name' => $enumName,
+                    'fqcn' => $this->renderEnum($generatorConfiguration, $enumName, $values, $json['enum-map'] ?? null),
+                ];
+            } else {
+                if ($generatorConfiguration->isOutputEnabled()) {
+                    echo "Duplicated signature $enumSignature for enum $enumName." .
+                        " Redirecting to {$this->generatedEnums[$enumSignature]['name']}\n";
+                }
             }
 
-            $fqcn = $this->generatedEnums[$hash];
+            $fqcn = $this->generatedEnums[$enumSignature]['fqcn'];
             $name = substr($fqcn, strrpos($fqcn, "\\") + 1);
 
             $inputType = $property->getType();
@@ -168,18 +172,22 @@ class EnumPostProcessor extends PostProcessor
             $throw('Unmapped enum %s in file %s');
         }
 
-        if (isset($json['enum-map']) &&
-            (
-                !is_array($json['enum-map'])
-                    || $this->getArrayTypes(array_keys($json['enum-map'])) !== ['string']
-                    || count(array_uintersect(
-                            $json['enum-map'],
-                            $json['enum'],
-                            function ($a, $b): int { return $a === $b ? 0 : 1; }
-                        )) !== count($json['enum'])
-            )
-        ) {
-            $throw('invalid enum map %s in file %s');
+        if (isset($json['enum-map'])) {
+            asort($json['enum']);
+            if (is_array($json['enum-map'])) {
+                asort($json['enum-map']);
+            }
+
+            if (!is_array($json['enum-map'])
+                || $this->getArrayTypes(array_keys($json['enum-map'])) !== ['string']
+                || count(array_uintersect(
+                    $json['enum-map'],
+                    $json['enum'],
+                    function ($a, $b): int { return $a === $b ? 0 : 1; }
+                )) !== count($json['enum'])
+            ) {
+                $throw('invalid enum map %s in file %s');
+            }
         }
 
         return true;
@@ -211,6 +219,11 @@ class EnumPostProcessor extends PostProcessor
         switch ($this->getArrayTypes($values)) {
             case ['string']: $backedType = 'string'; break;
             case ['integer']: $backedType = 'int'; break;
+        }
+
+        // make sure different enums with an identical name don't overwrite each other
+        while (in_array("$this->namespace\\$name", array_column($this->generatedEnums, 'fqcn'))) {
+            $name .= '_1';
         }
 
         file_put_contents(

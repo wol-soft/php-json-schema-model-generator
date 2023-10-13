@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "property1": {
+      "$id": %s,
+      "enum": %s,
+      "enum-map": %s
+    },
+    "property2": {
+      "$id": %s,
+      "enum": %s,
+      "enum-map": %s
+    }
+  }
+}
