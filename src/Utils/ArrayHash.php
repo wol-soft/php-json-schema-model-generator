@@ -8,11 +8,6 @@ class ArrayHash
 {
     public static function hash(array $array, array $relevantFields = []): string
     {
-        return md5(json_encode(self::filter($array, $relevantFields)));
-    }
-
-    private static function filter(array $array, array $relevantFields): array
-    {
         if ($relevantFields) {
             foreach ($array as $key => $_) {
                 if (!in_array($key, $relevantFields)) {
@@ -23,7 +18,7 @@ class ArrayHash
 
         self::array_multiksort($array);
 
-        return $array;
+        return md5(json_encode($array));
     }
 
     private static function array_multiksort(array &$array): void

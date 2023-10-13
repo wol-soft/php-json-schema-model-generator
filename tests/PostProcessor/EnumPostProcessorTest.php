@@ -364,6 +364,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
     /**
      * @dataProvider identicalEnumsDataProvider
+     * @requires PHP >= 8.1
      */
     public function testIdenticalEnumsAreMappedToOneEnum(string $file, array $enums): void
     {
@@ -404,6 +405,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
     /**
      * @dataProvider differentEnumsDataProvider
+     * @requires PHP >= 8.1
      */
     public function testDifferentEnumsAreNotMappedToOneEnum(string $file, array $enums): void
     {
