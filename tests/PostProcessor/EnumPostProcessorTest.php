@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\PostProcessor;
 use BackedEnum;
 use Exception;
 use PHPModelGenerator\Exception\Generic\EnumException;
+use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
@@ -456,6 +457,79 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
                 ],
             ],
         ];
+    }
+
+    /**
+     * @requires PHP >= 8.1
+     */
+    public function testDefaultValue(): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFile('EnumPropertyDefaultValue.json');
+
+        $this->includeGeneratedEnums(1);
+
+        $object = new $className();
+        $this->assertSame('Dieter', $object->getProperty()->value);
+    }
+
+    /**
+     * @requires PHP >= 8.1
+     */
+    public function testNotProvidedRequiredEnumThrowsAnException(): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFile('EnumPropertyRequired.json');
+
+        $this->includeGeneratedEnums(1);
+
+        $this->expectException(RequiredValueException::class);
+        $this->expectExceptionMessage('Missing required value for property');
+
+        new $className();
+    }
+
+    /**
+     * @requires PHP >= 8.1
+     */
+    public function testRequiredEnum(): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFile(
+            'EnumPropertyRequired.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)
+        );
+
+        $this->includeGeneratedEnums(1);
+
+        $object = new $className(['property' => 'Dieter']);
+        $this->assertSame('Dieter', $object->getProperty()->value);
+
+        $returnType = $this->getReturnType($object, 'getProperty');
+        $this->assertFalse($returnType->allowsNull());
+        $enum = $returnType->getName();
+
+        $reflectionEnum = new ReflectionEnum($enum);
+        $enumName = $reflectionEnum->getShortName();
+
+        $this->assertSame($enumName, $this->getReturnTypeAnnotation($object, 'getProperty'));
+
+        $object->setProperty($enum::Hans);
+        $this->assertSame('Hans', $object->getProperty()->value);
+
+        $this->assertNull($this->getParameterType($object, 'setProperty'));
+        $this->assertEqualsCanonicalizing(
+            [$enumName, 'string'],
+            explode('|', $this->getParameterTypeAnnotation($object, 'setProperty'))
+        );
+
+        $this->expectException(EnumException::class);
+        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+
+        $object->setProperty(null);
     }
 
     private function addPostProcessor(): void

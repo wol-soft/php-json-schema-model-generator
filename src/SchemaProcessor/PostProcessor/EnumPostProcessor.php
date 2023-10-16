@@ -86,8 +86,10 @@ class EnumPostProcessor extends PostProcessor
                 ];
             } else {
                 if ($generatorConfiguration->isOutputEnabled()) {
+                    // @codeCoverageIgnoreStart
                     echo "Duplicated signature $enumSignature for enum $enumName." .
                         " Redirecting to {$this->generatedEnums[$enumSignature]['name']}\n";
+                    // @codeCoverageIgnoreEnd
                 }
             }
 
