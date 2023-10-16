@@ -20,13 +20,13 @@
 # -- Project information -----------------------------------------------------
 
 project = u'php-json-schema-model-generator'
-copyright = u'2020, Enno Woortmann'
+copyright = u'2023, Enno Woortmann'
 author = u'Enno Woortmann'
 
 # The short X.Y version
-version = u'0.19'
+version = u'0.24'
 # The full version, including alpha/beta/rc tags
-release = u'0.19.0'
+release = u'0.24.0'
 
 
 # -- General configuration ---------------------------------------------------

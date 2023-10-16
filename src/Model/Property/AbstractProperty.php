@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
+use PHPModelGenerator\Utils\NormalizedName;
 use PHPModelGenerator\Utils\ResolvableTrait;
 
 /**
@@ -70,33 +71,6 @@ abstract class AbstractProperty implements PropertyInterface
      */
     protected function processAttributeName(string $name): string
     {
-        $attributeName = preg_replace_callback(
-            '/([a-z][a-z0-9]*)([A-Z])/',
-            static function (array $matches): string {
-                return "{$matches[1]}-{$matches[2]}";
-            },
-            $name
-        );
-
-        $elements = array_map(
-            static function (string $element): string {
-                return ucfirst(strtolower($element));
-            },
-            preg_split('/[^a-z0-9]/i', $attributeName)
-        );
-
-        $attributeName = lcfirst(join('', $elements));
-
-        if (empty($attributeName)) {
-            throw new SchemaException(
-                sprintf(
-                    "Property name '%s' results in an empty attribute name in file %s",
-                    $name,
-                    $this->jsonSchema->getFile()
-                )
-            );
-        }
-
-        return $attributeName;
+        return lcfirst(NormalizedName::from($name, $this->jsonSchema));
     }
 }

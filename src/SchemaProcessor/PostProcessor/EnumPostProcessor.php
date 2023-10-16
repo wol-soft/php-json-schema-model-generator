@@ -12,12 +12,14 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\Utils\ArrayHash;
+use PHPModelGenerator\Utils\NormalizedName;
 
 /**
  * Generates a PHP enum for enums from JSON schemas which are automatically mapped for properties holding the enum
@@ -82,7 +84,13 @@ class EnumPostProcessor extends PostProcessor
             if (!isset($this->generatedEnums[$enumSignature])) {
                 $this->generatedEnums[$enumSignature] = [
                     'name' => $enumName,
-                    'fqcn' => $this->renderEnum($generatorConfiguration, $enumName, $values, $json['enum-map'] ?? null),
+                    'fqcn' => $this->renderEnum(
+                        $generatorConfiguration,
+                        $schema->getJsonSchema(),
+                        $enumName,
+                        $values,
+                        $json['enum-map'] ?? null
+                    ),
                 ];
             } else {
                 if ($generatorConfiguration->isOutputEnabled()) {
@@ -207,6 +215,7 @@ class EnumPostProcessor extends PostProcessor
 
     private function renderEnum(
         GeneratorConfiguration $generatorConfiguration,
+        JsonSchema $jsonSchema,
         string $name,
         array $values,
         ?array $map
@@ -214,7 +223,13 @@ class EnumPostProcessor extends PostProcessor
         $cases = [];
 
         foreach ($values as $value) {
-            $cases[ucfirst($map ? array_search($value, $map, true) : $value)] = var_export($value, true);
+            $caseName = ucfirst(NormalizedName::from($map ? array_search($value, $map, true) : $value, $jsonSchema));
+
+            if (preg_match('/^\d/', $caseName) === 1) {
+                $caseName = "_$caseName";
+            }
+
+            $cases[$caseName] = var_export($value, true);
         }
 
         $backedType = null;

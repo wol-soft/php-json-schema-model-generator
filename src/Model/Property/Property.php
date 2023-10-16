@@ -92,7 +92,7 @@ class Property extends AbstractProperty
     public function setType(
         PropertyType $type = null,
         PropertyType $outputType = null,
-        $reset = false
+        bool $reset = false
     ): PropertyInterface {
         if ($reset) {
             $this->typeHintDecorators = [];

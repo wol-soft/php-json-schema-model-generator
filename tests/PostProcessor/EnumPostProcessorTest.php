@@ -117,7 +117,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $className = $this->generateClassFromFileTemplate(
             'EnumPropertyMapped.json',
-            ['["Hans", "Dieter"]', '{"CEO": "Hans", "CTO": "Dieter"}'],
+            ['["Hans", "Dieter"]', '{"Ceo": "Hans", "Cto": "Dieter"}'],
             (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
             false
         );
@@ -126,11 +126,11 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $object = new $className(['property' => 'Hans']);
         $this->assertSame('Hans', $object->getProperty()->value);
-        $this->assertSame('CEO', $object->getProperty()->name);
+        $this->assertSame('Ceo', $object->getProperty()->name);
 
         $object->setProperty('Dieter');
         $this->assertSame('Dieter', $object->getProperty()->value);
-        $this->assertSame('CTO', $object->getProperty()->name);
+        $this->assertSame('Cto', $object->getProperty()->name);
 
         $object->setProperty(null);
         $this->assertNull($object->getProperty());
@@ -142,7 +142,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $this->assertSame('string', (new ReflectionEnum($enum))->getBackingType()->getName());
 
         $this->assertEqualsCanonicalizing(
-            ['CEO', 'CTO'],
+            ['Ceo', 'Cto'],
             array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases())
         );
         $this->assertEqualsCanonicalizing(
@@ -150,9 +150,8 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
             array_map(function (BackedEnum $value): string { return $value->value; }, $enum::cases())
         );
 
-        $object->setProperty($enum::CEO);
+        $object->setProperty($enum::Ceo);
         $this->assertSame('Hans', $object->getProperty()->value);
-        $this->assertSame('CEO', $object->getProperty()->name);
     }
 
     /**
@@ -532,6 +531,50 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $object->setProperty(null);
     }
 
+    /**
+     * @requires PHP >= 8.1
+     */
+    public function testEmptyNormalizedCaseNameThrowsAnException(): void
+    {
+        $this->addPostProcessor();
+
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage("Name '__ -- __' results in an empty name");
+
+        $this->generateClassFromFileTemplate('EnumProperty.json', ['["__ -- __"]'], null, false);
+    }
+
+    /**
+     * @dataProvider normalizedNamesDataProvider
+     * @requires PHP >= 8.1
+     */
+    public function testNameNormalization(string $name, string $expectedNormalizedName): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFileTemplate('EnumProperty.json', [sprintf('["%s"]', $name)], null, false);
+
+        $this->includeGeneratedEnums(1);
+
+        $object = new $className();
+
+        $returnType = $this->getReturnType($object, 'getProperty');
+        $enum = $returnType->getName();
+
+        $this->assertSame(
+            [$expectedNormalizedName],
+            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases())
+        );
+    }
+
+    public function normalizedNamesDataProvider(): array
+    {
+        return [
+            'includes spaces' => ['not available', 'NotAvailable'],
+            'includes non alphanumeric characters' => ['not-available', 'NotAvailable'],
+            'numeric' => ['100', '_100'],
+        ];
+    }
     private function addPostProcessor(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
