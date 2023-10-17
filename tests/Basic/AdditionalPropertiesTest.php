@@ -203,7 +203,7 @@ ERROR;
                 ],
                 'invalid type for additional property (object)' => [
                     ['additional1' => new stdClass(), 'additional2' => 'Hello'],
-                    sprintf($exception, 'Invalid type for additional property. Requires string, got object')
+                    sprintf($exception, 'Invalid type for additional property. Requires string, got stdClass')
                 ],
                 'empty short string' => [
                     ['additional1' => '', 'additional2' => 'Hello'],

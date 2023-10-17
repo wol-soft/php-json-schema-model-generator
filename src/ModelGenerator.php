@@ -50,10 +50,6 @@ class ModelGenerator
             ->addPostProcessor(new AdditionalPropertiesPostProcessor())
             ->addPostProcessor(new PatternPropertiesPostProcessor())
             ->addPostProcessor(new ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor());
-
-        if ($this->generatorConfiguration->hasSerializationEnabled()) {
-            $this->addPostProcessor(new SerializationPostProcessor());
-        }
     }
 
     /**
@@ -111,6 +107,10 @@ class ModelGenerator
     {
         if (!is_dir($destination) || count(scandir($destination)) > 2) {
             throw new FileSystemException("Destination directory '$destination' doesn't exist or is not empty");
+        }
+
+        if ($this->generatorConfiguration->hasSerializationEnabled()) {
+            $this->addPostProcessor(new SerializationPostProcessor());
         }
 
         $renderQueue = new RenderQueue();

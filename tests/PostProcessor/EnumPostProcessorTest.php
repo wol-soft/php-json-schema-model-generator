@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\PostProcessor;
 use BackedEnum;
 use Exception;
 use PHPModelGenerator\Exception\Generic\EnumException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -39,7 +40,10 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateClassFromFileTemplate(
             'EnumProperty.json',
             ['["hans", "dieter"]'],
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->setSerialization(true),
             false
         );
 
@@ -48,6 +52,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $object = new $className(['property' => 'hans', 'stringProperty' => 'abc']);
         $this->assertSame('hans', $object->getProperty()->value);
         $this->assertSame('abc', $object->getStringProperty());
+        $this->assertSame(['property' => 'hans', 'stringProperty' => 'abc'], $object->toArray());
 
         $object->setProperty('dieter');
         $this->assertSame('dieter', $object->getProperty()->value);
@@ -96,7 +101,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
     /**
      * @requires PHP >= 8.1
      */
-    public function testInvalidStringOnlyEnumValue(): void
+    public function testInvalidStringOnlyEnumValueThrowsAnException(): void
     {
         $this->addPostProcessor();
         $className = $this->generateClassFromFileTemplate('EnumProperty.json', ['["Hans", "Dieter"]'], null, false);
@@ -106,6 +111,20 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
 
         new $className(['property' => 'Meier']);
+    }
+
+    public function testInvalidEnumThrowsAnException(): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFileTemplate('EnumProperty.json', ['["Hans", "Dieter"]'], null, false);
+
+        $this->expectException(InvalidTypeException::class);
+        $this->expectExceptionMessageMatches(
+            '/Invalid type for property\. Requires EnumPostProcessorTest_.*Property, got PHPModelGenerator\\\\Tests\\\\PostProcessor\\\\IntEnum/'
+        );
+
+        new $className(['property' => IntEnum::A]);
     }
 
     /**
@@ -118,7 +137,10 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateClassFromFileTemplate(
             'EnumPropertyMapped.json',
             ['["Hans", "Dieter"]', '{"Ceo": "Hans", "Cto": "Dieter"}'],
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->setSerialization(true),
             false
         );
 
@@ -127,6 +149,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $object = new $className(['property' => 'Hans']);
         $this->assertSame('Hans', $object->getProperty()->value);
         $this->assertSame('Ceo', $object->getProperty()->name);
+        $this->assertSame(['property' => 'Hans'], $object->toArray());
 
         $object->setProperty('Dieter');
         $this->assertSame('Dieter', $object->getProperty()->value);
@@ -238,7 +261,10 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateClassFromFileTemplate(
             'EnumPropertyMapped.json',
             ['[10, 100]', '{"a": 10, "b": 100}'],
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->setSerialization(true),
             false
         );
 
@@ -246,6 +272,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $object = new $className(['property' => 10]);
         $this->assertSame(10, $object->getProperty()->value);
+        $this->assertSame(['property' => 10], $object->toArray());
 
         $object->setProperty(100);
         $this->assertSame(100, $object->getProperty()->value);
@@ -301,7 +328,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $className = $this->generateClassFromFileTemplate(
             'EnumPropertyMapped.json',
             ['["Hans", 100, true]', '{"a": "Hans", "b": 100, "c": true}'],
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)->setSerialization(true),
             false
         );
 
@@ -309,12 +336,15 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $object = new $className(['property' => 'Hans']);
         $this->assertSame('Hans', $object->getProperty()->value());
+        $this->assertSame(['property' => 'Hans'], $object->toArray());
 
         $object->setProperty(100);
         $this->assertSame(100, $object->getProperty()->value());
+        $this->assertSame(['property' => 100], $object->toArray());
 
         $object->setProperty(null);
         $this->assertNull($object->getProperty());
+        $this->assertSame(['property' => null], $object->toArray());
 
         $returnType = $this->getReturnType($object, 'getProperty');
         $this->assertTrue($returnType->allowsNull());
@@ -575,6 +605,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
             'numeric' => ['100', '_100'],
         ];
     }
+
     private function addPostProcessor(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {

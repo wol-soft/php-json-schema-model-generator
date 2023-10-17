@@ -6,6 +6,7 @@ namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
 use Exception;
 use PHPMicroTemplate\Render;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -16,6 +17,7 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
+use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\Utils\ArrayHash;
@@ -124,6 +126,24 @@ class EnumPostProcessor extends PostProcessor
             $property->filterValidators(static function (Validator $validator): bool {
                 return !is_a($validator->getValidator(), EnumValidator::class);
             });
+
+            // if an enum value is provided the transforming filter will add a value pass through. As the filter doesn't
+            // know the exact enum type the pass through allows every UnitEnum instance. Consequently add a validator to
+            // avoid wrong enums by validating against the generated enum
+            $property->addValidator(
+                new class ($property, $enumName) extends PropertyValidator {
+                    public function __construct(PropertyInterface $property, string $enumName)
+                    {
+                        parent::__construct(
+                            $property,
+                            sprintf('$value instanceof UnitEnum && !($value instanceof %s)', $enumName),
+                            InvalidTypeException::class,
+                            [$enumName]
+                        );
+                    }
+                },
+                0
+            );
         }
     }
 

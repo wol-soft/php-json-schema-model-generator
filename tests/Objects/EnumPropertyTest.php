@@ -119,7 +119,10 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
     public function testInvalidItemTypeThrowsAnException($propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid type for property. Requires string, got ' . gettype($propertyValue));
+        $this->expectExceptionMessage(
+            'Invalid type for property. Requires string, got ' .
+                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue))
+        );
 
         $className = $this->generateEnumClass('string', static::ENUM_STRING);
 
