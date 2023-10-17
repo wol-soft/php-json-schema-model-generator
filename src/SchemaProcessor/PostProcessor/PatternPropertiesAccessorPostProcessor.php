@@ -38,7 +38,7 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
 
         foreach ($schema->getBaseValidators() as $validator) {
             if (is_a($validator, PatternPropertiesValidator::class)) {
-                array_push($patternTypes, $validator->getValidationProperty()->getType(true));
+                $patternTypes[] = $validator->getValidationProperty()->getType(true);
             }
         }
 
@@ -97,7 +97,7 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
         );
 
         if ($nullable) {
-            array_push($baseTypes, 'null');
+            $baseTypes[] = 'null';
         }
 
         return join('[]|', $baseTypes) . '[]';

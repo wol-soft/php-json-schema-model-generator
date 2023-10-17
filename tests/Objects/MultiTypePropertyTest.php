@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
@@ -50,11 +52,11 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
         // if implicit null is disabled only the provided types are accepted
         $this->assertSame(
             $implicitNull ? $expectedAnnotation : 'float|string|string[]',
-            $this->getMethodParameterTypeAnnotation($className, 'setProperty')
+            $this->getParameterTypeAnnotation($className, 'setProperty')
         );
 
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
-        $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame($expectedAnnotation, $this->getReturnTypeAnnotation($className, 'getProperty'));
 
         $this->assertNull($this->getParameterType($className, 'setProperty'));
         $this->assertNull($this->getReturnType($className, 'getProperty'));
@@ -74,10 +76,10 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
 
         $expectedAnnotation = 'float|string|string[]';
 
-        $this->assertSame($expectedAnnotation, $this->getMethodParameterTypeAnnotation($className, 'setProperty'));
+        $this->assertSame($expectedAnnotation, $this->getParameterTypeAnnotation($className, 'setProperty'));
 
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
-        $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame($expectedAnnotation, $this->getReturnTypeAnnotation($className, 'getProperty'));
 
         $this->assertNull($this->getParameterType($className, 'setProperty'));
         $this->assertNull($this->getReturnType($className, 'getProperty'));
@@ -127,7 +129,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
     {
         return [
             'Bool' => [true, 'Invalid type for property. Requires [float, string, array], got boolean'],
-            'Object' => [new stdClass(), 'Invalid type for property. Requires [float, string, array], got object'],
+            'Object' => [new stdClass(), 'Invalid type for property. Requires [float, string, array], got stdClass'],
             'Invalid int' => [9, 'Value for property must not be smaller than 10'],
             'zero' => [0, 'Value for property must not be smaller than 10'],
             'Invalid float' => [9.9, 'Value for property must not be smaller than 10'],

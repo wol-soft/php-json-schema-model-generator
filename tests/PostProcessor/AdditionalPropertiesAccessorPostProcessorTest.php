@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests\PostProcessor;
 
 use DateTime;
@@ -27,7 +29,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
  */
 class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGeneratorTest
 {
-    protected function addPostProcessor(bool $addForModelsWithoutAdditionalPropertiesDefinition)
+    protected function addPostProcessor(bool $addForModelsWithoutAdditionalPropertiesDefinition): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator) use (
             $addForModelsWithoutAdditionalPropertiesDefinition
@@ -107,12 +109,12 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertFalse(is_callable([$object, 'removeAdditionalProperty']));
 
         if ($addForModelsWithoutAdditionalPropertiesDefinition) {
-            $this->assertSame('array', $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperties'));
+            $this->assertSame('array', $this->getReturnTypeAnnotation($object, 'getAdditionalProperties'));
             $returnType = $this->getReturnType($object, 'getAdditionalProperties');
             $this->assertSame('array', $returnType->getName());
             $this->assertFalse($returnType->allowsNull());
 
-            $this->assertSame('mixed', $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperty'));
+            $this->assertSame('mixed', $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'));
             $this->assertNull($this->getReturnType($object, 'getAdditionalProperty'));
         }
     }
@@ -127,9 +129,9 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $object = new $className(['property1' => 100]);
 
-        $this->assertSame('mixed', $this->getMethodParameterTypeAnnotation($object, 'setAdditionalProperty', 1));
+        $this->assertSame('mixed', $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1));
         $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
-        $this->assertSame('mixed', $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperty'));
+        $this->assertSame('mixed', $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'));
 
         $this->assertSame(100, $object->getAdditionalProperty('property1'));
         $this->assertEqualsCanonicalizing(['property1' => 100], $object->getAdditionalProperties());
@@ -237,17 +239,17 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertSame('!Good night!', $object->getAdditionalProperty('property3'));
 
         // test typing
-        $this->assertSame('string[]', $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperties'));
+        $this->assertSame('string[]', $this->getReturnTypeAnnotation($object, 'getAdditionalProperties'));
         $returnType = $this->getReturnType($object, 'getAdditionalProperties');
         $this->assertSame('array', $returnType->getName());
         $this->assertFalse($returnType->allowsNull());
 
-        $this->assertSame('string|null', $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperty'));
+        $this->assertSame('string|null', $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'));
         $returnType = $this->getReturnType($object, 'getAdditionalProperty');
         $this->assertSame('string', $returnType->getName());
         $this->assertTrue($returnType->allowsNull());
 
-        $this->assertSame('string', $this->getMethodParameterTypeAnnotation($object, 'setAdditionalProperty', 1));
+        $this->assertSame('string', $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1));
         $parameterType = $this->getParameterType($object, 'setAdditionalProperty', 1);
         $this->assertSame('string', $parameterType->getName());
         $this->assertFalse($parameterType->allowsNull());
@@ -388,19 +390,19 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertInstanceOf(DateTime::class, $object->getAdditionalProperty('now'));
 
         // test typing
-        $this->assertSame('DateTime[]', $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperties'));
+        $this->assertSame('DateTime[]', $this->getReturnTypeAnnotation($object, 'getAdditionalProperties'));
         $returnType = $this->getReturnType($object, 'getAdditionalProperties');
         $this->assertSame('array', $returnType->getName());
         $this->assertFalse($returnType->allowsNull());
 
-        $this->assertSame('DateTime|null', $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperty'));
+        $this->assertSame('DateTime|null', $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'));
         $returnType = $this->getReturnType($object, 'getAdditionalProperty');
         $this->assertSame('DateTime', $returnType->getName());
         $this->assertTrue($returnType->allowsNull());
 
         $this->assertSame(
             'string|DateTime',
-            $this->getMethodParameterTypeAnnotation($object, 'setAdditionalProperty', 1)
+            $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1)
         );
 
         $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
@@ -489,7 +491,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         // test typing
         $this->assertSame(
             'string[]|int[]|null[]',
-            $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperties')
+            $this->getReturnTypeAnnotation($object, 'getAdditionalProperties')
         );
         $returnType = $this->getReturnType($object, 'getAdditionalProperties');
         $this->assertSame('array', $returnType->getName());
@@ -497,13 +499,13 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $this->assertSame(
             'string|int|null',
-            $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperty')
+            $this->getReturnTypeAnnotation($object, 'getAdditionalProperty')
         );
         $this->assertNull($this->getReturnType($object, 'getAdditionalProperty'));
 
         $this->assertSame(
             'string|int|null',
-            $this->getMethodParameterTypeAnnotation($object, 'setAdditionalProperty', 1)
+            $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1)
         );
         $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
 
@@ -536,7 +538,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         // test typing
         $this->assertSame(
             'string[]|int[]',
-            $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperties')
+            $this->getReturnTypeAnnotation($object, 'getAdditionalProperties')
         );
         $returnType = $this->getReturnType($object, 'getAdditionalProperties');
         $this->assertSame('array', $returnType->getName());
@@ -544,13 +546,13 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $this->assertSame(
             'string|int|null',
-            $this->getMethodReturnTypeAnnotation($object, 'getAdditionalProperty')
+            $this->getReturnTypeAnnotation($object, 'getAdditionalProperty')
         );
         $this->assertNull($this->getReturnType($object, 'getAdditionalProperty'));
 
         $this->assertSame(
             'string|int',
-            $this->getMethodParameterTypeAnnotation($object, 'setAdditionalProperty', 1)
+            $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1)
         );
         $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
 

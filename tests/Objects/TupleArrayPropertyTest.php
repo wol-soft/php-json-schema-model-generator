@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
@@ -283,7 +285,7 @@ ERROR;
                 ],
                 'invalid type for additional item (object)' => [
                     [3, 'Avenue', new stdClass()],
-                    sprintf($exception, 'Invalid type for additional item. Requires string, got object')
+                    sprintf($exception, 'Invalid type for additional item. Requires string, got stdClass')
                 ],
                 'invalid type for additional item (array)' => [
                     [3, 'Avenue', [1, 2]],

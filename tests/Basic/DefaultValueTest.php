@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\FileSystemException;
@@ -53,13 +55,13 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
 
         $this->assertSame('int|null', $this->getPropertyTypeAnnotation($object, 'property'));
 
-        $this->assertSame('int|null', $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
+        $this->assertSame('int|null', $this->getReturnTypeAnnotation($object, 'getProperty'));
         $returnType = $this->getReturnType($object, 'getProperty');
         $this->assertSame('int', $returnType->getName());
         // as implicit null is enabled the default value may be overwritten by a null value
         $this->assertTrue($returnType->allowsNull());
 
-        $this->assertSame('int|null', $this->getMethodParameterTypeAnnotation($object, 'setProperty'));
+        $this->assertSame('int|null', $this->getParameterTypeAnnotation($object, 'setProperty'));
         $parameterType = $this->getParameterType($object, 'setProperty');
         $this->assertSame('int', $parameterType->getName());
         // as implicit null is enabled the default value may be overwritten by a null value
@@ -80,12 +82,12 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
 
         $this->assertSame('int', $this->getPropertyTypeAnnotation($object, 'property'));
 
-        $this->assertSame('int', $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
+        $this->assertSame('int', $this->getReturnTypeAnnotation($object, 'getProperty'));
         $returnType = $this->getReturnType($object, 'getProperty');
         $this->assertSame('int', $returnType->getName());
         $this->assertFalse($returnType->allowsNull());
 
-        $this->assertSame('int', $this->getMethodParameterTypeAnnotation($object, 'setProperty'));
+        $this->assertSame('int', $this->getParameterTypeAnnotation($object, 'setProperty'));
         $parameterType = $this->getParameterType($object, 'setProperty');
         $this->assertSame('int', $parameterType->getName());
         $this->assertFalse($parameterType->allowsNull());
@@ -221,10 +223,10 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
 
         $this->assertSame('mixed', $this->getPropertyTypeAnnotation($object, 'property'));
 
-        $this->assertSame('mixed', $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
+        $this->assertSame('mixed', $this->getReturnTypeAnnotation($object, 'getProperty'));
         $this->assertNull($this->getReturnType($object, 'getProperty'));
 
-        $this->assertSame('mixed', $this->getMethodParameterTypeAnnotation($object, 'setProperty'));
+        $this->assertSame('mixed', $this->getParameterTypeAnnotation($object, 'setProperty'));
         $this->assertNull($this->getParameterType($object, 'setProperty'));
     }
 }

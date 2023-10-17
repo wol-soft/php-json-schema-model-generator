@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php: ['7.2', '7.3', '7.4', '8.0', '8.1', '8.2']
+        php: ['8.0', '8.1', '8.2']
 
     name: PHP ${{ matrix.php }} tests
     steps:
@@ -25,7 +25,7 @@ jobs:
         run: composer install
 
       - name: Prepare codeclimate test reporter
-        if: ${{ matrix.php == '7.4' }}
+        if: ${{ matrix.php == '8.2' }}
         run: |
           curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
           chmod +x ./cc-test-reporter
@@ -35,7 +35,7 @@ jobs:
         run: XDEBUG_MODE=coverage ./vendor/bin/phpunit --coverage-clover=build/logs/clover.xml --testdox
 
       - name: Upload the reports to coveralls.io
-        if: ${{ matrix.php == '7.4' }}
+        if: ${{ matrix.php == '8.2' }}
         run: |
           composer global require php-coveralls/php-coveralls
           php-coveralls -v
@@ -43,7 +43,7 @@ jobs:
           COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload the reports to codeclimate
-        if: ${{ matrix.php == '7.4' }}
+        if: ${{ matrix.php == '8.2' }}
         run: sudo ./cc-test-reporter after-build -r $CC_TEST_REPORTER_ID
         env:
           CC_TEST_REPORTER_ID: 5e32818628fac9eb11d34e2b35289f88169610cc4a98c6f170c74923342284f1

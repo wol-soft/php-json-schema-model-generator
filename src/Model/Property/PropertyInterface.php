@@ -43,10 +43,15 @@ interface PropertyInterface extends ResolvableInterface
      * @param PropertyType|null $type
      * @param PropertyType|null $outputType By default the output type will be equal to the base type but due to applied
      *                                      filters the output type may change
+     * @param bool $reset set to true for a full type reset (including type hint decorators like array, ...)
      *
      * @return PropertyInterface
      */
-    public function setType(PropertyType $type = null, PropertyType $outputType = null): PropertyInterface;
+    public function setType(
+        PropertyType $type = null,
+        PropertyType $outputType = null,
+        bool $reset = false
+    ): PropertyInterface;
 
     /**
      * @param bool $outputType If set to true the output type hint will be returned (may differ from the base type)
@@ -158,10 +163,12 @@ interface PropertyInterface extends ResolvableInterface
 
     /**
      * @param mixed $defaultValue
+     * @param bool $raw By default, the provided value will be added to the generated code via var_export. If the raw
+     * option is enabled the value provided in $defaultValue will not be changed.
      *
      * @return PropertyInterface
      */
-    public function setDefaultValue($defaultValue): PropertyInterface;
+    public function setDefaultValue($defaultValue, bool $raw = false): PropertyInterface;
 
     /**
      * @return string|null

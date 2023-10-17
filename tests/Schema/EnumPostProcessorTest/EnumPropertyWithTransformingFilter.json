@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "enum": ["01.01.2000", "01.01.2010"],
+      "filter": "dateTime"
+    }
+  }
+}

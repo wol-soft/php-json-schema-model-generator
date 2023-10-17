@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests\ComposedValue;
 
 use PHPModelGenerator\Exception\ComposedValue\OneOfException;
@@ -71,22 +73,22 @@ ERROR
         $this->assertSame('int|null', $this->getPropertyTypeAnnotation($className, 'age'));
         $this->assertSame('string|null', $this->getPropertyTypeAnnotation($className, 'name'));
 
-        $this->assertSame('int|null', $this->getMethodParameterTypeAnnotation($className, 'setAge'));
+        $this->assertSame('int|null', $this->getParameterTypeAnnotation($className, 'setAge'));
         $setAgeParamType = $this->getParameterType($className, 'setAge');
         $this->assertSame('int', $setAgeParamType->getName());
         $this->assertTrue($setAgeParamType->allowsNull());
 
-        $this->assertSame('string|null', $this->getMethodParameterTypeAnnotation($className, 'setName'));
+        $this->assertSame('string|null', $this->getParameterTypeAnnotation($className, 'setName'));
         $setNameParamType = $this->getParameterType($className, 'setName');
         $this->assertSame('string', $setNameParamType->getName());
         $this->assertTrue($setNameParamType->allowsNull());
 
-        $this->assertSame('int|null', $this->getMethodReturnTypeAnnotation($className, 'getAge'));
+        $this->assertSame('int|null', $this->getReturnTypeAnnotation($className, 'getAge'));
         $getAgeReturnType = $this->getReturnType($className, 'getAge');
         $this->assertSame('int', $getAgeReturnType->getName());
         $this->assertTrue($getAgeReturnType->allowsNull());
 
-        $this->assertSame('string|null', $this->getMethodReturnTypeAnnotation($className, 'getName'));
+        $this->assertSame('string|null', $this->getReturnTypeAnnotation($className, 'getName'));
         $getNameReturnType = $this->getReturnType($className, 'getName');
         $this->assertSame('string', $getNameReturnType->getName());
         $this->assertTrue($getNameReturnType->allowsNull());
@@ -171,7 +173,7 @@ ERROR
 
         $object = new $className([]);
         $this->assertRegExp($annotationPattern, $this->getPropertyTypeAnnotation($object, 'property'));
-        $this->assertRegExp($annotationPattern, $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
+        $this->assertRegExp($annotationPattern, $this->getReturnTypeAnnotation($object, 'getProperty'));
     }
 
     public function annotationDataProvider(): array
@@ -651,13 +653,13 @@ ERROR
 
         $this->assertSame('int[]|null', $this->getPropertyTypeAnnotation($object, 'property'));
 
-        $this->assertSame('int[]|null', $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
+        $this->assertSame('int[]|null', $this->getReturnTypeAnnotation($object, 'getProperty'));
         $returnType = $this->getReturnType($object, 'getProperty');
         $this->assertSame('array', $returnType->getName());
         // as implicit null is enabled the default value may be overwritten by a null value
         $this->assertTrue($returnType->allowsNull());
 
-        $this->assertSame('int[]|null', $this->getMethodParameterTypeAnnotation($object, 'setProperty'));
+        $this->assertSame('int[]|null', $this->getParameterTypeAnnotation($object, 'setProperty'));
         $parameterType = $this->getParameterType($object, 'setProperty');
         $this->assertSame('array', $parameterType->getName());
         // as implicit null is enabled the default value may be overwritten by a null value

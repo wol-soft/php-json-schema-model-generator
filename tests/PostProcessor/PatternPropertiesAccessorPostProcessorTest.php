@@ -447,15 +447,15 @@ ERROR
         $this->assertEqualsCanonicalizing($data, json_decode($object->toJson(), true));
 
         // test typing
-        $this->assertSame('DateTime|null', $this->getMethodReturnTypeAnnotation($object, 'getAlpha'));
+        $this->assertSame('DateTime|null', $this->getReturnTypeAnnotation($object, 'getAlpha'));
         $returnType = $this->getReturnType($object, 'getAlpha');
         $this->assertSame('DateTime', $returnType->getName());
         $this->assertTrue($returnType->allowsNull());
 
-        $this->assertSame('string|DateTime|null', $this->getMethodParameterTypeAnnotation($object, 'setAlpha'));
+        $this->assertSame('string|DateTime|null', $this->getParameterTypeAnnotation($object, 'setAlpha'));
         $this->assertNull($this->getParameterType($object, 'setAlpha'));
 
-        $this->assertSame('DateTime[]|null[]', $this->getMethodReturnTypeAnnotation($object, 'getPatternProperties'));
+        $this->assertSame('DateTime[]|null[]', $this->getReturnTypeAnnotation($object, 'getPatternProperties'));
         $returnType = $this->getReturnType($object, 'getPatternProperties');
         $this->assertSame('array', $returnType->getName());
         $this->assertFalse($returnType->allowsNull());

@@ -4,6 +4,9 @@
     "object1": {
       "type": "object",
       "properties": {
+        "property2": {
+          "type": "integer"
+        },
         "property1": {
           "type": "string"
         }
@@ -17,6 +20,9 @@
       "properties": {
         "property1": {
           "type": "string"
+        },
+        "property2": {
+          "type": "integer"
         }
       },
       "required": [

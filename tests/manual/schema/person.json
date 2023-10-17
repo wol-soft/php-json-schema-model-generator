@@ -1,47 +1,19 @@
 {
-  "definitions": {
-    "basic": {
-      "type": "object",
-      "properties": {
-        "salary": {
-          "type": "integer"
-        }
-      }
-    },
-    "identification": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        }
-      }
-    }
-  },
-  "$id": "Company",
+  "$id": "Person",
   "type": "object",
   "properties": {
     "name": {
-      "type": "string"
+      "type": "string",
+      "description": "The name of the person",
+      "example": "Lawrence"
     },
-    "CEO": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/basic"
-        },
-        {
-          "$ref": "#/definitions/identification"
-        }
-      ]
-    },
-    "CFO": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/basic"
-        },
-        {
-          "$ref": "#/definitions/identification"
-        }
-      ]
+    "age": {
+      "type": "integer",
+      "description": "The age of the person",
+      "example": 42
     }
-  }
+  },
+  "required": [
+    "name"
+  ]
 }

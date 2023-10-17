@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests\Basic;
 
 use Exception;
@@ -287,7 +289,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     public function testEmptyNormalizedPropertyNameThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage("Property name '__ -- __' results in an empty attribute name");
+        $this->expectExceptionMessage("Name '__ -- __' results in an empty name");
 
         $this->generateClassFromFile('EmptyNameNormalization.json');
     }

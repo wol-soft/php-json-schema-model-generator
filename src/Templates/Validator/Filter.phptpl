@@ -5,7 +5,7 @@
         // make sure exceptions from the filter are caught and added to the error handling
         try {
             $value = \{{ filterClass }}::{{ filterMethod }}($value, {{ filterOptions }});
-        } catch (\Exception $filterException) {
+        } catch (\Throwable $filterException) {
             {% if isTransformingFilter %}
                 $transformationFailed = true;
             {% endif %}

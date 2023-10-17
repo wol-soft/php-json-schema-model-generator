@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "enum": %s,
+      "enum-map": %s
+    }
+  }
+}

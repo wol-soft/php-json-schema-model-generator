@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model\SchemaDefinition;
 
+use PHPModelGenerator\Utils\ArrayHash;
+
 /**
  * Class JsonSchema
  *
@@ -62,11 +64,7 @@ class JsonSchema
      */
     public function getSignature(): string
     {
-        return md5(
-            json_encode(
-                array_intersect_key($this->json, array_fill_keys(self::SCHEMA_SIGNATURE_RELEVANT_FIELDS, null))
-            )
-        );
+        return ArrayHash::hash($this->json, self::SCHEMA_SIGNATURE_RELEVANT_FIELDS);
     }
 
     /**

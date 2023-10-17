@@ -89,8 +89,15 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function setType(PropertyType $type = null, PropertyType $outputType = null): PropertyInterface
-    {
+    public function setType(
+        PropertyType $type = null,
+        PropertyType $outputType = null,
+        bool $reset = false
+    ): PropertyInterface {
+        if ($reset) {
+            $this->typeHintDecorators = [];
+        }
+
         $this->type = $type;
         $this->outputType = $outputType;
 
@@ -277,9 +284,9 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function setDefaultValue($defaultValue): PropertyInterface
+    public function setDefaultValue($defaultValue, bool $raw = false): PropertyInterface
     {
-        $this->defaultValue = $defaultValue;
+        $this->defaultValue = $defaultValue !== null && !$raw ? var_export($defaultValue, true) : $defaultValue;
 
         return $this;
     }
@@ -289,7 +296,7 @@ class Property extends AbstractProperty
      */
     public function getDefaultValue(): ?string
     {
-        return $this->defaultValue !== null ? var_export($this->defaultValue, true) : null;
+        return $this->defaultValue;
     }
 
     /**

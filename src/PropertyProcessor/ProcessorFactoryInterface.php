@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\PropertyProcessor;
 
 use PHPModelGenerator\Model\Schema;

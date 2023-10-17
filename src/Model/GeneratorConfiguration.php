@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\Model;
 
+use Exception;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
@@ -68,6 +69,7 @@ class GeneratorConfiguration
      *
      * @return $this
      *
+     * @throws Exception
      * @throws InvalidFilterException
      */
     public function addFilter(FilterInterface ...$additionalFilter): self

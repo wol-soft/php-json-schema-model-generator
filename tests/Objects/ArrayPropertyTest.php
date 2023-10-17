@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
@@ -66,9 +68,9 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
 
         $this->assertSame(
             $implicitNull ? 'array|null' : 'array',
-            $this->getMethodParameterTypeAnnotation($className, 'setProperty')
+            $this->getParameterTypeAnnotation($className, 'setProperty')
         );
-        $this->assertSame('array|null', $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame('array|null', $this->getReturnTypeAnnotation($className, 'getProperty'));
         $this->assertSame('array|null', $this->getPropertyTypeAnnotation($className, 'property'));
 
         $returnType = $this->getReturnType($className, 'getProperty');
@@ -99,9 +101,9 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
 
         $this->assertSame(
             $implicitNull ? 'array|null' : 'array',
-            $this->getMethodParameterTypeAnnotation($className, 'setProperty')
+            $this->getParameterTypeAnnotation($className, 'setProperty')
         );
-        $this->assertSame('array', $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame('array', $this->getReturnTypeAnnotation($className, 'getProperty'));
         $this->assertSame('array', $this->getPropertyTypeAnnotation($className, 'property'));
 
         $returnType = $this->getReturnType($className, 'getProperty');
@@ -152,8 +154,8 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             $implicitNull
         );
 
-        $this->assertSame('array', $this->getMethodParameterTypeAnnotation($className, 'setProperty'));
-        $this->assertSame('array', $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame('array', $this->getParameterTypeAnnotation($className, 'setProperty'));
+        $this->assertSame('array', $this->getReturnTypeAnnotation($className, 'getProperty'));
         $this->assertSame('array', $this->getPropertyTypeAnnotation($className, 'property'));
 
         $returnType = $this->getReturnType($className, 'getProperty');
@@ -232,7 +234,8 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
     ): void {
         $this->expectValidationError(
             $configuration,
-            'Invalid type for property. Requires array, got ' . gettype($propertyValue)
+            'Invalid type for property. Requires array, got ' .
+                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue))
         );
 
         $className = $this->generateClassFromFile('ArrayProperty.json', $configuration);
@@ -454,12 +457,12 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
 
         $this->assertSame(
             $implicitNull ? $expectedAnnotation . '|null' : $expectedAnnotation,
-            $this->getMethodParameterTypeAnnotation($className, 'setProperty')
+            $this->getParameterTypeAnnotation($className, 'setProperty')
         );
 
         // an optional property may contain null at the beginning independently of $implicitNull
         $expectedAnnotation .= '|null';
-        $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame($expectedAnnotation, $this->getReturnTypeAnnotation($className, 'getProperty'));
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
 
         $returnType = $this->getReturnType($className, 'getProperty');
@@ -488,8 +491,8 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             $implicitNull
         );
 
-        $this->assertSame($expectedAnnotation, $this->getMethodParameterTypeAnnotation($className, 'setProperty'));
-        $this->assertSame($expectedAnnotation, $this->getMethodReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertSame($expectedAnnotation, $this->getParameterTypeAnnotation($className, 'setProperty'));
+        $this->assertSame($expectedAnnotation, $this->getReturnTypeAnnotation($className, 'getProperty'));
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
 
         $returnType = $this->getReturnType($className, 'getProperty');

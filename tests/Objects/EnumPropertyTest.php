@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\FileSystemException;
@@ -117,7 +119,10 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
     public function testInvalidItemTypeThrowsAnException($propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid type for property. Requires string, got ' . gettype($propertyValue));
+        $this->expectExceptionMessage(
+            'Invalid type for property. Requires string, got ' .
+                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue))
+        );
 
         $className = $this->generateEnumClass('string', static::ENUM_STRING);
 
@@ -186,12 +191,12 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
 
         $this->assertSame('string|int|null', $this->getPropertyTypeAnnotation($object, 'property'));
 
-        $this->assertSame('string|int|null', $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
+        $this->assertSame('string|int|null', $this->getReturnTypeAnnotation($object, 'getProperty'));
         $this->assertNull($this->getReturnType($object, 'getProperty'));
 
         $this->assertSame(
             $implicitNull ? 'string|int|null' : 'string|int',
-            $this->getMethodParameterTypeAnnotation($object, 'setProperty')
+            $this->getParameterTypeAnnotation($object, 'setProperty')
         );
         $this->assertNull($this->getParameterType($object, 'setProperty'));
     }
@@ -310,10 +315,10 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
 
         $this->assertSame('string|int', $this->getPropertyTypeAnnotation($object, 'property'));
 
-        $this->assertSame('string|int', $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
+        $this->assertSame('string|int', $this->getReturnTypeAnnotation($object, 'getProperty'));
         $this->assertNull($this->getReturnType($object, 'getProperty'));
 
-        $this->assertSame('string|int', $this->getMethodParameterTypeAnnotation($object, 'setProperty'));
+        $this->assertSame('string|int', $this->getParameterTypeAnnotation($object, 'setProperty'));
         $this->assertNull($this->getParameterType($object, 'setProperty'));
     }
 
@@ -341,14 +346,14 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTest
         // property may be null if the optional property is not provided
         $this->assertSame('string|null', $this->getPropertyTypeAnnotation($object, 'property'));
 
-        $this->assertSame('string|null', $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
+        $this->assertSame('string|null', $this->getReturnTypeAnnotation($object, 'getProperty'));
         $returnType = $this->getReturnType($object, 'getProperty');
         $this->assertSame('string', $returnType->getName());
         $this->assertTrue($returnType->allowsNull());
 
         $this->assertSame(
             $implicitNull ? 'string|null' : 'string',
-            $this->getMethodParameterTypeAnnotation($object, 'setProperty')
+            $this->getParameterTypeAnnotation($object, 'setProperty')
         );
         $parameterType = $this->getParameterType($object, 'setProperty');
         $this->assertSame('string', $parameterType->getName());

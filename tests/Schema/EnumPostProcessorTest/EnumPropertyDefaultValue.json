@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "enum": ["Hans", "Dieter"],
+      "default": "Dieter"
+    }
+  }
+}

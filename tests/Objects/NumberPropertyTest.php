@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\FileSystemException;
@@ -83,7 +85,10 @@ class NumberPropertyTest extends AbstractNumericPropertyTest
     public function testInvalidPropertyTypeThrowsAnException($propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid type for property. Requires float, got ' . gettype($propertyValue));
+        $this->expectExceptionMessage(
+            'Invalid type for property. Requires float, got ' .
+                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue))
+        );
 
         $className = $this->generateClassFromFile('NumberProperty.json');
 

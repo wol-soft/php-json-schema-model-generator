@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PHPModelGenerator\Tests\ComposedValue;
 
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
@@ -101,23 +103,23 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
 
         $this->assertSame(
             $implicitNull ? 'int|null' : 'int',
-            $this->getMethodParameterTypeAnnotation($className, 'setAge')
+            $this->getParameterTypeAnnotation($className, 'setAge')
         );
         $setAgeParamType = $this->getParameterType($className, 'setAge');
         $this->assertSame('int', $setAgeParamType->getName());
         $this->assertSame($implicitNull, $setAgeParamType->allowsNull());
 
-        $this->assertSame('string', $this->getMethodParameterTypeAnnotation($className, 'setName'));
+        $this->assertSame('string', $this->getParameterTypeAnnotation($className, 'setName'));
         $setNameParamType = $this->getParameterType($className, 'setName');
         $this->assertSame('string', $setNameParamType->getName());
         $this->assertFalse($setNameParamType->allowsNull());
 
-        $this->assertSame('int|null', $this->getMethodReturnTypeAnnotation($className, 'getAge'));
+        $this->assertSame('int|null', $this->getReturnTypeAnnotation($className, 'getAge'));
         $getAgeReturnType = $this->getReturnType($className, 'getAge');
         $this->assertSame('int', $getAgeReturnType->getName());
         $this->assertTrue($getAgeReturnType->allowsNull());
 
-        $this->assertSame('string', $this->getMethodReturnTypeAnnotation($className, 'getName'));
+        $this->assertSame('string', $this->getReturnTypeAnnotation($className, 'getName'));
         $getNameReturnType = $this->getReturnType($className, 'getName');
         $this->assertSame('string', $getNameReturnType->getName());
         $this->assertFalse($getNameReturnType->allowsNull());
@@ -143,7 +145,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
         $regexp = '/ComposedAllOfTest[\w]*_Merged_[\w]*/';
 
         $this->assertRegExp($regexp, $this->getPropertyTypeAnnotation($object, 'property'));
-        $this->assertRegExp($regexp, $this->getMethodReturnTypeAnnotation($object, 'getProperty'));
+        $this->assertRegExp($regexp, $this->getReturnTypeAnnotation($object, 'getProperty'));
 
         // base class, merged property class and two classes for validating the composition components
         $this->assertCount(4, $this->getGeneratedFiles());
@@ -622,11 +624,11 @@ ERROR
 
         $this->assertRegExp(
             '/ComposedAllOfTest_\w+_Merged_CEO\w+\|null$/',
-            $this->getMethodParameterTypeAnnotation($className, 'setCeo')
+            $this->getParameterTypeAnnotation($className, 'setCeo')
         );
         $this->assertSame(
-            $this->getMethodParameterTypeAnnotation($className, 'setCeo'),
-            $this->getMethodParameterTypeAnnotation($className, 'setCfo')
+            $this->getParameterTypeAnnotation($className, 'setCeo'),
+            $this->getParameterTypeAnnotation($className, 'setCfo')
         );
     }
 }
