@@ -113,6 +113,9 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         new $className(['property' => 'Meier']);
     }
 
+    /**
+     * @requires PHP >= 8.1
+     */
     public function testInvalidEnumThrowsAnException(): void
     {
         $this->addPostProcessor();
