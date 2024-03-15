@@ -44,7 +44,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
                 ->setImmutable(false)
                 ->setCollectErrors(false)
                 ->setSerialization(true),
-            false
+            false,
         );
 
         $this->includeGeneratedEnums(1);
@@ -70,18 +70,18 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $this->assertEqualsCanonicalizing(
             [$enumName, 'null'],
-            explode('|', $this->getReturnTypeAnnotation($object, 'getProperty'))
+            explode('|', $this->getReturnTypeAnnotation($object, 'getProperty')),
         );
 
         $this->assertSame('string', $reflectionEnum->getBackingType()->getName());
 
         $this->assertEqualsCanonicalizing(
             ['Hans', 'Dieter'],
-            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases())
+            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases()),
         );
         $this->assertEqualsCanonicalizing(
             ['hans', 'dieter'],
-            array_map(function (BackedEnum $value): string { return $value->value; }, $enum::cases())
+            array_map(function (BackedEnum $value): string { return $value->value; }, $enum::cases()),
         );
 
         $object->setProperty($enum::Dieter);
@@ -90,7 +90,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $this->assertNull($this->getParameterType($object, 'setProperty'));
         $this->assertEqualsCanonicalizing(
             [$enumName, 'string', 'null'],
-            explode('|', $this->getParameterTypeAnnotation($object, 'setProperty'))
+            explode('|', $this->getParameterTypeAnnotation($object, 'setProperty')),
         );
 
         $this->expectException(EnumException::class);
@@ -124,7 +124,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $this->expectException(InvalidTypeException::class);
         $this->expectExceptionMessageMatches(
-            '/Invalid type for property\. Requires EnumPostProcessorTest_.*Property, got PHPModelGenerator\\\\Tests\\\\PostProcessor\\\\IntEnum/'
+            '/Invalid type for property\. Requires EnumPostProcessorTest_.*Property, got PHPModelGenerator\\\\Tests\\\\PostProcessor\\\\IntEnum/',
         );
 
         new $className(['property' => IntEnum::A]);
@@ -144,7 +144,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
                 ->setImmutable(false)
                 ->setCollectErrors(false)
                 ->setSerialization(true),
-            false
+            false,
         );
 
         $this->includeGeneratedEnums(1);
@@ -169,11 +169,11 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $this->assertEqualsCanonicalizing(
             ['Ceo', 'Cto'],
-            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases())
+            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases()),
         );
         $this->assertEqualsCanonicalizing(
             ['Hans', 'Dieter'],
-            array_map(function (BackedEnum $value): string { return $value->value; }, $enum::cases())
+            array_map(function (BackedEnum $value): string { return $value->value; }, $enum::cases()),
         );
 
         $object->setProperty($enum::Ceo);
@@ -213,7 +213,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
                 new EnumPostProcessor(
                     join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
                     'Enum',
-                    true
+                    true,
                 )
             );
         };
@@ -268,7 +268,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
                 ->setImmutable(false)
                 ->setCollectErrors(false)
                 ->setSerialization(true),
-            false
+            false,
         );
 
         $this->includeGeneratedEnums(1);
@@ -293,18 +293,18 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $this->assertEqualsCanonicalizing(
             [$enumName, 'null'],
-            explode('|', $this->getReturnTypeAnnotation($object, 'getProperty'))
+            explode('|', $this->getReturnTypeAnnotation($object, 'getProperty')),
         );
 
         $this->assertSame('int', $reflectionEnum->getBackingType()->getName());
 
         $this->assertEqualsCanonicalizing(
             ['A', 'B'],
-            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases())
+            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases()),
         );
         $this->assertEqualsCanonicalizing(
             [10, 100],
-            array_map(function (BackedEnum $value): int { return $value->value; }, $enum::cases())
+            array_map(function (BackedEnum $value): int { return $value->value; }, $enum::cases()),
         );
 
         $object->setProperty($enum::A);
@@ -313,7 +313,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $this->assertNull($this->getParameterType($object, 'setProperty'));
         $this->assertEqualsCanonicalizing(
             [$enumName, 'int', 'null'],
-            explode('|', $this->getParameterTypeAnnotation($object, 'setProperty'))
+            explode('|', $this->getParameterTypeAnnotation($object, 'setProperty')),
         );
 
         $this->expectException(EnumException::class);
@@ -332,7 +332,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
             'EnumPropertyMapped.json',
             ['["Hans", 100, true]', '{"a": "Hans", "b": 100, "c": true}'],
             (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)->setSerialization(true),
-            false
+            false,
         );
 
         $this->includeGeneratedEnums(1);
@@ -359,14 +359,14 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $this->assertEqualsCanonicalizing(
             [$enumName, 'null'],
-            explode('|', $this->getReturnTypeAnnotation($object, 'getProperty'))
+            explode('|', $this->getReturnTypeAnnotation($object, 'getProperty')),
         );
 
         $this->assertNull($reflectionEnum->getBackingType());
 
         $this->assertEqualsCanonicalizing(
             ['A', 'B', 'C'],
-            array_map(function (UnitEnum $value): string { return $value->name; }, $enum::cases())
+            array_map(function (UnitEnum $value): string { return $value->name; }, $enum::cases()),
         );
 
         $object->setProperty($enum::C);
@@ -407,7 +407,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
             $file,
             $enums,
             (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
-            false
+            false,
         );
 
         $this->includeGeneratedEnums(1);
@@ -448,7 +448,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
             $file,
             $enums,
             (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
-            false
+            false,
         );
 
         $this->includeGeneratedEnums(2);
@@ -532,7 +532,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $className = $this->generateClassFromFile(
             'EnumPropertyRequired.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
         );
 
         $this->includeGeneratedEnums(1);
@@ -555,7 +555,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
         $this->assertNull($this->getParameterType($object, 'setProperty'));
         $this->assertEqualsCanonicalizing(
             [$enumName, 'string'],
-            explode('|', $this->getParameterTypeAnnotation($object, 'setProperty'))
+            explode('|', $this->getParameterTypeAnnotation($object, 'setProperty')),
         );
 
         $this->expectException(EnumException::class);
@@ -596,7 +596,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
 
         $this->assertSame(
             [$expectedNormalizedName],
-            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases())
+            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases()),
         );
     }
 
@@ -615,7 +615,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
             $generator->addPostProcessor(
                 new EnumPostProcessor(
                     join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
-                    'Enum'
+                    'Enum',
                 )
             );
         };

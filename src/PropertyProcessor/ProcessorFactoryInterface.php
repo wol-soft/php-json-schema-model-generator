@@ -26,6 +26,6 @@ interface ProcessorFactoryInterface
         $type,
         PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
-        Schema $schema
+        Schema $schema,
     ): PropertyProcessorInterface;
 }

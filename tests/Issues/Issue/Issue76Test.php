@@ -13,14 +13,14 @@ class Issue76Test extends AbstractIssueTest
     {
         $className = $this->generateClassFromFile(
             'optionalPropertySerialization.json',
-            (new GeneratorConfiguration())->setSerialization(true)
+            (new GeneratorConfiguration())->setSerialization(true),
         );
 
         $object = new $className(['property1' => 'Hello']);
 
         $this->assertEqualsCanonicalizing(
             ['property1' => 'Hello', 'property2' => null, 'property3' => 'Moin'],
-            $object->toArray()
+            $object->toArray(),
         );
     }
 
@@ -30,7 +30,7 @@ class Issue76Test extends AbstractIssueTest
             'optionalPropertySerialization.json',
             (new GeneratorConfiguration())->setSerialization(true)->setImmutable(false),
             false,
-            false
+            false,
         );
 
         $object = new $className(['property1' => 'Hello']);
@@ -39,7 +39,7 @@ class Issue76Test extends AbstractIssueTest
         $object->setProperty2('World');
         $this->assertEqualsCanonicalizing(
             ['property1' => 'Hello', 'property2' => 'World', 'property3' => 'Moin'],
-            $object->toArray()
+            $object->toArray(),
         );
     }
 }

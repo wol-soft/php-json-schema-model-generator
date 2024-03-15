@@ -58,14 +58,14 @@ class AdditionalPropertiesPostProcessor extends PostProcessor
             'additionalProperties',
             new PropertyType('array'),
             new JsonSchema(__FILE__, []),
-            'Collect all additional properties provided to the schema'
+            'Collect all additional properties provided to the schema',
         ))
             ->setDefaultValue([])
             ->setInternal(true);
 
         if ($validationProperty) {
             $additionalPropertiesCollectionProperty->addTypeHintDecorator(
-                new ArrayTypeHintDecorator($validationProperty)
+                new ArrayTypeHintDecorator($validationProperty),
             );
         }
 
@@ -104,20 +104,20 @@ class AdditionalPropertiesPostProcessor extends PostProcessor
                                 'Templates',
                                 'AdditionalProperties',
                                 'UpdateAdditionalProperties.phptpl',
-                            ]
+                            ],
                         ),
                         [
                             'patternProperties' => $patternProperties
                                 ? RenderHelper::varExportArray($patternProperties)
                                 : null,
                             'additionalProperties' => RenderHelper::varExportArray(
-                                array_keys($schema->getJsonSchema()->getJson()['properties'] ?? [])
+                                array_keys($schema->getJsonSchema()->getJson()['properties'] ?? []),
                             ),
                         ],
-                        InvalidAdditionalPropertiesException::class
+                        InvalidAdditionalPropertiesException::class,
                     );
                 }
-            }
+            },
         );
     }
 }

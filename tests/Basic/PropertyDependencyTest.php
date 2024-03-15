@@ -96,7 +96,7 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTest
             <<<ERROR
 Missing required attributes which are dependants of credit_card:
   - billing_address
-ERROR
+ERROR,
         );
 
         $className = $this->generateClassFromFile('PropertyDependency.json', $configuration);
@@ -114,7 +114,7 @@ ERROR
     public function testInvalidMultiplePropertyDependenciesThrowsAnException(
         GeneratorConfiguration $configuration,
         array $propertyValue,
-        string $message
+        string $message,
     ): void {
         $this->expectValidationError($configuration, $message);
 
@@ -150,7 +150,7 @@ Missing required attributes which are dependants of credit_card:
   - billing_address
 ERROR
                 ],
-            ]
+            ],
         );
     }
 
@@ -164,7 +164,7 @@ ERROR
     public function testInvalidBidirectionalPropertyDependencyThrowsAnException(
         GeneratorConfiguration $configuration,
         array $propertyValue,
-        string $message
+        string $message,
     ): void {
         $this->expectValidationError($configuration, $message);
 
@@ -192,7 +192,7 @@ Missing required attributes which are dependants of billing_address:
   - credit_card
 ERROR
                 ],
-            ]
+            ],
         );
     }
 }

@@ -29,7 +29,7 @@ class PropertyTemplateValidatorTest extends TestCase
             'UnknownTemplate',
             ['myAssigns' => 1337],
             InvalidTypeException::class,
-            [true]
+            [true],
         ))->getCheck();
     }
 }

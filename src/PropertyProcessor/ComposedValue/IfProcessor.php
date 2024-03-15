@@ -39,7 +39,7 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
                 sprintf(
                     'Incomplete conditional composition for property %s in file %s',
                     $property->getName(),
-                    $property->getJsonSchema()->getFile()
+                    $property->getJsonSchema()->getFile(),
                 )
             );
         }
@@ -65,7 +65,7 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
                         $this->schemaProcessor,
                         $this->schema,
                         $property->getName(),
-                        $compositionSchema
+                        $compositionSchema,
                     )
             );
 
@@ -92,9 +92,9 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
                     'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
                     'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
                     'onlyForDefinedValues' => $propertySchema->getJson()['onlyForDefinedValues'],
-                ]
+                ],
             ),
-            100
+            100,
         );
 
         //parent::generateValidators($property, $propertySchema);

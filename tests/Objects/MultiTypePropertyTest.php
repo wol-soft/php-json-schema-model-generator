@@ -44,7 +44,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
             'MultiTypeProperty.json',
             (new GeneratorConfiguration())->setImmutable(false),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $expectedAnnotation = 'float|string|string[]|null';
@@ -52,7 +52,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
         // if implicit null is disabled only the provided types are accepted
         $this->assertSame(
             $implicitNull ? $expectedAnnotation : 'float|string|string[]',
-            $this->getParameterTypeAnnotation($className, 'setProperty')
+            $this->getParameterTypeAnnotation($className, 'setProperty'),
         );
 
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
@@ -71,7 +71,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
             'RequiredMultiTypeProperty.json',
             (new GeneratorConfiguration())->setImmutable(false),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $expectedAnnotation = 'float|string|string[]';
@@ -151,7 +151,7 @@ ERROR
      */
     public function testValidNestedObjectInMultiTypePropertyIsValidWithNestedObjectProvided(
         ?array $propertyValue,
-        ?string $expected
+        ?string $expected,
     ): void {
         $className = $this->generateClassFromFile('MultiTypeObjectProperty.json');
 
@@ -188,7 +188,7 @@ ERROR
      */
     public function testInvalidNestedObjectInMultiTypePropertyThrowsAnException(
         array $propertyValue,
-        string $exceptionMessage
+        string $exceptionMessage,
     ): void {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessageMatches("/$exceptionMessage/");

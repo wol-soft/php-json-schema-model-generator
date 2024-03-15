@@ -48,7 +48,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
         array $types,
         PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
-        Schema $schema
+        Schema $schema,
     ) {
         parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
 
@@ -57,7 +57,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
                 $type,
                 $propertyMetaDataCollection,
                 $schemaProcessor,
-                $schema
+                $schema,
             );
         }
     }
@@ -98,18 +98,18 @@ class MultiTypeProcessor extends AbstractValueProcessor
                                     static function (PropertyInterface $subProperty): string {
                                         return $subProperty->getTypeHint();
                                     },
-                                    $subProperties
+                                    $subProperties,
                                 )
-                            )
+                            ),
                         );
 
                         $property->addValidator(
                             new MultiTypeCheckValidator(
                                 array_unique($this->allowedPropertyTypes),
                                 $property,
-                                $this->isImplicitNullAllowed($property)
+                                $this->isImplicitNullAllowed($property),
                             ),
-                            2
+                            2,
                         );
                     }
                 });
@@ -159,7 +159,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
     protected function processSubProperties(
         string $propertyName,
         JsonSchema $propertySchema,
-        PropertyInterface $property
+        PropertyInterface $property,
     ): array {
         $defaultValue = null;
         $invalidDefaultValueException = null;

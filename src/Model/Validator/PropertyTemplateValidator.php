@@ -41,7 +41,7 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
         string $template,
         array $templateValues,
         string $exceptionClass,
-        array $exceptionParams = []
+        array $exceptionParams = [],
     ) {
         $this->template = $template;
         $this->templateValues = $templateValues;
@@ -73,7 +73,7 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
             return $this->getRenderer()->renderTemplate(
                 $this->template,
                 // make sure the current bound property is available in the template
-                $this->templateValues + ['property' => $this->property]
+                $this->templateValues + ['property' => $this->property],
             );
         } catch (PHPMicroTemplateException $exception) {
             throw new RenderException("Can't render property validation template {$this->template}", 0, $exception);
@@ -87,7 +87,7 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
     {
         if (!self::$renderer) {
             self::$renderer = new Render(
-                join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', 'Templates']) . DIRECTORY_SEPARATOR
+                join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', 'Templates']) . DIRECTORY_SEPARATOR,
             );
         }
 

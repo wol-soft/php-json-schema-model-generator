@@ -32,7 +32,7 @@ class PropertyDependencyValidator extends PropertyTemplateValidator
                 'dependencies' => RenderHelper::varExportArray(array_values($dependencies)),
             ],
             InvalidPropertyDependencyException::class,
-            ['&$missingAttributes']
+            ['&$missingAttributes'],
         );
     }
 

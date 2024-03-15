@@ -49,7 +49,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         JsonSchema $propertiesStructure,
-        ?string $propertyName = null
+        ?string $propertyName = null,
     ) {
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
@@ -58,7 +58,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
             $schemaProcessor,
             $schema,
             static::PROPERTY_NAME,
-            $propertiesStructure->withJson($propertiesStructure->getJson()[static::ADDITIONAL_PROPERTIES_KEY])
+            $propertiesStructure->withJson($propertiesStructure->getJson()[static::ADDITIONAL_PROPERTIES_KEY]),
         );
 
         $this->validationProperty->onResolve(function (): void {
@@ -74,7 +74,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
                 'schema' => $schema,
                 'validationProperty' => $this->validationProperty,
                 'additionalProperties' => RenderHelper::varExportArray(
-                    array_keys($propertiesStructure->getJson()[static::PROPERTIES_KEY] ?? [])
+                    array_keys($propertiesStructure->getJson()[static::PROPERTIES_KEY] ?? []),
                 ),
                 'patternProperties' => $patternProperties ? RenderHelper::varExportArray($patternProperties) : null,
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
@@ -83,7 +83,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
                 'collectAdditionalProperties' => &$this->collectAdditionalProperties,
             ],
             static::EXCEPTION_CLASS,
-            ['&$invalidProperties']
+            ['&$invalidProperties'],
         );
     }
 

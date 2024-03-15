@@ -58,7 +58,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTest
                 'empty array' => [[]],
                 'only one value' => [[4]],
                 'multiple values' => [[100, 'Avenue']],
-            ]
+            ],
         );
     }
 
@@ -70,7 +70,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTest
                 'minimal object' => [[3, 'Street', ['name' => 'Hans']]],
                 'full object' => [[400, 'Avenue', ['name' => 'Hans', 'age' => 42]]],
                 'extended object' => [[5, 'Boulevard', ['name' => 'Hans', 'age' => 42, 'alive' => true]]],
-            ]
+            ],
         );
     }
 
@@ -94,11 +94,11 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testValidValuesForTupleArrayWithDisabledAdditionalItemsThrowsAnException(
         GeneratorConfiguration $configuration,
-        array $propertyValue
+        array $propertyValue,
     ): void {
         $this->expectValidationError(
             $configuration,
-            'Tuple array property contains not allowed additional items. Expected 3 items, got 4'
+            'Tuple array property contains not allowed additional items. Expected 3 items, got 4',
         );
 
         $className = $this->generateClassFromFile('TupleArrayNoAdditionalItems.json', $configuration);
@@ -116,7 +116,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTest
     public function testInvalidValuesForTupleArrayThrowsAnException(
         GeneratorConfiguration $configuration,
         array $propertyValue,
-        string $message
+        string $message,
     ): void {
         $this->expectValidationError($configuration, $message);
 
@@ -200,7 +200,7 @@ Invalid tuple item in array property:
     * Invalid type for tuple item #1 of array property. Requires string, got NULL
 ERROR
                 ],
-            ]
+            ],
         );
     }
 
@@ -229,7 +229,7 @@ ERROR
                 'No additional items' => [[3, 'Avenue']],
                 'One additional item' => [[3, 'Avenue', 'aBc']],
                 'multiple additional items' => [[3, 'Avenue', 'null', 'ABSD', 'JDd']],
-            ]
+            ],
         );
     }
 
@@ -247,7 +247,7 @@ ERROR
     public function testInvalidAdditionalItems(
         GeneratorConfiguration $configuration,
         array $propertyValue,
-        string $message
+        string $message,
     ): void {
         $this->expectValidationError($configuration, $message);
 
@@ -303,7 +303,7 @@ Tuple array property contains invalid additional items.
     * Invalid type for additional item. Requires string, got boolean
 ERROR
                 ],
-            ]
+            ],
         );
     }
 
@@ -344,7 +344,7 @@ ERROR
                         ['name' => 'Frida', 'age' => 51, 'alive' => true]
                     ]
                 ],
-            ]
+            ],
         );
     }
 
@@ -362,7 +362,7 @@ ERROR
     public function testInvalidObjectAdditionalItems(
         GeneratorConfiguration $configuration,
         array $propertyValue,
-        string $message
+        string $message,
     ): void {
         $this->expectValidationError($configuration, $message);
 
@@ -418,7 +418,7 @@ Tuple array property contains invalid additional items.
     * Invalid type for age. Requires int, got boolean
 ERROR
                 ],
-            ]
+            ],
         );
     }
 

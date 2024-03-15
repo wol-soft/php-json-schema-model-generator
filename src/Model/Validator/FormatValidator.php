@@ -29,7 +29,7 @@ class FormatValidator extends AbstractPropertyValidator
     public function __construct(
         PropertyInterface $property,
         FormatValidatorInterface $validator,
-        array $exceptionParams = []
+        array $exceptionParams = [],
     ) {
         $this->isResolved = true;
         $this->validator = $validator;
@@ -48,7 +48,7 @@ class FormatValidator extends AbstractPropertyValidator
             ? sprintf(
                 '!\%s::validate($value, %s)',
                 get_class($this->validator),
-                var_export($this->validator->getPattern(), true)
+                var_export($this->validator->getPattern(), true),
             )
             : sprintf('!\%s::validate($value)', get_class($this->validator));
     }

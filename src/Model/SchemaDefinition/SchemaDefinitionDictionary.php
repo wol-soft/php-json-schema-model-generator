@@ -51,7 +51,7 @@ class SchemaDefinitionDictionary extends ArrayObject
             // add the root nodes of the schema to resolve path references
             $this->addDefinition(
                 $key,
-                new SchemaDefinition($schema->getJsonSchema()->withJson($propertyEntry), $schemaProcessor, $schema)
+                new SchemaDefinition($schema->getJsonSchema()->withJson($propertyEntry), $schemaProcessor, $schema),
             );
         }
 
@@ -68,14 +68,14 @@ class SchemaDefinitionDictionary extends ArrayObject
     protected function fetchDefinitionsById(
         JsonSchema $jsonSchema,
         SchemaProcessor $schemaProcessor,
-        Schema $schema
+        Schema $schema,
     ): void {
         $json = $jsonSchema->getJson();
 
         if (isset($json['$id'])) {
             $this->addDefinition(
                 strpos($json['$id'], '#') === 0 ? $json['$id'] : "#{$json['$id']}",
-                new SchemaDefinition($jsonSchema, $schemaProcessor, $schema)
+                new SchemaDefinition($jsonSchema, $schemaProcessor, $schema),
             );
         }
 
@@ -136,7 +136,7 @@ class SchemaDefinitionDictionary extends ArrayObject
                 return $this->parsedExternalFileSchemas[$jsonSchemaFile]->getSchemaDictionary()->getDefinition(
                     "#$externalKey",
                     $schemaProcessor,
-                    $path
+                    $path,
                 );
             }
 
@@ -162,7 +162,7 @@ class SchemaDefinitionDictionary extends ArrayObject
         string $jsonSchemaFile,
         string $externalKey,
         SchemaProcessor $schemaProcessor,
-        array &$path
+        array &$path,
     ): ?SchemaDefinition {
         $jsonSchemaFilePath = filter_var($jsonSchemaFile, FILTER_VALIDATE_URL)
             ? $jsonSchemaFile
@@ -183,7 +183,7 @@ class SchemaDefinitionDictionary extends ArrayObject
             $schemaProcessor->getCurrentClassPath(),
             'ExternalSchema',
             new JsonSchema($jsonSchemaFilePath, $decodedJsonSchema),
-            new self(dirname($jsonSchemaFilePath))
+            new self(dirname($jsonSchemaFilePath)),
         );
 
         $schema->getSchemaDictionary()->setUpDefinitionDictionary($schemaProcessor, $schema);

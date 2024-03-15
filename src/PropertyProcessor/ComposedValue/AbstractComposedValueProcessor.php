@@ -46,7 +46,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        bool $rootLevelComposition
+        bool $rootLevelComposition,
     ) {
         parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
 
@@ -83,11 +83,11 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                                     $this->schema,
                                     $property,
                                     $compositionProperties,
-                                    $propertySchema
+                                    $propertySchema,
                                   )
                                 : null;
                     }
-                }
+                },
             );
         }
 
@@ -114,9 +114,9 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     'onlyForDefinedValues' =>
                         $propertySchema->getJson()['onlyForDefinedValues']
                         && $this instanceof ComposedPropertiesInterface,
-                ]
+                ],
             ),
-            100
+            100,
         );
     }
 
@@ -152,7 +152,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                         $this->schemaProcessor,
                         $this->schema,
                         $property->getName(),
-                        $compositionSchema
+                        $compositionSchema,
                     )
             );
 
@@ -191,9 +191,9 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                     static function (CompositionPropertyDecorator $property): string {
                         return $property->getType() ? $property->getType()->getName() : '';
                     },
-                    $compositionProperties
+                    $compositionProperties,
                 )
-            )
+            ),
         );
 
         $nonEmptyCompositionPropertyTypes = array_values(array_filter($compositionPropertyTypes));
@@ -202,7 +202,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             $property->setType(
                 new PropertyType(
                     $nonEmptyCompositionPropertyTypes[0],
-                    count($compositionPropertyTypes) > 1 ? true : null
+                    count($compositionPropertyTypes) > 1 ? true : null,
                 )
             );
         }

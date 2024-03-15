@@ -31,7 +31,7 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
     public function __construct(
         PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
-        Schema $schema
+        Schema $schema,
     ) {
         parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema, static::TYPE);
     }
@@ -74,7 +74,7 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
                 sprintf(
                     "Invalid type for default value of property %s in file %s",
                     $property->getName(),
-                    $propertySchema->getFile()
+                    $propertySchema->getFile(),
                 )
             );
         }
@@ -91,7 +91,7 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
 
         $property->addValidator(
             new TypeCheckValidator(static::TYPE, $property, $this->isImplicitNullAllowed($property)),
-            2
+            2,
         );
     }
 

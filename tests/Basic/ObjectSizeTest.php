@@ -43,7 +43,7 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTest
      */
     public function testObjectWithInvalidPropertyAmountThrowsAnException(
         array $propertyValue,
-        string $exceptionMessage
+        string $exceptionMessage,
     ): void {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessageMatches("/$exceptionMessage/");

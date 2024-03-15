@@ -129,7 +129,7 @@ ERROR
         GeneratorConfiguration $configuration,
         ?string $streetAddress,
         ?string $country,
-        ?string $postalCode
+        ?string $postalCode,
     ): void {
         $className = $this->generateClassFromFile($schemaFile, $configuration);
 
@@ -162,7 +162,7 @@ ERROR
                     'not provided postal code' => ['1600 Pennsylvania Avenue NW', 'USA', null],
                     'USA postal code' => ['1600 Pennsylvania Avenue NW', 'USA', '20500'],
                     'Canada postal code' => ['24 Sussex Drive', 'Canada', 'K1M 1M4'],
-                ]
+                ],
             )
         );
     }
@@ -185,11 +185,11 @@ ERROR
         GeneratorConfiguration $configuration,
         ?string $streetAddress,
         ?string $country,
-        ?string $postalCode
+        ?string $postalCode,
     ): void {
         $this->expectValidationErrorRegExp(
             $configuration,
-            '/(Invalid value for .*? declined by composition constraint|postal_code doesn\'t match pattern .*)/'
+            '/(Invalid value for .*? declined by composition constraint|postal_code doesn\'t match pattern .*)/',
         );
 
         $className = $this->generateClassFromFile($schemaFile, $configuration);
@@ -212,7 +212,7 @@ ERROR
                     'Canadian postal code for USA' => ['1600 Pennsylvania Avenue NW', 'USA', 'K1M 1M4'],
                     'USA postal code for Canada' => ['24 Sussex Drive', 'Canada', '20500'],
                     'Unmatching postal code for both' => ['24 Sussex Drive', 'Canada', 'djqwWDJId8juw9duq9'],
-                ]
+                ],
             )
         );
     }

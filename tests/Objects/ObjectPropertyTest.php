@@ -96,7 +96,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTest
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessageMatches(
-            '/Invalid class for property. Requires ObjectPropertyTest_.*, got stdClass/'
+            '/Invalid class for property. Requires ObjectPropertyTest_.*, got stdClass/',
         );
 
         $className = $this->generateClassFromFile('ObjectProperty.json');
@@ -154,7 +154,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTest
     public function testObjectLevelValidationApplyForNestedObjectsWithInvalidInput(
         array $input,
         string $exceptionClass,
-        string $exceptionMessage
+        string $exceptionMessage,
     ): void {
         $this->expectException($exceptionClass);
         $this->expectExceptionMessageMatches("/$exceptionMessage/");

@@ -44,9 +44,9 @@ class BaseProcessor extends AbstractPropertyProcessor
             array_unique(
                 array_merge(
                     array_keys($this->_rawModelDataInput),
-                    array_keys($modelData)
+                    array_keys($modelData),
                 )
-            )
+            ),
         )';
 
     /**
@@ -105,7 +105,7 @@ class BaseProcessor extends AbstractPropertyProcessor
             new PropertyNamesValidator(
                 $this->schemaProcessor,
                 $this->schema,
-                $propertySchema->withJson($propertySchema->getJson()['propertyNames'])
+                $propertySchema->withJson($propertySchema->getJson()['propertyNames']),
             )
         );
     }
@@ -139,7 +139,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                 new AdditionalPropertiesValidator(
                     $this->schemaProcessor,
                     $this->schema,
-                    $propertySchema
+                    $propertySchema,
                 )
             );
 
@@ -149,7 +149,7 @@ class BaseProcessor extends AbstractPropertyProcessor
         $this->schema->addBaseValidator(
             new NoAdditionalPropertiesValidator(
                 new Property($this->schema->getClassName(), null, $propertySchema),
-                $json
+                $json,
             )
         );
     }
@@ -172,7 +172,7 @@ class BaseProcessor extends AbstractPropertyProcessor
 
             if (@preg_match("/$escapedPattern/", '') === false) {
                 throw new SchemaException(
-                    "Invalid pattern '$pattern' for pattern property in file {$propertySchema->getFile()}"
+                    "Invalid pattern '$pattern' for pattern property in file {$propertySchema->getFile()}",
                 );
             }
 
@@ -180,7 +180,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                 $this->schemaProcessor,
                 $this->schema,
                 $pattern,
-                $propertySchema->withJson($schema)
+                $propertySchema->withJson($schema),
             );
 
             $this->schema->addBaseValidator($validator);
@@ -209,10 +209,10 @@ class BaseProcessor extends AbstractPropertyProcessor
                 sprintf(
                     '%s > %d',
                     self::COUNT_PROPERTIES,
-                    $json['maxProperties']
+                    $json['maxProperties'],
                 ),
                 MaxPropertiesException::class,
-                [$json['maxProperties']]
+                [$json['maxProperties']],
             )
         );
     }
@@ -239,10 +239,10 @@ class BaseProcessor extends AbstractPropertyProcessor
                 sprintf(
                     '%s < %d',
                     self::COUNT_PROPERTIES,
-                    $json['minProperties']
+                    $json['minProperties'],
                 ),
                 MinPropertiesException::class,
-                [$json['minProperties']]
+                [$json['minProperties']],
             )
         );
     }
@@ -261,14 +261,14 @@ class BaseProcessor extends AbstractPropertyProcessor
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
         $propertyMetaDataCollection = new PropertyMetaDataCollection(
             $json['required'] ?? [],
-            $json['dependencies'] ?? []
+            $json['dependencies'] ?? [],
         );
 
         $json['properties'] = $json['properties'] ?? [];
         // setup empty properties for required properties which aren't defined in the properties section of the schema
         $json['properties'] += array_fill_keys(
             array_diff($json['required'] ?? [], array_keys($json['properties'])),
-            []
+            [],
         );
 
         foreach ($json['properties'] as $propertyName => $propertyStructure) {
@@ -278,7 +278,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                     $this->schemaProcessor,
                     $this->schema,
                     (string) $propertyName,
-                    $propertySchema->withJson($propertyStructure)
+                    $propertySchema->withJson($propertyStructure),
                 )
             );
         }
@@ -308,7 +308,7 @@ class BaseProcessor extends AbstractPropertyProcessor
             $this->schema->addBaseValidator(
                 ($validator instanceof ComposedPropertyValidator)
                     ? $validator->withoutNestedCompositionValidation()
-                    : $validator
+                    : $validator,
             );
 
             if (!is_a($validator->getCompositionProcessor(), ComposedPropertiesInterface::class, true)) {
@@ -322,7 +322,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                             sprintf(
                                 "No nested schema for composed property %s in file %s found",
                                 $property->getName(),
-                                $property->getJsonSchema()->getFile()
+                                $property->getJsonSchema()->getFile(),
                             )
                         );
                     }
@@ -331,12 +331,12 @@ class BaseProcessor extends AbstractPropertyProcessor
                         function () use ($composedProperty, $validator): void {
                             foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
                                 $this->schema->addProperty(
-                                    $this->cloneTransferredProperty($property, $validator->getCompositionProcessor())
+                                    $this->cloneTransferredProperty($property, $validator->getCompositionProcessor()),
                                 );
 
                                 $composedProperty->appendAffectedObjectProperty($property);
                             }
-                        }
+                        },
                     );
                 });
             }
@@ -354,7 +354,7 @@ class BaseProcessor extends AbstractPropertyProcessor
      */
     private function cloneTransferredProperty(
         PropertyInterface $property,
-        string $compositionProcessor
+        string $compositionProcessor,
     ): PropertyInterface {
         $transferredProperty = (clone $property)
             ->filterValidators(static function (Validator $validator): bool {
@@ -367,7 +367,7 @@ class BaseProcessor extends AbstractPropertyProcessor
             if ($transferredProperty->getType()) {
                 $transferredProperty->setType(
                     new PropertyType($transferredProperty->getType()->getName(), true),
-                    new PropertyType($transferredProperty->getType(true)->getName(), true)
+                    new PropertyType($transferredProperty->getType(true)->getName(), true),
                 );
             }
         }

@@ -48,9 +48,9 @@ interface PropertyInterface extends ResolvableInterface
      * @return PropertyInterface
      */
     public function setType(
-        PropertyType $type = null,
-        PropertyType $outputType = null,
-        bool $reset = false
+        ?PropertyType $type = null,
+        ?PropertyType $outputType = null,
+        bool $reset = false,
     ): PropertyInterface;
 
     /**

@@ -26,7 +26,7 @@ class PopulatePostProcessor extends PostProcessor
                 [
                     'schemaHookResolver' => new SchemaHookResolver($schema),
                     'true' => true,
-                ]
+                ],
             )
         );
     }

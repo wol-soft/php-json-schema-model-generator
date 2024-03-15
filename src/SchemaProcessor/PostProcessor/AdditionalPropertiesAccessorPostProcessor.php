@@ -100,7 +100,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
     private function addSetAdditionalPropertyMethod(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
-        ?PropertyInterface $validationProperty
+        ?PropertyInterface $validationProperty,
     ): void {
         $objectProperties = RenderHelper::varExportArray(
             array_map(
@@ -111,9 +111,9 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                     $schema->getProperties(),
                     static function (PropertyInterface $property): bool {
                         return !$property->isInternal();
-                    }
+                    },
                 )
-            )
+            ),
         );
 
         $schema->addUsedClass(RegularPropertyAsAdditionalPropertyException::class);
@@ -127,7 +127,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                     'validationProperty' => $validationProperty,
                     'objectProperties' => $objectProperties,
                     'schemaHookResolver' => new SchemaHookResolver($schema),
-                ]
+                ],
             )
         );
     }
@@ -142,7 +142,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
      */
     private function addRemoveAdditionalPropertyMethod(
         Schema $schema,
-        GeneratorConfiguration $generatorConfiguration
+        GeneratorConfiguration $generatorConfiguration,
     ): void {
         $minPropertyValidator = null;
         $json = $schema->getJsonSchema()->getJson();
@@ -152,10 +152,10 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                 sprintf(
                     '%s < %d',
                     'count($this->_rawModelDataInput) - 1',
-                    $json['minProperties']
+                    $json['minProperties'],
                 ),
                 MinPropertiesException::class,
-                [$json['minProperties']]
+                [$json['minProperties']],
             );
         }
 
@@ -165,7 +165,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                 $schema,
                 $generatorConfiguration,
                 'AdditionalProperties/RemoveAdditionalProperty.phptpl',
-                ['minPropertyValidator' => $minPropertyValidator]
+                ['minPropertyValidator' => $minPropertyValidator],
             )
         );
     }
@@ -180,13 +180,13 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
     private function addGetAdditionalPropertyMethod(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
-        ?PropertyInterface $validationProperty
+        ?PropertyInterface $validationProperty,
     ): void {
         // return type of the additional property must always be nullable as a non existent key can be requested
         if ($validationProperty && $validationProperty->getType()) {
             $validationProperty = (clone $validationProperty)->setType(
                 $validationProperty->getType(),
-                new PropertyType($validationProperty->getType(true)->getName(), true)
+                new PropertyType($validationProperty->getType(true)->getName(), true),
             );
         }
 
@@ -202,7 +202,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                         // the nullable type, except for multi type properties)
                         ? (clone $validationProperty)->addTypeHintDecorator(new TypeHintDecorator(['null']))
                         : null
-                ]
+                ],
             )
         );
     }
@@ -210,7 +210,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
     private function addGetAdditionalPropertiesMethod(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
-        ?PropertyInterface $validationProperty
+        ?PropertyInterface $validationProperty,
     ): void {
         $validationProperty = $validationProperty
             // type hint always without null as the getter always returns an array
@@ -222,7 +222,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         if ($validationProperty && $validationProperty->getType(true)) {
             $validationProperty->setType(
                 $validationProperty->getType(),
-                new PropertyType($validationProperty->getType(true)->getName(), false)
+                new PropertyType($validationProperty->getType(true)->getName(), false),
             );
         }
 
@@ -235,7 +235,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                 [
                     'validationProperty' => $validationProperty,
 
-                ]
+                ],
             )
         );
     }

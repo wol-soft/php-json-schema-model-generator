@@ -32,7 +32,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testProvidedArrayPropertyIsValidForUntypedArray(
         GeneratorConfiguration $configuration,
-        ?array $propertyValue
+        ?array $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('ArrayProperty.json', $configuration);
 
@@ -50,7 +50,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
                 'Mixed Array' => [['a', 'b' => 1]],
                 'Empty array' => [[]],
                 'Null' => [null],
-            ]
+            ],
         );
     }
 
@@ -63,12 +63,12 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             'ArrayProperty.json',
             (new GeneratorConfiguration())->setImmutable(false),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $this->assertSame(
             $implicitNull ? 'array|null' : 'array',
-            $this->getParameterTypeAnnotation($className, 'setProperty')
+            $this->getParameterTypeAnnotation($className, 'setProperty'),
         );
         $this->assertSame('array|null', $this->getReturnTypeAnnotation($className, 'getProperty'));
         $this->assertSame('array|null', $this->getPropertyTypeAnnotation($className, 'property'));
@@ -86,13 +86,13 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      * @dataProvider implicitNullDataProvider
      */
     public function testNotProvidedValueDefaultsToEmptyArrayWithDefaultArraysToEmptyArrayEnabled(
-        bool $implicitNull
+        bool $implicitNull,
     ): void {
         $className = $this->generateClassFromFile(
             'ArrayProperty.json',
             (new GeneratorConfiguration())->setImmutable(false)->setDefaultArraysToEmptyArray(true),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $object = new $className();
@@ -101,7 +101,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
 
         $this->assertSame(
             $implicitNull ? 'array|null' : 'array',
-            $this->getParameterTypeAnnotation($className, 'setProperty')
+            $this->getParameterTypeAnnotation($className, 'setProperty'),
         );
         $this->assertSame('array', $this->getReturnTypeAnnotation($className, 'getProperty'));
         $this->assertSame('array', $this->getPropertyTypeAnnotation($className, 'property'));
@@ -125,7 +125,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
     {
         $className = $this->generateClassFromFile(
             'ArrayProperty.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setDefaultArraysToEmptyArray(true)
+            (new GeneratorConfiguration())->setImmutable(false)->setDefaultArraysToEmptyArray(true),
         );
 
         $object = new $className(['property' => $input]);
@@ -151,7 +151,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             'RequiredUntypedArrayProperty.json',
             (new GeneratorConfiguration())->setImmutable(false),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $this->assertSame('array', $this->getParameterTypeAnnotation($className, 'setProperty'));
@@ -179,7 +179,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedOptionalArrayPropertyIsValid(
         GeneratorConfiguration $configuration,
-        string $file
+        string $file,
     ): void {
         $className = $this->generateClassFromFile($file, $configuration);
 
@@ -199,7 +199,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNullProvidedOptionalArrayPropertyIsValid(
         GeneratorConfiguration $configuration,
-        string $file
+        string $file,
     ): void {
         $className = $this->generateClassFromFile($file, $configuration);
 
@@ -214,7 +214,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             [
                 'simple array' => ['ArrayProperty.json'],
                 'tuple array' => ['./../TupleArrayPropertyTest/TupleArray.json'],
-            ]
+            ],
         );
     }
 
@@ -230,12 +230,12 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidPropertyTypeThrowsAnException(
         GeneratorConfiguration $configuration,
-        $propertyValue
+        $propertyValue,
     ): void {
         $this->expectValidationError(
             $configuration,
             'Invalid type for property. Requires array, got ' .
-                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue))
+                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue)),
         );
 
         $className = $this->generateClassFromFile('ArrayProperty.json', $configuration);
@@ -253,7 +253,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
                 'bool' => [true],
                 'string' => ['array'],
                 'object' => [new stdClass()]
-            ]
+            ],
         );
     }
 
@@ -269,7 +269,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testUniqueArrayIsValidWithUniqueConstraint(
         GeneratorConfiguration $configuration,
-        $propertyValue
+        $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('ArrayPropertyUnique.json', $configuration);
 
@@ -287,7 +287,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
                 'Array containing mixed values' => [[1, 'a', '1', 9, null]],
                 'Empty array' => [[]],
                 'null' => [null],
-            ]
+            ],
         );
     }
 
@@ -303,7 +303,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotUniqueArrayThrowsAnExceptionWithUniqueConstraint(
         GeneratorConfiguration $configuration,
-        array $propertyValue
+        array $propertyValue,
     ): void {
         $this->expectValidationError($configuration, 'Items of array property are not unique');
 
@@ -321,7 +321,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
                 'Array containing numbers (int violation)' => [[1, 1.5, 1]],
                 'Array containing numbers (float violation)' => [[1, 1.5, 1.5, 2]],
                 'Array containing mixed values' => [[1, 'a', '1', 9, '1', null]]
-            ]
+            ],
         );
     }
 
@@ -337,7 +337,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testArrayInItemAmountValidationRangePasses(
         GeneratorConfiguration $configuration,
-        ?array $propertyValue
+        ?array $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('ArrayPropertyItemAmount.json', $configuration);
 
@@ -353,7 +353,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
                 'Lower limit' => [[1, 2]],
                 'Upper limit' => [[1, 2, 3]],
                 'null' => [null],
-            ]
+            ],
         );
     }
 
@@ -371,7 +371,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
     public function testArrayWithInvalidItemAmountThrowsAnException(
         GeneratorConfiguration $configuration,
         array $propertyValue,
-        string $exceptionMessage
+        string $exceptionMessage,
     ): void {
         $this->expectValidationError($configuration, $exceptionMessage);
 
@@ -388,7 +388,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
                 'Empty array' => [[], 'Array property must not contain less than 2 items'],
                 'Too few array items' => [[1], 'Array property must not contain less than 2 items'],
                 'Too many array items' => [[1, 2, 3 , 4], 'Array property must not contain more than 3 items']
-            ]
+            ],
         );
     }
 
@@ -408,7 +408,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
         GeneratorConfiguration $configuration,
         string $type,
         $propertyValue,
-        $expectedValue = null
+        $expectedValue = null,
     ): void {
         $className = $this->generateClassFromFileTemplate('ArrayPropertyTyped.json', [$type], $configuration, false);
 
@@ -434,7 +434,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
                 'Nullable nested array' => ['["array", "null"],"items":{"type":"integer"}', [[1, 2], [], [3], null]],
                 // Number array will cast int to float
                 'Multi type array' => ['["string", "number"]', ['a', 1, 'b'], ['a', 1.0, 'b']],
-            ]
+            ],
         );
     }
 
@@ -452,12 +452,12 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             [$type],
             (new GeneratorConfiguration())->setImmutable(false),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $this->assertSame(
             $implicitNull ? $expectedAnnotation . '|null' : $expectedAnnotation,
-            $this->getParameterTypeAnnotation($className, 'setProperty')
+            $this->getParameterTypeAnnotation($className, 'setProperty'),
         );
 
         // an optional property may contain null at the beginning independently of $implicitNull
@@ -488,7 +488,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
             [$type],
             (new GeneratorConfiguration())->setImmutable(false),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $this->assertSame($expectedAnnotation, $this->getParameterTypeAnnotation($className, 'setProperty'));
@@ -513,7 +513,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
                 'multi type' => ['["string", "integer"]', 'string[]|int[]'],
                 'nested typed array' => ['"array","items":{"type":"integer"}', 'int[][]'],
                 'nested untyped array' => ['"array"', 'array[]'],
-            ]
+            ],
         );
     }
     /**
@@ -532,7 +532,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTest
         GeneratorConfiguration $configuration,
         string $type,
         $propertyValue,
-        string $message = ''
+        string $message = '',
     ): void {
         $this->expectValidationError($configuration, $message);
 
@@ -660,7 +660,7 @@ Invalid items in array property:
     * Invalid type for item of array property. Requires [string, int], got array
 ERROR
                 ],
-            ]
+            ],
         );
     }
 
@@ -689,7 +689,7 @@ ERROR
                 'uppercase string' => [[3, 'AB', true]],
                 'mixed string' => [[3, 'AvBd', true]],
                 'mixed string with other strings' => [[' ', '123', 'AvBd', 'm-M']],
-            ]
+            ],
         );
     }
 
@@ -701,7 +701,7 @@ ERROR
      */
     public function testInvalidValuesForArrayContainsTrowsAnException(
         GeneratorConfiguration $configuration,
-        array $propertyValue
+        array $propertyValue,
     ): void {
         $this->expectValidationError($configuration, 'No item in array property matches contains constraint');
 
@@ -720,7 +720,7 @@ ERROR
                 'boolean array' => [[true, false]],
                 'nested array' => [[['', 'Hallo'], [0, 2]]],
                 'string array with invalid pattern' => [[' ', '09', 'h-H']],
-            ]
+            ],
         );
     }
 
@@ -738,7 +738,7 @@ ERROR
     public function testValidObjectArray(
         string $file,
         GeneratorConfiguration $configuration,
-        array $propertyValue
+        array $propertyValue,
     ): void {
         $className = $this->generateClassFromFile($file, $configuration);
 
@@ -781,7 +781,7 @@ ERROR
                             ['name' => 'Hannes', 'age' => 42, 'alive' => true],
                         ]
                     ],
-                ]
+                ],
             )
         );
     }
@@ -803,7 +803,7 @@ ERROR
         string $file,
         GeneratorConfiguration $configuration,
         array $propertyValue,
-        string $message
+        string $message,
     ): void {
         $this->expectValidationError($configuration, $message);
 
@@ -868,7 +868,7 @@ Invalid items in array property:
     * Missing required value for name
 ERROR
                     ],
-                ]
+                ],
             )
         );
     }
@@ -953,7 +953,7 @@ Invalid items in array property:
       - Composition element #2: Valid
 ERROR
                     ],
-                ]
+                ],
             )
         );
     }

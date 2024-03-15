@@ -44,11 +44,11 @@ class SchemaDependencyValidator extends PropertyTemplateValidator
                 'nestedProperty' => (new Property("{$property->getName()}Dependency", null, $schema->getJsonSchema()))
                     ->addDecorator(new ObjectInstantiationDecorator(
                         $schema->getClassName(),
-                        $schemaProcessor->getGeneratorConfiguration()
+                        $schemaProcessor->getGeneratorConfiguration(),
                     ))
             ],
             InvalidSchemaDependencyException::class,
-            ['&$dependencyException']
+            ['&$dependencyException'],
         );
     }
 

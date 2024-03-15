@@ -36,7 +36,7 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
         PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        string $type = ''
+        string $type = '',
     ) {
         parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
         $this->type = $type;
@@ -56,12 +56,12 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
             $propertyName,
             $this->type ? new PropertyType($this->type) : null,
             $propertySchema,
-            $json['description'] ?? ''
+            $json['description'] ?? '',
         ))
             ->setRequired($this->propertyMetaDataCollection->isAttributeRequired($propertyName))
             ->setReadOnly(
                 (isset($json['readOnly']) && $json['readOnly'] === true) ||
-                $this->schemaProcessor->getGeneratorConfiguration()->isImmutable()
+                $this->schemaProcessor->getGeneratorConfiguration()->isImmutable(),
             );
 
         $this->generateValidators($property, $propertySchema);
@@ -71,7 +71,7 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
                 $property,
                 $json['filter'],
                 $this->schemaProcessor->getGeneratorConfiguration(),
-                $this->schema
+                $this->schema,
             );
         }
 

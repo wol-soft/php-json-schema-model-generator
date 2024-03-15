@@ -34,7 +34,7 @@ class BasereferenceProcessor extends ReferenceProcessor
                 sprintf(
                     'A referenced schema on base level must provide an object definition for property %s in file %s',
                     $propertyName,
-                    $propertySchema->getFile()
+                    $propertySchema->getFile(),
                 )
             );
         }

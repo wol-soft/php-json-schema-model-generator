@@ -67,7 +67,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             if ($property->getType()) {
                 $property->setType(
                     $property->getType(),
-                    new PropertyType($property->getType(true)->getName(), false)
+                    new PropertyType($property->getType(true)->getName(), false),
                 );
             }
 
@@ -93,7 +93,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                     $property,
                     $this->getTypeCheck() . "count(\$value) < {$json[self::JSON_FIELD_MIN_ITEMS]}",
                     MinItemsException::class,
-                    [$json[self::JSON_FIELD_MIN_ITEMS]]
+                    [$json[self::JSON_FIELD_MIN_ITEMS]],
                 )
             );
         }
@@ -104,7 +104,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                     $property,
                     $this->getTypeCheck() . "count(\$value) > {$json[self::JSON_FIELD_MAX_ITEMS]}",
                     MaxItemsException::class,
-                    [$json[self::JSON_FIELD_MAX_ITEMS]]
+                    [$json[self::JSON_FIELD_MAX_ITEMS]],
                 )
             );
         }
@@ -129,7 +129,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                 $property,
                 DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayUnique.phptpl',
                 [],
-                UniqueItemsException::class
+                UniqueItemsException::class,
             )
         );
     }
@@ -167,7 +167,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                 $this->schemaProcessor,
                 $this->schema,
                 $propertySchema->withJson($json[self::JSON_FIELD_ITEMS]),
-                $property
+                $property,
             )
         );
     }
@@ -196,7 +196,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                 $this->schemaProcessor,
                 $this->schema,
                 $propertySchema->withJson($json[self::JSON_FIELD_ITEMS]),
-                $property->getName()
+                $property->getName(),
             )
         );
     }
@@ -220,7 +220,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                     $this->schemaProcessor,
                     $this->schema,
                     $propertySchema,
-                    $property->getName()
+                    $property->getName(),
                 )
             );
 
@@ -234,7 +234,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                 $property,
                 '($amount = count($value)) > ' . $expectedAmount,
                 AdditionalTupleItemsException::class,
-                [$expectedAmount, '&$amount']
+                [$expectedAmount, '&$amount'],
             )
         );
     }
@@ -260,7 +260,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                 $this->schemaProcessor,
                 $this->schema,
                 "item of array {$property->getName()}",
-                $propertySchema->withJson($propertySchema->getJson()[self::JSON_FIELD_CONTAINS])
+                $propertySchema->withJson($propertySchema->getJson()[self::JSON_FIELD_CONTAINS]),
             );
 
         $property->addValidator(
@@ -273,7 +273,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                     'viewHelper' => new RenderHelper($this->schemaProcessor->getGeneratorConfiguration()),
                     'generatorConfiguration' => $this->schemaProcessor->getGeneratorConfiguration(),
                 ],
-                ContainsException::class
+                ContainsException::class,
             )
         );
     }

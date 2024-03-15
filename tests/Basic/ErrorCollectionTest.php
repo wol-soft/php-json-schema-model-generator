@@ -49,7 +49,7 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidValuesForMultipleChecksForSinglePropertyThrowsAnException(
         $value,
-        array $messages
+        array $messages,
     ): void {
         try {
             $className = $this->generateClassFromFile('MultipleChecksForSingleProperty.json', new GeneratorConfiguration());

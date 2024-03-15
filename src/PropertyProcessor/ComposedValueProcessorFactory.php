@@ -38,7 +38,7 @@ class ComposedValueProcessorFactory implements ProcessorFactoryInterface
         $type,
         PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
-        Schema $schema
+        Schema $schema,
     ): PropertyProcessorInterface {
         $processor = '\\PHPModelGenerator\\PropertyProcessor\\ComposedValue\\' . ucfirst($type) . 'Processor';
 

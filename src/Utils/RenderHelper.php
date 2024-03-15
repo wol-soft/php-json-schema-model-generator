@@ -102,7 +102,7 @@ class RenderHelper
         $exceptionConstructor = sprintf(
             'new \%s($value ?? null, ...%s)',
             $validator->getExceptionClass(),
-            preg_replace('/\'&(\$\w+)\'/i', '$1', var_export($validator->getExceptionParams(), true))
+            preg_replace('/\'&(\$\w+)\'/i', '$1', var_export($validator->getExceptionParams(), true)),
         );
 
         if ($this->generatorConfiguration->collectErrors()) {

@@ -38,7 +38,7 @@ class ObjectInstantiationDecorator implements PropertyDecoratorInterface
 
         if (!static::$renderer) {
             static::$renderer = new Render(
-                join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', '..', 'Templates']) . DIRECTORY_SEPARATOR
+                join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', '..', 'Templates']) . DIRECTORY_SEPARATOR,
             );
         }
     }
@@ -60,9 +60,9 @@ class ObjectInstantiationDecorator implements PropertyDecoratorInterface
                     $property,
                     '',
                     NestedObjectException::class,
-                    ['&$instantiationException']
+                    ['&$instantiationException'],
                 ),
-            ]
+            ],
         );
     }
 }

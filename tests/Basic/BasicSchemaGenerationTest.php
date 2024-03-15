@@ -37,7 +37,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
             'BasicSchema.json',
             (new GeneratorConfiguration())->setImmutable(false),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $object = new $className(['property' => 'Hello']);
@@ -83,7 +83,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
 
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setImmutable(false)
+            (new GeneratorConfiguration())->setImmutable(false),
         );
 
         $object = new $className(['property' => 'Hello']);
@@ -109,7 +109,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setImmutable(false)
+            (new GeneratorConfiguration())->setImmutable(false),
         );
 
         $object = new $className();
@@ -125,7 +125,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         $className = $this->generateClassFromFile(
             'ReadOnly.json',
-            (new GeneratorConfiguration())->setImmutable(false)
+            (new GeneratorConfiguration())->setImmutable(false),
         );
 
         $object = new $className([]);
@@ -144,7 +144,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setImmutable(false)
+            (new GeneratorConfiguration())->setImmutable(false),
         );
 
         $object = new $className(['property' => 'Hello']);
@@ -158,7 +158,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         $className = '\\MyApp\\' . $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setNamespacePrefix('MyApp')
+            (new GeneratorConfiguration())->setNamespacePrefix('MyApp'),
         );
 
         $object = new $className(['property' => 'Hello']);
@@ -174,7 +174,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         $className = '\\MyApp\\' . $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setSerialization(true)->setNamespacePrefix('MyApp')
+            (new GeneratorConfiguration())->setSerialization(true)->setNamespacePrefix('MyApp'),
         );
 
         $object = new $className(['property' => 'Hello']);
@@ -192,7 +192,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         $className = '\\MyApp\\' . $this->generateClassFromFile(
             'NestedSchema.json',
-            (new GeneratorConfiguration())->setSerialization(true)->setNamespacePrefix('MyApp')
+            (new GeneratorConfiguration())->setSerialization(true)->setNamespacePrefix('MyApp'),
         );
 
         $input = [
@@ -229,7 +229,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     public function testInvalidSetterThrowsAnException(
         GeneratorConfiguration $configuration,
         string $propertyValue,
-        array $exceptionMessage
+        array $exceptionMessage,
     ) {
         $this->expectValidationError($configuration, $exceptionMessage);
 
@@ -262,7 +262,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
                         'Value for property must not be longer than 8',
                     ]
                 ]
-            ]
+            ],
         );
     }
 
@@ -298,7 +298,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         $className = '\\My\\Prefix\\' . $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setNamespacePrefix('My\Prefix')
+            (new GeneratorConfiguration())->setNamespacePrefix('My\Prefix'),
         );
 
         $object = new $className([]);
@@ -310,7 +310,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
     {
         $this->generateDirectory(
             'RecursiveTest',
-            (new GeneratorConfiguration())->setNamespacePrefix('Application')->setOutputEnabled(false)
+            (new GeneratorConfiguration())->setNamespacePrefix('Application')->setOutputEnabled(false),
         );
 
         $mainClassFQCN = '\\Application\\MainClass';

@@ -61,7 +61,7 @@ class SchemaProcessor
         string $baseSource,
         string $destination,
         GeneratorConfiguration $generatorConfiguration,
-        RenderQueue $renderQueue
+        RenderQueue $renderQueue,
     ) {
         $this->baseSource = $baseSource;
         $this->destination = $destination;
@@ -82,7 +82,7 @@ class SchemaProcessor
         $this->currentClassName = $this->generatorConfiguration->getClassNameGenerator()->getClassName(
             str_ireplace('.json', '', basename($jsonSchema->getFile())),
             $jsonSchema,
-            false
+            false,
         );
 
         $this->processSchema(
@@ -90,7 +90,7 @@ class SchemaProcessor
             $this->currentClassPath,
             $this->currentClassName,
             new SchemaDefinitionDictionary(dirname($jsonSchema->getFile())),
-            true
+            true,
         );
     }
 
@@ -114,7 +114,7 @@ class SchemaProcessor
         string $classPath,
         string $className,
         SchemaDefinitionDictionary $dictionary,
-        bool $initialClass = false
+        bool $initialClass = false,
     ): ?Schema {
         if ((!isset($jsonSchema->getJson()['type']) || $jsonSchema->getJson()['type'] !== 'object') &&
             !array_intersect(array_keys($jsonSchema->getJson()), ['anyOf', 'allOf', 'oneOf', 'if', '$ref'])
@@ -144,7 +144,7 @@ class SchemaProcessor
         string $className,
         JsonSchema $jsonSchema,
         SchemaDefinitionDictionary $dictionary,
-        bool $initialClass
+        bool $initialClass,
     ): Schema {
         $schemaSignature = $jsonSchema->getSignature();
 
@@ -168,7 +168,7 @@ class SchemaProcessor
             $this,
             $schema,
             $className,
-            $jsonSchema->withJson($json)
+            $jsonSchema->withJson($json),
         );
 
         $this->generateClassFile($classPath, $className, $schema);
@@ -186,11 +186,11 @@ class SchemaProcessor
     public function generateClassFile(
         string $classPath,
         string $className,
-        Schema $schema
+        Schema $schema,
     ): void {
         $fileName = join(
             DIRECTORY_SEPARATOR,
-            array_filter([$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className])
+            array_filter([$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]),
         ) . '.php';
 
         $this->renderQueue->addRenderJob(new RenderJob($fileName, $classPath, $className, $schema));
@@ -198,7 +198,7 @@ class SchemaProcessor
         if ($this->generatorConfiguration->isOutputEnabled()) {
             echo sprintf(
                 "Generated class %s\n",
-                join('\\', array_filter([$this->generatorConfiguration->getNamespacePrefix(), $classPath, $className]))
+                join('\\', array_filter([$this->generatorConfiguration->getNamespacePrefix(), $classPath, $className])),
             );
         }
 
@@ -222,7 +222,7 @@ class SchemaProcessor
         Schema $schema,
         PropertyInterface $property,
         array $compositionProperties,
-        JsonSchema $propertySchema
+        JsonSchema $propertySchema,
     ): ?PropertyInterface {
         $redirectToProperty = $this->redirectMergedProperty($compositionProperties);
         if ($redirectToProperty === null || $redirectToProperty instanceof PropertyInterface) {
@@ -245,7 +245,7 @@ class SchemaProcessor
                     $property->getName(),
                     $propertySchema,
                     true,
-                    $this->getCurrentClassName()
+                    $this->getCurrentClassName(),
                 );
 
             $mergedPropertySchema = new Schema($schema->getClassPath(), $mergedClassName, $propertySchema);
@@ -253,7 +253,7 @@ class SchemaProcessor
             $this->processedMergedProperties[$schemaSignature] = (new Property(
                     'MergedProperty',
                     new PropertyType($mergedClassName),
-                    $mergedPropertySchema->getJsonSchema()
+                    $mergedPropertySchema->getJsonSchema(),
                 ))
                 ->addDecorator(new ObjectInstantiationDecorator($mergedClassName, $this->getGeneratorConfiguration()))
                 ->setNestedSchema($mergedPropertySchema);
@@ -274,12 +274,12 @@ class SchemaProcessor
                     $this->generatorConfiguration->getNamespacePrefix(),
                     $mergedSchema->getClassPath(),
                     $mergedSchema->getClassName(),
-                ])
+                ]),
             )
         );
 
         $property->addTypeHintDecorator(
-            new CompositionTypeHintDecorator($this->processedMergedProperties[$schemaSignature])
+            new CompositionTypeHintDecorator($this->processedMergedProperties[$schemaSignature]),
         );
 
         return $this->processedMergedProperties[$schemaSignature];
@@ -320,7 +320,7 @@ class SchemaProcessor
     private function transferPropertiesToMergedSchema(
         Schema $schema,
         Schema $mergedPropertySchema,
-        array $compositionProperties
+        array $compositionProperties,
     ): void {
         foreach ($compositionProperties as $property) {
             if (!$property->getNestedSchema()) {
@@ -335,10 +335,10 @@ class SchemaProcessor
                         // corresponding to the defined constraints of the composition property.
                             (clone $nestedProperty)->filterValidators(static function (): bool {
                                 return false;
-                            })
+                            }),
                         );
                     }
-                }
+                },
             );
         }
     }
@@ -355,7 +355,7 @@ class SchemaProcessor
             static function (string $directory): string {
                 return ucfirst($directory);
             },
-            explode(DIRECTORY_SEPARATOR, $path)
+            explode(DIRECTORY_SEPARATOR, $path),
         );
 
         $this->currentClassPath = join('\\', array_filter($pieces));

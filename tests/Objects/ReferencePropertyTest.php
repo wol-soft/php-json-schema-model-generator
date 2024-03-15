@@ -36,7 +36,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            sprintf('/Unresolved Reference %s in file .*\.json/', str_replace('/', '\/', $reference))
+            sprintf('/Unresolved Reference %s in file .*\.json/', str_replace('/', '\/', $reference)),
         );
 
         $this->generateClassFromFileTemplate('NotResolvedReference.json', [$reference]);
@@ -109,7 +109,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     public function testProvidedReferenceObjectPropertyIsValid(
         string $reference,
         ?array $input,
-        string $typeCheck
+        string $typeCheck,
     ): void {
         $className = $this->generateClassFromFileTemplate('ObjectReference.json', [$reference]);
 
@@ -131,7 +131,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
                 'Empty object' => [[], 'object'],
                 'Object with property' => [['name' => 'Hannes', 'age' => 42, 'stringProperty' => 'Hello'], 'object'],
                 'Null' => [null, 'null'],
-            ]
+            ],
         );
     }
 
@@ -151,7 +151,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectException(ValidationException::class);
         if ($propertyValue instanceof stdClass) {
             $this->expectExceptionMessageMatches(
-                '/Invalid class for person. Requires ReferencePropertyTest_.*, got stdClass/'
+                '/Invalid class for person. Requires ReferencePropertyTest_.*, got stdClass/',
             );
         } else {
             $this->expectExceptionMessage('Invalid type for person. Requires object, got ' . gettype($propertyValue));
@@ -166,7 +166,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     {
         return $this->combineDataProvider(
             $this->internalReferenceProvider(),
-            $this->invalidObjectPropertyTypeDataProvider()
+            $this->invalidObjectPropertyTypeDataProvider(),
         );
     }
 
@@ -174,7 +174,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     {
         return $this->combineDataProvider(
             $this->externalReferenceProvider(),
-            $this->invalidObjectPropertyTypeDataProvider()
+            $this->invalidObjectPropertyTypeDataProvider(),
         );
     }
 
@@ -225,7 +225,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
                 'Null' => [null],
                 'Upper limit' => [2000],
                 'Lower limit' => [1900],
-            ]
+            ],
         );
     }
 
@@ -243,7 +243,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     public function testInvalidReferenceIntPropertyTypeThrowsAnException(
         string $reference,
         $propertyValue,
-        string $message
+        string $message,
     ): void {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($message);
@@ -265,7 +265,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
                 'string' => ['1', 'Invalid type for year'],
                 'int too low' => [1899, 'Value for year must not be smaller than 1900'],
                 'int too high' => [2001, 'Value for year must not be larger than 2000'],
-            ]
+            ],
         );
     }
 
@@ -284,7 +284,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         return array_merge(
             $this->combineDataProvider($this->internalReferenceProvider(), $this->internalReferenceProvider()),
             $this->combineDataProvider($this->recursiveExternalReferenceProvider(), $this->internalReferenceProvider()),
-            $this->combineDataProvider($this->recursiveExternalReferenceProvider(), $this->recursiveExternalReferenceProvider())
+            $this->combineDataProvider($this->recursiveExternalReferenceProvider(), $this->recursiveExternalReferenceProvider()),
         );
     }
 
@@ -300,7 +300,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testNotProvidedOptionalRecursiveReferenceObjectPropertyIsValid(
         string $reference1,
-        string $reference2
+        string $reference2,
     ): void {
         $className = $this->generateClassFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
 
@@ -321,7 +321,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testProvidedRecursiveReferenceObjectPropertyIsValid(
         string $reference1,
-        string $reference2
+        string $reference2,
     ): void {
         $className = $this->generateClassFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
 
@@ -368,7 +368,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
     public function testInvalidProvidedRecursiveReferenceObjectPropertyValueThrowsAnException(
         string $reference1,
         string $reference2,
-        $propertyValue
+        $propertyValue,
     ): void {
         $this->expectException(ValidationException::class);
 
@@ -377,7 +377,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         $this->expectExceptionMessageMatches(
             $propertyValue instanceof stdClass
                 ? '/Invalid class for .*/'
-                : '/Invalid type for .*/'
+                : '/Invalid type for .*/',
         );
 
         $className = $this->generateClassFromFileTemplate('RecursiveObjectReference.json', [$reference1, $reference2]);
@@ -398,19 +398,19 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
         return array_merge(
             $this->combineDataProvider(
                 $this->internalReferenceProvider(),
-                $this->invalidInternalReferenceObjectPropertyTypeDataProvider()
+                $this->invalidInternalReferenceObjectPropertyTypeDataProvider(),
             ),
             $this->combineDataProvider(
                 $this->externalReferenceProvider(),
-                $this->invalidInternalReferenceObjectPropertyTypeDataProvider()
+                $this->invalidInternalReferenceObjectPropertyTypeDataProvider(),
             ),
             $this->combineDataProvider(
                 $this->internalReferenceProvider(),
                 $this->combineDataProvider(
                     $this->recursiveExternalReferenceProvider(),
-                    $this->invalidObjectPropertyTypeDataProvider()
+                    $this->invalidObjectPropertyTypeDataProvider(),
                 )
-            )
+            ),
         );
     }
 
@@ -477,7 +477,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testValidBaseReference(
         string $reference,
-        ?array $input
+        ?array $input,
     ): void {
         $className = $this->generateClassFromFileTemplate('BaseReference.json', [$reference]);
 
@@ -497,7 +497,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
                 'Object with one property' => [['name' => 'Hannes']],
                 'Object with nulled property' => [['name' => 'Hannes', 'age' => null]],
                 'Object with additional property' => [['name' => 'Hannes', 'age' => 42, 'stringProperty' => 'Hello']],
-            ]
+            ],
         );
     }
 
@@ -507,7 +507,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
 
         $object = new $className([
             'personA' => ['name' => 'Hannes'],
-            'personB' => ['name' => 'Susi']]
+            'personB' => ['name' => 'Susi']],
         );
 
         $this->assertTrue(is_callable([$object, 'getPersonA']));
@@ -533,14 +533,14 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidValuesForMultiplePropertiesWithIdenticalReferenceThrowsAnException(
         array $input,
-        string $exceptionMessage
+        string $exceptionMessage,
     ): void {
         $this->expectException(ErrorRegistryException::class);
         $this->expectExceptionMessage($exceptionMessage);
 
         $className = $this->generateClassFromFile(
             'multiplePropertiesIdenticalReference.json',
-            (new GeneratorConfiguration())->setCollectErrors(true)
+            (new GeneratorConfiguration())->setCollectErrors(true),
         );
 
         new $className($input);

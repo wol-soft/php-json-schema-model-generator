@@ -43,7 +43,7 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
             $propertySchema,
             self::JSON_FIELD_MINIMUM_EXCLUSIVE,
             '<=',
-            ExclusiveMinimumException::class
+            ExclusiveMinimumException::class,
         );
 
         $this->addRangeValidator(
@@ -51,7 +51,7 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
             $propertySchema,
             self::JSON_FIELD_MAXIMUM_EXCLUSIVE,
             '>=',
-            ExclusiveMaximumException::class
+            ExclusiveMaximumException::class,
         );
 
         $this->addMultipleOfValidator($property, $propertySchema);
@@ -71,7 +71,7 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
         JsonSchema $propertySchema,
         string $field,
         string $check,
-        string $exceptionClass
+        string $exceptionClass,
     ): void {
         $json = $propertySchema->getJson();
 
@@ -84,7 +84,7 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
                 $property,
                 $this->getTypeCheck() . "\$value $check {$json[$field]}",
                 $exceptionClass,
-                [$json[$field]]
+                [$json[$field]],
             )
         );
     }
@@ -115,8 +115,8 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
                             : $this->getTypeCheck() . "fmod(\$value, {$json[self::JSON_FIELD_MULTIPLE]}) != 0"
                     ),
                 MultipleOfException::class,
-                [$json[self::JSON_FIELD_MULTIPLE]]
-            )
+                [$json[self::JSON_FIELD_MULTIPLE]],
+            ),
         );
     }
 }

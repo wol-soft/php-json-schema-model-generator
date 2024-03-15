@@ -86,17 +86,17 @@ class CompositionValidationPostProcessor extends PostProcessor
                     'propertyValidationState',
                     new PropertyType('array'),
                     new JsonSchema(__FILE__, []),
-                    'Track the internal validation state of composed validations'
+                    'Track the internal validation state of composed validations',
                 ))
                     ->setInternal(true)
                     ->setDefaultValue(
                         array_fill_keys(
                             array_unique(
-                                array_merge(...array_values($validatorPropertyMap))
+                                array_merge(...array_values($validatorPropertyMap)),
                             ),
-                            []
+                            [],
                         )
-                    )
+                    ),
             );
         }
 
@@ -111,7 +111,7 @@ class CompositionValidationPostProcessor extends PostProcessor
     private function addValidationMethods(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
-        array $validatorPropertyMap
+        array $validatorPropertyMap,
     ): void {
         foreach (array_unique(array_merge(...array_values($validatorPropertyMap))) as $validatorIndex) {
             /** @var AbstractComposedPropertyValidator $compositionValidator */
@@ -130,7 +130,7 @@ class CompositionValidationPostProcessor extends PostProcessor
                         'schema' => $schema,
                         'index' => $validatorIndex,
                         'viewHelper' => new RenderHelper($generatorConfiguration),
-                    ]
+                    ],
                 )
             );
         }
@@ -161,7 +161,7 @@ class CompositionValidationPostProcessor extends PostProcessor
                         static function (int $validatorIndex): string {
                             return sprintf('$this->validateComposition_%s($modelData);', $validatorIndex);
                         },
-                        array_unique($this->validatorPropertyMap[$property->getName()] ?? [])
+                        array_unique($this->validatorPropertyMap[$property->getName()] ?? []),
                     )
                 );
             }

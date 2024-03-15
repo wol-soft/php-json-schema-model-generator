@@ -30,7 +30,7 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTest
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Open API v3 spec file (.*)\.json doesn't contain any schemas to process$/"
+            "/^Open API v3 spec file (.*)\.json doesn't contain any schemas to process$/",
         );
 
         $this->generateClassFromFile($file, null, false, true, OpenAPIv3Provider::class);
@@ -66,7 +66,7 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTest
         array $personData,
         callable $personAssert,
         array $carData,
-        callable $carAssert
+        callable $carAssert,
     ): void {
         $className = $this->generateClassFromFileTemplate(
             'References.json',
@@ -74,7 +74,7 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTest
             null,
             false,
             true,
-            OpenAPIv3Provider::class
+            OpenAPIv3Provider::class,
         );
 
         $personClass = "{$className}_0";

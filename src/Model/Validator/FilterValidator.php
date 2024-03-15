@@ -44,7 +44,7 @@ class FilterValidator extends PropertyTemplateValidator
         FilterInterface $filter,
         PropertyInterface $property,
         array $filterOptions = [],
-        ?TransformingFilterInterface $transformingFilter = null
+        ?TransformingFilterInterface $transformingFilter = null,
     ) {
         $this->isResolved = true;
 
@@ -76,12 +76,12 @@ class FilterValidator extends PropertyTemplateValidator
                     $property,
                     '',
                     InvalidFilterValueException::class,
-                    [$filter->getToken(), '&$filterException']
+                    [$filter->getToken(), '&$filterException'],
                 ),
                 'viewHelper' => new RenderHelper($generatorConfiguration),
             ],
             IncompatibleFilterException::class,
-            [$filter->getToken()]
+            [$filter->getToken()],
         );
     }
 
@@ -121,7 +121,7 @@ class FilterValidator extends PropertyTemplateValidator
         ) {
             $this->templateValues['skipTransformedValuesCheck'] = ReflectionTypeCheckValidator::fromReflectionType(
                 $typeAfterFilter,
-                $property
+                $property,
             )->getCheck();
         }
 
@@ -156,7 +156,7 @@ class FilterValidator extends PropertyTemplateValidator
                     $filter->getToken(),
                     $property->getType()->getName(),
                     $property->getName(),
-                    $property->getJsonSchema()->getFile()
+                    $property->getJsonSchema()->getFile(),
                 )
             );
         }
@@ -175,11 +175,11 @@ class FilterValidator extends PropertyTemplateValidator
     private function validateFilterCompatibilityWithTransformedType(
         FilterInterface $filter,
         TransformingFilterInterface $transformingFilter,
-        PropertyInterface $property
+        PropertyInterface $property,
     ): void {
         $transformedType = (new ReflectionMethod(
             $transformingFilter->getFilter()[0],
-            $transformingFilter->getFilter()[1]
+            $transformingFilter->getFilter()[1],
         ))->getReturnType();
 
         if (!empty($filter->getAcceptedTypes()) &&
@@ -196,7 +196,7 @@ class FilterValidator extends PropertyTemplateValidator
                         ? "[null, {$transformedType->getName()}]"
                         : $transformedType->getName(),
                     $property->getName(),
-                    $property->getJsonSchema()->getFile()
+                    $property->getJsonSchema()->getFile(),
                 )
             );
         }

@@ -38,7 +38,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTest
         $this->expectExceptionMessage(<<<ERROR
 Invalid value for property declined by composition constraint.
   Requires to match one composition element but matched 0 elements.
-ERROR
+ERROR,
         );
 
         $className = $this->generateClassFromFile('EmptyOneOf.json');
@@ -67,7 +67,7 @@ ERROR
             'ObjectLevelCompositionTypeCheck.json',
             (new GeneratorConfiguration())->setImmutable(false),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $this->assertSame('int|null', $this->getPropertyTypeAnnotation($className, 'age'));
@@ -131,7 +131,7 @@ ERROR
             <<<ERROR
 /^Invalid value for (.*?) declined by composition constraint.
   Requires to match one composition element but matched $matchedElements elements.$/
-ERROR
+ERROR,
         );
 
         $className = $this->generateClassFromFile($schema);
@@ -289,7 +289,7 @@ ERROR
      */
     public function testExtendedPropertyDefinitionWithInvalidValuesThrowsAnException(
         $propertyValue,
-        string $exceptionMessage
+        string $exceptionMessage,
     ): void {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($exceptionMessage);
@@ -378,7 +378,7 @@ ERROR
      */
     public function testNotMatchingObjectPropertyWithReferencedPersonSchemaThrowsAnException(
         string $schema,
-        $propertyValue
+        $propertyValue,
     ): void {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
@@ -404,7 +404,7 @@ ERROR
                 'Too many properties' => [['name' => 'Hannes', 'age' => 42, 'alive' => true]],
                 'Matching object with invalid type' => [['name' => 'Hannes', 'age' => '42']],
                 'Matching object with invalid data' => [['name' => 'H', 'age' => 42]],
-            ]
+            ],
         );
     }
 
@@ -448,7 +448,7 @@ ERROR
     public function testMatchingPropertyForComposedOneOfObjectIsValid(
         array $input,
         ?string $stringPropertyValue,
-        ?int $intPropertyValue
+        ?int $intPropertyValue,
     ): void {
         $className = $this->generateClassFromFile('ObjectLevelComposition.json');
 
@@ -514,7 +514,7 @@ ERROR
     public function testMatchingPropertyForComposedOneOfObjectWithRequiredPropertiesIsValid(
         array $input,
         ?string $stringPropertyValue,
-        ?int $intPropertyValue
+        ?int $intPropertyValue,
     ): void {
         $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
 
@@ -557,11 +557,11 @@ ERROR
     public function testValidationInSetterMethods(
         GeneratorConfiguration $generatorConfiguration,
         string $exceptionMessageBothValid,
-        string $exceptionMessageBothInvalid
+        string $exceptionMessageBothInvalid,
     ): void {
         $className = $this->generateClassFromFile(
             'ObjectLevelCompositionRequired.json',
-            $generatorConfiguration->setImmutable(false)
+            $generatorConfiguration->setImmutable(false),
         );
 
         $object = new $className(['integerProperty' => 2, 'stringProperty' => 99]);
@@ -646,7 +646,7 @@ ERROR
     {
         $className = $this->generateClassFromFile(
             'OneOfNullBranch.json',
-            (new GeneratorConfiguration())->setImmutable(false)
+            (new GeneratorConfiguration())->setImmutable(false),
         );
 
         $object = new $className([]);

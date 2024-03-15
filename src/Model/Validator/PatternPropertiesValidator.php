@@ -44,7 +44,7 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         string $pattern,
-        JsonSchema $propertyStructure
+        JsonSchema $propertyStructure,
     ) {
         $this->pattern = $pattern;
         $this->key = md5($propertyStructure->getJson()['key'] ?? $this->pattern);
@@ -56,7 +56,7 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
             $schemaProcessor,
             $schema,
             'pattern property',
-            $propertyStructure
+            $propertyStructure,
         );
 
         $this->validationProperty->onResolve(function (): void {
@@ -75,7 +75,7 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
             ],
             InvalidPatternPropertiesException::class,
-            [$this->pattern, '&$invalidProperties']
+            [$this->pattern, '&$invalidProperties'],
         );
     }
 

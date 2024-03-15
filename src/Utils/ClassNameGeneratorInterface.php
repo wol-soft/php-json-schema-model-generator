@@ -28,6 +28,6 @@ interface ClassNameGeneratorInterface
         string $propertyName,
         JsonSchema $schema,
         bool $isMergeClass,
-        string $currentClassName = ''
+        string $currentClassName = '',
     ): string;
 }

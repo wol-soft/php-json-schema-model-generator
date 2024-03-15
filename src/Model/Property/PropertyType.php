@@ -18,7 +18,7 @@ class PropertyType
      * @param bool|null $nullable Is the property nullable? if not provided the nullability will be determined
      *                            automatically from the required flag/implicitNull setting etc.
      */
-    public function __construct(string $name, bool $nullable = null)
+    public function __construct(string $name, ?bool $nullable = null)
     {
         $this->name     = $name;
         $this->nullable = $nullable;

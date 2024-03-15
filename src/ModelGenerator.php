@@ -40,7 +40,7 @@ class ModelGenerator
      *
      * @param GeneratorConfiguration|null $generatorConfiguration The configuration to apply to the generator
      */
-    public function __construct(GeneratorConfiguration $generatorConfiguration = null)
+    public function __construct(?GeneratorConfiguration $generatorConfiguration = null)
     {
         $this->generatorConfiguration = $generatorConfiguration ?? new GeneratorConfiguration();
 
@@ -118,7 +118,7 @@ class ModelGenerator
             $schemaProvider->getBaseDirectory(),
             $destination,
             $this->generatorConfiguration,
-            $renderQueue
+            $renderQueue,
         );
 
         foreach ($schemaProvider->getSchemas() as $jsonSchema) {

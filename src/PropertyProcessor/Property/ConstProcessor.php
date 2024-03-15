@@ -31,7 +31,7 @@ class ConstProcessor implements PropertyProcessorInterface
             $propertyName,
             new PropertyType(TypeConverter::gettypeToInternal(gettype($json['const']))),
             $propertySchema,
-            $json['description'] ?? ''
+            $json['description'] ?? '',
         );
 
         return $property
@@ -40,7 +40,7 @@ class ConstProcessor implements PropertyProcessorInterface
                 $property,
                 '$value !== ' . var_export($json['const'], true),
                 InvalidConstException::class,
-                [$json['const']]
+                [$json['const']],
             ));
     }
 }

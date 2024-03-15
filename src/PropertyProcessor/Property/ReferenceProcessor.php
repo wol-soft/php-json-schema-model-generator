@@ -40,7 +40,7 @@ class ReferenceProcessor extends AbstractTypedValueProcessor
                     )
                 ) {
                     $this->schema->addNamespaceTransferDecorator(
-                        new SchemaNamespaceTransferDecorator($definition->getSchema())
+                        new SchemaNamespaceTransferDecorator($definition->getSchema()),
                     );
                 }
 
@@ -50,7 +50,7 @@ class ReferenceProcessor extends AbstractTypedValueProcessor
             throw new SchemaException(
                 "Unresolved Reference $reference in file {$propertySchema->getFile()}",
                 0,
-                $exception
+                $exception,
             );
         }
 

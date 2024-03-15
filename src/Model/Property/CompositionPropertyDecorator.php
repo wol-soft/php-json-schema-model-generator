@@ -40,7 +40,7 @@ class CompositionPropertyDecorator extends PropertyProxy
             $propertyName,
             $jsonSchema,
             new ResolvedDefinitionsCollection([self::PROPERTY_KEY => $property]),
-            self::PROPERTY_KEY
+            self::PROPERTY_KEY,
         );
 
         $property->onResolve(function (): void {

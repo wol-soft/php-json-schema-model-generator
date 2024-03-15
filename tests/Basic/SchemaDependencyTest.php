@@ -55,7 +55,7 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTest
     public function testInvalidSchemaDependency(
         GeneratorConfiguration $configuration,
         array $propertyValue,
-        string $message
+        string $message,
     ): void {
         $this->expectValidationError($configuration, $message);
 
@@ -90,7 +90,7 @@ Invalid schema which is dependant on credit_card:
   - Invalid type for date_of_birth. Requires string, got boolean
 ERROR
                 ],
-            ]
+            ],
         );
     }
 
@@ -134,7 +134,7 @@ ERROR
     public function testInvalidSchemaDependencyReference(
         GeneratorConfiguration $configuration,
         array $propertyValue,
-        string $message
+        string $message,
     ): void {
         $this->expectValidationError($configuration, $message);
 
@@ -169,7 +169,7 @@ Invalid schema which is dependant on credit_card:
   - Invalid type for name. Requires string, got boolean
 ERROR
                 ],
-            ]
+            ],
         );
     }
 
@@ -210,14 +210,14 @@ ERROR
      */
     public function testInvalidSchemaDependencyComposition(
         array $propertyValue,
-        string $message
+        string $message,
     ): void {
         $this->expectException(ErrorRegistryException::class);
         $this->expectExceptionMessageMatches("/$message/m");
 
         $className = $this->generateClassFromFile(
             'CompositionSchemaDependency.json',
-            (new GeneratorConfiguration())->setCollectErrors(true)
+            (new GeneratorConfiguration())->setCollectErrors(true),
         );
 
         new $className($propertyValue);
@@ -323,14 +323,14 @@ ERROR
      */
     public function testInvalidSchemaDependencyNestedObject(
         array $propertyValue,
-        string $message
+        string $message,
     ): void {
         $this->expectException(ErrorRegistryException::class);
         $this->expectExceptionMessageMatches("/$message/m");
 
         $className = $this->generateClassFromFile(
             'NestedObjectSchemaDependency.json',
-            (new GeneratorConfiguration())->setCollectErrors(true)
+            (new GeneratorConfiguration())->setCollectErrors(true),
         );
 
         new $className($propertyValue);

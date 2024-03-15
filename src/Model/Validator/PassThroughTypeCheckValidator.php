@@ -28,7 +28,7 @@ class PassThroughTypeCheckValidator extends PropertyValidator implements TypeChe
     public function __construct(
         ReflectionType $passThroughType,
         PropertyInterface $property,
-        TypeCheckValidator $typeCheckValidator
+        TypeCheckValidator $typeCheckValidator,
     ) {
         $this->types = array_merge($typeCheckValidator->getTypes(), [$passThroughType->getName()]);
 
@@ -37,10 +37,10 @@ class PassThroughTypeCheckValidator extends PropertyValidator implements TypeChe
             sprintf(
                 '%s && %s',
                 ReflectionTypeCheckValidator::fromReflectionType($passThroughType, $property)->getCheck(),
-                $typeCheckValidator->getCheck()
+                $typeCheckValidator->getCheck(),
             ),
             InvalidTypeException::class,
-            [[$passThroughType->getName(), $property->getType()->getName()]]
+            [[$passThroughType->getName(), $property->getType()->getName()]],
         );
     }
 

@@ -28,7 +28,7 @@ class PropertyValidator extends AbstractPropertyValidator
         PropertyInterface $property,
         string $check,
         string $exceptionClass,
-        array $exceptionParams = []
+        array $exceptionParams = [],
     ) {
         $this->isResolved = true;
         $this->check = $check;

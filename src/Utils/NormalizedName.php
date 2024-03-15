@@ -16,14 +16,14 @@ class NormalizedName
             static function (array $matches): string {
                 return "{$matches[1]}-{$matches[2]}";
             },
-            $name
+            $name,
         );
 
         $elements = array_map(
             static function (string $element): string {
                 return ucfirst(strtolower($element));
             },
-            preg_split('/[^a-z0-9]/i', $attributeName)
+            preg_split('/[^a-z0-9]/i', $attributeName),
         );
 
         $attributeName = join('', $elements);
@@ -33,7 +33,7 @@ class NormalizedName
                 sprintf(
                     "Name '%s' results in an empty name in file %s",
                     $name,
-                    $jsonSchema->getFile()
+                    $jsonSchema->getFile(),
                 )
             );
         }

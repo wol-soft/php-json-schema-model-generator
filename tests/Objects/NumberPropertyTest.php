@@ -87,7 +87,7 @@ class NumberPropertyTest extends AbstractNumericPropertyTest
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(
             'Invalid type for property. Requires float, got ' .
-                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue))
+                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue)),
         );
 
         $className = $this->generateClassFromFile('NumberProperty.json');

@@ -34,7 +34,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
     public function __construct(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        JsonSchema $propertiesNames
+        JsonSchema $propertiesNames,
     ) {
         $this->isResolved = true;
 
@@ -56,7 +56,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
                 'schema'                 => $schema,
             ],
             InvalidPropertyNamesException::class,
-            ['&$invalidProperties']
+            ['&$invalidProperties'],
         );
     }
 

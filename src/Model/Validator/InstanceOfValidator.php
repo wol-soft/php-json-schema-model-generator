@@ -25,10 +25,10 @@ class InstanceOfValidator extends PropertyValidator
             $property,
             sprintf(
                 'is_object($value) && !($value instanceof \Exception) && !($value instanceof %s)',
-                $property->getType()->getName()
+                $property->getType()->getName(),
             ),
             InvalidInstanceOfException::class,
-            [$property->getType()->getName()]
+            [$property->getType()->getName()],
         );
     }
 }

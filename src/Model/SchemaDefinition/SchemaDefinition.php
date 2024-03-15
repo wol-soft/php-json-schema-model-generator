@@ -73,7 +73,7 @@ class SchemaDefinition
     public function resolveReference(
         string $propertyName,
         array $path,
-        PropertyMetaDataCollection $propertyMetaDataCollection
+        PropertyMetaDataCollection $propertyMetaDataCollection,
     ): PropertyInterface {
         $jsonSchema = $this->source->getJson();
         $originalPath = $path;
@@ -100,7 +100,7 @@ class SchemaDefinition
                         $this->schemaProcessor,
                         $this->schema,
                         $propertyName,
-                        $this->source->withJson($jsonSchema)
+                        $this->source->withJson($jsonSchema),
                     );
                 $this->resolvedPaths->offsetSet($key, $property);
 

@@ -26,7 +26,7 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
         string $template,
         array $templateValues,
         string $exceptionClass,
-        array $exceptionParams = []
+        array $exceptionParams = [],
     ) {
         $this->generatorConfiguration = $generatorConfiguration;
 
@@ -34,7 +34,7 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
             'validate%s_%s_%s',
             str_replace(' ', '', ucfirst($property->getAttribute())),
             str_replace('Validator', '', substr(strrchr(static::class, '\\'), 1)),
-            uniqid()
+            uniqid(),
         );
 
         parent::__construct($property, $template, $templateValues, $exceptionClass, $exceptionParams);
@@ -50,7 +50,7 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
 
             public function __construct(
                 ExtractedMethodValidator $validator,
-                GeneratorConfiguration $generatorConfiguration
+                GeneratorConfiguration $generatorConfiguration,
             ) {
                 $this->validator = $validator;
                 $this->generatorConfiguration = $generatorConfiguration;

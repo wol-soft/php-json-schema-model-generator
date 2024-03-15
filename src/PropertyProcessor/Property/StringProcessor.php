@@ -66,7 +66,7 @@ class StringProcessor extends AbstractTypedValueProcessor
                     "Invalid pattern '%s' for property '%s' in file %s",
                     $json[static::JSON_FIELD_PATTERN],
                     $property->getName(),
-                    $propertySchema->getFile()
+                    $propertySchema->getFile(),
                 )
             );
         }
@@ -78,7 +78,7 @@ class StringProcessor extends AbstractTypedValueProcessor
                 $property,
                 $this->getTypeCheck() . "!preg_match(base64_decode('$encodedPattern'), \$value)",
                 PatternException::class,
-                [$json[static::JSON_FIELD_PATTERN]]
+                [$json[static::JSON_FIELD_PATTERN]],
             )
         );
     }
@@ -99,7 +99,7 @@ class StringProcessor extends AbstractTypedValueProcessor
                     $property,
                     $this->getTypeCheck() . "mb_strlen(\$value) < {$json[static::JSON_FIELD_MIN_LENGTH]}",
                     MinLengthException::class,
-                    [$json[static::JSON_FIELD_MIN_LENGTH]]
+                    [$json[static::JSON_FIELD_MIN_LENGTH]],
                 )
             );
         }
@@ -110,7 +110,7 @@ class StringProcessor extends AbstractTypedValueProcessor
                     $property,
                     $this->getTypeCheck() . "mb_strlen(\$value) > {$json[static::JSON_FIELD_MAX_LENGTH]}",
                     MaxLengthException::class,
-                    [$json[static::JSON_FIELD_MAX_LENGTH]]
+                    [$json[static::JSON_FIELD_MAX_LENGTH]],
                 )
             );
         }
@@ -138,7 +138,7 @@ class StringProcessor extends AbstractTypedValueProcessor
                     'Unsupported format %s for property %s in file %s',
                     $propertySchema->getJson()[self::JSON_FIELD_FORMAT],
                     $property->getName(),
-                    $propertySchema->getFile()
+                    $propertySchema->getFile(),
                 )
             );
         }
@@ -147,7 +147,7 @@ class StringProcessor extends AbstractTypedValueProcessor
             new FormatValidator(
                 $property,
                 $formatValidator,
-                [$propertySchema->getJson()[self::JSON_FIELD_FORMAT]]
+                [$propertySchema->getJson()[self::JSON_FIELD_FORMAT]],
             )
         );
     }

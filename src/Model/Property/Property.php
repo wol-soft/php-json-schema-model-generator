@@ -90,9 +90,9 @@ class Property extends AbstractProperty
      * @inheritdoc
      */
     public function setType(
-        PropertyType $type = null,
-        PropertyType $outputType = null,
-        bool $reset = false
+        ?PropertyType $type = null,
+        ?PropertyType $outputType = null,
+        bool $reset = false,
     ): PropertyInterface {
         if ($reset) {
             $this->typeHintDecorators = [];
@@ -134,7 +134,7 @@ class Property extends AbstractProperty
                     $this->typeHintDecorators,
                     static function (TypeHintDecoratorInterface $decorator) use ($skipDec): bool {
                         return !in_array(get_class($decorator), $skipDec);
-                    }
+                    },
                 );
 
                 foreach ($filteredDecorators as $decorator) {
@@ -142,7 +142,7 @@ class Property extends AbstractProperty
                 }
 
                 return $typeHint;
-            }, $input))
+            }, $input)),
         );
 
         $skipDec = array_diff($skipDec, $additionalSkips);
@@ -220,14 +220,14 @@ class Property extends AbstractProperty
                     return 0;
                 }
                 return ($validator->getPriority() < $comparedValidator->getPriority()) ? -1 : 1;
-            }
+            },
         );
 
         return array_map(
             static function (Validator $validator): PropertyValidatorInterface {
                 return $validator->getValidator();
             },
-            $this->validators
+            $this->validators,
         );
     }
 

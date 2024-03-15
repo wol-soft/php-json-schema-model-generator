@@ -34,7 +34,7 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTest
         $this->expectExceptionMessage(<<<ERROR
 Invalid value for property declined by composition constraint.
   Requires to match none composition element but matched 1 elements.
-ERROR
+ERROR,
         );
 
         $className = $this->generateClassFromFile('EmptyNot.json');
@@ -73,7 +73,7 @@ ERROR
      */
     public function testValidProvidedOptionalNotOfTypeStringPropertyIsValid(
         GeneratorConfiguration $configuration,
-        $propertyValue
+        $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('NotOfType.json', $configuration);
 
@@ -92,7 +92,7 @@ ERROR
                 'array' => [[]],
                 'object' => [new stdClass()],
                 'null' => [null],
-            ]
+            ],
         );
     }
 
@@ -108,7 +108,7 @@ ERROR
      */
     public function testInvalidProvidedOptionalNotOfTypeStringPropertyThrowsAnException(
         GeneratorConfiguration $configuration,
-        string $propertyValue
+        string $propertyValue,
     ): void {
         $this->expectValidationError($configuration, 'Invalid value for property declined by composition constraint');
 
@@ -125,7 +125,7 @@ ERROR
                 'empty string' => [''],
                 'numeric string' => ['100'],
                 'word string' => ['Hello'],
-            ]
+            ],
         );
     }
 
@@ -157,7 +157,7 @@ ERROR
      * @throws SchemaException
      */
     public function testInvalidProvidedOptionalNotNullPropertyThrowsAnException(
-        GeneratorConfiguration $configuration
+        GeneratorConfiguration $configuration,
     ): void {
         $this->expectValidationError($configuration, 'Invalid value for property declined by composition constraint');
 
@@ -178,7 +178,7 @@ ERROR
      */
     public function testValidProvidedOptionalNotNullPropertyIsValid(
         GeneratorConfiguration $configuration,
-        $propertyValue
+        $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('NotNull.json', $configuration);
 
@@ -197,7 +197,7 @@ ERROR
                 'array' => [[]],
                 'object' => [new stdClass()],
                 'string' => [''],
-            ]
+            ],
         );
     }
 
@@ -213,7 +213,7 @@ ERROR
      */
     public function testExtendedPropertyDefinitionWithValidValues(
         GeneratorConfiguration $configuration,
-        $propertyValue
+        $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('ExtendedPropertyDefinition.json', $configuration);
 
@@ -229,7 +229,7 @@ ERROR
                 '11.' => [11.],
                 '13.' => [13.],
                 '10.5' => [10.5],
-            ]
+            ],
         );
     }
 
@@ -247,7 +247,7 @@ ERROR
     public function testExtendedPropertyDefinitionWithInvalidValuesThrowsAnException(
         GeneratorConfiguration $configuration,
         $propertyValue,
-        string $exceptionMessage
+        string $exceptionMessage,
     ): void {
         $this->expectValidationError($configuration, $exceptionMessage);
 
@@ -270,7 +270,7 @@ ERROR
                 'array' => [[], 'Invalid type for property'],
                 'object' => [new stdClass(), 'Invalid type for property'],
                 'string' => ['', 'Invalid type for property'],
-            ]
+            ],
         );
     }
 
@@ -284,7 +284,7 @@ ERROR
      * @throws SchemaException
      */
     public function testNotProvidedObjectPropertyWithReferencedSchemaIsValid(
-        GeneratorConfiguration $configuration
+        GeneratorConfiguration $configuration,
     ): void {
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json', $configuration);
 
@@ -304,7 +304,7 @@ ERROR
      */
     public function testNotMatchingObjectPropertyWithReferencedSchemaIsValid(
         GeneratorConfiguration $configuration,
-        $propertyValue
+        $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json', $configuration);
 
@@ -328,7 +328,7 @@ ERROR
                 'Too many properties' => [['name' => 'Hannes', 'age' => 42, 'alive' => true]],
                 'Matching object with invalid type' => [['name' => 'Hannes', 'age' => '42']],
                 'Matching object with invalid data' => [['name' => 'H', 'age' => 42]],
-            ]
+            ],
         );
     }
 
@@ -342,7 +342,7 @@ ERROR
      * @throws SchemaException
      */
     public function testMatchingObjectPropertyWithReferencedSchemaThrowsAnException(
-        GeneratorConfiguration $configuration
+        GeneratorConfiguration $configuration,
     ): void {
         $this->expectValidationError($configuration, 'Invalid value for person declined by composition constraint');
 
@@ -359,11 +359,11 @@ ERROR
      */
     public function testComposedNotValidationInSetterMethods(
         GeneratorConfiguration $generatorConfiguration,
-        string $exceptionMessage
+        string $exceptionMessage,
     ): void {
         $className = $this->generateClassFromFile(
             'NotOfType.json',
-            $generatorConfiguration->setImmutable(false)
+            $generatorConfiguration->setImmutable(false),
         );
 
         $object = new $className(['property' => 2]);

@@ -27,7 +27,7 @@ class EnumValidator extends PropertyValidator
             $property,
             '!in_array($value, ' . RenderHelper::varExportArray($allowedValues) . ', true)',
             EnumException::class,
-            [$allowedValues]
+            [$allowedValues],
         );
     }
 }

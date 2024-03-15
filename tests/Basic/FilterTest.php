@@ -68,7 +68,7 @@ class FilterTest extends AbstractPHPModelGeneratorTest
         $this->expectExceptionMessage('Filter accepts invalid types');
 
         (new GeneratorConfiguration())->addFilter(
-            $this->getCustomFilter([self::class, 'uppercaseFilter'], 'customFilter', ['NotExistingType'])
+            $this->getCustomFilter([self::class, 'uppercaseFilter'], 'customFilter', ['NotExistingType']),
         );
     }
 
@@ -83,7 +83,7 @@ class FilterTest extends AbstractPHPModelGeneratorTest
     protected function getCustomFilter(
         array $customFilter,
         string $token = 'customFilter',
-        array $acceptedTypes = ['string', 'null']
+        array $acceptedTypes = ['string', 'null'],
     ): FilterInterface {
         return new class ($customFilter, $token, $acceptedTypes) implements FilterInterface {
             private $customFilter;
@@ -165,7 +165,7 @@ class FilterTest extends AbstractPHPModelGeneratorTest
                 'String containing only whitespaces' => [['property' => " \t \n \r "], ''],
                 'Numeric string' => [['property' => '  12  '], '12'],
                 'Text' => [['property' => '  Hello World! '], 'Hello World!'],
-            ]
+            ],
         );
     }
 
@@ -179,11 +179,11 @@ class FilterTest extends AbstractPHPModelGeneratorTest
     public function testInvalidUsageOfBuiltInFilterThrowsAnException(
         string $template,
         string $jsonType,
-        string $phpType
+        string $phpType,
     ): void {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/Filter trim is not compatible with property type $phpType for property property/"
+            "/Filter trim is not compatible with property type $phpType for property property/",
         );
 
         $this->generateClassFromFileTemplate($template, ['"' . $jsonType . '"'], null, false);
@@ -199,7 +199,7 @@ class FilterTest extends AbstractPHPModelGeneratorTest
                 'number' => ['number', 'float'],
                 'array' => ['array', 'array'],
                 'object' => ['object', 'object'],
-            ]
+            ],
         );
     }
 
@@ -266,7 +266,7 @@ class FilterTest extends AbstractPHPModelGeneratorTest
             'Uppercase.json',
             (new GeneratorConfiguration())
                 ->setImmutable(false)
-                ->addFilter($this->getCustomFilter([self::class, 'uppercaseFilter'], 'uppercase'))
+                ->addFilter($this->getCustomFilter([self::class, 'uppercaseFilter'], 'uppercase')),
         );
 
         $object = new $className(['property' => $input]);
@@ -300,14 +300,14 @@ class FilterTest extends AbstractPHPModelGeneratorTest
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/Invalid filter options on filter encode on property .*\: $expectedErrorMessage/"
+            "/Invalid filter options on filter encode on property .*\: $expectedErrorMessage/",
         );
 
         $this->generateClassFromFileTemplate(
             'Encode.json',
             [$configuration],
             (new GeneratorConfiguration())->setImmutable(false)->addFilter($this->getEncodeFilter()),
-            false
+            false,
         );
     }
 
@@ -330,7 +330,7 @@ class FilterTest extends AbstractPHPModelGeneratorTest
             'Encode.json',
             [sprintf('{"filter": "encode", "charset": "%s"}', $encoding)],
             (new GeneratorConfiguration())->setImmutable(false)->addFilter($this->getEncodeFilter()),
-            false
+            false,
         );
 
         $object = new $classname(['property' => $input]);
@@ -396,7 +396,7 @@ class FilterTest extends AbstractPHPModelGeneratorTest
             'MultipleFilters.json',
             (new GeneratorConfiguration())
                 ->setImmutable(false)
-                ->addFilter($this->getCustomFilter([self::class, 'uppercaseFilter'], 'uppercase'))
+                ->addFilter($this->getCustomFilter([self::class, 'uppercaseFilter'], 'uppercase')),
         );
 
         $object = new $className(['property' => $input]);
@@ -435,7 +435,7 @@ class FilterTest extends AbstractPHPModelGeneratorTest
         array $customSerializer,
         array $customFilter = [],
         string $token = 'customTransformingFilter',
-        array $acceptedTypes = ['string']
+        array $acceptedTypes = ['string'],
     ): TransformingFilterInterface {
         return new class ($customSerializer, $customFilter, $token, $acceptedTypes)
             extends TrimFilter
@@ -450,7 +450,7 @@ class FilterTest extends AbstractPHPModelGeneratorTest
                 array $customSerializer,
                 array $customFilter,
                 string $token,
-                array $acceptedTypes
+                array $acceptedTypes,
             ) {
                 $this->customSerializer = $customSerializer;
                 $this->customFilter = $customFilter;
@@ -486,7 +486,7 @@ class FilterTest extends AbstractPHPModelGeneratorTest
     {
         $className = $this->generateClassFromFile(
             'TransformingFilter.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true)
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
         );
 
         $object = new $className($input);
@@ -547,12 +547,12 @@ class FilterTest extends AbstractPHPModelGeneratorTest
         $this->expectExceptionMessage(<<<ERROR
 Invalid value for property created denied by filter dateTime: Invalid Date Time value "Hello"
 Invalid type for name. Requires string, got integer
-ERROR
+ERROR,
         );
 
         $className = $this->generateClassFromFile(
             'TransformingFilter.json',
-            (new GeneratorConfiguration())->setCollectErrors(true)
+            (new GeneratorConfiguration())->setCollectErrors(true),
         );
 
         new $className(['created' => 'Hello', 'name' => 12]);
@@ -568,7 +568,7 @@ ERROR
     {
         $className = $this->generateClassFromFile(
             $schemaFile,
-            (new GeneratorConfiguration())->setSerialization(true)->setNamespacePrefix($namespace)
+            (new GeneratorConfiguration())->setSerialization(true)->setNamespacePrefix($namespace),
         );
 
         $fqcn = $namespace . $className;
@@ -588,7 +588,7 @@ ERROR
             [
                 'Chain notation' => ['FilterOptionsChainNotation.json'],
                 'Single filter notation' => ['FilterOptions.json'],
-            ]
+            ],
         );
     }
 
@@ -596,7 +596,7 @@ ERROR
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage(
-            'Applying a transforming filter to the array property list is not supported'
+            'Applying a transforming filter to the array property list is not supported',
         );
 
         $this->generateClassFromFile(
@@ -606,9 +606,9 @@ ERROR
                     [self::class, 'serializeBinaryToInt'],
                     [self::class, 'filterIntToBinary'],
                     'customArrayTransformer',
-                    ['array']
+                    ['array'],
                 )
-            )
+            ),
         );
     }
 
@@ -616,7 +616,7 @@ ERROR
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage(
-            'Applying multiple transforming filters for property filteredProperty is not supported'
+            'Applying multiple transforming filters for property filteredProperty is not supported',
         );
 
         $this->generateClassFromFileTemplate(
@@ -633,9 +633,9 @@ ERROR
                     {
                         return 'customTransformer';
                     }
-                }
+                },
             ),
-            false
+            false,
         );
     }
 
@@ -644,16 +644,16 @@ ERROR
         $this->expectException(ErrorRegistryException::class);
         $this->expectExceptionMessage(
             'Invalid value for property filteredProperty denied by filter exceptionFilter: ' .
-            'Exception filter called with 12.12.2020'
+            'Exception filter called with 12.12.2020',
         );
 
         $className = $this->generateClassFromFileTemplate(
             'FilterChain.json',
             ['["exceptionFilter", "dateTime"]'],
             (new GeneratorConfiguration())->addFilter(
-                $this->getCustomFilter([self::class, 'exceptionFilter'], 'exceptionFilter')
+                $this->getCustomFilter([self::class, 'exceptionFilter'], 'exceptionFilter'),
             ),
-            false
+            false,
         );
 
         new $className(['filteredProperty' => '12.12.2020']);
@@ -665,16 +665,16 @@ ERROR
             'FilterChain.json',
             ['["exceptionFilter", "dateTime"]'],
             (new GeneratorConfiguration())->addFilter(
-                $this->getCustomFilter([self::class, 'exceptionFilter'], 'exceptionFilter')
+                $this->getCustomFilter([self::class, 'exceptionFilter'], 'exceptionFilter'),
             ),
-            false
+            false,
         );
 
         $object = new $className(['filteredProperty' => new DateTime('2020-12-10')]);
 
         $this->assertSame(
             (new DateTime('2020-12-10'))->format(DATE_ATOM),
-            $object->getFilteredProperty()->format(DATE_ATOM)
+            $object->getFilteredProperty()->format(DATE_ATOM),
         );
     }
 
@@ -702,11 +702,11 @@ ERROR
                         [self::class, 'serializeBinaryToInt'],
                         [self::class, 'filterIntToBinary'],
                         'binary',
-                        ['integer']
+                        ['integer'],
                     )
                 ),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $fqcn = $namespace . $className;
@@ -723,7 +723,7 @@ ERROR
         $this->expectExceptionMessage(
             $implicitNull
                 ? 'Filter binary is not compatible with property type NULL for property value'
-                : 'Invalid type for value. Requires [string, int], got NULL'
+                : 'Invalid type for value. Requires [string, int], got NULL',
         );
 
         new $fqcn(['value' => null]);
@@ -744,7 +744,7 @@ ERROR
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage(
             'Filter trim is not compatible with transformed property type ' .
-            '[null, DateTime] for property filteredProperty'
+            '[null, DateTime] for property filteredProperty',
         );
 
         $this->generateClassFromFileTemplate('FilterChain.json', ['["dateTime", "trim"]'], null, false);
@@ -761,10 +761,10 @@ ERROR
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilter'],
                         'stripTime',
-                        [DateTime::class, 'null']
+                        [DateTime::class, 'null'],
                     )
                 ),
-            false
+            false,
         );
 
         $object = new $className(['filteredProperty' => '2020-12-12 12:12:12']);
@@ -787,7 +787,7 @@ ERROR
      */
     public function testFilterChainWithTransformingFilterOnMultiTypeProperty(
         bool $implicitNull,
-        string $namespace
+        string $namespace,
     ): void {
         $className = $this->generateClassFromFile(
             'FilterChainMultiType.json',
@@ -799,11 +799,11 @@ ERROR
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilter'],
                         'stripTime',
-                        [DateTime::class, 'null']
+                        [DateTime::class, 'null'],
                     )
                 ),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $fqcn = $namespace . $className;
@@ -825,7 +825,7 @@ ERROR
     {
         return $this->combineDataProvider(
             $this->implicitNullDataProvider(),
-            $this->namespaceDataProvider()
+            $this->namespaceDataProvider(),
         );
     }
 
@@ -834,7 +834,7 @@ ERROR
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage(
             'Filter stripTime is not compatible with transformed ' .
-            'property type [null, DateTime] for property filteredProperty'
+            'property type [null, DateTime] for property filteredProperty',
         );
 
         $this->generateClassFromFile(
@@ -844,9 +844,9 @@ ERROR
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilterStrict'],
                         'stripTime',
-                        [DateTime::class]
+                        [DateTime::class],
                     )
-                )
+                ),
         );
     }
 
@@ -854,7 +854,7 @@ ERROR
     {
         $this->expectException(ErrorRegistryException::class);
         $this->expectExceptionMessage(
-            'Invalid value for property filteredProperty denied by filter dateTime: Invalid Date Time value "Hello"'
+            'Invalid value for property filteredProperty denied by filter dateTime: Invalid Date Time value "Hello"',
         );
 
         $className = $this->generateClassFromFile(
@@ -864,10 +864,10 @@ ERROR
                     $this->getCustomFilter(
                         [self::class, 'exceptionFilter'],
                         'stripTime',
-                        [DateTime::class, 'null']
+                        [DateTime::class, 'null'],
                     )
                 ),
-            false
+            false,
         );
 
         new $className(['filteredProperty' => 'Hello']);
@@ -877,7 +877,7 @@ ERROR
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage(
-            'Filter trim is not compatible with property type null for property filteredProperty'
+            'Filter trim is not compatible with property type null for property filteredProperty',
         );
 
         $this->generateClassFromFile(
@@ -887,17 +887,17 @@ ERROR
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilter'],
                         'trim',
-                        ['string']
+                        ['string'],
                     )
                 )
                 ->addFilter(
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilter'],
                         'stripTime',
-                        [DateTime::class, 'null']
+                        [DateTime::class, 'null'],
                     )
                 ),
-            false
+            false,
         );
     }
 
@@ -944,7 +944,7 @@ ERROR
         $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
         $this->assertSame(
             (new DateTime('2020-12-12'))->format(DATE_ATOM),
-            $object->getFilteredProperty()->format(DATE_ATOM)
+            $object->getFilteredProperty()->format(DATE_ATOM),
         );
 
         $this->expectException(ValidationException::class);
@@ -961,7 +961,7 @@ ERROR
         $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
         $this->assertSame(
             (new DateTime('1999-12-12'))->format(DATE_ATOM),
-            $object->getFilteredProperty()->format(DATE_ATOM)
+            $object->getFilteredProperty()->format(DATE_ATOM),
         );
     }
 
@@ -978,7 +978,7 @@ ERROR
         $this->assertInstanceOf(DateTime::class, $object->getCreated());
         $this->assertSame(
             (new DateTime('2020-12-12'))->format(DATE_ATOM),
-            $object->getCreated()->format(DATE_ATOM)
+            $object->getCreated()->format(DATE_ATOM),
         );
     }
 }

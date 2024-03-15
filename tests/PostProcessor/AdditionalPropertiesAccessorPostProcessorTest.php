@@ -32,10 +32,10 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
     protected function addPostProcessor(bool $addForModelsWithoutAdditionalPropertiesDefinition): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator) use (
-            $addForModelsWithoutAdditionalPropertiesDefinition
+            $addForModelsWithoutAdditionalPropertiesDefinition,
         ): void {
             $generator->addPostProcessor(
-                new AdditionalPropertiesAccessorPostProcessor($addForModelsWithoutAdditionalPropertiesDefinition)
+                new AdditionalPropertiesAccessorPostProcessor($addForModelsWithoutAdditionalPropertiesDefinition),
             );
         };
     }
@@ -46,7 +46,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
      * @param bool $addForModelsWithoutAdditionalPropertiesDefinition
      */
     public function testAdditionalPropertiesAccessorsAreNotGeneratedForAdditionalPropertiesFalse(
-        bool $addForModelsWithoutAdditionalPropertiesDefinition
+        bool $addForModelsWithoutAdditionalPropertiesDefinition,
     ): void {
         $this->addPostProcessor($addForModelsWithoutAdditionalPropertiesDefinition);
 
@@ -66,13 +66,13 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
      * @param bool $addForModelsWithoutAdditionalPropertiesDefinition
      */
     public function testAdditionalPropertiesAccessorsAreNotGeneratedWhenAdditionalPropertiesAreDenied(
-        bool $addForModelsWithoutAdditionalPropertiesDefinition
+        bool $addForModelsWithoutAdditionalPropertiesDefinition,
     ): void {
         $this->addPostProcessor($addForModelsWithoutAdditionalPropertiesDefinition);
 
         $className = $this->generateClassFromFile(
             'AdditionalPropertiesNotDefined.json',
-            (new GeneratorConfiguration())->setDenyAdditionalProperties(true)
+            (new GeneratorConfiguration())->setDenyAdditionalProperties(true),
         );
 
         $object = new $className();
@@ -89,7 +89,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
      * @param bool $addForModelsWithoutAdditionalPropertiesDefinition
      */
     public function testAdditionalPropertiesAccessorsDependOnConfigurationForAdditionalPropertiesNotDefined(
-        bool $addForModelsWithoutAdditionalPropertiesDefinition
+        bool $addForModelsWithoutAdditionalPropertiesDefinition,
     ): void {
         $this->addPostProcessor($addForModelsWithoutAdditionalPropertiesDefinition);
 
@@ -99,11 +99,11 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $this->assertSame(
             $addForModelsWithoutAdditionalPropertiesDefinition,
-            is_callable([$object, 'getAdditionalProperties'])
+            is_callable([$object, 'getAdditionalProperties']),
         );
         $this->assertSame(
             $addForModelsWithoutAdditionalPropertiesDefinition,
-            is_callable([$object, 'getAdditionalProperty'])
+            is_callable([$object, 'getAdditionalProperty']),
         );
         $this->assertFalse(is_callable([$object, 'setAdditionalProperty']));
         $this->assertFalse(is_callable([$object, 'removeAdditionalProperty']));
@@ -124,7 +124,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->addPostProcessor(true);
         $className = $this->generateClassFromFile(
             'AdditionalPropertiesNotDefined.json',
-            (new GeneratorConfiguration())->setImmutable(false)
+            (new GeneratorConfiguration())->setImmutable(false),
         );
 
         $object = new $className(['property1' => 100]);
@@ -153,14 +153,14 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
      * @param bool $addForModelsWithoutAdditionalPropertiesDefinition
      */
     public function testAdditionalPropertiesAccessorsAreGeneratedForAdditionalProperties(
-        bool $addForModelsWithoutAdditionalPropertiesDefinition
+        bool $addForModelsWithoutAdditionalPropertiesDefinition,
     ): void {
         $this->addPostProcessor($addForModelsWithoutAdditionalPropertiesDefinition);
 
         $className = $this->generateClassFromFile(
             'AdditionalProperties.json',
             // make sure the deny additional properties setting doesn't affect specified additional properties
-            (new GeneratorConfiguration())->setDenyAdditionalProperties(true)
+            (new GeneratorConfiguration())->setDenyAdditionalProperties(true),
         );
 
         $object = new $className(['property1' => 'Hello', 'property2' => 'World']);
@@ -172,7 +172,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $this->assertEqualsCanonicalizing(
             ['property1' => 'Hello', 'property2' => 'World'],
-             $object->getAdditionalProperties()
+             $object->getAdditionalProperties(),
          );
         $this->assertSame('Hello', $object->getAdditionalProperty('property1'));
         $this->assertSame('World', $object->getAdditionalProperty('property2'));
@@ -192,7 +192,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $className = $this->generateClassFromFile(
             'AdditionalProperties.json',
-            (new GeneratorConfiguration())->setImmutable(false)
+            (new GeneratorConfiguration())->setImmutable(false),
         );
 
         $object = new $className(['property1' => '  Hello  ', 'property2' => 'World']);
@@ -206,11 +206,11 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $object->setAdditionalProperty('property3', '  Good night  ');
         $this->assertEqualsCanonicalizing(
             ['property1' => 'Hello', 'property2' => 'World', 'property3' => 'Good night'],
-            $object->getAdditionalProperties()
+            $object->getAdditionalProperties(),
         );
         $this->assertEqualsCanonicalizing(
             ['property1' => '  Hello  ', 'property2' => 'World', 'property3' => '  Good night  '],
-            $object->getRawModelDataInput()
+            $object->getRawModelDataInput(),
         );
         $this->assertSame('Good night', $object->getAdditionalProperty('property3'));
 
@@ -219,22 +219,22 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertFalse($object->removeAdditionalProperty('property2'));
         $this->assertEqualsCanonicalizing(
             ['property1' => 'Hello', 'property3' => 'Good night'],
-            $object->getAdditionalProperties()
+            $object->getAdditionalProperties(),
         );
         $this->assertEqualsCanonicalizing(
             ['property1' => '  Hello  ', 'property3' => '  Good night  '],
-            $object->getRawModelDataInput()
+            $object->getRawModelDataInput(),
         );
 
         // test update an existing additional property
         $object->setAdditionalProperty('property3', '  !Good night!  ');
         $this->assertEqualsCanonicalizing(
             ['property1' => 'Hello', 'property3' => '!Good night!'],
-            $object->getAdditionalProperties()
+            $object->getAdditionalProperties(),
         );
         $this->assertEqualsCanonicalizing(
             ['property1' => '  Hello  ', 'property3' => '  !Good night!  '],
-            $object->getRawModelDataInput()
+            $object->getRawModelDataInput(),
         );
         $this->assertSame('!Good night!', $object->getAdditionalProperty('property3'));
 
@@ -267,7 +267,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         string $expectedException,
         string $expectedExceptionMessage,
         string $action,
-        array $items
+        array $items,
     ): void {
         $this->expectException($expectedException);
         $this->expectExceptionMessage($expectedExceptionMessage);
@@ -276,7 +276,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $className = $this->generateClassFromFile(
             'AdditionalProperties.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
         );
 
         $object = new $className(['property1' => '  Hello  ', 'property2' => 'World']);
@@ -344,7 +344,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $className = $this->generateClassFromFile(
             'AdditionalProperties.json',
-            (new GeneratorConfiguration())->setImmutable(false)
+            (new GeneratorConfiguration())->setImmutable(false),
         );
 
         $object = new $className(['property1' => 'Hello', 'property2' => 'World']);
@@ -369,7 +369,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             'AdditionalPropertiesTransformingFilter.json',
             (new GeneratorConfiguration())->setSerialization(true)->setImmutable(false),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $object = new $className(['name' => 'Late autumn', 'start' => '2020-10-10']);
@@ -382,7 +382,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $this->assertEqualsCanonicalizing(
             ['name' => 'Late autumn', 'start' => '20201010', 'end' => '20201212'],
-            $object->toArray()
+            $object->toArray(),
         );
 
         // test adding a transformed value
@@ -402,7 +402,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $this->assertSame(
             'string|DateTime',
-            $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1)
+            $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1),
         );
 
         $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
@@ -417,7 +417,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $className = $this->generateClassFromFile(
             'AdditionalPropertiesTransformingFilter.json',
-            (new GeneratorConfiguration())->setSerialization(true)
+            (new GeneratorConfiguration())->setSerialization(true),
         );
 
         $object = new $className(['name' => 'Late autumn', 'start' => '2020-10-10']);
@@ -426,7 +426,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $object->populate(['end' => '20201212']);
         $this->assertEqualsCanonicalizing(
             ['name' => 'Late autumn', 'start' => '20201010', 'end' => '20201212'],
-            $object->toArray()
+            $object->toArray(),
         );
     }
 
@@ -438,7 +438,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $className = $this->generateClassFromFile(
             'AdditionalPropertiesNotDefined.json',
-            (new GeneratorConfiguration())->setSerialization(true)
+            (new GeneratorConfiguration())->setSerialization(true),
         );
 
         $object = new $className(['a' => 1, 'b' => 2]);
@@ -458,7 +458,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $className = $this->generateClassFromFile(
             'AdditionalPropertiesNotDefined.json',
-            (new GeneratorConfiguration())->setSerialization(true)
+            (new GeneratorConfiguration())->setSerialization(true),
         );
 
         $object = new $className(['a' => 1, 'b' => 2]);
@@ -474,7 +474,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $className = $this->generateClassFromFile(
             'AdditionalPropertiesMultiType.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
         );
 
         $object = new $className(['property1' => 'Hello', 'property2' => null]);
@@ -491,7 +491,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         // test typing
         $this->assertSame(
             'string[]|int[]|null[]',
-            $this->getReturnTypeAnnotation($object, 'getAdditionalProperties')
+            $this->getReturnTypeAnnotation($object, 'getAdditionalProperties'),
         );
         $returnType = $this->getReturnType($object, 'getAdditionalProperties');
         $this->assertSame('array', $returnType->getName());
@@ -499,20 +499,20 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $this->assertSame(
             'string|int|null',
-            $this->getReturnTypeAnnotation($object, 'getAdditionalProperty')
+            $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'),
         );
         $this->assertNull($this->getReturnType($object, 'getAdditionalProperty'));
 
         $this->assertSame(
             'string|int|null',
-            $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1)
+            $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1),
         );
         $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
 
         // test setting an invalid type for the additional property
         $this->expectException(InvalidAdditionalPropertiesException::class);
         $this->expectExceptionMessage(
-            'Invalid type for additional property. Requires [string, int, null], got boolean'
+            'Invalid type for additional property. Requires [string, int, null], got boolean',
         );
         $object->setAdditionalProperty('property1', false);
     }
@@ -523,7 +523,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $className = $this->generateClassFromFile(
             'AdditionalPropertiesComposition.json',
-            (new GeneratorConfiguration())->setImmutable(false)
+            (new GeneratorConfiguration())->setImmutable(false),
         );
 
         $object = new $className(['property1' => 'Hello', 'property2' => 12345]);
@@ -538,7 +538,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         // test typing
         $this->assertSame(
             'string[]|int[]',
-            $this->getReturnTypeAnnotation($object, 'getAdditionalProperties')
+            $this->getReturnTypeAnnotation($object, 'getAdditionalProperties'),
         );
         $returnType = $this->getReturnType($object, 'getAdditionalProperties');
         $this->assertSame('array', $returnType->getName());
@@ -546,13 +546,13 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $this->assertSame(
             'string|int|null',
-            $this->getReturnTypeAnnotation($object, 'getAdditionalProperty')
+            $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'),
         );
         $this->assertNull($this->getReturnType($object, 'getAdditionalProperty'));
 
         $this->assertSame(
             'string|int',
-            $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1)
+            $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1),
         );
         $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
 
@@ -566,7 +566,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         * Invalid type for additional property. Requires string, got NULL
       - Composition element #2: Failed
         * Invalid type for additional property. Requires int, got NULL
-ERROR
+ERROR,
         );
         $object->setAdditionalProperty('property1', null);
     }

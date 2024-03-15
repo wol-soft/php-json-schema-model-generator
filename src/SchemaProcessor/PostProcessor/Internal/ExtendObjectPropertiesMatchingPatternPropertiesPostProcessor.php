@@ -67,10 +67,10 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                             $modelData = array_merge($this->_rawModelDataInput, ["%s" => $value]);
                             $this->executeBaseValidators($modelData);
                         ',
-                        $property->getName()
+                        $property->getName(),
                     );
                 }
-            }
+            },
         );
     }
 
@@ -82,7 +82,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
      */
     protected function transferPatternPropertiesFilterToProperty(
         Schema $schema,
-        GeneratorConfiguration $generatorConfiguration
+        GeneratorConfiguration $generatorConfiguration,
     ): void {
         $patternPropertiesValidators = array_filter(
             $schema->getBaseValidators(),
@@ -101,7 +101,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                     static function (Validator $validator): bool {
                         return $validator->getValidator() instanceof FilterValidator &&
                             $validator->getValidator()->getFilter() instanceof TransformingFilterInterface;
-                    }
+                    },
                 )
             );
 
@@ -109,13 +109,13 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
             foreach ($patternPropertiesValidators as $patternPropertiesValidator) {
                 if (!preg_match(
                         '/' . addcslashes($patternPropertiesValidator->getPattern(), '/') . '/',
-                        $property->getName()
+                        $property->getName(),
                     )
                     || !isset(
                         $schema->getJsonSchema()->getJson()
                             ['patternProperties']
                             [$patternPropertiesValidator->getPattern()]
-                            ['filter']
+                            ['filter'],
                     )
                 ) {
                     continue;
@@ -132,7 +132,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                                 sprintf(
                                     'Applying multiple transforming filters for property %s is not supported in file %s',
                                     $property->getName(),
-                                    $property->getJsonSchema()->getFile()
+                                    $property->getJsonSchema()->getFile(),
                                 )
                             );
                         }
@@ -146,7 +146,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                         [$patternPropertiesValidator->getPattern()]
                         ['filter'],
                     $generatorConfiguration,
-                    $schema
+                    $schema,
                 );
             }
         }

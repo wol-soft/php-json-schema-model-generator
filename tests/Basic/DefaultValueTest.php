@@ -34,7 +34,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
             'DefaultValueTypedProperty.json',
             [$valueType, $defaultValue],
             null,
-            false
+            false,
         );
 
         $object = new $className([]);
@@ -48,7 +48,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
             'DefaultValueTypedProperty.json',
             ['"integer"', 0],
             (new GeneratorConfiguration())->setImmutable(false),
-            false
+            false,
         );
 
         $object = new $className([]);
@@ -75,7 +75,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
             ['"integer"', 0],
             (new GeneratorConfiguration())->setImmutable(false),
             false,
-            false
+            false,
         );
 
         $object = new $className([]);
@@ -138,7 +138,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
             'DefaultValueTypedProperty.json',
             [$valueType, $defaultValue],
             null,
-            false
+            false,
         );
     }
 
@@ -187,7 +187,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
             'DefaultValueUntypedProperty.json',
             [$defaultValue],
             null,
-            false
+            false,
         );
 
         $object = new $className([]);
@@ -216,7 +216,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTest
             [10],
             (new GeneratorConfiguration())->setImmutable(false),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $object = new $className([]);

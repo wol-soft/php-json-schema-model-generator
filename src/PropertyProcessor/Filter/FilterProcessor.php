@@ -44,7 +44,7 @@ class FilterProcessor
         PropertyInterface $property,
         $filterList,
         GeneratorConfiguration $generatorConfiguration,
-        Schema $schema
+        Schema $schema,
     ): void {
         if (is_string($filterList) || (is_array($filterList) && isset($filterList['filter']))) {
             $filterList = [$filterList];
@@ -67,7 +67,7 @@ class FilterProcessor
                         'Unsupported filter %s on property %s in file %s',
                         $filterToken,
                         $property->getName(),
-                        $property->getJsonSchema()->getFile()
+                        $property->getJsonSchema()->getFile(),
                     )
                 );
             }
@@ -82,7 +82,7 @@ class FilterProcessor
                             $filterToken,
                             $property->getName(),
                             $property->getJsonSchema()->getFile(),
-                            $exception->getMessage()
+                            $exception->getMessage(),
                         )
                     );
                 }
@@ -90,7 +90,7 @@ class FilterProcessor
 
             $property->addValidator(
                 new FilterValidator($generatorConfiguration, $filter, $property, $filterOptions, $transformingFilter),
-                $filterPriority++
+                $filterPriority++,
             );
 
             if ($filter instanceof TransformingFilterInterface) {
@@ -99,7 +99,7 @@ class FilterProcessor
                         sprintf(
                             'Applying a transforming filter to the array property %s is not supported in file %s',
                             $property->getName(),
-                            $property->getJsonSchema()->getFile()
+                            $property->getJsonSchema()->getFile(),
                         )
                     );
                 }
@@ -108,7 +108,7 @@ class FilterProcessor
                         sprintf(
                             'Applying multiple transforming filters for property %s is not supported in file %s',
                             $property->getName(),
-                            $property->getJsonSchema()->getFile()
+                            $property->getJsonSchema()->getFile(),
                         )
                     );
                 }
@@ -131,7 +131,7 @@ class FilterProcessor
                         new PropertyType(
                             (new RenderHelper($generatorConfiguration))
                                 ->getSimpleClassName($typeAfterFilter->getName()),
-                            $typeAfterFilter->allowsNull()
+                            $typeAfterFilter->allowsNull(),
                         )
                     );
 
@@ -158,7 +158,7 @@ class FilterProcessor
     private function addTransformedValuePassThrough(
         PropertyInterface $property,
         TransformingFilterInterface $filter,
-        ReflectionType $filteredType
+        ReflectionType $filteredType,
     ): void {
         foreach ($property->getValidators() as $validator) {
             $validator = $validator->getValidator();
@@ -182,12 +182,12 @@ class FilterProcessor
                         sprintf(
                             "%s && %s",
                             ReflectionTypeCheckValidator::fromReflectionType($filteredType, $property)->getCheck(),
-                            $validator->getCheck()
+                            $validator->getCheck(),
                         ),
                         $validator->getExceptionClass(),
-                        $exceptionParams
+                        $exceptionParams,
                     ),
-                    3
+                    3,
                 );
             }
         }
@@ -202,7 +202,7 @@ class FilterProcessor
      */
     private function extendTypeCheckValidatorToAllowTransformedValue(
         PropertyInterface $property,
-        ReflectionType $typeAfterFilter
+        ReflectionType $typeAfterFilter,
     ): void {
         $typeCheckValidator = null;
 
@@ -220,7 +220,7 @@ class FilterProcessor
             // replacement for the removed TypeCheckValidator
             $property->addValidator(
                 new PassThroughTypeCheckValidator($typeAfterFilter, $property, $typeCheckValidator),
-                2
+                2,
             );
         }
     }

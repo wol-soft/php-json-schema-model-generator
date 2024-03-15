@@ -33,7 +33,7 @@ class NoAdditionalPropertiesValidator extends PropertyTemplateValidator
                 'pattern' => addcslashes(join('|', array_keys($json['patternProperties'] ?? [])), "'/"),
             ],
             AdditionalPropertiesException::class,
-            ['&$additionalProperties']
+            ['&$additionalProperties'],
         );
     }
 }

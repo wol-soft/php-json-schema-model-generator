@@ -55,7 +55,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTest
     public function testConstructorAfterValidationHookIsResolved(
         $value,
         string $expectedException,
-        string $expectedExceptionMessage
+        string $expectedExceptionMessage,
     ): void {
         $this->addSchemaHook(new class () implements ConstructorAfterValidationHookInterface {
             public function getCode(): string
@@ -120,7 +120,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTest
 
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setImmutable(false)
+            (new GeneratorConfiguration())->setImmutable(false),
         );
 
         $object = new $className(['name' => 'Albert', 'age' => 35]);
@@ -144,7 +144,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTest
     public function testSetterAfterValidationHookIsResolved(
         $value,
         string $expectedException,
-        string $expectedExceptionMessage
+        string $expectedExceptionMessage,
     ): void {
         $this->addSchemaHook(new class () implements SetterAfterValidationHookInterface {
             public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
@@ -155,7 +155,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTest
 
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
         );
 
         $object = new $className(['name' => 'Albert', 'age' => 35]);
@@ -195,7 +195,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTest
 
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setSerialization(true)
+            (new GeneratorConfiguration())->setSerialization(true),
         );
 
         $object = new $className(['name' => 'Albert', 'age' => 35]);

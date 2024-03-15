@@ -32,7 +32,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testProvidedStringPropertyIsValid(
         GeneratorConfiguration $configuration,
-        ?string $propertyValue
+        ?string $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('StringProperty.json', $configuration);
 
@@ -48,7 +48,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
                 'Hello' => ['Hello'],
                 'Empty string' => [''],
                 'Null' => [null]
-            ]
+            ],
         );
     }
 
@@ -81,12 +81,12 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testInvalidPropertyTypeThrowsAnException(
         GeneratorConfiguration $configuration,
-        $propertyValue
+        $propertyValue,
     ): void {
         $this->expectValidationError(
             $configuration,
             'Invalid type for property. Requires string, got ' .
-                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue))
+                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue)),
         );
 
         $className = $this->generateClassFromFile('StringProperty.json', $configuration);
@@ -104,7 +104,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
                 'bool' => [true],
                 'array' => [[]],
                 'object' => [new stdClass()],
-            ]
+            ],
         );
     }
 
@@ -120,7 +120,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
      */
     public function testStringInLengthValidationRangePasses(
         GeneratorConfiguration $configuration,
-        ?string $propertyValue
+        ?string $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('StringPropertyLengthValidation.json', $configuration);
 
@@ -137,7 +137,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
                 'Upper limit' => ['12345678'],
                 'Multibyte' => ['日本語日本語'],
                 'Null' => [null],
-            ]
+            ],
         );
     }
 
@@ -155,7 +155,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
     public function testStringWithInvalidLengthThrowsAnException(
         GeneratorConfiguration $configuration,
         string $propertyValue,
-        string $exceptionMessage
+        string $exceptionMessage,
     ): void {
         $this->expectValidationError($configuration, $exceptionMessage);
 
@@ -172,7 +172,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
                 'Empty string' => ['', 'Value for property must not be shorter than 2'],
                 'Too short string' => ['1', 'Value for property must not be shorter than 2'],
                 'Too long string' => ['Some Text', 'Value for property must not be longer than 8']
-            ]
+            ],
         );
     }
 
@@ -190,13 +190,13 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
     public function testPatternMatchingStringIsValid(
         GeneratorConfiguration $configuration,
         string $pattern,
-        ?string $propertyValue
+        ?string $propertyValue,
     ): void {
         $className = $this->generateClassFromFileTemplate(
             'StringPropertyPattern.json',
             [$pattern],
             $configuration,
-            false
+            false,
         );
 
         $object = new $className(['property' => $propertyValue]);
@@ -225,7 +225,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
                     'Contains a Date 2018-12-12 and something else'
                 ],
                 'Regex escape test' => ['^\\\\\\\\/\'$', '\\/\''],
-            ]
+            ],
         );
     }
 
@@ -243,7 +243,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
     public function testStringThatDoesntMatchPatternThrowsAnException(
         GeneratorConfiguration $configuration,
         string $pattern,
-        string $propertyValue
+        string $propertyValue,
     ): void {
         $this->expectValidationError($configuration, "Value for property doesn't match pattern $pattern");
 
@@ -264,7 +264,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
                     '[0-9]{4}-[0-9]{2}-[0-9]{2}',
                     'Contains a Date in invalid format 12.12.2018 and something else'
                 ],
-            ]
+            ],
         );
     }
 
@@ -280,7 +280,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
     {
         $className = $this->generateClassFromFile(
             'StringPropertyFormat.json',
-            (new GeneratorConfiguration())->addFormat('onyNumbers', new FormatValidatorFromRegEx('/^\d+$/'))
+            (new GeneratorConfiguration())->addFormat('onyNumbers', new FormatValidatorFromRegEx('/^\d+$/')),
         );
 
         $object = new $className(['property' => '12345']);
@@ -299,7 +299,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTest
 
         $className = $this->generateClassFromFile(
             'StringPropertyFormat.json',
-            (new GeneratorConfiguration())->addFormat('onyNumbers', new FormatValidatorFromRegEx('/^\d+$/'))
+            (new GeneratorConfiguration())->addFormat('onyNumbers', new FormatValidatorFromRegEx('/^\d+$/')),
         );
 
         new $className(['property' => $value]);

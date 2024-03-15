@@ -41,7 +41,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
             'AdditionalProperties.json',
             ['true'],
             // make sure the deny additional properties setting doesn't affect specified additional properties
-            (new GeneratorConfiguration())->setDenyAdditionalProperties(true)
+            (new GeneratorConfiguration())->setDenyAdditionalProperties(true),
         );
 
         $object = new $className($propertyValue);
@@ -90,7 +90,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
     {
         $this->expectException(AdditionalPropertiesException::class);
         $this->expectExceptionMessageMatches(
-            '/Provided JSON for .* contains not allowed additional properties \[additional\]/'
+            '/Provided JSON for .* contains not allowed additional properties \[additional\]/',
         );
 
         $className = $this->generateClassFromFileTemplate('AdditionalProperties.json', ['false']);
@@ -104,16 +104,16 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
      * @param array $propertyValue
      */
     public function testAdditionalPropertiesThrowAnExceptionWhenNotDefinedAndDeniedByGeneratorConfiguration(
-        array $propertyValue
+        array $propertyValue,
     ): void {
         $this->expectException(AdditionalPropertiesException::class);
         $this->expectExceptionMessageMatches(
-            '/Provided JSON for .* contains not allowed additional properties \[additional\]/'
+            '/Provided JSON for .* contains not allowed additional properties \[additional\]/',
         );
 
         $className = $this->generateClassFromFile(
             'AdditionalPropertiesNotDefined.json',
-            (new GeneratorConfiguration())->setDenyAdditionalProperties(true)->setCollectErrors(false)
+            (new GeneratorConfiguration())->setDenyAdditionalProperties(true)->setCollectErrors(false),
         );
 
         new $className($propertyValue);
@@ -127,7 +127,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
      */
     public function testValidTypedAdditionalPropertiesAreValid(
         GeneratorConfiguration $generatorConfiguration,
-        array $propertyValue
+        array $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('AdditionalPropertiesTyped.json', $generatorConfiguration);
 
@@ -148,7 +148,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
                 'only defined property' => [['id' => 12]],
                 'only additional properties' => [['additional1' => 'AB', 'additional2' => '12345']],
                 'defined and additional properties' => [['id' => 10, 'additional1' => 'AB', 'additional2' => '12345']],
-            ]
+            ],
         );
     }
 
@@ -162,7 +162,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTest
     public function testInvalidTypedAdditionalPropertiesThrowsAnException(
         GeneratorConfiguration $generatorConfiguration,
         array $propertyValue,
-        string $errorMessage
+        string $errorMessage,
     ): void {
         $this->expectValidationError($generatorConfiguration, $errorMessage);
         $className = $this->generateClassFromFile('AdditionalPropertiesTyped.json', $generatorConfiguration);
@@ -217,7 +217,7 @@ ERROR;
                     ['additional1' => '12345678', 'additional2' => 'Hello'],
                     sprintf($exception, 'Value for additional property must not be longer than 5')
                 ],
-            ]
+            ],
         );
     }
 
@@ -229,7 +229,7 @@ ERROR;
      */
     public function testValidAdditionalPropertiesObjectsAreValid(
         GeneratorConfiguration $generatorConfiguration,
-        array $propertyValue
+        array $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('AdditionalPropertiesObject.json', $generatorConfiguration);
 
@@ -257,7 +257,7 @@ ERROR;
                      'additional1' => ['name' => 'AB'],
                      'additional2' => ['name' => 'AB', 'age' => 12],
                 ]],
-            ]
+            ],
         );
     }
 
@@ -271,7 +271,7 @@ ERROR;
     public function testInvalidAdditionalPropertiesObjectsThrowsAnException(
         GeneratorConfiguration $generatorConfiguration,
         array $propertyValue,
-        string $errorMessage
+        string $errorMessage,
     ): void {
         $this->expectValidationError($generatorConfiguration, $errorMessage);
         $className = $this->generateClassFromFile('AdditionalPropertiesObject.json', $generatorConfiguration);
@@ -328,7 +328,7 @@ contains invalid additional properties.
     * Invalid type for age. Requires int, got string
 ERROR
                 ],
-            ]
+            ],
         );
     }
 }

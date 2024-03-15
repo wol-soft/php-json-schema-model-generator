@@ -48,7 +48,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     public function __construct(
         PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
-        Schema $schema
+        Schema $schema,
     ) {
         $this->propertyMetaDataCollection = $propertyMetaDataCollection;
         $this->schemaProcessor = $schemaProcessor;
@@ -95,7 +95,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                 sprintf(
                     "Empty enum property %s in file %s",
                     $property->getName(),
-                    $property->getJsonSchema()->getFile()
+                    $property->getJsonSchema()->getFile(),
                 )
             );
         }
@@ -108,7 +108,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                 static function ($value): string {
                     return TypeConverter::gettypeToInternal(gettype($value));
                 },
-                $allowedValues
+                $allowedValues,
             ));
 
             if (count($typesOfEnum) === 1) {
@@ -139,7 +139,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             $dependencies,
             static function ($dependency, $index) use (&$propertyDependency): void {
                 $propertyDependency = $propertyDependency && is_int($index) && is_string($dependency);
-            }
+            },
         );
 
         if ($propertyDependency) {
@@ -156,7 +156,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             new JsonSchema($this->schema->getJsonSchema()->getFile(), $dependencies),
             $this->schema->getClassPath(),
             "{$this->schema->getClassName()}_{$property->getName()}_Dependency",
-            $this->schema->getSchemaDictionary()
+            $this->schema->getSchemaDictionary(),
         );
 
         $property->addValidator(new SchemaDependencyValidator($this->schemaProcessor, $property, $dependencySchema));
@@ -181,7 +181,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                     ->setType(null)
                     ->filterValidators(static function (): bool {
                         return false;
-                    })
+                    }),
             );
         }
     }
@@ -214,7 +214,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                         'type' => $composedValueKeyword,
                         'propertySchema' => $propertySchema,
                         'onlyForDefinedValues' => !($this instanceof BaseProcessor) && !$property->isRequired(),
-                    ])
+                    ]),
                 );
 
             foreach ($composedProperty->getValidators() as $validator) {

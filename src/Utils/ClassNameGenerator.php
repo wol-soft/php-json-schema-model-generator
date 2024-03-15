@@ -20,7 +20,7 @@ class ClassNameGenerator implements ClassNameGeneratorInterface
         string $propertyName,
         JsonSchema $schema,
         bool $isMergeClass,
-        string $currentClassName = ''
+        string $currentClassName = '',
     ): string {
         $json = $isMergeClass && isset($schema->getJson()['propertySchema'])
             ? $schema->getJson()['propertySchema']->getJson()
@@ -32,7 +32,7 @@ class ClassNameGenerator implements ClassNameGeneratorInterface
             ucfirst(
                 isset($json['$id'])
                     ? str_replace('#', '', $json['$id'])
-                    : ($propertyName . ($currentClassName ? uniqid() : ''))
+                    : ($propertyName . ($currentClassName ? uniqid() : '')),
             )
         );
 

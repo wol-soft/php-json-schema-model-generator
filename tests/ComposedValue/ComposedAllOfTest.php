@@ -76,7 +76,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessageMatches(
             '/^Invalid value for (.*?) declined by composition constraint.\s*' .
-            'Requires to match all composition elements but matched 0 elements.\s*$/'
+            'Requires to match all composition elements but matched 0 elements.\s*$/',
         );
 
         $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
@@ -95,7 +95,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
             'ObjectLevelCompositionTypeCheck.json',
             (new GeneratorConfiguration())->setImmutable(false),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $this->assertSame('int|null', $this->getPropertyTypeAnnotation($className, 'age'));
@@ -103,7 +103,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
 
         $this->assertSame(
             $implicitNull ? 'int|null' : 'int',
-            $this->getParameterTypeAnnotation($className, 'setAge')
+            $this->getParameterTypeAnnotation($className, 'setAge'),
         );
         $setAgeParamType = $this->getParameterType($className, 'setAge');
         $this->assertSame('int', $setAgeParamType->getName());
@@ -189,7 +189,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
      */
     public function testComposedPropertyDefinitionWithInvalidValuesThrowsAnException(
         $propertyValue,
-        string $exceptionMessage
+        string $exceptionMessage,
     ): void {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($exceptionMessage);
@@ -249,7 +249,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
      */
     public function testExtendedPropertyDefinitionWithInvalidValuesThrowsAnException(
         $propertyValue,
-        string $exceptionMessage
+        string $exceptionMessage,
     ): void {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($exceptionMessage);
@@ -373,7 +373,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
     public function testMatchingPropertyForComposedAllOfObjectIsValid(
         array $input,
         ?string $stringPropertyValue,
-        ?int $intPropertyValue
+        ?int $intPropertyValue,
     ): void {
         $className = $this->generateClassFromFile('ObjectLevelComposition.json');
 
@@ -434,7 +434,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
      * @param array $input
      */
     public function testMatchingPropertyForComposedAllOfObjectWithRequiredPropertiesThrowsAnException(
-        array $input
+        array $input,
     ): void {
         $this->expectException(ValidationException::class);
 
@@ -449,7 +449,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
      * @param array $input
      */
     public function testNotMatchingPropertyForComposedAllOfObjectWithRequiredPropertiesThrowsAnException(
-        array $input
+        array $input,
     ): void {
         $this->expectException(ValidationException::class);
 
@@ -512,11 +512,11 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTest
     public function testValidationInSetterMethods(
         GeneratorConfiguration $generatorConfiguration,
         string $exceptionMessageIntegerPropertyInvalid,
-        string $exceptionMessageStringPropertyInvalid
+        string $exceptionMessageStringPropertyInvalid,
     ): void {
         $className = $this->generateClassFromFile(
             'ObjectLevelCompositionRequired.json',
-            $generatorConfiguration->setImmutable(false)
+            $generatorConfiguration->setImmutable(false),
         );
 
         $object = new $className(['integerProperty' => 2, 'stringProperty' => 'Hello']);
@@ -599,7 +599,7 @@ ERROR
     {
         $className = $this->generateClassFromFile(
             'IdenticalMergedSchema.json',
-            (new GeneratorConfiguration())->setImmutable(false)
+            (new GeneratorConfiguration())->setImmutable(false),
         );
 
         // main class, merged class, two separate for referenced objects
@@ -615,20 +615,20 @@ ERROR
 
         $this->assertRegExp(
             '/ComposedAllOfTest_\w+_Merged_CEO\w+\|null$/',
-            $this->getPropertyTypeAnnotation($className, 'ceo')
+            $this->getPropertyTypeAnnotation($className, 'ceo'),
         );
         $this->assertSame(
             $this->getPropertyTypeAnnotation($className, 'ceo'),
-            $this->getPropertyTypeAnnotation($className, 'cfo')
+            $this->getPropertyTypeAnnotation($className, 'cfo'),
         );
 
         $this->assertRegExp(
             '/ComposedAllOfTest_\w+_Merged_CEO\w+\|null$/',
-            $this->getParameterTypeAnnotation($className, 'setCeo')
+            $this->getParameterTypeAnnotation($className, 'setCeo'),
         );
         $this->assertSame(
             $this->getParameterTypeAnnotation($className, 'setCeo'),
-            $this->getParameterTypeAnnotation($className, 'setCfo')
+            $this->getParameterTypeAnnotation($className, 'setCfo'),
         );
     }
 }

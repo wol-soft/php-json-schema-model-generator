@@ -25,7 +25,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         PropertyInterface $property,
         array $composedProperties,
         string $compositionProcessor,
-        array $validatorVariables
+        array $validatorVariables,
     ) {
         $this->modifiedValuesMethod = '_getModifiedValues_' . substr(md5(spl_object_hash($this)), 0, 5);
         $this->isResolved = true;
@@ -36,7 +36,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
             array_merge($validatorVariables, ['modifiedValuesMethod' => $this->modifiedValuesMethod]),
             $this->getExceptionByProcessor($compositionProcessor),
-            ['&$succeededCompositionElements', '&$compositionErrorCollection']
+            ['&$succeededCompositionElements', '&$compositionErrorCollection'],
         );
 
         $this->compositionProcessor = $compositionProcessor;
@@ -92,7 +92,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
                             foreach (%s as $key => $accessor) {
                                 if ((isset($originalModelData[$key]) || in_array($key, $defaultValueMap))
                                     && method_exists($nestedCompositionObject, $accessor)
-                                    && ($modifiedValue = $nestedCompositionObject->$accessor()) !== ($originalModelData[$key] ?? !$modifiedValue)
+                                    && ($modifiedValue = $nestedCompositionObject->$accessor()) !== ($originalModelData[$key] ?? !$modifiedValue),
                                 ) {
                                     $modifiedValues[$key] = $modifiedValue;
                                 }
@@ -102,10 +102,10 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
                         }',
                         $this->modifiedValuesMethod,
                         var_export($defaultValueMap, true),
-                        var_export($propertyAccessors, true)
+                        var_export($propertyAccessors, true),
                     );
                 }
-            }
+            },
         );
 
         return parent::getCheck();
@@ -158,11 +158,11 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         return str_replace(
                 DIRECTORY_SEPARATOR,
                 '\\',
-                dirname(str_replace('\\', DIRECTORY_SEPARATOR, InvalidComposedValueException::class))
+                dirname(str_replace('\\', DIRECTORY_SEPARATOR, InvalidComposedValueException::class)),
             ) . '\\' . str_replace(
                 'Processor',
                 '',
-                substr($compositionProcessor, strrpos($compositionProcessor, '\\') + 1)
+                substr($compositionProcessor, strrpos($compositionProcessor, '\\') + 1),
             ) . 'Exception';
     }
 }

@@ -29,12 +29,12 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTest
      */
     public function testTypedPatternPropertyWithInvalidInputThrowsAnException(
         GeneratorConfiguration $configuration,
-        $propertyValue
+        $propertyValue,
     ): void {
         $this->expectValidationError(
             $configuration,
             'Invalid type for pattern property. Requires string, got ' .
-                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue))
+                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue)),
         );
 
         $className = $this->generateClassFromFile('TypedPatternProperty.json', $configuration);
@@ -52,7 +52,7 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTest
                 'bool' => [true],
                 'array' => [[]],
                 'object' => [new stdClass()],
-            ]
+            ],
         );
     }
 
@@ -81,7 +81,7 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTest
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage(
-            'Applying multiple transforming filters for property alpha is not supported'
+            'Applying multiple transforming filters for property alpha is not supported',
         );
 
         $this->generateClassFromFile('MultipleTransformingFilters.json');

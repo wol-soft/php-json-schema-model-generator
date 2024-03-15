@@ -82,7 +82,7 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTest
                 'object' => [new stdClass()],
                 'string' => ['null'],
                 'null' => [null],
-            ]
+            ],
         );
     }
 }

@@ -40,7 +40,7 @@ class PropertyProxy extends AbstractProperty
         string $name,
         JsonSchema $jsonSchema,
         ResolvedDefinitionsCollection $definitionsCollection,
-        string $key
+        string $key,
     ) {
         parent::__construct($name, $jsonSchema);
 
@@ -70,9 +70,9 @@ class PropertyProxy extends AbstractProperty
      * @inheritdoc
      */
     public function setType(
-        PropertyType $type = null,
-        PropertyType $outputType = null,
-        bool $reset = false
+        ?PropertyType $type = null,
+        ?PropertyType $outputType = null,
+        bool $reset = false,
     ): PropertyInterface {
         return $this->getProperty()->setType($type, $outputType);
     }
@@ -134,7 +134,7 @@ class PropertyProxy extends AbstractProperty
             function (PropertyValidatorInterface $propertyValidator): PropertyValidatorInterface {
                 return $propertyValidator->withProperty($this);
             },
-            $this->getProperty()->getOrderedValidators()
+            $this->getProperty()->getOrderedValidators(),
         );
     }
 

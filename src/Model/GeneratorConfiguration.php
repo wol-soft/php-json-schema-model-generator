@@ -77,7 +77,7 @@ class GeneratorConfiguration
         foreach ($additionalFilter as $filter) {
             $this->validateFilterCallback(
                 $filter->getFilter(),
-                "Invalid filter callback for filter {$filter->getToken()}"
+                "Invalid filter callback for filter {$filter->getToken()}",
             );
 
             if ($filter instanceof TransformingFilterInterface) {

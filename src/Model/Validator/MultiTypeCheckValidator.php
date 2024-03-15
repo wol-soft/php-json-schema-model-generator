@@ -41,11 +41,11 @@ class MultiTypeCheckValidator extends PropertyValidator implements TypeCheckInte
                     static function (string $allowedType) use ($property) : string {
                         return ReflectionTypeCheckValidator::fromType($allowedType, $property)->getCheck();
                     },
-                    $types
+                    $types,
                 )
             ) . ($allowImplicitNull ? ' && $value !== null' : ''),
             InvalidTypeException::class,
-            [$types]
+            [$types],
         );
     }
 

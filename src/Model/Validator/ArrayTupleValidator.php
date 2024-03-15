@@ -40,7 +40,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         JsonSchema $propertiesStructure,
-        string $propertyName
+        string $propertyName,
     ) {
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
@@ -55,7 +55,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
                 $schemaProcessor,
                 $schema,
                 $tupleItemName,
-                $propertiesStructure->withJson($tupleItem)
+                $propertiesStructure->withJson($tupleItem),
             );
 
             $this->tupleProperties[] = $tupleProperty;
@@ -73,7 +73,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
             ],
             InvalidTupleException::class,
-            ['&$invalidTuples']
+            ['&$invalidTuples'],
         );
     }
 

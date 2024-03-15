@@ -50,7 +50,7 @@ class EnumPostProcessor extends PostProcessor
     public function __construct(
         string $targetDirectory,
         string $namespace,
-        bool $skipNonMappedEnums = false
+        bool $skipNonMappedEnums = false,
     ) {
         if (PHP_VERSION_ID < 80100) {
             // @codeCoverageIgnoreStart
@@ -91,7 +91,7 @@ class EnumPostProcessor extends PostProcessor
                         $schema->getJsonSchema(),
                         $enumName,
                         $values,
-                        $json['enum-map'] ?? null
+                        $json['enum-map'] ?? null,
                     ),
                 ];
             } else {
@@ -112,7 +112,7 @@ class EnumPostProcessor extends PostProcessor
                 $property,
                 ['filter' => (new EnumFilter())->getToken(), 'fqcn' => $fqcn],
                 $generatorConfiguration,
-                $schema
+                $schema,
             );
 
             $schema->addUsedClass($fqcn);
@@ -138,11 +138,11 @@ class EnumPostProcessor extends PostProcessor
                             $property,
                             sprintf('$value instanceof UnitEnum && !($value instanceof %s)', $enumName),
                             InvalidTypeException::class,
-                            [$enumName]
+                            [$enumName],
                         );
                     }
                 },
-                0
+                0,
             );
         }
     }
@@ -161,7 +161,7 @@ class EnumPostProcessor extends PostProcessor
                 throw new SchemaException(sprintf(
                     "Can't apply enum filter to an already transformed value on property %s in file %s",
                     $property->getName(),
-                    $property->getJsonSchema()->getFile()
+                    $property->getJsonSchema()->getFile(),
                 ));
             }
         }
@@ -184,7 +184,7 @@ class EnumPostProcessor extends PostProcessor
                 sprintf(
                     $message,
                     $property->getName(),
-                    $property->getJsonSchema()->getFile()
+                    $property->getJsonSchema()->getFile(),
                 )
             );
         };
@@ -213,7 +213,7 @@ class EnumPostProcessor extends PostProcessor
                 || count(array_uintersect(
                     $json['enum-map'],
                     $json['enum'],
-                    function ($a, $b): int { return $a === $b ? 0 : 1; }
+                    function ($a, $b): int { return $a === $b ? 0 : 1; },
                 )) !== count($json['enum'])
             ) {
                 $throw('invalid enum map %s in file %s');
@@ -229,7 +229,7 @@ class EnumPostProcessor extends PostProcessor
             static function ($item): string {
                 return gettype($item);
             },
-            $array
+            $array,
         ));
     }
 
@@ -238,7 +238,7 @@ class EnumPostProcessor extends PostProcessor
         JsonSchema $jsonSchema,
         string $name,
         array $values,
-        ?array $map
+        ?array $map,
     ): string {
         $cases = [];
 
@@ -272,7 +272,7 @@ class EnumPostProcessor extends PostProcessor
                     'name' => $name,
                     'cases' => $cases,
                     'backedType' => $backedType,
-                ]
+                ],
             )
         );
 

@@ -42,7 +42,7 @@ class RenderJob
         string $fileName,
         string $classPath,
         string $className,
-        Schema $schema
+        Schema $schema,
     ) {
         $this->fileName = $fileName;
         $this->classPath = $classPath;
@@ -90,7 +90,7 @@ class RenderJob
                 "Rendered class %s\n",
                 join(
                     '\\',
-                    array_filter([$generatorConfiguration->getNamespacePrefix(), $this->classPath, $this->className])
+                    array_filter([$generatorConfiguration->getNamespacePrefix(), $this->classPath, $this->className]),
                 )
             );
         }
@@ -138,9 +138,9 @@ class RenderJob
                         $this->schema->getBaseValidators(),
                         static function ($validator): bool {
                             return !is_a($validator, AbstractComposedPropertyValidator::class);
-                        }
+                        },
                     ),
-                ]
+                ],
             );
         } catch (PHPMicroTemplateException $exception) {
             throw new RenderException("Can't render class $this->classPath\\$this->className", 0, $exception);
@@ -162,7 +162,7 @@ class RenderJob
                 $this->schema->getUsedClasses(),
                 $generatorConfiguration->collectErrors()
                     ? [$generatorConfiguration->getErrorRegistryClass()]
-                    : [ValidationException::class]
+                    : [ValidationException::class],
             )
         );
 

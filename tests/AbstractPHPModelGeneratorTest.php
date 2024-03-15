@@ -94,7 +94,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
                 copy(
                     $file,
-                    $failedResultDir . $nestedDir . DIRECTORY_SEPARATOR . basename($file)
+                    $failedResultDir . $nestedDir . DIRECTORY_SEPARATOR . basename($file),
                 );
             }
         }
@@ -138,17 +138,17 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      */
     protected function generateClassFromFile(
         string $file,
-        GeneratorConfiguration $generatorConfiguration = null,
+        ?GeneratorConfiguration $generatorConfiguration = null,
         bool $originalClassNames = false,
         bool $implicitNull = true,
-        string $schemaProviderClass = RecursiveDirectoryProvider::class
+        string $schemaProviderClass = RecursiveDirectoryProvider::class,
     ): string {
         return $this->generateClass(
             file_get_contents($this->getSchemaFilePath($file)),
             $generatorConfiguration,
             $originalClassNames,
             $implicitNull,
-            $schemaProviderClass
+            $schemaProviderClass,
         );
     }
 
@@ -171,10 +171,10 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     protected function generateClassFromFileTemplate(
         string $file,
         array $values,
-        GeneratorConfiguration $generatorConfiguration = null,
+        ?GeneratorConfiguration $generatorConfiguration = null,
         bool $escape = true,
         bool $implicitNull = true,
-        string $schemaProviderClass = RecursiveDirectoryProvider::class
+        string $schemaProviderClass = RecursiveDirectoryProvider::class,
     ): string {
         return $this->generateClass(
             sprintf(
@@ -183,13 +183,13 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
                     static function (string $item) use ($escape): string {
                         return $escape ? str_replace("'", '"', addcslashes($item, '"\\')) : $item;
                     },
-                    $values
+                    $values,
                 )
             ),
             $generatorConfiguration,
             false,
             $implicitNull,
-            $schemaProviderClass
+            $schemaProviderClass,
         );
     }
 
@@ -210,10 +210,10 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      */
     protected function generateClass(
         string $jsonSchema,
-        GeneratorConfiguration $generatorConfiguration = null,
+        ?GeneratorConfiguration $generatorConfiguration = null,
         bool $originalClassNames = false,
         bool $implicitNull = true,
-        string $schemaProviderClass = RecursiveDirectoryProvider::class
+        string $schemaProviderClass = RecursiveDirectoryProvider::class,
     ): string {
         $generatorConfiguration = ($generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false))
             ->setImplicitNull($implicitNull)
@@ -239,7 +239,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
                     string $propertyName,
                     JsonSchema $schema,
                     bool $isMergeClass,
-                    string $currentClassName = ''
+                    string $currentClassName = '',
                 ): string {
                     return parent::getClassName($propertyName, $schema, $isMergeClass, $currentClassName) .
                         ($currentClassName ? uniqid() : '');
@@ -283,7 +283,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
 
         $generatedFiles = $generator->generateModels(
             $schemaProvider,
-            $baseDir . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR
+            $baseDir . DIRECTORY_SEPARATOR . 'Models' . DIRECTORY_SEPARATOR,
         );
 
         foreach ($generatedFiles as $path) {
@@ -310,7 +310,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
     {
         $generatedClasses = (new ModelGenerator($configuration))->generateModels(
             new RecursiveDirectoryProvider(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $directory),
-            MODEL_TEMP_PATH
+            MODEL_TEMP_PATH,
         );
 
         foreach ($generatedClasses as $path) {
@@ -414,7 +414,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
      */
     protected function assertErrorRegistryContainsException(
         ErrorRegistryException $registryException,
-        string $expectedException
+        string $expectedException,
     ): ValidationException {
         foreach ($registryException->getErrors() as $error) {
             if ($error instanceof $expectedException) {
@@ -463,7 +463,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         preg_match(
             '/@var\s+([^\s]+)\s/',
             (new ReflectionClass($object))->getProperty($property)->getDocComment(),
-            $matches
+            $matches,
         );
 
         return $matches[1];
@@ -483,7 +483,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         preg_match(
             '/@return\s+([^\s]+)\s/',
             (new ReflectionClass($object))->getMethod($method)->getDocComment(),
-            $matches
+            $matches,
         );
 
         return $matches[1] ?? '';
@@ -504,7 +504,7 @@ abstract class AbstractPHPModelGeneratorTest extends TestCase
         preg_match_all(
             '/@param\s+([^\s]*)\s?\$/',
             (new ReflectionClass($object))->getMethod($method)->getDocComment(),
-            $matches
+            $matches,
         );
 
         return $matches[1][$parameter];

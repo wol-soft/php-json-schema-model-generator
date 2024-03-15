@@ -53,7 +53,7 @@ class SchemaHookResolver
             $this->schema->getSchemaHooks(),
             static function (SchemaHookInterface $hook) use ($filterHook): bool {
                 return is_a($hook, $filterHook);
-            }
+            },
         );
     }
 
@@ -63,7 +63,7 @@ class SchemaHookResolver
             "\n\n",
             array_map(static function ($hook) use ($parameters): string {
                 return $hook->getCode(...$parameters);
-            }, $this->getHooks($filterHook))
+            }, $this->getHooks($filterHook)),
         );
     }
 }

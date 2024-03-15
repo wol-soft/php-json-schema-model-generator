@@ -45,7 +45,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
                 'Defined property' => ['RequiredStringProperty.json'],
                 'Undefined property' => ['RequiredUndefinedProperty.json'],
                 'Reference in composition' => ['RequiredReferencePropertyInComposition.json'],
-            ]
+            ],
         );
     }
 
@@ -56,7 +56,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
             [
                 'Hello' => ['Hello'],
                 'Empty string' => [''],
-            ]
+            ],
         );
     }
 
@@ -78,7 +78,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
             $file,
             (new GeneratorConfiguration())->setCollectErrors(true),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         new $className([]);
@@ -95,7 +95,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
             $schemaFile,
             (new GeneratorConfiguration())->setImmutable(false),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $returnType = $this->getReturnType($className, 'getProperty');
@@ -118,7 +118,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
             'RequiredUndefinedProperty.json',
             (new GeneratorConfiguration())->setImmutable(false),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         $this->assertNull($this->getReturnType($className, 'getProperty'));
@@ -146,7 +146,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
             $schemaFile,
             (new GeneratorConfiguration())->setCollectErrors(true),
             false,
-            $implicitNull
+            $implicitNull,
         );
 
         new $className(['property' => null]);
@@ -159,7 +159,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
             [
                 'RequiredStringProperty' => ['RequiredStringProperty.json'],
                 'RequiredReferencePropertyInComposition' => ['RequiredReferencePropertyInComposition.json'],
-            ]
+            ],
         );
     }
 }

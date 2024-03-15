@@ -31,9 +31,9 @@ class NotProcessor extends AbstractComposedValueProcessor
             $propertySchema->withJson(
                 array_merge(
                     $propertySchema->getJson(),
-                    ['propertySchema' => $propertySchema->getJson()['propertySchema']->withJson($json)]
+                    ['propertySchema' => $propertySchema->getJson()['propertySchema']->withJson($json)],
                 )
-            )
+            ),
         );
     }
 

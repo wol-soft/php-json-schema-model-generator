@@ -55,7 +55,7 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
     private function addGetPatternPropertiesMethod(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
-        array $patternTypes
+        array $patternTypes,
     ): void {
         $schema
             ->addUsedClass(UnknownPatternPropertyException::class)
@@ -67,7 +67,7 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
                     'PatternProperties/GetPatternProperties.phptpl',
                     [
                         'returnTypeAnnotation' => $this->getReturnTypeAnnotationForGetPatternProperties($patternTypes),
-                    ]
+                    ],
                 )
             );
     }
@@ -84,7 +84,7 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
                 static function (PropertyType $type): string {
                     return $type->getName();
                 },
-                $patternTypes
+                $patternTypes,
             )
         );
 
@@ -93,7 +93,7 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
             static function (bool $carry, PropertyType $type): bool {
                 return $carry || $type->isNullable();
             },
-            false
+            false,
         );
 
         if ($nullable) {

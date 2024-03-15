@@ -45,7 +45,7 @@ class PatternPropertiesPostProcessor extends PostProcessor
                     $key = $json['patternProperties'][$validator->getPattern()]['key'] ?? $validator->getPattern();
 
                     throw new SchemaException(
-                        "Duplicate pattern property access key '$key' in file {$schema->getJsonSchema()->getFile()}"
+                        "Duplicate pattern property access key '$key' in file {$schema->getJsonSchema()->getFile()}",
                     );
                 }
 
@@ -53,7 +53,7 @@ class PatternPropertiesPostProcessor extends PostProcessor
                     $schema->getProperties(),
                     static function (
                         array $carry,
-                        PropertyInterface $property
+                        PropertyInterface $property,
                     ) use ($schemaProperties, $validator): array {
                         if (in_array($property->getName(), $schemaProperties) &&
                             preg_match('/' . addcslashes($validator->getPattern(), '/') . '/', $property->getName())
@@ -63,7 +63,7 @@ class PatternPropertiesPostProcessor extends PostProcessor
 
                         return $carry;
                     },
-                    []
+                    [],
                 );
             }
         }
@@ -84,17 +84,17 @@ class PatternPropertiesPostProcessor extends PostProcessor
      */
     private function addPatternPropertiesCollectionProperty(
         Schema $schema,
-        array $patternHashes
+        array $patternHashes,
     ): void {
         $schema->addProperty(
             (new Property(
                 'patternProperties',
                 new PropertyType('array'),
                 new JsonSchema(__FILE__, []),
-                'Collect all pattern properties provided to the schema grouped by hashed pattern'
+                'Collect all pattern properties provided to the schema grouped by hashed pattern',
             ))
                 ->setDefaultValue(array_fill_keys($patternHashes, []))
-                ->setInternal(true)
+                ->setInternal(true),
         );
     }
 
@@ -119,10 +119,10 @@ class PatternPropertiesPostProcessor extends PostProcessor
                 'patternPropertiesMap',
                 new PropertyType('array'),
                 new JsonSchema(__FILE__, []),
-                'Maps all pattern properties which are also defined properties of the object to their attribute'
+                'Maps all pattern properties which are also defined properties of the object to their attribute',
             ))
                 ->setDefaultValue($properties)
-                ->setInternal(true)
+                ->setInternal(true),
         );
     }
 
@@ -160,7 +160,7 @@ class PatternPropertiesPostProcessor extends PostProcessor
                             '$this->_patternProperties["%s"]["%s"] = &$this->%s;' . PHP_EOL,
                             $hash,
                             $matchingProperty->getName(),
-                            $matchingProperty->getAttribute(true)
+                            $matchingProperty->getAttribute(true),
                         );
                     }
                 }

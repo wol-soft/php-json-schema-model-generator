@@ -42,7 +42,7 @@ class ArrayItemValidator extends ExtractedMethodValidator
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         JsonSchema $itemStructure,
-        PropertyInterface $property
+        PropertyInterface $property,
     ) {
         $nestedPropertyName = "item of array {$property->getName()}";
         $this->variableSuffix = '_' . md5($nestedPropertyName);
@@ -54,7 +54,7 @@ class ArrayItemValidator extends ExtractedMethodValidator
                 $schemaProcessor,
                 $schema,
                 $nestedPropertyName,
-                $itemStructure
+                $itemStructure,
             );
 
         $this->nestedProperty->onResolve(function () use ($property): void {
@@ -75,7 +75,7 @@ class ArrayItemValidator extends ExtractedMethodValidator
                 'suffix' => $this->variableSuffix,
             ],
             InvalidItemException::class,
-            ["&\$invalidItems{$this->variableSuffix}"]
+            ["&\$invalidItems{$this->variableSuffix}"],
         );
     }
 

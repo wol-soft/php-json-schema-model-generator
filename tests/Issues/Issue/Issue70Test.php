@@ -18,7 +18,7 @@ class Issue70Test extends AbstractIssueTest
         $className = $this->generateClassFromFileTemplate(
             'filterInCompositionInArray.json',
             [$filter],
-            (new GeneratorConfiguration())->addFilter($this->getFilter())
+            (new GeneratorConfiguration())->addFilter($this->getFilter()),
         );
 
         $object = new $className($input);

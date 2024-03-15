@@ -34,14 +34,14 @@ class ObjectProcessor extends AbstractTypedValueProcessor
             $propertyName,
             $propertySchema,
             false,
-            $this->schemaProcessor->getCurrentClassName()
+            $this->schemaProcessor->getCurrentClassName(),
         );
 
         $schema = $this->schemaProcessor->processSchema(
             $propertySchema,
             $this->schemaProcessor->getCurrentClassPath(),
             $className,
-            $this->schema->getSchemaDictionary()
+            $this->schema->getSchemaDictionary(),
         );
 
         // if the generated schema is located in a different namespace (the schema for the given structure in
@@ -58,7 +58,7 @@ class ObjectProcessor extends AbstractTypedValueProcessor
                         $this->schemaProcessor->getGeneratorConfiguration()->getNamespacePrefix(),
                         $schema->getClassPath(),
                         $schema->getClassName(),
-                    ])
+                    ]),
                 )
             );
 
@@ -69,7 +69,7 @@ class ObjectProcessor extends AbstractTypedValueProcessor
             ->addDecorator(
                 new ObjectInstantiationDecorator(
                     $schema->getClassName(),
-                    $this->schemaProcessor->getGeneratorConfiguration()
+                    $this->schemaProcessor->getGeneratorConfiguration(),
                 )
             )
             ->setType(new PropertyType($schema->getClassName()))

@@ -63,7 +63,7 @@ class SerializationPostProcessor extends PostProcessor
      */
     private function addSerializeFunctionsForTransformingFilters(
         Schema $schema,
-        GeneratorConfiguration $generatorConfiguration
+        GeneratorConfiguration $generatorConfiguration,
     ): void {
         foreach ($schema->getProperties() as $property) {
             foreach ($property->getValidators() as $validator) {
@@ -81,14 +81,14 @@ class SerializationPostProcessor extends PostProcessor
                             $generatorConfiguration,
                             join(
                                 DIRECTORY_SEPARATOR,
-                                ['Serialization', 'TransformingFilterSerializer.phptpl']
+                                ['Serialization', 'TransformingFilterSerializer.phptpl'],
                             ),
                             [
                                 'property' => $property,
                                 'serializerClass' => $serializerClass,
                                 'serializerMethod' => $serializerMethod,
                                 'serializerOptions' => var_export($validator->getFilterOptions(), true),
-                            ]
+                            ],
                         )
                     );
                 }
@@ -112,14 +112,14 @@ class SerializationPostProcessor extends PostProcessor
                                 $generatorConfiguration,
                                 join(
                                     DIRECTORY_SEPARATOR,
-                                    ['Serialization', 'PatternPropertyTransformingFilterSerializer.phptpl']
+                                    ['Serialization', 'PatternPropertyTransformingFilterSerializer.phptpl'],
                                 ),
                                 [
                                     'key' => $validator->getKey(),
                                     'serializerClass' => $serializerClass,
                                     'serializerMethod' => $serializerMethod,
                                     'serializerOptions' => var_export($filterValidator->getFilterOptions(), true),
-                                ]
+                                ],
                             )
                         );
                     }
@@ -142,7 +142,7 @@ class SerializationPostProcessor extends PostProcessor
                 join(DIRECTORY_SEPARATOR, ['Serialization', 'SerializationHook.phptpl']),
                 [
                     'schemaHookResolver' => new SchemaHookResolver($schema),
-                ]
+                ],
             )
         );
     }
@@ -155,7 +155,7 @@ class SerializationPostProcessor extends PostProcessor
      */
     private function addPatternPropertiesSerialization(
         Schema $schema,
-        GeneratorConfiguration $generatorConfiguration
+        GeneratorConfiguration $generatorConfiguration,
     ): void {
         if (!isset($schema->getJsonSchema()->getJson()['patternProperties'])) {
             return;
@@ -163,7 +163,7 @@ class SerializationPostProcessor extends PostProcessor
 
         $schema->addMethod(
             'serializePatternProperties',
-            new RenderedMethod($schema, $generatorConfiguration, 'Serialization/PatternPropertiesSerializer.phptpl')
+            new RenderedMethod($schema, $generatorConfiguration, 'Serialization/PatternPropertiesSerializer.phptpl'),
         );
 
         $schema->addSchemaHook(
@@ -172,7 +172,7 @@ class SerializationPostProcessor extends PostProcessor
                 {
                     return '$data = array_merge($this->serializePatternProperties($depth, $except), $data);';
                 }
-            }
+            },
         );
     }
 
@@ -185,7 +185,7 @@ class SerializationPostProcessor extends PostProcessor
      */
     public function addAdditionalPropertiesSerialization(
         Schema $schema,
-        GeneratorConfiguration $generatorConfiguration
+        GeneratorConfiguration $generatorConfiguration,
     ): void {
         $validationProperty = null;
         foreach ($schema->getBaseValidators() as $validator) {
@@ -221,7 +221,7 @@ class SerializationPostProcessor extends PostProcessor
                     'serializerOptions' => $transformingFilterValidator
                         ? var_export($transformingFilterValidator->getFilterOptions(), true)
                         : [],
-                ]
+                ],
             )
         );
 
@@ -231,13 +231,13 @@ class SerializationPostProcessor extends PostProcessor
                 {
                     return '$data = array_merge($this->serializeAdditionalProperties($depth, $except), $data);';
                 }
-            }
+            },
         );
     }
 
     private function addSkipNotProvidedPropertiesMap(
         Schema $schema,
-        GeneratorConfiguration $generatorConfiguration
+        GeneratorConfiguration $generatorConfiguration,
     ): void {
         if ($generatorConfiguration->isImplicitNullAllowed()) {
             return;
@@ -251,7 +251,7 @@ class SerializationPostProcessor extends PostProcessor
                 $schema->getProperties(),
                 static function (PropertyInterface $property): bool {
                     return !$property->isRequired() && !$property->getDefaultValue();
-                }
+                },
             )
         );
 
@@ -260,10 +260,10 @@ class SerializationPostProcessor extends PostProcessor
                 'skipNotProvidedPropertiesMap',
                 new PropertyType('array'),
                 new JsonSchema(__FILE__, []),
-                'Values which might be skipped for serialization if not provided'
+                'Values which might be skipped for serialization if not provided',
             ))
                 ->setDefaultValue($skipNotProvidedValues)
-                ->setInternal(true)
+                ->setInternal(true),
         );
     }
 }

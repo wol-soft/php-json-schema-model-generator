@@ -29,14 +29,14 @@ class PropertyProcessorFactory implements ProcessorFactoryInterface
         $type,
         PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
-        Schema $schema
+        Schema $schema,
     ): PropertyProcessorInterface {
         if (is_string($type)) {
             return $this->getSingleTypePropertyProcessor(
                 $type,
                 $propertyMetaDataCollection,
                 $schemaProcessor,
-                $schema
+                $schema,
             );
         }
 
@@ -48,7 +48,7 @@ class PropertyProcessorFactory implements ProcessorFactoryInterface
             sprintf(
                 'Invalid property type %s in file %s',
                 $type,
-                $schema->getJsonSchema()->getFile()
+                $schema->getJsonSchema()->getFile(),
             )
         );
     }
@@ -66,7 +66,7 @@ class PropertyProcessorFactory implements ProcessorFactoryInterface
         string $type,
         PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
-        Schema $schema
+        Schema $schema,
     ): PropertyProcessorInterface {
         $processor = '\\PHPModelGenerator\\PropertyProcessor\\Property\\' . ucfirst(strtolower($type)) . 'Processor';
         if (!class_exists($processor)) {
@@ -74,7 +74,7 @@ class PropertyProcessorFactory implements ProcessorFactoryInterface
                 sprintf(
                     'Unsupported property type %s in file %s',
                     $type,
-                    $schema->getJsonSchema()->getFile()
+                    $schema->getJsonSchema()->getFile(),
                 )
             );
         }

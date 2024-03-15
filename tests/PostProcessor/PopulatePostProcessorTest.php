@@ -37,7 +37,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
     {
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setSerialization(true)
+            (new GeneratorConfiguration())->setSerialization(true),
         );
         $object = new $className(['name' => 'Albert']);
 
@@ -52,33 +52,33 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
         $object->populate(['birthdate' => '10.10.1990']);
         $this->assertEqualsCanonicalizing(
             ['name' => 'Albert', 'birthdate' => '10.10.1990'],
-            $object->getRawModelDataInput()
+            $object->getRawModelDataInput(),
         );
         $this->assertEqualsCanonicalizing(
             ['name' => 'Albert', 'age' => null, 'birthdate' => '10.10.1990'],
-            $object->toArray()
+            $object->toArray(),
         );
 
         // test overwriting a single property
         $object->populate(['age' => 30]);
         $this->assertEqualsCanonicalizing(
             ['name' => 'Albert', 'birthdate' => '10.10.1990', 'age' => 30],
-            $object->getRawModelDataInput()
+            $object->getRawModelDataInput(),
         );
         $this->assertEqualsCanonicalizing(
             ['name' => 'Albert', 'age' => 30, 'birthdate' => '10.10.1990'],
-            $object->toArray()
+            $object->toArray(),
         );
 
         // test overwriting multiple properties
         $object->populate(['age' => 26, 'name' => 'Harry']);
         $this->assertEqualsCanonicalizing(
             ['name' => 'Harry', 'birthdate' => '10.10.1990', 'age' => 26],
-            $object->getRawModelDataInput()
+            $object->getRawModelDataInput(),
         );
         $this->assertEqualsCanonicalizing(
             ['name' => 'Harry', 'age' => 26, 'birthdate' => '10.10.1990'],
-            $object->toArray()
+            $object->toArray(),
         );
     }
 
@@ -138,14 +138,14 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
         array $data,
         bool $collectErrors,
         string $expectedException,
-        string $expectedMessage
+        string $expectedMessage,
     ): void {
         $this->expectException($expectedException);
         $this->expectExceptionMessage($expectedMessage);
 
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setSerialization(true)
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setSerialization(true),
         );
         $object = new $className(['name' => 'Albert', 'age' => 30]);
 
@@ -258,7 +258,7 @@ Invalid type for age. Requires int, got boolean"
     public function testSetterAfterValidationHookInsidePopulateIsResolved(
         ?string $expectedException,
         ?string $expectedExceptionMessage,
-        array $populateValues
+        array $populateValues,
     ): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {
@@ -333,11 +333,11 @@ Invalid type for age. Requires int, got boolean"
     public function testPopulateComposition(
         GeneratorConfiguration $generatorConfiguration,
         string $exceptionMessageBothValid,
-        string $exceptionMessageBothInvalid
+        string $exceptionMessageBothInvalid,
     ): void {
         $className = $this->generateClassFromFile(
             'ObjectLevelCompositionRequired.json',
-            $generatorConfiguration->setImmutable(false)
+            $generatorConfiguration->setImmutable(false),
         );
 
         $object = new $className(['integerProperty' => 2, 'stringProperty' => 99]);

@@ -36,7 +36,7 @@ class RenderedMethod implements MethodInterface
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
         string $template,
-        array $templateValues = []
+        array $templateValues = [],
     ) {
         $this->schema = $schema;
         $this->generatorConfiguration = $generatorConfiguration;
@@ -62,7 +62,7 @@ class RenderedMethod implements MethodInterface
                     'viewHelper' => new RenderHelper($this->generatorConfiguration),
                     'generatorConfiguration' => $this->generatorConfiguration,
                 ],
-                $this->templateValues
+                $this->templateValues,
             )
         );
     }

@@ -74,8 +74,8 @@ class Schema
         string $classPath,
         string $className,
         JsonSchema $schema,
-        SchemaDefinitionDictionary $dictionary = null,
-        bool $initialClass = false
+        ?SchemaDefinitionDictionary $dictionary = null,
+        bool $initialClass = false,
     ) {
         $this->className = $className;
         $this->classPath = $classPath;
@@ -141,7 +141,7 @@ class Schema
             $this->properties,
             static function (
                 PropertyInterface $property,
-                PropertyInterface $comparedProperty
+                PropertyInterface $comparedProperty,
             ) use ($hasSchemaDependencyValidator): int {
                 $propertyHasSchemaDependencyValidator = $hasSchemaDependencyValidator($property);
                 $comparedPropertyHasSchemaDependencyValidator = $hasSchemaDependencyValidator($comparedProperty);
@@ -151,7 +151,7 @@ class Schema
                 }
 
                 return ($propertyHasSchemaDependencyValidator < $comparedPropertyHasSchemaDependencyValidator) ? 1 : -1;
-            }
+            },
         );
 
         return $this->properties;

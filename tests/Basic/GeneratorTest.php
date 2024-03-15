@@ -23,7 +23,7 @@ class GeneratorTest extends TestCase
 
         (new ModelGenerator())->generateModels(
             new RecursiveDirectoryProvider(__DIR__ . '/NonExistingDirectory'),
-            __DIR__
+            __DIR__,
         );
     }
 
@@ -34,7 +34,7 @@ class GeneratorTest extends TestCase
 
         (new ModelGenerator())->generateModels(
             new RecursiveDirectoryProvider(__DIR__),
-            __DIR__ . '/NonExistingDirectory'
+            __DIR__ . '/NonExistingDirectory',
         );
     }
 

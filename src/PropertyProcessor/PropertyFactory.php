@@ -47,7 +47,7 @@ class PropertyFactory
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         string $propertyName,
-        JsonSchema $propertySchema
+        JsonSchema $propertySchema,
     ): PropertyInterface {
         $json = $propertySchema->getJson();
 
@@ -67,7 +67,7 @@ class PropertyFactory
                 $json['type'] ?? 'any',
                 $propertyMetaDataCollection,
                 $schemaProcessor,
-                $schema
+                $schema,
             )
             ->process($propertyName, $propertySchema);
     }

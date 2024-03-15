@@ -44,7 +44,7 @@ class ArrayTypeHintDecorator implements TypeHintDecoratorInterface
                 static function (string $typeHint): string {
                     return "{$typeHint}[]";
                 },
-                explode('|', $this->nestedProperty->getTypeHint($outputType))
+                explode('|', $this->nestedProperty->getTypeHint($outputType)),
             )
         );
 

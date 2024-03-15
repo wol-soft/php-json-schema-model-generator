@@ -22,12 +22,12 @@ class ReflectionTypeCheckValidator extends PropertyValidator
      */
     public static function fromReflectionType(
         ReflectionType $reflectionType,
-        PropertyInterface $property
+        PropertyInterface $property,
     ): self {
         return new self(
             $reflectionType->isBuiltin(),
             $reflectionType->getName(),
-            $property
+            $property,
         );
     }
 
@@ -39,12 +39,12 @@ class ReflectionTypeCheckValidator extends PropertyValidator
      */
     public static function fromType(
         string $type,
-        PropertyInterface $property
+        PropertyInterface $property,
     ): self {
         return new self(
             in_array($type, ['int', 'float', 'string', 'bool', 'array', 'object', 'null']),
             $type,
-            $property
+            $property,
         );
     }
 

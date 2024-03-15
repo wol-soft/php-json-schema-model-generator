@@ -46,13 +46,13 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTest
     public function testValidPropertyNames(
         GeneratorConfiguration $generatorConfiguration,
         string $propertyNames,
-        array $properties
+        array $properties,
     ): void {
         $className = $this->generateClassFromFileTemplate(
             'PropertyNames.json',
             [$propertyNames],
             $generatorConfiguration,
-            false
+            false,
         );
 
         $object = new $className($properties);
@@ -84,7 +84,7 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTest
                         'test1298398717931793179317937197931' => 2,
                     ],
                 ],
-            ]
+            ],
         );
     }
 
@@ -101,13 +101,13 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTest
         GeneratorConfiguration $generatorConfiguration,
         string $propertyNames,
         array $properties,
-        string $exceptionMessage
+        string $exceptionMessage,
     ): void {
         $className = $this->generateClassFromFileTemplate(
             'PropertyNames.json',
             [$propertyNames],
             $generatorConfiguration,
-            false
+            false,
         );
 
         $this->expectValidationError($generatorConfiguration, $exceptionMessage);
@@ -168,7 +168,7 @@ contains properties with invalid names.
     * Value for property name doesn't match pattern ^test[0-9]+$
 ERROR
                 ],
-            ]
+            ],
         );
     }
 
