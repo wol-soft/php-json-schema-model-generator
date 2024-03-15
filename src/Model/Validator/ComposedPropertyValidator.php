@@ -92,7 +92,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
                             foreach (%s as $key => $accessor) {
                                 if ((isset($originalModelData[$key]) || in_array($key, $defaultValueMap))
                                     && method_exists($nestedCompositionObject, $accessor)
-                                    && ($modifiedValue = $nestedCompositionObject->$accessor()) !== ($originalModelData[$key] ?? !$modifiedValue),
+                                    && ($modifiedValue = $nestedCompositionObject->$accessor()) !== ($originalModelData[$key] ?? !$modifiedValue)
                                 ) {
                                     $modifiedValues[$key] = $modifiedValue;
                                 }
