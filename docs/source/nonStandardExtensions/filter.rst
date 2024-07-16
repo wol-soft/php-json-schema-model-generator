@@ -176,7 +176,7 @@ If the filter trim is used for a property which doesn't require a string value a
 notEmpty
 ^^^^^^^^
 
-The dateTime filter is only valid for array and null properties.
+The notEmpty filter is only valid for array and null properties.
 
 .. code-block:: json
 
