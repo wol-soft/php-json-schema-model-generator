@@ -295,7 +295,7 @@ The provided schema will generate the following enum:
         case Cancelled = 2;
     }
 
-If an enum which requires a mapping is found a **SchemaException** will be thrown.
+If an enum which requires a mapping is found but no mapping is provided a **SchemaException** will be thrown.
 
 .. note::
 
