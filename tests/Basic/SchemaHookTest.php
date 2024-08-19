@@ -19,14 +19,14 @@ use PHPModelGenerator\SchemaProcessor\Hook\SerializationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterAfterValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class SchemaHookTest
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-class SchemaHookTest extends AbstractPHPModelGeneratorTest
+class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testConstructorBeforeValidationHookIsResolved(): void
     {

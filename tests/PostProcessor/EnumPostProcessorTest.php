@@ -13,11 +13,11 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use ReflectionEnum;
 use UnitEnum;
 
-class EnumPostProcessorTest extends AbstractPHPModelGeneratorTest
+class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @requires PHP < 8.1

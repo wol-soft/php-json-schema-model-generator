@@ -16,14 +16,14 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class BasicSchemaGenerationTest
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTest
+class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider implicitNullDataProvider

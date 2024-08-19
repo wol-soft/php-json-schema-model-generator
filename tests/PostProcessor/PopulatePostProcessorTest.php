@@ -20,9 +20,9 @@ use PHPModelGenerator\SchemaProcessor\Hook\SetterAfterValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
-class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTest
+class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
     public function setUp(): void
     {

@@ -6,14 +6,14 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class SchemaDependencyTest
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-class SchemaDependencyTest extends AbstractPHPModelGeneratorTest
+class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider validSchemaDependencyDataProvider

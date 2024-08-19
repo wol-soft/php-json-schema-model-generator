@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class PropertyNamesTest
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-class PropertyNamesTest extends AbstractPHPModelGeneratorTest
+class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider validationMethodDataProvider

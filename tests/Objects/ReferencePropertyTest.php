@@ -10,7 +10,7 @@ use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 
 /**
@@ -18,7 +18,7 @@ use stdClass;
  *
  * @package PHPModelGenerator\Tests\Objects
  */
-class ReferencePropertyTest extends AbstractPHPModelGeneratorTest
+class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     protected const EXTERNAL_JSON_DIRECTORIES = ['../ReferencePropertyTest_external'];
 

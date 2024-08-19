@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Issues;
 
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
-abstract class AbstractIssueTest extends AbstractPHPModelGeneratorTest
+abstract class AbstractIssueTestCase extends AbstractPHPModelGeneratorTestCase
 {
     protected function getSchemaFilePath(string $file): string
     {

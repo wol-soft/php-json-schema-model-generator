@@ -6,14 +6,14 @@ namespace PHPModelGenerator\Tests\SchemaProvider;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\SchemaProvider\OpenAPIv3Provider;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class OpenAPIv3ProviderTest
  *
  * @package PHPModelGenerator\Tests\SchemaProvider
  */
-class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTest
+class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testInvalidJsonSchemaFileThrowsAnException(): void
     {

@@ -8,7 +8,7 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use ReflectionClass;
 
 /**
@@ -16,7 +16,7 @@ use ReflectionClass;
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTest
+class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testIdenticalSchemaInSingleFileAreMappedToOneClass(): void
     {

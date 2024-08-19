@@ -17,14 +17,14 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessor
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PatternPropertiesAccessorPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class PatternPropertiesAccessorPostProcessorTest
  *
  * @package PHPModelGenerator\Tests\PostProcessor
  */
-class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGeneratorTest
+class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
     protected function addPostProcessors(PostProcessor ...$postProcessors): void
     {

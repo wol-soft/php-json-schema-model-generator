@@ -17,14 +17,14 @@ use PHPModelGenerator\Filter\ValidateOptionsInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class FilterTest
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-class FilterTest extends AbstractPHPModelGeneratorTest
+class FilterTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testGetFilterReturnsAnExistingFilter(): void
     {

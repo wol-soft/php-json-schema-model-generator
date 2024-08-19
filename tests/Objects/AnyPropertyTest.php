@@ -8,7 +8,7 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 
 /**
@@ -16,7 +16,7 @@ use stdClass;
  *
  * @package PHPModelGenerator\Tests\Objects
  */
-class AnyPropertyTest extends AbstractPHPModelGeneratorTest
+class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider validationMethodDataProvider

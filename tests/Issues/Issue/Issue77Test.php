@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Issues\Issue;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\Issues\AbstractIssueTest;
+use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
 
-class Issue77Test extends AbstractIssueTest
+class Issue77Test extends AbstractIssueTestCase
 {
     public function testCompositionValidatorOnPropertyGeneratesNoDynamicProperty(): void
     {

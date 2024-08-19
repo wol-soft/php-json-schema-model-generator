@@ -9,14 +9,14 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class ComposedIfTest
  *
  * @package PHPModelGenerator\Tests\ComposedValue
  */
-class ComposedIfTest extends AbstractPHPModelGeneratorTest
+class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider conditionalKeywordsDataProvider

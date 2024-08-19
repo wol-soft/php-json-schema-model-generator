@@ -10,14 +10,14 @@ use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class RequiredPropertyTest
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-class RequiredPropertyTest extends AbstractPHPModelGeneratorTest
+class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider validStringPropertyValueProvider

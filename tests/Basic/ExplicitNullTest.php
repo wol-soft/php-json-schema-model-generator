@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\ValidationException;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class ExplicitNullTest
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-class ExplicitNullTest extends AbstractPHPModelGeneratorTest
+class ExplicitNullTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testNullForOptionalValueWithoutImplicitNullThrowsAnException(): void
     {

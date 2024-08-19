@@ -9,7 +9,7 @@ use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 
 /**
@@ -17,7 +17,7 @@ use stdClass;
  *
  * @package PHPModelGenerator\Tests\Objects
  */
-class EnumPropertyTest extends AbstractPHPModelGeneratorTest
+class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     protected const ENUM_STRING = ['red', 'green'];
 

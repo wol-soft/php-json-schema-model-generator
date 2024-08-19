@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\ValidationException;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class AbstractNumericPropertyTest
  *
  * @package PHPModelGenerator\Tests\Objects
  */
-abstract class AbstractNumericPropertyTest extends AbstractPHPModelGeneratorTest
+abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGeneratorTestCase
 {
     abstract protected function getRangeFile(bool $exclusive): string;
 

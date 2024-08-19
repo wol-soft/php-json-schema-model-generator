@@ -6,9 +6,9 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\Issues\AbstractIssueTest;
+use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
 
-class Issue70Test extends AbstractIssueTest
+class Issue70Test extends AbstractIssueTestCase
 {
     /**
      * @dataProvider validInputDataProvider

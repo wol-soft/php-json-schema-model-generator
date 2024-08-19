@@ -11,7 +11,7 @@ use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Exception\ValidationException;
 use stdClass;
 
@@ -20,7 +20,7 @@ use stdClass;
  *
  * @package PHPModelGenerator\Tests\Objects
  */
-class MultiTypePropertyTest extends AbstractPHPModelGeneratorTest
+class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @throws FileSystemException

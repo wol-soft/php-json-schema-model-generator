@@ -29,7 +29,7 @@ use ReflectionType;
  *
  * @package PHPModelGenerator\Tests\Objects
  */
-abstract class AbstractPHPModelGeneratorTest extends TestCase
+abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 {
     protected const EXTERNAL_JSON_DIRECTORIES = [];
 

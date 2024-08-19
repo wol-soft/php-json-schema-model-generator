@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\ValidationException;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class ObjectSizeTest
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-class ObjectSizeTest extends AbstractPHPModelGeneratorTest
+class ObjectSizeTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider validObjectPropertyAmountDataProvider

@@ -15,7 +15,7 @@ use stdClass;
  *
  * @package PHPModelGenerator\Tests\Objects
  */
-class NumberPropertyTest extends AbstractNumericPropertyTest
+class NumberPropertyTest extends AbstractNumericPropertyTestCase
 {
     /**
      * @throws FileSystemException

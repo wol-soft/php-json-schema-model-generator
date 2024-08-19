@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Issues\Regression;
 
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
-use PHPModelGenerator\Tests\Issues\AbstractIssueTest;
+use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
 
-class RegressionIssue65Test extends AbstractIssueTest
+class RegressionIssue65Test extends AbstractIssueTestCase
 {
     public function testValidInput(): void
     {

@@ -10,7 +10,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Format\FormatValidatorFromRegEx;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 
 /**
@@ -18,7 +18,7 @@ use stdClass;
  *
  * @package PHPModelGenerator\Tests\Objects
  */
-class StringPropertyTest extends AbstractPHPModelGeneratorTest
+class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider validStringPropertyValueProvider

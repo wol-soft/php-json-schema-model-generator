@@ -8,7 +8,7 @@ use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Exception\String\PatternException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use stdClass;
 
@@ -17,7 +17,7 @@ use stdClass;
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-class ErrorCollectionTest extends AbstractPHPModelGeneratorTest
+class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider validValuesForSinglePropertyDataProvider

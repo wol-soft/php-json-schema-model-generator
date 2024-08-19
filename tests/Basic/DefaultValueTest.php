@@ -8,14 +8,14 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class DefaultValueTest
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-class DefaultValueTest extends AbstractPHPModelGeneratorTest
+class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider defaultValueForTypedPropertyDataProvider

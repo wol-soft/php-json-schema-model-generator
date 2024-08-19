@@ -6,7 +6,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 
 /**
@@ -14,7 +14,7 @@ use stdClass;
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-class PatternPropertiesTest extends AbstractPHPModelGeneratorTest
+class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testInvalidPatternThrowsAnException(): void
     {

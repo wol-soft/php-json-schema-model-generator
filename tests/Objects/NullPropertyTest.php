@@ -8,7 +8,7 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 
 /**
@@ -16,7 +16,7 @@ use stdClass;
  *
  * @package PHPModelGenerator\Tests\Objects
  */
-class NullPropertyTest extends AbstractPHPModelGeneratorTest
+class NullPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @throws FileSystemException

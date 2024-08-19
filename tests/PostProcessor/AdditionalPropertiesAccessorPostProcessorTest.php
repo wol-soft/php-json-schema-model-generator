@@ -20,14 +20,14 @@ use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
-use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTest;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
 /**
  * Class AdditionalPropertiesAccessorPostProcessorTest
  *
  * @package PHPModelGenerator\Tests\PostProcessor
  */
-class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGeneratorTest
+class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
     protected function addPostProcessor(bool $addForModelsWithoutAdditionalPropertiesDefinition): void
     {
