@@ -1,0 +1,32 @@
+{
+  "definitions": {
+    "location": {
+      "type": "object",
+      "properties": {
+        "street": {
+          "type": "string"
+        },
+        "zip": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "street"
+      ]
+    }
+  },
+  "$id": "Person",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "age": {
+      "type": "integer"
+    }
+  },
+  "$ref": "#/definitions/location",
+  "required": [
+    "name"
+  ]
+}
