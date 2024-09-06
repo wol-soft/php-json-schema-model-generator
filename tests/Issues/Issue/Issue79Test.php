@@ -34,7 +34,7 @@ class Issue79Test extends AbstractIssueTestCase
 
         $this->expectException(ErrorRegistryException::class);
 
-        new $className(['name' => 23, 'age' => 'A28']);
+        new $className($data);
     }
 
     public static function invalidInputDataProvider(): array
