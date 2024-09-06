@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "integer",
+      "enum": [10, 20]
+    },
+    "propertyWithZero": {
+      "type": "integer",
+      "enum": [0, 1]
+    }
+  }
+}

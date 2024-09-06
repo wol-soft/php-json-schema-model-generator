@@ -117,7 +117,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             $property->addTypeHintDecorator(new TypeHintDecorator($typesOfEnum));
         }
 
-        if ($this->isImplicitNullAllowed($property) && !in_array(null, $allowedValues)) {
+        if ($this->isImplicitNullAllowed($property) && !in_array(null, $allowedValues, true)) {
             $allowedValues[] = null;
         }
 

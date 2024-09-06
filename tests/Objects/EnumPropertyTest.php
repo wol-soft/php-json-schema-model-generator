@@ -223,8 +223,27 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
         return [
             "string 'red'" => ['red'],
             'null' => [null],
+            'int 0' => [0],
             'int 10' => [10],
         ];
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testSuccessCreateObjectWithOptionalFieldsContainingZero(): void
+    {
+        $className = $this->generateClassFromFile('TypedEnumPropertyWithZeroValue.json', null, false, true);
+        $object = new $className(['property' => 10]);
+
+        $this->assertSame(10, $object->getProperty());
+        $this->assertSame(null, $object->getPropertyWithZero());
+
+        $returnType = $this->getReturnType($object, 'getPropertyWithZero');
+        $this->assertSame('int', $returnType->getName());
+        $this->assertTrue($returnType->allowsNull());
     }
 
     /**
