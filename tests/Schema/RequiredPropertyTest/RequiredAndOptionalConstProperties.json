@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "requiredProperty": {
+      "const": "red"
+    },
+    "optionalProperty": {
+      "const": "green"
+    }
+  },
+  "required": [
+    "requiredProperty"
+  ]
+}

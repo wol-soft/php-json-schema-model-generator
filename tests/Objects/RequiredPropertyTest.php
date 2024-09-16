@@ -162,4 +162,29 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
             ],
         );
     }
+
+    /**
+     * @dataProvider requiredAndOptionalPropertiesDataProvider
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testProvidedConstPropertiesIsValid(string $reqPropertyValue, ?string $optPropertyValue): void
+    {
+        $className = $this->generateClassFromFile('RequiredAndOptionalConstProperties.json');
+
+        $object = new $className(['requiredProperty' => $reqPropertyValue, 'optionalProperty' => $optPropertyValue]);
+
+        $this->assertSame($reqPropertyValue, $object->getRequiredProperty());
+        $this->assertSame($optPropertyValue, $object->getOptionalProperty());
+    }
+
+    public function requiredAndOptionalPropertiesDataProvider(): array
+    {
+        return [
+            ['red', 'green'],
+            ['red', null],
+        ];
+    }
 }

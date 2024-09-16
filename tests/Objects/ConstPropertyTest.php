@@ -34,21 +34,6 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @throws FileSystemException
-     * @throws RenderException
-     * @throws SchemaException
-     */
-    public function testNotProvidedConstPropertyThrowsAnException(): void
-    {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for stringProperty declined by const constraint');
-
-        $className = $this->generateClassFromFile('ConstProperty.json');
-
-        new $className([]);
-    }
-
-    /**
      * @dataProvider invalidPropertyDataProvider
      *
      * @param $propertyValue
@@ -76,7 +61,38 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
             'array' => [[]],
             'object' => [new stdClass()],
             'string' => ['null'],
-            'null' => [null],
+        ];
+    }
+
+    /**
+     * @dataProvider invalidRequiredAndOptionalConstPropertiesDataProvider
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNotMatchingRequiredAndOptionalProvidedDataThrowsAnException(
+        string $reqPropertyValue,
+        ?string $optPropertyValue,
+        string $exceptionMessage
+    ): void
+    {
+        $className = $this->generateClassFromFile('RequiredAndOptionalConstProperties.json');
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage($exceptionMessage);
+
+        new $className(['requiredProperty' => $reqPropertyValue, 'optionalProperty' => $optPropertyValue]);
+    }
+
+    public function invalidRequiredAndOptionalConstPropertiesDataProvider(): array
+    {
+        return [
+            ['blue', 'green', 'Invalid value for requiredProperty declined by const constraint'],
+            ['blue', null, 'Invalid value for requiredProperty declined by const constraint'],
+            ['red', 'blue', 'Invalid value for optionalProperty declined by const constraint'],
+            ['red', '0', 'Invalid value for optionalProperty declined by const constraint'],
+            ['red', '', 'Invalid value for optionalProperty declined by const constraint'],
         ];
     }
 }
