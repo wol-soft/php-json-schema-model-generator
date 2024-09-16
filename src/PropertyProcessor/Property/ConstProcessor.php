@@ -10,8 +10,6 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
 use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeConverter;
 
@@ -20,22 +18,8 @@ use PHPModelGenerator\Utils\TypeConverter;
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-class ConstProcessor implements PropertyProcessorInterface
+class ConstProcessor extends AbstractPropertyProcessor
 {
-    /** @var PropertyMetaDataCollection */
-    protected $propertyMetaDataCollection;
-
-    /**
-     * ConstProcessor constructor.
-     *
-     * @param PropertyMetaDataCollection $propertyMetaDataCollection
-     */
-    public function __construct(
-        PropertyMetaDataCollection $propertyMetaDataCollection,
-    ) {
-        $this->propertyMetaDataCollection = $propertyMetaDataCollection;
-    }
-
     /**
      * @inheritdoc
      */
