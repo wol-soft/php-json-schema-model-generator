@@ -34,7 +34,9 @@ class ConstProcessor extends AbstractPropertyProcessor
             $json['description'] ?? '',
         );
 
-        $property->setRequired($this->propertyMetaDataCollection->isAttributeRequired($propertyName));
+        $isAttributeRequired = $this->propertyMetaDataCollection->isAttributeRequired($propertyName);
+        $isImplicitNullAllowed = $this->schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed();
+        $property->setRequired($isAttributeRequired || !$isImplicitNullAllowed);
 
         $check = $property->isRequired()
             ? '$value !== ' . var_export($json['const'], true)
