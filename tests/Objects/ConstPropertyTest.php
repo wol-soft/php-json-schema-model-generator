@@ -36,21 +36,6 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @throws FileSystemException
-     * @throws RenderException
-     * @throws SchemaException
-     */
-    public function testNotProvidedConstPropertyThrowsAnException(): void
-    {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for stringProperty declined by const constraint');
-
-        $className = $this->generateClassFromFile('ConstProperty.json', null, false, false);
-
-        new $className([]);
-    }
-
-    /**
      * @dataProvider invalidPropertyDataProvider
      *
      * @param $propertyValue
@@ -187,5 +172,19 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
                 ['red', '', 'Invalid value for optionalProperty declined by const constraint'],
             ],
         );
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testProvidedNullValueConstPropertyIsValid(): void
+    {
+        $className = $this->generateClassFromFile('NullValueConstProperty.json', null, false, false);
+
+        $object = new $className(['nullProperty' => null]);
+
+        $this->assertNull($object->getNullProperty());
     }
 }
