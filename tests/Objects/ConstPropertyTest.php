@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -131,6 +132,21 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
                 ['red', 'green'],
             ],
         );
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNotProvidedRequiredPropertyThrowsAnException(): void
+    {
+        $this->expectException(RequiredValueException::class);
+        $this->expectExceptionMessage('Missing required value for requiredProperty');
+
+        $className = $this->generateClassFromFile('RequiredAndOptionalConstProperties.json');
+
+        new $className([]);
     }
 
     /**

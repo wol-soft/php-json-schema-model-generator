@@ -40,11 +40,15 @@ class ConstProcessor extends AbstractPropertyProcessor
             ? '!in_array($value, ' . RenderHelper::varExportArray([$json['const'], null]) . ', true)'
             : '$value !== ' . var_export($json['const'], true);
 
-        return $property->addValidator(new PropertyValidator(
+        $property->addValidator(new PropertyValidator(
             $property,
             $check,
             InvalidConstException::class,
             [$json['const']],
         ));
+
+        $this->generateValidators($property, $propertySchema);
+
+        return $property;
     }
 }
