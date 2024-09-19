@@ -3,7 +3,7 @@
   "properties": {
     "property": {
       "type": "array",
-      "items": {
+      "contains": {
         "const": "red"
       }
     }

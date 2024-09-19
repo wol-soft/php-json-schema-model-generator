@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
@@ -82,6 +83,12 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
                     [
                         'test1' => 1,
                         'test1298398717931793179317937197931' => 2,
+                    ],
+                ],
+                'const' => [
+                    '{"const": "test"}',
+                    [
+                        'test' => 1,
                     ],
                 ],
             ],
@@ -168,6 +175,21 @@ contains properties with invalid names.
     * Value for property name doesn't match pattern ^test[0-9]+$
 ERROR
                 ],
+                'const violation' => [
+                    '{"const": "test"}',
+                    [
+                        'test1' => 1,
+                        'test' => 2,
+                        'bla' => 3,
+                    ],
+                    <<<ERROR
+contains properties with invalid names.
+  - invalid property 'test1'
+    * Invalid value for property name declined by const constraint
+  - invalid property 'bla'
+    * Invalid value for property name declined by const constraint
+ERROR
+                ],
             ],
         );
     }
@@ -210,5 +232,12 @@ contains properties with invalid names.
 ERROR
             ],
         ];
+    }
+
+    public function testInvalidConstPropertyNamesThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+
+        $this->generateClassFromFileTemplate('PropertyNames.json', ['{"const": null}']);
     }
 }
