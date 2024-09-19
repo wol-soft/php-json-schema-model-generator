@@ -1,4 +1,4 @@
-(function () use ($properties, &$invalidProperties) {
+(function () use ($properties, &$invalidProperties, $modelData) {
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}

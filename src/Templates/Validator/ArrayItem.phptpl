@@ -1,4 +1,4 @@
-is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}) {
+is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}, $modelData) {
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}

@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "patternProperties": {
+    "property\\d+": {
+      "const": "red"
+    }
+  }
+}

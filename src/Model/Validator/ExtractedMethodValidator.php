@@ -59,7 +59,7 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
             public function getCode(): string
             {
                 $renderHelper = new RenderHelper($this->generatorConfiguration);
-                return "private function {$this->validator->getExtractedMethodName()}(&\$value): void {
+                return "private function {$this->validator->getExtractedMethodName()}(&\$value, \$modelData): void {
                     {$this->validator->getValidatorSetUp()}
                     
                     if ({$this->validator->getCheck()}) {

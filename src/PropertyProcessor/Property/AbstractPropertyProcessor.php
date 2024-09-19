@@ -213,7 +213,9 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                     $propertySchema->withJson([
                         'type' => $composedValueKeyword,
                         'propertySchema' => $propertySchema,
-                        'onlyForDefinedValues' => !($this instanceof BaseProcessor) && !$property->isRequired(),
+                        'onlyForDefinedValues' => !($this instanceof BaseProcessor) &&
+                            (!$property->isRequired()
+                                && $this->schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed()),
                     ]),
                 );
 

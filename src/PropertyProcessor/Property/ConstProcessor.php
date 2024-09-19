@@ -10,7 +10,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
+use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeConverter;
 
 /**
@@ -18,7 +18,7 @@ use PHPModelGenerator\Utils\TypeConverter;
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-class ConstProcessor implements PropertyProcessorInterface
+class ConstProcessor extends AbstractPropertyProcessor
 {
     /**
      * @inheritdoc
@@ -34,13 +34,26 @@ class ConstProcessor implements PropertyProcessorInterface
             $json['description'] ?? '',
         );
 
-        return $property
-            ->setRequired(true)
-            ->addValidator(new PropertyValidator(
-                $property,
-                '$value !== ' . var_export($json['const'], true),
-                InvalidConstException::class,
-                [$json['const']],
-            ));
+        $property->setRequired($this->propertyMetaDataCollection->isAttributeRequired($propertyName));
+
+        $check = match(true) {
+            $property->isRequired()
+                => '$value !== ' . var_export($json['const'], true),
+            $this->isImplicitNullAllowed($property)
+                => '!in_array($value, ' . RenderHelper::varExportArray([$json['const'], null]) . ', true)',
+            default
+                => "array_key_exists('{$property->getName()}', \$modelData) && \$value !== " . var_export($json['const'], true),
+        };
+
+        $property->addValidator(new PropertyValidator(
+            $property,
+            $check,
+            InvalidConstException::class,
+            [$json['const']],
+        ));
+
+        $this->generateValidators($property, $propertySchema);
+
+        return $property;
     }
 }

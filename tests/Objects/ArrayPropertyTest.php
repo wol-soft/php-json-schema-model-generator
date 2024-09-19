@@ -683,7 +683,6 @@ ERROR
         return $this->combineDataProvider(
             $this->validationMethodDataProvider(),
             [
-                'null' => [[3, null, true]],
                 'empty string' => [[3, '', true]],
                 'lowercase string' => [[3, 'abc', true]],
                 'uppercase string' => [[3, 'AB', true]],
