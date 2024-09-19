@@ -236,8 +236,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         bool $implicitNull,
         string $reqPropertyValue,
         string $optPropertyValue
-    ): void
-    {
+    ): void {
         $className = $this->generateClassFromFile(
             'RequiredAndOptionalConstProperties.json',
             new GeneratorConfiguration(),
@@ -249,6 +248,36 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame($reqPropertyValue, $object->getRequiredProperty());
         $this->assertSame($optPropertyValue, $object->getOptionalProperty());
+
+        // typing for required const
+        $this->assertSame('string', $this->getPropertyTypeAnnotation($object, 'requiredProperty'));
+
+        $this->assertSame('string', $this->getReturnTypeAnnotation($object, 'getRequiredProperty'));
+        $returnType = $this->getReturnType($object, 'getRequiredProperty');
+        $this->assertSame('string', $returnType->getName());
+        $this->assertFalse($returnType->allowsNull());
+
+        $this->assertSame('string', $this->getParameterTypeAnnotation($className, 'setRequiredProperty'),
+        );
+        $setAgeParamType = $this->getParameterType($className, 'setRequiredProperty');
+        $this->assertSame('string', $setAgeParamType->getName());
+        $this->assertFalse($returnType->allowsNull());
+
+        // typing for optional const
+        $this->assertSame('string|null', $this->getPropertyTypeAnnotation($object, 'optionalProperty'));
+
+        $this->assertSame('string|null', $this->getReturnTypeAnnotation($object, 'getOptionalProperty'));
+        $returnType = $this->getReturnType($object, 'getOptionalProperty');
+        $this->assertSame('string', $returnType->getName());
+        $this->assertTrue($returnType->allowsNull());
+
+        $this->assertSame(
+            $implicitNull ? 'string|null' : 'string',
+            $this->getParameterTypeAnnotation($className, 'setOptionalProperty'),
+        );
+        $setAgeParamType = $this->getParameterType($className, 'setOptionalProperty');
+        $this->assertSame('string', $setAgeParamType->getName());
+        $this->assertSame($implicitNull, $setAgeParamType->allowsNull());
     }
 
     public function requiredAndOptionalPropertiesDataProvider(): array

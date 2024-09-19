@@ -237,7 +237,8 @@ ERROR
     public function testInvalidConstPropertyNamesThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches('/Invalid const property name in file/');
 
-        $this->generateClassFromFileTemplate('PropertyNames.json', ['{"const": null}']);
+        $this->generateClassFromFileTemplate('PropertyNames.json', ['{"const": false}'], escape: false);
     }
 }
