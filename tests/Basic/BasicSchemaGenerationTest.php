@@ -275,7 +275,8 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
             'space property' => '   ',
             'numeric42' => 13,
             '1000' => 1000,
-            '1000string' => '1000'
+            '1000string' => '1000',
+            '0' => 0,
         ]);
 
         $this->assertSame('___', $object->getUnderscoreProperty());
@@ -284,6 +285,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(13, $object->getNumeric42());
         $this->assertSame(1000, $object->get1000());
         $this->assertSame('1000', $object->get1000string());
+        $this->assertSame(0, $object->get0());
     }
 
     public function testEmptyNormalizedPropertyNameThrowsAnException(): void

@@ -21,6 +21,9 @@
     },
     "1000string": {
       "type": "string"
+    },
+    "0": {
+      "type": "integer"
     }
   }
 }
