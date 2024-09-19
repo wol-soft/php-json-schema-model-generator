@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "array",
+      "items": [
+        {
+          "const": "red"
+        }
+      ]
+    }
+  }
+}

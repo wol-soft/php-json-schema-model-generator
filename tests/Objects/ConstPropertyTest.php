@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
+use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\Object\RequiredValueException;
@@ -37,6 +39,45 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testProvidedArrayItemConstPropertyIsValid(): void
+    {
+        $className = $this->generateClassFromFile('ArrayItemConstProperty.json');
+
+        $object = new $className(['property' => ['red', 'red']]);
+
+        $this->assertIsArray($object->getProperty());
+        $this->assertSame(['red', 'red'], $object->getProperty());
+    }
+
+    /**
+     * @dataProvider stringIntDataProvider
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testProvidedAnyOfConstPropertyIsValid(string|int $propertyValue): void
+    {
+        $className = $this->generateClassFromFile('AnyOfConstProperty.json');
+
+        $object = new $className(['property' => $propertyValue]);
+
+        $this->assertSame($propertyValue, $object->getProperty());
+    }
+
+    public function stringIntDataProvider(): array
+    {
+        return [
+            ['red'],
+            [1],
+        ];
+    }
+
+    /**
      * @dataProvider invalidPropertyDataProvider
      *
      * @param $propertyValue
@@ -66,6 +107,36 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
             'string' => ['null'],
             'null' => [null],
         ];
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNotMatchingArrayItemConstPropertyThrowsAnException(): void
+    {
+        $this->expectException(InvalidTupleException::class);
+        $this->expectExceptionMessage('Invalid tuple item in array property');
+
+        $className = $this->generateClassFromFile('ArrayItemConstProperty.json');
+
+        new $className(['property' => ['green']]);
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNotMatchingArrayItemConstPropertyThrowsAnException1(): void
+    {
+        $this->expectException(OneOfException::class);
+        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+
+        $className = $this->generateClassFromFile('AnyOfConstProperty.json');
+
+        new $className(['property' => 'green']);
     }
 
     /**

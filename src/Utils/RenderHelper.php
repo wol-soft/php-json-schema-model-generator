@@ -182,7 +182,7 @@ if ({$validator->getCheck()}) {
             $schema->addMethod($validator->getExtractedMethodName(), $validator->getMethod());
         }
 
-        return "\$this->{$validator->getExtractedMethodName()}(\$value);";
+        return "\$this->{$validator->getExtractedMethodName()}(\$value, \$modelData);";
     }
 
     public function renderMethods(Schema $schema): string
