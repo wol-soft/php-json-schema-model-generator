@@ -28,7 +28,7 @@ class NormalizedName
 
         $attributeName = join('', $elements);
 
-        if (empty($attributeName)) {
+        if ($attributeName === '') {
             throw new SchemaException(
                 sprintf(
                     "Name '%s' results in an empty name in file %s",
