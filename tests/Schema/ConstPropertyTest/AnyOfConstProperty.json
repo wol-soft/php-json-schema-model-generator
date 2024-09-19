@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "oneOf": [
+        {
+          "const": "red"
+        },
+        {
+          "const": 1
+        }
+      ]
+    }
+  }
+}
