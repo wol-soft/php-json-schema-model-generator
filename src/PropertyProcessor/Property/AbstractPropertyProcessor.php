@@ -31,35 +31,14 @@ use PHPModelGenerator\Utils\TypeConverter;
  */
 abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
 {
-    /** @var PropertyMetaDataCollection */
-    protected $propertyMetaDataCollection;
-    /** @var SchemaProcessor */
-    protected $schemaProcessor;
-    /** @var Schema */
-    protected $schema;
-
-    /**
-     * AbstractPropertyProcessor constructor.
-     *
-     * @param PropertyMetaDataCollection $propertyMetaDataCollection
-     * @param SchemaProcessor            $schemaProcessor
-     * @param Schema                     $schema
-     */
     public function __construct(
-        PropertyMetaDataCollection $propertyMetaDataCollection,
-        SchemaProcessor $schemaProcessor,
-        Schema $schema,
-    ) {
-        $this->propertyMetaDataCollection = $propertyMetaDataCollection;
-        $this->schemaProcessor = $schemaProcessor;
-        $this->schema = $schema;
-    }
+        protected PropertyMetaDataCollection $propertyMetaDataCollection,
+        protected SchemaProcessor $schemaProcessor,
+        protected Schema $schema
+    ) {}
 
     /**
      * Generates the validators for the property
-     *
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
      *
      * @throws SchemaException
      */
@@ -83,9 +62,6 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     /**
      * Add a validator to a property which validates the value against a list of allowed values
      *
-     * @param PropertyInterface $property
-     * @param array             $allowedValues
-     *
      * @throws SchemaException
      */
     protected function addEnumValidator(PropertyInterface $property, array $allowedValues): void
@@ -105,9 +81,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
         // no type information provided - inherit the types from the enum values
         if (!$property->getType()) {
             $typesOfEnum = array_unique(array_map(
-                static function ($value): string {
-                    return TypeConverter::gettypeToInternal(gettype($value));
-                },
+                static fn($value): string => TypeConverter::gettypeToInternal(gettype($value)),
                 $allowedValues,
             ));
 
@@ -125,9 +99,6 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     }
 
     /**
-     * @param PropertyInterface $property
-     * @param array $dependencies
-     *
      * @throws SchemaException
      */
     protected function addDependencyValidator(PropertyInterface $property, array $dependencies): void
@@ -167,8 +138,6 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
 
     /**
      * Transfer all properties from $dependencySchema to the base schema of the current property
-     *
-     * @param Schema $dependencySchema
      */
     private function transferDependentPropertiesToBaseSchema(Schema $dependencySchema): void
     {
@@ -179,17 +148,12 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                 (clone $property)
                     ->setRequired(false)
                     ->setType(null)
-                    ->filterValidators(static function (): bool {
-                        return false;
-                    }),
+                    ->filterValidators(static fn(): bool => false),
             );
         }
     }
 
     /**
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
-     *
      * @throws SchemaException
      */
     protected function addComposedValueValidator(PropertyInterface $property, JsonSchema $propertySchema): void
@@ -234,11 +198,6 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     /**
      * If the type of a property containing a composition is defined outside of the composition make sure each
      * composition which doesn't define a type inherits the type
-     *
-     * @param JsonSchema $propertySchema
-     * @param string $composedValueKeyword
-     *
-     * @return JsonSchema
      */
     protected function inheritPropertyType(JsonSchema $propertySchema, string $composedValueKeyword): JsonSchema
     {
@@ -273,10 +232,6 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
 
     /**
      * Inherit the type of a property into all composed components of a conditional composition
-     *
-     * @param JsonSchema $propertySchema
-     *
-     * @return JsonSchema
      */
     protected function inheritIfPropertyType(JsonSchema $propertySchema): JsonSchema
     {
@@ -298,10 +253,6 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     /**
      * Check if implicit null values are allowed for the given property (a not required property which has no
      * explicit null type and is passed with a null value will be accepted)
-     *
-     * @param PropertyInterface $property
-     *
-     * @return bool
      */
     protected function isImplicitNullAllowed(PropertyInterface $property): bool
     {

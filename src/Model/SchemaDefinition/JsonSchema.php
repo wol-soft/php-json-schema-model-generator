@@ -33,10 +33,7 @@ class JsonSchema
         'patternProperties',
     ];
 
-    /** @var array */
-    protected $json;
-    /** @var string */
-    private $file;
+    protected array $json;
 
     /**
      * JsonSchema constructor.
@@ -44,7 +41,7 @@ class JsonSchema
      * @param string $file the source file for the schema
      * @param array $json Decoded json schema
      */
-    public function __construct(string $file, array $json)
+    public function __construct(private string $file, array $json)
     {
         // wrap in an allOf to pass the processing to multiple handlers - ugly hack to be removed after rework
         if (isset($json['$ref']) && count(array_diff(array_intersect(array_keys($json), self::SCHEMA_SIGNATURE_RELEVANT_FIELDS), ['$ref', 'type']))) {
@@ -63,12 +60,8 @@ class JsonSchema
         }
 
         $this->json = $json;
-        $this->file = $file;
     }
 
-    /**
-     * @return array
-     */
     public function getJson(): array
     {
         return $this->json;
@@ -83,11 +76,6 @@ class JsonSchema
         return ArrayHash::hash($this->json, self::SCHEMA_SIGNATURE_RELEVANT_FIELDS);
     }
 
-    /**
-     * @param array $json
-     *
-     * @return JsonSchema
-     */
     public function withJson(array $json): JsonSchema
     {
         $jsonSchema = clone $this;
@@ -96,9 +84,6 @@ class JsonSchema
         return $jsonSchema;
     }
 
-    /**
-     * @return string
-     */
     public function getFile(): string
     {
         return $this->file;

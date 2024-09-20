@@ -11,9 +11,6 @@ abstract class PostProcessor
 {
     /**
      * Have fun doin' crazy stuff with the schema
-     *
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
      */
     abstract public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void;
 

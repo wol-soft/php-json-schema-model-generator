@@ -25,10 +25,6 @@ class Schema
     use JsonSchemaTrait;
 
     /** @var string */
-    protected $className;
-    /** @var string */
-    protected $classPath;
-    /** @var string */
     protected $description;
 
     /** @var string[] */
@@ -39,8 +35,6 @@ class Schema
     protected $properties = [];
     /** @var MethodInterface[] */
     protected $methods = [];
-    /** @var bool */
-    protected $initialClass = false;
 
     /** @var PropertyValidatorInterface[] A Collection of validators which must be applied
      *                                    before adding properties to the model
@@ -53,59 +47,39 @@ class Schema
     /** @var SchemaHookInterface[] */
     protected $schemaHooks = [];
 
-    /** @var SchemaDefinitionDictionary */
-    protected $schemaDefinitionDictionary;
+    protected SchemaDefinitionDictionary $schemaDefinitionDictionary;
 
-    /** @var int */
-    private $resolvedProperties = 0;
+    private int $resolvedProperties = 0;
     /** @var callable[] */
-    private $onAllPropertiesResolvedCallbacks = [];
+    private array $onAllPropertiesResolvedCallbacks = [];
 
     /**
      * Schema constructor.
-     *
-     * @param string $classPath
-     * @param string $className
-     * @param JsonSchema $schema
-     * @param SchemaDefinitionDictionary|null $dictionary
-     * @param bool $initialClass
      */
     public function __construct(
-        string $classPath,
-        string $className,
+        protected string $classPath,
+        protected string $className,
         JsonSchema $schema,
         ?SchemaDefinitionDictionary $dictionary = null,
-        bool $initialClass = false,
+        protected bool $initialClass = false,
     ) {
-        $this->className = $className;
-        $this->classPath = $classPath;
         $this->jsonSchema = $schema;
         $this->schemaDefinitionDictionary = $dictionary ?? new SchemaDefinitionDictionary('');
         $this->description = $schema->getJson()['description'] ?? '';
-        $this->initialClass = $initialClass;
 
         $this->addInterface(JSONModelInterface::class);
     }
 
-    /**
-     * @return string
-     */
     public function getClassName(): string
     {
         return $this->className;
     }
 
-    /**
-     * @return string
-     */
     public function getClassPath(): string
     {
         return $this->classPath;
     }
 
-    /**
-     * @return string
-     */
     public function getDescription(): string
     {
         return $this->description;
@@ -145,23 +119,13 @@ class Schema
             ) use ($hasSchemaDependencyValidator): int {
                 $propertyHasSchemaDependencyValidator = $hasSchemaDependencyValidator($property);
                 $comparedPropertyHasSchemaDependencyValidator = $hasSchemaDependencyValidator($comparedProperty);
-
-                if ($propertyHasSchemaDependencyValidator === $comparedPropertyHasSchemaDependencyValidator) {
-                    return 0;
-                }
-
-                return ($propertyHasSchemaDependencyValidator < $comparedPropertyHasSchemaDependencyValidator) ? 1 : -1;
+                return $comparedPropertyHasSchemaDependencyValidator <=> $propertyHasSchemaDependencyValidator;
             },
         );
 
         return $this->properties;
     }
 
-    /**
-     * @param PropertyInterface $property
-     *
-     * @return $this
-     */
     public function addProperty(PropertyInterface $property): self
     {
         if (!isset($this->properties[$property->getName()])) {
@@ -197,8 +161,6 @@ class Schema
 
     /**
      * Get the keys of all composition base validators
-     *
-     * @return array
      */
     public function getCompositionValidatorKeys(): array
     {
@@ -213,11 +175,6 @@ class Schema
         return $keys;
     }
 
-    /**
-     * @param PropertyValidatorInterface $baseValidator
-     *
-     * @return $this
-     */
     public function addBaseValidator(PropertyValidatorInterface $baseValidator): self
     {
         $this->baseValidators[] = $baseValidator;
@@ -225,9 +182,6 @@ class Schema
         return $this;
     }
 
-    /**
-     * @return SchemaDefinitionDictionary
-     */
     public function getSchemaDictionary(): SchemaDefinitionDictionary
     {
         return $this->schemaDefinitionDictionary;
@@ -235,10 +189,6 @@ class Schema
 
     /**
      * Add a class to the schema which is required
-     *
-     * @param string $fqcn
-     *
-     * @return $this
      */
     public function addUsedClass(string $fqcn): self
     {
@@ -247,11 +197,6 @@ class Schema
         return $this;
     }
 
-    /**
-     * @param SchemaNamespaceTransferDecorator $decorator
-     *
-     * @return $this
-     */
     public function addNamespaceTransferDecorator(SchemaNamespaceTransferDecorator $decorator): self
     {
         $this->namespaceTransferDecorators[] = $decorator;
@@ -277,9 +222,6 @@ class Schema
 
     /**
      * @param string $methodKey An unique key in the scope of the schema to identify the method
-     * @param MethodInterface $method
-     *
-     * @return $this
      */
     public function addMethod(string $methodKey, MethodInterface $method): self
     {
@@ -309,11 +251,6 @@ class Schema
         return $this->traits;
     }
 
-    /**
-     * @param string $trait
-     *
-     * @return Schema
-     */
     public function addTrait(string $trait): self
     {
         $this->traits[] = $trait;
@@ -330,11 +267,6 @@ class Schema
         return $this->interfaces;
     }
 
-    /**
-     * @param string $interface
-     *
-     * @return Schema
-     */
     public function addInterface(string $interface): self
     {
         $this->interfaces[] = $interface;
@@ -345,10 +277,6 @@ class Schema
 
     /**
      * Add an additional schema hook
-     *
-     * @param SchemaHookInterface $schemaHook
-     *
-     * @return $this
      */
     public function addSchemaHook(SchemaHookInterface $schemaHook): self
     {
@@ -365,9 +293,6 @@ class Schema
         return $this->schemaHooks;
     }
 
-    /**
-     * @return bool
-     */
     public function isInitialClass(): bool
     {
         return $this->initialClass;

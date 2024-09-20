@@ -25,9 +25,6 @@ use PHPModelGenerator\Utils\RenderHelper;
 class AdditionalPropertiesPostProcessor extends PostProcessor
 {
     /**
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
-     *
      * @throws SchemaException
      */
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
@@ -40,8 +37,6 @@ class AdditionalPropertiesPostProcessor extends PostProcessor
     }
 
     /**
-     * @param Schema $schema
-     *
      * @throws SchemaException
      */
     public function addAdditionalPropertiesCollectionProperty(Schema $schema): void
@@ -82,8 +77,6 @@ class AdditionalPropertiesPostProcessor extends PostProcessor
      * the internal storage of the additional properties. If no additional property constraints are defined for the
      * schema the provided additional properties must be updated separately as no AdditionalPropertiesValidator is added
      * to the generated class.
-     *
-     * @param Schema $schema
      */
     private function addUpdateAdditionalProperties(Schema $schema): void
     {

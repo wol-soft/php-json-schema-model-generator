@@ -19,11 +19,6 @@ class NullProcessor extends AbstractTypedValueProcessor
 
     /**
      * Explicitly unset the type of the property
-     *
-     * @param string $propertyName
-     * @param JsonSchema $propertySchema
-     *
-     * @return PropertyInterface
      */
     public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface
     {

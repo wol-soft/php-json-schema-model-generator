@@ -18,11 +18,7 @@ class PropertyProcessorFactory implements ProcessorFactoryInterface
 {
     /**
      * @param string|array               $type
-     * @param PropertyMetaDataCollection $propertyMetaDataCollection
-     * @param SchemaProcessor            $schemaProcessor
-     * @param Schema                     $schema
      *
-     * @return PropertyProcessorInterface
      * @throws SchemaException
      */
     public function getProcessor(
@@ -54,12 +50,6 @@ class PropertyProcessorFactory implements ProcessorFactoryInterface
     }
 
     /**
-     * @param string                     $type
-     * @param PropertyMetaDataCollection $propertyMetaDataCollection
-     * @param SchemaProcessor            $schemaProcessor
-     * @param Schema                     $schema
-     *
-     * @return PropertyProcessorInterface
      * @throws SchemaException
      */
     protected function getSingleTypePropertyProcessor(

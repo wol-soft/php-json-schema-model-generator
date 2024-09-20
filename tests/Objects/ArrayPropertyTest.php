@@ -23,9 +23,6 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider validArrayPropertyValueProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -117,11 +114,8 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider defaultArraysToEmptyArrayDataProvider
-     *
-     * @param $input
-     * @param array $expectedOutput
      */
-    public function testValidValueWithDefaultArraysToEmptyArrayEnabled($input, array $expectedOutput): void
+    public function testValidValueWithDefaultArraysToEmptyArrayEnabled(?array $input, array $expectedOutput): void
     {
         $className = $this->generateClassFromFile(
             'ArrayProperty.json',
@@ -170,9 +164,6 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider optionalArrayPropertyDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param string                 $file
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -189,9 +180,6 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider optionalArrayPropertyDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param string                 $file
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -221,21 +209,18 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider invalidPropertyTypeDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
     public function testInvalidPropertyTypeThrowsAnException(
         GeneratorConfiguration $configuration,
-        $propertyValue,
+        mixed $propertyValue,
     ): void {
         $this->expectValidationError(
             $configuration,
             'Invalid type for property. Requires array, got ' .
-                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue)),
+                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)),
         );
 
         $className = $this->generateClassFromFile('ArrayProperty.json', $configuration);
@@ -260,16 +245,13 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider validUniqueArrayPropertyValueProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
     public function testUniqueArrayIsValidWithUniqueConstraint(
         GeneratorConfiguration $configuration,
-        $propertyValue,
+        ?array $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('ArrayPropertyUnique.json', $configuration);
 
@@ -293,9 +275,6 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidUniqueArrayPropertyValueProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -328,9 +307,6 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider arrayInItemAmountValidationRangePassesDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -359,10 +335,6 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidItemAmountDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
-     * @param string $exceptionMessage
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -395,11 +367,6 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider validTypedArrayDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param string $type
-     * @param        $propertyValue
-     * @param        $expectedValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -407,8 +374,8 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testTypedArrayIsValid(
         GeneratorConfiguration $configuration,
         string $type,
-        $propertyValue,
-        $expectedValue = null,
+        ?array $propertyValue,
+        ?array $expectedValue = null,
     ): void {
         $className = $this->generateClassFromFileTemplate('ArrayPropertyTyped.json', [$type], $configuration, false);
 
@@ -440,10 +407,6 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider typedArrayTypeDataProvider
-     *
-     * @param bool $implicitNull
-     * @param string $type
-     * @param string $expectedAnnotation
      */
     public function testTypedOptionalArrayType(bool $implicitNull, string $type, string $expectedAnnotation): void
     {
@@ -476,10 +439,6 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider typedArrayTypeDataProvider
-     *
-     * @param bool $implicitNull
-     * @param string $type
-     * @param string $expectedAnnotation
      */
     public function testTypedRequiredArrayType(bool $implicitNull, string $type, string $expectedAnnotation): void
     {
@@ -519,11 +478,6 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider invalidTypedArrayDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param string                 $type
-     * @param                        $propertyValue
-     * @param string                 $message
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -531,7 +485,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidTypedArrayThrowsAnException(
         GeneratorConfiguration $configuration,
         string $type,
-        $propertyValue,
+        array $propertyValue,
         string $message = '',
     ): void {
         $this->expectValidationError($configuration, $message);
@@ -666,9 +620,6 @@ ERROR
 
     /**
      * @dataProvider validArrayContainsDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array                  $propertyValue
      */
     public function testValidValuesForArrayContains(GeneratorConfiguration $configuration, array $propertyValue): void
     {
@@ -694,9 +645,6 @@ ERROR
 
     /**
      * @dataProvider invalidArrayContainsDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array                  $propertyValue
      */
     public function testInvalidValuesForArrayContainsTrowsAnException(
         GeneratorConfiguration $configuration,
@@ -725,10 +673,6 @@ ERROR
 
     /**
      * @dataProvider validObjectArrayDataProvider
-     *
-     * @param string $file
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -788,11 +732,6 @@ ERROR
     /**
      * @dataProvider invalidObjectArrayDataProvider
      * @dataProvider invalidCombinedObjectArrayDataProvider
-     *
-     * @param string $file
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
-     * @param string $message
      *
      * @throws FileSystemException
      * @throws RenderException

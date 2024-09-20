@@ -18,44 +18,18 @@ use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
  */
 class RenderHelper
 {
-    /** @var GeneratorConfiguration */
-    protected $generatorConfiguration;
+    public function __construct(protected GeneratorConfiguration $generatorConfiguration) {}
 
-    /**
-     * RenderHelper constructor.
-     *
-     * @param GeneratorConfiguration $generatorConfiguration
-     */
-    public function __construct(GeneratorConfiguration $generatorConfiguration)
-    {
-        $this->generatorConfiguration = $generatorConfiguration;
-    }
-
-    /**
-     * @param string $value
-     *
-     * @return string
-     */
     public function ucfirst(string $value): string
     {
         return ucfirst($value);
     }
 
-    /**
-     * @param mixed $value
-     *
-     * @return bool
-     */
-    public function isNull($value): bool
+    public function isNull(mixed $value): bool
     {
         return $value === null;
     }
 
-    /**
-     * @param string $fqcn
-     *
-     * @return string
-     */
     public function getSimpleClassName(string $fqcn): string
     {
         $parts = explode('\\', $fqcn);
@@ -63,11 +37,6 @@ class RenderHelper
         return end($parts);
     }
 
-    /**
-     * @param array $fqcns
-     *
-     * @return string
-     */
     public function joinClassNames(array $fqcns): string
     {
         return join(', ', array_map([$this, 'getSimpleClassName'], $fqcns));
@@ -75,11 +44,6 @@ class RenderHelper
 
     /**
      * Resolve all associated decorators of a property
-     *
-     * @param PropertyInterface $property
-     * @param bool $nestedProperty
-     *
-     * @return string
      */
     public function resolvePropertyDecorator(PropertyInterface $property, bool $nestedProperty = false): string
     {
@@ -92,10 +56,6 @@ class RenderHelper
 
     /**
      * Generate code to handle a validation error
-     *
-     * @param PropertyValidatorInterface $validator
-     *
-     * @return string
      */
     public function validationError(PropertyValidatorInterface $validator): string
     {
@@ -120,11 +80,6 @@ class RenderHelper
      *   if implicitNull is enabled null may be set for the property
      * - except the property contains a default value and implicit null is disabled. in this case null is not
      *   possible
-     *
-     * @param PropertyInterface $property
-     * @param bool $outputType
-     *
-     * @return bool
      */
     public function isPropertyNullable(PropertyInterface $property, bool $outputType = false): bool
     {

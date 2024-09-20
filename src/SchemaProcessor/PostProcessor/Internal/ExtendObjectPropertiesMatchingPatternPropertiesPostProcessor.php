@@ -20,9 +20,6 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostProcessor
 {
     /**
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
-     *
      * @throws SchemaException
      */
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
@@ -31,13 +28,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
 
         $schema->addSchemaHook(
             new class ($schema) implements SetterBeforeValidationHookInterface {
-                /** @var Schema */
-                private $schema;
-
-                public function __construct(Schema $schema)
-                {
-                    $this->schema = $schema;
-                }
+                public function __construct(private Schema $schema) {}
 
                 public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
                 {
@@ -75,9 +66,6 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
     }
 
     /**
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
-     *
      * @throws SchemaException
      */
     protected function transferPatternPropertiesFilterToProperty(
@@ -86,9 +74,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
     ): void {
         $patternPropertiesValidators = array_filter(
             $schema->getBaseValidators(),
-            static function (PropertyValidatorInterface $validator): bool {
-                return $validator instanceof PatternPropertiesValidator;
-            });
+            static fn(PropertyValidatorInterface $validator): bool => $validator instanceof PatternPropertiesValidator);
 
         if (empty($patternPropertiesValidators)) {
             return;
@@ -98,10 +84,9 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
             $propertyHasTransformingFilter = !empty(
                 array_filter(
                     $property->getValidators(),
-                    static function (Validator $validator): bool {
-                        return $validator->getValidator() instanceof FilterValidator &&
-                            $validator->getValidator()->getFilter() instanceof TransformingFilterInterface;
-                    },
+                    static fn(Validator $validator): bool =>
+                        $validator->getValidator() instanceof FilterValidator &&
+                        $validator->getValidator()->getFilter() instanceof TransformingFilterInterface,
                 )
             );
 
@@ -110,17 +95,17 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                 if (!preg_match(
                         '/' . addcslashes($patternPropertiesValidator->getPattern(), '/') . '/',
                         $property->getName(),
-                    )
-                    || !isset(
-                        $schema->getJsonSchema()->getJson()
-                            ['patternProperties']
-                            [$patternPropertiesValidator->getPattern()]
-                            ['filter'],
-                    )
-                ) {
+                    )) {
                     continue;
                 }
-
+                if (!isset(
+                    $schema->getJsonSchema()->getJson()
+                        ['patternProperties']
+                        [$patternPropertiesValidator->getPattern()]
+                        ['filter'],
+                )) {
+                    continue;
+                }
                 if ($propertyHasTransformingFilter) {
                     foreach (
                         $patternPropertiesValidator->getValidationProperty()->getValidators() as $validator

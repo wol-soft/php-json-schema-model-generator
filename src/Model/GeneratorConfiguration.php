@@ -65,10 +65,6 @@ class GeneratorConfiguration
     /**
      * Add an additional filter
      *
-     * @param FilterInterface ...$additionalFilter
-     *
-     * @return $this
-     *
      * @throws Exception
      * @throws InvalidFilterException
      */
@@ -103,11 +99,6 @@ class GeneratorConfiguration
 
     /**
      * Add an additional format
-     *
-     * @param string $formatKey
-     * @param FormatValidatorInterface $format
-     *
-     * @return $this
      */
     public function addFormat(string $formatKey, FormatValidatorInterface $format): self
     {
@@ -116,20 +107,12 @@ class GeneratorConfiguration
         return $this;
     }
 
-    /**
-     * @param string $formatKey
-     *
-     * @return FormatValidatorInterface|null
-     */
     public function getFormat(string $formatKey): ?FormatValidatorInterface
     {
         return $this->formats[$formatKey] ?? null;
     }
 
     /**
-     * @param array $callback
-     * @param string $message
-     *
      * @throws InvalidFilterException
      */
     private function validateFilterCallback(array $callback, string $message): void
@@ -145,29 +128,17 @@ class GeneratorConfiguration
 
     /**
      * Get a filter by the given token
-     *
-     * @param string $token
-     *
-     * @return FilterInterface|null
      */
     public function getFilter(string $token): ?FilterInterface
     {
         return $this->filter[$token] ?? null;
     }
 
-    /**
-     * @return ClassNameGeneratorInterface
-     */
     public function getClassNameGenerator(): ClassNameGeneratorInterface
     {
         return $this->classNameGenerator;
     }
 
-    /**
-     * @param ClassNameGeneratorInterface $classNameGenerator
-     *
-     * @return $this
-     */
     public function setClassNameGenerator(ClassNameGeneratorInterface $classNameGenerator): self
     {
         $this->classNameGenerator = $classNameGenerator;
@@ -175,19 +146,11 @@ class GeneratorConfiguration
         return $this;
     }
 
-    /**
-     * @return string
-     */
     public function getNamespacePrefix(): string
     {
         return $this->namespacePrefix;
     }
 
-    /**
-     * @param string $namespacePrefix
-     *
-     * @return $this
-     */
     public function setNamespacePrefix(string $namespacePrefix): self
     {
         $this->namespacePrefix = trim($namespacePrefix, '\\');
@@ -195,19 +158,11 @@ class GeneratorConfiguration
         return $this;
     }
 
-    /**
-     * @return bool
-     */
     public function isDefaultArraysToEmptyArrayEnabled(): bool
     {
         return $this->defaultArraysToEmptyArray;
     }
 
-    /**
-     * @param bool $defaultArraysToEmptyArray
-     *
-     * @return GeneratorConfiguration
-     */
     public function setDefaultArraysToEmptyArray(bool $defaultArraysToEmptyArray): self
     {
         $this->defaultArraysToEmptyArray = $defaultArraysToEmptyArray;
@@ -215,19 +170,11 @@ class GeneratorConfiguration
         return $this;
     }
 
-    /**
-     * @return bool
-     */
     public function isImmutable(): bool
     {
         return $this->immutable;
     }
 
-    /**
-     * @param bool $immutable
-     *
-     * @return GeneratorConfiguration
-     */
     public function setImmutable(bool $immutable): self
     {
         $this->immutable = $immutable;
@@ -235,19 +182,11 @@ class GeneratorConfiguration
         return $this;
     }
 
-    /**
-     * @return bool
-     */
     public function denyAdditionalProperties(): bool
     {
         return $this->denyAdditionalProperties;
     }
 
-    /**
-     * @param bool $denyAdditionalProperties
-     *
-     * @return $this
-     */
     public function setDenyAdditionalProperties(bool $denyAdditionalProperties): self
     {
         $this->denyAdditionalProperties = $denyAdditionalProperties;
@@ -255,19 +194,11 @@ class GeneratorConfiguration
         return $this;
     }
 
-    /**
-     * @return bool
-     */
     public function hasSerializationEnabled(): bool
     {
         return $this->serialization;
     }
 
-    /**
-     * @param bool $serialization
-     *
-     * @return $this
-     */
     public function setSerialization(bool $serialization): self
     {
         $this->serialization = $serialization;
@@ -275,11 +206,6 @@ class GeneratorConfiguration
         return $this;
     }
 
-    /**
-     * @param bool $outputEnabled
-     *
-     * @return $this
-     */
     public function setOutputEnabled(bool $outputEnabled): self
     {
         $this->outputEnabled = $outputEnabled;
@@ -287,27 +213,16 @@ class GeneratorConfiguration
         return $this;
     }
 
-    /**
-     * @return bool
-     */
     public function isOutputEnabled(): bool
     {
         return $this->outputEnabled;
     }
 
-    /**
-     * @return bool
-     */
     public function collectErrors(): bool
     {
         return $this->collectErrors;
     }
 
-    /**
-     * @param bool $collectErrors
-     *
-     * @return GeneratorConfiguration
-     */
     public function setCollectErrors(bool $collectErrors): self
     {
         $this->collectErrors = $collectErrors;
@@ -315,19 +230,11 @@ class GeneratorConfiguration
         return $this;
     }
 
-    /**
-     * @return string
-     */
     public function getErrorRegistryClass(): string
     {
         return $this->errorRegistryClass;
     }
 
-    /**
-     * @param string $errorRegistryClass
-     *
-     * @return GeneratorConfiguration
-     */
     public function setErrorRegistryClass(string $errorRegistryClass): self
     {
         $this->errorRegistryClass = $errorRegistryClass;
@@ -335,19 +242,11 @@ class GeneratorConfiguration
         return $this;
     }
 
-    /**
-     * @return bool
-     */
     public function isImplicitNullAllowed(): bool
     {
         return $this->allowImplicitNull;
     }
 
-    /**
-     * @param bool $allowImplicitNull
-     *
-     * @return GeneratorConfiguration
-     */
     public function setImplicitNull(bool $allowImplicitNull): self
     {
         $this->allowImplicitNull = $allowImplicitNull;

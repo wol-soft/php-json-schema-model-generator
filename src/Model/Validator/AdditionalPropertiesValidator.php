@@ -30,18 +30,11 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
 
     protected const EXCEPTION_CLASS = InvalidAdditionalPropertiesException::class;
 
-    /** @var PropertyInterface */
-    private $validationProperty;
-    /** @var bool */
-    private $collectAdditionalProperties = false;
+    private PropertyInterface $validationProperty;
+    private bool $collectAdditionalProperties = false;
 
     /**
      * AdditionalPropertiesValidator constructor.
-     *
-     * @param SchemaProcessor $schemaProcessor
-     * @param Schema $schema
-     * @param JsonSchema $propertiesStructure
-     * @param string|null $propertyName
      *
      * @throws SchemaException
      */
@@ -97,17 +90,11 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
         return parent::getCheck();
     }
 
-    /**
-     * @param bool $collectAdditionalProperties
-     */
     public function setCollectAdditionalProperties(bool $collectAdditionalProperties): void
     {
         $this->collectAdditionalProperties = $collectAdditionalProperties;
     }
 
-    /**
-     * @return PropertyInterface
-     */
     public function getValidationProperty(): PropertyInterface
     {
         return $this->validationProperty;
@@ -115,8 +102,6 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
 
     /**
      * Initialize all variables which are required to execute a property names validator
-     *
-     * @return string
      */
     public function getValidatorSetUp(): string
     {

@@ -19,18 +19,14 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInte
  */
 class Property extends AbstractProperty
 {
-    /** @var PropertyType */
-    protected $type;
     /** @var PropertyType|null */
-    protected $outputType = null;
+    protected $outputType;
     /** @var bool */
     protected $isPropertyRequired = true;
     /** @var bool */
     protected $isPropertyReadOnly = false;
     /** @var bool */
     protected $isPropertyInternal = false;
-    /** @var string */
-    protected $description = '';
     /** @var mixed */
     protected $defaultValue;
 
@@ -43,26 +39,22 @@ class Property extends AbstractProperty
     /** @var TypeHintDecoratorInterface[] */
     public $typeHintDecorators = [];
 
-    private $renderedTypeHints = [];
-    /** @var int Track the amount of unresolved validators */
-    private $pendingValidators = 0;
+    private array $renderedTypeHints = [];
+    /** Track the amount of unresolved validators */
+    private int $pendingValidators = 0;
 
     /**
      * Property constructor.
      *
-     * @param string $name
-     * @param PropertyType|null $type
-     * @param JsonSchema $jsonSchema
-     * @param string $description
-     *
      * @throws SchemaException
      */
-    public function __construct(string $name, ?PropertyType $type, JsonSchema $jsonSchema, string $description = '')
-    {
+    public function __construct(
+        string $name,
+        protected ?PropertyType $type,
+        JsonSchema $jsonSchema,
+        protected string $description = '',
+    ) {
         parent::__construct($name, $jsonSchema);
-
-        $this->type = $type;
-        $this->description = $description;
 
         $this->resolve();
     }
@@ -132,9 +124,7 @@ class Property extends AbstractProperty
 
                 $filteredDecorators = array_filter(
                     $this->typeHintDecorators,
-                    static function (TypeHintDecoratorInterface $decorator) use ($skipDec): bool {
-                        return !in_array(get_class($decorator), $skipDec);
-                    },
+                    static fn(TypeHintDecoratorInterface $decorator): bool => !in_array($decorator::class, $skipDec),
                 );
 
                 foreach ($filteredDecorators as $decorator) {
@@ -178,7 +168,7 @@ class Property extends AbstractProperty
 
             $this->pendingValidators++;
 
-            $validator->onResolve(function () {
+            $validator->onResolve(function (): void {
                 if (--$this->pendingValidators === 0) {
                     $this->resolve();
                 }
@@ -215,18 +205,12 @@ class Property extends AbstractProperty
     {
         usort(
             $this->validators,
-            static function (Validator $validator, Validator $comparedValidator): int {
-                if ($validator->getPriority() == $comparedValidator->getPriority()) {
-                    return 0;
-                }
-                return ($validator->getPriority() < $comparedValidator->getPriority()) ? -1 : 1;
-            },
+            static fn(Validator $validator, Validator $comparedValidator): int =>
+                $validator->getPriority() <=> $comparedValidator->getPriority(),
         );
 
         return array_map(
-            static function (Validator $validator): PropertyValidatorInterface {
-                return $validator->getValidator();
-            },
+            static fn(Validator $validator): PropertyValidatorInterface => $validator->getValidator(),
             $this->validators,
         );
     }

@@ -53,8 +53,6 @@ class ExplicitNullTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider implicitNullDataProvider
-     *
-     * @param bool $implicitNull
      */
     public function testNullForOptionalValueWithExplicitNullIsValid(bool $implicitNull): void
     {
@@ -67,8 +65,6 @@ class ExplicitNullTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider implicitNullDataProvider
-     *
-     * @param bool $implicitNull
      */
     public function testNullForRequiredValueWithExplicitNullIsValid(bool $implicitNull): void
     {

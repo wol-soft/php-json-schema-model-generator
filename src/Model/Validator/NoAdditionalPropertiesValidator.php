@@ -17,9 +17,6 @@ class NoAdditionalPropertiesValidator extends PropertyTemplateValidator
 {
     /**
      * PropertyDependencyValidator constructor.
-     *
-     * @param PropertyInterface $property
-     * @param array $json
      */
     public function __construct(PropertyInterface $property, array $json)
     {

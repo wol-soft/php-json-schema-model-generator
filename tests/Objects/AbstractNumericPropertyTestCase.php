@@ -32,10 +32,8 @@ abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGenerator
 
     /**
      * @dataProvider validRangeDataProvider
-     *
-     * @param $propertyValue
      */
-    public function testValidValueForRangeValidator($propertyValue)
+    public function testValidValueForRangeValidator($propertyValue): void
     {
         $className = $this->generateClassFromFile($this->getRangeFile(false));
 
@@ -44,10 +42,8 @@ abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGenerator
     }
     /**
      * @dataProvider validExclusiveRangeDataProvider
-     *
-     * @param $propertyValue
      */
-    public function testValidValueForExclusiveRangeValidator($propertyValue)
+    public function testValidValueForExclusiveRangeValidator($propertyValue): void
     {
         $className = $this->generateClassFromFile($this->getRangeFile(true));
 
@@ -57,11 +53,8 @@ abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGenerator
 
     /**
      * @dataProvider invalidRangeDataProvider
-     *
-     * @param $propertyValue
-     * @param string $exceptionMessage
      */
-    public function testInvalidValueForRangeValidatorThrowsAnException($propertyValue, string $exceptionMessage)
+    public function testInvalidValueForRangeValidatorThrowsAnException($propertyValue, string $exceptionMessage): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($exceptionMessage);
@@ -75,9 +68,8 @@ abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGenerator
      * @dataProvider invalidExclusiveRangeDataProvider
      *
      * @param $propertyValue
-     * @param string $exceptionMessage
      */
-    public function testInvalidValueForExclusiveRangeValidatorThrowsAnException($propertyValue, string $exceptionMessage)
+    public function testInvalidValueForExclusiveRangeValidatorThrowsAnException($propertyValue, string $exceptionMessage): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($exceptionMessage);

@@ -16,8 +16,6 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider validObjectPropertyAmountDataProvider
-     *
-     * @param array $propertyValue
      */
     public function testObjectWithPropertyAmountInRangeIsValid(array $propertyValue): void
     {
@@ -37,9 +35,6 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidObjectPropertyAmountDataProvider
-     *
-     * @param array $propertyValue
-     * @param string $exceptionMessage
      */
     public function testObjectWithInvalidPropertyAmountThrowsAnException(
         array $propertyValue,

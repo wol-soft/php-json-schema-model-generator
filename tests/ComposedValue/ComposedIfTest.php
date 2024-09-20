@@ -20,8 +20,6 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider conditionalKeywordsDataProvider
-     *
-     * @param string $keyword
      */
     public function testIncompleteConditionalsOnPropertyLevelResolveToProperties(string $keyword): void
     {
@@ -44,7 +42,6 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validConditionalPropertyDefinitionDataProvider
-     * @param int $value
      */
     public function testConditionalPropertyDefinition(int $value): void
     {
@@ -68,9 +65,6 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidConditionalPropertyDefinitionDataProvider
-     *
-     * @param int $value
-     * @param string $expectedExceptionMessage
      */
     public function testInvalidConditionalPropertyDefinition(int $value, string $expectedExceptionMessage): void {
         $this->expectException(ConditionalException::class);
@@ -117,12 +111,6 @@ ERROR
 
     /**
      * @dataProvider validConditionalObjectPropertyDataProvider
-     *
-     * @param string $schemaFile
-     * @param GeneratorConfiguration $configuration
-     * @param string|null $streetAddress
-     * @param string|null $country
-     * @param string|null $postalCode
      */
     public function testConditionalObjectProperty(
         string $schemaFile,
@@ -169,12 +157,6 @@ ERROR
 
     /**
      * @dataProvider invalidConditionalObjectPropertyDataProvider
-     *
-     * @param string $schemaFile
-     * @param GeneratorConfiguration $configuration
-     * @param string|null $streetAddress
-     * @param string|null $country
-     * @param string|null $postalCode
      *
      * @throws FileSystemException
      * @throws RenderException

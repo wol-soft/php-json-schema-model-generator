@@ -13,11 +13,6 @@ namespace PHPModelGenerator\PropertyProcessor;
  */
 class PropertyMetaDataCollection
 {
-    /** @var array */
-    protected $requiredAttributes = [];
-    /** @var array */
-    protected $dependencies = [];
-
     /**
      * PropertyMetaDataCollection constructor.
      *
@@ -27,18 +22,10 @@ class PropertyMetaDataCollection
      *                                  are required if the key attribute is present or a valid schema which must be
      *                                  fulfilled if the key attribute is present
      */
-    public function __construct(array $requiredAttributes = [], array $dependencies = [])
-    {
-        $this->requiredAttributes = $requiredAttributes;
-        $this->dependencies = $dependencies;
-    }
+    public function __construct(protected array $requiredAttributes = [], protected array $dependencies = []) {}
 
     /**
      * Check if a given attribute is required
-     *
-     * @param string $attribute
-     *
-     * @return bool
      */
     public function isAttributeRequired(string $attribute): bool
     {
@@ -47,10 +34,6 @@ class PropertyMetaDataCollection
 
     /**
      * Get the dependencies for the requested attribute
-     *
-     * @param string $attribute
-     *
-     * @return array|null
      */
     public function getAttributeDependencies(string $attribute): ?array
     {

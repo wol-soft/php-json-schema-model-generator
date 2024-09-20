@@ -14,12 +14,6 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
  */
 class AnyProcessor extends AbstractValueProcessor
 {
-    /**
-     * @param string $propertyName
-     * @param JsonSchema $propertySchema
-     *
-     * @return PropertyInterface
-     */
     public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface
     {
         $property = parent::process($propertyName, $propertySchema);

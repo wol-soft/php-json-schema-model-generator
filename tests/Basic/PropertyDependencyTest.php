@@ -16,8 +16,6 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider validPropertyDependencyDataProvider
-     *
-     * @param array $propertyValue
      */
     public function testValidPropertyDependency(array $propertyValue): void
     {
@@ -39,8 +37,6 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validMultiplePropertyDependenciesDataProvider
-     *
-     * @param array $propertyValue
      */
     public function testValidMultiplePropertyDependencies(array $propertyValue): void
     {
@@ -65,8 +61,6 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validBidirectionalPropertyDependencyDataProvider
-     *
-     * @param array $propertyValue
      */
     public function testValidBidirectionalPropertyDependency(array $propertyValue): void
     {
@@ -87,8 +81,6 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validationMethodDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
      */
     public function testInvalidPropertyDependencyThrowsAnException(GeneratorConfiguration $configuration): void {
         $this->expectValidationError(
@@ -106,10 +98,6 @@ ERROR,
 
     /**
      * @dataProvider invalidMultiplePropertyDependenciesDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
-     * @param string $message
      */
     public function testInvalidMultiplePropertyDependenciesThrowsAnException(
         GeneratorConfiguration $configuration,
@@ -156,10 +144,6 @@ ERROR
 
     /**
      * @dataProvider invalidBidirectionalPropertyDependencyDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
-     * @param string $message
      */
     public function testInvalidBidirectionalPropertyDependencyThrowsAnException(
         GeneratorConfiguration $configuration,

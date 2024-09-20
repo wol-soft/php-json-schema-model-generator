@@ -91,9 +91,6 @@ abstract class AbstractNumericProcessor extends AbstractTypedValueProcessor
 
     /**
      * Adds a multiple of validator to the property
-     *
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
      */
     protected function addMultipleOfValidator(PropertyInterface $property, JsonSchema $propertySchema)
     {

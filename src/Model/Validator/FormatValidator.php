@@ -16,40 +16,30 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  */
 class FormatValidator extends AbstractPropertyValidator
 {
-    /** @var FormatValidatorInterface */
-    protected $validator;
-
     /**
      * FormatValidator constructor.
-     *
-     * @param PropertyInterface $property
-     * @param FormatValidatorInterface $validator
-     * @param array $exceptionParams
      */
     public function __construct(
         PropertyInterface $property,
-        FormatValidatorInterface $validator,
+        protected FormatValidatorInterface $validator,
         array $exceptionParams = [],
     ) {
         $this->isResolved = true;
-        $this->validator = $validator;
 
         parent::__construct($property, FormatException::class, $exceptionParams);
     }
 
     /**
      * Get the source code for the check to perform
-     *
-     * @return string
      */
     public function getCheck(): string
     {
         return $this->validator instanceof FormatValidatorFromRegEx
             ? sprintf(
                 '!\%s::validate($value, %s)',
-                get_class($this->validator),
+                $this->validator::class,
                 var_export($this->validator->getPattern(), true),
             )
-            : sprintf('!\%s::validate($value)', get_class($this->validator));
+            : sprintf('!\%s::validate($value)', $this->validator::class);
     }
 }

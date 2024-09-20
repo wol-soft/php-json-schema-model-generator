@@ -28,7 +28,6 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider implicitNullDataProvider
      *
-     * @param bool $implicitNull
      * @param bool $nullable
      */
     public function testGetterAndSetterAreGeneratedForMutableObjects(bool $implicitNull): void
@@ -166,8 +165,8 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
         $this->assertFalse(is_callable([$object, 'toArray']));
         $this->assertFalse(is_callable([$object, 'toJSON']));
 
-        $this->assertFalse($object instanceof SerializationInterface);
-        $this->assertTrue($object instanceof JSONModelInterface);
+        $this->assertNotInstanceOf(SerializationInterface::class, $object);
+        $this->assertInstanceOf(JSONModelInterface::class, $object);
     }
 
     public function testSerializationFunctionsAreGeneratedWithEnabledSerialization(): void
@@ -179,13 +178,13 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['property' => 'Hello']);
 
-        $this->assertEquals(['property' => 'Hello'], $object->toArray());
-        $this->assertEquals(['property' => 'Hello'], $object->jsonSerialize());
-        $this->assertEquals('{"property":"Hello"}', $object->toJSON());
+        $this->assertSame(['property' => 'Hello'], $object->toArray());
+        $this->assertSame(['property' => 'Hello'], $object->jsonSerialize());
+        $this->assertSame('{"property":"Hello"}', $object->toJSON());
 
-        $this->assertTrue($object instanceof SerializationInterface);
-        $this->assertTrue($object instanceof JSONModelInterface);
-        $this->assertTrue($object instanceof JsonSerializable);
+        $this->assertInstanceOf(SerializationInterface::class, $object);
+        $this->assertInstanceOf(JSONModelInterface::class, $object);
+        $this->assertInstanceOf(JsonSerializable::class, $object);
     }
 
     public function testNestedSerializationFunctions(): void
@@ -207,13 +206,13 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertEquals($input, $object->toArray());
         $this->assertEquals($input, $object->jsonSerialize());
-        $this->assertEquals('{"name":"Hannes","address":{"street":"Test-Street","number":null}}', $object->toJSON());
+        $this->assertSame('{"name":"Hannes","address":{"street":"Test-Street","number":null}}', $object->toJSON());
 
         $this->assertEquals(['name' => 'Hannes', 'address' => null], $object->toArray([], 1));
-        $this->assertEquals('{"name":"Hannes","address":null}', $object->toJSON([], 0, 1));
+        $this->assertSame('{"name":"Hannes","address":null}', $object->toJSON([], 0, 1));
 
-        $this->assertEquals(['name' => 'Hannes'], $object->toArray(['address']));
-        $this->assertEquals('{"name":"Hannes"}', $object->toJSON(['address']));
+        $this->assertSame(['name' => 'Hannes'], $object->toArray(['address']));
+        $this->assertSame('{"name":"Hannes"}', $object->toJSON(['address']));
 
         $this->assertFalse($object->toArray([], 0));
         $this->assertFalse($object->toJSON([], 0, 0));
@@ -221,16 +220,12 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidStringPropertyValueProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param string                 $propertyValue
-     * @param array                  $exceptionMessage
      */
     public function testInvalidSetterThrowsAnException(
         GeneratorConfiguration $configuration,
         string $propertyValue,
         array $exceptionMessage,
-    ) {
+    ): void {
         $this->expectValidationError($configuration, $exceptionMessage);
 
         $className = $this->generateClassFromFile('BasicSchema.json', $configuration->setImmutable(false));

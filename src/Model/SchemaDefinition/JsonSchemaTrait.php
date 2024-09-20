@@ -16,8 +16,6 @@ trait JsonSchemaTrait
 
     /**
      * Get the JSON schema structure
-     *
-     * @return JsonSchema
      */
     public function getJsonSchema(): JsonSchema
     {

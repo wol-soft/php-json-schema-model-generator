@@ -14,15 +14,10 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  */
 class TypeCheckValidator extends PropertyValidator implements TypeCheckInterface
 {
-    /** @var string */
-    protected $type;
+    protected string $type;
 
     /**
      * TypeCheckValidator constructor.
-     *
-     * @param string            $type
-     * @param PropertyInterface $property
-     * @param bool              $allowImplicitNull
      */
     public function __construct(string $type, PropertyInterface $property, bool $allowImplicitNull)
     {

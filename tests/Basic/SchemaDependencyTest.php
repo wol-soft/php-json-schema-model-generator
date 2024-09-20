@@ -17,8 +17,6 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider validSchemaDependencyDataProvider
-     *
-     * @param array $propertyValue
      */
     public function testValidSchemaDependency(array $propertyValue): void
     {
@@ -47,10 +45,6 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidSchemaDependencyDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
-     * @param string $message
      */
     public function testInvalidSchemaDependency(
         GeneratorConfiguration $configuration,
@@ -96,8 +90,6 @@ ERROR
 
     /**
      * @dataProvider validSchemaDependencyReferenceDataProvider
-     *
-     * @param array $propertyValue
      */
     public function testSchemaDependencyReference(array $propertyValue): void
     {
@@ -126,10 +118,6 @@ ERROR
 
     /**
      * @dataProvider invalidSchemaDependencyReferenceDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
-     * @param string $message
      */
     public function testInvalidSchemaDependencyReference(
         GeneratorConfiguration $configuration,
@@ -175,8 +163,6 @@ ERROR
 
     /**
      * @dataProvider validSchemaDependencyCompositionDataProvider
-     *
-     * @param array $propertyValue
      */
     public function testSchemaDependencyComposition(array $propertyValue): void
     {
@@ -204,9 +190,6 @@ ERROR
 
     /**
      * @dataProvider invalidSchemaDependencyCompositionDataProvider
-     *
-     * @param array $propertyValue
-     * @param string $message
      */
     public function testInvalidSchemaDependencyComposition(
         array $propertyValue,
@@ -270,8 +253,6 @@ ERROR
 
     /**
      * @dataProvider validSchemaDependencyNestedObejctDataProvider
-     *
-     * @param array $propertyValue
      */
     public function testSchemaDependencyNestedObject(array $propertyValue): void
     {
@@ -317,9 +298,6 @@ ERROR
 
     /**
      * @dataProvider invalidSchemaDependencyNestedObjectDataProvider
-     *
-     * @param array $propertyValue
-     * @param string $message
      */
     public function testInvalidSchemaDependencyNestedObject(
         array $propertyValue,

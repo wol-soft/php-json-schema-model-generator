@@ -20,22 +20,12 @@ class ObjectInstantiationDecorator implements PropertyDecoratorInterface
 {
     /** @var Render */
     protected static $renderer;
-    /** @var string */
-    protected $className;
-    /** @var GeneratorConfiguration */
-    protected $generatorConfiguration;
 
     /**
      * ObjectInstantiationDecorator constructor.
-     *
-     * @param string                 $className
-     * @param GeneratorConfiguration $generatorConfiguration
      */
-    public function __construct(string $className, GeneratorConfiguration $generatorConfiguration)
+    public function __construct(protected string $className, protected GeneratorConfiguration $generatorConfiguration)
     {
-        $this->className = $className;
-        $this->generatorConfiguration = $generatorConfiguration;
-
         if (!static::$renderer) {
             static::$renderer = new Render(
                 join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', '..', 'Templates']) . DIRECTORY_SEPARATOR,

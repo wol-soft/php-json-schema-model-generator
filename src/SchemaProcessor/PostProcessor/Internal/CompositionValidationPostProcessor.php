@@ -28,13 +28,9 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class CompositionValidationPostProcessor extends PostProcessor
 {
-    /**
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
-     */
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
-        $validatorPropertyMap = $this->generateValidatorPropertyMap($schema, $generatorConfiguration);
+        $validatorPropertyMap = $this->generateValidatorPropertyMap($schema);
 
         if (empty($validatorPropertyMap)) {
             return;
@@ -53,13 +49,8 @@ class CompositionValidationPostProcessor extends PostProcessor
     /**
      * Set up a map containing the properties and the corresponding composition validators which must be checked when
      * the property is updated
-     *
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
-     *
-     * @return array
      */
-    private function generateValidatorPropertyMap(Schema $schema, GeneratorConfiguration $generatorConfiguration): array
+    private function generateValidatorPropertyMap(Schema $schema): array
     {
         $validatorPropertyMap = [];
 
@@ -103,11 +94,6 @@ class CompositionValidationPostProcessor extends PostProcessor
         return $validatorPropertyMap;
     }
 
-    /**
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param array $validatorPropertyMap
-     */
     private function addValidationMethods(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
@@ -139,28 +125,19 @@ class CompositionValidationPostProcessor extends PostProcessor
     /**
      * Add internal calls to validation methods to the setters which are part of a composition validation. The
      * validation methods will validate the state of all compositions when the value is updated.
-     *
-     * @param Schema $schema
-     * @param array $validatorPropertyMap
      */
     private function addValidationCallsToSetterMethods(Schema $schema, array $validatorPropertyMap): void
     {
         $schema->addSchemaHook(new class ($validatorPropertyMap) implements SetterBeforeValidationHookInterface {
-            protected $validatorPropertyMap;
-
-            public function __construct(array $validatorPropertyMap)
-            {
-                $this->validatorPropertyMap = $validatorPropertyMap;
-            }
+            public function __construct(protected array $validatorPropertyMap) {}
 
             public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
             {
                 return join(
                     "\n",
                     array_map(
-                        static function (int $validatorIndex): string {
-                            return sprintf('$this->validateComposition_%s($modelData);', $validatorIndex);
-                        },
+                        static fn(int $validatorIndex): string =>
+                            sprintf('$this->validateComposition_%s($modelData);', $validatorIndex),
                         array_unique($this->validatorPropertyMap[$property->getName()] ?? []),
                     )
                 );

@@ -32,17 +32,12 @@ use ReflectionType;
 class FilterProcessor
 {
     /**
-     * @param PropertyInterface $property
-     * @param mixed $filterList
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param Schema $schema
-     *
      * @throws ReflectionException
      * @throws SchemaException
      */
     public function process(
         PropertyInterface $property,
-        $filterList,
+        mixed $filterList,
         GeneratorConfiguration $generatorConfiguration,
         Schema $schema,
     ): void {
@@ -149,10 +144,6 @@ class FilterProcessor
      * By adding the pass through eg. a trim filter executed before a dateTime transforming filter will not be executed
      * if a DateTime object is provided for the property
      *
-     * @param PropertyInterface $property
-     * @param TransformingFilterInterface $filter
-     * @param ReflectionType $filteredType
-     *
      * @throws ReflectionException
      */
     private function addTransformedValuePassThrough(
@@ -168,9 +159,9 @@ class FilterProcessor
             }
 
             if ($validator instanceof EnumValidator) {
-                $property->filterValidators(static function (Validator $validator): bool {
-                    return !is_a($validator->getValidator(), EnumValidator::class);
-                });
+                $property->filterValidators(
+                    static fn(Validator $validator): bool => !is_a($validator->getValidator(), EnumValidator::class),
+                );
 
                 // shift the name from the validator to avoid adding it twice by wrapping the validator into another one
                 $exceptionParams = $validator->getExceptionParams();
@@ -196,9 +187,6 @@ class FilterProcessor
     /**
      * Extend a type check of the given property so the type check also allows the type of $typeAfterFilter. This is
      * used to allow also already transformed values as valid input values
-     *
-     * @param PropertyInterface $property
-     * @param ReflectionType $typeAfterFilter
      */
     private function extendTypeCheckValidatorToAllowTransformedValue(
         PropertyInterface $property,

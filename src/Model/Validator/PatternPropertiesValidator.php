@@ -23,30 +23,20 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class PatternPropertiesValidator extends PropertyTemplateValidator
 {
-    /** @var PropertyInterface */
-    private $validationProperty;
-    /** @var string */
-    private $pattern;
-    /** @var string */
-    private $key;
+    private PropertyInterface $validationProperty;
+    private string $key;
 
     /**
      * PatternPropertiesValidator constructor.
-     *
-     * @param SchemaProcessor $schemaProcessor
-     * @param Schema $schema
-     * @param string $pattern
-     * @param JsonSchema $propertyStructure
      *
      * @throws SchemaException
      */
     public function __construct(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        string $pattern,
+        private string $pattern,
         JsonSchema $propertyStructure,
     ) {
-        $this->pattern = $pattern;
         $this->key = md5($propertyStructure->getJson()['key'] ?? $this->pattern);
 
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
@@ -89,25 +79,16 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
         return parent::getCheck();
     }
 
-    /**
-     * @return string
-     */
     public function getPattern(): string
     {
         return $this->pattern;
     }
 
-    /**
-     * @return string
-     */
     public function getKey(): string
     {
         return $this->key;
     }
 
-    /**
-     * @return PropertyInterface
-     */
     public function getValidationProperty(): PropertyInterface
     {
         return $this->validationProperty;
@@ -115,8 +96,6 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
 
     /**
      * Initialize all variables which are required to execute a property names validator
-     *
-     * @return string
      */
     public function getValidatorSetUp(): string
     {

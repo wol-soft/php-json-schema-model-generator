@@ -13,33 +13,22 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  */
 class PropertyValidator extends AbstractPropertyValidator
 {
-    /** @var string */
-    protected $check;
-
     /**
      * PropertyValidator constructor.
-     *
-     * @param PropertyInterface $property
-     * @param string            $check
-     * @param string            $exceptionClass
-     * @param array             $exceptionParams
      */
     public function __construct(
         PropertyInterface $property,
-        string $check,
+        protected string $check,
         string $exceptionClass,
         array $exceptionParams = [],
     ) {
         $this->isResolved = true;
-        $this->check = $check;
 
         parent::__construct($property, $exceptionClass, $exceptionParams);
     }
 
     /**
      * Get the source code for the check to perform
-     *
-     * @return string
      */
     public function getCheck(): string
     {

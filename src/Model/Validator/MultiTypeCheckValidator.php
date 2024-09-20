@@ -14,22 +14,15 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  */
 class MultiTypeCheckValidator extends PropertyValidator implements TypeCheckInterface
 {
-    /** @var string[] */
-    protected $types;
-
     /**
      * MultiTypeCheckValidator constructor.
      *
      * @param string[]          $types
-     * @param PropertyInterface $property
-     * @param bool              $allowImplicitNull
      */
-    public function __construct(array $types, PropertyInterface $property, bool $allowImplicitNull)
+    public function __construct(protected array $types, PropertyInterface $property, bool $allowImplicitNull)
     {
-        $this->types = $types;
-
         // if null is explicitly allowed we don't need an implicit null pass through
-        if (in_array('null', $types)) {
+        if (in_array('null', $this->types)) {
             $allowImplicitNull = false;
         }
 
@@ -38,14 +31,13 @@ class MultiTypeCheckValidator extends PropertyValidator implements TypeCheckInte
             join(
                 ' && ',
                 array_map(
-                    static function (string $allowedType) use ($property) : string {
-                        return ReflectionTypeCheckValidator::fromType($allowedType, $property)->getCheck();
-                    },
-                    $types,
+                    static fn(string $allowedType): string =>
+                        ReflectionTypeCheckValidator::fromType($allowedType, $property)->getCheck(),
+                    $this->types,
                 )
             ) . ($allowImplicitNull ? ' && $value !== null' : ''),
             InvalidTypeException::class,
-            [$types],
+            [$this->types],
         );
     }
 

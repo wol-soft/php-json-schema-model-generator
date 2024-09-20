@@ -25,10 +25,8 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider emptyNotDataProvider
-     *
-     * @param $propertyValue
      */
-    public function testEmptyNotIsInvalid($propertyValue): void
+    public function testEmptyNotIsInvalid(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(<<<ERROR
@@ -64,7 +62,6 @@ ERROR,
     /**
      * @dataProvider validPropertyTypeDataProvider
      *
-     * @param GeneratorConfiguration $configuration
      * @param $propertyValue
      *
      * @throws FileSystemException
@@ -99,9 +96,6 @@ ERROR,
     /**
      * @dataProvider invalidPropertyTypeDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param string $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -132,8 +126,6 @@ ERROR,
     /**
      * @dataProvider validationMethodDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -149,8 +141,6 @@ ERROR,
 
     /**
      * @dataProvider validationMethodDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -169,16 +159,13 @@ ERROR,
     /**
      * @dataProvider validNotNullPropertyDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
     public function testValidProvidedOptionalNotNullPropertyIsValid(
         GeneratorConfiguration $configuration,
-        $propertyValue,
+        mixed $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('NotNull.json', $configuration);
 
@@ -204,16 +191,13 @@ ERROR,
     /**
      * @dataProvider validExtendedPropertyDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
     public function testExtendedPropertyDefinitionWithValidValues(
         GeneratorConfiguration $configuration,
-        $propertyValue,
+        float $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('ExtendedPropertyDefinition.json', $configuration);
 
@@ -236,17 +220,13 @@ ERROR,
     /**
      * @dataProvider invalidExtendedPropertyDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param $propertyValue
-     * @param string $exceptionMessage
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
     public function testExtendedPropertyDefinitionWithInvalidValuesThrowsAnException(
         GeneratorConfiguration $configuration,
-        $propertyValue,
+        mixed $propertyValue,
         string $exceptionMessage,
     ): void {
         $this->expectValidationError($configuration, $exceptionMessage);
@@ -277,8 +257,6 @@ ERROR,
     /**
      * @dataProvider validationMethodDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -295,16 +273,13 @@ ERROR,
     /**
      * @dataProvider objectPropertyWithReferencedSchemaDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
     public function testNotMatchingObjectPropertyWithReferencedSchemaIsValid(
         GeneratorConfiguration $configuration,
-        $propertyValue,
+        mixed $propertyValue,
     ): void {
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json', $configuration);
 
@@ -335,8 +310,6 @@ ERROR,
     /**
      * @dataProvider validationMethodDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -353,9 +326,6 @@ ERROR,
 
     /**
      * @dataProvider validationInSetterDataProvider
-     *
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param string $exceptionMessage
      */
     public function testComposedNotValidationInSetterMethods(
         GeneratorConfiguration $generatorConfiguration,

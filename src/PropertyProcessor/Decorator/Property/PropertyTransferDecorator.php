@@ -16,18 +16,10 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  */
 class PropertyTransferDecorator implements PropertyDecoratorInterface
 {
-    /** @var Property */
-    private $property;
-
     /**
      * PropertyTransferDecorator constructor.
-     *
-     * @param PropertyInterface $property
      */
-    public function __construct(PropertyInterface $property)
-    {
-        $this->property = $property;
-    }
+    public function __construct(private PropertyInterface $property) {}
 
     /**
      * @inheritdoc

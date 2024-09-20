@@ -23,9 +23,6 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
      * @dataProvider validIncompleteTupleArrayDataProvider
      * @dataProvider validTupleArrayDataProvider
      * @dataProvider validTupleArrayWithAdditionalPropertiesDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
      */
     public function testValidValuesForTupleArray(GeneratorConfiguration $configuration, array $propertyValue): void
     {
@@ -88,9 +85,6 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validTupleArrayWithAdditionalPropertiesDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
      */
     public function testValidValuesForTupleArrayWithDisabledAdditionalItemsThrowsAnException(
         GeneratorConfiguration $configuration,
@@ -108,10 +102,6 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidTupleArrayDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
-     * @param string $message
      */
     public function testInvalidValuesForTupleArrayThrowsAnException(
         GeneratorConfiguration $configuration,
@@ -206,9 +196,6 @@ ERROR
 
     /**
      * @dataProvider validAdditionalItemsDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
      */
     public function testValidAdditionalItems(GeneratorConfiguration $configuration, array $propertyValue): void
     {
@@ -235,10 +222,6 @@ ERROR
 
     /**
      * @dataProvider invalidAdditionalItemsDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
-     * @param string $message
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -309,9 +292,6 @@ ERROR
 
     /**
      * @dataProvider validObjectAdditionalItemsDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
      */
     public function testValidObjectAdditionalItems(GeneratorConfiguration $configuration, array $propertyValue): void
     {
@@ -350,10 +330,6 @@ ERROR
 
     /**
      * @dataProvider invalidObjectAdditionalItemsDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array $propertyValue
-     * @param string $message
      *
      * @throws FileSystemException
      * @throws RenderException

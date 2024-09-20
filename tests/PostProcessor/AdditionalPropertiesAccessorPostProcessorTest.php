@@ -42,8 +42,6 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
     /**
      * @dataProvider additionalPropertiesAccessorPostProcessorConfigurationDataProvider
-     *
-     * @param bool $addForModelsWithoutAdditionalPropertiesDefinition
      */
     public function testAdditionalPropertiesAccessorsAreNotGeneratedForAdditionalPropertiesFalse(
         bool $addForModelsWithoutAdditionalPropertiesDefinition,
@@ -62,8 +60,6 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
     /**
      * @dataProvider additionalPropertiesAccessorPostProcessorConfigurationDataProvider
-     *
-     * @param bool $addForModelsWithoutAdditionalPropertiesDefinition
      */
     public function testAdditionalPropertiesAccessorsAreNotGeneratedWhenAdditionalPropertiesAreDenied(
         bool $addForModelsWithoutAdditionalPropertiesDefinition,
@@ -85,8 +81,6 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
     /**
      * @dataProvider additionalPropertiesAccessorPostProcessorConfigurationDataProvider
-     *
-     * @param bool $addForModelsWithoutAdditionalPropertiesDefinition
      */
     public function testAdditionalPropertiesAccessorsDependOnConfigurationForAdditionalPropertiesNotDefined(
         bool $addForModelsWithoutAdditionalPropertiesDefinition,
@@ -149,8 +143,6 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
     /**
      * @dataProvider additionalPropertiesAccessorPostProcessorConfigurationDataProvider
-     *
-     * @param bool $addForModelsWithoutAdditionalPropertiesDefinition
      */
     public function testAdditionalPropertiesAccessorsAreGeneratedForAdditionalProperties(
         bool $addForModelsWithoutAdditionalPropertiesDefinition,
@@ -257,11 +249,6 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
     /**
      * @dataProvider invalidAdditionalPropertyDataProvider
-     *
-     * @param string $expectedException
-     * @param string $expectedExceptionMessage
-     * @param string $action
-     * @param array $items
      */
     public function testInvalidAdditionalPropertyThrowsAnException(
         string $expectedException,
@@ -358,8 +345,6 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
     /**
      * @dataProvider implicitNullDataProvider
-     *
-     * @param bool $implicitNull
      */
     public function testAdditionalPropertiesAreSerialized(bool $implicitNull): void
     {

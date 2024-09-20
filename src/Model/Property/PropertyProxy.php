@@ -19,39 +19,26 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInte
  */
 class PropertyProxy extends AbstractProperty
 {
-    /** @var string */
-    protected $key;
-    /** @var ResolvedDefinitionsCollection */
-    protected $definitionsCollection;
-
     /**
      * PropertyProxy constructor.
      *
      * @param string $name The name must be provided separately as the name is not bound to the structure of a
      * referenced schema. Consequently, two properties with different names can refer an identical schema utilizing the
      * PropertyProxy. By providing a name to each of the proxies the resulting properties will get the correct names.
-     * @param JsonSchema $jsonSchema
-     * @param ResolvedDefinitionsCollection $definitionsCollection
-     * @param string $key
      *
      * @throws SchemaException
      */
     public function __construct(
         string $name,
         JsonSchema $jsonSchema,
-        ResolvedDefinitionsCollection $definitionsCollection,
-        string $key,
+        protected ResolvedDefinitionsCollection $definitionsCollection,
+        protected string $key,
     ) {
         parent::__construct($name, $jsonSchema);
-
-        $this->key = $key;
-        $this->definitionsCollection = $definitionsCollection;
     }
 
     /**
      * Get the property out of the resolved definitions collection to proxy function calls
-     *
-     * @return PropertyInterface
      */
     protected function getProperty(): PropertyInterface
     {
@@ -131,9 +118,8 @@ class PropertyProxy extends AbstractProperty
     public function getOrderedValidators(): array
     {
         return array_map(
-            function (PropertyValidatorInterface $propertyValidator): PropertyValidatorInterface {
-                return $propertyValidator->withProperty($this);
-            },
+            fn(PropertyValidatorInterface $propertyValidator): PropertyValidatorInterface =>
+                $propertyValidator->withProperty($this),
             $this->getProperty()->getOrderedValidators(),
         );
     }

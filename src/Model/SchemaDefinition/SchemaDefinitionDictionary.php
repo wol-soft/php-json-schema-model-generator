@@ -16,28 +16,19 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
  */
 class SchemaDefinitionDictionary extends ArrayObject
 {
-    /** @var string */
-    private $sourceDirectory;
     /** @var Schema[] */
-    private $parsedExternalFileSchemas = [];
+    private array $parsedExternalFileSchemas = [];
 
     /**
      * SchemaDefinitionDictionary constructor.
-     *
-     * @param string $sourceDirectory
      */
-    public function __construct(string $sourceDirectory)
+    public function __construct(private string $sourceDirectory)
     {
         parent::__construct();
-
-        $this->sourceDirectory = $sourceDirectory;
     }
 
     /**
      * Set up the definition directory for the schema
-     *
-     * @param SchemaProcessor $schemaProcessor
-     * @param Schema $schema
      */
     public function setUpDefinitionDictionary(SchemaProcessor $schemaProcessor, Schema $schema): void {
         // attach the root node to the definition dictionary
@@ -60,10 +51,6 @@ class SchemaDefinitionDictionary extends ArrayObject
 
     /**
      * Fetch all schema definitions with an ID for direct references
-     *
-     * @param JsonSchema      $jsonSchema
-     * @param SchemaProcessor $schemaProcessor
-     * @param Schema          $schema
      */
     protected function fetchDefinitionsById(
         JsonSchema $jsonSchema,
@@ -74,7 +61,7 @@ class SchemaDefinitionDictionary extends ArrayObject
 
         if (isset($json['$id'])) {
             $this->addDefinition(
-                strpos($json['$id'], '#') === 0 ? $json['$id'] : "#{$json['$id']}",
+                str_starts_with($json['$id'], '#') ? $json['$id'] : "#{$json['$id']}",
                 new SchemaDefinition($jsonSchema, $schemaProcessor, $schema),
             );
         }
@@ -91,9 +78,6 @@ class SchemaDefinitionDictionary extends ArrayObject
     /**
      * Add a partial schema definition to the schema
      *
-     * @param string $key
-     * @param SchemaDefinition $definition
-     *
      * @return $this
      */
     public function addDefinition(string $key, SchemaDefinition $definition): self
@@ -108,17 +92,11 @@ class SchemaDefinitionDictionary extends ArrayObject
     }
 
     /**
-     * @param string          $key
-     * @param SchemaProcessor $schemaProcessor
-     * @param array           $path
-     *
-     * @return SchemaDefinition|null
-     *
      * @throws SchemaException
      */
     public function getDefinition(string $key, SchemaProcessor $schemaProcessor, array &$path = []): ?SchemaDefinition
     {
-        if (strpos($key, '#') === 0 && strpos($key, '/')) {
+        if (str_starts_with($key, '#') && strpos($key, '/')) {
             $path = explode('/', $key);
             array_shift($path);
             $key  = array_shift($path);
@@ -149,13 +127,6 @@ class SchemaDefinitionDictionary extends ArrayObject
     }
 
     /**
-     * @param string          $jsonSchemaFile
-     * @param string          $externalKey
-     * @param SchemaProcessor $schemaProcessor
-     * @param array           $path
-     *
-     * @return SchemaDefinition|null
-     *
      * @throws SchemaException
      */
     protected function parseExternalFile(

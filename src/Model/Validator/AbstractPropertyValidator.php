@@ -17,26 +17,14 @@ abstract class AbstractPropertyValidator implements PropertyValidatorInterface
 {
     use ResolvableTrait;
 
-    /** @var string */
-    protected $exceptionClass;
-    /** @var array */
-    protected $exceptionParams;
-    /** @var PropertyInterface */
-    protected $property;
-
     /**
      * AbstractPropertyValidator constructor.
-     *
-     * @param PropertyInterface $property
-     * @param string $exceptionClass
-     * @param array $exceptionParams
      */
-    public function __construct(PropertyInterface $property, string $exceptionClass, array $exceptionParams = [])
-    {
-        $this->property = $property;
-        $this->exceptionClass = $exceptionClass;
-        $this->exceptionParams = $exceptionParams;
-    }
+    public function __construct(
+        protected PropertyInterface $property,
+        protected string $exceptionClass,
+        protected array $exceptionParams = [],
+    ) {}
 
     /**
      * @inheritDoc
@@ -67,8 +55,6 @@ abstract class AbstractPropertyValidator implements PropertyValidatorInterface
 
     /**
      * By default a validator doesn't require a set up
-     *
-     * @return string
      */
     public function getValidatorSetUp(): string
     {
@@ -77,15 +63,13 @@ abstract class AbstractPropertyValidator implements PropertyValidatorInterface
 
     /**
      * Helper function to remove a RequiredPropertyValidator
-     *
-     * @param PropertyInterface $property
      */
     protected function removeRequiredPropertyValidator(PropertyInterface $property): void
     {
         $property->onResolve(static function () use ($property): void {
-            $property->filterValidators(static function (Validator $validator): bool {
-                return !is_a($validator->getValidator(), RequiredPropertyValidator::class);
-            });
+            $property->filterValidators(static fn(Validator $validator): bool =>
+                !is_a($validator->getValidator(), RequiredPropertyValidator::class)
+            );
         });
     }
 }

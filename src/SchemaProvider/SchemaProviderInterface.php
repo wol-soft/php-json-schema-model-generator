@@ -23,8 +23,6 @@ interface SchemaProviderInterface
 
     /**
      * Get the base directory of the provider
-     *
-     * @return string
      */
     public function getBaseDirectory(): string;
 }

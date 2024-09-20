@@ -23,10 +23,6 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
 
     /**
      * AbstractTypedValueProcessor constructor.
-     *
-     * @param PropertyMetaDataCollection $propertyMetaDataCollection
-     * @param SchemaProcessor            $schemaProcessor
-     * @param Schema                     $schema
      */
     public function __construct(
         PropertyMetaDataCollection $propertyMetaDataCollection,
@@ -37,11 +33,6 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
     }
 
     /**
-     * @param string $propertyName
-     * @param JsonSchema $propertySchema
-     *
-     * @return PropertyInterface
-     *
      * @throws SchemaException
      */
     public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface
@@ -56,13 +47,9 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
     }
 
     /**
-     * @param PropertyInterface $property
-     * @param mixed $default
-     * @param JsonSchema $propertySchema
-     *
      * @throws SchemaException
      */
-    public function setDefaultValue(PropertyInterface $property, $default, JsonSchema $propertySchema): void
+    public function setDefaultValue(PropertyInterface $property, mixed $default, JsonSchema $propertySchema): void
     {
         // allow integer default values for Number properties
         if ($this instanceof NumberProcessor && is_int($default)) {

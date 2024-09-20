@@ -16,8 +16,6 @@ class InstanceOfValidator extends PropertyValidator
 {
     /**
      * InstanceOfValidator constructor.
-     *
-     * @param PropertyInterface $property
      */
     public function __construct(PropertyInterface $property)
     {

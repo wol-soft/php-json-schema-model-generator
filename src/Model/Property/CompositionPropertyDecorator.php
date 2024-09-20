@@ -28,10 +28,6 @@ class CompositionPropertyDecorator extends PropertyProxy
     /**
      * CompositionPropertyDecorator constructor.
      *
-     * @param string $propertyName
-     * @param JsonSchema $jsonSchema
-     * @param PropertyInterface $property
-     *
      * @throws SchemaException
      */
     public function __construct(string $propertyName, JsonSchema $jsonSchema, PropertyInterface $property)
@@ -50,10 +46,8 @@ class CompositionPropertyDecorator extends PropertyProxy
 
     /**
      * Append an object property which is affected by the composition validator
-     *
-     * @param PropertyInterface $property
      */
-    public function appendAffectedObjectProperty(PropertyInterface $property)
+    public function appendAffectedObjectProperty(PropertyInterface $property): void
     {
         $this->affectedObjectProperties[] = $property;
     }

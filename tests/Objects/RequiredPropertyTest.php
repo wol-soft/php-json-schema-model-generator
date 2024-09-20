@@ -22,8 +22,6 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider validStringPropertyValueProvider
      *
-     * @param bool $implicitNull
-     * @param string $propertyValue
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -63,7 +61,6 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider requiredDefinitionsDataProvider
      *
-     * @param bool $implicitNull
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -86,8 +83,6 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider requiredStringPropertyDataProvider
-     *
-     * @param bool $implicitNull
      */
     public function testRequiredPropertyType(bool $implicitNull, string $schemaFile): void
     {
@@ -109,8 +104,6 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider implicitNullDataProvider
-     *
-     * @param bool $implicitNull
      */
     public function testUndefinedRequiredPropertyType(bool $implicitNull): void
     {
@@ -131,7 +124,6 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider requiredStringPropertyDataProvider
      *
-     * @param bool $implicitNull
      *
      * @throws FileSystemException
      * @throws RenderException

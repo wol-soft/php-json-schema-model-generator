@@ -34,9 +34,6 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider validInputProvider
      *
-     * @param array  $input
-     * @param string $typeCheck
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -61,13 +58,11 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider invalidPropertyTypeDataProvider
      *
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testInvalidPropertyTypeThrowsAnException($propertyValue): void
+    public function testInvalidPropertyTypeThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid type for property. Requires object, got ' . gettype($propertyValue));
@@ -107,9 +102,6 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider validInputProviderObjectLevelValidation
      *
-     * @param array  $input
-     * @param string $typeCheck
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -142,10 +134,6 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidInputProviderObjectLevelValidation
-     *
-     * @param array  $input
-     * @param string $exceptionClass
-     * @param string $exceptionMessage
      *
      * @throws FileSystemException
      * @throws RenderException

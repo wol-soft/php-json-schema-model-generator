@@ -21,8 +21,6 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider validValuesForSinglePropertyDataProvider
-     *
-     * @param string $value
      */
     public function testValidValuesForMultipleChecksForSingleProperty(string $value): void
     {
@@ -43,12 +41,9 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidValuesForSinglePropertyDataProvider
-     *
-     * @param string $value
-     * @param array $messages
      */
     public function testInvalidValuesForMultipleChecksForSinglePropertyThrowsAnException(
-        $value,
+        mixed $value,
         array $messages,
     ): void {
         try {
@@ -57,7 +52,7 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
             new $className(['property' => $value]);
         } catch (ErrorRegistryException $e) {
             $this->assertStringContainsString(join("\n", $messages), $e->getMessage());
-            $this->assertSame(count($messages), count($e->getErrors()));
+            $this->assertCount(count($messages), $e->getErrors());
 
             foreach ($messages as $expectedExceptionClass => $message) {
                 $error = $this->assertErrorRegistryContainsException($e, $expectedExceptionClass);
@@ -103,8 +98,10 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider invalidValuesForCompositionDataProvider
      */
-    public function testInvalidValuesForMultipleValuesInCompositionThrowsAnException($value, string $message): void
-    {
+    public function testInvalidValuesForMultipleValuesInCompositionThrowsAnException(
+        int|string $value,
+        string $message,
+    ): void {
         $this->expectException(ErrorRegistryException::class);
         $this->expectExceptionMessageMatches("/$message/");
 

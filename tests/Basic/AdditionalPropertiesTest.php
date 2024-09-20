@@ -18,8 +18,6 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider additionalPropertiesDataProvider
-     *
-     * @param array $propertyValue
      */
     public function testAdditionalPropertiesAreIgnoredByDefault(array $propertyValue): void
     {
@@ -32,8 +30,6 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider additionalPropertiesDataProvider
-     *
-     * @param array $propertyValue
      */
     public function testAdditionalPropertiesAreIgnoredWhenSetToTrue(array $propertyValue): void
     {
@@ -60,8 +56,6 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider definedPropertiesDataProvider
-     *
-     * @param array $propertyValue
      */
     public function testDefinedPropertiesAreAcceptedWhenSetToFalse(array $propertyValue): void
     {
@@ -83,8 +77,6 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider additionalPropertiesDataProvider
-     *
-     * @param array $propertyValue
      */
     public function testAdditionalPropertiesThrowAnExceptionWhenSetToFalse(array $propertyValue): void
     {
@@ -100,8 +92,6 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider additionalPropertiesDataProvider
-     *
-     * @param array $propertyValue
      */
     public function testAdditionalPropertiesThrowAnExceptionWhenNotDefinedAndDeniedByGeneratorConfiguration(
         array $propertyValue,
@@ -121,9 +111,6 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validTypedAdditionalPropertiesDataProvider
-     *
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param array $propertyValue
      */
     public function testValidTypedAdditionalPropertiesAreValid(
         GeneratorConfiguration $generatorConfiguration,
@@ -154,10 +141,6 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidTypedAdditionalPropertiesDataProvider
-     *
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param array $propertyValue
-     * @param string $errorMessage
      */
     public function testInvalidTypedAdditionalPropertiesThrowsAnException(
         GeneratorConfiguration $generatorConfiguration,
@@ -223,9 +206,6 @@ ERROR;
 
     /**
      * @dataProvider validAdditionalPropertiesObjectsDataProvider
-     *
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param array $propertyValue
      */
     public function testValidAdditionalPropertiesObjectsAreValid(
         GeneratorConfiguration $generatorConfiguration,
@@ -263,10 +243,6 @@ ERROR;
 
     /**
      * @dataProvider invalidAdditionalPropertiesObjectsDataProvider
-     *
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param array $propertyValue
-     * @param string $errorMessage
      */
     public function testInvalidAdditionalPropertiesObjectsThrowsAnException(
         GeneratorConfiguration $generatorConfiguration,

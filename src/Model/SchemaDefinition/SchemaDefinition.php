@@ -23,36 +23,21 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
  */
 class SchemaDefinition
 {
-    /** @var JsonSchema */
-    protected $source;
-    /** @var SchemaProcessor */
-    protected $schemaProcessor;
-    /** @var Schema */
-    protected $schema;
-    /** @var ResolvedDefinitionsCollection */
-    protected $resolvedPaths;
+    protected ResolvedDefinitionsCollection $resolvedPaths;
     /** @var array */
     protected $unresolvedProxies = [];
 
     /**
      * SchemaDefinition constructor.
-     *
-     * @param JsonSchema $jsonSchema
-     * @param SchemaProcessor $schemaProcessor
-     * @param Schema $schema
      */
-    public function __construct(JsonSchema $jsonSchema, SchemaProcessor $schemaProcessor, Schema $schema)
-    {
-        $this->source = $jsonSchema;
-        $this->schemaProcessor = $schemaProcessor;
-        $this->schema = $schema;
-
+    public function __construct(
+        protected JsonSchema $source,
+        protected SchemaProcessor $schemaProcessor,
+        protected Schema $schema,
+    ) {
         $this->resolvedPaths = new ResolvedDefinitionsCollection();
     }
 
-    /**
-     * @return Schema
-     */
     public function getSchema(): Schema
     {
         return $this->schema;
@@ -60,12 +45,6 @@ class SchemaDefinition
 
     /**
      * Resolve a reference
-     *
-     * @param string                     $propertyName
-     * @param array                      $path
-     * @param PropertyMetaDataCollection $propertyMetaDataCollection
-     *
-     * @return PropertyInterface
      *
      * @throws PHPModelGeneratorException
      * @throws SchemaException

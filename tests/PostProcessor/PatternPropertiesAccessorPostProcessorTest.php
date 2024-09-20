@@ -139,16 +139,11 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
 
     /**
      * @dataProvider invalidPatternPropertiesDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param string $property
-     * @param $value
-     * @param string $exceptionMessage
      */
     public function testInvalidPatternPropertiesViaAdditionalPropertiesAccessorThrowsAnException(
         GeneratorConfiguration $configuration,
         string $property,
-        $value,
+        mixed $value,
         string $exceptionMessage,
     ): void {
         $this->addPostProcessors(
@@ -267,7 +262,7 @@ ERROR
         try {
             $object->populate(['a0' => 50, 'a1' => 60, 'beta' => false]);
             $this->fail('Exception not thrown');
-        } catch (Exception $exception) {
+        } catch (Exception) {
             $this->assertEqualsCanonicalizing($state, $object->toArray());
         }
     }
@@ -290,16 +285,11 @@ ERROR
 
     /**
      * @dataProvider invalidPatternPropertiesDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param string $property
-     * @param $value
-     * @param string $exceptionMessage
      */
     public function testInvalidPatternPropertiesViaPopulateThrowsAnException(
         GeneratorConfiguration $configuration,
         string $property,
-        $value,
+        mixed $value,
         string $exceptionMessage,
     ): void {
         $this->addPostProcessors(new PatternPropertiesAccessorPostProcessor(), new PopulatePostProcessor());
@@ -356,14 +346,10 @@ ERROR
 
     /**
      * @dataProvider invalidPropertiesDataProvider
-     *
-     * @param string $property
-     * @param $value
-     * @param string $exceptionMessage
      */
     public function testInvalidPatternPropertiesViaSetterThrowsAnException(
         string $property,
-        $value,
+        int $value,
         string $exceptionMessage,
     ): void {
         $this->addPostProcessors(new PatternPropertiesAccessorPostProcessor());

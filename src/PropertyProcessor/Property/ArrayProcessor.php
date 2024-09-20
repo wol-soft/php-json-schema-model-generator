@@ -44,9 +44,6 @@ class ArrayProcessor extends AbstractTypedValueProcessor
     private const JSON_FIELD_CONTAINS  = 'contains';
 
     /**
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
-     *
      * @throws FileSystemException
      * @throws SchemaException
      * @throws SyntaxErrorException
@@ -81,9 +78,6 @@ class ArrayProcessor extends AbstractTypedValueProcessor
 
     /**
      * Add the vaidation for the allowed amount of items in the array
-     *
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
      */
     private function addLengthValidation(PropertyInterface $property, JsonSchema $propertySchema): void
     {
@@ -114,9 +108,6 @@ class ArrayProcessor extends AbstractTypedValueProcessor
 
     /**
      * Add the validator to check if the items inside an array are unique
-     *
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
      */
     private function addUniqueItemsValidation(PropertyInterface $property, JsonSchema $propertySchema): void
     {
@@ -138,9 +129,6 @@ class ArrayProcessor extends AbstractTypedValueProcessor
 
     /**
      * Add the validator to check for constraints required for each item
-     *
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
      *
      * @throws FileSystemException
      * @throws SchemaException
@@ -177,9 +165,6 @@ class ArrayProcessor extends AbstractTypedValueProcessor
     /**
      * Add the validator to check a tuple validation for each item of the array
      *
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
-     *
      * @throws SchemaException
      * @throws FileSystemException
      * @throws SyntaxErrorException
@@ -204,9 +189,6 @@ class ArrayProcessor extends AbstractTypedValueProcessor
     }
 
     /**
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
-     *
      * @throws FileSystemException
      * @throws SchemaException
      * @throws SyntaxErrorException
@@ -244,9 +226,6 @@ class ArrayProcessor extends AbstractTypedValueProcessor
     /**
      * Add the validator to check for constraints required for at least one item
      *
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
-     *
      * @throws SchemaException
      */
     private function addContainsValidation(PropertyInterface $property, JsonSchema $propertySchema): void
@@ -266,9 +245,9 @@ class ArrayProcessor extends AbstractTypedValueProcessor
                 $propertySchema->withJson($propertySchema->getJson()[self::JSON_FIELD_CONTAINS]),
             );
 
-        $nestedProperty->filterValidators(static function (Validator $validator): bool {
-            return !is_a($validator->getValidator(), RequiredPropertyValidator::class);
-        });
+        $nestedProperty->filterValidators(static fn(Validator $validator): bool =>
+            !is_a($validator->getValidator(), RequiredPropertyValidator::class)
+        );
 
         $property->addValidator(
             new PropertyTemplateValidator(

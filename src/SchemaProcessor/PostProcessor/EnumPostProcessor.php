@@ -28,16 +28,11 @@ use PHPModelGenerator\Utils\NormalizedName;
  */
 class EnumPostProcessor extends PostProcessor
 {
-    private $generatedEnums = [];
+    private array $generatedEnums = [];
 
-    /** @var string */
-    private $namespace;
-    /** @var Render */
-    private $renderer;
-    /** @var string */
-    private $targetDirectory;
-    /** @var bool */
-    private $skipNonMappedEnums;
+    private string $namespace;
+    private Render $renderer;
+    private string $targetDirectory;
 
     /**
      * @param string $targetDirectory  The directory where to put the generated PHP enums
@@ -50,7 +45,7 @@ class EnumPostProcessor extends PostProcessor
     public function __construct(
         string $targetDirectory,
         string $namespace,
-        bool $skipNonMappedEnums = false,
+        private bool $skipNonMappedEnums = false,
     ) {
         if (PHP_VERSION_ID < 80100) {
             // @codeCoverageIgnoreStart
@@ -63,7 +58,6 @@ class EnumPostProcessor extends PostProcessor
         $this->renderer = new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);
         $this->namespace = trim($namespace, '\\');
         $this->targetDirectory = $targetDirectory;
-        $this->skipNonMappedEnums = $skipNonMappedEnums;
     }
 
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
@@ -123,9 +117,9 @@ class EnumPostProcessor extends PostProcessor
             }
 
             // remove the enum validator as the validation is performed by the PHP enum
-            $property->filterValidators(static function (Validator $validator): bool {
-                return !is_a($validator->getValidator(), EnumValidator::class);
-            });
+            $property->filterValidators(
+                static fn(Validator $validator): bool => !is_a($validator->getValidator(), EnumValidator::class),
+            );
 
             // if an enum value is provided the transforming filter will add a value pass through. As the filter doesn't
             // know the exact enum type the pass through allows every UnitEnum instance. Consequently add a validator to
@@ -213,7 +207,7 @@ class EnumPostProcessor extends PostProcessor
                 || count(array_uintersect(
                     $json['enum-map'],
                     $json['enum'],
-                    function ($a, $b): int { return $a === $b ? 0 : 1; },
+                    fn($a, $b): int => $a === $b ? 0 : 1,
                 )) !== count($json['enum'])
             ) {
                 $throw('invalid enum map %s in file %s');
@@ -226,9 +220,7 @@ class EnumPostProcessor extends PostProcessor
     private function getArrayTypes(array $array): array
     {
         return array_unique(array_map(
-            static function ($item): string {
-                return gettype($item);
-            },
+            static fn($item): string => gettype($item),
             $array,
         ));
     }

@@ -35,12 +35,6 @@ class MultiTypeProcessor extends AbstractValueProcessor
     /**
      * MultiTypePropertyProcessor constructor.
      *
-     * @param PropertyProcessorFactory   $propertyProcessorFactory
-     * @param array                      $types
-     * @param PropertyMetaDataCollection $propertyMetaDataCollection
-     * @param SchemaProcessor            $schemaProcessor
-     * @param Schema                     $schema
-     *
      * @throws SchemaException
      */
     public function __construct(
@@ -68,8 +62,6 @@ class MultiTypeProcessor extends AbstractValueProcessor
      * @param string $propertyName The name of the property
      * @param JsonSchema $propertySchema The schema of the property
      *
-     * @return PropertyInterface
-     *
      * @throws SchemaException
      * @throws ReflectionException
      */
@@ -86,7 +78,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
 
             $processedSubProperties = 0;
             foreach ($subProperties as $subProperty) {
-                $subProperty->onResolve(function () use ($property, $subProperties, &$processedSubProperties) {
+                $subProperty->onResolve(function () use ($property, $subProperties, &$processedSubProperties): void {
                     if (++$processedSubProperties === count($subProperties)) {
                         if (empty($this->allowedPropertyTypes)) {
                             return;
@@ -95,9 +87,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
                         $property->addTypeHintDecorator(
                             new TypeHintDecorator(
                                 array_map(
-                                    static function (PropertyInterface $subProperty): string {
-                                        return $subProperty->getTypeHint();
-                                    },
+                                    static fn(PropertyInterface $subProperty): string => $subProperty->getTypeHint(),
                                     $subProperties,
                                 )
                             ),
@@ -121,9 +111,6 @@ class MultiTypeProcessor extends AbstractValueProcessor
 
     /**
      * Move validators from the $source property to the $destination property
-     *
-     * @param PropertyInterface $source
-     * @param PropertyInterface $destination
      */
     protected function transferValidators(PropertyInterface $source, PropertyInterface $destination)
     {
@@ -148,10 +135,6 @@ class MultiTypeProcessor extends AbstractValueProcessor
     }
 
     /**
-     * @param string            $propertyName
-     * @param JsonSchema        $propertySchema
-     * @param PropertyInterface $property
-     *
      * @return PropertyInterface[]
      *
      * @throws SchemaException

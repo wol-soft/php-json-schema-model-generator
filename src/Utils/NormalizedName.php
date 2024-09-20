@@ -13,16 +13,12 @@ class NormalizedName
     {
         $attributeName = preg_replace_callback(
             '/([a-z][a-z0-9]*)([A-Z])/',
-            static function (array $matches): string {
-                return "{$matches[1]}-{$matches[2]}";
-            },
+            static fn(array $matches): string => "{$matches[1]}-{$matches[2]}",
             $name,
         );
 
         $elements = array_map(
-            static function (string $element): string {
-                return ucfirst(strtolower($element));
-            },
+            static fn(string $element): string => ucfirst(strtolower($element)),
             preg_split('/[^a-z0-9]/i', $attributeName),
         );
 

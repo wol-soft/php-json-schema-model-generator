@@ -84,8 +84,6 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider implicitNullDataProvider
-     *
-     * @param bool $implicitNull
      */
     public function testImplicitNullCheckOnPopulateMethodForOptionalProperty(bool $implicitNull): void
     {
@@ -110,8 +108,6 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider implicitNullDataProvider
-     *
-     * @param bool $implicitNull
      */
     public function testImplicitNullCheckOnPopulateMethodForOptionalRequiredProperty(bool $implicitNull): void
     {
@@ -250,10 +246,6 @@ Invalid type for age. Requires int, got boolean"
 
     /**
      * @dataProvider setterAfterValidationHookDataProvider
-     *
-     * @param string|null $expectedException
-     * @param string|null $expectedExceptionMessage
-     * @param array $populateValues
      */
     public function testSetterAfterValidationHookInsidePopulateIsResolved(
         ?string $expectedException,
@@ -325,10 +317,6 @@ Invalid type for age. Requires int, got boolean"
 
     /**
      * @dataProvider compositionValidationInPopulateDataProvider
-     *
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param string $exceptionMessageBothValid
-     * @param string $exceptionMessageBothInvalid
      */
     public function testPopulateComposition(
         GeneratorConfiguration $generatorConfiguration,

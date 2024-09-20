@@ -21,8 +21,6 @@ class RenderQueue
     protected $jobs = [];
 
     /**
-     * @param RenderJob $renderJob
-     *
      * @return $this
      */
     public function addRenderJob(RenderJob $renderJob): self
@@ -35,7 +33,6 @@ class RenderQueue
     /**
      * Render all collected jobs of the RenderQueue and clear the queue
      *
-     * @param GeneratorConfiguration   $generatorConfiguration
      * @param PostProcessor[] $postProcessors
      *
      * @throws FileSystemException
