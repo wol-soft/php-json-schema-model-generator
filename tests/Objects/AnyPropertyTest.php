@@ -21,8 +21,6 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider validationMethodDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -37,8 +35,6 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validationMethodDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -55,14 +51,11 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider validPropertyTypeDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testAnyProvidedTypeIsValid(GeneratorConfiguration $configuration, $propertyValue): void
+    public function testAnyProvidedTypeIsValid(GeneratorConfiguration $configuration, mixed $propertyValue): void
     {
         $className = $this->generateClassFromFile('AnyProperty.json', $configuration);
 

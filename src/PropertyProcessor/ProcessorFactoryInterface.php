@@ -16,11 +16,6 @@ interface ProcessorFactoryInterface
 {
     /**
      * @param string|array               $type
-     * @param PropertyMetaDataCollection $propertyMetaDataCollection
-     * @param SchemaProcessor            $schemaProcessor
-     * @param Schema                     $schema
-     *
-     * @return PropertyProcessorInterface
      */
     public function getProcessor(
         $type,

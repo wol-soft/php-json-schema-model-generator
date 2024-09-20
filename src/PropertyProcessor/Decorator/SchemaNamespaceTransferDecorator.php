@@ -11,25 +11,15 @@ use PHPModelGenerator\Model\Schema;
  */
 class SchemaNamespaceTransferDecorator
 {
-    /** @var Schema */
-    private $schema;
-
     /**
      * SchemaNamespaceTransferDecorator constructor.
-     *
-     * @param Schema $schema
      */
-    public function __construct(Schema $schema)
-    {
-        $this->schema = $schema;
-    }
+    public function __construct(private Schema $schema) {}
 
     /**
      * Get all used classes to use the referenced schema
      *
      * @param Schema[] $visitedSchema
-     *
-     * @return array
      */
     public function resolve(array $visitedSchema): array
     {

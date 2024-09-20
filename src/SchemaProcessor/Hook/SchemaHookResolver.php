@@ -9,13 +9,7 @@ use PHPModelGenerator\Model\Schema;
 
 class SchemaHookResolver
 {
-    /** @var Schema */
-    private $schema;
-
-    public function __construct(Schema $schema)
-    {
-        $this->schema = $schema;
-    }
+    public function __construct(private Schema $schema) {}
 
     public function resolveConstructorBeforeValidationHook(): string
     {
@@ -47,23 +41,22 @@ class SchemaHookResolver
         return $this->resolveHook(SerializationHookInterface::class);
     }
 
+    /**
+     * @return SchemaHookInterface[]
+     */
     private function getHooks(string $filterHook): array
     {
         return array_filter(
             $this->schema->getSchemaHooks(),
-            static function (SchemaHookInterface $hook) use ($filterHook): bool {
-                return is_a($hook, $filterHook);
-            },
+            static fn(SchemaHookInterface $hook): bool => is_a($hook, $filterHook),
         );
     }
 
-    private function resolveHook(string $filterHook, ...$parameters): string
+    private function resolveHook(string $filterHook, mixed ...$parameters): string
     {
         return join(
             "\n\n",
-            array_map(static function ($hook) use ($parameters): string {
-                return $hook->getCode(...$parameters);
-            }, $this->getHooks($filterHook)),
+            array_map(static fn($hook): string => $hook->getCode(...$parameters), $this->getHooks($filterHook)),
         );
     }
 }

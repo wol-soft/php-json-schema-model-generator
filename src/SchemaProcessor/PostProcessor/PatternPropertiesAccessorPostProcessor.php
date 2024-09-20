@@ -21,9 +21,6 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
     /**
      * Add methods to handle pattern properties
      *
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
-     *
      * @throws SchemaException
      */
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
@@ -48,8 +45,6 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
     /**
      * Adds a method to get a list of pattern properties by property key or pattern
      *
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
      * @param PropertyType[] $patternTypes
      */
     private function addGetPatternPropertiesMethod(
@@ -74,25 +69,19 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
 
     /**
      * @param PropertyType[] $patternTypes
-     *
-     * @return string
      */
     private function getReturnTypeAnnotationForGetPatternProperties(array $patternTypes): string
     {
         $baseTypes = array_unique(
             array_map(
-                static function (PropertyType $type): string {
-                    return $type->getName();
-                },
+                static fn(PropertyType $type): string => $type->getName(),
                 $patternTypes,
             )
         );
 
         $nullable = array_reduce(
             $patternTypes,
-            static function (bool $carry, PropertyType $type): bool {
-                return $carry || $type->isNullable();
-            },
+            static fn(bool $carry, PropertyType $type): bool => $carry || $type->isNullable(),
             false,
         );
 

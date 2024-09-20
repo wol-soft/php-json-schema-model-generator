@@ -17,9 +17,6 @@ class EnumValidator extends PropertyValidator
 {
     /**
      * EnumValidator constructor.
-     *
-     * @param PropertyInterface $property
-     * @param array $allowedValues
      */
     public function __construct(PropertyInterface $property, array $allowedValues)
     {

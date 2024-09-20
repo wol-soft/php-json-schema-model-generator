@@ -19,8 +19,6 @@ interface PropertyProcessorInterface
      *
      * @param string $propertyName The name of the property
      * @param JsonSchema $propertySchema The schema of the property
-     *
-     * @return PropertyInterface
      */
     public function process(string $propertyName, JsonSchema $propertySchema): PropertyInterface;
 }

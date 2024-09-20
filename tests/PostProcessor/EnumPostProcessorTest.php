@@ -77,11 +77,11 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertEqualsCanonicalizing(
             ['Hans', 'Dieter'],
-            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases()),
+            array_map(fn(BackedEnum $value): string => $value->name, $enum::cases()),
         );
         $this->assertEqualsCanonicalizing(
             ['hans', 'dieter'],
-            array_map(function (BackedEnum $value): string { return $value->value; }, $enum::cases()),
+            array_map(fn(BackedEnum $value): string => $value->value, $enum::cases()),
         );
 
         $object->setProperty($enum::Dieter);
@@ -169,11 +169,11 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertEqualsCanonicalizing(
             ['Ceo', 'Cto'],
-            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases()),
+            array_map(fn(BackedEnum $value): string => $value->name, $enum::cases()),
         );
         $this->assertEqualsCanonicalizing(
             ['Hans', 'Dieter'],
-            array_map(function (BackedEnum $value): string { return $value->value; }, $enum::cases()),
+            array_map(fn(BackedEnum $value): string => $value->value, $enum::cases()),
         );
 
         $object->setProperty($enum::Ceo);
@@ -300,11 +300,11 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertEqualsCanonicalizing(
             ['A', 'B'],
-            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases()),
+            array_map(fn(BackedEnum $value): string => $value->name, $enum::cases()),
         );
         $this->assertEqualsCanonicalizing(
             [10, 100],
-            array_map(function (BackedEnum $value): int { return $value->value; }, $enum::cases()),
+            array_map(fn(BackedEnum $value): int => $value->value, $enum::cases()),
         );
 
         $object->setProperty($enum::A);
@@ -366,11 +366,11 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertEqualsCanonicalizing(
             ['A', 'B', 'C'],
-            array_map(function (UnitEnum $value): string { return $value->name; }, $enum::cases()),
+            array_map(fn(UnitEnum $value): string => $value->name, $enum::cases()),
         );
 
         $object->setProperty($enum::C);
-        $this->assertSame(true, $object->getProperty()->value());
+        $this->assertTrue($object->getProperty()->value());
 
         $this->assertNull($this->getParameterType($object, 'setProperty'));
 
@@ -416,7 +416,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Hans', $object->getProperty1()->value);
         $this->assertSame('Dieter', $object->getProperty2()->value);
 
-        $this->assertSame(get_class($object->getProperty1()), get_class($object->getProperty2()));
+        $this->assertSame($object->getProperty1()::class, $object->getProperty2()::class);
     }
 
     public function identicalEnumsDataProvider(): array
@@ -457,7 +457,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Hans', $object->getProperty1()->value);
         $this->assertSame('Dieter', $object->getProperty2()->value);
 
-        $this->assertNotSame(get_class($object->getProperty1()), get_class($object->getProperty2()));
+        $this->assertNotSame($object->getProperty1()::class, $object->getProperty2()::class);
     }
 
     public function differentEnumsDataProvider(): array
@@ -596,7 +596,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame(
             [$expectedNormalizedName],
-            array_map(function (BackedEnum $value): string { return $value->name; }, $enum::cases()),
+            array_map(fn(BackedEnum $value): string => $value->name, $enum::cases()),
         );
     }
 

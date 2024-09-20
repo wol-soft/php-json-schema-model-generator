@@ -23,9 +23,6 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider validStringPropertyValueProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param string $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -55,8 +52,6 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider validationMethodDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -72,21 +67,18 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider invalidPropertyTypeDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
     public function testInvalidPropertyTypeThrowsAnException(
         GeneratorConfiguration $configuration,
-        $propertyValue,
+        mixed $propertyValue,
     ): void {
         $this->expectValidationError(
             $configuration,
             'Invalid type for property. Requires string, got ' .
-                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue)),
+                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)),
         );
 
         $className = $this->generateClassFromFile('StringProperty.json', $configuration);
@@ -110,9 +102,6 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider stringInLengthValidationRangePassesDataProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param string $propertyValue
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -144,10 +133,6 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider invalidStringLengthDataProvider
      *
-     * @param GeneratorConfiguration $configuration
-     * @param string $propertyValue
-     * @param string $exceptionMessage
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -178,10 +163,6 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validPatternProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param string $pattern
-     * @param string $propertyValue
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -231,10 +212,6 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidPatternProvider
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param string $pattern
-     * @param string $propertyValue
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -289,8 +266,6 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidStringFormatDataProvider
-     *
-     * @param string $value
      */
     public function testInvalidStringFormatCheck(string $value): void
     {

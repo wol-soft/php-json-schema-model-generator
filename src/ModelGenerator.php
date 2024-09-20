@@ -30,8 +30,7 @@ use RecursiveIteratorIterator;
  */
 class ModelGenerator
 {
-    /** @var GeneratorConfiguration */
-    protected $generatorConfiguration;
+    protected GeneratorConfiguration $generatorConfiguration;
     /** @var PostProcessor[] */
     protected $postProcessors = [];
 
@@ -52,11 +51,6 @@ class ModelGenerator
             ->addPostProcessor(new ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor());
     }
 
-    /**
-     * @param PostProcessor $postProcessor
-     *
-     * @return $this
-     */
     public function addPostProcessor(PostProcessor $postProcessor): self
     {
         $this->postProcessors[] = $postProcessor;
@@ -70,8 +64,6 @@ class ModelGenerator
      *
      * @param string $modelPath     The absolute path to the directory
      * @param int    $directoryMode The mode to create the directory with
-     *
-     * @return ModelGenerator
      */
     public function generateModelDirectory(string $modelPath, int $directoryMode = 0777): self
     {
@@ -94,8 +86,6 @@ class ModelGenerator
      *
      * @param SchemaProviderInterface $schemaProvider The provider used to fetch the JSON schemas to process
      * @param string $destination                     The directory where to put the generated PHP models
-     *
-     * @return array
      *
      * @throws FileSystemException      Will be thrown if either the $source or the $destination directory doesn't exist
      *                                  or the $destination directory is not empty

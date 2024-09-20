@@ -24,15 +24,10 @@ use PHPModelGenerator\Utils\RenderHelper;
 class ArrayTupleValidator extends PropertyTemplateValidator
 {
     /** @var PropertyInterface[] */
-    private $tupleProperties;
+    private array $tupleProperties;
 
     /**
      * ArrayTupleValidator constructor.
-     *
-     * @param SchemaProcessor $schemaProcessor
-     * @param Schema          $schema
-     * @param JsonSchema      $propertiesStructure
-     * @param string          $propertyName
      *
      * @throws SchemaException
      */
@@ -91,8 +86,6 @@ class ArrayTupleValidator extends PropertyTemplateValidator
 
     /**
      * Initialize all variables which are required to execute a property names validator
-     *
-     * @return string
      */
     public function getValidatorSetUp(): string
     {

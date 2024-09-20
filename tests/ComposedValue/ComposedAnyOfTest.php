@@ -32,7 +32,7 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
      *
      * @param $propertyValue
      */
-    public function testValueProvidedForEmptyOptionalAnyOfIsInvalid($propertyValue): void
+    public function testValueProvidedForEmptyOptionalAnyOfIsInvalid(string|int|array $propertyValue): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(<<<ERROR
@@ -58,8 +58,6 @@ ERROR,
 
     /**
      * @dataProvider implicitNullDataProvider
-     *
-     * @param bool $implicitNull
      */
     public function testCompositionTypes(bool $implicitNull): void
     {
@@ -96,8 +94,6 @@ ERROR,
 
     /**
      * @dataProvider propertyLevelAnyOfSchemaFileDataProvider
-     *
-     * @param string $schema
      */
     public function testNotProvidedPropertyLevelAnyOfIsValid(string $schema): void
     {
@@ -150,10 +146,8 @@ ERROR,
     /**
      * @dataProvider validPropertyTypeDataProvider
      * @dataProvider nullDataProvider
-     *
-     * @param $propertyValue
      */
-    public function testValidProvidedAnyOfTypePropertyIsValid($propertyValue): void
+    public function testValidProvidedAnyOfTypePropertyIsValid(mixed $propertyValue): void
     {
         $className = $this->generateClassFromFile('AnyOfType.json');
 
@@ -163,10 +157,6 @@ ERROR,
 
     /**
      * @dataProvider annotationDataProvider
-     *
-     * @param string $schema
-     * @param string $annotationPattern
-     * @param int $generatedClasses
      */
     public function testAnyOfTypePropertyHasTypeAnnotation(
         string $schema,
@@ -214,10 +204,8 @@ ERROR,
 
     /**
      * @dataProvider invalidPropertyTypeDataProvider
-     *
-     * @param $propertyValue
      */
-    public function testInvalidProvidedAnyOfTypePropertyThrowsAnException($propertyValue): void
+    public function testInvalidProvidedAnyOfTypePropertyThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
@@ -252,10 +240,8 @@ ERROR,
 
     /**
      * @dataProvider validPropertyTypeDataProvider
-     *
-     * @param $propertyValue
      */
-    public function testValidProvidedRequiredAnyOfTypePropertyIsValid($propertyValue): void
+    public function testValidProvidedRequiredAnyOfTypePropertyIsValid(mixed $propertyValue): void
     {
         $className = $this->generateClassFromFile('AnyOfTypeRequired.json');
 
@@ -266,10 +252,8 @@ ERROR,
     /**
      * @dataProvider invalidPropertyTypeDataProvider
      * @dataProvider nullDataProvider
-     *
-     * @param $propertyValue
      */
-    public function testInvalidProvidedRequiredAnyOfTypePropertyThrowsAnException($propertyValue): void
+    public function testInvalidProvidedRequiredAnyOfTypePropertyThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
@@ -286,10 +270,8 @@ ERROR,
 
     /**
      * @dataProvider validExtendedPropertyDataProvider
-     *
-     * @param $propertyValue
      */
-    public function testExtendedPropertyDefinitionWithValidValues($propertyValue): void
+    public function testExtendedPropertyDefinitionWithValidValues(int | float | null $propertyValue): void
     {
         $className = $this->generateClassFromFile('ExtendedPropertyDefinition.json');
 
@@ -313,12 +295,9 @@ ERROR,
 
     /**
      * @dataProvider invalidExtendedPropertyDataProvider
-     *
-     * @param $propertyValue
-     * @param string $exceptionMessage
      */
     public function testExtendedPropertyDefinitionWithInvalidValuesThrowsAnException(
-        $propertyValue,
+        mixed $propertyValue,
         string $exceptionMessage,
     ): void {
         $this->expectException(ValidationException::class);
@@ -344,12 +323,11 @@ ERROR,
 
     /**
      * @dataProvider composedPropertyWithReferencedSchemaDataProvider
-     *
-     * @param string $schema
-     * @param $propertyValue
      */
-    public function testMatchingComposedPropertyWithReferencedSchemaIsValid(string $schema, $propertyValue): void
-    {
+    public function testMatchingComposedPropertyWithReferencedSchemaIsValid(
+        string $schema,
+        ?string $propertyValue,
+    ): void {
         $className = $this->generateClassFromFile($schema);
 
         $object = new $className(['property' => $propertyValue]);
@@ -372,8 +350,6 @@ ERROR,
 
     /**
      * @dataProvider referencedPersonDataProvider
-     *
-     * @param string $schema
      */
     public function testMatchingObjectPropertyWithReferencedPersonSchemaIsValid(string $schema): void
     {
@@ -405,8 +381,6 @@ ERROR,
 
     /**
      * @dataProvider referencedPetDataProvider
-     *
-     * @param string $schema
      */
     public function testMatchingObjectPropertyWithReferencedPetSchemaIsValid(string $schema): void
     {
@@ -420,13 +394,10 @@ ERROR,
 
     /**
      * @dataProvider invalidObjectPropertyWithReferencedPersonSchemaDataProvider
-     *
-     * @param string $schema
-     * @param $propertyValue
      */
     public function testNotMatchingObjectPropertyWithReferencedPersonSchemaThrowsAnException(
         string $schema,
-        $propertyValue,
+        mixed $propertyValue,
     ): void {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
@@ -458,13 +429,10 @@ ERROR,
 
     /**
      * @dataProvider invalidObjectPropertyWithReferencedPetSchemaDataProvider
-     *
-     * @param string $schema
-     * @param $propertyValue
      */
     public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException(
         string $schema,
-        $propertyValue,
+        mixed $propertyValue,
     ): void {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
@@ -497,10 +465,6 @@ ERROR,
      * @dataProvider validComposedObjectDataProvider
      * @dataProvider validComposedObjectDataProviderRequired
      * @dataProvider validComposedObjectWithRequiredPropertiesDataProvider
-     *
-     * @param array       $input
-     * @param string|null $stringPropertyValue
-     * @param int|null    $intPropertyValue
      */
     public function testMatchingPropertyForComposedAnyOfObjectIsValid(
         array $input,
@@ -538,8 +502,6 @@ ERROR,
 
     /**
      * @dataProvider invalidComposedObjectDataProvider
-     *
-     * @param array $input
      */
     public function testNotMatchingPropertyForComposedAnyOfObjectThrowsAnException(array $input): void
     {
@@ -550,7 +512,7 @@ ERROR,
         new $className($input);
     }
 
-    public function invalidComposedObjectDataProvider()
+    public function invalidComposedObjectDataProvider(): array
     {
         return [
             'both invalid types' => [['integerProperty' => '10', 'stringProperty' => 10]],
@@ -565,10 +527,6 @@ ERROR,
     /**
      * @dataProvider validComposedObjectDataProviderRequired
      * @dataProvider validComposedObjectWithRequiredPropertiesDataProvider
-     *
-     * @param array       $input
-     * @param string|null $stringPropertyValue
-     * @param int|null    $intPropertyValue
      */
     public function testMatchingPropertyForComposedAnyOfObjectWithRequiredPropertiesIsValid(
         array $input,
@@ -584,8 +542,6 @@ ERROR,
 
     /**
      * @dataProvider invalidComposedObjectDataProvider
-     *
-     * @param array $input
      */
     public function testNotMatchingPropertyForComposedAnyOfObjectWithRequiredPropertiesThrowsAnException(array $input): void
     {
@@ -608,9 +564,6 @@ ERROR,
 
     /**
      * @dataProvider validationInSetterDataProvider
-     *
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param string $exceptionMessageBothInvalid
      */
     public function testValidationInSetterMethods(
         GeneratorConfiguration $generatorConfiguration,

@@ -23,10 +23,6 @@ class SchemaDependencyValidator extends PropertyTemplateValidator
     /**
      * SchemaDependencyValidator constructor.
      *
-     * @param SchemaProcessor   $schemaProcessor
-     * @param PropertyInterface $property
-     * @param Schema            $schema
-     *
      * @throws SchemaException
      */
     public function __construct(SchemaProcessor $schemaProcessor, PropertyInterface $property, Schema $schema)
@@ -54,8 +50,6 @@ class SchemaDependencyValidator extends PropertyTemplateValidator
 
     /**
      * Initialize all variables which are required to execute a property names validator
-     *
-     * @return string
      */
     public function getValidatorSetUp(): string
     {

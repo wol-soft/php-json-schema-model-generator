@@ -16,29 +16,26 @@ class OpenAPIv3Provider implements SchemaProviderInterface
 {
     /** @var array */
     private $openAPIv3Spec;
-    /** @var string */
-    private $sourceFile;
 
     /**
      * OpenAPIv3Provider constructor.
      *
-     * @param string $sourceFile
-     *
      * @throws SchemaException
      */
-    public function __construct(string $sourceFile)
+    public function __construct(private string $sourceFile)
     {
-        $this->sourceFile = $sourceFile;
-        $jsonSchema = file_get_contents($sourceFile);
+        $jsonSchema = file_get_contents($this->sourceFile);
 
         if (!$jsonSchema || !($this->openAPIv3Spec = json_decode($jsonSchema, true))) {
-            throw new SchemaException("Invalid JSON-Schema file $sourceFile");
+            throw new SchemaException("Invalid JSON-Schema file {$this->sourceFile}");
         }
 
         if (!isset($this->openAPIv3Spec['components']['schemas']) ||
             empty($this->openAPIv3Spec['components']['schemas'])
         ) {
-            throw new SchemaException("Open API v3 spec file $sourceFile doesn't contain any schemas to process");
+            throw new SchemaException(
+                "Open API v3 spec file {$this->sourceFile} doesn't contain any schemas to process"
+            );
         }
     }
 

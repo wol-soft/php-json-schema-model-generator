@@ -20,15 +20,11 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider defaultValueForTypedPropertyDataProvider
      *
-     * @param string $valueType
-     * @param mixed  $defaultValue
-     * @param mixed  $compareValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testDefaultValueForTypedProperty(string $valueType, $defaultValue, $compareValue): void
+    public function testDefaultValueForTypedProperty(string $valueType, mixed $defaultValue, mixed $compareValue): void
     {
         $className = $this->generateClassFromFileTemplate(
             'DefaultValueTypedProperty.json',
@@ -122,15 +118,14 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider invalidDefaultValueForTypedPropertyDataProvider
      *
-     * @param string $valueType
-     * @param mixed  $defaultValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testInvalidDefaultValueForTypedPropertyThrowsAnException(string $valueType, $defaultValue): void
-    {
+    public function testInvalidDefaultValueForTypedPropertyThrowsAnException(
+        string $valueType,
+        mixed $defaultValue,
+    ): void {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage('Invalid type for default value of property property');
 
@@ -174,14 +169,12 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider defaultValueForUntypedPropertyDataProvider
      *
-     * @param mixed  $defaultValue
-     * @param mixed  $compareValue
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testDefaultValueForUntypedTypedProperty($defaultValue, $compareValue): void
+    public function testDefaultValueForUntypedTypedProperty(mixed $defaultValue, mixed $compareValue): void
     {
         $className = $this->generateClassFromFileTemplate(
             'DefaultValueUntypedProperty.json',

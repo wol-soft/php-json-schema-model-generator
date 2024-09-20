@@ -166,13 +166,11 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider invalidPropertyDataProvider
      *
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNotMatchingProvidedDataThrowsAnException($propertyValue): void
+    public function testNotMatchingProvidedDataThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for stringProperty declined by const constraint');

@@ -23,9 +23,6 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 class PatternPropertiesPostProcessor extends PostProcessor
 {
     /**
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
-     *
      * @throws SchemaException
      */
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
@@ -77,9 +74,6 @@ class PatternPropertiesPostProcessor extends PostProcessor
     /**
      * Adds an internal array property to the schema which holds all pattern properties grouped by key
      *
-     * @param Schema $schema
-     * @param array $patternHashes
-     *
      * @throws SchemaException
      */
     private function addPatternPropertiesCollectionProperty(
@@ -100,8 +94,6 @@ class PatternPropertiesPostProcessor extends PostProcessor
 
     /**
      * Adds an internal array property to the schema which holds all pattern properties grouped by key
-     *
-     * @param Schema $schema
      *
      * @throws SchemaException
      */
@@ -131,19 +123,11 @@ class PatternPropertiesPostProcessor extends PostProcessor
      * which not only match a pattern but are also properties of the object (eg. the pattern is "^n" and the object
      * contains a property "name") initialize the corresponding field for each matching property in the array with a
      * reference to the object attribute representing the property (in the example case reference "$this->name").
-     *
-     * @param Schema $schema
-     * @param array $patternHashes
      */
     private function initObjectPropertiesMatchingPatternProperties(Schema $schema, array $patternHashes): void
     {
         $schema->addSchemaHook(new class ($patternHashes) implements ConstructorBeforeValidationHookInterface {
-            private $patternHashes;
-
-            public function __construct(array $patternHashes)
-            {
-                $this->patternHashes = $patternHashes;
-            }
+            public function __construct(private array $patternHashes) {}
 
             public function getCode(): string
             {

@@ -17,29 +17,11 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
  */
 class PropertyFactory
 {
-    /** @var ProcessorFactoryInterface */
-    protected $processorFactory;
-
-    /**
-     * PropertyFactory constructor.
-     *
-     * @param ProcessorFactoryInterface $processorFactory
-     */
-    public function __construct(ProcessorFactoryInterface $processorFactory)
-    {
-        $this->processorFactory = $processorFactory;
-    }
+    public function __construct(protected ProcessorFactoryInterface $processorFactory) {}
 
     /**
      * Create a property
      *
-     * @param PropertyMetaDataCollection $propertyMetaDataCollection
-     * @param SchemaProcessor            $schemaProcessor
-     * @param Schema                     $schema
-     * @param string                     $propertyName
-     * @param JsonSchema                 $propertySchema
-     *
-     * @return PropertyInterface
      * @throws SchemaException
      */
     public function create(

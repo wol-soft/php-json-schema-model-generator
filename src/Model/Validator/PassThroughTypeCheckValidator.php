@@ -16,14 +16,10 @@ use ReflectionType;
 class PassThroughTypeCheckValidator extends PropertyValidator implements TypeCheckInterface
 {
     /** @var string[] */
-    protected $types;
+    protected array $types;
 
     /**
      * PassThroughTypeCheckValidator constructor.
-     *
-     * @param ReflectionType $passThroughType
-     * @param PropertyInterface $property
-     * @param TypeCheckValidator $typeCheckValidator
      */
     public function __construct(
         ReflectionType $passThroughType,

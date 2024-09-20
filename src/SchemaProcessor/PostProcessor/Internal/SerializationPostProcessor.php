@@ -31,9 +31,6 @@ class SerializationPostProcessor extends PostProcessor
 {
     /**
      * Add serialization support to the provided schema
-     *
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
      */
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
@@ -57,9 +54,6 @@ class SerializationPostProcessor extends PostProcessor
     /**
      * Each transforming filter must provide a method to serialize the value. Add a method to the schema to call the
      * serialization for each property with a transforming filter
-     *
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
      */
     private function addSerializeFunctionsForTransformingFilters(
         Schema $schema,
@@ -128,10 +122,6 @@ class SerializationPostProcessor extends PostProcessor
         }
     }
 
-    /**
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
-     */
     private function addSerializationHookMethod(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
         $schema->addMethod(
@@ -149,9 +139,6 @@ class SerializationPostProcessor extends PostProcessor
 
     /**
      * Adds code to merge serialized pattern properties into the serialization result
-     *
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
      */
     private function addPatternPropertiesSerialization(
         Schema $schema,
@@ -179,9 +166,6 @@ class SerializationPostProcessor extends PostProcessor
     /**
      * Adds a custom serialization function to the schema to merge all additional properties into the serialization
      * result on serializations
-     *
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
      */
     public function addAdditionalPropertiesSerialization(
         Schema $schema,
@@ -244,14 +228,11 @@ class SerializationPostProcessor extends PostProcessor
         }
 
         $skipNotProvidedValues = array_map(
-            static function (PropertyInterface $property): string {
-                return $property->getAttribute(true);
-            },
+            static fn(PropertyInterface $property): string => $property->getAttribute(true),
             array_filter(
                 $schema->getProperties(),
-                static function (PropertyInterface $property): bool {
-                    return !$property->isRequired() && !$property->getDefaultValue();
-                },
+                static fn(PropertyInterface $property): bool =>
+                    !$property->isRequired() && !$property->getDefaultValue(),
             )
         );
 

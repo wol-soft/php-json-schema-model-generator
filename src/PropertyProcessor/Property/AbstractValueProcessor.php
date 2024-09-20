@@ -22,24 +22,16 @@ use ReflectionException;
  */
 abstract class AbstractValueProcessor extends AbstractPropertyProcessor
 {
-    private $type = '';
-
     /**
      * AbstractValueProcessor constructor.
-     *
-     * @param PropertyMetaDataCollection $propertyMetaDataCollection
-     * @param SchemaProcessor            $schemaProcessor
-     * @param Schema                     $schema
-     * @param string                     $type
      */
     public function __construct(
         PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        string $type = '',
+        private string $type = '',
     ) {
         parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
-        $this->type = $type;
     }
 
     /**

@@ -38,8 +38,6 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidCustomFilterDataProvider
-     *
-     * @param array $customInvalidFilter
      */
     public function testAddInvalidFilterThrowsAnException(array $customInvalidFilter): void
     {
@@ -86,16 +84,11 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         array $acceptedTypes = ['string', 'null'],
     ): FilterInterface {
         return new class ($customFilter, $token, $acceptedTypes) implements FilterInterface {
-            private $customFilter;
-            private $token;
-            private $acceptedTypes;
-
-            public function __construct(array $customFilter, string $token, array $acceptedTypes)
-            {
-                $this->customFilter = $customFilter;
-                $this->token = $token;
-                $this->acceptedTypes = $acceptedTypes;
-            }
+            public function __construct(
+                private array $customFilter,
+                private string $token,
+                private array $acceptedTypes,
+            ) {}
 
             public function getAcceptedTypes(): array
             {
@@ -116,10 +109,6 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validBuiltInFilterDataProvider
-     *
-     * @param string $template
-     * @param array $input
-     * @param string|null $expected
      */
     public function testValidUsageOfBuiltInFilter(string $template, array $input, ?string $expected): void
     {
@@ -134,8 +123,6 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validTrimDataFormatProvider
-     *
-     * @param string $template
      */
     public function testNotProvidedOptionalValueWithFilterIsValid(string $template): void
     {
@@ -171,10 +158,6 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidUsageOfBuiltInFilterDataProvider
-     *
-     * @param string $template
-     * @param string $jsonType
-     * @param string $phpType
      */
     public function testInvalidUsageOfBuiltInFilterThrowsAnException(
         string $template,
@@ -205,9 +188,6 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validLengthAfterFilterDataProvider
-     *
-     * @param string|null $input
-     * @param string|null $expectedValue
      */
     public function testLengthValidationForFilteredValueForValidValues(?string $input, ?string $expectedValue): void
     {
@@ -227,8 +207,6 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidLengthAfterFilterDataProvider
-     *
-     * @param string $input
      */
     public function testLengthValidationForFilteredValueForInvalidValuesThrowsAnException(string $input): void
     {
@@ -256,9 +234,6 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider customFilterDataProvider
-     *
-     * @param string|null $input
-     * @param string|null $expectedValue
      */
     public function testCustomFilter(?string $input, ?string $expectedValue): void
     {
@@ -348,7 +323,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    private function getEncodeFilter()
+    private function getEncodeFilter(): FilterInterface
     {
         return new class () implements FilterInterface, ValidateOptionsInterface {
             public function getAcceptedTypes(): array
@@ -386,9 +361,6 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider multipleFilterDataProvider
-     *
-     * @param string|null $input
-     * @param string|null $expectedValue
      */
     public function testMultipleFilters(?string $input, ?string $expectedValue): void
     {
@@ -420,8 +392,6 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidCustomFilterDataProvider
-     *
-     * @param array $customInvalidFilter
      */
     public function testAddFilterWithInvalidSerializerThrowsAnException(array $customInvalidFilter): void
     {
@@ -441,22 +411,12 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
             extends TrimFilter
             implements TransformingFilterInterface
         {
-            private $customSerializer;
-            private $customFilter;
-            private $token;
-            private $acceptedTypes;
-
             public function __construct(
-                array $customSerializer,
-                array $customFilter,
-                string $token,
-                array $acceptedTypes,
-            ) {
-                $this->customSerializer = $customSerializer;
-                $this->customFilter = $customFilter;
-                $this->token = $token;
-                $this->acceptedTypes = $acceptedTypes;
-            }
+                private array $customSerializer,
+                private array $customFilter,
+                private string $token,
+                private array $acceptedTypes,
+            ) {}
 
             public function getAcceptedTypes(): array
             {
@@ -560,9 +520,6 @@ ERROR,
 
     /**
      * @dataProvider additionalFilterOptionsDataProvider
-     *
-     * @param string $namespace
-     * @param string $schemaFile
      */
     public function testAdditionalFilterOptions(string $namespace, string $schemaFile): void
     {
@@ -685,11 +642,8 @@ ERROR,
 
     /**
      * @dataProvider implicitNullNamespaceDataProvider
-     *
-     * @param bool $implicitNull
-     * @param string $namespace
      */
-    public function testTransformingToScalarType(bool $implicitNull, string $namespace)
+    public function testTransformingToScalarType(bool $implicitNull, string $namespace): void
     {
         $className = $this->generateClassFromFile(
             'TransformingScalarFilter.json',
@@ -781,9 +735,6 @@ ERROR,
 
     /**
      * @dataProvider implicitNullNamespaceDataProvider
-     *
-     * @param bool $implicitNull
-     * @param string $namespace
      */
     public function testFilterChainWithTransformingFilterOnMultiTypeProperty(
         bool $implicitNull,
@@ -913,9 +864,6 @@ ERROR,
 
     /**
      * @dataProvider arrayFilterDataProvider
-     *
-     * @param array|null $input
-     * @param array|null $output
      */
     public function testArrayFilter(?array $input, ?array $output): void
     {
@@ -967,8 +915,6 @@ ERROR,
 
     /**
      * @dataProvider implicitNullDataProvider
-     *
-     * @param bool $implicitNull
      */
     public function testDefaultValuesAreTransformed(bool $implicitNull): void
     {

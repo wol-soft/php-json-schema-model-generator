@@ -18,9 +18,6 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     /** @var CompositionPropertyDecorator[] */
     protected $composedProperties;
 
-    /**
-     * @return string
-     */
     public function getCompositionProcessor(): string
     {
         return $this->compositionProcessor;

@@ -13,7 +13,7 @@ class Issue70Test extends AbstractIssueTestCase
     /**
      * @dataProvider validInputDataProvider
      */
-    public function testValidInput(string $filter, array $input, $expectedOutput): void
+    public function testValidInput(string $filter, array $input, string|int|null $expectedOutput): void
     {
         $className = $this->generateClassFromFileTemplate(
             'filterInCompositionInArray.json',

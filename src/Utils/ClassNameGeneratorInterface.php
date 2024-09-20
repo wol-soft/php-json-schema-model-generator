@@ -21,8 +21,6 @@ interface ClassNameGeneratorInterface
      * @param JsonSchema $schema           The structure of the schema which is represented by the generated class
      * @param bool       $isMergeClass     Is it a merge class? example: allOf schema composition
      * @param string     $currentClassName The class name of the parent class if the class represents a nested object
-     *
-     * @return string
      */
     public function getClassName(
         string $propertyName,

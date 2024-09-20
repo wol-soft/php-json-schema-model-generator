@@ -16,18 +16,12 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
  */
 class ComposedValueProcessorFactory implements ProcessorFactoryInterface
 {
-    /** @var bool */
-    private $rootLevelComposition;
-
     /**
      * ComposedValueProcessorFactory constructor.
      *
      * @param bool $rootLevelComposition is the composed value on object root level (true) or on property level (false)?
      */
-    public function __construct(bool $rootLevelComposition)
-    {
-        $this->rootLevelComposition = $rootLevelComposition;
-    }
+    public function __construct(private bool $rootLevelComposition) {}
 
     /**
      * @inheritdoc

@@ -13,18 +13,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  */
 class CompositionTypeHintDecorator implements TypeHintDecoratorInterface
 {
-    /** @var PropertyInterface */
-    protected $nestedProperty;
-
-    /**
-     * CompositionTypeHintDecorator constructor.
-     *
-     * @param PropertyInterface $nestedProperty
-     */
-    public function __construct(PropertyInterface $nestedProperty)
-    {
-        $this->nestedProperty = $nestedProperty;
-    }
+    public function __construct(protected PropertyInterface $nestedProperty) {}
 
     /**
      * @inheritdoc

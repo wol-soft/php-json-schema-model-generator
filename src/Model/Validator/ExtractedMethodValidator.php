@@ -15,21 +15,16 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 abstract class ExtractedMethodValidator extends PropertyTemplateValidator
 {
-    /** @var string */
-    private $extractedMethodName;
-    /** @var GeneratorConfiguration */
-    private $generatorConfiguration;
+    private string $extractedMethodName;
 
     public function __construct(
-        GeneratorConfiguration $generatorConfiguration,
+        private GeneratorConfiguration $generatorConfiguration,
         PropertyInterface $property,
         string $template,
         array $templateValues,
         string $exceptionClass,
         array $exceptionParams = [],
     ) {
-        $this->generatorConfiguration = $generatorConfiguration;
-
         $this->extractedMethodName = sprintf(
             'validate%s_%s_%s',
             str_replace(' ', '', ucfirst($property->getAttribute())),
@@ -43,18 +38,10 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
     public function getMethod(): MethodInterface
     {
         return new class ($this, $this->generatorConfiguration) implements MethodInterface {
-            /** @var ExtractedMethodValidator */
-            private $validator;
-            /** @var GeneratorConfiguration */
-            private $generatorConfiguration;
-
             public function __construct(
-                ExtractedMethodValidator $validator,
-                GeneratorConfiguration $generatorConfiguration,
-            ) {
-                $this->validator = $validator;
-                $this->generatorConfiguration = $generatorConfiguration;
-            }
+                private ExtractedMethodValidator $validator,
+                private GeneratorConfiguration $generatorConfiguration,
+            ) {}
 
             public function getCode(): string
             {

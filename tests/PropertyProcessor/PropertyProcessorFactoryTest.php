@@ -30,8 +30,6 @@ class PropertyProcessorFactoryTest extends TestCase
 {
     /**
      * @dataProvider validPropertyProvider
-     * @param string $type
-     * @param string $expectedClass
      *
      * @throws SchemaException
      */
@@ -51,8 +49,6 @@ class PropertyProcessorFactoryTest extends TestCase
 
     /**
      * Provide valid properties which must result in a PropertyProcessor
-     *
-     * @return array
      */
     public function validPropertyProvider(): array
     {
@@ -70,7 +66,7 @@ class PropertyProcessorFactoryTest extends TestCase
     /**
      * @throws SchemaException
      */
-    public function testGetInvalidPropertyProcessorThrowsAnException()
+    public function testGetInvalidPropertyProcessorThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage('Unsupported property type Hello');

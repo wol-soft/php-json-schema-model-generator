@@ -13,20 +13,9 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  */
 class ArrayTypeHintDecorator implements TypeHintDecoratorInterface
 {
-    /** @var PropertyInterface */
-    protected $nestedProperty;
+    private int $recursiveArrayCheck = 0;
 
-    private $recursiveArrayCheck = 0;
-
-    /**
-     * ArrayTypeHintDecorator constructor.
-     *
-     * @param PropertyInterface $nestedProperty
-     */
-    public function __construct(PropertyInterface $nestedProperty)
-    {
-        $this->nestedProperty = $nestedProperty;
-    }
+    public function __construct(protected PropertyInterface $nestedProperty) {}
 
     /**
      * @inheritdoc
@@ -41,9 +30,7 @@ class ArrayTypeHintDecorator implements TypeHintDecoratorInterface
         $result = implode(
             '|',
             array_map(
-                static function (string $typeHint): string {
-                    return "{$typeHint}[]";
-                },
+                static fn(string $typeHint): string => "{$typeHint}[]",
                 explode('|', $this->nestedProperty->getTypeHint($outputType)),
             )
         );

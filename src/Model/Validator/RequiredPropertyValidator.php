@@ -16,8 +16,6 @@ class RequiredPropertyValidator extends PropertyValidator
 {
     /**
      * RequiredPropertyValidator constructor.
-     *
-     * @param PropertyInterface $property
      */
     public function __construct(PropertyInterface $property)
     {

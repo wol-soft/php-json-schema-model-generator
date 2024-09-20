@@ -11,18 +11,7 @@ namespace PHPModelGenerator\PropertyProcessor\Decorator\TypeHint;
  */
 class TypeHintDecorator implements TypeHintDecoratorInterface
 {
-    /** @var array */
-    protected $types;
-
-    /**
-     * TypeHintDecorator constructor.
-     *
-     * @param array $types
-     */
-    public function __construct(array $types)
-    {
-        $this->types = $types;
-    }
+    public function __construct(protected array $types) {}
 
     /**
      * @inheritdoc

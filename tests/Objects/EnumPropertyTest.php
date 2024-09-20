@@ -35,7 +35,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateEnumClass('string', static::ENUM_STRING);
 
         $object = new $className([]);
-        $this->assertSame(null, $object->getProperty());
+        $this->assertNull($object->getProperty());
     }
 
     /**
@@ -110,18 +110,16 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider invalidItemTypeDataProvider
      *
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testInvalidItemTypeThrowsAnException($propertyValue): void
+    public function testInvalidItemTypeThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(
             'Invalid type for property. Requires string, got ' .
-                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue)),
+                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)),
         );
 
         $className = $this->generateEnumClass('string', static::ENUM_STRING);
@@ -187,7 +185,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
         );
 
         $object = new $className([]);
-        $this->assertSame(null, $object->getProperty());
+        $this->assertNull($object->getProperty());
 
         $this->assertSame('string|int|null', $this->getPropertyTypeAnnotation($object, 'property'));
 
@@ -204,13 +202,11 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider validEnumEntriesUntypedEnumDataProvider
      *
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testEnumItemIsValidInUntypedEnum($propertyValue): void
+    public function testEnumItemIsValidInUntypedEnum(string|int|null $propertyValue): void
     {
         $className = $this->generateClassFromFile('UntypedEnumProperty.json');
 
@@ -239,7 +235,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className(['property' => 10]);
 
         $this->assertSame(10, $object->getProperty());
-        $this->assertSame(null, $object->getPropertyWithZero());
+        $this->assertNull($object->getPropertyWithZero());
 
         $returnType = $this->getReturnType($object, 'getPropertyWithZero');
         $this->assertSame('int', $returnType->getName());
@@ -264,13 +260,11 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider invalidEnumEntriesUntypedEnumDataProvider
      *
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testInvalidItemInUntypedEnumThrowsAnException($propertyValue): void
+    public function testInvalidItemInUntypedEnumThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
@@ -295,8 +289,6 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider implicitNullDataProvider
      *
-     * @param bool $implicitNull
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -313,8 +305,6 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider implicitNullDataProvider
-     *
-     * @param bool $implicitNull
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -343,8 +333,6 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider implicitNullDataProvider
-     *
-     * @param bool $implicitNull
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -382,8 +370,6 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider implicitNullDataProvider
      *
-     * @param bool $implicitNull
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -407,12 +393,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
 
     protected function generateEnumClass(string $type, array $enumValues, $required = false): string
     {
-        $enumValues = array_map(
-            static function ($item): string {
-                return var_export($item, true);
-            },
-            $enumValues,
-        );
+        $enumValues = array_map(static fn($item): string => var_export($item, true), $enumValues);
 
         return $this->generateClassFromFileTemplate(
             'EnumProperty.json',

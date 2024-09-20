@@ -17,33 +17,23 @@ use PHPModelGenerator\Model\Schema;
  */
 class PropertyTemplateValidator extends AbstractPropertyValidator
 {
-    /** @var string */
-    protected $template;
     /** @var array */
     protected $templateValues;
     /** @var Schema|null */
-    protected $scope = null;
+    protected $scope;
 
-    /** @var Render */
-    static private $renderer;
+    static private ?Render $renderer = null;
 
     /**
      * PropertyTemplateValidator constructor.
-     *
-     * @param PropertyInterface $property
-     * @param string $template
-     * @param array $templateValues
-     * @param string $exceptionClass
-     * @param array $exceptionParams
      */
     public function __construct(
         PropertyInterface $property,
-        string $template,
+        protected string $template,
         array $templateValues,
         string $exceptionClass,
         array $exceptionParams = [],
     ) {
-        $this->template = $template;
         $this->templateValues = $templateValues;
 
         parent::__construct($property, $exceptionClass, $exceptionParams);
@@ -63,8 +53,6 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
     /**
      * Get the source code for the check to perform
      *
-     * @return string
-     *
      * @throws RenderException
      */
     public function getCheck(): string
@@ -80,9 +68,6 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
         }
     }
 
-    /**
-     * @return Render
-     */
     protected function getRenderer(): Render
     {
         if (!self::$renderer) {

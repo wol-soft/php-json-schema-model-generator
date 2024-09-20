@@ -17,8 +17,6 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
      * @dataProvider validationMethodDataProvider
-     *
-     * @param GeneratorConfiguration $generatorConfiguration
      */
     public function testEmptyPropertyNamesAcceptsAllProperties(GeneratorConfiguration $generatorConfiguration): void
     {
@@ -39,10 +37,6 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validPropertyNamesDataProvider
-     *
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param string $propertyNames
-     * @param array $properties
      */
     public function testValidPropertyNames(
         GeneratorConfiguration $generatorConfiguration,
@@ -98,11 +92,6 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider invalidPropertyNamesDataProvider
      * @dataProvider invalidCombinedPropertyNamesDataProvider
-     *
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param string $propertyNames
-     * @param array $properties
-     * @param string $exceptionMessage
      */
     public function testInvalidPropertyNamesThrowsAnException(
         GeneratorConfiguration $generatorConfiguration,

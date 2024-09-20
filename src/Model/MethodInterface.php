@@ -8,8 +8,6 @@ interface MethodInterface
 {
     /**
      * Returns the code of the method including the function signature
-     *
-     * @return string
      */
     public function getCode(): string;
 }

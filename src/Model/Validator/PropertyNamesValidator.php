@@ -26,10 +26,6 @@ class PropertyNamesValidator extends PropertyTemplateValidator
     /**
      * PropertyNamesValidator constructor.
      *
-     * @param SchemaProcessor $schemaProcessor
-     * @param Schema $schema
-     * @param JsonSchema $propertiesNames
-     *
      * @throws SchemaException
      */
     public function __construct(
@@ -50,10 +46,10 @@ class PropertyNamesValidator extends PropertyTemplateValidator
         $nameValidationProperty = (new $processor(new PropertyMetaDataCollection(), $schemaProcessor, $schema))
             ->process('property name', $propertiesNames)
             // the property name validator doesn't need type checks or required checks so simply filter them out
-            ->filterValidators(static function (Validator $validator): bool {
-                return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                    !is_a($validator->getValidator(), TypeCheckValidator::class);
-            });
+            ->filterValidators(static fn(Validator $validator): bool =>
+                !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
+                !is_a($validator->getValidator(), TypeCheckValidator::class),
+            );
 
         parent::__construct(
             new Property($schema->getClassName(), null, $propertiesNames),
@@ -71,8 +67,6 @@ class PropertyNamesValidator extends PropertyTemplateValidator
 
     /**
      * Initialize all variables which are required to execute a property names validator
-     *
-     * @return string
      */
     public function getValidatorSetUp(): string
     {

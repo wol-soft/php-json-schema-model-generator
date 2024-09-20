@@ -52,7 +52,7 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testProvidedNumberPropertyIsValid($input): void
+    public function testProvidedNumberPropertyIsValid(int|float|null $input): void
     {
         $className = $this->generateClassFromFile('NumberProperty.json');
 
@@ -76,18 +76,16 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
     /**
      * @dataProvider invalidPropertyTypeDataProvider
      *
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testInvalidPropertyTypeThrowsAnException($propertyValue): void
+    public function testInvalidPropertyTypeThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(
             'Invalid type for property. Requires float, got ' .
-                (is_object($propertyValue) ? get_class($propertyValue) : gettype($propertyValue)),
+                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)),
         );
 
         $className = $this->generateClassFromFile('NumberProperty.json');

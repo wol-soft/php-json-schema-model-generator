@@ -52,11 +52,6 @@ class BaseProcessor extends AbstractPropertyProcessor
     /**
      * @inheritdoc
      *
-     * @param string $propertyName
-     * @param JsonSchema $propertySchema
-     *
-     * @return PropertyInterface
-     *
      * @throws FileSystemException
      * @throws SchemaException
      * @throws SyntaxErrorException
@@ -88,8 +83,6 @@ class BaseProcessor extends AbstractPropertyProcessor
     /**
      * Add a validator to check all provided property names
      *
-     * @param JsonSchema $propertySchema
-     *
      * @throws SchemaException
      * @throws FileSystemException
      * @throws SyntaxErrorException
@@ -112,8 +105,6 @@ class BaseProcessor extends AbstractPropertyProcessor
 
     /**
      * Add an object validator to specify constraints for properties which are not defined in the schema
-     *
-     * @param JsonSchema $propertySchema
      *
      * @throws FileSystemException
      * @throws SchemaException
@@ -155,8 +146,6 @@ class BaseProcessor extends AbstractPropertyProcessor
     }
 
     /**
-     * @param JsonSchema $propertySchema
-     *
      * @throws SchemaException
      */
     protected function addPatternPropertiesValidator(JsonSchema $propertySchema): void
@@ -190,9 +179,6 @@ class BaseProcessor extends AbstractPropertyProcessor
     /**
      * Add an object validator to limit the amount of provided properties
      *
-     * @param string $propertyName
-     * @param JsonSchema $propertySchema
-     *
      * @throws SchemaException
      */
     protected function addMaxPropertiesValidator(string $propertyName, JsonSchema $propertySchema): void
@@ -219,9 +205,6 @@ class BaseProcessor extends AbstractPropertyProcessor
 
     /**
      * Add an object validator to force at least the defined amount of properties to be provided
-     *
-     * @param string $propertyName
-     * @param JsonSchema $propertySchema
      *
      * @throws SchemaException
      */
@@ -250,8 +233,6 @@ class BaseProcessor extends AbstractPropertyProcessor
     /**
      * Add the properties defined in the JSON schema to the current schema model
      *
-     * @param JsonSchema $propertySchema
-     *
      * @throws SchemaException
      */
     protected function addPropertiesToSchema(JsonSchema $propertySchema): void
@@ -264,7 +245,7 @@ class BaseProcessor extends AbstractPropertyProcessor
             $json['dependencies'] ?? [],
         );
 
-        $json['properties'] = $json['properties'] ?? [];
+        $json['properties'] ??= [];
         // setup empty properties for required properties which aren't defined in the properties section of the schema
         $json['properties'] += array_fill_keys(
             array_diff($json['required'] ?? [], array_keys($json['properties'])),
@@ -287,8 +268,6 @@ class BaseProcessor extends AbstractPropertyProcessor
     /**
      * Transfer properties of composed properties to the current schema to offer a complete model including all
      * composed properties.
-     *
-     * @param PropertyInterface $property
      *
      * @throws SchemaException
      */
@@ -346,20 +325,15 @@ class BaseProcessor extends AbstractPropertyProcessor
     /**
      * Clone the provided property to transfer it to a schema. Sets the nullability and required flag based on the
      * composition processor used to set up the composition
-     *
-     * @param PropertyInterface $property
-     * @param string $compositionProcessor
-     *
-     * @return PropertyInterface
      */
     private function cloneTransferredProperty(
         PropertyInterface $property,
         string $compositionProcessor,
     ): PropertyInterface {
         $transferredProperty = (clone $property)
-            ->filterValidators(static function (Validator $validator): bool {
-                return is_a($validator->getValidator(), PropertyTemplateValidator::class);
-            });
+            ->filterValidators(static fn(Validator $validator): bool =>
+                is_a($validator->getValidator(), PropertyTemplateValidator::class)
+            );
 
         if (!is_a($compositionProcessor, AllOfProcessor::class, true)) {
             $transferredProperty->setRequired(false);

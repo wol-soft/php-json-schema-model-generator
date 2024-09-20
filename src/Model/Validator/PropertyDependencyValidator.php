@@ -17,9 +17,6 @@ class PropertyDependencyValidator extends PropertyTemplateValidator
 {
     /**
      * PropertyDependencyValidator constructor.
-     *
-     * @param PropertyInterface $property
-     * @param array $dependencies
      */
     public function __construct(PropertyInterface $property, array $dependencies)
     {
@@ -38,8 +35,6 @@ class PropertyDependencyValidator extends PropertyTemplateValidator
 
     /**
      * Initialize all variables which are required to execute a property names validator
-     *
-     * @return string
      */
     public function getValidatorSetUp(): string
     {

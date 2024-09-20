@@ -28,15 +28,6 @@ use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
  */
 class SchemaProcessor
 {
-    /** @var GeneratorConfiguration */
-    protected $generatorConfiguration;
-    /** @var RenderQueue */
-    protected $renderQueue;
-    /** @var string */
-    protected $baseSource;
-    /** @var string */
-    protected $destination;
-
     /** @var string */
     protected $currentClassPath;
     /** @var string */
@@ -51,28 +42,16 @@ class SchemaProcessor
 
     /**
      * SchemaProcessor constructor.
-     *
-     * @param string                 $baseSource
-     * @param string                 $destination
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param RenderQueue            $renderQueue
      */
     public function __construct(
-        string $baseSource,
-        string $destination,
-        GeneratorConfiguration $generatorConfiguration,
-        RenderQueue $renderQueue,
-    ) {
-        $this->baseSource = $baseSource;
-        $this->destination = $destination;
-        $this->generatorConfiguration = $generatorConfiguration;
-        $this->renderQueue = $renderQueue;
-    }
+        protected string $baseSource,
+        protected string $destination,
+        protected GeneratorConfiguration $generatorConfiguration,
+        protected RenderQueue $renderQueue,
+    ) {}
 
     /**
      * Process a given json schema file
-     *
-     * @param JsonSchema $jsonSchema
      *
      * @throws SchemaException
      */
@@ -97,15 +76,10 @@ class SchemaProcessor
     /**
      * Process a JSON schema stored as an associative array
      *
-     * @param JsonSchema                 $jsonSchema
-     * @param string                     $classPath
-     * @param string                     $className
      * @param SchemaDefinitionDictionary $dictionary   If a nested object of a schema is processed import the
      *                                                 definitions of the parent schema to make them available for the
      *                                                 nested schema as well
      * @param bool                       $initialClass Is it an initial class or a nested class?
-     *
-     * @return Schema|null
      *
      * @throws SchemaException
      */
@@ -128,14 +102,6 @@ class SchemaProcessor
 
     /**
      * Generate a model and store the model to the file system
-     *
-     * @param string                     $classPath
-     * @param string                     $className
-     * @param JsonSchema                 $jsonSchema
-     * @param SchemaDefinitionDictionary $dictionary
-     * @param bool                       $initialClass
-     *
-     * @return Schema
      *
      * @throws SchemaException
      */
@@ -178,10 +144,6 @@ class SchemaProcessor
 
     /**
      * Attach a new class file render job to the render proxy
-     *
-     * @param string $classPath
-     * @param string $className
-     * @param Schema $schema
      */
     public function generateClassFile(
         string $classPath,
@@ -209,12 +171,7 @@ class SchemaProcessor
     /**
      * Gather all nested object properties and merge them together into a single merged property
      *
-     * @param Schema                         $schema
-     * @param PropertyInterface              $property
      * @param CompositionPropertyDecorator[] $compositionProperties
-     * @param JsonSchema                     $propertySchema
-     *
-     * @return PropertyInterface|null
      *
      * @throws SchemaException
      */
@@ -313,8 +270,6 @@ class SchemaProcessor
     }
 
     /**
-     * @param Schema              $schema
-     * @param Schema              $mergedPropertySchema
      * @param PropertyInterface[] $compositionProperties
      */
     private function transferPropertiesToMergedSchema(
@@ -333,9 +288,7 @@ class SchemaProcessor
                         $mergedPropertySchema->addProperty(
                         // don't validate fields in merged properties. All fields were validated before
                         // corresponding to the defined constraints of the composition property.
-                            (clone $nestedProperty)->filterValidators(static function (): bool {
-                                return false;
-                            }),
+                            (clone $nestedProperty)->filterValidators(static fn(): bool => false),
                         );
                     }
                 },
@@ -345,49 +298,33 @@ class SchemaProcessor
 
     /**
      * Get the class path out of the file path of a schema file
-     *
-     * @param string $jsonSchemaFile
      */
     protected function setCurrentClassPath(string $jsonSchemaFile): void
     {
         $path = str_replace($this->baseSource, '', dirname($jsonSchemaFile));
         $pieces = array_map(
-            static function (string $directory): string {
-                return ucfirst($directory);
-            },
+            static fn(string $directory): string => ucfirst($directory),
             explode(DIRECTORY_SEPARATOR, $path),
         );
 
         $this->currentClassPath = join('\\', array_filter($pieces));
     }
 
-    /**
-     * @return string
-     */
     public function getCurrentClassPath(): string
     {
         return $this->currentClassPath;
     }
 
-    /**
-     * @return string
-     */
     public function getCurrentClassName(): string
     {
         return $this->currentClassName;
     }
 
-    /**
-     * @return array
-     */
     public function getGeneratedFiles(): array
     {
         return $this->generatedFiles;
     }
 
-    /**
-     * @return GeneratorConfiguration
-     */
     public function getGeneratorConfiguration(): GeneratorConfiguration
     {
         return $this->generatorConfiguration;

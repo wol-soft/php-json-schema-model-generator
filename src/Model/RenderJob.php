@@ -21,15 +21,6 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class RenderJob
 {
-    /** @var Schema */
-    protected $schema;
-    /** @var string */
-    protected $className;
-    /** @var string */
-    protected $classPath;
-    /** @var string */
-    protected $fileName;
-
     /**
      * Create a new class render job
      *
@@ -39,22 +30,16 @@ class RenderJob
      * @param Schema $schema    The Schema object which holds properties and validators
      */
     public function __construct(
-        string $fileName,
-        string $classPath,
-        string $className,
-        Schema $schema,
-    ) {
-        $this->fileName = $fileName;
-        $this->classPath = $classPath;
-        $this->className = $className;
-        $this->schema = $schema;
-    }
+        protected string $fileName,
+        protected string $classPath,
+        protected string $className,
+        protected Schema $schema,
+    ) {}
 
     /**
      * @param PostProcessor[] $postProcessors
-     * @param GeneratorConfiguration $generatorConfiguration
      */
-    public function postProcess(array $postProcessors, GeneratorConfiguration $generatorConfiguration)
+    public function postProcess(array $postProcessors, GeneratorConfiguration $generatorConfiguration): void
     {
         foreach ($postProcessors as $postProcessor) {
             $postProcessor->process($this->schema, $generatorConfiguration);
@@ -63,8 +48,6 @@ class RenderJob
 
     /**
      * Execute the render job and render the class
-     *
-     * @param GeneratorConfiguration $generatorConfiguration
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -112,9 +95,6 @@ class RenderJob
     /**
      * Render a class. Returns the php code of the class
      *
-     * @param GeneratorConfiguration $generatorConfiguration
-     *
-     * @return string
      * @throws RenderException
      */
     protected function renderClass(GeneratorConfiguration $generatorConfiguration): string
@@ -136,9 +116,7 @@ class RenderJob
                     'true'                              => true,
                     'baseValidatorsWithoutCompositions' => array_filter(
                         $this->schema->getBaseValidators(),
-                        static function ($validator): bool {
-                            return !is_a($validator, AbstractComposedPropertyValidator::class);
-                        },
+                        static fn($validator): bool => !is_a($validator, AbstractComposedPropertyValidator::class),
                     ),
                 ],
             );
@@ -150,9 +128,6 @@ class RenderJob
     }
 
     /**
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param string $namespace
-     *
      * @return string[]
      */
     protected function getUseForSchema(GeneratorConfiguration $generatorConfiguration, string $namespace): array
@@ -167,10 +142,10 @@ class RenderJob
         );
 
         // filter out non-compound uses and uses which link to the current namespace
-        $use = array_filter($use, static function ($classPath) use ($namespace): bool {
-            return strstr(trim(str_replace("$namespace", '', $classPath), '\\'), '\\') ||
-                (!strstr($classPath, '\\') && !empty($namespace));
-        });
+        $use = array_filter($use, static fn($classPath): bool =>
+            strstr(trim(str_replace("$namespace", '', $classPath), '\\'), '\\') ||
+            (!strstr($classPath, '\\') && !empty($namespace)),
+        );
 
         return $use;
     }

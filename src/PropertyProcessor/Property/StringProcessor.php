@@ -28,9 +28,6 @@ class StringProcessor extends AbstractTypedValueProcessor
     protected const JSON_FIELD_MAX_LENGTH = 'maxLength';
 
     /**
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
-     *
      * @throws SchemaException
      */
     protected function generateValidators(PropertyInterface $property, JsonSchema $propertySchema): void
@@ -44,9 +41,6 @@ class StringProcessor extends AbstractTypedValueProcessor
 
     /**
      * Add a regex pattern validator
-     *
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
      *
      * @throws SchemaException
      */
@@ -85,9 +79,6 @@ class StringProcessor extends AbstractTypedValueProcessor
 
     /**
      * Add min and max length validator
-     *
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
      */
     protected function addLengthValidator(PropertyInterface $property, JsonSchema $propertySchema): void
     {
@@ -117,9 +108,6 @@ class StringProcessor extends AbstractTypedValueProcessor
     }
 
     /**
-     * @param PropertyInterface $property
-     * @param JsonSchema $propertySchema
-     *
      * @throws SchemaException
      */
     protected function addFormatValidator(PropertyInterface $property, JsonSchema $propertySchema): void

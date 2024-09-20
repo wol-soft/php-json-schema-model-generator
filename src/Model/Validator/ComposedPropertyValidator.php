@@ -18,7 +18,7 @@ use PHPModelGenerator\Model\Validator;
  */
 class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 {
-    private $modifiedValuesMethod;
+    private string $modifiedValuesMethod;
 
     public function __construct(
         GeneratorConfiguration $generatorConfiguration,
@@ -55,16 +55,11 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         $this->scope->addMethod(
             $this->modifiedValuesMethod,
             new class ($this->composedProperties, $this->modifiedValuesMethod) implements MethodInterface {
-                /** @var CompositionPropertyDecorator[] $compositionProperties */
-                private $compositionProperties;
-                /** @var string */
-                private $modifiedValuesMethod;
-
-                public function __construct(array $compositionProperties, string $modifiedValuesMethod)
-                {
-                    $this->compositionProperties = $compositionProperties;
-                    $this->modifiedValuesMethod = $modifiedValuesMethod;
-                }
+                public function __construct(
+                    /** @var CompositionPropertyDecorator[] $compositionProperties */
+                    private array $compositionProperties,
+                    private string $modifiedValuesMethod
+                ) {}
 
                 public function getCode(): string
                 {
@@ -113,8 +108,6 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 
     /**
      * Initialize all variables which are required to execute a composed property validator
-     *
-     * @return string
      */
     public function getValidatorSetUp(): string
     {
@@ -137,9 +130,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         /** @var CompositionPropertyDecorator $composedProperty */
         foreach ($validator->composedProperties as $composedProperty) {
             $composedProperty->onResolve(static function () use ($composedProperty): void {
-                $composedProperty->filterValidators(static function (Validator $validator): bool {
-                    return !is_a($validator->getValidator(), AbstractComposedPropertyValidator::class);
-                });
+                $composedProperty->filterValidators(static fn(Validator $validator): bool => !is_a($validator->getValidator(), AbstractComposedPropertyValidator::class));
             });
         }
 
@@ -148,10 +139,6 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 
     /**
      * Parse the composition type (allOf, anyOf, ...) from the given processor and get the corresponding exception class
-     *
-     * @param string $compositionProcessor
-     *
-     * @return string
      */
     private function getExceptionByProcessor(string $compositionProcessor): string
     {

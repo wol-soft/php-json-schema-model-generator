@@ -87,10 +87,8 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validValueDataProvider
-     *
-     * @param $propertyValue
      */
-    public function testValidProvidedValuePassesValidation($propertyValue): void
+    public function testValidProvidedValuePassesValidation(mixed $propertyValue): void
     {
         $className = $this->generateClassFromFile('MultiTypeProperty.json');
 
@@ -111,11 +109,8 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidValueDataProvider
-     *
-     * @param $propertyValue
-     * @param string $exceptionMessage
      */
-    public function testInvalidProvidedValueThrowsAnException($propertyValue, string $exceptionMessage): void
+    public function testInvalidProvidedValueThrowsAnException(mixed $propertyValue, string $exceptionMessage): void
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage($exceptionMessage);
@@ -221,7 +216,7 @@ ERROR
     /**
      * @dataProvider validRecursiveMultiTypeDataProvider
      */
-    public function testValidRecursiveMultiType($input): void
+    public function testValidRecursiveMultiType(string|array $input): void
     {
 
         $className = $this->generateClassFromFile('RecursiveMultiTypeProperty.json');
@@ -242,8 +237,11 @@ ERROR
     /**
      * @dataProvider invalidRecursiveMultiTypeDataProvider
      */
-    public function testInvalidRecursiveMultiType($input, string $expectedException, string $exceptionMessage): void
-    {
+    public function testInvalidRecursiveMultiType(
+        int|array $input,
+        string $expectedException,
+        string $exceptionMessage,
+    ): void {
         $this->expectException($expectedException);
         $this->expectExceptionMessage($exceptionMessage);
 

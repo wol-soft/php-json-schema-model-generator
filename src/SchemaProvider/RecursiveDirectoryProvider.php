@@ -18,13 +18,10 @@ use RegexIterator;
  */
 class RecursiveDirectoryProvider implements SchemaProviderInterface
 {
-    /** @var string */
-    private $sourceDirectory;
+    private string $sourceDirectory;
 
     /**
      * RecursiveDirectoryProvider constructor.
-     *
-     * @param string $sourceDirectory
      *
      * @throws FileSystemException
      */

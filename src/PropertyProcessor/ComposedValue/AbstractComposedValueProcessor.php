@@ -29,28 +29,18 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
 {
-    /** @var bool */
-    private $rootLevelComposition;
-    /** @var PropertyInterface|null */
-    private $mergedProperty = null;
+    private ?PropertyInterface $mergedProperty = null;
 
     /**
      * AbstractComposedValueProcessor constructor.
-     *
-     * @param PropertyMetaDataCollection $propertyMetaDataCollection
-     * @param SchemaProcessor $schemaProcessor
-     * @param Schema $schema
-     * @param bool $rootLevelComposition
      */
     public function __construct(
         PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        bool $rootLevelComposition,
+        private bool $rootLevelComposition,
     ) {
         parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
-
-        $this->rootLevelComposition = $rootLevelComposition;
     }
 
     /**
@@ -123,9 +113,6 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
     /**
      * Set up composition properties for the given property schema
      *
-     * @param PropertyInterface $property
-     * @param JsonSchema        $propertySchema
-     *
      * @return CompositionPropertyDecorator[]
      *
      * @throws SchemaException
@@ -157,10 +144,10 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             );
 
             $compositionProperty->onResolve(function () use ($compositionProperty, $property): void {
-                $compositionProperty->filterValidators(static function (Validator $validator): bool {
-                    return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                        !is_a($validator->getValidator(), ComposedPropertyValidator::class);
-                });
+                $compositionProperty->filterValidators(static fn(Validator $validator): bool =>
+                    !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
+                    !is_a($validator->getValidator(), ComposedPropertyValidator::class)
+                );
 
                 // only create a composed type hint if we aren't a AnyOf or an AllOf processor and the
                 // compositionProperty contains no object. This results in objects being composed each separately for a
@@ -180,17 +167,15 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
     /**
      * Check if the provided property can inherit a single type from the composition properties.
      *
-     * @param PropertyInterface $property
      * @param CompositionPropertyDecorator[] $compositionProperties
      */
-    private function transferPropertyType(PropertyInterface $property, array $compositionProperties)
+    private function transferPropertyType(PropertyInterface $property, array $compositionProperties): void
     {
         $compositionPropertyTypes = array_values(
             array_unique(
                 array_map(
-                    static function (CompositionPropertyDecorator $property): string {
-                        return $property->getType() ? $property->getType()->getName() : '';
-                    },
+                    static fn(CompositionPropertyDecorator $property): string =>
+                        $property->getType() ? $property->getType()->getName() : '',
                     $compositionProperties,
                 )
             ),
@@ -210,8 +195,6 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
 
     /**
      * @param int $composedElements The amount of elements which are composed together
-     *
-     * @return string
      */
     abstract protected function getComposedValueValidation(int $composedElements): string;
 }

@@ -7,7 +7,6 @@ namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
@@ -17,7 +16,6 @@ use PHPModelGenerator\PropertyProcessor\Property\AbstractValueProcessor;
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
-use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -70,10 +68,10 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
             );
 
             $compositionProperty->onResolve(static function () use ($compositionProperty): void {
-                $compositionProperty->filterValidators(static function (Validator $validator): bool {
-                    return !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                        !is_a($validator->getValidator(), ComposedPropertyValidator::class);
-                });
+                $compositionProperty->filterValidators(static fn(Validator $validator): bool =>
+                    !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
+                    !is_a($validator->getValidator(), ComposedPropertyValidator::class),
+                );
             });
 
             $properties[$compositionElement] = $compositionProperty;

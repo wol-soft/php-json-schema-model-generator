@@ -23,18 +23,11 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class ArrayItemValidator extends ExtractedMethodValidator
 {
-    /** @var string */
-    private $variableSuffix = '';
-    /** @var PropertyInterface */
-    private $nestedProperty;
+    private string $variableSuffix;
+    private PropertyInterface $nestedProperty;
 
     /**
      * ArrayItemValidator constructor.
-     *
-     * @param SchemaProcessor   $schemaProcessor
-     * @param Schema            $schema
-     * @param JsonSchema        $itemStructure
-     * @param PropertyInterface $property
      *
      * @throws SchemaException
      */
@@ -92,8 +85,6 @@ class ArrayItemValidator extends ExtractedMethodValidator
 
     /**
      * Initialize all variables which are required to execute a property names validator
-     *
-     * @return string
      */
     public function getValidatorSetUp(): string
     {

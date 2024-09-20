@@ -28,27 +28,18 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
 {
-    /** @var bool */
-    private $addForModelsWithoutAdditionalPropertiesDefinition;
-
     /**
      * AdditionalPropertiesAccessorPostProcessor constructor.
      *
-     * @param bool $addForModelsWithoutAdditionalPropertiesDefinition By default the additional properties accessor
+     * @param bool $addForModelsWithoutAdditionalPropertiesDefinition By default, the additional properties accessor
      * methods will be added only to schemas defining additionalProperties constraints as these models expect additional
      * properties. If set to true the accessor methods will be generated for models which don't define
      * additionalProperties constraints.
      */
-    public function __construct(bool $addForModelsWithoutAdditionalPropertiesDefinition = false)
-    {
-        $this->addForModelsWithoutAdditionalPropertiesDefinition = $addForModelsWithoutAdditionalPropertiesDefinition;
-    }
+    public function __construct(private bool $addForModelsWithoutAdditionalPropertiesDefinition = false) {}
 
     /**
      * Add methods to handle additional properties to the provided schema
-     *
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
      *
      * @throws SchemaException
      */
@@ -92,10 +83,6 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
 
     /**
      * Adds a method to add or update an additional property
-     *
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param PropertyInterface|null $validationProperty
      */
     private function addSetAdditionalPropertyMethod(
         Schema $schema,
@@ -104,14 +91,10 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
     ): void {
         $objectProperties = RenderHelper::varExportArray(
             array_map(
-                static function (PropertyInterface $property): string {
-                    return $property->getName();
-                },
+                static fn(PropertyInterface $property): string => $property->getName(),
                 array_filter(
                     $schema->getProperties(),
-                    static function (PropertyInterface $property): bool {
-                        return !$property->isInternal();
-                    },
+                    static fn(PropertyInterface $property): bool => !$property->isInternal(),
                 )
             ),
         );
@@ -134,9 +117,6 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
 
     /**
      * Adds a method to remove an additional property from the object via property key
-     *
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
      *
      * @throws SchemaException
      */
@@ -172,10 +152,6 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
 
     /**
      * Adds a method to get a single additional property via property key
-     *
-     * @param Schema $schema
-     * @param GeneratorConfiguration $generatorConfiguration
-     * @param PropertyInterface|null $validationProperty
      */
     private function addGetAdditionalPropertyMethod(
         Schema $schema,

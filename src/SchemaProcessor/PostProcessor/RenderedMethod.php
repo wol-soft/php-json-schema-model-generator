@@ -20,29 +20,14 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class RenderedMethod implements MethodInterface
 {
-    /** @var Render */
-    static private $renderer;
-
-    /** @var Schema */
-    private $schema;
-    /** @var GeneratorConfiguration */
-    private $generatorConfiguration;
-    /** @var string */
-    private $template;
-    /** @var array */
-    private $templateValues;
+    static private ?Render $renderer = null;
 
     public function __construct(
-        Schema $schema,
-        GeneratorConfiguration $generatorConfiguration,
-        string $template,
-        array $templateValues = [],
-    ) {
-        $this->schema = $schema;
-        $this->generatorConfiguration = $generatorConfiguration;
-        $this->template = $template;
-        $this->templateValues = $templateValues;
-    }
+        private Schema $schema,
+        private GeneratorConfiguration $generatorConfiguration,
+        private string $template,
+        private array $templateValues = [],
+    ) {}
 
     /**
      * @inheritDoc
@@ -67,9 +52,6 @@ class RenderedMethod implements MethodInterface
         );
     }
 
-    /**
-     * @return Render
-     */
     protected function getRenderer(): Render
     {
         if (!self::$renderer) {

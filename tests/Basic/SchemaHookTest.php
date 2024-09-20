@@ -47,13 +47,9 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider constructorAfterValidationHookDataProvider
-     *
-     * @param $value
-     * @param string $expectedException
-     * @param string $expectedExceptionMessage
      */
     public function testConstructorAfterValidationHookIsResolved(
-        $value,
+        bool|string $value,
         string $expectedException,
         string $expectedExceptionMessage,
     ): void {
@@ -136,13 +132,9 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider setterAfterValidationHookDataProvider
-     *
-     * @param $value
-     * @param string $expectedException
-     * @param string $expectedExceptionMessage
      */
     public function testSetterAfterValidationHookIsResolved(
-        $value,
+        int $value,
         string $expectedException,
         string $expectedExceptionMessage,
     ): void {
@@ -210,12 +202,8 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator) use ($schemaHook): void {
             $modelGenerator->addPostProcessor(new class ($schemaHook) extends PostProcessor {
-                private $schemaHook;
+                public function __construct(private SchemaHookInterface $schemaHook) {}
 
-                public function __construct(SchemaHookInterface $schemaHook)
-                {
-                    $this->schemaHook = $schemaHook;
-                }
                 public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
                 {
                     $schema->addSchemaHook($this->schemaHook);

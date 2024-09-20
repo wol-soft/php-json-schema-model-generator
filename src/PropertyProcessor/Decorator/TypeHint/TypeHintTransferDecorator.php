@@ -13,18 +13,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  */
 class TypeHintTransferDecorator implements TypeHintDecoratorInterface
 {
-    /** @var PropertyInterface */
-    protected $property;
-
-    /**
-     * ArrayTypeHintDecorator constructor.
-     *
-     * @param PropertyInterface $property
-     */
-    public function __construct(PropertyInterface $property)
-    {
-        $this->property = $property;
-    }
+    public function __construct(protected PropertyInterface $property) {}
 
     /**
      * @inheritdoc

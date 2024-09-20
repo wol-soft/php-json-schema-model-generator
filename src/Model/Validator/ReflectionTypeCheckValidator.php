@@ -14,12 +14,6 @@ use ReflectionType;
  */
 class ReflectionTypeCheckValidator extends PropertyValidator
 {
-    /**
-     * @param ReflectionType $reflectionType
-     * @param PropertyInterface $property
-     *
-     * @return static
-     */
     public static function fromReflectionType(
         ReflectionType $reflectionType,
         PropertyInterface $property,
@@ -31,12 +25,6 @@ class ReflectionTypeCheckValidator extends PropertyValidator
         );
     }
 
-    /**
-     * @param string $type
-     * @param PropertyInterface $property
-     *
-     * @return static
-     */
     public static function fromType(
         string $type,
         PropertyInterface $property,
@@ -50,10 +38,6 @@ class ReflectionTypeCheckValidator extends PropertyValidator
 
     /**
      * ReflectionTypeCheckValidator constructor.
-     *
-     * @param bool $isBuiltin
-     * @param string $name
-     * @param PropertyInterface $property
      */
     public function __construct(bool $isBuiltin, string $name, PropertyInterface $property)
     {

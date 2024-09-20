@@ -22,74 +22,63 @@ use ReflectionMethod;
  */
 class FilterValidator extends PropertyTemplateValidator
 {
-    /** @var FilterInterface $filter */
-    protected $filter;
-    /** @var array */
-    protected $filterOptions;
-
     /**
      * FilterValidator constructor.
-     *
-     * @param GeneratorConfiguration           $generatorConfiguration
-     * @param FilterInterface                  $filter
-     * @param PropertyInterface                $property
-     * @param array                            $filterOptions
-     * @param TransformingFilterInterface|null $transformingFilter
      *
      * @throws SchemaException
      * @throws ReflectionException
      */
     public function __construct(
         GeneratorConfiguration $generatorConfiguration,
-        FilterInterface $filter,
+        protected FilterInterface $filter,
         PropertyInterface $property,
-        array $filterOptions = [],
+        protected array $filterOptions = [],
         ?TransformingFilterInterface $transformingFilter = null,
     ) {
         $this->isResolved = true;
 
-        $this->filter = $filter;
-        $this->filterOptions = $filterOptions;
-
         $transformingFilter === null
-            ? $this->validateFilterCompatibilityWithBaseType($filter, $property)
-            : $this->validateFilterCompatibilityWithTransformedType($filter, $transformingFilter, $property);
+            ? $this->validateFilterCompatibilityWithBaseType($this->filter, $property)
+            : $this->validateFilterCompatibilityWithTransformedType($this->filter, $transformingFilter, $property);
 
         parent::__construct(
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'Filter.phptpl',
             [
                 'skipTransformedValuesCheck' => $transformingFilter !== null ? '!$transformationFailed' : '',
-                'isTransformingFilter' => $filter instanceof TransformingFilterInterface,
+                'isTransformingFilter' => $this->filter instanceof TransformingFilterInterface,
                 // check if the given value has a type matched by the filter
-                'typeCheck' => !empty($filter->getAcceptedTypes())
+                'typeCheck' => !empty($this->filter->getAcceptedTypes())
                     ? '(' .
-                        implode(' && ', array_map(static function (string $type) use ($property): string {
-                            return ReflectionTypeCheckValidator::fromType($type, $property)->getCheck();
-                        }, $this->mapDataTypes($filter->getAcceptedTypes()))) .
+                        implode(
+                            ' && ',
+                            array_map(
+                                static fn(string $type): string =>
+                                    ReflectionTypeCheckValidator::fromType($type, $property)->getCheck(),
+                                $this->mapDataTypes($this->filter->getAcceptedTypes()),
+                            ),
+                        ) .
                       ')'
                     : '',
-                'filterClass' => $filter->getFilter()[0],
-                'filterMethod' => $filter->getFilter()[1],
-                'filterOptions' => var_export($filterOptions, true),
+                'filterClass' => $this->filter->getFilter()[0],
+                'filterMethod' => $this->filter->getFilter()[1],
+                'filterOptions' => var_export($this->filterOptions, true),
                 'filterValueValidator' => new PropertyValidator(
                     $property,
                     '',
                     InvalidFilterValueException::class,
-                    [$filter->getToken(), '&$filterException'],
+                    [$this->filter->getToken(), '&$filterException'],
                 ),
                 'viewHelper' => new RenderHelper($generatorConfiguration),
             ],
             IncompatibleFilterException::class,
-            [$filter->getToken()],
+            [$this->filter->getToken()],
         );
     }
 
     /**
      * Track if a transformation failed. If a transformation fails don't execute subsequent filter as they'd fail with
      * an invalid type
-     *
-     * @return string
      */
     public function getValidatorSetUp(): string
     {
@@ -104,11 +93,6 @@ class FilterValidator extends PropertyTemplateValidator
      * object) also accepts a transformed value (in this case a DateTime object).
      * If transformed values are provided neither filters defined before the transforming filter in the filter chain nor
      * the transforming filter must be executed as they are only compatible with the original value
-     *
-     * @param TransformingFilterInterface $filter
-     * @param PropertyInterface $property
-     *
-     * @return self
      *
      * @throws ReflectionException
      */
@@ -131,12 +115,9 @@ class FilterValidator extends PropertyTemplateValidator
     /**
      * Check if the given filter is compatible with the base type of the property defined in the schema
      *
-     * @param FilterInterface $filter
-     * @param PropertyInterface $property
-     *
      * @throws SchemaException
      */
-    private function validateFilterCompatibilityWithBaseType(FilterInterface $filter, PropertyInterface $property)
+    private function validateFilterCompatibilityWithBaseType(FilterInterface $filter, PropertyInterface $property): void
     {
         if (empty($filter->getAcceptedTypes()) || !$property->getType()) {
             return;
@@ -164,10 +145,6 @@ class FilterValidator extends PropertyTemplateValidator
 
     /**
      * Check if the given filter is compatible with the result of the given transformation filter
-     *
-     * @param FilterInterface $filter
-     * @param TransformingFilterInterface $transformingFilter
-     * @param PropertyInterface $property
      *
      * @throws ReflectionException
      * @throws SchemaException
@@ -204,35 +181,22 @@ class FilterValidator extends PropertyTemplateValidator
 
     /**
      * Map a list of accepted data types to their corresponding PHP types
-     *
-     * @param array $acceptedTypes
-     *
-     * @return array
      */
     private function mapDataTypes(array $acceptedTypes): array
     {
-        return array_map(static function (string $jsonSchemaType): string {
-            switch ($jsonSchemaType) {
-                case 'integer': return 'int';
-                case 'number': return 'float';
-                case 'boolean': return 'bool';
-
-                default: return $jsonSchemaType;
-            }
+        return array_map(static fn(string $jsonSchemaType): string => match ($jsonSchemaType) {
+            'integer' => 'int',
+            'number' => 'float',
+            'boolean' => 'bool',
+            default => $jsonSchemaType,
         }, $acceptedTypes);
     }
 
-    /**
-     * @return FilterInterface
-     */
     public function getFilter(): FilterInterface
     {
         return $this->filter;
     }
 
-    /**
-     * @return array
-     */
     public function getFilterOptions(): array
     {
         return $this->filterOptions;

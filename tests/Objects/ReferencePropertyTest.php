@@ -26,8 +26,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
      * @dataProvider internalReferenceProvider
      * @dataProvider notResolvedExternalReferenceProvider
      *
-     * @param string $reference
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -73,8 +71,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
      * @dataProvider internalReferenceProvider
      * @dataProvider externalReferenceProvider
      *
-     * @param string $reference
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -97,10 +93,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider validReferenceObjectInputProvider
-     *
-     * @param string $reference
-     * @param array  $input
-     * @param string $typeCheck
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -139,15 +131,14 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
      * @dataProvider invalidInternalReferenceObjectPropertyTypeDataProvider
      * @dataProvider invalidExternalReferenceObjectPropertyTypeDataProvider
      *
-     * @param string $reference
-     * @param $propertyValue
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testInvalidReferenceObjectPropertyTypeThrowsAnException(string $reference, $propertyValue): void
-    {
+    public function testInvalidReferenceObjectPropertyTypeThrowsAnException(
+        string $reference,
+        mixed $propertyValue,
+    ): void {
         $this->expectException(ValidationException::class);
         if ($propertyValue instanceof stdClass) {
             $this->expectExceptionMessageMatches(
@@ -192,9 +183,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider validReferenceIntInputProvider
      *
-     * @param string   $reference
-     * @param int|null $input
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -232,17 +220,13 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider invalidReferenceIntPropertyTypeDataProvider
      *
-     * @param string $reference
-     * @param        $propertyValue
-     * @param string $message
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
     public function testInvalidReferenceIntPropertyTypeThrowsAnException(
         string $reference,
-        $propertyValue,
+        mixed $propertyValue,
         string $message,
     ): void {
         $this->expectException(ValidationException::class);
@@ -291,9 +275,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider combinedReferenceProvider
      *
-     * @param string $reference1
-     * @param string $reference2
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -311,9 +292,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider combinedReferenceProvider
-     *
-     * @param string $reference1
-     * @param string $reference2
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -345,21 +323,17 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         ]);
 
         $this->assertSame('Hannes', $object->getPerson()->getName());
-        $this->assertSame(2, count($object->getPerson()->getChildren()));
+        $this->assertCount(2, $object->getPerson()->getChildren());
         $this->assertSame('Louis', $object->getPerson()->getChildren()[0]->getName());
         $this->assertEmpty($object->getPerson()->getChildren()[0]->getChildren());
         $this->assertSame('Karl', $object->getPerson()->getChildren()[1]->getName());
-        $this->assertSame(1, count($object->getPerson()->getChildren()[1]->getChildren()));
+        $this->assertCount(1, $object->getPerson()->getChildren()[1]->getChildren());
         $this->assertSame('Yoshi', $object->getPerson()->getChildren()[1]->getChildren()[0]->getName());
         $this->assertEmpty($object->getPerson()->getChildren()[1]->getChildren()[0]->getChildren());
     }
 
     /**
      * @dataProvider invalidCombinedReferenceObjectPropertyTypeDataProvider
-     *
-     * @param string $reference1
-     * @param string $reference2
-     * @param $propertyValue
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -368,7 +342,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidProvidedRecursiveReferenceObjectPropertyValueThrowsAnException(
         string $reference1,
         string $reference2,
-        $propertyValue,
+        mixed $propertyValue,
     ): void {
         $this->expectException(ValidationException::class);
 
@@ -417,8 +391,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     /**
      * @dataProvider nestedReferenceProvider
      *
-     * @param string $reference
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -443,9 +415,9 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             ]
         ]);
 
-        $this->assertSame(2, count($object->getFamily()->getMember()));
+        $this->assertCount(2, $object->getFamily()->getMember());
         $this->assertSame('Hannes', $object->getFamily()->getMember()[0]->getName());
-        $this->assertSame(1, count($object->getFamily()->getMember()[0]->getChildren()));
+        $this->assertCount(1, $object->getFamily()->getMember()[0]->getChildren());
         $this->assertSame('Louis', $object->getFamily()->getMember()[0]->getChildren()[0]->getName());
         $this->assertEmpty($object->getFamily()->getMember()[0]->getChildren()[0]->getChildren());
         $this->assertSame('Anette', $object->getFamily()->getMember()[1]->getName());
@@ -527,9 +499,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider
-     *
-     * @param array $input
-     * @param string $exceptionMessage
      */
     public function testInvalidValuesForMultiplePropertiesWithIdenticalReferenceThrowsAnException(
         array $input,

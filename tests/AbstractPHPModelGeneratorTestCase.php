@@ -33,11 +33,11 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 {
     protected const EXTERNAL_JSON_DIRECTORIES = [];
 
-    protected $modifyModelGenerator = null;
+    protected $modifyModelGenerator;
 
-    private $names = [];
+    private array $names = [];
 
-    private $generatedFiles = [];
+    private array $generatedFiles = [];
 
     /**
      * Set up an empty directory for the tests
@@ -55,10 +55,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
      *
      * TODO: remove and switch all calls to assertMatchesRegularExpression when dropping support for PHPUnit < 9.1
      * TODO: (dropping support for PHP < 7.4)
-     *
-     * @param string $pattern
-     * @param string $string
-     * @param string $message
      */
     public static function assertRegExp(string $pattern, string $string, string $message = ''): void
     {
@@ -124,14 +120,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     /**
      * Generate a class from a given JSON schema file and return the FQCN
      *
-     * @param string $file
-     * @param GeneratorConfiguration|null $generatorConfiguration
-     * @param bool $originalClassNames
-     * @param bool $implicitNull
-     * @param string $schemaProviderClass
-     *
-     * @return string
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -155,14 +143,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     /**
      * Generate a class from a file template and apply all $values via sprintf to the template
      *
-     * @param string                      $file
      * @param string[]                    $values
-     * @param GeneratorConfiguration|null $generatorConfiguration
-     * @param bool                        $escape
-     * @param bool                        $implicitNull
-     * @param string                      $schemaProviderClass
-     *
-     * @return string
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -180,9 +161,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
             sprintf(
                 file_get_contents($this->getSchemaFilePath($file)),
                 ...array_map(
-                    static function (string $item) use ($escape): string {
-                        return $escape ? str_replace("'", '"', addcslashes($item, '"\\')) : $item;
-                    },
+                    static fn(string $item): string =>
+                        $escape ? str_replace("'", '"', addcslashes($item, '"\\')) : $item,
                     $values,
                 )
             ),
@@ -195,14 +175,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
     /**
      * Generate a class from a given JSON schema string and return the FQCN
-     *
-     * @param string $jsonSchema
-     * @param GeneratorConfiguration|null $generatorConfiguration
-     * @param bool $originalClassNames
-     * @param bool $implicitNull
-     * @param string $schemaProviderClass
-     *
-     * @return string
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -298,10 +270,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     /**
      * Generate objects for all JSON-Schema files in the given directory
      *
-     * @param string                 $directory
-     * @param GeneratorConfiguration $configuration
-     * @return array
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -324,11 +292,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
     /**
      * Combine two data providers
-     *
-     * @param array $dataProvider1
-     * @param array $dataProvider2
-     *
-     * @return array
      */
     protected function combineDataProvider(array $dataProvider1, array $dataProvider2): array
     {
@@ -344,11 +307,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
     /**
      * Expect a validation error based on the given configuration
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array|string           $messages
      */
-    protected function expectValidationError(GeneratorConfiguration $configuration, $messages): void
+    protected function expectValidationError(GeneratorConfiguration $configuration, array | string $messages): void
     {
         if (!is_array($messages)) {
             $messages = [$messages];
@@ -365,12 +325,11 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
     /**
      * Expect a validation error based on the given configuration matching the given message(s)
-     *
-     * @param GeneratorConfiguration $configuration
-     * @param array|string           $messages
      */
-    protected function expectValidationErrorRegExp(GeneratorConfiguration $configuration, $messages): void
-    {
+    protected function expectValidationErrorRegExp(
+        GeneratorConfiguration $configuration,
+        array | string $messages,
+    ): void {
         if (!is_array($messages)) {
             $messages = [$messages];
         }
@@ -386,10 +345,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
     /**
      * Set up an ErrorRegistryException containing the given messages
-     *
-     * @param array $messages
-     *
-     * @return ErrorRegistryException
      */
     protected function getErrorRegistryException(array $messages): ErrorRegistryException
     {
@@ -404,11 +359,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
     /**
      * Check if the given error registry exception contains the requested exception.
-     *
-     * @param ErrorRegistryException $registryException
-     * @param string $expectedException
-     *
-     * @return ValidationException
      *
      * @throws AssertionFailedError
      */
@@ -451,13 +401,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
     /**
      * Get the annotated type for an object property
-     *
-     * @param string|object $object
-     * @param string $property
-     *
-     * @return string
      */
-    protected function getPropertyTypeAnnotation($object, string $property): string
+    protected function getPropertyTypeAnnotation(string | object $object, string $property): string
     {
         $matches = [];
         preg_match(
@@ -471,13 +416,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
     /**
      * Get the annotated return type for an object method
-     *
-     * @param string|object $object
-     * @param string $method
-     *
-     * @return string
      */
-    protected function getReturnTypeAnnotation($object, string $method): string
+    protected function getReturnTypeAnnotation(string | object $object, string $method): string
     {
         $matches = [];
         preg_match(
@@ -491,14 +431,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
     /**
      * Get the annotated parameter type for an object method
-     *
-     * @param string|object $object
-     * @param string $method
-     * @param int $parameter
-     *
-     * @return string
      */
-    protected function getParameterTypeAnnotation($object, string $method, int $parameter = 0): string
+    protected function getParameterTypeAnnotation(string | object $object, string $method, int $parameter = 0): string
     {
         $matches = [];
         preg_match_all(
@@ -532,8 +466,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
     /**
      * Generate a unique name for a class
-     *
-     * @return string
      */
     private function getClassName(): string
     {

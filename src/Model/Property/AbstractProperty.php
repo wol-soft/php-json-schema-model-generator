@@ -19,25 +19,18 @@ abstract class AbstractProperty implements PropertyInterface
 {
     use JsonSchemaTrait, ResolvableTrait;
 
-    /** @var string */
-    protected $name = '';
-    /** @var string */
-    protected $attribute = '';
+    protected string $attribute;
 
     /**
      * Property constructor.
      *
-     * @param string $name
-     * @param JsonSchema $jsonSchema
-     *
      * @throws SchemaException
      */
-    public function __construct(string $name, JsonSchema $jsonSchema)
+    public function __construct(protected string $name, JsonSchema $jsonSchema)
     {
-        $this->name = $name;
         $this->jsonSchema = $jsonSchema;
 
-        $this->attribute = $this->processAttributeName($name);
+        $this->attribute = $this->processAttributeName($this->name);
     }
 
     /**
@@ -62,10 +55,6 @@ abstract class AbstractProperty implements PropertyInterface
 
     /**
      * Convert a name of a JSON-field into a valid PHP variable name to be used as class attribute
-     *
-     * @param string $name
-     *
-     * @return string
      *
      * @throws SchemaException
      */
