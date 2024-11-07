@@ -41,6 +41,8 @@ class GeneratorConfiguration
     protected $errorRegistryClass = ErrorRegistryException::class;
     /** @var bool */
     protected $serialization = false;
+    /** @var bool */
+    protected $cacheEnabled = true;
 
     /** @var ClassNameGeneratorInterface */
     protected $classNameGenerator;
@@ -252,6 +254,18 @@ class GeneratorConfiguration
         $this->allowImplicitNull = $allowImplicitNull;
 
         return $this;
+    }
+
+    public function setCacheEnabled(bool $cacheEnabled): self
+    {
+        $this->cacheEnabled = $cacheEnabled;
+
+        return $this;
+    }
+
+    public function isCacheEnabled(): bool
+    {
+        return $this->cacheEnabled;
     }
 
     private function initFilter(): void

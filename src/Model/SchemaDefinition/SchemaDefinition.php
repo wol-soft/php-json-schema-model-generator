@@ -67,7 +67,10 @@ class SchemaDefinition
 
         $key = implode('-', $originalPath);
 
-        if (!$this->resolvedPaths->offsetExists($key)) {
+        $isCacheEnabled = $this->schemaProcessor->getGeneratorConfiguration()->isCacheEnabled();
+        $isResolvedPath = $this->resolvedPaths->offsetExists($key);
+
+        if (!$isCacheEnabled || !$isResolvedPath) {
             // create a dummy entry for the path first. If the path is used recursive the recursive usages will point
             // to the currently created property
             $this->resolvedPaths->offsetSet($key, null);

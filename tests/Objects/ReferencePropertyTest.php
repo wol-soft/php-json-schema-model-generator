@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -546,5 +547,41 @@ Invalid type for personB. Requires object, got integer
 ERROR
             ],
         ];
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testValidCreateObjectRequiredAndOptionalPropertiesWithDefinitionValue(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RequiredAndOptionalPropertiesWithDefinitionValue.json',
+            cacheEnabled: false,
+        );
+
+        $object = new $className(['requiredProperty' => 'red']);
+
+        $this->assertSame('red', $object->getRequiredProperty());
+        $this->assertNull($object->getOptionalProperty());
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testInvalidCreateObjectRequiredAndOptionalPropertiesWithDefinitionValue(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RequiredAndOptionalPropertiesWithDefinitionValue.json',
+            cacheEnabled: true,
+        );
+
+        $this->expectException(RequiredValueException::class);
+        $this->expectExceptionMessage('Missing required value for optionalProperty');
+
+        new $className(['requiredProperty' => 'red']);
     }
 }

@@ -1,0 +1,19 @@
+{
+  "definitions": {
+    "forOptionalAndRequiredAtTheSameTime": {
+      "type": "string"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "requiredProperty": {
+      "$ref": "#/definitions/forOptionalAndRequiredAtTheSameTime"
+    },
+    "optionalProperty": {
+      "$ref": "#/definitions/forOptionalAndRequiredAtTheSameTime"
+    }
+  },
+  "required": [
+    "requiredProperty"
+  ]
+}

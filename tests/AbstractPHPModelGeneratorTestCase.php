@@ -130,6 +130,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         bool $originalClassNames = false,
         bool $implicitNull = true,
         string $schemaProviderClass = RecursiveDirectoryProvider::class,
+        bool $cacheEnabled = true,
     ): string {
         return $this->generateClass(
             file_get_contents($this->getSchemaFilePath($file)),
@@ -137,6 +138,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
             $originalClassNames,
             $implicitNull,
             $schemaProviderClass,
+            $cacheEnabled
         );
     }
 
@@ -156,6 +158,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         bool $escape = true,
         bool $implicitNull = true,
         string $schemaProviderClass = RecursiveDirectoryProvider::class,
+        bool $cacheEnabled = true,
     ): string {
         return $this->generateClass(
             sprintf(
@@ -170,6 +173,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
             false,
             $implicitNull,
             $schemaProviderClass,
+            $cacheEnabled
         );
     }
 
@@ -186,10 +190,12 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         bool $originalClassNames = false,
         bool $implicitNull = true,
         string $schemaProviderClass = RecursiveDirectoryProvider::class,
+        bool $cacheEnabled = true,
     ): string {
         $generatorConfiguration = ($generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false))
             ->setImplicitNull($implicitNull)
-            ->setOutputEnabled(false);
+            ->setOutputEnabled(false)
+            ->setCacheEnabled($cacheEnabled);
 
         $baseDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'PHPModelGeneratorTest';
 
