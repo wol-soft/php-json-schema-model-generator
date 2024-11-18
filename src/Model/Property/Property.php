@@ -288,7 +288,7 @@ class Property extends AbstractProperty
      */
     public function isRequired(): bool
     {
-        return $this->isPropertyRequired;
+        return $this->isPropertyRequired || str_starts_with($this->name, 'item of array ');
     }
 
     /**

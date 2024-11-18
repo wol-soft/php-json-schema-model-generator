@@ -43,7 +43,7 @@ class ArrayItemValidator extends ExtractedMethodValidator
         // an item of the array behaves like a nested property to add item-level validation
         $this->nestedProperty = (new PropertyFactory(new PropertyProcessorFactory()))
             ->create(
-                new PropertyMetaDataCollection([$nestedPropertyName]),
+                new PropertyMetaDataCollection(),
                 $schemaProcessor,
                 $schema,
                 $nestedPropertyName,

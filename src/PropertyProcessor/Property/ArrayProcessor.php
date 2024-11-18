@@ -234,20 +234,15 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             return;
         }
 
-        $name = "item of array {$property->getName()}";
         // an item of the array behaves like a nested property to add item-level validation
         $nestedProperty = (new PropertyFactory(new PropertyProcessorFactory()))
             ->create(
-                new PropertyMetaDataCollection([$name]),
+                new PropertyMetaDataCollection(),
                 $this->schemaProcessor,
                 $this->schema,
-                $name,
+                "item of array {$property->getName()}",
                 $propertySchema->withJson($propertySchema->getJson()[self::JSON_FIELD_CONTAINS]),
             );
-
-        $nestedProperty->filterValidators(static fn(Validator $validator): bool =>
-            !is_a($validator->getValidator(), RequiredPropertyValidator::class)
-        );
 
         $property->addValidator(
             new PropertyTemplateValidator(

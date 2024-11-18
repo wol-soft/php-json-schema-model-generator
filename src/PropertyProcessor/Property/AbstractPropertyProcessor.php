@@ -48,7 +48,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
             $this->addDependencyValidator($property, $dependencies);
         }
 
-        if ($property->isRequired()) {
+        if ($property->isRequired() && !str_starts_with($property->getName(), 'item of array ')) {
             $property->addValidator(new RequiredPropertyValidator($property), 1);
         }
 
