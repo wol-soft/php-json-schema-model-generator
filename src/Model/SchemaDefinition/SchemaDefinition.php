@@ -65,7 +65,9 @@ class SchemaDefinition
             $jsonSchema = $jsonSchema[$segment];
         }
 
-        $key = implode('-', $originalPath);
+        // if the properties point to the same definition and share identical metadata the generated property can be
+        // recycled. Otherwise, a new property must be generated as diverging metadata lead to different validators.
+        $key = implode('-', [...$originalPath, $propertyMetaDataCollection->getHash($propertyName)]);
 
         if (!$this->resolvedPaths->offsetExists($key)) {
             // create a dummy entry for the path first. If the path is used recursive the recursive usages will point

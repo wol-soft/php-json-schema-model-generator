@@ -1,0 +1,19 @@
+{
+  "definitions": {
+    "stringProperty": {
+      "type": "string"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "required": {
+      "$ref": "#/definitions/stringProperty"
+    },
+    "optional": {
+      "$ref": "#/definitions/stringProperty"
+    }
+  },
+  "required": [
+    "required"
+  ]
+}

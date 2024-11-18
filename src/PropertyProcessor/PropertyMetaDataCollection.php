@@ -39,4 +39,12 @@ class PropertyMetaDataCollection
     {
         return $this->dependencies[$attribute] ?? null;
     }
+
+    public function getHash(string $attribute): string
+    {
+        return md5(json_encode([
+            $this->getAttributeDependencies($attribute),
+            $this->isAttributeRequired($attribute),
+        ]));
+    }
 }

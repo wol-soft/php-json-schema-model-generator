@@ -1,0 +1,38 @@
+{
+  "definitions": {
+    "stringProperty": {
+      "type": "string"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "property1": {
+      "$ref": "#/definitions/stringProperty"
+    },
+    "property2": {
+      "$ref": "#/definitions/stringProperty"
+    }
+  },
+  "dependencies": {
+    "property1": {
+      "properties": {
+        "property3": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "property3"
+      ]
+    },
+    "property2": {
+      "properties": {
+        "property3": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "property3"
+      ]
+    }
+  }
+}
