@@ -69,7 +69,7 @@ $generator = new ModelGenerator(
 );
 
 $generator
-    ->generateModelDirectory(__DIR__ . '/result');
+    ->generateModelDirectory(__DIR__ . '/result')
     ->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
 ```
 
