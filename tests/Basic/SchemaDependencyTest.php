@@ -252,7 +252,7 @@ ERROR
     }
 
     /**
-     * @dataProvider validSchemaDependencyNestedObejctDataProvider
+     * @dataProvider validSchemaDependencyNestedObjectDataProvider
      */
     public function testSchemaDependencyNestedObject(array $propertyValue): void
     {
@@ -270,7 +270,7 @@ ERROR
         }
     }
 
-    public function validSchemaDependencyNestedObejctDataProvider(): array
+    public function validSchemaDependencyNestedObjectDataProvider(): array
     {
         return [
             'No properties provided' => [[]],
