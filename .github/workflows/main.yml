@@ -27,6 +27,11 @@ jobs:
       - name: Install dependencies
         run: composer update --no-interaction
 
+      - name: Execute tests
+        if: ${{ ! matrix.coverage }}
+        run: |
+          ./vendor/bin/phpunit --testdox
+
       - name: Upload the reports to codeclimate
         if: ${{ matrix.coverage }}
         env:
