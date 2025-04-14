@@ -75,7 +75,7 @@ class RenderHelper
     /**
      * check if the property may contain/accept null
      * - if the property is required the property may never contain null (if it's a null property null is already
-     *   contained in the proprety type hints)
+     *   contained in the property type hints)
      * - if the output type is requested null may be contained (if the property was not set)
      *   if implicitNull is enabled null may be set for the property
      * - except the property contains a default value and implicit null is disabled. in this case null is not

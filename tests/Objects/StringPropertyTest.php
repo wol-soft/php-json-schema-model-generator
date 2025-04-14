@@ -248,7 +248,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testUnknownFormatThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage('Unsupported format onyNumbers');
+        $this->expectExceptionMessage('Unsupported format onlyNumbers');
 
         $this->generateClassFromFile('StringPropertyFormat.json');
     }
@@ -257,7 +257,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     {
         $className = $this->generateClassFromFile(
             'StringPropertyFormat.json',
-            (new GeneratorConfiguration())->addFormat('onyNumbers', new FormatValidatorFromRegEx('/^\d+$/')),
+            (new GeneratorConfiguration())->addFormat('onlyNumbers', new FormatValidatorFromRegEx('/^\d+$/')),
         );
 
         $object = new $className(['property' => '12345']);
@@ -270,11 +270,11 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidStringFormatCheck(string $value): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessage('Value for property must match the format onyNumbers');
+        $this->expectExceptionMessage('Value for property must match the format onlyNumbers');
 
         $className = $this->generateClassFromFile(
             'StringPropertyFormat.json',
-            (new GeneratorConfiguration())->addFormat('onyNumbers', new FormatValidatorFromRegEx('/^\d+$/')),
+            (new GeneratorConfiguration())->addFormat('onlyNumbers', new FormatValidatorFromRegEx('/^\d+$/')),
         );
 
         new $className(['property' => $value]);
