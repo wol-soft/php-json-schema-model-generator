@@ -5,6 +5,10 @@ on: [push, pull_request]
 jobs:
   tests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
     strategy:
       matrix:
         php: ['8.0', '8.1', '8.3', '8.4', '8.5']
@@ -27,10 +31,17 @@ jobs:
       - name: Install dependencies
         run: composer update --no-interaction
 
+      # Run tests WITHOUT coverage on non-coverage matrix jobs
       - name: Execute tests
-        if: ${{ ! matrix.coverage }}
-        run: |
-          ./vendor/bin/phpunit --testdox
+        if: ${{ !matrix.coverage }}
+        run: ./vendor/bin/phpunit --testdox
+
+      # Run tests WITH Clover coverage for the coverage job
+      - name: Execute tests with coverage (Clover)
+        if: ${{ matrix.coverage }}
+        env:
+          XDEBUG_MODE: coverage
+        run: ./vendor/bin/phpunit --coverage-clover=build/logs/clover.xml --testdox
 
       - name: Upload coverage to Qlty
         if: ${{ matrix.coverage }}
@@ -41,10 +52,10 @@ jobs:
 
       - name: Upload the reports to coveralls.io
         if: ${{ matrix.coverage }}
-        env:
-          COVERALLS_REPO_TOKEN: ${{ github.token }}
         uses: coverallsapp/github-action@v2
         with:
-          github-token: ${{ env.COVERALLS_REPO_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/logs/clover.xml
+          format: clover
           flag-name: Unit
           allow-empty: false
