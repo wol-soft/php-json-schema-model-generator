@@ -32,15 +32,12 @@ jobs:
         run: |
           ./vendor/bin/phpunit --testdox
 
-      - name: Upload the reports to codeclimate
+      - name: Upload coverage to Qlty
         if: ${{ matrix.coverage }}
-        env:
-          XDEBUG_MODE: coverage
-          CC_TEST_REPORTER_ID: 5e32818628fac9eb11d34e2b35289f88169610cc4a98c6f170c74923342284f1
-        uses: paambaati/codeclimate-action@v9
+        uses: qltysh/qlty-action/coverage@v2
         with:
-          coverageCommand: |
-            ./vendor/bin/phpunit --coverage-clover=build/logs/clover.xml --testdox
+          oidc: true
+          files: build/logs/clover.xml
 
       - name: Upload the reports to coveralls.io
         if: ${{ matrix.coverage }}
