@@ -14,7 +14,7 @@ declare(strict_types = 1);
 {% endforeach %}
 
 /**
- * Class {{ class }}
+ * Class {{ schema.getClassName() }}
 {% if namespace %} * @package {{ namespace }} {% endif %}
  *
 {% if schema.getDescription() %} * {{ schema.getDescription() }}
@@ -23,7 +23,7 @@ declare(strict_types = 1);
  * If you need to implement something in this class use inheritance. Else you will lose your changes if the classes
  * are re-generated.
  */
-class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinClassNames(schema.getInterfaces()) }}{% endif %}
+class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinClassNames(schema.getInterfaces()) }}{% endif %}
 {
     {% if schema.getTraits() %}use {{ viewHelper.joinClassNames(schema.getTraits()) }};{% endif %}
 
@@ -40,7 +40,7 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
     {% endif %}
 
     /**
-     * {{ class }} constructor.
+     * {{ schema.getClassName() }} constructor.
      *
      * @param array $rawModelDataInput
      *
@@ -125,11 +125,11 @@ class {{ class }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinCl
                  *
                  * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
                  *
-                 * @return self
+                 * @return static
                  */
                 public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
                     {{ viewHelper.getType(property) }} ${{ property.getAttribute(true) }}
-                ): self {
+                ): static {
                     if ($this->{{ property.getAttribute(true) }} === ${{ property.getAttribute(true) }}) {
                         return $this;
                     }

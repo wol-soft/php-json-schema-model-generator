@@ -161,4 +161,13 @@ if ({$validator->getCheck()}) {
     {
         return preg_replace('(\d+\s=>)', '', var_export($values, true));
     }
+
+    public static function filterClassImports(array $imports, string $namespace): array
+    {
+        // filter out non-compound uses and uses which link to the current namespace
+        return array_filter($imports, static fn($classPath): bool =>
+            strstr(trim(str_replace("$namespace", '', $classPath), '\\'), '\\') ||
+            (!strstr($classPath, '\\') && !empty($namespace)),
+        );
+    }
 }

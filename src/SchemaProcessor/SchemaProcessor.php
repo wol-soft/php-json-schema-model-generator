@@ -123,7 +123,14 @@ class SchemaProcessor
             return $this->processedSchema[$schemaSignature];
         }
 
-        $schema = new Schema($classPath, $className, $jsonSchema, $dictionary, $initialClass);
+        $schema = new Schema(
+            $this->getTargetFileName($classPath, $className),
+            $classPath,
+            $className,
+            $jsonSchema,
+            $dictionary,
+            $initialClass,
+        );
 
         $this->processedSchema[$schemaSignature] = $schema;
         $json = $jsonSchema->getJson();
@@ -137,7 +144,7 @@ class SchemaProcessor
             $jsonSchema->withJson($json),
         );
 
-        $this->generateClassFile($classPath, $className, $schema);
+        $this->generateClassFile($schema);
 
         return $schema;
     }
@@ -145,26 +152,24 @@ class SchemaProcessor
     /**
      * Attach a new class file render job to the render proxy
      */
-    public function generateClassFile(
-        string $classPath,
-        string $className,
-        Schema $schema,
-    ): void {
-        $fileName = join(
-            DIRECTORY_SEPARATOR,
-            array_filter([$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]),
-        ) . '.php';
-
-        $this->renderQueue->addRenderJob(new RenderJob($fileName, $classPath, $className, $schema));
+    public function generateClassFile(Schema $schema): void {
+        $this->renderQueue->addRenderJob(new RenderJob($schema));
 
         if ($this->generatorConfiguration->isOutputEnabled()) {
             echo sprintf(
                 "Generated class %s\n",
-                join('\\', array_filter([$this->generatorConfiguration->getNamespacePrefix(), $classPath, $className])),
+                join(
+                    '\\',
+                    array_filter([
+                        $this->generatorConfiguration->getNamespacePrefix(),
+                        $schema->getClassPath(),
+                        $schema->getClassName(),
+                    ]),
+                ),
             );
         }
 
-        $this->generatedFiles[] = $fileName;
+        $this->generatedFiles[] = $schema->getTargetFileName();
     }
 
 
@@ -205,7 +210,12 @@ class SchemaProcessor
                     $this->getCurrentClassName(),
                 );
 
-            $mergedPropertySchema = new Schema($schema->getClassPath(), $mergedClassName, $propertySchema);
+            $mergedPropertySchema = new Schema(
+                $this->getTargetFileName($schema->getClassPath(), $mergedClassName),
+                $schema->getClassPath(),
+                $mergedClassName,
+                $propertySchema,
+            );
 
             $this->processedMergedProperties[$schemaSignature] = (new Property(
                     'MergedProperty',
@@ -220,7 +230,7 @@ class SchemaProcessor
             // make sure the merged schema knows all imports of the parent schema
             $mergedPropertySchema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($schema));
 
-            $this->generateClassFile($this->getCurrentClassPath(), $mergedClassName, $mergedPropertySchema);
+            $this->generateClassFile($mergedPropertySchema);
         }
 
         $mergedSchema = $this->processedMergedProperties[$schemaSignature]->getNestedSchema();
@@ -328,5 +338,13 @@ class SchemaProcessor
     public function getGeneratorConfiguration(): GeneratorConfiguration
     {
         return $this->generatorConfiguration;
+    }
+
+    private function getTargetFileName(string $classPath, string $className): string
+    {
+        return join(
+            DIRECTORY_SEPARATOR,
+            array_filter([$this->destination, str_replace('\\', DIRECTORY_SEPARATOR, $classPath), $className]),
+        ) . '.php';
     }
 }

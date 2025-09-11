@@ -6,6 +6,7 @@ namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
 use Exception;
 use PHPMicroTemplate\Render;
+use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
@@ -255,7 +256,7 @@ class EnumPostProcessor extends PostProcessor
             $name .= '_1';
         }
 
-        file_put_contents(
+        $result = file_put_contents(
             $this->targetDirectory . DIRECTORY_SEPARATOR . $name . '.php',
             $this->renderer->renderTemplate(
                 'Enum.phptpl',
@@ -269,6 +270,12 @@ class EnumPostProcessor extends PostProcessor
         );
 
         $fqcn = "$this->namespace\\$name";
+
+        if ($result === false) {
+            // @codeCoverageIgnoreStart
+            throw new FileSystemException("Can't write enum $fqcn.");
+            // @codeCoverageIgnoreEnd
+        }
 
         if ($generatorConfiguration->isOutputEnabled()) {
             // @codeCoverageIgnoreStart

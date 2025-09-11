@@ -24,15 +24,9 @@ class RenderJob
     /**
      * Create a new class render job
      *
-     * @param string $fileName  The file name
-     * @param string $classPath The relative path of the class for namespace generation
-     * @param string $className The class name
-     * @param Schema $schema    The Schema object which holds properties and validators
+     * @param Schema $schema The Schema object which holds properties and validators
      */
     public function __construct(
-        protected string $fileName,
-        protected string $classPath,
-        protected string $className,
         protected Schema $schema,
     ) {}
 
@@ -58,13 +52,17 @@ class RenderJob
 
         $class = $this->renderClass($generatorConfiguration);
 
-        if (file_exists($this->fileName)) {
-            throw new FileSystemException("File {$this->fileName} already exists. Make sure object IDs are unique.");
+        if (file_exists($this->schema->getTargetFileName())) {
+            throw new FileSystemException(
+                "File {$this->schema->getTargetFileName()} already exists. Make sure object IDs are unique.",
+            );
         }
 
-        if (!file_put_contents($this->fileName, $class)) {
+        if (!file_put_contents($this->schema->getTargetFileName(), $class)) {
             // @codeCoverageIgnoreStart
-            throw new FileSystemException("Can't write class $this->classPath\\$this->className.");
+            throw new FileSystemException(
+                "Can't write class {$this->schema->getClassPath()}\\{$this->schema->getClassName()}.",
+            );
             // @codeCoverageIgnoreEnd
         }
 
@@ -73,8 +71,12 @@ class RenderJob
                 "Rendered class %s\n",
                 join(
                     '\\',
-                    array_filter([$generatorConfiguration->getNamespacePrefix(), $this->classPath, $this->className]),
-                )
+                    array_filter([
+                        $generatorConfiguration->getNamespacePrefix(),
+                        $this->schema->getClassPath(),
+                        $this->schema->getClassName(),
+                    ]),
+                ),
             );
         }
     }
@@ -86,7 +88,7 @@ class RenderJob
      */
     protected function generateModelDirectory(): void
     {
-        $destination = dirname($this->fileName);
+        $destination = dirname($this->schema->getTargetFileName());
         if (!is_dir($destination) && !mkdir($destination, 0777, true)) {
             throw new FileSystemException("Can't create path $destination");
         }
@@ -99,7 +101,10 @@ class RenderJob
      */
     protected function renderClass(GeneratorConfiguration $generatorConfiguration): string
     {
-        $namespace = trim(join('\\', [$generatorConfiguration->getNamespacePrefix(), $this->classPath]), '\\');
+        $namespace = trim(
+            join('\\', [$generatorConfiguration->getNamespacePrefix(), $this->schema->getClassPath()]),
+            '\\',
+        );
 
         try {
             $class = (new Render(__DIR__ . '/../Templates/'))->renderTemplate(
@@ -107,7 +112,6 @@ class RenderJob
                 [
                     'namespace'                         => $namespace,
                     'use'                               => $this->getUseForSchema($generatorConfiguration, $namespace),
-                    'class'                             => $this->className,
                     'schema'                            => $this->schema,
                     'schemaHookResolver'                => new SchemaHookResolver($this->schema),
                     'generatorConfiguration'            => $generatorConfiguration,
@@ -121,7 +125,11 @@ class RenderJob
                 ],
             );
         } catch (PHPMicroTemplateException $exception) {
-            throw new RenderException("Can't render class $this->classPath\\$this->className", 0, $exception);
+            throw new RenderException(
+                "Can't render class {$this->schema->getClassPath()}\\{$this->schema->getClassName()}",
+                0,
+                $exception,
+            );
         }
 
         return $class;
@@ -132,21 +140,16 @@ class RenderJob
      */
     protected function getUseForSchema(GeneratorConfiguration $generatorConfiguration, string $namespace): array
     {
-        $use = array_unique(
-            array_merge(
-                $this->schema->getUsedClasses(),
-                $generatorConfiguration->collectErrors()
-                    ? [$generatorConfiguration->getErrorRegistryClass()]
-                    : [ValidationException::class],
-            )
+        return RenderHelper::filterClassImports(
+            array_unique(
+                array_merge(
+                    $this->schema->getUsedClasses(),
+                    $generatorConfiguration->collectErrors()
+                        ? [$generatorConfiguration->getErrorRegistryClass()]
+                        : [ValidationException::class],
+                ),
+            ),
+            $namespace,
         );
-
-        // filter out non-compound uses and uses which link to the current namespace
-        $use = array_filter($use, static fn($classPath): bool =>
-            strstr(trim(str_replace("$namespace", '', $classPath), '\\'), '\\') ||
-            (!strstr($classPath, '\\') && !empty($namespace)),
-        );
-
-        return $use;
     }
 }

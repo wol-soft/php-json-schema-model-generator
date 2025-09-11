@@ -53,8 +53,13 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
             ->setRequired($this->propertyMetaDataCollection->isAttributeRequired($propertyName))
             ->setReadOnly(
                 (isset($json['readOnly']) && $json['readOnly'] === true) ||
+                (isset($json['readonly']) && $json['readonly'] === true) ||
                 $this->schemaProcessor->getGeneratorConfiguration()->isImmutable(),
             );
+
+        if (isset($json['readOnly'])) {
+            trigger_error('Change from readOnly to readonly for property "' . $propertyName . '".', E_USER_DEPRECATED);
+        }
 
         $this->generateValidators($property, $propertySchema);
 

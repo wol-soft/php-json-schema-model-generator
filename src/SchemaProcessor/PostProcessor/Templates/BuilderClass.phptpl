@@ -1,0 +1,103 @@
+<?php
+
+// @codingStandardsIgnoreFile
+// @codeCoverageIgnoreStart
+
+declare(strict_types = 1);
+
+{% if namespace %}
+    namespace {{ namespace }};
+{% endif %}
+
+{% foreach use as import %}
+    use {{ import }};
+{% endforeach %}
+
+/**
+ * Builder class for {{ class }}
+ */
+class {{ class }}Builder
+{
+    /** @var array */
+    protected $_rawModelDataInput = [];
+
+    {% if generatorConfiguration.collectErrors() %}
+        /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} */
+        protected $_errorRegistry;
+
+        public function __construct()
+        {
+            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        }
+    {% endif %}
+
+    /**
+     * Get the raw input used to set up the model
+     *
+     * @return array
+     */
+    public function getRawModelDataInput(): array
+    {
+        return $this->_rawModelDataInput;
+    }
+
+    /**
+     * Set up a new instance of {{ class }} with fully validated properties
+     */
+    public function validate(): {{ class }}
+    {
+        return new {{ class }}($this->_rawModelDataInput);
+    }
+
+    {% foreach properties as property %}
+        {% if not property.isInternal() %}
+            /**
+             * Get the value of {{ property.getName() }}.
+             *
+             * {% if property.getDescription() %}{{ property.getDescription() }}{% endif %}
+             *
+             * {% if viewHelper.getTypeHintAnnotation(property, true) %}@return {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}
+             */
+            public function get{{ viewHelper.ucfirst(property.getAttribute()) }}()
+                {% if property.getType(true) %}: {{ viewHelper.getType(property, true) }}{% endif %}
+            {
+                return $this->_rawModelDataInput['{{ property.getName() }}'] ?? null;
+            }
+
+            /**
+             * Set the value of {{ property.getName() }}.
+             *
+             * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute(true) }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
+             *
+             * @return static
+             */
+            public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
+                {{ viewHelper.getType(property) }} ${{ property.getAttribute(true) }}
+            ): static {
+                if (array_key_exists('{{ property.getName() }}', $this->_rawModelDataInput)
+                    && $this->_rawModelDataInput['{{ property.getName() }}'] === ${{ property.getAttribute(true) }}
+                ) {
+                    return $this;
+                }
+
+                $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
+
+                {% foreach property.getOrderedValidators() as validator %}
+                    {{ viewHelper.renderValidator(validator, schema) }}
+                {% endforeach %}
+
+                {% if generatorConfiguration.collectErrors() %}
+                    if ($this->_errorRegistry->getErrors()) {
+                        throw $this->_errorRegistry;
+                    }
+                {% endif %}
+
+                $this->_rawModelDataInput['{{ property.getName() }}'] = $value;
+
+                return $this;
+            }
+        {% endif %}
+    {% endforeach %}
+}
+
+// @codeCoverageIgnoreEnd

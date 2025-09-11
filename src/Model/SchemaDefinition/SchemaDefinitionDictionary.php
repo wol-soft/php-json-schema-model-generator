@@ -151,6 +151,7 @@ class SchemaDefinitionDictionary extends ArrayObject
 
         // set up a dummy schema to fetch the definitions from the external file
         $schema = new Schema(
+            '',
             $schemaProcessor->getCurrentClassPath(),
             'ExternalSchema',
             new JsonSchema($jsonSchemaFilePath, $decodedJsonSchema),

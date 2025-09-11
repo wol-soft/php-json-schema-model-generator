@@ -57,6 +57,7 @@ class Schema
      * Schema constructor.
      */
     public function __construct(
+        protected string $targetFileName,
         protected string $classPath,
         protected string $className,
         JsonSchema $schema,
@@ -68,6 +69,11 @@ class Schema
         $this->description = $schema->getJson()['description'] ?? '';
 
         $this->addInterface(JSONModelInterface::class);
+    }
+
+    public function getTargetFileName(): string
+    {
+        return $this->targetFileName;
     }
 
     public function getClassName(): string
