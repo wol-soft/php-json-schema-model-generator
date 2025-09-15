@@ -100,12 +100,12 @@
             }
             {% endif %}
         } catch (\Exception $e) {
-            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-                {% if not generatorConfiguration.collectErrors() %}
-                    if (isset($validatorIndex)) {
-                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = false;
-                    }
-                {% endif %}
+            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
+                  and not generatorConfiguration.collectErrors()
+            %}
+                if (isset($validatorIndex)) {
+                    $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = false;
+                }
             {% endif %}
 
             {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}

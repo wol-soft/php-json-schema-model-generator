@@ -168,12 +168,10 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
              */
             protected function process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
             {
-                {% if not generatorConfiguration.isImplicitNullAllowed() %}
-                    {% if not property.isRequired() %}
-                        if (!array_key_exists('{{ property.getName() }}', $modelData) && $this->{{ property.getAttribute(true) }} === null) {
-                            return;
-                        }
-                    {% endif %}
+                {% if not generatorConfiguration.isImplicitNullAllowed() and not property.isRequired() %}
+                    if (!array_key_exists('{{ property.getName() }}', $modelData) && $this->{{ property.getAttribute(true) }} === null) {
+                        return;
+                    }
                 {% endif %}
 
                 $value = array_key_exists('{{ property.getName() }}', $modelData) ? $modelData['{{ property.getName() }}'] : $this->{{ property.getAttribute(true) }};
