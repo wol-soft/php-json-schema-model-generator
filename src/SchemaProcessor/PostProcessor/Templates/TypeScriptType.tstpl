@@ -1,0 +1,9 @@
+{% foreach imports as import %}
+import { {{ import.name }} } from '{{ import.path }}';
+{% endforeach %}
+
+export type {{ name }} = {
+  {% foreach properties as property %}
+    {{ property.getAttribute() }}: {{ typescriptType(property) }};
+  {% endforeach %}
+}
