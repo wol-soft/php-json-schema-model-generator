@@ -19,11 +19,6 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintTransferDecorator;
 use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class PopulatePostProcessor
- *
- * @package PHPModelGenerator\SchemaProcessor\PostProcessor
- */
 class BuilderClassPostProcessor extends PostProcessor
 {
     /** @var Schema[] */
@@ -57,8 +52,6 @@ class BuilderClassPostProcessor extends PostProcessor
                         );
                 }
             }
-
-            $this->generateModelDirectory($schema->getTargetFileName());
 
             $namespace = trim(
                 join('\\', [$this->generatorConfiguration->getNamespacePrefix(), $schema->getClassPath()]),
@@ -94,14 +87,6 @@ class BuilderClassPostProcessor extends PostProcessor
                 echo "Rendered builder class $fqcn\n";
                 // @codeCoverageIgnoreEnd
             }
-        }
-    }
-
-    protected function generateModelDirectory(string $targetFileName): void
-    {
-        $destination = dirname($targetFileName);
-        if (!is_dir($destination) && !mkdir($destination, 0777, true)) {
-            throw new FileSystemException("Can't create path $destination");
         }
     }
 
