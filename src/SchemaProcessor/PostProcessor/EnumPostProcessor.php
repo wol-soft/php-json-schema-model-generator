@@ -68,7 +68,7 @@ class EnumPostProcessor extends PostProcessor
         foreach ($schema->getProperties() as $property) {
             $json = $property->getJsonSchema()->getJson();
 
-            if (!isset($json['enum']) || !$this->validateEnum($property)) {
+            if (!isset($json['enum']) || !$this->validateEnum($property, $this->skipNonMappedEnums)) {
                 continue;
             }
 
