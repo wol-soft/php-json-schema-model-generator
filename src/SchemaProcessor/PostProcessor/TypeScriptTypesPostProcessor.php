@@ -11,26 +11,35 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\Utils\RenderHelper;
 
 class TypeScriptTypesPostProcessor extends PostProcessor
 {
+    use EnumTrait;
+
     private string $targetDirectory;
+    private bool $renderEnums;
     private Render $renderer;
     private GeneratorConfiguration $generatorConfiguration;
+    private RenderHelper $renderHelper;
+
     /** @var Schema[] */
     private array $schemas = [];
 
-    public function __construct(string $targetDirectory)
+    public function __construct(string $targetDirectory, bool $renderEnums = true)
     {
         (new ModelGenerator())->generateModelDirectory($targetDirectory);
 
         $this->targetDirectory = $targetDirectory;
+        $this->renderEnums = $renderEnums;
         $this->renderer = new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);
     }
 
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
-        $this->generatorConfiguration = $generatorConfiguration;
+        $this->generatorConfiguration ??= $generatorConfiguration;
+        $this->renderHelper ??= new RenderHelper($generatorConfiguration);
+
         $this->schemas[] = $schema;
     }
 
@@ -39,7 +48,20 @@ class TypeScriptTypesPostProcessor extends PostProcessor
         parent::postProcess();
 
         foreach ($this->schemas as $schema) {
+            $enumMap = [];
+
+            foreach ($schema->getProperties() as $property) {
+                if ($this->renderEnums
+                    && isset($property->getJsonSchema()->getJson()['enum'])
+                    && $this->validateEnum($property)
+                ) {
+                    // TODO: deduplicate
+                    $enumMap[$property->getName()] = $this->renderEnum($schema, $property);
+                }
+            }
+
             $result = file_put_contents(
+                // TODO nested directory structure from namespaces
                 $this->targetDirectory . DIRECTORY_SEPARATOR . $schema->getClassName() . '.ts',
                 $this->renderer->renderTemplate(
                     'TypeScriptType.tstpl',
@@ -49,18 +71,30 @@ class TypeScriptTypesPostProcessor extends PostProcessor
                             $schema->getProperties(),
                             fn(PropertyInterface $property): bool => !$property->isInternal(),
                         ),
-                        'imports' => $this->getTypeScriptImports($schema),
-                        'typescriptType' => fn(PropertyInterface $property): string => join(
+                        'imports' => [
+                            ...$this->getTypeScriptImports($schema),
+                            ...array_map(fn (string $enum): array => ['name' => $enum, 'path' => "./$enum"], $enumMap),
+                        ],
+                        'typescriptType' => fn (PropertyInterface $property): string => join(
                             ' | ',
-                            array_map(
-                                fn(string $type): string => match (str_replace('[]', '', $type)) {
-                                        'string'       => 'string',
-                                        'int', 'float' => 'number',
-                                        'bool'         => 'boolean',
-                                        '', 'mixed'    => 'any',
-                                        default        => $property->getType()->getName(),
-                                    } . (str_contains($type, '[]') ? '[]' : ''),
-                                explode('|', $property->getTypeHint()),
+                            array_unique(
+                                array_map(
+                                    function (string $type) use ($property, $enumMap): string {
+                                        if (isset($enumMap[$property->getName()]) && $type !== 'null') {
+                                            return $enumMap[$property->getName()];
+                                        }
+
+                                        return match (str_replace('[]', '', $type)) {
+                                            'null' => 'null',
+                                            'string' => 'string',
+                                            'int', 'float' => 'number',
+                                            'bool' => 'boolean',
+                                            '', 'mixed' => 'any',
+                                            default => $property->getType()->getName(),
+                                        } . (str_contains($type, '[]') ? '[]' : '');
+                                    },
+                                    explode('|', $this->renderHelper->getTypeHintAnnotation($property)),
+                                ),
                             ),
                         ),
                     ],
@@ -132,5 +166,38 @@ class TypeScriptTypesPostProcessor extends PostProcessor
         $rel   = implode('/', $parts);
 
         return './' . $rel;
+    }
+
+    private function renderEnum(Schema $schema, PropertyInterface $property): string
+    {
+        $json = $property->getJsonSchema()->getJson();
+        $enumName = $json['$id'] ?? $schema->getClassName() . ucfirst($property->getName());
+        $cases = [];
+
+        foreach ($json['enum'] as $value) {
+            $caseName = $this->getCaseName($value, $json['enum-map'] ?? null, $property->getJsonSchema());
+            $cases[$caseName] = var_export($value, true);
+        }
+
+        $result = file_put_contents(
+            $this->targetDirectory . DIRECTORY_SEPARATOR . $enumName . '.ts',
+            $this->renderer->renderTemplate(
+                'TypeScriptEnum.tstpl',
+                ['name' => $enumName, 'cases' => $cases],
+            ),
+        );
+
+        if ($result === false) {
+            // @codeCoverageIgnoreStart
+            throw new FileSystemException("Can't write TypeScript enum $enumName.",);
+            // @codeCoverageIgnoreEnd
+        }
+
+        if ($this->generatorConfiguration->isOutputEnabled()) {
+            // @codeCoverageIgnoreStart
+            echo "Rendered TypeScript enum $enumName\n";
+            // @codeCoverageIgnoreEnd
+        }
+        return $enumName;
     }
 }
