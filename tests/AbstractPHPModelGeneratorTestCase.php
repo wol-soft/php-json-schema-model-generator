@@ -260,8 +260,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
         foreach ($generatedFiles as $path) {
             $this->generatedFiles[] = $path;
-
-            require $path;
         }
 
         return $className;
@@ -283,8 +281,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
         foreach ($generatedClasses as $path) {
             $this->generatedFiles[] = $path;
-
-            require $path;
         }
 
         return $generatedClasses;

@@ -33,7 +33,7 @@ class RenderJob
     /**
      * @param PostProcessor[] $postProcessors
      */
-    public function postProcess(array $postProcessors, GeneratorConfiguration $generatorConfiguration): void
+    public function executePostProcessors(array $postProcessors, GeneratorConfiguration $generatorConfiguration): void
     {
         foreach ($postProcessors as $postProcessor) {
             $postProcessor->process($this->schema, $generatorConfiguration);
@@ -65,6 +65,8 @@ class RenderJob
             );
             // @codeCoverageIgnoreEnd
         }
+
+        require $this->schema->getTargetFileName();
 
         if ($generatorConfiguration->isOutputEnabled()) {
             echo sprintf(

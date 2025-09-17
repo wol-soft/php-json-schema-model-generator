@@ -257,7 +257,7 @@ class EnumPostProcessor extends PostProcessor
         }
 
         $result = file_put_contents(
-            $this->targetDirectory . DIRECTORY_SEPARATOR . $name . '.php',
+            $filename = $this->targetDirectory . DIRECTORY_SEPARATOR . $name . '.php',
             $this->renderer->renderTemplate(
                 'Enum.phptpl',
                 [
@@ -276,6 +276,8 @@ class EnumPostProcessor extends PostProcessor
             throw new FileSystemException("Can't write enum $fqcn.");
             // @codeCoverageIgnoreEnd
         }
+
+        require $filename;
 
         if ($generatorConfiguration->isOutputEnabled()) {
             // @codeCoverageIgnoreStart

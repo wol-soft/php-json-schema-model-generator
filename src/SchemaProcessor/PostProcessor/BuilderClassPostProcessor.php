@@ -18,6 +18,7 @@ use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintTransferDecorator;
 use PHPModelGenerator\Utils\RenderHelper;
+use UnitEnum;
 
 class BuilderClassPostProcessor extends PostProcessor
 {
@@ -59,7 +60,7 @@ class BuilderClassPostProcessor extends PostProcessor
             );
 
             $result = file_put_contents(
-                str_replace('.php', 'Builder.php', $schema->getTargetFileName()),
+                $filename = str_replace('.php', 'Builder.php', $schema->getTargetFileName()),
                 (new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR))->renderTemplate(
                     'BuilderClass.phptpl',
                     [
@@ -74,13 +75,15 @@ class BuilderClassPostProcessor extends PostProcessor
                 )
             );
 
-            $fqcn = "{$schema->getClassPath()}\\{$schema->getClassName()}Builder";
+            $fqcn = "$namespace\\{$schema->getClassName()}Builder";
 
             if ($result === false) {
                 // @codeCoverageIgnoreStart
                 throw new FileSystemException("Can't write builder class $fqcn.",);
                 // @codeCoverageIgnoreEnd
             }
+
+            require $filename;
 
             if ($this->generatorConfiguration->isOutputEnabled()) {
                 // @codeCoverageIgnoreStart
@@ -114,13 +117,18 @@ class BuilderClassPostProcessor extends PostProcessor
                     }
                 }
 
+                // required for compatibility with the EnumPostProcessor
+                if (enum_exists($type)) {
+                    array_push($imports, $type, UnitEnum::class);
+                }
+
                 if (class_exists($type)) {
                     $imports[] = $type;
 
                     // for nested objects, allow additionally to pass an instance of the nested model also just plain
                     // arrays which will result in an object instantiation and validation during the build process
                     if (in_array(JSONModelInterface::class, class_implements($type))) {
-                        $property->addTypeHintDecorator(new TypeHintDecorator(['array', basename($type) . 'Builder']));
+                        $property->addTypeHintDecorator(new TypeHintDecorator([basename($type) . 'Builder', 'array']));
                         $property->setType();
                     }
                 }
