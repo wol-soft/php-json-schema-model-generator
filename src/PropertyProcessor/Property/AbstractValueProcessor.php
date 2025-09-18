@@ -58,7 +58,9 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
             );
 
         if (isset($json['readOnly'])) {
+            // @codeCoverageIgnoreStart
             trigger_error('Change from readOnly to readonly for property "' . $propertyName . '".', E_USER_DEPRECATED);
+            // @codeCoverageIgnoreEnd
         }
 
         $this->generateValidators($property, $propertySchema);

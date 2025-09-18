@@ -463,22 +463,22 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
             'different $id' => [
                 'MultipleEnumPropertiesMapped.json',
                 [
-                    '"names"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
+                    '"owners"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
                     '"attendees"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
                 ],
             ],
             'different values mapped enum' => [
                 'MultipleEnumPropertiesMapped.json',
                 [
-                    '"names"', '["Hans", "Anna"]', '{"a": "Hans", "b": "Anna"}',
-                    '"names"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
+                    '"visitors"', '["Hans", "Anna"]', '{"a": "Hans", "b": "Anna"}',
+                    '"visitors"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
                 ],
             ],
             'different mapping' => [
                 'MultipleEnumPropertiesMapped.json',
                 [
-                    '"names"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
-                    '"names"', '["Hans", "Dieter"]', '{"a": "Dieter", "b": "Hans"}',
+                    '"members"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
+                    '"members"', '["Hans", "Dieter"]', '{"a": "Dieter", "b": "Hans"}',
                 ],
             ],
         ];
