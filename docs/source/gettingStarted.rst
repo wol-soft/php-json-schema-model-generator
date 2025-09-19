@@ -282,7 +282,7 @@ Additionally the class will implement the PHP builtin interface **\JsonSerializa
 
 .. warning::
 
-    If you provide `additional properties <complexTypes/object.html#additional-properties>`__ you may want to use the `AdditionalPropertiesAccessorPostProcessor <generator/postProcessor.html#additionalpropertiesaccessorpostprocessor>`__ as the additional properties by default aren't included into the serialization result.
+    If you provide `additional properties <complexTypes/object.html#additional-properties>`__ you may want to use the `AdditionalPropertiesAccessorPostProcessor <generator/builtin/additionalPropertiesAccessorPostProcessor.html>`__ as the additional properties by default aren't included into the serialization result.
 
 Output generation process
 ^^^^^^^^^^^^^^^^^^^^^^^^^

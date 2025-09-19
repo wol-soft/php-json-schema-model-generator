@@ -5,7 +5,7 @@ Enums can be used to define a set of constant values a property must accept.
 
 .. hint::
 
-    If you define constraints via `enum` you may want to use the `EnumPostProcessor <../generator/postProcessor.html#enumpostprocessor>`__ to generate PHP enums.
+    If you define constraints via `enum` you may want to use the `EnumPostProcessor <../generator/builtin/enumPostProcessor.html>`__ to generate PHP enums.
 
 .. code-block:: json
 

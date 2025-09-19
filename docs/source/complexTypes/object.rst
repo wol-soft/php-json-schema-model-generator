@@ -208,7 +208,7 @@ Using the keyword `additionalProperties` the object can be limited to not contai
 
 .. hint::
 
-    If you define constraints via `additionalProperties` you may want to use the `AdditionalPropertiesAccessorPostProcessor <../generator/postProcessor.html#additionalpropertiesaccessorpostprocessor>`__ to access and modify your additional properties.
+    If you define constraints via `additionalProperties` you may want to use the `AdditionalPropertiesAccessorPostProcessor <../generator/builtin/additionalPropertiesAccessorPostProcessor.html>`__ to access and modify your additional properties.
 
 .. code-block:: json
 
@@ -520,7 +520,7 @@ Using the keyword `patternProperties` further restrictions for properties matchi
 
 .. hint::
 
-    If you define constraints via `patternProperties` you may want to use the `PatternPropertiesAccessorPostProcessor <../generator/postProcessor.html#patternpropertiesaccessorpostprocessor>`__ to access your pattern properties.
+    If you define constraints via `patternProperties` you may want to use the `PatternPropertiesAccessorPostProcessor <../generator/builtin/patternPropertiesAccessorPostProcessor.html>`__ to access your pattern properties.
 
 .. code-block:: json
 

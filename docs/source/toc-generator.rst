@@ -1,5 +1,5 @@
 .. toctree::
     :caption: Extending the generator
-    :maxdepth: 1
+    :maxdepth: 2
 
     generator/postProcessor
