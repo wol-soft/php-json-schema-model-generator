@@ -65,6 +65,29 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => 65], $validatedObject->toArray());
     }
 
+    /**
+     * @dataProvider validationMethodDataProvider
+     */
+    public function testInvalidBuilderDataThrowsAnExceptionOnValidate(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('BasicSchema.json', $configuration);
+
+        $builderClassName = $className . 'Builder';
+        $builderObject = new $builderClassName();
+
+        $builderObject->setName('Al')->setAge(-2);
+
+        $this->expectValidationErrorRegExp(
+            $configuration,
+            [
+                '/Value for name must not be shorter than 5/',
+                '/Value for age must not be smaller than 0/'
+            ],
+        );
+
+        $builderObject->validate();
+    }
+
     public function testImplicitNull(): void
     {
         $className = $this->generateClassFromFile('BasicSchema.json');
@@ -96,8 +119,10 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
             }
         }
 
+        $nestedBuilderClassName = $nestedObjectClassName . 'Builder';
+
         $this->assertNotEmpty($nestedObjectClassName);
-        $expectedTypeHint = "$nestedObjectClassName|{$nestedObjectClassName}Builder|array|null";
+        $expectedTypeHint = "$nestedObjectClassName|$nestedBuilderClassName|array|null";
         $this->assertSame($expectedTypeHint, $this->getParameterTypeAnnotation($builderObject, 'setAddress'));
         $this->assertSame($expectedTypeHint, $this->getReturnTypeAnnotation($builderObject, 'getAddress'));
 
@@ -111,7 +136,6 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(10, $object->getAddress()->getNumber());
 
         // test generate nested object from nested builder
-        $nestedBuilderClassName = $nestedObjectClassName . 'Builder';
         $nestedBuilderObject = new $nestedBuilderClassName();
         $this->assertSame('string|null', $this->getParameterTypeAnnotation($nestedBuilderObject, 'setStreet'));
         $this->assertSame('int|null', $this->getParameterTypeAnnotation($nestedBuilderObject, 'setNumber'));
@@ -133,6 +157,48 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $object = $builderObject->validate();
         $this->assertSame('Test street', $object->getAddress()->getStreet());
         $this->assertSame(10, $object->getAddress()->getNumber());
+    }
+
+    public function testNestedObjectArray(): void
+    {
+        $className = $this->generateClassFromFile('NestedObjectArray.json');
+
+        $this->assertGeneratedBuilders(2);
+
+        $builderClassName = $className . 'Builder';
+        $builderObject = new $builderClassName();
+
+        $nestedObjectClassName = null;
+        foreach ($this->getGeneratedFiles() as $file) {
+            if (str_contains($file, 'Itemofarray')) {
+                $nestedObjectClassName = str_replace('.php', '', basename($file));
+
+                break;
+            }
+        }
+
+        $nestedBuilderClassName = $nestedObjectClassName . 'Builder';
+
+        $this->assertNotEmpty($nestedObjectClassName);
+        $expectedTypeHint = "{$nestedObjectClassName}[]|{$nestedBuilderClassName}[]|array|null";
+        $this->assertSame($expectedTypeHint, $this->getParameterTypeAnnotation($builderObject, 'setAddressList'));
+        $this->assertSame($expectedTypeHint, $this->getReturnTypeAnnotation($builderObject, 'getAddressList'));
+
+        $builderObject->setAddressList([
+            ['street' => 'Test street 0', 'number' => 10],
+            (new $nestedBuilderClassName())->setStreet('Test street 1')->setNumber(11),
+            new $nestedObjectClassName(['street' => 'Test street 2',  'number' => 12]),
+        ]);
+
+        $object = $builderObject->validate();
+
+        $this->assertCount(3, $object->getAddressList());
+
+        for ($i = 0; $i <= 2; $i++) {
+            $this->assertInstanceOf($nestedObjectClassName, $object->getAddressList()[$i]);
+            $this->assertSame("Test street {$i}", $object->getAddressList()[$i]->getStreet());
+            $this->assertSame(10 + $i, $object->getAddressList()[$i]->getNumber());
+        }
     }
 
     private function assertGeneratedBuilders(int $expectedGeneratedBuilders): void

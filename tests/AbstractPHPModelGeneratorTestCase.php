@@ -332,7 +332,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
         if ($configuration->collectErrors()) {
             $this->expectException(ErrorRegistryException::class);
-            $this->expectExceptionMessageMatches(join("\n", $messages));
+            $this->expectExceptionMessageMatches(str_replace("/\n/", "\n", join("\n", $messages)));
         } else {
             $this->expectException(ValidationException::class);
             $this->expectExceptionMessageMatches($messages[0]);

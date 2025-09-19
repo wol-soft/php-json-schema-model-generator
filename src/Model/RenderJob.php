@@ -92,7 +92,9 @@ class RenderJob
     {
         $destination = dirname($this->schema->getTargetFileName());
         if (!is_dir($destination) && !mkdir($destination, 0777, true)) {
+            // @codeCoverageIgnoreStart
             throw new FileSystemException("Can't create path $destination");
+            // @codeCoverageIgnoreEnd
         }
     }
 
@@ -127,11 +129,13 @@ class RenderJob
                 ],
             );
         } catch (PHPMicroTemplateException $exception) {
+            // @codeCoverageIgnoreStart
             throw new RenderException(
                 "Can't render class {$this->schema->getClassPath()}\\{$this->schema->getClassName()}",
                 0,
                 $exception,
             );
+            // @codeCoverageIgnoreEnd
         }
 
         return $class;

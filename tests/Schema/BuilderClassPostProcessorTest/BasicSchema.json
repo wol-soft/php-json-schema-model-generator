@@ -2,10 +2,12 @@
   "type": "object",
   "properties": {
     "name": {
-      "type": "string"
+      "type": "string",
+      "minLength": 5
     },
     "age": {
-      "type": "integer"
+      "type": "integer",
+      "minimum": 0
     }
   },
   "required": [
