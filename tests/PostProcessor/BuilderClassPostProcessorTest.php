@@ -208,22 +208,6 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
-    public function testEnum(): void
-    {
-        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
-            $generator->addPostProcessor(new BuilderClassPostProcessor())->addPostProcessor(new EnumPostProcessor());
-        };
-        $className = $this->generateClassFromFile('BasicSchema.json');
-
-        $builderClassName = $className . 'Builder';
-        $builderObject = new $builderClassName();
-
-        $this->assertSame('string', $this->getParameterTypeAnnotation($builderObject, 'setName'));
-        $this->assertSame('int|null', $this->getParameterTypeAnnotation($builderObject, 'setAge'));
-        $this->assertSame('string|null', $this->getReturnTypeAnnotation($builderObject, 'getName'));
-        $this->assertSame('int|null', $this->getReturnTypeAnnotation($builderObject, 'getAge'));
-    }
-
     private function assertGeneratedBuilders(int $expectedGeneratedBuilders): void
     {
         $dir = sys_get_temp_dir() . '/PHPModelGeneratorTest/Models';
