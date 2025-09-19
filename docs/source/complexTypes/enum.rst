@@ -24,7 +24,7 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setExample(?string $example): self;
+    public function setExample(string $example): static;
     public function getExample(): ?string;
 
 Possible exceptions:
@@ -53,7 +53,7 @@ Generated interface (no typehints are generated as it's a mixed untyped enum. If
 
 .. code-block:: php
 
-    public function setExample($example): self;
+    public function setExample($example): static;
     public function getExample();
 
 Possible exceptions:

@@ -21,7 +21,7 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setExample($example): self;
+    public function setExample($example): static;
     public function getExample();
 
 

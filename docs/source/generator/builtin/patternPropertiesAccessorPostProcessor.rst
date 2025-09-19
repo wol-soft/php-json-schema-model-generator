@@ -6,7 +6,7 @@ PatternPropertiesAccessorPostProcessor
     $generator = new ModelGenerator();
     $generator->addPostProcessor(new PatternPropertiesAccessorPostProcessor());
 
-The **PatternPropertiesAccessorPostProcessor** adds methods to your model to work with `pattern properties <../complexTypes/object.html#pattern-properties>`__ on your objects. The methods will only be added if the schema for the object defines pattern properties.
+The **PatternPropertiesAccessorPostProcessor** adds methods to your model to work with `pattern properties <../../complexTypes/object.html#pattern-properties>`__ on your objects. The methods will only be added if the schema for the object defines pattern properties.
 
 Added methods
 ~~~~~~~~~~~~~
@@ -38,7 +38,7 @@ Generated interface with the **PatternPropertiesAccessorPostProcessor**:
 
     public function getRawModelDataInput(): array;
 
-    public function setExample(float $example): self;
+    public function setExample(float $example): static;
     public function getExample(): float;
 
     public function getPatternProperties(string $key): array;

@@ -30,7 +30,7 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setExample(float $example): self;
+    public function setExample(float $example): static;
     public function getExample(): float;
 
 

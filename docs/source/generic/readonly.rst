@@ -25,5 +25,5 @@ Generated interface (with immutability disabled):
 
     public function getName(): ?string;
 
-    public function setAge(?int $example): self;
+    public function setAge(int $example): static;
     public function getAge(): ?int;

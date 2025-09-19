@@ -14,7 +14,6 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
-use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintTransferDecorator;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -55,10 +54,7 @@ class BuilderClassPostProcessor extends PostProcessor
                         // ensure the getter methods for required properties can return null (they have not been set yet)
                         ->setType($property->getType(), new PropertyType($property->getType(true)->getName(), true))
                         ->addTypeHintDecorator(new TypeHintTransferDecorator($property))
-                        // keep filters to ensure values set on the builder match the return type of the getter
-                        ->filterValidators(static fn(Validator $validator): bool
-                            => is_a($validator->getValidator(), FilterValidator::class)
-                        );
+                        ->filterValidators(static fn(Validator $validator): bool => false);
                 }
             }
 

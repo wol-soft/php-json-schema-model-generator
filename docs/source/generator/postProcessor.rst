@@ -17,10 +17,11 @@ All added post processors will be executed after a schema was processed and befo
     :caption: Builtin Post Processors
     :maxdepth: 1
 
-    builtin/additionalPropertiesAccessorPostProcessor
-    builtin/patternPropertiesAccessorPostProcessor
+    builtin/builderClassPostProcessor
     builtin/enumPostProcessor
     builtin/populatePostProcessor
+    builtin/additionalPropertiesAccessorPostProcessor
+    builtin/patternPropertiesAccessorPostProcessor
 
 .. toctree::
     :caption: Custom Post Processors

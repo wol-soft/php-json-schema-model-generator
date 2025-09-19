@@ -16,7 +16,6 @@
         "wol-soft/php-micro-template": "^1.10.0",
 
         "php": ">=8.0",
-        "ext-json": "*",
         "ext-mbstring": "*"
     },
     "require-dev": {

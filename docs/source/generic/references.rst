@@ -77,7 +77,7 @@ Generated interface:
 .. code-block:: php
 
     // class Citizen
-    public function setName(?string $name): self;
+    public function setName(string $name): static;
     public function getName(): ?string;
 
 If a base reference is used and the reference doesn't point to an object definition an Exception will be thrown during the model generation process:

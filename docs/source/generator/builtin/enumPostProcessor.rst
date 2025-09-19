@@ -50,9 +50,9 @@ The type hints and annotations of the generated class will be changed to match t
 .. code-block:: php
 
     /**
-     * @param OfferState|string|null $state
+     * @param OfferState|string $state
      */
-    public function setState($state): self;
+    public function setState($state): static;
     public function getState(): ?OfferState;
 
 Mapping
@@ -91,4 +91,4 @@ If an enum which requires a mapping is found but no mapping is provided a **Sche
 
 .. note::
 
-    By enabling the *$skipNonMappedEnums* option of the **EnumPostProcessor** you can skip enums which require a mapping but don't provide a mapping. Those enums will provide the default `enum <../complexTypes/enum.html>`__ behaviour.
+    By enabling the *$skipNonMappedEnums* option of the **EnumPostProcessor** you can skip enums which require a mapping but don't provide a mapping. Those enums will provide the default `enum <../../complexTypes/enum.html>`__ behaviour.

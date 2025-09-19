@@ -59,8 +59,8 @@ Generated code in the PHP class:
     /**
      * Set the value of example.
      *
-     * @param string|null $example My example property with a large and very helpful description
+     * @param string $example My example property with a large and very helpful description
      *
      * @return self
      */
-    public function setExample(?string $example): self;
+    public function setExample(string $example): static;

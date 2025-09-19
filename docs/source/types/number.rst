@@ -22,11 +22,11 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setExample1(int $example): self;
+    public function setExample1(int $example): static;
     // As the property is not required it may be initialized with null. Consequently the return value is nullable
     public function getExample1(): ?int;
 
-    public function setExample2(float $example): self;
+    public function setExample2(float $example): static;
     public function getExample2(): ?float;
 
 Possible exceptions:
