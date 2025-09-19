@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 5
+    },
+    "age": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

@@ -146,6 +146,7 @@ class Property extends AbstractProperty
     public function addTypeHintDecorator(TypeHintDecoratorInterface $typeHintDecorator): PropertyInterface
     {
         $this->typeHintDecorators[] = $typeHintDecorator;
+        $this->renderedTypeHints = [];
 
         return $this;
     }

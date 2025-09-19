@@ -88,7 +88,7 @@ class RenderHelper
             && !($property->getDefaultValue() !== null && !$this->generatorConfiguration->isImplicitNullAllowed());
     }
 
-    public function getType(PropertyInterface $property, bool $outputType = false): string
+    public function getType(PropertyInterface $property, bool $outputType = false, bool $forceNullable = false): string
     {
         $type = $property->getType($outputType);
 
@@ -96,18 +96,24 @@ class RenderHelper
             return '';
         }
 
-        $nullable = ($type->isNullable() ?? $this->isPropertyNullable($property, $outputType)) ? '?' : '';
+        $nullable = ($type->isNullable() ?? $this->isPropertyNullable($property, $outputType)) || $forceNullable
+            ? '?'
+            : '';
 
         return "$nullable{$type->getName()}";
     }
 
-    public function getTypeHintAnnotation(PropertyInterface $property, bool $outputType = false): string
-    {
+    public function getTypeHintAnnotation(
+        PropertyInterface $property,
+        bool $outputType = false,
+        bool $forceNullable = false,
+    ): string {
         $typeHint = $property->getTypeHint($outputType);
         $hasDefinedNullability = ($type = $property->getType($outputType)) && $type->isNullable() !== null;
 
         if ((($hasDefinedNullability && $type->isNullable())
                 || (!$hasDefinedNullability && $this->isPropertyNullable($property, $outputType))
+                || $forceNullable
             ) && !strstr($typeHint, 'mixed')
         ) {
             $typeHint = "$typeHint|null";
@@ -160,5 +166,14 @@ if ({$validator->getCheck()}) {
     public static function varExportArray(array $values): string
     {
         return preg_replace('(\d+\s=>)', '', var_export($values, true));
+    }
+
+    public static function filterClassImports(array $imports, string $namespace): array
+    {
+        // filter out non-compound uses and uses which link to the current namespace
+        return array_filter($imports, static fn($classPath): bool =>
+            strstr(trim(str_replace("$namespace", '', $classPath), '\\'), '\\') ||
+            (!strstr($classPath, '\\') && !empty($namespace)),
+        );
     }
 }

@@ -207,7 +207,9 @@ Let's have a look how the generated model behaves:
 dateTime
 ^^^^^^^^
 
-The dateTime filter is only valid for string and null properties.
+The dateTime filter is only valid for string, number, float and nullable properties.
+Number and float values will be handled as timestamps.
+With the type of your property, you can limit the possible inputs, e.g. to accept only strings:
 
 .. code-block:: json
 
@@ -230,9 +232,9 @@ Generated interface:
 
 .. code-block:: php
 
-    // $productionDate accepts string|DateTime|null
+    // $productionDate accepts string|DateTime
     // if a string is provided the string will be transformed into a DateTime
-    public function setProductionDate($productionDate): self;
+    public function setProductionDate($productionDate): static;
     public function getProductionDate(): ?DateTime;
 
 Let's have a look how the generated model behaves:

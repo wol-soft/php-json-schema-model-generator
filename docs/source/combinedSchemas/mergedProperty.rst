@@ -53,14 +53,14 @@ Generated interface:
 .. code-block:: php
 
     # class Company
-    public function setCeo(?Company_Merged_CEO $example): self;
+    public function setCeo(Company_Merged_CEO $example): static;
     public function getCeo(): ?Company_Merged_CEO;
 
     # class Company_Merged_CEO
     public function getName(): ?string
-    public function setName(?string $name): self
+    public function setName(string $name): static
     public function getAge(): ?int
-    public function setAge(?int $name): self
+    public function setAge(int $name): static
 
 If your composition is defined on object level the object will gain access to all properties of the combined schemas:
 
@@ -99,6 +99,6 @@ This schema will generate three classes as no merged property is created. The ma
 
     # class CEO
     public function getName(): ?string
-    public function setName(?string $name): self
+    public function setName(string $name): static
     public function getAge(): ?int
-    public function setAge(?int $name): self
+    public function setAge(int $name): static

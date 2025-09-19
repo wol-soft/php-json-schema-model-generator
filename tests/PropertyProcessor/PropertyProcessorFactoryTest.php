@@ -41,7 +41,7 @@ class PropertyProcessorFactoryTest extends TestCase
             $type,
             new PropertyMetaDataCollection(),
             new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),
-            new Schema('', '', new JsonSchema('', [])),
+            new Schema('', '', '', new JsonSchema('', [])),
         );
 
         $this->assertInstanceOf($expectedClass, $propertyProcessor);
@@ -77,7 +77,7 @@ class PropertyProcessorFactoryTest extends TestCase
             'Hello',
             new PropertyMetaDataCollection(),
             new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),
-            new Schema('', '', new JsonSchema('', [])),
+            new Schema('', '', '', new JsonSchema('', [])),
         );
     }
 }

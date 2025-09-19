@@ -1,7 +1,7 @@
 /**
  * Get additional properties
  *
- * @return {% if validationProperty %}{% if viewHelper.getTypeHintAnnotation(validationProperty, true) %}{{ viewHelper.getTypeHintAnnotation(validationProperty, true) }}{% endif %}{% else %}array{% endif %}
+ * @return {% if validationProperty and viewHelper.getTypeHintAnnotation(validationProperty, true) %}{{ viewHelper.getTypeHintAnnotation(validationProperty, true) }}{% else %}array{% endif %}
  */
 public function getAdditionalProperties(): array
 {

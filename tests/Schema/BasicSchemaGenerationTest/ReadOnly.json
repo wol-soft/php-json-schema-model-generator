@@ -3,11 +3,11 @@
   "properties": {
     "readOnlyTrue": {
       "type": "string",
-      "readOnly": true
+      "readonly": true
     },
     "readOnlyFalse": {
       "type": "string",
-      "readOnly": false
+      "readonly": false
     },
     "noReadOnly": {
       "type": "string"

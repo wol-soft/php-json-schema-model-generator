@@ -260,8 +260,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
         foreach ($generatedFiles as $path) {
             $this->generatedFiles[] = $path;
-
-            require $path;
         }
 
         return $className;
@@ -276,15 +274,18 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
      */
     protected function generateDirectory(string $directory, GeneratorConfiguration $configuration): array
     {
-        $generatedClasses = (new ModelGenerator($configuration))->generateModels(
+        $generator = new ModelGenerator($configuration);
+        if (is_callable($this->modifyModelGenerator)) {
+            ($this->modifyModelGenerator)($generator);
+        }
+
+        $generatedClasses = $generator->generateModels(
             new RecursiveDirectoryProvider(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $directory),
             MODEL_TEMP_PATH,
         );
 
         foreach ($generatedClasses as $path) {
             $this->generatedFiles[] = $path;
-
-            require $path;
         }
 
         return $generatedClasses;
@@ -336,7 +337,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
         if ($configuration->collectErrors()) {
             $this->expectException(ErrorRegistryException::class);
-            $this->expectExceptionMessageMatches(join("\n", $messages));
+            $this->expectExceptionMessageMatches(str_replace("/\n/", "\n", join("\n", $messages)));
         } else {
             $this->expectException(ValidationException::class);
             $this->expectExceptionMessageMatches($messages[0]);

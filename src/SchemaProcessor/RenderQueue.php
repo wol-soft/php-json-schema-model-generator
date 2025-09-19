@@ -44,7 +44,7 @@ class RenderQueue
         }
 
         foreach ($this->jobs as $job) {
-            $job->postProcess($postProcessors, $generatorConfiguration);
+            $job->executePostProcessors($postProcessors, $generatorConfiguration);
             $job->render($generatorConfiguration);
         }
 

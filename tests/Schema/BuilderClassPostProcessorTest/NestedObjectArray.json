@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "addressList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "street": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "street": {
+      "type": "string"
+    },
+    "number": {
+      "type": "integer"
+    }
+  }
+}

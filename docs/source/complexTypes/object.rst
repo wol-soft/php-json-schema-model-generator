@@ -32,16 +32,16 @@ Generated interface:
 .. code-block:: php
 
     // class Person
-    public function setName(string $name): self;
+    public function setName(string $name): static;
     // As the property is not required it may be initialized with null. Consequently the return value is nullable
     public function getName(): ?string;
-    public function setCar(Car $name): self;
+    public function setCar(Car $name): static;
     public function getCar(): ?Car;
 
     // class Car
-    public function setModel(string $name): self;
+    public function setModel(string $name): static;
     public function getModel(): ?string;
-    public function setPs(int $name): self;
+    public function setPs(int $name): static;
     public function getPs(): ?int;
 
 Possible exceptions:
@@ -123,9 +123,9 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setUnderscorePropertyMinus(string $name): self;
+    public function setUnderscorePropertyMinus(string $name): static;
     public function getUnderscorePropertyMinus(): ?string;
-    public function setCapsAndSpace100(string $name): self;
+    public function setCapsAndSpace100(string $name): static;
     public function getCapsAndSpace100(): ?string;
 
 If the name normalization results in an empty attribute name (eg. '__ -- __') an exception will be thrown.
@@ -162,7 +162,7 @@ Possible exceptions:
 
     Properties defined in the `required` array but not defined in the `properties` will be added to the interface of the generated class.
 
-    A schema defining only the required property `example` consequently will provide the methods `getExample(): mixed` and `setExample(mixed $value): self`.
+    A schema defining only the required property `example` consequently will provide the methods `getExample(): mixed` and `setExample(mixed $value): static`.
 
 Size
 ----
@@ -208,7 +208,7 @@ Using the keyword `additionalProperties` the object can be limited to not contai
 
 .. hint::
 
-    If you define constraints via `additionalProperties` you may want to use the `AdditionalPropertiesAccessorPostProcessor <../generator/postProcessor.html#additionalpropertiesaccessorpostprocessor>`__ to access and modify your additional properties.
+    If you define constraints via `additionalProperties` you may want to use the `AdditionalPropertiesAccessorPostProcessor <../generator/builtin/additionalPropertiesAccessorPostProcessor.html>`__ to access and modify your additional properties.
 
 .. code-block:: json
 
@@ -315,13 +315,13 @@ Generated interface:
 .. code-block:: php
 
     // class Family, arrays type hinted in docblocks with Family_Person[]
-    public function setMembers(array $members): self;
+    public function setMembers(array $members): static;
     public function getMembers(): ?array;
 
     // class Person, arrays type hinted in docblocks with Family_Person[]
-    public function setName(string $name): self;
+    public function setName(string $name): static;
     public function getName(): ?string;
-    public function setChildren(array $name): self;
+    public function setChildren(array $name): static;
     public function getChildren(): ?array;
 
 Property Names
@@ -479,14 +479,14 @@ Generated interface:
 
     // class CreditCardOwner
     // base properties
-    public function setCreditCard(int $creditCard): self;
+    public function setCreditCard(int $creditCard): static;
     public function getCreditCard(): ?int;
 
     // inherited properties
     // the inherited properties will not be type hinted as they may contain any value if credit_card isn't present.
-    public function setBillingAddress($billingAddress): self;
+    public function setBillingAddress($billingAddress): static;
     public function getBillingAddress();
-    public function setDateOfBirth($dateOfBirth): self;
+    public function setDateOfBirth($dateOfBirth): static;
     public function getDateOfBirth();
 
 .. hint::
@@ -520,7 +520,7 @@ Using the keyword `patternProperties` further restrictions for properties matchi
 
 .. hint::
 
-    If you define constraints via `patternProperties` you may want to use the `PatternPropertiesAccessorPostProcessor <../generator/postProcessor.html#patternpropertiesaccessorpostprocessor>`__ to access your pattern properties.
+    If you define constraints via `patternProperties` you may want to use the `PatternPropertiesAccessorPostProcessor <../generator/builtin/patternPropertiesAccessorPostProcessor.html>`__ to access your pattern properties.
 
 .. code-block:: json
 

@@ -62,12 +62,10 @@ public function populate(array $modelData): self
     $this->_rawModelDataInput = array_merge($this->_rawModelDataInput, $modelData);
 
     {% foreach schema.getProperties() as property %}
-        {% if not property.isInternal() %}
-            {% if schemaHookResolver.resolveSetterAfterValidationHook(property) %}
-                if (array_key_exists('{{ property.getName() }}', $rollbackValues)) {
-                    {{ schemaHookResolver.resolveSetterAfterValidationHook(property, true) }}
-                }
-            {% endif %}
+        {% if not property.isInternal() and schemaHookResolver.resolveSetterAfterValidationHook(property) %}
+            if (array_key_exists('{{ property.getName() }}', $rollbackValues)) {
+                {{ schemaHookResolver.resolveSetterAfterValidationHook(property, true) }}
+            }
         {% endif %}
     {% endforeach %}
 

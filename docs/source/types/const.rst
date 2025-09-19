@@ -19,7 +19,7 @@ Generated interface (the typehint is auto-detected from the given constant value
 
 .. code-block:: php
 
-    public function setExample(int $example): self;
+    public function setExample(int $example): static;
     public function getExample(): int;
 
 Possible exceptions:

@@ -30,7 +30,7 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setExample(float $example): self;
+    public function setExample(float $example): static;
     public function getExample(): ?float;
 
 Possible exception (in this case 50 was provided so the if condition succeeds but the then branch failed):
@@ -112,8 +112,8 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setCountry(string $country): self;
+    public function setCountry(string $country): static;
     public function getCountry(): ?string;
 
-    public function setPostalCode(string $country): self;
+    public function setPostalCode(string $country): static;
     public function getPostalCode(): ?string;

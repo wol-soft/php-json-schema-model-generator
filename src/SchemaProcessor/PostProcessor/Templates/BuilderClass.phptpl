@@ -1,0 +1,114 @@
+<?php
+
+// @codingStandardsIgnoreFile
+// @codeCoverageIgnoreStart
+
+declare(strict_types = 1);
+
+{% if namespace %}
+    namespace {{ namespace }};
+{% endif %}
+
+{% foreach use as import %}
+    use {{ import }};
+{% endforeach %}
+
+/**
+ * Builder class for {{ class }}
+ */
+class {{ class }}Builder implements BuilderInterface
+{
+    /** @var array */
+    protected $_rawModelDataInput = [];
+
+    {% if generatorConfiguration.collectErrors() %}
+        /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} */
+        protected $_errorRegistry;
+
+        public function __construct()
+        {
+            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        }
+    {% endif %}
+
+    /**
+     * Get the raw input used to set up the model
+     *
+     * @return array
+     */
+    public function getRawModelDataInput(): array
+    {
+        return $this->_rawModelDataInput;
+    }
+
+    /**
+     * Set up a new instance of {{ class }} with fully validated properties
+     */
+    public function validate(): {{ class }}
+    {
+        array_walk_recursive(
+            $this->_rawModelDataInput,
+            function (&$property): void {
+                if ($property instanceof BuilderInterface) {
+                    $property = $property->getRawModelDataInput();
+                }
+            },
+        );
+
+        return new {{ class }}($this->_rawModelDataInput);
+    }
+
+    {% foreach properties as property %}
+        {% if not property.isInternal() %}
+            /**
+             * Get the value of {{ property.getName() }}.
+             *
+             * {% if property.getDescription() %}{{ property.getDescription() }}{% endif %}
+             *
+             * {% if viewHelper.getTypeHintAnnotation(property) %}@return {{ viewHelper.getTypeHintAnnotation(property, false, true) }}{% endif %}
+             */
+            public function get{{ viewHelper.ucfirst(property.getAttribute()) }}()
+                {% if property.getType() %}: {{ viewHelper.getType(property, false, true) }}{% endif %}
+            {
+                return $this->_rawModelDataInput['{{ property.getName() }}'] ?? null;
+            }
+
+            /**
+             * Set the value of {{ property.getName() }}.
+             *
+             * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute(true) }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
+             *
+             * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+             *
+             * @return static
+             */
+            public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
+                {{ viewHelper.getType(property) }} ${{ property.getAttribute(true) }}
+            ): static {
+                if (array_key_exists('{{ property.getName() }}', $this->_rawModelDataInput)
+                    && $this->_rawModelDataInput['{{ property.getName() }}'] === ${{ property.getAttribute(true) }}
+                ) {
+                    return $this;
+                }
+
+                $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
+
+                {% foreach property.getOrderedValidators() as validator %}
+                    {{ viewHelper.renderValidator(validator, schema) }}
+                {% endforeach %}
+
+                {% if property.getOrderedValidators() and generatorConfiguration.collectErrors() %}
+                    if ($this->_errorRegistry->getErrors()) {
+                        throw $this->_errorRegistry;
+                    }
+                {% endif %}
+
+                $this->_rawModelDataInput['{{ property.getName() }}'] = $value;
+
+                return $this;
+            }
+        {% endif %}
+    {% endforeach %}
+}
+
+// @codeCoverageIgnoreEnd
