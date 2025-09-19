@@ -51,8 +51,6 @@ class BuilderClassPostProcessor extends PostProcessor
                 if (!$property->isInternal()) {
                     $properties[] = (clone $property)
                         ->setReadOnly(false)
-                        // ensure the getter methods for required properties can return null (they have not been set yet)
-                        ->setType($property->getType(), new PropertyType($property->getType(true)->getName(), true))
                         ->addTypeHintDecorator(new TypeHintTransferDecorator($property))
                         ->filterValidators(static fn(Validator $validator): bool => false);
                 }
