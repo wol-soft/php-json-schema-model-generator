@@ -8,7 +8,6 @@ use FilesystemIterator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
