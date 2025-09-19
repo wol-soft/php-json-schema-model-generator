@@ -122,12 +122,7 @@ class BuilderClassPostProcessor extends PostProcessor
                     }
                 }
 
-                // required for compatibility with the EnumPostProcessor
-                if (enum_exists($type)) {
-                    array_push($imports, $type, UnitEnum::class);
-                }
-
-                if (class_exists($type)) {
+                if (class_exists($type) || enum_exists($type)) {
                     $imports[] = $type;
 
                     // for nested objects, allow additionally to pass an instance of the nested model also just plain
@@ -138,6 +133,8 @@ class BuilderClassPostProcessor extends PostProcessor
                         ));
 
                         $property->setType();
+
+                        $imports[] = $type . 'Builder';
                     }
                 }
             }

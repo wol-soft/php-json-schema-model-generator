@@ -12,6 +12,7 @@ use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use ReflectionEnum;
@@ -583,6 +584,64 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
             [$expectedNormalizedName],
             array_map(fn(BackedEnum $value): string => $value->name, $enum::cases()),
         );
+    }
+
+    /**
+     * @requires PHP >= 8.1
+     */
+    public function testEnumForBuilderClass(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator
+                ->addPostProcessor(new BuilderClassPostProcessor())
+                ->addPostProcessor(
+                    new EnumPostProcessor(
+                        join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
+                        'Enum',
+                    )
+                );
+        };
+
+        $className = $this->generateClassFromFileTemplate('EnumProperty.json', ['["hans", "dieter"]'], escape: false);
+        $builderClassName = $className . 'Builder';
+
+        $this->assertGeneratedEnums(1);
+
+        $builder = new $builderClassName();
+        $builder->setProperty('dieter');
+
+        $object = $builder->validate();
+        $this->assertInstanceOf($className, $object);
+        $this->assertSame('dieter', $object->getProperty()->value);
+
+        $returnType = $this->getReturnType($object, 'getProperty');
+        $enum = $returnType->getName();
+        $this->assertTrue(enum_exists($enum));
+
+        $reflectionEnum = new ReflectionEnum($enum);
+        $enumName = $reflectionEnum->getShortName();
+
+        $this->assertNull($this->getReturnType($builder, 'getProperty'));
+        $this->assertEqualsCanonicalizing(
+            [$enumName, 'string', 'null'],
+            explode('|', $this->getReturnTypeAnnotation($builder, 'getProperty')),
+        );
+
+        $this->assertNull($this->getParameterType($builder, 'setProperty'));
+        $this->assertEqualsCanonicalizing(
+            [$enumName, 'string', 'null'],
+            explode('|', $this->getParameterTypeAnnotation($builder, 'setProperty')),
+        );
+
+        $builder->setProperty($enum::Hans);
+        $object = $builder->validate();
+        $this->assertInstanceOf($className, $object);
+        $this->assertSame('hans', $object->getProperty()->value);
+
+        $builder->setProperty('Meier');
+        $this->expectException(EnumException::class);
+        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+        $builder->validate();
     }
 
     public function normalizedNamesDataProvider(): array

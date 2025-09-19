@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\PostProcessor;
 
+use FilesystemIterator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
 
 class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -103,26 +108,21 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
     public function testNestedObject(): void
     {
-        $className = $this->generateClassFromFile('NestedObject.json');
+        $files = $this->generateDirectory(
+            'NestedObject',
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('MyApp\\Namespace\\')
+                ->setOutputEnabled(false)
+                ->setImplicitNull(true),
+        );
 
+        $this->assertCount(2, $files);
         $this->assertGeneratedBuilders(2);
 
-        $builderClassName = $className . 'Builder';
+        $builderClassName = 'MyApp\Namespace\NestedObjectBuilder';
         $builderObject = new $builderClassName();
 
-        $nestedObjectClassName = null;
-        foreach ($this->getGeneratedFiles() as $file) {
-            if (str_contains($file, 'Address')) {
-                $nestedObjectClassName = str_replace('.php', '', basename($file));
-
-                break;
-            }
-        }
-
-        $nestedBuilderClassName = $nestedObjectClassName . 'Builder';
-
-        $this->assertNotEmpty($nestedObjectClassName);
-        $expectedTypeHint = "$nestedObjectClassName|$nestedBuilderClassName|array|null";
+        $expectedTypeHint = "Address|AddressBuilder|array|null";
         $this->assertSame($expectedTypeHint, $this->getParameterTypeAnnotation($builderObject, 'setAddress'));
         $this->assertSame($expectedTypeHint, $this->getReturnTypeAnnotation($builderObject, 'getAddress'));
 
@@ -136,6 +136,7 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(10, $object->getAddress()->getNumber());
 
         // test generate nested object from nested builder
+        $nestedBuilderClassName = 'MyApp\Namespace\Dependencies\AddressBuilder';
         $nestedBuilderObject = new $nestedBuilderClassName();
         $this->assertSame('string|null', $this->getParameterTypeAnnotation($nestedBuilderObject, 'setStreet'));
         $this->assertSame('int|null', $this->getParameterTypeAnnotation($nestedBuilderObject, 'setNumber'));
@@ -151,12 +152,18 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(10, $object->getAddress()->getNumber());
 
         // test add validated object
+        $nestedObjectClassName =  'MyApp\Namespace\Dependencies\Address';
         $nestedObject = new $nestedObjectClassName($addressArray);
         $builderObject->setAddress($nestedObject);
         $this->assertSame($nestedObject, $builderObject->getAddress());
         $object = $builderObject->validate();
         $this->assertSame('Test street', $object->getAddress()->getStreet());
         $this->assertSame(10, $object->getAddress()->getNumber());
+
+        // check if the nested objects from a different namespace are correctly imported
+        $mainFileContent = file_get_contents(str_replace('.php', 'Builder.php', $files[1]));
+        $this->assertStringContainsString("use $nestedObjectClassName;", $mainFileContent);
+        $this->assertStringContainsString("use $nestedBuilderClassName;", $mainFileContent);
     }
 
     public function testNestedObjectArray(): void
@@ -201,10 +208,37 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
+    public function testEnum(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new BuilderClassPostProcessor())->addPostProcessor(new EnumPostProcessor());
+        };
+        $className = $this->generateClassFromFile('BasicSchema.json');
+
+        $builderClassName = $className . 'Builder';
+        $builderObject = new $builderClassName();
+
+        $this->assertSame('string', $this->getParameterTypeAnnotation($builderObject, 'setName'));
+        $this->assertSame('int|null', $this->getParameterTypeAnnotation($builderObject, 'setAge'));
+        $this->assertSame('string|null', $this->getReturnTypeAnnotation($builderObject, 'getName'));
+        $this->assertSame('int|null', $this->getReturnTypeAnnotation($builderObject, 'getAge'));
+    }
+
     private function assertGeneratedBuilders(int $expectedGeneratedBuilders): void
     {
         $dir = sys_get_temp_dir() . '/PHPModelGeneratorTest/Models';
-        $files = array_filter(scandir($dir), fn (string $file): bool => str_ends_with($file, 'Builder.php'));
+
+        $it = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)
+        );
+
+        $files = [];
+        /** @var SplFileInfo $file */
+        foreach ($it as $file) {
+            if ($file->isFile() && str_ends_with($file->getFilename(), 'Builder.php')) {
+                $files[] = $file->getPathname();
+            }
+        }
 
         $this->assertCount($expectedGeneratedBuilders, $files);
     }

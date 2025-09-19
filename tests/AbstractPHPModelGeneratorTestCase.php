@@ -274,7 +274,12 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
      */
     protected function generateDirectory(string $directory, GeneratorConfiguration $configuration): array
     {
-        $generatedClasses = (new ModelGenerator($configuration))->generateModels(
+        $generator = new ModelGenerator($configuration);
+        if (is_callable($this->modifyModelGenerator)) {
+            ($this->modifyModelGenerator)($generator);
+        }
+
+        $generatedClasses = $generator->generateModels(
             new RecursiveDirectoryProvider(__DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $directory),
             MODEL_TEMP_PATH,
         );
