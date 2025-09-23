@@ -11,7 +11,7 @@ By default all classes are immutable. If the GeneratorConfiguration option for i
         "properties": {
             "name": {
                 "type": "string",
-                "readonly": true
+                "readOnly": true
             },
             "age": {
                 "type": "integer"
