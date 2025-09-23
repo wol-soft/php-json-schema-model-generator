@@ -24,12 +24,16 @@ class {{ class }}Builder implements BuilderInterface
     {% if generatorConfiguration.collectErrors() %}
         /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} */
         protected $_errorRegistry;
-
-        public function __construct()
-        {
-            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-        }
     {% endif %}
+
+    public function __construct(array $rawModelDataInput = [])
+    {
+        $this->_rawModelDataInput = $rawModelDataInput;
+
+        {% if generatorConfiguration.collectErrors() %}
+            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        {% endif %}
+    }
 
     /**
      * Get the raw input used to set up the model

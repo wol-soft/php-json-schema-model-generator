@@ -48,8 +48,9 @@ In this case the model generator will generate two classes: **Example** and **Ex
 
 Note, that the *getExample* method of the **ExampleBuilder** can return null.
 This applies for all getter methods of the builder instance, as we don't know if the property has already been set on the object.
-In contrast to the general model class, which is populated via an array provided in the constructor, the constructor of the builder class doesn't accept any data, the instances have to be populated via the setter methods.
-The setter methods don't perform further validation, so if your property has for example a **minLength** constraint and the value you set doesn't fulfill the constraint, the set will not fail.
+In contrast to the general model class, which is fully populated via an array provided in the constructor, the constructor of the builder class accepts any subset of the properties.
+The remaining properties can be populated via the generated setter methods.
+Neither the constructor nor the setter methods perform further validation, so if your property has for example a **minLength** constraint and the value you set doesn't fulfill the constraint, the set will not fail.
 The call to validate will populate a new instance of **Example** and perform a full validation of all constraints and, in case of violations, throw an exception matching your `error handling configuration <../../gettingStarted.html#collect-errors-vs-early-return>`__.
 
 If we want to implement the builder as a builder for responses, a full code example might look like the following (assuming `serialization <../../gettingStarted.html#serialization-methods>`__ is enabled):

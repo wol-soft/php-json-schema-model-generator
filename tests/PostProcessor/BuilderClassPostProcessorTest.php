@@ -69,6 +69,21 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => 65], $validatedObject->toArray());
     }
 
+    public function testPopulateBuilderClassViaConstructor(): void
+    {
+        $className = $this->generateClassFromFile('BasicSchema.json');
+
+        $builderClassName = $className . 'Builder';
+        $builderObject = new $builderClassName(['name' => 'Albert']);
+
+        $this->assertSame('Albert', $builderObject->getName());
+        $this->assertNull($builderObject->getAge());
+
+        $object = $builderObject->validate();
+
+        $this->assertSame('Albert', $object->getName());
+        $this->assertNull($object->getAge());
+    }
     /**
      * @dataProvider validationMethodDataProvider
      */

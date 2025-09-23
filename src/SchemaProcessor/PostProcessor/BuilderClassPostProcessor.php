@@ -11,14 +11,12 @@ use PHPModelGenerator\Interfaces\BuilderInterface;
 use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintTransferDecorator;
 use PHPModelGenerator\Utils\RenderHelper;
 use ReflectionClass;
-use UnitEnum;
 
 class BuilderClassPostProcessor extends PostProcessor
 {
