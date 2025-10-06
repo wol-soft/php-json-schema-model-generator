@@ -6,8 +6,9 @@
     $rollbackValues = $this->_patternProperties;
 
     foreach ($properties as $propertyKey => $value) {
+        $propertyKey = (string) $propertyKey;
         try {
-            if (!preg_match(base64_decode('{{ pattern }}'), (string) $propertyKey)) {
+            if (!preg_match(base64_decode('{{ pattern }}'), $propertyKey)) {
                 continue;
             }
 
