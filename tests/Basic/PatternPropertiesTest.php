@@ -6,6 +6,9 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PatternPropertiesAccessorPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 
@@ -96,5 +99,23 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className(['a/b' => 'Hello']);
 
         $this->assertSame(['a/b' => 'Hello'], $object->getRawModelDataInput());
+    }
+
+    public function testNumericPatternProperties(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PatternPropertiesAccessorPostProcessor(),);
+        };
+
+        $className = $this->generateClassFromFileTemplate(
+            'PatternProperty.json',
+            ['^[0-9]+$'],
+            (new GeneratorConfiguration())->setSerialization(true),
+        );
+
+        $object = new $className([10 => 'Hello', '12' => 'World']);
+
+        $this->assertSame(['10' => 'Hello', '12' => 'World'], $object->toArray());
+        $this->assertSame(['10' => 'Hello', '12' => 'World'], $object->getPatternProperties('^[0-9]+$'));
     }
 }

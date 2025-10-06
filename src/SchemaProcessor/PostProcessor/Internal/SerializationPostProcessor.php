@@ -157,7 +157,7 @@ class SerializationPostProcessor extends PostProcessor
             new class () implements SerializationHookInterface {
                 public function getCode(): string
                 {
-                    return '$data = array_merge($this->serializePatternProperties($depth, $except), $data);';
+                    return '$data += $this->serializePatternProperties($depth, $except);';
                 }
             },
         );
