@@ -7,7 +7,6 @@ namespace PHPModelGenerator\Tests\Basic;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
-use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PatternPropertiesAccessorPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;

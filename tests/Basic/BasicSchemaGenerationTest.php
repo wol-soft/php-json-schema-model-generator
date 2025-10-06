@@ -218,6 +218,31 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
         $this->assertFalse($object->toJSON([], 0, 0));
     }
 
+    public function testMultidimensionalArraySerialization(): void
+    {
+        $className = $this->generateClassFromFile(
+            'MultidimensionalArray.json',
+            (new GeneratorConfiguration())->setSerialization(true),
+        );
+
+        $structure = [
+            'array' => [
+                [
+                    ['id' => 1],
+                    ['id' => 2],
+                ],
+                [
+                    ['id' => 3],
+                    ['id' => 4],
+                ],
+            ],
+        ];
+
+        $object = new $className($structure);
+        $this->assertSame($structure, $object->toArray());
+        $this->assertSame('{"array":[[{"id":1},{"id":2}],[{"id":3},{"id":4}]]}', $object->toJSON());
+    }
+
     /**
      * @dataProvider invalidStringPropertyValueProvider
      */
