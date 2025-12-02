@@ -68,7 +68,7 @@ class SchemaProcessor
             $jsonSchema,
             $this->currentClassPath,
             $this->currentClassName,
-            new SchemaDefinitionDictionary(dirname($jsonSchema->getFile())),
+            new SchemaDefinitionDictionary($jsonSchema),
             true,
         );
     }

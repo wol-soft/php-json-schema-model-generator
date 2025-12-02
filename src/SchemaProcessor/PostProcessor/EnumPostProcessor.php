@@ -75,8 +75,9 @@ class EnumPostProcessor extends PostProcessor
             $this->checkForExistingTransformingFilter($property);
 
             $values = $json['enum'];
-            $enumSignature = ArrayHash::hash($json, ['enum', 'enum-map', '$id']);
-            $enumName = $json['$id'] ?? $schema->getClassName() . ucfirst($property->getName());
+            $enumSignature = ArrayHash::hash($json, ['enum', 'enum-map', 'title', '$id']);
+            $enumName = $json['title']
+                ?? basename($json['$id'] ?? $schema->getClassName() . ucfirst($property->getName()));
 
             if (!isset($this->generatedEnums[$enumSignature])) {
                 $this->generatedEnums[$enumSignature] = [

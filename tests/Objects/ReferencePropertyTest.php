@@ -395,9 +395,9 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNestedExternalReference(string $reference): void
+    public function testNestedExternalReference(string $id, string $reference): void
     {
-        $className = $this->generateClassFromFileTemplate('NestedExternalReference.json', [$reference]);
+        $className = $this->generateClassFromFileTemplate('NestedExternalReference.json', [$id, $reference]);
 
         $object = new $className([
             'family' => [
@@ -426,9 +426,29 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
     public function nestedReferenceProvider(): array
     {
+        $baseURL = 'https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/';
+
         return [
-            'Local reference' => ['../ReferencePropertyTest_external/library.json'],
-            'Network reference' => ['https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/library.json'],
+            'local reference - relative' => [
+                'NestedExternalReference.json',
+                '../ReferencePropertyTest_external/library.json',
+            ],
+            'local reference - context absolute' => [
+                'NestedExternalReference.json',
+                '/ReferencePropertyTest_external/library.json',
+            ],
+            'network reference - full URL' => [
+                'NestedExternalReference.json',
+                $baseURL . 'ReferencePropertyTest_external/library.json',
+            ],
+            'network reference - relative path to full URL $id' => [
+                $baseURL . 'ReferencePropertyTest/NestedExternalReference.json',
+                '../ReferencePropertyTest_external/library.json',
+            ],
+            'network reference - absolute path to full URL $id' => [
+                $baseURL . 'ReferencePropertyTest/NestedExternalReference.json',
+                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/library.json',
+            ],
         ];
     }
 
