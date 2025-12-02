@@ -120,11 +120,11 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
                 ->setOutputEnabled(false),
         );
 
-        $subClass1FQCN = '\\IdenticalSubSchemaDifferentNamespace\\DifferentNamespaceSubFolder1\\SubSchema';
+        $subClass1FQCN = '\\IdenticalSubSchemaDifferentNamespace\\DifferentNamespaceSubFolder10\\SubSchema';
         $subObject1 = new $subClass1FQCN(['object1' => ['property1' => 'Hello']]);
         $this->assertSame('Hello', $subObject1->getObject1()->getProperty1());
 
-        $subClass2FQCN = '\\IdenticalSubSchemaDifferentNamespace\\DifferentNamespaceSubFolder2\\SubSchema';
+        $subClass2FQCN = '\\IdenticalSubSchemaDifferentNamespace\\DifferentNamespaceSubFolder20\\SubSchema';
         $subObject2 = new $subClass2FQCN(['object1' => ['property1' => 'Goodbye']]);
         $this->assertSame('Goodbye', $subObject2->getObject1()->getProperty1());
 
