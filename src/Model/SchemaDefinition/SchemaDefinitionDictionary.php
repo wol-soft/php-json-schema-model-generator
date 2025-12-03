@@ -210,17 +210,18 @@ class SchemaDefinitionDictionary extends ArrayObject
         $jsonSchemaFile = str_replace('\\', '/', $jsonSchemaFile);
 
         // relative paths to the current location
-        if (!str_starts_with($jsonSchemaFile, '/')) {
+        if (!preg_match('#^(?:[A-Za-z]:/|/)#', $jsonSchemaFile, $match)) {
             $candidate = $this->normalizePath($currentDir . '/' . $jsonSchemaFile);
             return file_exists($candidate) ? $candidate : null;
         }
 
+        $absolutePathPrefix = $match[0];
         // absolute paths: traverse up to find the context root directory
-        $relative = ltrim($jsonSchemaFile, '/');
+        $relative = substr($jsonSchemaFile, strlen($absolutePathPrefix));
 
         $dir = $currentDir;
         while (true) {
-            $candidate = $this->normalizePath($dir . '/' . $relative);
+            $candidate = $absolutePathPrefix . $this->normalizePath($dir . '/' . $relative);
             if (file_exists($candidate)) {
                 return $candidate;
             }
