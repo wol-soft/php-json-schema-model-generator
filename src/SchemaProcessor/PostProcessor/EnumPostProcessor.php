@@ -22,13 +22,14 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\Utils\ArrayHash;
-use PHPModelGenerator\Utils\NormalizedName;
 
 /**
  * Generates a PHP enum for enums from JSON schemas which are automatically mapped for properties holding the enum
  */
 class EnumPostProcessor extends PostProcessor
 {
+    use EnumTrait;
+
     private array $generatedEnums = [];
 
     private string $namespace;
@@ -68,7 +69,7 @@ class EnumPostProcessor extends PostProcessor
         foreach ($schema->getProperties() as $property) {
             $json = $property->getJsonSchema()->getJson();
 
-            if (!isset($json['enum']) || !$this->validateEnum($property)) {
+            if (!isset($json['enum']) || !$this->validateEnum($property, $this->skipNonMappedEnums)) {
                 continue;
             }
 
@@ -169,63 +170,6 @@ class EnumPostProcessor extends PostProcessor
         parent::postProcess();
     }
 
-    /**
-     * @throws SchemaException
-     */
-    private function validateEnum(PropertyInterface $property): bool
-    {
-        $throw = function (string $message) use ($property): void {
-            throw new SchemaException(
-                sprintf(
-                    $message,
-                    $property->getName(),
-                    $property->getJsonSchema()->getFile(),
-                )
-            );
-        };
-
-        $json = $property->getJsonSchema()->getJson();
-
-        $types = $this->getArrayTypes($json['enum']);
-
-        // the enum must contain either only string values or provide a value map to resolve the values
-        if ($types !== ['string'] && !isset($json['enum-map'])) {
-            if ($this->skipNonMappedEnums) {
-                return false;
-            }
-
-            $throw('Unmapped enum %s in file %s');
-        }
-
-        if (isset($json['enum-map'])) {
-            asort($json['enum']);
-            if (is_array($json['enum-map'])) {
-                asort($json['enum-map']);
-            }
-
-            if (!is_array($json['enum-map'])
-                || $this->getArrayTypes(array_keys($json['enum-map'])) !== ['string']
-                || count(array_uintersect(
-                    $json['enum-map'],
-                    $json['enum'],
-                    fn($a, $b): int => $a === $b ? 0 : 1,
-                )) !== count($json['enum'])
-            ) {
-                $throw('invalid enum map %s in file %s');
-            }
-        }
-
-        return true;
-    }
-
-    private function getArrayTypes(array $array): array
-    {
-        return array_unique(array_map(
-            static fn($item): string => gettype($item),
-            $array,
-        ));
-    }
-
     private function renderEnum(
         GeneratorConfiguration $generatorConfiguration,
         JsonSchema $jsonSchema,
@@ -236,20 +180,14 @@ class EnumPostProcessor extends PostProcessor
         $cases = [];
 
         foreach ($values as $value) {
-            $caseName = ucfirst(NormalizedName::from($map ? array_search($value, $map, true) : $value, $jsonSchema));
-
-            if (preg_match('/^\d/', $caseName) === 1) {
-                $caseName = "_$caseName";
-            }
-
-            $cases[$caseName] = var_export($value, true);
+            $cases[$this->getCaseName($value, $map, $jsonSchema)] = var_export($value, true);
         }
 
-        $backedType = null;
-        switch ($this->getArrayTypes($values)) {
-            case ['string']: $backedType = 'string'; break;
-            case ['integer']: $backedType = 'int'; break;
-        }
+        $backedType = match ($this->getArrayTypes($values)) {
+            ['string']  => 'string',
+            ['integer'] => 'int',
+            default     => null,
+        };
 
         // make sure different enums with an identical name don't overwrite each other
         while (in_array("$this->namespace\\$name", array_column($this->generatedEnums, 'fqcn'))) {
