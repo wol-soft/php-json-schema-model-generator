@@ -20,6 +20,6 @@ class TypeHintTransferDecorator implements TypeHintDecoratorInterface
      */
     public function decorate(string $input, bool $outputType = false): string
     {
-        return $this->property->getTypeHint($outputType);
+        return $this->property->getTypeHint($outputType, [self::class]);
     }
 }
