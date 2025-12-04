@@ -22,7 +22,7 @@ class SchemaDefinitionDictionary extends ArrayObject
     /**
      * SchemaDefinitionDictionary constructor.
      */
-    public function __construct(private ?JsonSchema $schema = null)
+    public function __construct(private JsonSchema $schema)
     {
         parent::__construct();
     }
@@ -135,104 +135,24 @@ class SchemaDefinitionDictionary extends ArrayObject
         SchemaProcessor $schemaProcessor,
         array &$path,
     ): ?SchemaDefinition {
-        $jsonSchemaFilePath = $this->getFullRefURL($jsonSchemaFile) ?: $this->getLocalRefPath($jsonSchemaFile);
-
-        if ($jsonSchemaFilePath === null) {
-            throw new SchemaException("Reference to non existing JSON-Schema file $jsonSchemaFile");
-        }
-
-        $jsonSchema = file_get_contents($jsonSchemaFilePath);
-
-        if (!$jsonSchema || !($decodedJsonSchema = json_decode($jsonSchema, true))) {
-            throw new SchemaException("Invalid JSON-Schema file $jsonSchemaFilePath");
-        }
+        $jsonSchema = $schemaProcessor->getSchemaProvider()->getRef(
+            $this->schema->getFile(),
+            $this->schema->getJson()['$id'] ?? null,
+            $jsonSchemaFile,
+        );
 
         // set up a dummy schema to fetch the definitions from the external file
         $schema = new Schema(
             '',
             $schemaProcessor->getCurrentClassPath(),
             'ExternalSchema',
-            $externalSchema = new JsonSchema($jsonSchemaFilePath, $decodedJsonSchema),
-            new self($externalSchema),
+            $jsonSchema,
+            new self($jsonSchema),
         );
 
         $schema->getSchemaDictionary()->setUpDefinitionDictionary($schemaProcessor, $schema);
         $this->parsedExternalFileSchemas[$jsonSchemaFile] = $schema;
 
         return $schema->getSchemaDictionary()->getDefinition($externalKey, $schemaProcessor, $path);
-    }
-
-    /**
-     * Try to build a full URL to fetch the schema from utilizing the $id field of the schema
-     */
-    private function getFullRefURL(string $jsonSchemaFile): ?string
-    {
-        if (filter_var($jsonSchemaFile, FILTER_VALIDATE_URL)) {
-            return $jsonSchemaFile;
-        }
-
-        if ($this->schema === null
-            || !filter_var($this->schema->getJson()['$id'] ?? $this->schema->getFile(), FILTER_VALIDATE_URL)
-            || ($idURL = parse_url($this->schema->getJson()['$id'] ?? $this->schema->getFile())) === false
-        ) {
-            return null;
-        }
-
-        $baseURL = $idURL['scheme'] . '://' . $idURL['host'] . (isset($idURL['port']) ? ':' . $idURL['port'] : '');
-
-        // root relative $ref
-        if (str_starts_with($jsonSchemaFile, '/')) {
-            return $baseURL . $jsonSchemaFile;
-        }
-
-        // relative $ref against the path of $id
-        $segments = explode('/', rtrim(dirname($idURL['path'] ?? '/'), '/') . '/' . $jsonSchemaFile);
-        $output = [];
-
-        foreach ($segments as $seg) {
-            if ($seg === '' || $seg === '.') {
-                continue;
-            }
-            if ($seg === '..') {
-                array_pop($output);
-                continue;
-            }
-            $output[] = $seg;
-        }
-
-        return $baseURL . '/' . implode('/', $output);
-    }
-
-    private function getLocalRefPath(string $jsonSchemaFile): ?string
-    {
-        $currentDir = dirname($this->schema->getFile());
-        // windows compatibility
-        $jsonSchemaFile = str_replace('\\', '/', $jsonSchemaFile);
-
-        // relative paths to the current location
-        if (!str_starts_with($jsonSchemaFile, '/')) {
-            $candidate = $currentDir . '/' . $jsonSchemaFile;
-
-            return file_exists($candidate) ? $candidate : null;
-        }
-
-        // absolute paths: traverse up to find the context root directory
-        $relative = ltrim($jsonSchemaFile, '/');
-
-        $dir = $currentDir;
-        while (true) {
-            $candidate = $dir . '/' . $relative;
-            if (file_exists($candidate)) {
-                return $candidate;
-            }
-
-            $parent = dirname($dir);
-            if ($parent === $dir) {
-                break;
-            }
-            $dir = $parent;
-        }
-
-        return null;
     }
 }
