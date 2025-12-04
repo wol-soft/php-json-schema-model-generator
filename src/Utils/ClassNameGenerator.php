@@ -32,7 +32,7 @@ class ClassNameGenerator implements ClassNameGeneratorInterface
             ucfirst(
                 isset($json['$id'])
                     ? str_replace('#', '', $json['$id'])
-                    : ($propertyName . ($currentClassName ? uniqid() : '')),
+                    : ($propertyName . ($currentClassName ? md5(json_encode($json)) : '')),
             )
         );
 

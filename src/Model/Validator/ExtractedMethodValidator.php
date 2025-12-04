@@ -29,7 +29,7 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
             'validate%s_%s_%s',
             str_replace(' ', '', ucfirst($property->getAttribute())),
             str_replace('Validator', '', substr(strrchr(static::class, '\\'), 1)),
-            uniqid(),
+            md5(json_encode($property->getJsonSchema()->getJson())),
         );
 
         parent::__construct($property, $template, $templateValues, $exceptionClass, $exceptionParams);
