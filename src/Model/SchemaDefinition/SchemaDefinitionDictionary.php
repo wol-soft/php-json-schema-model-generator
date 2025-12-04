@@ -210,18 +210,18 @@ class SchemaDefinitionDictionary extends ArrayObject
         $jsonSchemaFile = str_replace('\\', '/', $jsonSchemaFile);
 
         // relative paths to the current location
-        if (!preg_match('#^(?:[A-Za-z]:/|/)#', $jsonSchemaFile, $match)) {
-            $candidate = $this->normalizePath($currentDir . '/' . $jsonSchemaFile);
+        if (!str_starts_with($jsonSchemaFile, '/')) {
+            $candidate = $currentDir . '/' . $jsonSchemaFile;
+
             return file_exists($candidate) ? $candidate : null;
         }
 
-        $absolutePathPrefix = $match[0];
         // absolute paths: traverse up to find the context root directory
-        $relative = substr($jsonSchemaFile, strlen($absolutePathPrefix));
+        $relative = ltrim($jsonSchemaFile, '/');
 
         $dir = $currentDir;
         while (true) {
-            $candidate = $absolutePathPrefix . $this->normalizePath($dir . '/' . $relative);
+            $candidate = $dir . '/' . $relative;
             if (file_exists($candidate)) {
                 return $candidate;
             }
@@ -234,24 +234,5 @@ class SchemaDefinitionDictionary extends ArrayObject
         }
 
         return null;
-    }
-
-    private function normalizePath(string $path): string
-    {
-        $segments = explode('/', str_replace('\\', '/', $path));
-        $output = [];
-
-        foreach ($segments as $seg) {
-            if ($seg === '' || $seg === '.') {
-                continue;
-            }
-            if ($seg === '..') {
-                array_pop($output);
-                continue;
-            }
-            $output[] = $seg;
-        }
-
-        return str_replace('/', DIRECTORY_SEPARATOR, implode('/', $output));
     }
 }
