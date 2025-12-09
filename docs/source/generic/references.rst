@@ -11,9 +11,19 @@ Supported reference types
 * relative reference based on the location on the file system to a complete file (example: `"$ref": "./../modules/myObject.json"`)
 * relative reference based on the location on the file system to an object by id (example: `"$ref": "./../modules/myObject.json#IdOfMyObject"`)
 * relative reference based on the location on the file system to an object by path (example: `"$ref": "./../modules/myObject.json#/definitions/myObject"`)
+* absolute reference based on the location on the file system to a complete file (example: `"$ref": "/modules/myObject.json"`)
+* absolute reference based on the location on the file system to an object by id (example: `"$ref": "/modules/myObject.json#IdOfMyObject"`)
+* absolute reference based on the location on the file system to an object by path (example: `"$ref": "/modules/myObject.json#/definitions/myObject"`)
 * network reference to a complete file (example: `"$ref": "https://my.domain.com/schema/modules/myObject.json"`)
 * network reference to an object by id (example: `"$ref": "https://my.domain.com/schema/modules/myObject.json#IdOfMyObject"`)
 * network reference to an object by path (example: `"$ref": "https://my.domain.com/schema/modules/myObject.json#/definitions/myObject"`)
+
+If an `$id` is present in the schema, the `$ref` will be resolved relative to the `$id` (except the `$ref` already is an absolute reference, e.g. a full URL).
+The behaviour of `$ref` resolving can be overwritten by implementing a custom **SchemaProviderInterface**, for example when you want to use network references behind an authorization.
+
+.. note::
+
+    For absolute local references, the default implementation traverses up the directory tree until it finds a matching file to find the project root
 
 Object reference
 ----------------

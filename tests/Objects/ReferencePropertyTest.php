@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 
@@ -24,13 +25,12 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * @dataProvider internalReferenceProvider
-     * @dataProvider notResolvedExternalReferenceProvider
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testNotResolvedReferenceThrowsAnException(string $reference): void
+    public function testNotResolvedInternalReferenceThrowsAnException(string $reference): void
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
@@ -54,16 +54,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             'external path reference' => ['../ReferencePropertyTest_external/library.json#/definitions/person'],
             'external direct reference' => ['../ReferencePropertyTest_external/library.json#person'],
             'external file' => ['../ReferencePropertyTest_external/person.json']
-        ];
-    }
-
-    public function notResolvedExternalReferenceProvider(): array
-    {
-        return [
-            'External non existing file' => ['../ReferencePropertyTest_external/notExisting'],
-            'External path reference in non existing file' => ['../ReferencePropertyTest_external/notExisting#person'],
-            'External non existing path reference' => ['../ReferencePropertyTest_external/library.json#/definitions/animal'],
-            'External non existing direct reference' => ['../ReferencePropertyTest_external/library.json#animal'],
         ];
     }
 
@@ -448,6 +438,47 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             'network reference - absolute path to full URL $id' => [
                 $baseURL . 'ReferencePropertyTest/NestedExternalReference.json',
                 '/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/library.json',
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider nonResolvableExternalReferenceProvider
+     */
+    public function testNonResolvableExternalReference(string $id, string $reference): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            sprintf('/Unresolved Reference %s#\/definitions\/family in file .*\.json/', str_replace('/', '\/', $reference)),
+        );
+
+        $this->generateClassFromFileTemplate('NestedExternalReference.json', [$id, $reference]);
+    }
+
+    public function nonResolvableExternalReferenceProvider(): array
+    {
+        $baseURL = 'https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/';
+
+        return [
+            'local reference - relative' => [
+                'NestedExternalReference.json',
+                '../ReferencePropertyTest_external/nonexistent.json',
+            ],
+            'local reference - context absolute' => [
+                'NestedExternalReference.json',
+                '/ReferencePropertyTest_external/nonexistent.json',
+            ],
+            'network reference - full URL' => [
+                'NestedExternalReference.json',
+                $baseURL . 'ReferencePropertyTest_external/nonexistent.json',
+            ],
+            'network reference - relative path to full URL $id' => [
+                $baseURL . 'ReferencePropertyTest/NestedExternalReference.json',
+                '../ReferencePropertyTest_external/nonexistent.json',
+            ],
+            'network reference - absolute path to full URL $id' => [
+                $baseURL . 'ReferencePropertyTest/NestedExternalReference.json',
+                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/nonexistent.json',
             ],
         ];
     }
