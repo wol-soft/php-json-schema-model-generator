@@ -9,6 +9,8 @@ use PHPModelGenerator\Filter\TransformingFilterInterface;
 
 class EnumFilter implements TransformingFilterInterface
 {
+    public const FILTER_TOKEN_GENERATOR_ENUM = 'php_model_generator_enum';
+
     public function getAcceptedTypes(): array
     {
         return ['string', 'integer', 'null'];
@@ -16,7 +18,7 @@ class EnumFilter implements TransformingFilterInterface
 
     public function getToken(): string
     {
-        return 'php_model_generator_enum';
+        return self::FILTER_TOKEN_GENERATOR_ENUM;
     }
 
     public function getFilter(): array
