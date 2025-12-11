@@ -116,7 +116,8 @@ class EnumPostProcessor extends PostProcessor
             $property->setType($inputType, new PropertyType($name, !$property->isRequired()), true);
 
             if ($property->getDefaultValue() && in_array($property->getJsonSchema()->getJson()['default'], $values)) {
-                $property->setDefaultValue("$name::{$property->getJsonSchema()->getJson()['default']}", true);
+                $defaultValueEnumCaseName = $this->getCaseName($property->getJsonSchema()->getJson()['default'], $schema->getJsonSchema());
+                $property->setDefaultValue("$name::{$defaultValueEnumCaseName}", true);
             }
 
             // remove the enum validator as the validation is performed by the PHP enum
@@ -236,17 +237,7 @@ class EnumPostProcessor extends PostProcessor
         array $values,
         ?array $map,
     ): string {
-        $cases = [];
-
-        foreach ($values as $value) {
-            $caseName = ucfirst(NormalizedName::from($map ? array_search($value, $map, true) : $value, $jsonSchema));
-
-            if (preg_match('/^\d/', $caseName) === 1) {
-                $caseName = "_$caseName";
-            }
-
-            $cases[$caseName] = var_export($value, true);
-        }
+        $cases = $this->valuesToCases($values, $map, $jsonSchema);
 
         $backedType = null;
         switch ($this->getArrayTypes($values)) {
@@ -289,5 +280,28 @@ class EnumPostProcessor extends PostProcessor
         }
 
         return $fqcn;
+    }
+
+    private function valuesToCases(array $values, ?array $map, JsonSchema $jsonSchema): array
+    {
+        $cases = [];
+
+        foreach ($values as $value) {
+            $name = $map ? array_search($value, $map, true) : $value;
+            $caseName = $this->getCaseName($name, $jsonSchema);
+
+            $cases[$caseName] = var_export($value, true);
+        }
+        return $cases;
+    }
+
+    private function getCaseName(string $name, JsonSchema $jsonSchema): string
+    {
+        $caseName = ucfirst(NormalizedName::from($name, $jsonSchema));
+
+        if (preg_match('/^\d/', $caseName) === 1) {
+            $caseName = "_$caseName";
+        }
+        return $caseName;
     }
 }
