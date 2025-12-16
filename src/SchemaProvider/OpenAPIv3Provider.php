@@ -14,6 +14,8 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
  */
 class OpenAPIv3Provider implements SchemaProviderInterface
 {
+    use RefResolverTrait;
+
     /** @var array */
     private $openAPIv3Spec;
 

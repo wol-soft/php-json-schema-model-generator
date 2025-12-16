@@ -22,7 +22,7 @@ class SchemaDefinitionDictionary extends ArrayObject
     /**
      * SchemaDefinitionDictionary constructor.
      */
-    public function __construct(private string $sourceDirectory)
+    public function __construct(private JsonSchema $schema)
     {
         parent::__construct();
     }
@@ -129,33 +129,25 @@ class SchemaDefinitionDictionary extends ArrayObject
     /**
      * @throws SchemaException
      */
-    protected function parseExternalFile(
+    private function parseExternalFile(
         string $jsonSchemaFile,
         string $externalKey,
         SchemaProcessor $schemaProcessor,
         array &$path,
     ): ?SchemaDefinition {
-        $jsonSchemaFilePath = filter_var($jsonSchemaFile, FILTER_VALIDATE_URL)
-            ? $jsonSchemaFile
-            : $this->sourceDirectory . '/' . $jsonSchemaFile;
-
-        if (!filter_var($jsonSchemaFilePath, FILTER_VALIDATE_URL) && !is_file($jsonSchemaFilePath)) {
-            throw new SchemaException("Reference to non existing JSON-Schema file $jsonSchemaFilePath");
-        }
-
-        $jsonSchema = file_get_contents($jsonSchemaFilePath);
-
-        if (!$jsonSchema || !($decodedJsonSchema = json_decode($jsonSchema, true))) {
-            throw new SchemaException("Invalid JSON-Schema file $jsonSchemaFilePath");
-        }
+        $jsonSchema = $schemaProcessor->getSchemaProvider()->getRef(
+            $this->schema->getFile(),
+            $this->schema->getJson()['$id'] ?? null,
+            $jsonSchemaFile,
+        );
 
         // set up a dummy schema to fetch the definitions from the external file
         $schema = new Schema(
             '',
             $schemaProcessor->getCurrentClassPath(),
             'ExternalSchema',
-            new JsonSchema($jsonSchemaFilePath, $decodedJsonSchema),
-            new self(dirname($jsonSchemaFilePath)),
+            $jsonSchema,
+            new self($jsonSchema),
         );
 
         $schema->getSchemaDictionary()->setUpDefinitionDictionary($schemaProcessor, $schema);

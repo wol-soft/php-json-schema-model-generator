@@ -204,7 +204,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         $className = $this->getClassName();
 
         if (!$originalClassNames) {
-            // extend the class name generator to attach a uniqid as multiple test executions use identical $id
+            // extend the class name generator to attach a uniqid as multiple test executions use identical title
             // properties which would lead to name collisions
             $generatorConfiguration->setClassNameGenerator(new class extends ClassNameGenerator {
                 public function getClassName(
@@ -221,12 +221,12 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
             // generate an object ID for valid JSON schema files to avoid class name collisions in the testing process
             $jsonSchemaArray = json_decode($jsonSchema, true);
             if ($jsonSchemaArray) {
-                $jsonSchemaArray['$id'] = $className;
+                $jsonSchemaArray['title'] = $className;
 
                 if (isset($jsonSchemaArray['components']['schemas'])) {
                     $counter = 0;
                     foreach ($jsonSchemaArray['components']['schemas'] as &$schema) {
-                        $schema['$id'] = $className . '_' . $counter++;
+                        $schema['title'] = $className . '_' . $counter++;
                     }
                 }
 

@@ -20,6 +20,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDe
 use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
+use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
 
 /**
  * Class SchemaProcessor
@@ -28,23 +29,18 @@ use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
  */
 class SchemaProcessor
 {
-    /** @var string */
-    protected $currentClassPath;
-    /** @var string */
-    protected $currentClassName;
+    protected string $currentClassPath;
+    protected string $currentClassName;
 
     /** @var Schema[] Collect processed schemas to avoid duplicated classes */
-    protected $processedSchema = [];
+    protected array $processedSchema = [];
     /** @var PropertyInterface[] Collect processed schemas to avoid duplicated classes */
-    protected $processedMergedProperties = [];
+    protected array $processedMergedProperties = [];
     /** @var string[] */
-    protected $generatedFiles = [];
+    protected array $generatedFiles = [];
 
-    /**
-     * SchemaProcessor constructor.
-     */
     public function __construct(
-        protected string $baseSource,
+        protected SchemaProviderInterface $schemaProvider,
         protected string $destination,
         protected GeneratorConfiguration $generatorConfiguration,
         protected RenderQueue $renderQueue,
@@ -68,7 +64,7 @@ class SchemaProcessor
             $jsonSchema,
             $this->currentClassPath,
             $this->currentClassName,
-            new SchemaDefinitionDictionary(dirname($jsonSchema->getFile())),
+            new SchemaDefinitionDictionary($jsonSchema),
             true,
         );
     }
@@ -311,7 +307,7 @@ class SchemaProcessor
      */
     protected function setCurrentClassPath(string $jsonSchemaFile): void
     {
-        $path = str_replace($this->baseSource, '', dirname($jsonSchemaFile));
+        $path = str_replace($this->schemaProvider->getBaseDirectory(), '', dirname($jsonSchemaFile));
         $pieces = array_map(
             static fn(string $directory): string => ucfirst(preg_replace('/\W/', '', $directory)),
             explode(DIRECTORY_SEPARATOR, $path),
@@ -338,6 +334,11 @@ class SchemaProcessor
     public function getGeneratorConfiguration(): GeneratorConfiguration
     {
         return $this->generatorConfiguration;
+    }
+
+    public function getSchemaProvider(): SchemaProviderInterface
+    {
+        return $this->schemaProvider;
     }
 
     private function getTargetFileName(string $classPath, string $className): string

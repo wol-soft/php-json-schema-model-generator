@@ -93,12 +93,15 @@ Naming
 Naming of classes
 ^^^^^^^^^^^^^^^^^
 
-If the given main object in a JSON-Schema file contains a `$id` the id will be used as class name. Otherwise the name of the file will be used.
+If the given main object in a JSON-Schema file contains a `title`, the title will be used as class name.
+Otherwise, if an `$id` is present, the basename of the $id and as a last fallback the name of the file will be used.
 
 Naming of nested classes
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-For the class name of a nested class the `$id` property of the nested object is used. If the id property isn't present the property key will be prefixed with the parent class. If an object `Person` has a nested object `car` without a `$id` the class for car will be named **Person_Car**.
+For the class name of a nested class the `title` property (fallback to `$id`) of the nested object is used.
+If neither the title nor the $id property is present the property key will be prefixed with the parent class.
+If an object `Person` has a nested object `car` without a `title` and an `$id` the class for car will be named **Person_Car**.
 
 Property Name Normalization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

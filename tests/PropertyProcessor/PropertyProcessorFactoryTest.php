@@ -19,6 +19,7 @@ use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -40,7 +41,12 @@ class PropertyProcessorFactoryTest extends TestCase
         $propertyProcessor = $propertyProcessorFactory->getProcessor(
             $type,
             new PropertyMetaDataCollection(),
-            new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),
+            new SchemaProcessor(
+                new RecursiveDirectoryProvider(__DIR__),
+                '',
+                new GeneratorConfiguration(),
+                new RenderQueue(),
+            ),
             new Schema('', '', '', new JsonSchema('', [])),
         );
 
@@ -76,7 +82,12 @@ class PropertyProcessorFactoryTest extends TestCase
         $propertyProcessorFactory->getProcessor(
             'Hello',
             new PropertyMetaDataCollection(),
-            new SchemaProcessor('', '', new GeneratorConfiguration(), new RenderQueue()),
+            new SchemaProcessor(
+                new RecursiveDirectoryProvider(__DIR__),
+                '',
+                new GeneratorConfiguration(),
+                new RenderQueue(),
+            ),
             new Schema('', '', '', new JsonSchema('', [])),
         );
     }
