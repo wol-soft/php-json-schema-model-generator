@@ -3,6 +3,7 @@
     "homepage": "https://github.com/wol-soft/php-json-schema-model-generator",
     "description": "Creates (immutable) PHP model classes from JSON-Schema files including all validation rules as PHP code",
     "type": "library",
+    "minimum-stability": "dev",
     "license": "MIT",
     "authors": [
         {
@@ -10,9 +11,18 @@
             "email": "enno.woortmann@web.de"
         }
     ],
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../php-json-schema-model-generator-production",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
     "require": {
         "symfony/polyfill-php81": "^1.28",
-        "wol-soft/php-json-schema-model-generator-production": "^0.20.1",
+        "wol-soft/php-json-schema-model-generator-production": "*",
         "wol-soft/php-micro-template": "^1.10.0",
 
         "php": ">=8.0",

@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
+use PHPModelGenerator\Exception\Generic\InvalidConstDetailedException;
 use PHPModelGenerator\Exception\Generic\InvalidConstException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -48,7 +49,7 @@ class ConstProcessor extends AbstractPropertyProcessor
         $property->addValidator(new PropertyValidator(
             $property,
             $check,
-            InvalidConstException::class,
+            InvalidConstDetailedException::class,
             [$json['const']],
         ));
 
