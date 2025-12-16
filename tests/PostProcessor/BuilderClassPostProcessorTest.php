@@ -130,8 +130,8 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
                 ->setImplicitNull(true),
         );
 
-        $this->assertCount(2, $files);
-        $this->assertGeneratedBuilders(2);
+        $this->assertCount(3, $files);
+        $this->assertGeneratedBuilders(3);
 
         $builderClassName = 'MyApp\Namespace\NestedObjectBuilder';
         $builderObject = new $builderClassName();
@@ -141,43 +141,64 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($expectedTypeHint, $this->getReturnTypeAnnotation($builderObject, 'getAddress'));
 
         // test generate nested object from array
-        $addressArray = ['street' => 'Test street', 'number' => 10];
+        $addressArray = ['street' => 'Test street', 'number' => 10, 'building' => ['type' => 'private', 'size' => 160]];
         $builderObject->setAddress($addressArray);
         $this->assertSame($addressArray, $builderObject->getAddress());
         $this->assertSame(['address' => $addressArray], $builderObject->getRawModelDataInput());
         $object = $builderObject->validate();
         $this->assertSame('Test street', $object->getAddress()->getStreet());
         $this->assertSame(10, $object->getAddress()->getNumber());
+        $this->assertSame('private', $object->getAddress()->getBuilding()->getType());
+        $this->assertSame(160, $object->getAddress()->getBuilding()->getSize());
 
         // test generate nested object from nested builder
-        $nestedBuilderClassName = 'MyApp\Namespace\Dependencies\AddressBuilder';
-        $nestedBuilderObject = new $nestedBuilderClassName();
-        $this->assertSame('string|null', $this->getParameterTypeAnnotation($nestedBuilderObject, 'setStreet'));
-        $this->assertSame('int|null', $this->getParameterTypeAnnotation($nestedBuilderObject, 'setNumber'));
-        $this->assertSame('string|null', $this->getReturnTypeAnnotation($nestedBuilderObject, 'getStreet'));
-        $this->assertSame('int|null', $this->getReturnTypeAnnotation($nestedBuilderObject, 'getNumber'));
+        $addressBuilderClassName = 'MyApp\Namespace\Dependencies\AddressBuilder';
+        $addressBuilderObject = new $addressBuilderClassName();
+        $this->assertSame('string|null', $this->getParameterTypeAnnotation($addressBuilderObject, 'setStreet'));
+        $this->assertSame('int|null', $this->getParameterTypeAnnotation($addressBuilderObject, 'setNumber'));
+        $this->assertSame('Address_Building|Address_BuildingBuilder|array|null', $this->getParameterTypeAnnotation($addressBuilderObject, 'setBuilding'));
+        $this->assertSame('string|null', $this->getReturnTypeAnnotation($addressBuilderObject, 'getStreet'));
+        $this->assertSame('int|null', $this->getReturnTypeAnnotation($addressBuilderObject, 'getNumber'));
+        $this->assertSame('Address_Building|Address_BuildingBuilder|array|null', $this->getReturnTypeAnnotation($addressBuilderObject, 'getBuilding'));
 
-        $nestedBuilderObject->setStreet('Test street')->setNumber(10);
-        $this->assertSame($addressArray, $nestedBuilderObject->getRawModelDataInput());
-        $builderObject->setAddress($nestedBuilderObject);
-        $this->assertSame($nestedBuilderObject, $builderObject->getAddress());
+        $buildingBuilderClassName = 'MyApp\Namespace\Dependencies\Address_BuildingBuilder';
+        $buildingBuilderObject = new $buildingBuilderClassName();
+        $this->assertSame('string|null', $this->getParameterTypeAnnotation($buildingBuilderObject, 'setType'));
+        $this->assertSame('int|null', $this->getParameterTypeAnnotation($buildingBuilderObject, 'setSize'));
+        $this->assertSame('string|null', $this->getReturnTypeAnnotation($buildingBuilderObject, 'getType'));
+        $this->assertSame('int|null', $this->getReturnTypeAnnotation($buildingBuilderObject, 'getSize'));
+
+        $buildingBuilderObject->setType('private')->setSize(160);
+
+        $addressBuilderObject->setStreet('Test street')->setNumber(10)->setBuilding($buildingBuilderObject);
+        $this->assertSame($addressArray['building'], $addressBuilderObject->getBuilding()->getRawModelDataInput());
+        $this->assertSame($addressArray['street'], $addressBuilderObject->getRawModelDataInput()['street']);
+        $this->assertSame($addressArray['number'], $addressBuilderObject->getRawModelDataInput()['number']);
+        $builderObject->setAddress($addressBuilderObject);
+        $this->assertSame($addressBuilderObject, $builderObject->getAddress());
         $object = $builderObject->validate();
         $this->assertSame('Test street', $object->getAddress()->getStreet());
         $this->assertSame(10, $object->getAddress()->getNumber());
+        $this->assertSame('private', $object->getAddress()->getBuilding()->getType());
+        $this->assertSame(160, $object->getAddress()->getBuilding()->getSize());
 
         // test add validated object
-        $nestedObjectClassName =  'MyApp\Namespace\Dependencies\Address';
-        $nestedObject = new $nestedObjectClassName($addressArray);
-        $builderObject->setAddress($nestedObject);
-        $this->assertSame($nestedObject, $builderObject->getAddress());
+        $addressObjectClassName =  'MyApp\Namespace\Dependencies\Address';
+        $buildingObjectClassName =  'MyApp\Namespace\Dependencies\Address_Building';
+        $addressArray['building'] = new $buildingObjectClassName($addressArray['building']);
+        $addressObject = new $addressObjectClassName($addressArray);
+        $builderObject->setAddress($addressObject);
+        $this->assertSame($addressObject, $builderObject->getAddress());
         $object = $builderObject->validate();
         $this->assertSame('Test street', $object->getAddress()->getStreet());
         $this->assertSame(10, $object->getAddress()->getNumber());
+        $this->assertSame('private', $object->getAddress()->getBuilding()->getType());
+        $this->assertSame(160, $object->getAddress()->getBuilding()->getSize());
 
         // check if the nested objects from a different namespace are correctly imported
-        $mainFileContent = file_get_contents(str_replace('.php', 'Builder.php', $files[1]));
-        $this->assertStringContainsString("use $nestedObjectClassName;", $mainFileContent);
-        $this->assertStringContainsString("use $nestedBuilderClassName;", $mainFileContent);
+        $mainFileContent = file_get_contents(str_replace('.php', 'Builder.php', $files[2]));
+        $this->assertStringContainsString("use $addressObjectClassName;", $mainFileContent);
+        $this->assertStringContainsString("use $addressBuilderClassName;", $mainFileContent);
     }
 
     public function testNestedObjectArray(): void
