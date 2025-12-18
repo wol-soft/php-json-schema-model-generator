@@ -18,6 +18,8 @@ use RegexIterator;
  */
 class RecursiveDirectoryProvider implements SchemaProviderInterface
 {
+    use RefResolverTrait;
+
     private string $sourceDirectory;
 
     /**

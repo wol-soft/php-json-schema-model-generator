@@ -105,7 +105,7 @@ class ModelGenerator
 
         $renderQueue = new RenderQueue();
         $schemaProcessor = new SchemaProcessor(
-            $schemaProvider->getBaseDirectory(),
+            $schemaProvider,
             $destination,
             $this->generatorConfiguration,
             $renderQueue,

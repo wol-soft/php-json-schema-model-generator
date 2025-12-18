@@ -50,7 +50,7 @@ class {{ class }}Builder implements BuilderInterface
      */
     public function validate(): {{ class }}
     {
-        array_walk_recursive(
+        $this->_array_walk_recursive_real(
             $this->_rawModelDataInput,
             function (&$property): void {
                 if ($property instanceof BuilderInterface) {
@@ -62,6 +62,18 @@ class {{ class }}Builder implements BuilderInterface
         return new {{ class }}($this->_rawModelDataInput);
     }
 
+    // PHPs builtin array_walk_recursive doesn't handle newly inserted arrays which we need to visit
+    private function _array_walk_recursive_real(array &$array, callable $callback): void
+    {
+        foreach ($array as &$value) {
+            $callback($value);
+
+            if (is_array($value)) {
+                $this->_array_walk_recursive_real($value, $callback);
+            }
+        }
+    }
+
     {% foreach properties as property %}
         {% if not property.isInternal() %}
             /**
@@ -71,8 +83,7 @@ class {{ class }}Builder implements BuilderInterface
              *
              * {% if viewHelper.getTypeHintAnnotation(property) %}@return {{ viewHelper.getTypeHintAnnotation(property, false, true) }}{% endif %}
              */
-            public function get{{ viewHelper.ucfirst(property.getAttribute()) }}()
-                {% if property.getType() %}: {{ viewHelper.getType(property, false, true) }}{% endif %}
+            public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(){% if property.getType() %}: {{ viewHelper.getType(property, false, true) }}{% endif %}
             {
                 return $this->_rawModelDataInput['{{ property.getName() }}'] ?? null;
             }

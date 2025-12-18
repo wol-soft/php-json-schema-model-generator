@@ -65,7 +65,7 @@ class Schema
         protected bool $initialClass = false,
     ) {
         $this->jsonSchema = $schema;
-        $this->schemaDefinitionDictionary = $dictionary ?? new SchemaDefinitionDictionary('');
+        $this->schemaDefinitionDictionary = $dictionary ?? new SchemaDefinitionDictionary($schema);
         $this->description = $schema->getJson()['description'] ?? '';
 
         $this->addInterface(JSONModelInterface::class);

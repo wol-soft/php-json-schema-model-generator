@@ -29,11 +29,11 @@ class ClassNameGenerator implements ClassNameGeneratorInterface
         $className = sprintf(
             $isMergeClass ? '%s_Merged_%s' : '%s_%s',
             $currentClassName,
-            ucfirst(
-                isset($json['$id'])
-                    ? str_replace('#', '', $json['$id'])
-                    : ($propertyName . ($currentClassName ? md5(json_encode($json)) : '')),
-            )
+            ucfirst(match(true) {
+                isset($json['title']) => $json['title'],
+                isset($json['$id']) => basename($json['$id']),
+                default => ($propertyName . ($currentClassName ? md5(json_encode($json)) : '')),
+            }),
         );
 
         return ucfirst(preg_replace('/\W/', '', trim($className, '_')));
