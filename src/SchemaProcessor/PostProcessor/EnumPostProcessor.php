@@ -114,7 +114,18 @@ class EnumPostProcessor extends PostProcessor
             $schema->addUsedClass($fqcn);
             $property->setType($inputType, new PropertyType($name, !$property->isRequired()), true);
 
-            if ($property->getDefaultValue() && in_array($json['default'], $values)) {
+            if ($property->getDefaultValue()) {
+                if (!in_array($json['default'], $values, true)) {
+                    throw new SchemaException(
+                        sprintf(
+                            "Invalid default value %s for enum property %s in file %s",
+                            var_export($json['default'], true),
+                            $property->getName(),
+                            $property->getJsonSchema()->getFile(),
+                        ),
+                    );
+                }
+
                 $caseName = $this->getCaseName($json['enum-map'] ?? null, $json['default'], $property->getJsonSchema());
                 $property->setDefaultValue("$name::$caseName", true);
             }

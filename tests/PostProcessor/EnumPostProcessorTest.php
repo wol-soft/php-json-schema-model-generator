@@ -492,7 +492,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->addPostProcessor();
 
-        $className = $this->generateClassFromFile('EnumPropertyDefaultValue.json');
+        $className = $this->generateClassFromFileTemplate('EnumPropertyDefaultValue.json', ["first_value"]);
 
         $object = new $className();
         $this->assertSame('first_value', $object->getProperty()->value);
@@ -501,6 +501,16 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className(['property' => '2_value']);
         $this->assertSame('2_value', $object->getProperty()->value);
         $this->assertSame('_2Value', $object->getProperty()->name);
+    }
+
+    public function testInvalidDefaultValueThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage("Invalid default value 'third_value' for enum property property in file");
+
+        $this->addPostProcessor();
+
+        $this->generateClassFromFileTemplate('EnumPropertyDefaultValue.json', ["third_value"]);
     }
 
     /**
