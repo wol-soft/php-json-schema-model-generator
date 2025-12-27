@@ -2,8 +2,8 @@
   "type": "object",
   "properties": {
     "property": {
-      "enum": ["Hans", "Dieter"],
-      "default": "Dieter"
+      "enum": ["first_value", "2_value"],
+      "default": "first_value"
     }
   }
 }
