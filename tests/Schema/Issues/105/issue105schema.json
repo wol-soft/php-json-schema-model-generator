@@ -1,0 +1,61 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "/schemas/media-buy/get-media-buy-delivery-response.json",
+    "title": "Get Media Buy Delivery Response",
+    "description": "Response payload for get_media_buy_delivery task",
+    "type": "object",
+    "properties": {
+        "media_buy_deliveries": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "by_package": {
+                        "type": "array",
+                        "description": "Metrics broken down by package",
+                        "items": {
+                            "allOf": [
+                                {
+                                    "$id": "/schemas/core/delivery-metrics.json",
+                                    "title": "Delivery Metrics",
+                                    "description": "Standard delivery metrics that can be reported at media buy, package, or creative level",
+                                    "type": "object",
+                                    "properties": {
+                                        "impressions": {
+                                            "type": "number",
+                                            "description": "Impressions delivered",
+                                            "minimum": 0
+                                        }
+                                    }
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "delivery_status": {
+                                            "type": "string",
+                                            "description": "System-reported operational state of this package. Reflects actual delivery state independent of buyer pause control.",
+                                            "enum": [
+                                                "delivering",
+                                                "completed",
+                                                "budget_exhausted",
+                                                "flight_ended",
+                                                "goal_met"
+                                            ]
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }                },
+                "required": [
+                    "by_package"
+                ],
+                "additionalProperties": false
+            }
+        }
+    },
+    "required": [
+        "media_buy_deliveries"
+    ],
+    "additionalProperties": false
+}

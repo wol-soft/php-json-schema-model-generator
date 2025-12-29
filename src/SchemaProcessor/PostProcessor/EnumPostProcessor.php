@@ -74,32 +74,7 @@ class EnumPostProcessor extends PostProcessor
 
             $this->checkForExistingTransformingFilter($property);
 
-            $values = $json['enum'];
-            $enumSignature = ArrayHash::hash($json, ['enum', 'enum-map', 'title', '$id']);
-            $enumName = $json['title']
-                ?? basename($json['$id'] ?? $schema->getClassName() . ucfirst($property->getName()));
-
-            if (!isset($this->generatedEnums[$enumSignature])) {
-                $this->generatedEnums[$enumSignature] = [
-                    'name' => $enumName,
-                    'fqcn' => $this->renderEnum(
-                        $generatorConfiguration,
-                        $schema->getJsonSchema(),
-                        $enumName,
-                        $values,
-                        $json['enum-map'] ?? null,
-                    ),
-                ];
-            } else {
-                if ($generatorConfiguration->isOutputEnabled()) {
-                    // @codeCoverageIgnoreStart
-                    echo "Duplicated signature $enumSignature for enum $enumName." .
-                        " Redirecting to {$this->generatedEnums[$enumSignature]['name']}\n";
-                    // @codeCoverageIgnoreEnd
-                }
-            }
-
-            $fqcn = $this->generatedEnums[$enumSignature]['fqcn'];
+            [$enumName, $fqcn] = $this->createOrReadEnumFromCache($json, $schema, $property, $generatorConfiguration);
             $name = substr($fqcn, strrpos($fqcn, "\\") + 1);
 
             $inputType = $property->getType();
@@ -128,9 +103,14 @@ class EnumPostProcessor extends PostProcessor
             // know the exact enum type the pass through allows every UnitEnum instance. Consequently add a validator to
             // avoid wrong enums by validating against the generated enum
             $property->addValidator(
-                new class ($property, $enumName) extends PropertyValidator {
-                    public function __construct(PropertyInterface $property, string $enumName)
+                new class ($property, $enumName, $generatorConfiguration) extends PropertyValidator {
+                    public function __construct(PropertyInterface $property, string $enumName, GeneratorConfiguration $generatorConfiguration)
                     {
+                        // @codeCoverageIgnoreStart
+                        if($generatorConfiguration->isOutputEnabled()){
+                            echo "Adding enum $enumName as validator";
+                        }
+                        // @codeCoverageIgnoreEnd
                         parent::__construct(
                             $property,
                             sprintf('$value instanceof UnitEnum && !($value instanceof %s)', $enumName),
@@ -293,5 +273,42 @@ class EnumPostProcessor extends PostProcessor
         }
 
         return $caseName;
+    }
+
+    private function createOrReadEnumFromCache(
+        array $json,
+        Schema $schema,
+        PropertyInterface $property,
+        GeneratorConfiguration $generatorConfiguration,
+    ): array
+    {
+        $values = $json['enum'];
+        $enumSignature = ArrayHash::hash($json, ['enum', 'enum-map', 'title', '$id']);
+        $enumName = $json['title']
+            ?? basename($json['$id'] ?? $schema->getClassName() . ucfirst($property->getName()));
+
+        if (!isset($this->generatedEnums[$enumSignature])) {
+            $this->generatedEnums[$enumSignature] = [
+                'name' => $enumName,
+                'fqcn' => $this->renderEnum(
+                    $generatorConfiguration,
+                    $schema->getJsonSchema(),
+                    $enumName,
+                    $values,
+                    $json['enum-map'] ?? null,
+                ),
+            ];
+        } else {
+            if ($generatorConfiguration->isOutputEnabled()) {
+                // @codeCoverageIgnoreStart
+                echo "Duplicated signature $enumSignature for enum $enumName." .
+                    " Redirecting to {$this->generatedEnums[$enumSignature]['name']}\n";
+                // @codeCoverageIgnoreEnd
+            }
+        }
+
+        $fqcn = $this->generatedEnums[$enumSignature]['fqcn'];
+        $enumName = $this->generatedEnums[$enumSignature]['name'];
+        return [$enumName, $fqcn];
     }
 }
