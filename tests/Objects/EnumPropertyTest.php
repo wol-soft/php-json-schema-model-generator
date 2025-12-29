@@ -391,6 +391,14 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->generateEnumClass('string', []);
     }
 
+    public function testInvalidDefaultValueThrowsAnException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage("Invalid default value 11 for enum property property in file");
+
+        $this->generateClassFromFile('EnumPropertyInvalidDefaultValue.json');
+    }
+
     protected function generateEnumClass(string $type, array $enumValues, $required = false): string
     {
         $enumValues = array_map(static fn($item): string => var_export($item, true), $enumValues);

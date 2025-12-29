@@ -495,7 +495,12 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFile('EnumPropertyDefaultValue.json');
 
         $object = new $className();
-        $this->assertSame('Dieter', $object->getProperty()->value);
+        $this->assertSame('first_value', $object->getProperty()->value);
+        $this->assertSame('FirstValue', $object->getProperty()->name);
+
+        $object = new $className(['property' => '2_value']);
+        $this->assertSame('2_value', $object->getProperty()->value);
+        $this->assertSame('_2Value', $object->getProperty()->name);
     }
 
     /**

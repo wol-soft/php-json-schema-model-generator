@@ -114,8 +114,9 @@ class EnumPostProcessor extends PostProcessor
             $schema->addUsedClass($fqcn);
             $property->setType($inputType, new PropertyType($name, !$property->isRequired()), true);
 
-            if ($property->getDefaultValue() && in_array($property->getJsonSchema()->getJson()['default'], $values)) {
-                $property->setDefaultValue("$name::{$property->getJsonSchema()->getJson()['default']}", true);
+            if ($property->getDefaultValue()) {
+                $caseName = $this->getCaseName($json['enum-map'] ?? null, $json['default'], $property->getJsonSchema());
+                $property->setDefaultValue("$name::$caseName", true);
             }
 
             // remove the enum validator as the validation is performed by the PHP enum
@@ -237,13 +238,7 @@ class EnumPostProcessor extends PostProcessor
         $cases = [];
 
         foreach ($values as $value) {
-            $caseName = ucfirst(NormalizedName::from($map ? array_search($value, $map, true) : $value, $jsonSchema));
-
-            if (preg_match('/^\d/', $caseName) === 1) {
-                $caseName = "_$caseName";
-            }
-
-            $cases[$caseName] = var_export($value, true);
+            $cases[$this->getCaseName($map, $value, $jsonSchema)] = var_export($value, true);
         }
 
         $backedType = null;
@@ -287,5 +282,16 @@ class EnumPostProcessor extends PostProcessor
         }
 
         return $fqcn;
+    }
+
+    private function getCaseName(?array $map, mixed $value, JsonSchema $jsonSchema): string
+    {
+        $caseName = ucfirst(NormalizedName::from($map ? array_search($value, $map, true) : $value, $jsonSchema));
+
+        if (preg_match('/^\d/', $caseName) === 1) {
+            $caseName = "_$caseName";
+        }
+
+        return $caseName;
     }
 }
