@@ -3,7 +3,7 @@
   "properties": {
     "property": {
       "enum": ["first_value", "2_value"],
-      "default": "%s"
+      "default": "first_value"
     }
   }
 }

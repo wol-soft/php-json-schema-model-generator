@@ -78,6 +78,19 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
 
         $allowedValues = array_unique($allowedValues);
 
+        if (array_key_exists('default', $property->getJsonSchema()->getJson())) {
+            if (!in_array($property->getJsonSchema()->getJson()['default'], $allowedValues, true)) {
+                throw new SchemaException(
+                    sprintf(
+                        "Invalid default value %s for enum property %s in file %s",
+                        var_export($property->getJsonSchema()->getJson()['default'], true),
+                        $property->getName(),
+                        $property->getJsonSchema()->getFile(),
+                    ),
+                );
+            }
+        }
+
         // no type information provided - inherit the types from the enum values
         if (!$property->getType()) {
             $typesOfEnum = array_unique(array_map(

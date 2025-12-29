@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "enum": [10, "11"],
+      "default": 11
+    }
+  }
+}
