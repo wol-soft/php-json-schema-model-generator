@@ -423,8 +423,8 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
             'mapped enum' => [
                 'MultipleEnumPropertiesMapped.json',
                 [
-                    '"names"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
-                    '"names"', '["Dieter", "Hans"]', '{"b": "Dieter", "a": "Hans"}',
+                    '"names of attendees"', '["Hans", "Dieter"]', '{"a": "Hans", "b": "Dieter"}',
+                    '"names of attendees"', '["Dieter", "Hans"]', '{"b": "Dieter", "a": "Hans"}',
                 ],
             ],
         ];

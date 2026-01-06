@@ -237,6 +237,7 @@ class EnumPostProcessor extends PostProcessor
         ?array $map,
     ): string {
         $cases = [];
+        $name = ucfirst(preg_replace('/\W/', '', ucwords($name, '_-. ')));
 
         foreach ($values as $value) {
             $cases[$this->getCaseName($map, $value, $jsonSchema)] = var_export($value, true);

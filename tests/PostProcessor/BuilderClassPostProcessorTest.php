@@ -212,7 +212,7 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $nestedObjectClassName = null;
         foreach ($this->getGeneratedFiles() as $file) {
-            if (str_contains($file, 'Itemofarray')) {
+            if (str_contains($file, 'ItemOfArray')) {
                 $nestedObjectClassName = str_replace('.php', '', basename($file));
 
                 break;
