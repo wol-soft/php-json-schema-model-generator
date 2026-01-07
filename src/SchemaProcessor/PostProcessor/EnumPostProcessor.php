@@ -127,8 +127,9 @@ class EnumPostProcessor extends PostProcessor
             // if an enum value is provided the transforming filter will add a value pass through. As the filter doesn't
             // know the exact enum type the pass through allows every UnitEnum instance. Consequently add a validator to
             // avoid wrong enums by validating against the generated enum
+            $schema->addUsedClass($fqcn);
             $property->addValidator(
-                new class ($property, $enumName) extends PropertyValidator {
+                new class ($property, $name) extends PropertyValidator {
                     public function __construct(PropertyInterface $property, string $enumName)
                     {
                         parent::__construct(
@@ -236,6 +237,7 @@ class EnumPostProcessor extends PostProcessor
         ?array $map,
     ): string {
         $cases = [];
+        $name = ucfirst(preg_replace('/\W/', '', ucwords($name, '_-. ')));
 
         foreach ($values as $value) {
             $cases[$this->getCaseName($map, $value, $jsonSchema)] = var_export($value, true);

@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "properties": {
+    "by_package": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "impressions": {
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "delivery_status": {
+                "enum": [
+                  "delivering",
+                  "completed"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

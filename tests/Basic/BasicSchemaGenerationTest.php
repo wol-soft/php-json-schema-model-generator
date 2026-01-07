@@ -243,6 +243,24 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('{"array":[[{"id":1},{"id":2}],[{"id":3},{"id":4}]]}', $object->toJSON());
     }
 
+    public function testEmptyObjectSerialization(): void
+    {
+        $className = $this->generateClassFromFile(
+            'EmptyObjectSerialization.json',
+            (new GeneratorConfiguration())->setSerialization(true),
+            false,
+            false,
+        );
+
+        $object = new $className([]);
+        $this->assertSame([], $object->toArray());
+        $this->assertSame('{}', $object->toJSON());
+
+        $object = new $className(['property' => [], 'array' => [[]]]);
+        $this->assertSame(['property' => [], 'array' => [[]]], $object->toArray());
+        $this->assertSame('{"property":{},"array":[{}]}', $object->toJSON());
+    }
+
     /**
      * @dataProvider invalidStringPropertyValueProvider
      */

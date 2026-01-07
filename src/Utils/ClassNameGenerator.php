@@ -36,6 +36,6 @@ class ClassNameGenerator implements ClassNameGeneratorInterface
             }),
         );
 
-        return ucfirst(preg_replace('/\W/', '', trim($className, '_')));
+        return ucfirst(preg_replace('/\W/', '', ucwords(trim($className, '_'), '_-. ')));
     }
 }
