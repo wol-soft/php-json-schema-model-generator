@@ -1,0 +1,18 @@
+{
+    "type": "object",
+    "properties": {
+        "nested1": {
+            "myproperty": {
+                "oneOf": [
+                    {
+                        "type": "string"
+                    },
+                    {
+                        "type": "object",
+                        "additionalProperties": true
+                    }
+                ]
+            }
+        }
+    }
+}
