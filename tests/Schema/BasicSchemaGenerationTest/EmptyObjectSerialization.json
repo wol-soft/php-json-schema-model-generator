@@ -9,6 +9,14 @@
       "items": {
         "type": "object"
       }
+    },
+    "nested": {
+      "type": "object",
+      "properties": {
+        "property": {
+          "type": "object"
+        }
+      }
     }
   }
 }

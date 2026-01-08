@@ -256,9 +256,9 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame([], $object->toArray());
         $this->assertSame('{}', $object->toJSON());
 
-        $object = new $className(['property' => [], 'array' => [[]]]);
-        $this->assertSame(['property' => [], 'array' => [[]]], $object->toArray());
-        $this->assertSame('{"property":{},"array":[{}]}', $object->toJSON());
+        $object = new $className(['property' => [], 'array' => [[]], 'nested' => ['property' => []]]);
+        $this->assertSame(['property' => [], 'array' => [[]], 'nested' => ['property' => []]], $object->toArray());
+        $this->assertSame('{"property":{},"array":[{}],"nested":{"property":{}}}', $object->toJSON());
     }
 
     /**
