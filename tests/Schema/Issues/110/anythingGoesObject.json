@@ -1,0 +1,65 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "/schemas/3.0.0-beta.2/bundled/media-buy/create-media-buy-response.json",
+    "title": "Create Media Buy Response",
+    "description": "Response payload for create_media_buy task. Returns either complete success data OR error information, never both. This enforces atomic operation semantics - the media buy is either fully created or not created at all.",
+    "type": "object",
+    "oneOf": [
+        {
+            "title": "CreateMediaBuySuccess",
+            "description": "Success response - media buy created successfully",
+            "type": "object",
+            "properties": {
+                "media_buy_id": {
+                    "type": "string",
+                    "description": "Publisher's unique identifier for the created media buy"
+                },
+                "ext": {
+                    "title": "Extension Object",
+                    "description": "Extension object for platform-specific, vendor-namespaced parameters. Extensions are always optional and must be namespaced under a vendor/platform key (e.g., ext.gam, ext.roku). Used for custom capabilities, partner-specific configuration, and features being proposed for standardization.",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            },
+            "required": [
+                "media_buy_id"
+            ],
+            "additionalProperties": true,
+            "not": {
+                "required": [
+                    "errors"
+                ]
+            }
+        },
+        {
+            "title": "CreateMediaBuyError",
+            "description": "Error response - operation failed, no media buy created",
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "type": "string",
+                    "description": "Array of errors explaining why the operation failed"
+                },
+                "ext": {
+                    "title": "Extension Object",
+                    "description": "Extension object for platform-specific, vendor-namespaced parameters. Extensions are always optional and must be namespaced under a vendor/platform key (e.g., ext.gam, ext.roku). Used for custom capabilities, partner-specific configuration, and features being proposed for standardization.",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            },
+            "required": [
+                "errors"
+            ],
+            "additionalProperties": true,
+            "not": {
+                "anyOf": [
+                    {
+                        "required": [
+                            "media_buy_id"
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}
