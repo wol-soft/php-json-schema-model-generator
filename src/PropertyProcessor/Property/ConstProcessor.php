@@ -37,13 +37,16 @@ class ConstProcessor extends AbstractPropertyProcessor
 
         $property->setRequired($this->propertyMetaDataCollection->isAttributeRequired($propertyName));
 
+        $normalizedValue = ' ($value = ($value instanceof \BackedEnum ? $value->value : $value)) '; // a bit hacky, feel free to improve
+
+
         $check = match(true) {
             $property->isRequired()
-                => '$value !== ' . var_export($json['const'], true),
+                => $normalizedValue .' !== ' . var_export($json['const'], true),
             $this->isImplicitNullAllowed($property)
-                => '!in_array($value, ' . RenderHelper::varExportArray([$json['const'], null]) . ', true)',
+                => '!in_array(' . $normalizedValue . ', ' . RenderHelper::varExportArray([$json['const'], null]) . ', true)',
             default
-                => "array_key_exists('{$property->getName()}', \$modelData) && \$value !== " . var_export($json['const'], true),
+                => "array_key_exists('{$property->getName()}', \$modelData) && " . $normalizedValue . " !== " . var_export($json['const'], true),
         };
 
         $property->addValidator(new PropertyValidator(
