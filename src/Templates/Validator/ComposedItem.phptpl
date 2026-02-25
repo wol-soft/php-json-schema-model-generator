@@ -111,9 +111,10 @@
                 }
             {% endif %}
 
-            {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
-                $modelData['{{ affectedObjectProperty.getName() }}'] = null;
-            {% endforeach %}
+            /** @see https://github.com/wol-soft/php-json-schema-model-generator/issues/110 */
+            // {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
+            //     $modelData['{{ affectedObjectProperty.getName() }}'] = null;
+            // {% endforeach %}
 
             $succeededCompositionElements--;
         }
