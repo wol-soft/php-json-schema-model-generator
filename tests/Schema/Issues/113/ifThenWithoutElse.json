@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "properties": {
+    "delete_missing": {
+      "type": "boolean"
+    },
+    "audiences": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "if": {
+    "properties": {
+      "delete_missing": {
+        "const": true
+      }
+    },
+    "required": [
+      "delete_missing"
+    ]
+  },
+  "then": {
+    "required": [
+      "audiences"
+    ]
+  }
+}

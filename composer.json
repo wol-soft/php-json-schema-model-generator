@@ -12,8 +12,8 @@
     ],
     "require": {
         "symfony/polyfill-php81": "^1.28",
-        "wol-soft/php-json-schema-model-generator-production": "^0.20.3",
-        "wol-soft/php-micro-template": "^1.10.0",
+        "wol-soft/php-json-schema-model-generator-production": "^0.21.0",
+        "wol-soft/php-micro-template": "^1.10.2",
 
         "php": ">=8.0",
         "ext-mbstring": "*"
