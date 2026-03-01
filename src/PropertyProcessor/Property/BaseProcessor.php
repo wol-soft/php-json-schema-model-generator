@@ -17,6 +17,7 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\NoAdditionalPropertiesValidator;
@@ -253,6 +254,27 @@ class BaseProcessor extends AbstractPropertyProcessor
         );
 
         foreach ($json['properties'] as $propertyName => $propertyStructure) {
+            if ($propertyStructure === false) {
+                if (in_array($propertyName, $json['required'] ?? [], true)) {
+                    throw new SchemaException(
+                        sprintf(
+                            "Property '%s' is denied (schema false) but also listed as required in file %s",
+                            $propertyName,
+                            $propertySchema->getFile(),
+                        ),
+                    );
+                }
+
+                $this->schema->addBaseValidator(
+                    new PropertyValidator(
+                        new Property($propertyName, null, $propertySchema->withJson([])),
+                        "array_key_exists('" . addslashes($propertyName) . "', \$modelData)",
+                        DeniedPropertyException::class,
+                    )
+                );
+                continue;
+            }
+
             $this->schema->addProperty(
                 $propertyFactory->create(
                     $propertyMetaDataCollection,
