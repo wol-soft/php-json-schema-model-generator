@@ -97,6 +97,12 @@ Not this:
 
 Boolean and scalar values (`false`, `true`, `null`, numbers, strings) on a single line are fine.
 
+### PHP import style
+
+Always add `use` imports for every class referenced in a file, including global PHP classes such as
+`TypeError`, `InvalidArgumentException`, `RuntimeException`, `stdClass`, and PHP Reflection classes.
+Never reference them with a leading backslash (`\TypeError`); import and use the short name instead.
+
 ### Union type style
 
 When rendering union types in generated PHP code, use one space before and after the pipe:
