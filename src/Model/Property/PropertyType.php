@@ -19,7 +19,7 @@ class PropertyType
      */
     public function __construct(string|array $name, private ?bool $nullable = null)
     {
-        $this->names = (array) $name;
+        $this->names = array_values(array_unique((array) $name));
     }
 
     /**

@@ -58,6 +58,22 @@ class PropertyTypeTest extends TestCase
         $this->assertFalse($t->isUnion());
     }
 
+    public function testDuplicateNamesAreDeduplicatedToSingleElement(): void
+    {
+        $t = new PropertyType(['int', 'int']);
+
+        $this->assertSame(['int'], $t->getNames());
+        $this->assertFalse($t->isUnion());
+    }
+
+    public function testDuplicateNamesAreDeduplicatedInMultiTypeArray(): void
+    {
+        $t = new PropertyType(['int', 'string', 'int']);
+
+        $this->assertSame(['int', 'string'], $t->getNames());
+        $this->assertTrue($t->isUnion());
+    }
+
     public function testNullableNullByDefault(): void
     {
         $t = new PropertyType('int');

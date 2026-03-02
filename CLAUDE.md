@@ -96,3 +96,17 @@ Not this:
 ```
 
 Boolean and scalar values (`false`, `true`, `null`, numbers, strings) on a single line are fine.
+
+### Union type style
+
+When rendering union types in generated PHP code, use one space before and after the pipe:
+
+```php
+int | string | null
+```
+
+Not:
+
+```php
+int|string|null
+```
