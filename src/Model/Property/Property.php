@@ -72,7 +72,7 @@ class Property extends AbstractProperty
             && $this->outputType->getName() !== $this->type->getName()
         ) {
             return new PropertyType(
-                array_unique(array_merge($this->type->getNames(), $this->outputType->getNames())),
+                array_merge($this->type->getNames(), $this->outputType->getNames()),
                 $this->type->isNullable() ?? $this->outputType->isNullable(),
             );
         }

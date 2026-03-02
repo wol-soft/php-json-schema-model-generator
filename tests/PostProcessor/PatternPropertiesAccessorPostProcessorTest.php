@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\PostProcessor;
 
 use DateTime;
 use Exception;
+use TypeError;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\UnknownPatternPropertyException;
@@ -448,6 +449,45 @@ ERROR
         $returnType = $this->getReturnType($object, 'getPatternProperties');
         $this->assertSame('array', $returnType->getName());
         $this->assertFalse($returnType->allowsNull());
+    }
+
+    public function testPatternPropertiesFilterSetterAcceptsAlreadyTransformedDateTime(): void
+    {
+        $this->addPostProcessors(
+            new PatternPropertiesAccessorPostProcessor(),
+            new AdditionalPropertiesAccessorPostProcessor(true),
+        );
+
+        $className = $this->generateClassFromFile(
+            'PatternPropertiesWithFilter.json',
+            (new GeneratorConfiguration())->setSerialization(true)->setImmutable(false),
+        );
+
+        $object = new $className(['alpha' => '01.01.1970']);
+
+        $dt = new DateTime('2020-06-15');
+        $object->setAlpha($dt);
+
+        $this->assertSame($dt, $object->getAlpha());
+    }
+
+    public function testPatternPropertiesFilterSetterRejectsInvalidType(): void
+    {
+        $this->addPostProcessors(
+            new PatternPropertiesAccessorPostProcessor(),
+            new AdditionalPropertiesAccessorPostProcessor(true),
+        );
+
+        $className = $this->generateClassFromFile(
+            'PatternPropertiesWithFilter.json',
+            (new GeneratorConfiguration())->setSerialization(true)->setImmutable(false),
+        );
+
+        $object = new $className(['alpha' => '01.01.1970']);
+
+        $this->expectException(TypeError::class);
+
+        $object->setAlpha(42);
     }
 
     public function testPatternPropertiesCanBeAddedWhenAdditionalPropertiesAreDenied(): void
