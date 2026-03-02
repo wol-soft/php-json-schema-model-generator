@@ -486,19 +486,23 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             'string|int|null',
             $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'),
         );
-        $this->assertNull($this->getReturnType($object, 'getAdditionalProperty'));
+        $this->assertEqualsCanonicalizing(
+            ['string', 'int', 'null'],
+            $this->getReturnTypeNames($object, 'getAdditionalProperty'),
+        );
 
         $this->assertSame(
             'string|int|null',
             $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1),
         );
-        $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
-
-        // test setting an invalid type for the additional property
-        $this->expectException(InvalidAdditionalPropertiesException::class);
-        $this->expectExceptionMessage(
-            'Invalid type for additional property. Requires [string, int, null], got boolean',
+        $this->assertEqualsCanonicalizing(
+            ['string', 'int', 'null'],
+            $this->getParameterTypeNames($object, 'setAdditionalProperty', 1),
         );
+
+        // test setting an invalid type for the additional property — the native type hint on the
+        // setter (string|int|null) rejects bool before the validator runs
+        $this->expectException(\TypeError::class);
         $object->setAdditionalProperty('property1', false);
     }
 

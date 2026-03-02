@@ -58,8 +58,14 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
         $this->assertSame($expectedAnnotation, $this->getReturnTypeAnnotation($className, 'getProperty'));
 
-        $this->assertNull($this->getParameterType($className, 'setProperty'));
-        $this->assertNull($this->getReturnType($className, 'getProperty'));
+        $this->assertEqualsCanonicalizing(
+            $implicitNull ? ['float', 'string', 'array', 'null'] : ['float', 'string', 'array'],
+            $this->getParameterTypeNames($className, 'setProperty'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['float', 'string', 'array', 'null'],
+            $this->getReturnTypeNames($className, 'getProperty'),
+        );
     }
 
     /**
@@ -81,8 +87,14 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
         $this->assertSame($expectedAnnotation, $this->getReturnTypeAnnotation($className, 'getProperty'));
 
-        $this->assertNull($this->getParameterType($className, 'setProperty'));
-        $this->assertNull($this->getReturnType($className, 'getProperty'));
+        $this->assertEqualsCanonicalizing(
+            ['float', 'string', 'array'],
+            $this->getParameterTypeNames($className, 'setProperty'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['float', 'string', 'array'],
+            $this->getReturnTypeNames($className, 'getProperty'),
+        );
     }
 
     /**

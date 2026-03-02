@@ -162,7 +162,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         if ($validationProperty && $validationProperty->getType()) {
             $validationProperty = (clone $validationProperty)->setType(
                 $validationProperty->getType(),
-                new PropertyType($validationProperty->getType(true)->getName(), true),
+                new PropertyType($validationProperty->getType(true)->getNames(), true),
             );
         }
 
@@ -198,7 +198,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         if ($validationProperty && $validationProperty->getType(true)) {
             $validationProperty->setType(
                 $validationProperty->getType(),
-                new PropertyType($validationProperty->getType(true)->getName(), false),
+                new PropertyType($validationProperty->getType(true)->getNames(), false),
             );
         }
 
