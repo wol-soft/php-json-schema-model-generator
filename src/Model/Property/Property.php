@@ -64,15 +64,17 @@ class Property extends AbstractProperty
      */
     public function getType(bool $outputType = false): ?PropertyType
     {
-        // If the output type differs from an input type also accept the output type
-        // (in this case the transforming filter is skipped)
-        // TODO: PHP 8 use union types to accept multiple input types
+        // If the output type differs from the input type (transforming filter case), return a union
+        // so the setter can express that it accepts either the raw input or the already-transformed value.
         if (!$outputType
             && $this->type
             && $this->outputType
             && $this->outputType->getName() !== $this->type->getName()
         ) {
-            return null;
+            return new PropertyType(
+                array_unique(array_merge($this->type->getNames(), $this->outputType->getNames())),
+                $this->type->isNullable() ?? $this->outputType->isNullable(),
+            );
         }
 
         return $outputType && $this->outputType !== null ? $this->outputType : $this->type;

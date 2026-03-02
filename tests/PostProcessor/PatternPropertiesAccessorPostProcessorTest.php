@@ -439,7 +439,10 @@ ERROR
         $this->assertTrue($returnType->allowsNull());
 
         $this->assertSame('string|DateTime|null', $this->getParameterTypeAnnotation($object, 'setAlpha'));
-        $this->assertNull($this->getParameterType($object, 'setAlpha'));
+        $this->assertEqualsCanonicalizing(
+            ['string', 'DateTime', 'null'],
+            $this->getParameterTypeNames($object, 'setAlpha'),
+        );
 
         $this->assertSame('DateTime[]|null[]', $this->getReturnTypeAnnotation($object, 'getPatternProperties'));
         $returnType = $this->getReturnType($object, 'getPatternProperties');

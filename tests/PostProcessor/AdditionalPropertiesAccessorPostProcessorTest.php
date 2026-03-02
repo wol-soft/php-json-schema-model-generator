@@ -387,11 +387,14 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertTrue($returnType->allowsNull());
 
         $this->assertSame(
-            'string|DateTime',
+            'string|DateTime|null',
             $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1),
         );
 
-        $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
+        $this->assertEqualsCanonicalizing(
+            ['string', 'DateTime', 'null'],
+            $this->getParameterTypeNames($object, 'setAdditionalProperty', 1),
+        );
     }
 
 

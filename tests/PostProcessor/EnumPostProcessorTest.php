@@ -16,6 +16,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use ReflectionEnum;
+use TypeError;
 use UnitEnum;
 
 class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
@@ -88,7 +89,10 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $object->setProperty($enum::Dieter);
         $this->assertSame('dieter', $object->getProperty()->value);
 
-        $this->assertNull($this->getParameterType($object, 'setProperty'));
+        $this->assertEqualsCanonicalizing(
+            [$enum, 'string', 'null'],
+            $this->getParameterTypeNames($object, 'setProperty'),
+        );
         $this->assertEqualsCanonicalizing(
             [$enumName, 'string', 'null'],
             explode('|', $this->getParameterTypeAnnotation($object, 'setProperty')),
@@ -306,7 +310,10 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $object->setProperty($enum::A);
         $this->assertSame(10, $object->getProperty()->value);
 
-        $this->assertNull($this->getParameterType($object, 'setProperty'));
+        $this->assertEqualsCanonicalizing(
+            [$enum, 'int', 'null'],
+            $this->getParameterTypeNames($object, 'setProperty'),
+        );
         $this->assertEqualsCanonicalizing(
             [$enumName, 'int', 'null'],
             explode('|', $this->getParameterTypeAnnotation($object, 'setProperty')),
@@ -545,14 +552,16 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $object->setProperty($enum::Hans);
         $this->assertSame('Hans', $object->getProperty()->value);
 
-        $this->assertNull($this->getParameterType($object, 'setProperty'));
+        $this->assertEqualsCanonicalizing(
+            [$enum, 'string'],
+            $this->getParameterTypeNames($object, 'setProperty'),
+        );
         $this->assertEqualsCanonicalizing(
             [$enumName, 'string'],
             explode('|', $this->getParameterTypeAnnotation($object, 'setProperty')),
         );
 
-        $this->expectException(EnumException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+        $this->expectException(TypeError::class);
 
         $object->setProperty(null);
     }
@@ -626,13 +635,19 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $reflectionEnum = new ReflectionEnum($enum);
         $enumName = $reflectionEnum->getShortName();
 
-        $this->assertNull($this->getReturnType($builder, 'getProperty'));
+        $this->assertEqualsCanonicalizing(
+            [$enum, 'string', 'null'],
+            $this->getReturnTypeNames($builder, 'getProperty'),
+        );
         $this->assertEqualsCanonicalizing(
             [$enumName, 'string', 'null'],
             explode('|', $this->getReturnTypeAnnotation($builder, 'getProperty')),
         );
 
-        $this->assertNull($this->getParameterType($builder, 'setProperty'));
+        $this->assertEqualsCanonicalizing(
+            [$enum, 'string', 'null'],
+            $this->getParameterTypeNames($builder, 'setProperty'),
+        );
         $this->assertEqualsCanonicalizing(
             [$enumName, 'string', 'null'],
             explode('|', $this->getParameterTypeAnnotation($builder, 'setProperty')),
