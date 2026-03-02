@@ -6,12 +6,14 @@ namespace PHPModelGenerator\Model;
 
 use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
+use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookInterface;
 
@@ -147,11 +149,24 @@ class Schema
                 }
             });
         } else {
-            // TODO tests:
-            // testConditionalObjectProperty
-            // testInvalidConditionalObjectPropertyThrowsAnException
-            // testInvalidValuesForMultipleValuesInCompositionThrowsAnException
-          //  throw new SchemaException("Duplicate attribute name {$property->getName()}");
+            $existing = $this->properties[$property->getName()];
+            $existingType = $existing->getType();
+            $incomingType = $property->getType();
+
+            if ($existingType && $incomingType) {
+                $mergedNames = array_values(array_unique(
+                    array_merge($existingType->getNames(), $incomingType->getNames()),
+                ));
+
+                if ($mergedNames !== $existingType->getNames()) {
+                    $mergedType = new PropertyType($mergedNames, true);
+                    $existing->setType($mergedType, $mergedType);
+                    $existing->filterValidators(
+                        static fn(Validator $validator): bool =>
+                            !($validator->getValidator() instanceof TypeCheckInterface),
+                    );
+                }
+            }
         }
 
         return $this;

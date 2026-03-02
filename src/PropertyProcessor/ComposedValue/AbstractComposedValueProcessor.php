@@ -171,26 +171,39 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      */
     private function transferPropertyType(PropertyInterface $property, array $compositionProperties): void
     {
-        $compositionPropertyTypes = array_values(
-            array_unique(
-                array_map(
-                    static fn(CompositionPropertyDecorator $property): string =>
-                        $property->getType() ? $property->getType()->getName() : '',
-                    $compositionProperties,
-                )
-            ),
-        );
+        $types = array_values(array_unique(array_map(
+            static fn(CompositionPropertyDecorator $p): string => $p->getType() ? $p->getType()->getName() : '',
+            $compositionProperties,
+        )));
 
-        $nonEmptyCompositionPropertyTypes = array_values(array_filter($compositionPropertyTypes));
+        $nonEmpty = array_values(array_filter($types));
 
-        if (count($nonEmptyCompositionPropertyTypes) === 1 && !($this instanceof NotProcessor)) {
-            $property->setType(
-                new PropertyType(
-                    $nonEmptyCompositionPropertyTypes[0],
-                    count($compositionPropertyTypes) > 1 ? true : null,
-                )
-            );
+        if (!$nonEmpty || $this instanceof NotProcessor) {
+            return;
         }
+
+        if (count($nonEmpty) === 1) {
+            $property->setType(new PropertyType(
+                $nonEmpty[0],
+                count($types) > 1 ? true : null,
+            ));
+            return;
+        }
+
+        // Multiple branch types — widen to union, but only for scalar (non-object) branches.
+        // When branches have nested schemas (objects) the merged-property mechanism creates a
+        // combined class that is neither of the per-branch types, so widening would produce an
+        // incorrect union of branch class names.
+        $hasObjectBranch = array_filter(
+            $compositionProperties,
+            static fn(CompositionPropertyDecorator $p): bool => $p->getNestedSchema() !== null,
+        );
+        if ($hasObjectBranch) {
+            return;
+        }
+
+        // Use nullable=true only when some branches contributed no type (same logic as single-type path).
+        $property->setType(new PropertyType($nonEmpty, count($types) > count($nonEmpty) ? true : null));
     }
 
     /**

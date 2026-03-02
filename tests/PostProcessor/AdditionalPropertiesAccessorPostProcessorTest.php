@@ -541,26 +541,23 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             'string|int|null',
             $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'),
         );
-        $this->assertNull($this->getReturnType($object, 'getAdditionalProperty'));
+        $this->assertEqualsCanonicalizing(
+            ['string', 'int', 'null'],
+            $this->getReturnTypeNames($object, 'getAdditionalProperty'),
+        );
 
         $this->assertSame(
             'string|int',
             $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1),
         );
-        $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
-
-        // test setting an invalid type for the additional property
-        $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessage(<<<ERROR
-- invalid additional property 'property1'
-    * Invalid value for additional property declined by composition constraint.
-      Requires to match one composition element but matched 0 elements.
-      - Composition element #1: Failed
-        * Invalid type for additional property. Requires string, got NULL
-      - Composition element #2: Failed
-        * Invalid type for additional property. Requires int, got NULL
-ERROR,
+        $this->assertEqualsCanonicalizing(
+            ['string', 'int'],
+            $this->getParameterTypeNames($object, 'setAdditionalProperty', 1),
         );
+
+        // The setter now has a native string|int type hint, so null is rejected at the language level
+        // before any validation logic runs.
+        $this->expectException(TypeError::class);
         $object->setAdditionalProperty('property1', null);
     }
 }
