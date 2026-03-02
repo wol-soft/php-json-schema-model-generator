@@ -96,11 +96,18 @@ class RenderHelper
             return '';
         }
 
-        $nullable = ($type->isNullable() ?? $this->isPropertyNullable($property, $outputType)) || $forceNullable
-            ? '?'
-            : '';
+        $nullable = ($type->isNullable() ?? $this->isPropertyNullable($property, $outputType)) || $forceNullable;
+        $names = $type->getNames();
 
-        return "$nullable{$type->getName()}";
+        if ($type->isUnion()) {
+            if ($nullable) {
+                $names[] = 'null';
+            }
+            return implode('|', array_unique($names));
+        }
+
+        // Single type — preserve ?Type shorthand
+        return ($nullable ? '?' : '') . $names[0];
     }
 
     public function getTypeHintAnnotation(
@@ -111,15 +118,17 @@ class RenderHelper
         $typeHint = $property->getTypeHint($outputType);
         $hasDefinedNullability = ($type = $property->getType($outputType)) && $type->isNullable() !== null;
 
-        if ((($hasDefinedNullability && $type->isNullable())
-                || (!$hasDefinedNullability && $this->isPropertyNullable($property, $outputType))
-                || $forceNullable
-            ) && !strstr($typeHint, 'mixed')
-        ) {
-            $typeHint = "$typeHint|null";
+        $nullable = ($hasDefinedNullability && $type->isNullable())
+            || (!$hasDefinedNullability && $this->isPropertyNullable($property, $outputType))
+            || $forceNullable;
+
+        $parts = array_unique(explode('|', $typeHint));
+
+        if ($nullable && !in_array('mixed', $parts, true) && !in_array('null', $parts, true)) {
+            $parts[] = 'null';
         }
 
-        return implode('|', array_unique(explode('|', $typeHint)));
+        return implode('|', $parts);
     }
 
     public function renderValidator(PropertyValidatorInterface $validator, Schema $schema): string
