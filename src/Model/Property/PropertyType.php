@@ -6,18 +6,47 @@ namespace PHPModelGenerator\Model\Property;
 
 class PropertyType
 {
+    /** @var string[] */
+    private array $names;
+
     /**
      * PropertyType constructor.
      *
-     * @param string $name        The name of the type (eg. 'array', 'int', ...)
-     * @param bool|null $nullable Is the property nullable? if not provided the nullability will be determined
-     *                            automatically from the required flag/implicitNull setting etc.
+     * @param string|string[] $name   The name(s) of the type (eg. 'array', 'int', ...).
+     *                                Pass a string for a single type, an array for a union type.
+     * @param bool|null $nullable     Is the property nullable? If not provided the nullability will be
+     *                                determined automatically from the required flag/implicitNull setting etc.
      */
-    public function __construct(private string $name, private ?bool $nullable = null) {}
+    public function __construct(string|array $name, private ?bool $nullable = null)
+    {
+        $this->names = (array) $name;
+    }
 
+    /**
+     * Returns the first type name. Kept for backward compatibility with existing single-type callers.
+     * Use getNames() when dealing with union types.
+     */
     public function getName(): string
     {
-        return $this->name;
+        return $this->names[0];
+    }
+
+    /**
+     * Returns all type names. For a single-type property this is a one-element array.
+     *
+     * @return string[]
+     */
+    public function getNames(): array
+    {
+        return $this->names;
+    }
+
+    /**
+     * Returns true when this PropertyType carries more than one type name (i.e. is a union type).
+     */
+    public function isUnion(): bool
+    {
+        return count($this->names) > 1;
     }
 
     public function isNullable(): ?bool
