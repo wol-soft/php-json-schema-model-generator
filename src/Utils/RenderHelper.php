@@ -103,7 +103,7 @@ class RenderHelper
             if ($nullable) {
                 $names[] = 'null';
             }
-            return implode('|', array_unique($names));
+            return implode(' | ', array_unique($names));
         }
 
         // Single type — preserve ?Type shorthand

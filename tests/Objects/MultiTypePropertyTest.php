@@ -97,6 +97,32 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
+    public function testNullableMultiTypeAnnotation(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NullableMultiTypeProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // Native hint: ?string (single non-null type, nullable=true from explicit 'null' in type array)
+        $this->assertEqualsCanonicalizing(
+            ['string', 'null'],
+            $this->getReturnTypeNames($className, 'getProperty'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['string', 'null'],
+            $this->getParameterTypeNames($className, 'setProperty'),
+        );
+
+        // null is a valid value (it is a listed type)
+        $object = new $className(['property' => null]);
+        $this->assertNull($object->getProperty());
+
+        // string is a valid value
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('hello', $object->getProperty());
+    }
+
     /**
      * @dataProvider validValueDataProvider
      */

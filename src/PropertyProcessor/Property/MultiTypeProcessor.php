@@ -109,7 +109,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
                         // otherwise the render pipeline would emit string|null|null.
                         $hasNull = in_array('null', $this->allowedPropertyTypes, true);
                         $nonNullTypes = array_values(array_filter(
-                            array_unique($this->allowedPropertyTypes),
+                            $this->allowedPropertyTypes,
                             fn(string $t): bool => $t !== 'null',
                         ));
 
