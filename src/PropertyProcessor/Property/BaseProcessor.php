@@ -333,6 +333,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                             foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
                                 $this->schema->addProperty(
                                     $this->cloneTransferredProperty($property, $validator->getCompositionProcessor()),
+                                    $validator->getCompositionProcessor(),
                                 );
 
                                 $composedProperty->appendAffectedObjectProperty($property);
@@ -362,8 +363,8 @@ class BaseProcessor extends AbstractPropertyProcessor
 
             if ($transferredProperty->getType()) {
                 $transferredProperty->setType(
-                    new PropertyType($transferredProperty->getType()->getName(), true),
-                    new PropertyType($transferredProperty->getType(true)->getName(), true),
+                    new PropertyType($transferredProperty->getType()->getNames(), true),
+                    new PropertyType($transferredProperty->getType(true)->getNames(), true),
                 );
             }
         }

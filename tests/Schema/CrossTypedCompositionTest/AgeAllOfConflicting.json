@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "properties": {
+        "age": {
+          "type": "integer"
+        }
+      }
+    },
+    {
+      "properties": {
+        "age": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}

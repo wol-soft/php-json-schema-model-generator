@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "oneOf": [
+    {
+      "properties": {
+        "age": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "age": {
+          "type": "integer"
+        }
+      }
+    }
+  ]
+}

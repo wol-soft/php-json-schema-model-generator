@@ -10,10 +10,12 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
+use PHPModelGenerator\PropertyProcessor\ComposedValue\AllOfProcessor;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookInterface;
 
@@ -134,7 +136,13 @@ class Schema
         return $this->properties;
     }
 
-    public function addProperty(PropertyInterface $property): self
+    /**
+     * @param string|null $compositionProcessor The FQCN of the composition processor transferring this property,
+     *                                           or null when not called from a composition context.
+     *
+     * @throws SchemaException
+     */
+    public function addProperty(PropertyInterface $property, ?string $compositionProcessor = null): self
     {
         if (!isset($this->properties[$property->getName()])) {
             $this->properties[$property->getName()] = $property;
@@ -150,23 +158,105 @@ class Schema
             });
         } else {
             $existing = $this->properties[$property->getName()];
-            $existingType = $existing->getType();
-            $incomingType = $property->getType();
 
-            if ($existingType && $incomingType) {
-                $mergedNames = array_values(array_unique(
-                    array_merge($existingType->getNames(), $incomingType->getNames()),
-                ));
+            // Nested-object merging is owned by the merged-property system; don't interfere.
+            if ($existing->getNestedSchema() !== null || $property->getNestedSchema() !== null) {
+                return $this;
+            }
 
-                if ($mergedNames !== $existingType->getNames()) {
-                    $mergedType = new PropertyType($mergedNames, true);
-                    $existing->setType($mergedType, $mergedType);
+            // Use getType(true) for the stored output type.
+            // getType(false) post-Phase-5 returns a synthesised union and cannot be decomposed.
+            $existingOutput = $existing->getType(true);
+            $incomingOutput = $property->getType(true);
+
+            if (!$incomingOutput) {
+                // NullProcessor sets type=null but registers a 'null' type hint decorator.
+                // Distinguish: truly untyped ("age: {}") vs explicit null-type ("age: {"type":"null"}").
+                if (str_contains($property->getTypeHint(), 'null')) {
+                    // Explicit null-type branch: treat as $hasNull=true with no scalar names.
+                    if ($existingOutput) {
+                        $existing->setType(
+                            new PropertyType($existingOutput->getNames(), true),
+                            new PropertyType($existingOutput->getNames(), true),
+                        );
+                        $existing->filterValidators(
+                            static fn(Validator $validator): bool =>
+                                !($validator->getValidator() instanceof TypeCheckInterface),
+                        );
+                    }
+                } else {
+                    // Truly untyped branch: combined type is unbounded — remove the type hint.
+                    $existing->setType(null, null);
+                }
+                return $this;
+            }
+
+            // Existing type is null — this happens when a null branch (or untyped branch) was
+            // added first and the incoming branch now brings a concrete type.
+            if (!$existingOutput) {
+                // Only promote if the existing property has a 'null' typeHint (i.e. it was an
+                // explicit null-type branch, not a truly untyped branch).
+                if (str_contains($existing->getTypeHint(), 'null')) {
+                    $names = $incomingOutput->getNames();
+                    $existing->setType(
+                        new PropertyType($names, true),
+                        new PropertyType($names, true),
+                    );
                     $existing->filterValidators(
                         static fn(Validator $validator): bool =>
                             !($validator->getValidator() instanceof TypeCheckInterface),
                     );
                 }
+                // For truly untyped existing: keep as-is (no type hint).
+                return $this;
             }
+
+            $allNames = array_merge($existingOutput->getNames(), $incomingOutput->getNames());
+
+            // Strip 'null' → nullable flag; PropertyType constructor deduplicates the rest.
+            // Also propagate any nullable=true already set on either side (e.g. from
+            // cloneTransferredProperty which marks all non-allOf branch properties as nullable).
+            $hasNull = in_array('null', $allNames, true)
+                || $existingOutput->isNullable() === true
+                || $incomingOutput->isNullable() === true;
+            $nonNullNames = array_values(array_filter($allNames, fn(string $t): bool => $t !== 'null'));
+
+            if (!$nonNullNames) {
+                return $this;
+            }
+
+            $mergedType = new PropertyType($nonNullNames, $hasNull ? true : null);
+
+            if ($mergedType->getNames() === $existingOutput->getNames()
+                && $mergedType->isNullable() === $existingOutput->isNullable()
+            ) {
+                return $this;
+            }
+
+            // allOf requires all branches to satisfy simultaneously — conflicting scalar type
+            // names (e.g. string vs int) are unsatisfiable and must be rejected at generation time.
+            // Differences in nullability alone are not a conflict: they represent constraints
+            // that the runtime validator already enforces per-branch.
+            $existingNonNull = array_values(array_filter($existingOutput->getNames(), fn(string $t): bool => $t !== 'null'));
+            if ($compositionProcessor !== null
+                && is_a($compositionProcessor, AllOfProcessor::class, true)
+                && $mergedType->getNames() !== $existingNonNull
+            ) {
+                throw new SchemaException(
+                    sprintf(
+                        "Property '%s' is defined with conflicting types across allOf branches. " .
+                        "allOf requires all constraints to hold simultaneously, making this schema unsatisfiable.",
+                        $property->getName(),
+                    ),
+                );
+            }
+
+            $existing->setType($mergedType, $mergedType);
+
+            $existing->filterValidators(
+                static fn(Validator $validator): bool =>
+                    !($validator->getValidator() instanceof TypeCheckInterface),
+            );
         }
 
         return $this;

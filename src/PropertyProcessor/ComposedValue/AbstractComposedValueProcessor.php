@@ -171,39 +171,67 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      */
     private function transferPropertyType(PropertyInterface $property, array $compositionProperties): void
     {
-        $types = array_values(array_unique(array_map(
-            static fn(CompositionPropertyDecorator $p): string => $p->getType() ? $p->getType()->getName() : '',
+        if ($this instanceof NotProcessor) {
+            return;
+        }
+
+        // Skip widening when any branch has a nested schema (object): the merged-property
+        // mechanism creates a combined class whose name is not among the per-branch type names.
+        foreach ($compositionProperties as $p) {
+            if ($p->getNestedSchema() !== null) {
+                return;
+            }
+        }
+
+        // Flatten all type names from all branches. Use getNames() to handle branches that
+        // already carry a union PropertyType (e.g. from Phase 4 or Phase 5).
+        $allNames = array_merge(...array_map(
+            static fn(CompositionPropertyDecorator $p): array => $p->getType() ? $p->getType()->getNames() : [],
             $compositionProperties,
-        )));
+        ));
 
-        $nonEmpty = array_values(array_filter($types));
-
-        if (!$nonEmpty || $this instanceof NotProcessor) {
-            return;
-        }
-
-        if (count($nonEmpty) === 1) {
-            $property->setType(new PropertyType(
-                $nonEmpty[0],
-                count($types) > 1 ? true : null,
-            ));
-            return;
-        }
-
-        // Multiple branch types — widen to union, but only for scalar (non-object) branches.
-        // When branches have nested schemas (objects) the merged-property mechanism creates a
-        // combined class that is neither of the per-branch types, so widening would produce an
-        // incorrect union of branch class names.
-        $hasObjectBranch = array_filter(
+        // A branch with no type contributes nothing but signals that nullable=true is required.
+        $hasBranchWithNoType = array_filter(
             $compositionProperties,
-            static fn(CompositionPropertyDecorator $p): bool => $p->getNestedSchema() !== null,
-        );
-        if ($hasObjectBranch) {
+            static fn(CompositionPropertyDecorator $p): bool => $p->getType() === null,
+        ) !== [];
+
+        // An optional branch (property not required in that branch) means the property can be
+        // absent at runtime, causing the root getter to return null. This is a structural
+        // nullable — independent of the implicit-null configuration setting.
+        //
+        // For oneOf/anyOf: any optional branch makes the property nullable (the branch that
+        // omits the property can match, leaving the value as null).
+        //
+        // For allOf: all branches must hold simultaneously. If at least one branch marks the
+        // property as required, the property is required overall — an optional branch in allOf
+        // does not by itself make the property nullable. Only if NO branch requires the property
+        // (i.e. the property is optional across all allOf branches) is it structurally nullable.
+        $hasBranchWithRequiredProperty = array_filter(
+            $compositionProperties,
+            static fn(CompositionPropertyDecorator $p): bool => $p->isRequired(),
+        ) !== [];
+        $hasBranchWithOptionalProperty = $this instanceof AllOfProcessor
+            ? !$hasBranchWithRequiredProperty
+            : array_filter(
+                $compositionProperties,
+                static fn(CompositionPropertyDecorator $p): bool => !$p->isRequired(),
+            ) !== [];
+
+        // Strip 'null' → nullable flag; PropertyType constructor deduplicates the rest.
+        $hasNull = in_array('null', $allNames, true);
+        $nonNullNames = array_values(array_filter(
+            array_unique($allNames),
+            fn(string $t): bool => $t !== 'null',
+        ));
+
+        if (!$nonNullNames) {
             return;
         }
 
-        // Use nullable=true only when some branches contributed no type (same logic as single-type path).
-        $property->setType(new PropertyType($nonEmpty, count($types) > count($nonEmpty) ? true : null));
+        $nullable = ($hasNull || $hasBranchWithNoType || $hasBranchWithOptionalProperty) ? true : null;
+
+        $property->setType(new PropertyType($nonNullNames, $nullable));
     }
 
     /**
