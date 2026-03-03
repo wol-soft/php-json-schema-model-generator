@@ -414,6 +414,11 @@ changes. Task 8.3 updates these assertions. All other tests pass.
 (e.g. `age: integer` in branch 1, `age: string` in branch 2), the root-level property should be
 widened to a union type rather than silently keeping only the first.
 
+**Extended analysis:** See `.claude/issues/110/phase6-merger-analysis.md` for a comprehensive
+treatment of every edge case, including the nested-schema guard, `null`-as-type-name handling,
+input vs output type distinction, multi-branch accumulation, `allOf` semantics, and validator
+filtering scope. The algorithm below incorporates all findings from that analysis.
+
 ### Task 6.1 — Update `Schema::addProperty()` to merge conflicting types
 
 File: `src/Model/Schema.php`
@@ -432,72 +437,109 @@ Replace the silent no-op in the `else` branch of `addProperty()`:
 ```php
 } else {
     $existing = $this->properties[$property->getName()];
-    $existingType = $existing->getType();
-    $incomingType = $property->getType();
 
-    if ($existingType && $incomingType) {
-        $mergedNames = array_values(array_unique(
-            array_merge($existingType->getNames(), $incomingType->getNames())
-        ));
-
-        if ($mergedNames !== $existingType->getNames()) {
-            $existing->setType(
-                new PropertyType($mergedNames, true),
-                new PropertyType($mergedNames, true),
-            );
-            // Strip type-check validators from the root clone: branch sub-classes
-            // enforce per-branch constraints; the root is a coalescing view only.
-            $existing->filterValidators(
-                static fn(\PHPModelGenerator\Model\Validator $v): bool =>
-                    !($v->getValidator() instanceof \PHPModelGenerator\Model\Validator\TypeCheckInterface)
-            );
-        }
+    // Nested-object merging is handled by the merged-property system; don't interfere.
+    if ($existing->getNestedSchema() !== null || $property->getNestedSchema() !== null) {
+        return $this;
     }
+
+    // Use getType(true) to access the raw stored output type.
+    // getType(false) after Phase 5 returns a synthesised union and cannot be decomposed.
+    $existingOutput = $existing->getType(true);
+    $incomingOutput = $property->getType(true);
+
+    if (!$existingOutput || !$incomingOutput) {
+        return $this;  // Can't merge when either side has no type
+    }
+
+    $allNames = array_merge($existingOutput->getNames(), $incomingOutput->getNames());
+
+    // Strip 'null' → nullable flag; PropertyType constructor deduplicates the rest.
+    $hasNull = in_array('null', $allNames, true);
+    $nonNullNames = array_values(array_filter($allNames, fn(string $t): bool => $t !== 'null'));
+
+    if (!$nonNullNames) {
+        return $this;  // Degenerate: only null types
+    }
+
+    $mergedType = new PropertyType($nonNullNames, $hasNull ? true : null);
+
+    if ($mergedType->getNames() === $existingOutput->getNames()
+        && $mergedType->isNullable() === $existingOutput->isNullable()
+    ) {
+        return $this;  // Types identical after dedup — nothing to do
+    }
+
+    // Widen: pass merged type as both input and output. The root has no filter transformation,
+    // so input = output. Phase-5 synthesis in getType(false) will handle the setter correctly.
+    $existing->setType($mergedType, $mergedType);
+
+    // Strip any surviving type-check validators; branch sub-classes enforce constraints.
+    $existing->filterValidators(
+        static fn(Validator $v): bool =>
+            !($v->getValidator() instanceof TypeCheckInterface),
+    );
 }
 ```
 
 **Notes:**
-- `nullable: true` because a `oneOf`/`anyOf` root property is always nullable — the branch that
-  doesn't win doesn't provide a value.
+- `nullable: true` set on the merged type because a `oneOf`/`anyOf` root property is always
+  nullable — the branch that doesn't win doesn't provide a value. If `'null'` appeared explicitly
+  in the names, the `$hasNull` path covers that and `nullable` is forced `true` explicitly.
 - The `onResolve` callback counter is intentionally not registered for the duplicate — it was
   already counted when the first copy was added.
+- `filterValidators()` runs only inside the "types changed" guard to avoid touching properties
+  that didn't actually need widening.
 
-**Acceptance:** `ageCrossTyped.json` generates `getAge(): int|string` instead of `getAge(): ?int`.
-All 2039 existing tests pass (no existing schema has conflicting same-name cross-typed properties).
+**Acceptance:** `ageCrossTyped.json` generates `getAge(): int | string` instead of `getAge(): ?int`.
+All existing tests pass (no existing schema has conflicting same-name cross-typed properties).
 
 ### Task 6.2 — Update `AbstractComposedValueProcessor::transferPropertyType()` for multi-branch unions
 
 File: `src/PropertyProcessor/ComposedValue/AbstractComposedValueProcessor.php`
 
 `transferPropertyType()` currently only sets the root property type when all composition branches
-agree on a single type. Extend it to set a union when branches produce different types:
+agree on a single type. Extend it to set a union when branches produce different types.
+
+**Important:** The original plan used `->getName()` (returns only the first element of a union).
+This must be `->getNames()` to correctly handle branches that themselves already carry a union type
+(e.g. from Phase 4 or Phase 5). Use `array_merge` to flatten across branches:
 
 ```php
 private function transferPropertyType(PropertyInterface $property, array $compositionProperties): void
 {
-    $types = array_values(array_unique(array_map(
-        static fn(CompositionPropertyDecorator $p): string =>
-            $p->getType() ? $p->getType()->getName() : '',
+    if ($this instanceof NotProcessor) {
+        return;
+    }
+
+    $allNames = array_merge(...array_map(
+        static fn(CompositionPropertyDecorator $p): array =>
+            $p->getType() ? $p->getType()->getNames() : [],
         $compositionProperties,
-    )));
+    ));
 
-    $nonEmpty = array_values(array_filter($types));
+    // Strip 'null' → nullable flag; PropertyType constructor deduplicates.
+    $hasNull = in_array('null', $allNames, true);
+    $nonNullNames = array_values(array_filter(
+        array_unique($allNames),
+        fn(string $t): bool => $t !== 'null',
+    ));
 
-    if (!$nonEmpty || $this instanceof NotProcessor) {
-        return;
+    if (!$nonNullNames) {
+        return;  // No typed branches
     }
 
-    if (count($nonEmpty) === 1) {
-        // All branches agree — existing behaviour
-        $property->setType(new PropertyType(
-            $nonEmpty[0],
-            count($types) > 1 ? true : null,
-        ));
-        return;
-    }
+    // nullable: true if any branch had no type (branch didn't always provide a value)
+    // or if 'null' appeared explicitly, or if branches disagree (not all always apply).
+    $hasBranchWithNoType = count($compositionProperties) > count(array_filter(
+        $compositionProperties,
+        static fn(CompositionPropertyDecorator $p): bool => $p->getType() !== null,
+    ));
+    $nullable = $hasNull || $hasBranchWithNoType || count($nonNullNames) > 1
+        ? true
+        : null;
 
-    // Multiple branch types — widen to union
-    $property->setType(new PropertyType($nonEmpty, true));
+    $property->setType(new PropertyType($nonNullNames, $nullable));
 }
 ```
 
@@ -511,9 +553,9 @@ Files: `tests/ComposedValue/CrossTypedCompositionTest.php` (new),
 
 The probe schema `tests/Schema/Issues/110/ageCrossTyped.json` already exists from the investigation
 phase. Move or copy it into the new `CrossTypedCompositionTest/` schema directory alongside any
-additional schema variants (anyOf, same-type branches, etc.) created for this test class.
+additional schema variants created for this test class.
 
-Test cases for `oneOf` with `age: integer (min 0) | age: string (pattern ^[0-9]+$)`:
+**Test cases for `oneOf` with `age: integer (min 0) | age: string (pattern ^[0-9]+$)`:**
 
 1. **Type hint assertions**: getter returns `ReflectionUnionType(['int', 'string'])`, setter
    parameter returns the same, property DocBlock `@var` is `int|string|null`
@@ -524,27 +566,24 @@ Test cases for `oneOf` with `age: integer (min 0) | age: string (pattern ^[0-9]+
 6. **Neither branch matches**: `age = 3.14` throws (not int, not matching string pattern)
 7. **Missing required property**: `[]` throws
 
-Parallel test set for `anyOf` with the same schema (an `anyOf` variant of `ageCrossTyped.json`):
+**Parallel test set for `anyOf`** with the same schema (an `anyOf` variant):
 
-1. Same type hint assertions as oneOf
+1. Same type hint assertions
 2. Integer branch valid: `['age' => 42]` → `getAge() === 42`
 3. String branch valid: `['age' => '42']` → `getAge() === '42'`
-4. Integer constraint enforced in branch: `age = -1` throws
-5. String constraint enforced in branch: `age = 'abc'` throws
+4. Integer constraint enforced: `age = -1` throws
+5. String constraint enforced: `age = 'abc'` throws
 
-Additional test case — **same type in both branches, no widening** (add a schema where both
-branches define `age: integer`):
+**Additional test cases** (required by the extended analysis in `phase6-merger-analysis.md`):
 
-```php
-// Schema: oneOf [{ age: integer }, { age: integer, minimum: 0 }]
-// Root property should remain ?int (no widening to union), types agree
-$this->assertEqualsCanonicalizing(
-    ['int', 'null'],
-    $this->getReturnTypeNames($className, 'getAge'),
-);
-```
-
-This verifies `Schema::addProperty()` only widens when types *differ*, not on every duplicate.
+- **Same type in both branches, no widening** (schema: `oneOf [{ age: integer }, { age: integer, minimum: 0 }]`):
+  root property stays `?int` — verifies widening only fires when types *differ*
+- **3-branch accumulation** (`oneOf` with `int`, `string`, `bool` for same prop):
+  getter/setter have union `int | string | bool`
+- **Explicit null branch** (`oneOf` with `int` branch and `null`-type branch):
+  result is `?int` (nullable=true, no union), not `int|null`
+- **Nested object in one branch**: no type merge; merged-property logic stays in charge
+- **No-type branch** (one typed branch + one untyped branch): no widening applied
 
 ---
 
