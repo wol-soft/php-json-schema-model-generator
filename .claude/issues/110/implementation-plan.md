@@ -490,6 +490,11 @@ Replace the silent no-op in the `else` branch of `addProperty()`:
   already counted when the first copy was added.
 - `filterValidators()` runs only inside the "types changed" guard to avoid touching properties
   that didn't actually need widening.
+- **`allOf` with conflicting types must throw `SchemaException`**: `allOf` requires all branches
+  to hold simultaneously, so conflicting types on the same property produce an unsatisfiable
+  schema. Widening to a union and silently generating code would be wrong — the developer must
+  be notified immediately. The composition type (`allOf` vs `anyOf`/`oneOf`) must be passed into
+  `addProperty()` or detectable from the calling processor to apply this check.
 
 **Acceptance:** `ageCrossTyped.json` generates `getAge(): int | string` instead of `getAge(): ?int`.
 All existing tests pass (no existing schema has conflicting same-name cross-typed properties).

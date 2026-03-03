@@ -145,17 +145,27 @@ the `if ($mergedNames !== $existingType->getNames())` guard), not on every dupli
 
 For `allOf`, all branches always apply — a property that appears in multiple branches with
 *different* types is a **contradictory schema** (`value` must be both `int` AND `string`
-simultaneously, which is impossible). Phase 6 should still widen to a union rather than throwing,
-because:
+simultaneously, which is impossible). Phase 6 **must throw a `SchemaException`** for this case.
 
-1. The branch sub-schemas individually validate correctly.
-2. The contradiction will manifest as validation failure for all real values.
-3. Throwing a `SchemaException` here would break users who have accidentally contradictory `allOf`
-   schemas that nonetheless generate correct code today (via the silent no-op).
+Silently generating code (even a widened union) for a contradictory schema is wrong: it produces a
+model that the developer will use, unaware that their schema is broken. The generated class would
+accept values that no branch can actually validate, and all provided values would fail validation at
+runtime. Failing loudly at generation time surfaces the problem immediately.
 
-The union is semantically wrong but the code generation is safe: no value will pass all branch
-validators, so the generated class is effectively unusable for the cross-typed property, which is
-what the schema deserves.
+Detection: when the same property name arrives via an `allOf` branch and the merger would widen the
+type (i.e. the incoming type is not already contained in the existing type), throw:
+
+```php
+if ($compositionType === 'allOf') {
+    throw new SchemaException(
+        "Property '{$property->getName()}' is defined with conflicting types across allOf branches. " .
+        "allOf requires all constraints to hold simultaneously, making this schema unsatisfiable."
+    );
+}
+```
+
+The `allOf` / `anyOf` / `oneOf` context must be passed into `addProperty()`, or detected from the
+calling `AbstractComposedValueProcessor` subclass, to apply this check only to `allOf`.
 
 ---
 

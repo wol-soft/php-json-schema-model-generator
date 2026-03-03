@@ -97,6 +97,15 @@ Not this:
 
 Boolean and scalar values (`false`, `true`, `null`, numbers, strings) on a single line are fine.
 
+### Schema error handling
+
+Detect and reject invalid or contradictory schemas early, during the schema processing pipeline,
+by throwing `SchemaException`. Do not silently generate broken or misleading code. This applies to
+every detectable invalid case — including `allOf` branches with contradictory types for the same
+property, duplicate property names with unresolvable type conflicts, and any other schema structure
+that cannot produce a correct PHP model. Fail loudly at generation time so the developer sees the
+problem immediately rather than receiving silently incorrect generated code.
+
 ### PHP import style
 
 Always add `use` imports for every class referenced in a file, including global PHP classes such as
