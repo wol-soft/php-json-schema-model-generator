@@ -59,4 +59,14 @@ class CompositionPropertyDecorator extends PropertyProxy
     {
         return $this->affectedObjectProperties;
     }
+
+    /**
+     * Return the branch-level JSON schema (the composition element schema, which may contain
+     * additionalProperties constraints). This is distinct from getJsonSchema(), which proxies
+     * to the inner wrapped property's schema via PropertyProxy.
+     */
+    public function getBranchSchema(): JsonSchema
+    {
+        return $this->jsonSchema;
+    }
 }

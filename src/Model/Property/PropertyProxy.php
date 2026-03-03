@@ -61,7 +61,7 @@ class PropertyProxy extends AbstractProperty
         ?PropertyType $outputType = null,
         bool $reset = false,
     ): PropertyInterface {
-        return $this->getProperty()->setType($type, $outputType);
+        return $this->getProperty()->setType($type, $outputType, $reset);
     }
 
     /**

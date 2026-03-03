@@ -13,8 +13,6 @@
     $originalModelData = $value;
     $proposedValue = null;
     $modifiedValues = [];
-    $resolvedProperties = [];
-    $nullableProperties = [];
 
     {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
         $originalPropertyValidationState = $this->_propertyValidationState ?? [];
@@ -93,10 +91,6 @@
                 if (is_object($value)) {
                     $modifiedValues = array_merge($modifiedValues, $this->{{ modifiedValuesMethod }}($originalModelData, $value));
                 }
-
-                {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
-                    $resolvedProperties[] = '{{ affectedObjectProperty.getName() }}';
-                {% endforeach %}
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
                 {% if not generatorConfiguration.collectErrors() %}
                     if (isset($validatorIndex)) {
@@ -114,20 +108,12 @@
                 }
             {% endif %}
 
-            {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
-                $nullableProperties[] = '{{ affectedObjectProperty.getName() }}';
-            {% endforeach %}
-
             $succeededCompositionElements--;
         }
 
         $value = $originalModelData;
         $validatorComponentIndex++;
     {% endforeach %}
-
-    foreach (array_diff($nullableProperties, $resolvedProperties) as $nullableProperty) {
-        $modelData[$nullableProperty] = null;
-    }
 
     {% if mergedProperty %}
         if (is_object($proposedValue)) {

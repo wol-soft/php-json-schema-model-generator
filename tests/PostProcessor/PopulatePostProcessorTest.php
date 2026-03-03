@@ -328,12 +328,14 @@ Invalid type for age. Requires int, got boolean"
             $generatorConfiguration->setImmutable(false),
         );
 
+        // stringProperty=99 (int) passes construction: branch1 fails (not string), branch2 succeeds.
+        // Raw value 99 is preserved in stringProperty since no null-truncation occurs.
         $object = new $className(['integerProperty' => 2, 'stringProperty' => 99]);
 
-        // test a valid change
+        // test a valid change: integerProperty updated, stringProperty retains raw value 99
         $object->populate(['integerProperty' => 4]);
         $this->assertSame(4, $object->getIntegerProperty());
-        $this->assertNull($object->getStringProperty());
+        $this->assertSame(99, $object->getStringProperty());
 
         // test an invalid change (both properties valid)
         try {
@@ -353,12 +355,12 @@ Invalid type for age. Requires int, got boolean"
 
         // make sure the internal state of the object hasn't changed after invalid accesses
         $this->assertSame(4, $object->getIntegerProperty());
-        $this->assertNull($object->getStringProperty());
+        $this->assertSame(99, $object->getStringProperty());
 
         // test valid changes again to make sure the internal validation state is correct after invalid accesses
         $object->populate(['integerProperty' => 6]);
         $this->assertSame(6, $object->getIntegerProperty());
-        $this->assertNull($object->getStringProperty());
+        $this->assertSame(99, $object->getStringProperty());
 
         $object->populate(['stringProperty' => null]);
         $this->assertSame(6, $object->getIntegerProperty());

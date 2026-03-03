@@ -68,28 +68,57 @@ ERROR,
             $implicitNull,
         );
 
-        $this->assertSame('int|null', $this->getPropertyTypeAnnotation($className, 'age'));
-        $this->assertSame('string|null', $this->getPropertyTypeAnnotation($className, 'name'));
+        // Both properties are exclusive to one branch and the other branch allows additional
+        // properties → types are widened to mixed so raw input values can be stored without TypeError.
+        $this->assertSame('mixed', $this->getPropertyTypeAnnotation($className, 'age'));
+        $this->assertSame('mixed', $this->getPropertyTypeAnnotation($className, 'name'));
 
-        $this->assertSame('int|null', $this->getParameterTypeAnnotation($className, 'setAge'));
-        $setAgeParamType = $this->getParameterType($className, 'setAge');
-        $this->assertSame('int', $setAgeParamType->getName());
-        $this->assertTrue($setAgeParamType->allowsNull());
+        $this->assertSame('mixed', $this->getParameterTypeAnnotation($className, 'setAge'));
+        $this->assertNull($this->getParameterType($className, 'setAge'));
 
-        $this->assertSame('string|null', $this->getParameterTypeAnnotation($className, 'setName'));
-        $setNameParamType = $this->getParameterType($className, 'setName');
-        $this->assertSame('string', $setNameParamType->getName());
-        $this->assertTrue($setNameParamType->allowsNull());
+        $this->assertSame('mixed', $this->getParameterTypeAnnotation($className, 'setName'));
+        $this->assertNull($this->getParameterType($className, 'setName'));
 
-        $this->assertSame('int|null', $this->getReturnTypeAnnotation($className, 'getAge'));
-        $getAgeReturnType = $this->getReturnType($className, 'getAge');
-        $this->assertSame('int', $getAgeReturnType->getName());
-        $this->assertTrue($getAgeReturnType->allowsNull());
+        $this->assertSame('mixed', $this->getReturnTypeAnnotation($className, 'getAge'));
+        $this->assertNull($this->getReturnType($className, 'getAge'));
 
-        $this->assertSame('string|null', $this->getReturnTypeAnnotation($className, 'getName'));
-        $getNameReturnType = $this->getReturnType($className, 'getName');
-        $this->assertSame('string', $getNameReturnType->getName());
-        $this->assertTrue($getNameReturnType->allowsNull());
+        $this->assertSame('mixed', $this->getReturnTypeAnnotation($className, 'getName'));
+        $this->assertNull($this->getReturnType($className, 'getName'));
+    }
+
+    public function testAdditionalPropertiesFalsePreservesTypedHints(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ObjectLevelCompositionAdditionalPropertiesFalse.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // With additionalProperties:false on every other branch, the two properties are mutually
+        // exclusive in any valid input: if branch 1 matches, integerProperty cannot exist (it would
+        // be rejected as additional); if branch 2 matches, stringProperty cannot exist.
+        // Therefore the generator keeps the typed hints — no widening to mixed is needed.
+        $this->assertSame('string|null', $this->getPropertyTypeAnnotation($className, 'stringProperty'));
+        $this->assertSame('int|null', $this->getPropertyTypeAnnotation($className, 'integerProperty'));
+
+        $setStringParamType = $this->getParameterType($className, 'setStringProperty');
+        $this->assertNotNull($setStringParamType);
+        $this->assertSame('string', $setStringParamType->getName());
+        $this->assertTrue($setStringParamType->allowsNull());
+
+        $setIntParamType = $this->getParameterType($className, 'setIntegerProperty');
+        $this->assertNotNull($setIntParamType);
+        $this->assertSame('int', $setIntParamType->getName());
+        $this->assertTrue($setIntParamType->allowsNull());
+
+        // branch 1 matches: stringProperty is stored, integerProperty is absent (null)
+        $object = new $className(['stringProperty' => 'hello']);
+        $this->assertSame('hello', $object->getStringProperty());
+        $this->assertNull($object->getIntegerProperty());
+
+        // branch 2 matches: integerProperty is stored, stringProperty is absent (null)
+        $object = new $className(['integerProperty' => 42]);
+        $this->assertNull($object->getStringProperty());
+        $this->assertSame(42, $object->getIntegerProperty());
     }
 
     /**
@@ -468,8 +497,8 @@ ERROR,
      */
     public function testMatchingPropertyForComposedAnyOfObjectIsValid(
         array $input,
-        ?string $stringPropertyValue,
-        ?int $intPropertyValue,
+        mixed $stringPropertyValue,
+        mixed $intPropertyValue,
     ): void {
         $className = $this->generateClassFromFile('ObjectLevelComposition.json');
 
@@ -489,14 +518,16 @@ ERROR,
 
     public function validComposedObjectDataProviderRequired(): array
     {
+        // Raw input values are preserved in both properties regardless of which branch matched.
+        // The non-matching branch's property retains the raw input value (no null-truncation).
         return [
-            'negative int' => [['integerProperty' => -10, 'stringProperty' => -10], null, -10],
-            'zero int' => [['integerProperty' => 0, 'stringProperty' => 0], null, 0],
-            'positive int' => [['integerProperty' => 10, 'stringProperty' => 10], null, 10],
-            'empty string' => [['integerProperty' => '', 'stringProperty' => ''], '', null],
-            'numeric string' => [['integerProperty' => '100', 'stringProperty' => '100'], '100', null],
-            'filled string' => [['integerProperty' => 'Hello', 'stringProperty' => 'Hello'], 'Hello', null],
-            'additional property' => [['integerProperty' => 'A', 'stringProperty' => 'A', 'test' => 1234], 'A', null],
+            'negative int' => [['integerProperty' => -10, 'stringProperty' => -10], -10, -10],
+            'zero int' => [['integerProperty' => 0, 'stringProperty' => 0], 0, 0],
+            'positive int' => [['integerProperty' => 10, 'stringProperty' => 10], 10, 10],
+            'empty string' => [['integerProperty' => '', 'stringProperty' => ''], '', ''],
+            'numeric string' => [['integerProperty' => '100', 'stringProperty' => '100'], '100', '100'],
+            'filled string' => [['integerProperty' => 'Hello', 'stringProperty' => 'Hello'], 'Hello', 'Hello'],
+            'additional property' => [['integerProperty' => 'A', 'stringProperty' => 'A', 'test' => 1234], 'A', 'A'],
         ];
     }
 
@@ -530,8 +561,8 @@ ERROR,
      */
     public function testMatchingPropertyForComposedAnyOfObjectWithRequiredPropertiesIsValid(
         array $input,
-        ?string $stringPropertyValue,
-        ?int $intPropertyValue,
+        mixed $stringPropertyValue,
+        mixed $intPropertyValue,
     ): void {
         $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
 

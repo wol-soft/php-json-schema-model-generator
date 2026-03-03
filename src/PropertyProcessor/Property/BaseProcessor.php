@@ -11,6 +11,7 @@ use PHPModelGenerator\Exception\Object\MaxPropertiesException;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\BaseProperty;
+use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
@@ -332,7 +333,12 @@ class BaseProcessor extends AbstractPropertyProcessor
                         function () use ($composedProperty, $validator): void {
                             foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
                                 $this->schema->addProperty(
-                                    $this->cloneTransferredProperty($property, $validator->getCompositionProcessor()),
+                                    $this->cloneTransferredProperty(
+                                        $property,
+                                        $validator->getCompositionProcessor(),
+                                        $composedProperty,
+                                        $validator->getComposedProperties(),
+                                    ),
                                     $validator->getCompositionProcessor(),
                                 );
 
@@ -347,11 +353,17 @@ class BaseProcessor extends AbstractPropertyProcessor
 
     /**
      * Clone the provided property to transfer it to a schema. Sets the nullability and required flag based on the
-     * composition processor used to set up the composition
+     * composition processor used to set up the composition. Widens the type to mixed when the property is exclusive
+     * to one anyOf/oneOf branch and at least one other branch allows additional properties, preventing TypeError when
+     * raw input values of an arbitrary type are stored in the property slot.
+     *
+     * @param CompositionPropertyDecorator[] $allBranches
      */
     private function cloneTransferredProperty(
         PropertyInterface $property,
         string $compositionProcessor,
+        CompositionPropertyDecorator $sourceBranch,
+        array $allBranches,
     ): PropertyInterface {
         $transferredProperty = (clone $property)
             ->filterValidators(static fn(Validator $validator): bool =>
@@ -367,8 +379,65 @@ class BaseProcessor extends AbstractPropertyProcessor
                     new PropertyType($transferredProperty->getType(true)->getNames(), true),
                 );
             }
+
+            if ($this->exclusiveBranchPropertyNeedsWidening($property->getName(), $sourceBranch, $allBranches)) {
+                $transferredProperty->setType(null, null, reset: true);
+            }
         }
 
         return $transferredProperty;
+    }
+
+    /**
+     * Returns true when the property named $propertyName is exclusive to $sourceBranch and at least
+     * one other anyOf/oneOf branch allows additional properties (i.e. does NOT declare
+     * additionalProperties: false). In that case the property slot can receive an arbitrarily-typed
+     * raw input value from a non-matching branch, so the native type hint must be removed.
+     *
+     * Returns false when the property appears in another branch too (Phase 6 handles that via
+     * Schema::addProperty merging) or when all other branches have additionalProperties: false
+     * (making the property mutually exclusive with the other branches' properties).
+     *
+     * @param CompositionPropertyDecorator[] $allBranches
+     */
+    private function exclusiveBranchPropertyNeedsWidening(
+        string $propertyName,
+        CompositionPropertyDecorator $sourceBranch,
+        array $allBranches,
+    ): bool {
+        // Pass 1: if any other branch defines the same property, Phase 6 handles the type
+        // merging via Schema::addProperty — widening to mixed is not needed here.
+        foreach ($allBranches as $branch) {
+            if ($branch === $sourceBranch) {
+                continue;
+            }
+
+            $branchPropertyNames = $branch->getNestedSchema()
+                ? array_map(
+                    static fn(PropertyInterface $p): string => $p->getName(),
+                    $branch->getNestedSchema()->getProperties(),
+                  )
+                : [];
+
+            if (in_array($propertyName, $branchPropertyNames, true)) {
+                return false;
+            }
+        }
+
+        // Pass 2: the property is exclusive to $sourceBranch. Widening is needed when at
+        // least one other branch allows additional properties — an arbitrary input value can
+        // then land in this slot when that branch is the one that matched.
+        foreach ($allBranches as $branch) {
+            if ($branch === $sourceBranch) {
+                continue;
+            }
+
+            if (($branch->getBranchSchema()->getJson()['additionalProperties'] ?? true) !== false) {
+                return true;
+            }
+        }
+
+        // All other branches have additionalProperties:false — no arbitrary value can arrive.
+        return false;
     }
 }

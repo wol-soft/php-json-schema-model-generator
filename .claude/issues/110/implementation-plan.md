@@ -35,7 +35,9 @@ Phase 6  — Scenario C: composition merger      (cross-branch same-name propert
 Phase 7  — ComposedItem cleanup                (#114 workaround removed)
 Phase 8  — Test suite update                   (assertNull → union assertions)
 Phase 9  — Typed property declarations         (native type hint on protected $x)
-Phase 10 — Remove getName() compat shim        (migrate all callers; delete the method)
+Phase 10 — `mixed` keyword for untyped slots   (replace implicit no-hint with explicit mixed)
+Phase 11 — Remove getName() compat shim        (migrate all callers; delete the method)
+Phase 12 — Update Sphinx documentation         (reflect union type hints in generated interfaces)
 ```
 
 Phases 1–3 are purely additive (no existing test should break).
@@ -44,7 +46,11 @@ for its scenario only and can be implemented and merged in any order after Phase
 Phase 7 depends on Phase 6. Phase 8 depends on Phases 3–7.
 Phase 9 depends on Phases 1–2 and can otherwise proceed independently; its test updates (Task 9.3)
 should be combined with Phase 8 commits since they touch the same test files.
-Phase 10 depends on all previous phases and is a standalone cleanup commit.
+Phase 10 depends on Phase 9 (typed property declarations must land first so that the `mixed`
+keyword fills exactly the slots that have no specific or union type).
+Phase 11 depends on all previous phases and is a standalone cleanup commit.
+Phase 12 depends on Phases 4–6 (generated output must be stable). It is independent of Phases 7–11
+and can proceed in parallel, but must be committed before the branch is merged to master.
 
 ---
 
@@ -590,31 +596,335 @@ additional schema variants created for this test class.
 - **Nested object in one branch**: no type merge; merged-property logic stays in charge
 - **No-type branch** (one typed branch + one untyped branch): no widening applied
 
+### Analysis: additional fields in `Schema::addProperty()` duplicate path
+
+When a duplicate property name is encountered in the `else` branch of `addProperty()`, several
+`Property` fields beyond `type`/`validators` might theoretically need merging. The table below
+documents each field and the conclusion:
+
+| Field | Set by | Needs merging? | Rationale |
+|---|---|---|---|
+| `$decorators` | `addDecorator()` — per-branch | **No** | `IntToFloatCastDecorator` and `DefaultArrayToEmptyArrayDecorator` are applied at the *branch level* inside `ComposedItem.phptpl` (`resolvePropertyDecorator(compositionProperty)`), not at the root level. The composition template proposes back the decorated value, so the root property decorator is irrelevant. `ObjectInstantiationDecorator` is already guarded by the `getNestedSchema()` early-return. |
+| `$typeHintDecorators` | Composition type hint mechanism | **No** | `setType()` is called without `reset=true`, so existing typeHintDecorators are preserved. The incoming branch's type hint decorators live on the `CompositionPropertyDecorator`, not the root property. |
+| `$defaultValue` | Per-branch schema `default` field | **No** | First branch wins. No coherent merge strategy exists for conflicting defaults. |
+| `$isPropertyReadOnly` | JSON Schema `readOnly` + config | **No** | Extremely rare to have `readOnly` differ across composition branches. Out of scope. |
+| `$isPropertyInternal` | Post-processors only | **Never reached** | Internal properties are created by post-processors with synthetic names that never collide with composition branch property names. |
+| `$usedClasses` | Registered during `process()` | **Not affected** | Each property's used-class imports are registered before `addProperty()` is called. |
+| `$description` | JSON Schema `description` field | **No** | Documentation only; first-wins is acceptable. |
+
+**Conclusion:** Phase 6 is complete as implemented. No additional merging is required.
+
 ---
 
 ## Phase 7 — Remove the `#114` workaround from `ComposedItem.phptpl`
 
-**Goal:** The `$resolvedProperties`/`$nullableProperties` deferred null-setting added for issue #114
-exists to prevent `TypeError` at typed getters when a non-matching branch's value would arrive.
-After Phases 4–6, root properties have accurate union types and this `TypeError` can no longer occur.
+**Goal:** Remove the `$resolvedProperties`/`$nullableProperties` deferred null-setting block from
+`ComposedItem.phptpl`. This requires widening the type hints of composition-branch-exclusive
+properties to `mixed` so no `TypeError` can occur when raw input values are stored in them.
 
-### Task 7.1 — Verify the workaround is obsolete
+**Correct semantics after this phase:** Input data is never truncated. If the user provides
+`{stringProperty: -10, integerProperty: -10}` against a oneOf where the integer branch wins,
+the model stores both values as-is. `getStringProperty()` returns `-10` (not `null`).
 
-After Phases 4–6 are complete, temporarily remove the null-setting block and run the full test suite.
-Any failure indicates a remaining case where the value type still doesn't fit the root getter —
-investigate before proceeding.
+---
 
-### Task 7.2 — Remove the null-setting block from `ComposedItem.phptpl`
+### Investigation result (Task 7.1 executed)
 
-File: `src/Templates/Validator/ComposedItem.phptpl`
+The null-setting block was temporarily removed. **32 tests failed** with `TypeError`.
 
-Remove:
-- `$resolvedProperties = [];` and `$nullableProperties = [];` declarations
-- `$resolvedProperties[] = '...';` lines inside the success path
-- `$nullableProperties[] = '...';` lines inside the catch block
-- `foreach (array_diff($nullableProperties, $resolvedProperties) ...)` block after the branch loop
+**Root cause:** When a composition branch fails, properties exclusive to that branch retain the
+raw input value in the generated model. With a typed property (e.g. `?string`), assigning an
+`int` value causes `TypeError` at the getter.
 
-**Acceptance:** All tests pass with the null-setting block removed.
+**Fix:** Widen the type of composition-branch-exclusive properties to `mixed` (no native type hint)
+when at least one other branch allows additional properties (i.e. does not have
+`additionalProperties: false`). Once typed as `mixed`, storing any raw input value cannot throw.
+
+---
+
+### Task 7.1 — Add `getBranchSchema()` to `CompositionPropertyDecorator`
+
+`PropertyProxy::getJsonSchema()` proxies to the inner wrapped property's schema, hiding the
+branch-level JSON schema stored in `AbstractProperty::$jsonSchema`. We need the branch-level
+schema (the one that may contain `additionalProperties: false`) to be accessible.
+
+**File:** `src/Model/Property/CompositionPropertyDecorator.php`
+
+Add a dedicated method that reads `$this->jsonSchema` directly (bypassing the proxy override):
+
+```php
+public function getBranchSchema(): JsonSchema
+{
+    return $this->jsonSchema;
+}
+```
+
+---
+
+### Task 7.2 — Widen exclusive-branch properties in `cloneTransferredProperty`
+
+**File:** `src/PropertyProcessor/Property/BaseProcessor.php`
+
+#### 7.2a — Pass branch context to `cloneTransferredProperty`
+
+In `transferComposedPropertiesToSchema`, the inner callback already has access to both the
+source `$composedProperty` and the full `$validator->getComposedProperties()` list. Pass them:
+
+```php
+// current:
+$this->cloneTransferredProperty($property, $validator->getCompositionProcessor())
+
+// new:
+$this->cloneTransferredProperty(
+    $property,
+    $validator->getCompositionProcessor(),
+    $composedProperty,
+    $validator->getComposedProperties(),
+)
+```
+
+#### 7.2b — Update `cloneTransferredProperty` signature
+
+```php
+private function cloneTransferredProperty(
+    PropertyInterface $property,
+    string $compositionProcessor,
+    CompositionPropertyDecorator $sourceBranch,
+    array $allBranches,          // CompositionPropertyDecorator[]
+): PropertyInterface
+```
+
+Add the `CompositionPropertyDecorator` use-import at the top of the file (it may already be
+imported via `AbstractComposedPropertyValidator`; check and add if missing).
+
+#### 7.2c — Add widening logic after the existing nullable block
+
+After the existing `if (!is_a($compositionProcessor, AllOfProcessor::class, true))` block,
+add (still inside `cloneTransferredProperty`):
+
+```php
+if (!is_a($compositionProcessor, AllOfProcessor::class, true)
+    && $this->exclusiveBranchPropertyNeedsWidening($property->getName(), $sourceBranch, $allBranches)
+) {
+    $transferredProperty->setType(null, null, reset: true);
+}
+```
+
+`reset: true` clears any type-hint decorators accumulated on the cloned property so nothing
+leaks through to produce a stale hint.
+
+#### 7.2d — Add `exclusiveBranchPropertyNeedsWidening` helper
+
+```php
+/**
+ * Returns true when property $name is exclusive to $sourceBranch and at least one other
+ * anyOf/oneOf branch allows additional properties (i.e. does NOT have additionalProperties:false).
+ * In that case a non-matching branch can store an arbitrarily-typed raw input value in this
+ * property slot, so the type hint must be removed to avoid TypeError.
+ *
+ * @param CompositionPropertyDecorator[] $allBranches
+ */
+private function exclusiveBranchPropertyNeedsWidening(
+    string $propertyName,
+    CompositionPropertyDecorator $sourceBranch,
+    array $allBranches,
+): bool {
+    foreach ($allBranches as $branch) {
+        if ($branch === $sourceBranch) {
+            continue;
+        }
+
+        $branchProperties = $branch->getNestedSchema()
+            ? array_map(
+                static fn(PropertyInterface $p): string => $p->getName(),
+                $branch->getNestedSchema()->getProperties(),
+              )
+            : [];
+
+        if (in_array($propertyName, $branchProperties, true)) {
+            // The property appears in another branch too → Phase 6 already handles the
+            // type merging for same-named cross-typed properties; no widening needed here.
+            return false;
+        }
+
+        // The other branch does not define this property. If it allows additional
+        // properties, an arbitrary value can arrive in this slot.
+        $branchJson = $branch->getBranchSchema()->getJson();
+        if (($branchJson['additionalProperties'] ?? true) !== false) {
+            return true;
+        }
+    }
+
+    // All other branches either define this property (Phase 6 case) or have
+    // additionalProperties:false, so no arbitrary value can arrive → no widening needed.
+    return false;
+}
+```
+
+**Note:** The `PropertyInterface` import is already present in `BaseProcessor.php`. Add
+`CompositionPropertyDecorator` to the use-imports if not already there.
+
+---
+
+### Task 7.3 — Remove the null-setting block from `ComposedItem.phptpl`
+
+**File:** `src/Templates/Validator/ComposedItem.phptpl`
+
+Remove these four pieces:
+
+1. The declarations (lines 16–17):
+   ```
+   $resolvedProperties = [];
+   $nullableProperties = [];
+   ```
+
+2. The success-path accumulator inside the `{% foreach ... %}` try block:
+   ```
+   {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
+       $resolvedProperties[] = '{{ affectedObjectProperty.getName() }}';
+   {% endforeach %}
+   ```
+
+3. The catch-block accumulator:
+   ```
+   {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
+       $nullableProperties[] = '{{ affectedObjectProperty.getName() }}';
+   {% endforeach %}
+   ```
+
+4. The foreach loop after the branch loop (lines 128–130):
+   ```php
+   foreach (array_diff($nullableProperties, $resolvedProperties) as $nullableProperty) {
+       $modelData[$nullableProperty] = null;
+   }
+   ```
+
+**Verify:** After removing all four pieces, run the full test suite. At this point some tests will
+still fail because their expected values reflect the old null-setting behavior — that is addressed
+in Task 7.4.
+
+---
+
+### Task 7.4 — Update tests for new raw-data-preserved semantics
+
+The tests below expect `null` for non-matching branch properties. Under the new semantics, the
+raw input value is preserved. Each assertion must be updated to reflect the actual stored value.
+
+#### `tests/ComposedValue/ComposedAnyOfTest.php`
+
+**`validComposedObjectDataProviderRequired`** (used by both
+`testMatchingPropertyForComposedAnyOfObjectIsValid` and
+`testMatchingPropertyForComposedAnyOfObjectWithRequiredPropertiesIsValid`):
+
+```php
+// Before (null-setting behavior):
+'negative int' => [['integerProperty' => -10, 'stringProperty' => -10], null, -10],
+'zero int'     => [['integerProperty' => 0,   'stringProperty' => 0  ], null, 0  ],
+'positive int' => [['integerProperty' => 10,  'stringProperty' => 10 ], null, 10 ],
+'empty string' => [['integerProperty' => '', 'stringProperty' => ''], '', null],
+'numeric string' => [['integerProperty' => '100', 'stringProperty' => '100'], '100', null],
+'filled string'  => [['integerProperty' => 'Hello', 'stringProperty' => 'Hello'], 'Hello', null],
+'additional property' => [['integerProperty' => 'A', 'stringProperty' => 'A', 'test' => 1234], 'A', null],
+
+// After (raw data preserved — the non-matching branch's property retains its input value):
+'negative int' => [['integerProperty' => -10, 'stringProperty' => -10], -10, -10],
+'zero int'     => [['integerProperty' => 0,   'stringProperty' => 0  ], 0,   0  ],
+'positive int' => [['integerProperty' => 10,  'stringProperty' => 10 ], 10,  10 ],
+'empty string' => [['integerProperty' => '', 'stringProperty' => ''], '', ''],
+'numeric string' => [['integerProperty' => '100', 'stringProperty' => '100'], '100', '100'],
+'filled string'  => [['integerProperty' => 'Hello', 'stringProperty' => 'Hello'], 'Hello', 'Hello'],
+'additional property' => [['integerProperty' => 'A', 'stringProperty' => 'A', 'test' => 1234], 'A', 'A'],
+```
+
+Also update the return types of `testMatchingPropertyForComposedAnyOfObjectIsValid` and
+`testMatchingPropertyForComposedAnyOfObjectWithRequiredPropertiesIsValid` from
+`?string $stringPropertyValue, ?int $intPropertyValue` to `mixed $stringPropertyValue, mixed $intPropertyValue`
+since the raw value is no longer constrained to the property's declared type.
+
+#### `tests/ComposedValue/ComposedOneOfTest.php`
+
+**`validComposedObjectDataProvider`** (used by `testMatchingPropertyForComposedOneOfObjectIsValid`):
+
+Same transformation as above — non-matching branch property retains its raw input value.
+
+**`testValidationInSetterMethods`** (the failing test):
+
+The test constructs the object with `['integerProperty' => 2, 'stringProperty' => 99]`. Under the
+new semantics, `getStringProperty()` returns `99` after construction (raw value preserved). The
+test flow and assertions must be rewritten to account for this:
+
+- Line 522: `$this->assertNull($object->getStringProperty())` → `$this->assertSame(99, $object->getStringProperty())`
+  (after `setIntegerProperty(4)`, the string property still holds its last known value `99`)
+- Lines 547, 552: similarly updated — `getStringProperty()` returns `99` until explicitly set
+- The `setStringProperty(null)` calls at lines 525/554 still correctly null the string property
+
+> **Note on `setStringProperty(null)`:** After `setStringProperty(null)`, the oneOf
+> re-validates: branch 1 fails (null is not string), branch 2 passes (integerProperty is valid
+> integer). This is still valid, and `getStringProperty()` correctly returns `null` afterwards
+> because the setter call explicitly set it.
+
+#### `tests/PostProcessor/PopulatePostProcessorTest.php`
+
+**`testPopulateComposition`**:
+
+Object constructed with `['integerProperty' => 2, 'stringProperty' => 99]`. The `stringProperty`
+holds `99` (raw value). After `$object->populate(['integerProperty' => 4])`:
+- `integerProperty` is updated to `4`
+- `stringProperty` is not in the populate call, so it retains `99`
+
+Update assertions:
+- Line 336: `$this->assertNull($object->getStringProperty())` → `$this->assertSame(99, $object->getStringProperty())`
+- Line 356: same
+- Line 361: same
+- (lines after explicit `populate(['stringProperty' => null])` at line 363 remain `assertNull` — the explicit null assignment is correct)
+
+---
+
+### Task 7.5 — Add `additionalProperties: false` test schema and coverage
+
+Add a new schema to verify that when all other branches have `additionalProperties: false`,
+properties retain their typed hints (no widening applied).
+
+**New file:** `tests/Schema/ComposedAnyOfTest/ObjectLevelCompositionAdditionalPropertiesFalse.json`
+
+```json
+{
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "stringProperty": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "integerProperty": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}
+```
+
+Add a test to `ComposedAnyOfTest.php` verifying:
+- `getStringProperty()` returns `?string` (typed, not `mixed`) — `additionalProperties:false` on
+  both branches means `stringProperty` and `integerProperty` are mutually exclusive in valid input;
+  an ill-typed value can never reach the exclusive-property slot.
+- `getIntegerProperty()` returns `?int` (typed, not `mixed`).
+- Constructing with `{stringProperty: 'hello'}` works and `getStringProperty()` returns `'hello'`.
+- Constructing with `{integerProperty: 42}` works and `getIntegerProperty()` returns `42`.
+
+---
+
+### Acceptance
+
+All 2080+ tests pass (plus new tests from Task 7.5) with the null-setting block removed.
 
 ---
 
@@ -743,7 +1053,12 @@ Task 9.1 ──► Tasks 9.2, 9.3, 9.4
 Phase 8 and Phase 9 can proceed in parallel once Phases 1–7 are complete; Task 9.3 shares
 test files with Phase 8 and should be merged together rather than in separate commits.
 
-Phases 1–9 ──► Phase 10 (Tasks 10.1, 10.2 — all callers must be on the new API before getName() is removed)
+Phase 9 ──► Phase 10 (Tasks 10.1–10.3 — typed-property guards must exist before they can be removed for mixed)
+
+Phases 1–10 ──► Phase 11 (Tasks 11.1, 11.2 — all callers must be on the new API before getName() is removed)
+
+Phases 4, 5, 6 ──► Phase 12 (Tasks 12.1–12.3 — docs must reflect stable generated output)
+Phase 12 is independent of Phases 7–11 and can proceed in parallel, but must be done before merge.
 ```
 
 ---
@@ -773,8 +1088,14 @@ Phases 1–9 ──► Phase 10 (Tasks 10.1, 10.2 — all callers must be on the
 | 9.2 | `tests/AbstractPHPModelGeneratorTestCase.php` |
 | 9.3 | Same test files as Phase 8, plus `tests/Basic/BasicSchemaGenerationTest.php`, `tests/Basic/DefaultValueTest.php`, `tests/Objects/RequiredPropertyTest.php`, `tests/Objects/ArrayPropertyTest.php` |
 | 9.4 | — (verification only; potential fix in `RenderHelper.php` or template if defaults are incompatible) |
-| 10.1 | `src/PropertyProcessor/Filter/FilterProcessor.php`, `src/PropertyProcessor/ComposedValue/AbstractComposedValueProcessor.php`, `src/Model/Validator/PassThroughTypeCheckValidator.php`, `src/PropertyProcessor/Property/BaseProcessor.php`, `src/Model/Validator/FilterValidator.php`, `src/Model/Validator/InstanceOfValidator.php`, `src/SchemaProcessor/PostProcessor/AdditionalPropertiesAccessorPostProcessor.php`, `src/PropertyProcessor/Property/ArrayProcessor.php`, `src/SchemaProcessor/PostProcessor/PatternPropertiesAccessorPostProcessor.php` |
-| 10.2 | `src/Model/Property/PropertyType.php`, `tests/Model/Property/PropertyTypeTest.php` |
+| 10.1 | `src/Utils/RenderHelper.php` |
+| 10.2 | `src/Templates/Model.phptpl`, `src/Templates/Getter.phptpl`, `src/Templates/Setter.phptpl` |
+| 10.3 | `tests/AbstractPHPModelGeneratorTestCase.php` and all test files with `assertNull(getReturnType/getParameterType)` assertions for untyped properties |
+| 11.1 | `src/PropertyProcessor/Filter/FilterProcessor.php`, `src/PropertyProcessor/ComposedValue/AbstractComposedValueProcessor.php`, `src/Model/Validator/PassThroughTypeCheckValidator.php`, `src/PropertyProcessor/Property/BaseProcessor.php`, `src/Model/Validator/FilterValidator.php`, `src/Model/Validator/InstanceOfValidator.php`, `src/SchemaProcessor/PostProcessor/AdditionalPropertiesAccessorPostProcessor.php`, `src/PropertyProcessor/Property/ArrayProcessor.php`, `src/SchemaProcessor/PostProcessor/PatternPropertiesAccessorPostProcessor.php` |
+| 11.2 | `src/Model/Property/PropertyType.php`, `tests/Model/Property/PropertyTypeTest.php` |
+| 12.1 | `docs/source/complexTypes/multiType.rst` |
+| 12.2 | `docs/source/nonStandardExtensions/filter.rst` |
+| 12.3 | `docs/source/combinedSchemas/*.rst` (audit; update as needed) |
 
 ---
 
@@ -941,7 +1262,126 @@ Task 9.1 depends on Phases 1–2 being complete (needs `RenderHelper::getType()`
 Tasks 9.2–9.4 depend on Task 9.1.
 Task 9.3 should be done alongside the relevant Phase 8 test updates (same test files).
 
-## Phase 10 — Remove `PropertyType::getName()` compatibility shim
+## Phase 10 — Use `mixed` keyword for untyped property slots
+
+**Goal:** After Phase 9 every property that has a known type carries a native PHP type hint on its
+declaration, getter, and setter. The remaining untyped properties — those where `getType(true)`
+returns `null` — currently emit no hint at all, which is semantically equivalent to `mixed` but
+does not say so explicitly. PHP 8.0 introduced the `mixed` type keyword for exactly this purpose:
+declaring that a slot intentionally accepts any type. This phase replaces the implicit no-hint with
+an explicit `mixed` keyword, making the generated code self-documenting and more amenable to static
+analysis.
+
+### When `mixed` applies
+
+A property declaration, getter return type, or setter parameter type should use `mixed` when and
+only when `getType(outputType)` returns `null` **after** the typed-property phase (Phase 9) — i.e.
+when no `PropertyType` was ever set on the property. Concrete examples:
+
+| Scenario | `getType(true)` | Declaration | Getter | Setter |
+|---|---|---|---|---|
+| Fully untyped (`"type"` absent, no filter) | `null` | `mixed` | `mixed` | `mixed` |
+| `additionalProperties: true` catch-all slot | `null` | `mixed` | `mixed` | `mixed` |
+| Any-type composition result with no resolved type | `null` | `mixed` | `mixed` | `mixed` |
+
+Properties that already carry a `PropertyType` (single or union) are **not** affected — they
+already receive typed hints from Phases 2 and 9.
+
+**`mixed` is implicitly nullable.** PHP does not allow `?mixed` — attempting to declare
+`?mixed $x` is a fatal error. Wherever the render path would normally prepend `?` or append
+`|null`, it must instead emit bare `mixed` when the resolved type would otherwise be `mixed|null`.
+`RenderHelper::getType()` already handles this naturally: the `$type->isUnion()` and single-type
+branches are only entered when a `PropertyType` is present; the `mixed` path must bypass both.
+
+### Task 10.1 — Emit `mixed` in `RenderHelper::getType()` for null `PropertyType`
+
+File: `src/Utils/RenderHelper.php`
+
+`RenderHelper::getType()` currently starts by resolving a `PropertyType` and proceeds only if it
+is non-null. Extend it with an explicit `mixed` fallback:
+
+```php
+public function getType(
+    PropertyInterface $property,
+    bool $outputType = false,
+    bool $forceNullable = false,
+): string {
+    $type = $property->getType($outputType);
+
+    if ($type === null) {
+        return 'mixed';
+    }
+
+    // ... existing union/single-type logic unchanged ...
+}
+```
+
+No caller needs to change: they all gate on `property.getType(true)` being non-null in templates
+(see Task 10.3 below — those guards are removed as part of this phase).
+
+### Task 10.2 — Remove the `{% if property.getType(true) %}` guards from `Model.phptpl`
+
+File: `src/Templates/Model.phptpl`
+
+After Task 9.1 the property declaration line reads:
+```phptpl
+{% if property.isInternal() %}private{% else %}protected{% endif %}{% if property.getType(true) %} {{ viewHelper.getType(property, true) }}{% endif %} ${{ property.getAttribute(true) }}
+```
+
+The `{% if property.getType(true) %}` guard now prevents `mixed` from being emitted for untyped
+properties. Remove the guard so the type is always emitted:
+```phptpl
+{% if property.isInternal() %}private{% else %}protected{% endif %} {{ viewHelper.getType(property, true) }} ${{ property.getAttribute(true) }}
+```
+
+`RenderHelper::getType()` (after Task 10.1) returns `mixed` for untyped properties, so every
+declaration now has an explicit type.
+
+The getter and setter templates must be checked similarly — if they gate on a non-null `getType()`,
+the guard must be removed so that `mixed` is emitted there too. Specifically:
+
+- `src/Templates/Getter.phptpl` — remove any null guard around the return type hint
+- `src/Templates/Setter.phptpl` — remove any null guard around the parameter type hint
+
+### Task 10.3 — Update test assertions for untyped properties
+
+File: `tests/AbstractPHPModelGeneratorTestCase.php` and test files that currently assert
+`assertNull(getReturnType(...))` or `assertNull(getParameterType(...))` for properties that were
+intentionally untyped.
+
+After this phase, `getReturnType(...)` and `getParameterType(...)` on formerly-untyped methods
+return a `ReflectionNamedType` with name `'mixed'` rather than `null`. Update:
+
+```php
+// Before:
+$this->assertNull($this->getReturnType($object, 'getProperty'));
+$this->assertNull($this->getParameterType($object, 'setProperty'));
+
+// After:
+$this->assertSame('mixed', $this->getReturnType($object, 'getProperty')->getName());
+$this->assertSame('mixed', $this->getParameterType($object, 'setProperty', 0)->getName());
+```
+
+Alternatively, add a convenience helper `assertMixedType($object, $method)` to
+`AbstractPHPModelGeneratorTestCase` to avoid repeating the pattern.
+
+The `getPropertyTypeNames()` helper (Task 9.2) returns `[]` for no type; after this phase it should
+return `['mixed']` for untyped properties. Update any assertions that expected `[]` for an
+untyped declaration.
+
+**Acceptance:** All existing tests pass (after updating assertion strings as above). No generated
+class declares a property, getter, or setter without a type hint. `grep -r 'protected \$'
+src/Templates/` and similar checks return zero results for untyped declarations.
+
+### Dependency
+
+Phase 10 depends on Phase 9 being complete (Task 9.1 introduces the `{% if getType(true) %}` guard
+that this phase then removes, and Phase 9's test updates cover the typed-property path; this phase
+adds the `mixed` path on top).
+
+---
+
+## Phase 11 — Remove `PropertyType::getName()` compatibility shim
 
 **Goal:** `getName()` was kept in Task 1.1 so that all existing call sites could continue working
 unchanged throughout Phases 2–9 without requiring a big-bang migration. Now that every consumer
@@ -952,7 +1392,7 @@ Retaining `getName()` indefinitely would be a design smell: it silently returns 
 type name of a union, which is meaningless for multi-type properties and misleading for callers
 that have not been updated.
 
-### Task 10.1 — Audit and migrate all remaining `->getName()` call sites
+### Task 11.1 — Audit and migrate all remaining `->getName()` call sites
 
 Search `src/` for all occurrences of `->getName()` on a `PropertyType` or on the result of
 `->getType()`. For each occurrence, determine the correct replacement:
@@ -973,11 +1413,11 @@ Search `src/` for all occurrences of `->getName()` on a `PropertyType` or on the
 The `RenderHelper::getType()` single-type path (`return ($nullable ? '?' : '') . $names[0]`)
 uses `$names[0]` directly after `getNames()` — this is already correct and does not call `getName()`.
 
-### Task 10.2 — Remove `PropertyType::getName()`
+### Task 11.2 — Remove `PropertyType::getName()`
 
 File: `src/Model/Property/PropertyType.php`
 
-Once Task 10.1 is complete and all tests pass, remove the `getName(): string` method entirely.
+Once Task 11.1 is complete and all tests pass, remove the `getName(): string` method entirely.
 Update `tests/Model/Property/PropertyTypeTest.php` to remove the `getName()` assertions added in
 Task 1.1 and verify that no test references `getName()` any longer.
 
@@ -986,8 +1426,56 @@ All tests pass.
 
 ### Dependency
 
-Phase 10 depends on all of Phases 1–9 being complete (all callers must be on the new API before
+Phase 11 depends on all of Phases 1–10 being complete (all callers must be on the new API before
 the shim is removed). It is the final step and can be committed as a standalone cleanup commit.
+
+---
+
+## Phase 12 — Update Sphinx documentation
+
+**Goal:** Bring the RST documentation in `docs/source/` in line with the new union-type output so
+that the documented generated interfaces match what the code actually produces.
+
+### Affected files
+
+| File | Change required |
+|---|---|
+| `docs/source/complexTypes/multiType.rst` | Setter signatures currently show no native type hint (`$example`). After Phase 4 they will carry a union hint. Update every generated-interface code block to show the native union type. |
+| `docs/source/nonStandardExtensions/filter.rst` | Setter currently shown as `public function setProductionDate($productionDate): static;`. After Phase 5 it will be `public function setProductionDate(string\|DateTime $productionDate): static;`. Update setter signatures. |
+| Combined schemas docs (`docs/source/combinedSchemas/`) | Check whether any `anyOf`/`oneOf`/`allOf` examples show setter signatures for cross-branch same-name properties. After Phase 6 those will carry union hints. Update as needed. |
+
+### Task 12.1 — Update `multiType.rst` setter/getter signatures
+
+File: `docs/source/complexTypes/multiType.rst`
+
+- In every `Generated interface` code block, replace bare `$example` parameter with the correct
+  native union hint, e.g. `float|string $example`.
+- The getter return type (`?float|string`) is more complex — if the property is optional the full
+  long form `float|string|null` is used. Update accordingly.
+- Remove or update any prose that says "doesn't contain type hints as multiple types are allowed".
+
+### Task 12.2 — Update `filter.rst` setter signatures
+
+File: `docs/source/nonStandardExtensions/filter.rst`
+
+- Change `public function setProductionDate($productionDate): static;` to
+  `public function setProductionDate(string|DateTime $productionDate): static;`.
+- Verify all other filter examples in the same file and update any that show untyped setter params
+  where the filter produces a different output type.
+
+### Task 12.3 — Audit combined-schema docs
+
+Files: `docs/source/combinedSchemas/*.rst`
+
+- Scan for generated-interface code blocks that include setter signatures for properties that
+  appear in multiple composition branches with different types.
+- Update any such signatures to show the union hint.
+
+### Dependency
+
+Phase 12 depends on Phases 4, 5, and 6 being complete (the generated output that the docs describe
+must be stable before the docs can be written accurately). It is independent of Phases 7–11 and
+can be worked in parallel with them, but should be committed before the branch is merged to master.
 
 ---
 
@@ -995,11 +1483,11 @@ the shim is removed). It is the final step and can be committed as a standalone 
 
 | Risk | Mitigation |
 |---|---|
-| Phase 4 `PropertyType::union` on multi-type properties: `FilterProcessor` calls `->getName()` at lines 92 and 119 on the result of `$property->getType()` | Temporarily mitigated: `getName()` returns the first name, and multi-type properties never have `array` as their first type in current schemas. **Permanently fixed in Task 10.1** by migrating to `getNames()`-based checks. |
-| Phase 4 union `PropertyType` on multi-type properties breaks `AbstractComposedValueProcessor::transferPropertyType()` which calls `->getName()` at line 178 | `getName()` returns first name — safe for now since multi-type composition branches are not produced by current schemas. **Permanently fixed in Task 10.1** by collecting all names via `getNames()`. |
+| Phase 4 `PropertyType::union` on multi-type properties: `FilterProcessor` calls `->getName()` at lines 92 and 119 on the result of `$property->getType()` | Temporarily mitigated: `getName()` returns the first name, and multi-type properties never have `array` as their first type in current schemas. **Permanently fixed in Task 11.1** by migrating to `getNames()`-based checks. |
+| Phase 4 union `PropertyType` on multi-type properties breaks `AbstractComposedValueProcessor::transferPropertyType()` which calls `->getName()` at line 178 | `getName()` returns first name — safe for now since multi-type composition branches are not produced by current schemas. **Permanently fixed in Task 11.1** by collecting all names via `getNames()`. |
 | `"type": ["string","null"]` — `null` in names causes `null\|null` in output | Task 4.2 strips `'null'` from names and sets `nullable = true` before constructing `new PropertyType([...], true)` |
-| Phase 5 filter union breaks `PassThroughTypeCheckValidator` which calls `$property->getType()->getName()` at line 39 of `PassThroughTypeCheckValidator.php` | After Phase 5, `getType(false)` returns a union; `getName()` returns the first name (the input type e.g. `'string'`). Temporarily safe since the check compares the input-side type. **Permanently fixed in Task 10.1** by migrating the call site. |
-| `cloneTransferredProperty()` in `BaseProcessor.php` calls `->getName()` on the result of `getType()` and `getType(true)` at lines 365–366 to construct new `PropertyType` objects | After Phase 6, root properties may have union `PropertyType`; `getName()` returns the first name only, losing union members. **Permanently fixed in Task 10.1**: `new PropertyType(->getNames(), true)` preserves the full union. |
+| Phase 5 filter union breaks `PassThroughTypeCheckValidator` which calls `$property->getType()->getName()` at line 39 of `PassThroughTypeCheckValidator.php` | After Phase 5, `getType(false)` returns a union; `getName()` returns the first name (the input type e.g. `'string'`). Temporarily safe since the check compares the input-side type. **Permanently fixed in Task 11.1** by migrating the call site. |
+| `cloneTransferredProperty()` in `BaseProcessor.php` calls `->getName()` on the result of `getType()` and `getType(true)` at lines 365–366 to construct new `PropertyType` objects | After Phase 6, root properties may have union `PropertyType`; `getName()` returns the first name only, losing union members. **Permanently fixed in Task 11.1**: `new PropertyType(->getNames(), true)` preserves the full union. |
 | Phase 6 type-check validator removal in `addProperty()` too broad — removes `PropertyTemplateValidator` | Guard with `TypeCheckInterface` only; `PropertyTemplateValidator` does not implement `TypeCheckInterface` |
 | Phase 7 removal reveals a remaining `TypeError` case not covered by Phases 4–6 | Phase 7 starts with a verification step (Task 7.1); if failures appear, diagnose before removing |
 | `SerializationPostProcessor` uses `$property->getType()` for generated serialization code — union type may produce unexpected serialization logic | Run serialization tests specifically after each of Phases 4–6; `SerializationPostProcessor` may need to handle `isUnion()` separately |
