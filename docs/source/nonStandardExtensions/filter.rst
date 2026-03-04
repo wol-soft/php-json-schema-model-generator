@@ -234,7 +234,7 @@ Generated interface:
 
     // $productionDate accepts string|DateTime
     // if a string is provided the string will be transformed into a DateTime
-    public function setProductionDate($productionDate): static;
+    public function setProductionDate(string | DateTime $productionDate): static;
     public function getProductionDate(): ?DateTime;
 
 Let's have a look how the generated model behaves:
