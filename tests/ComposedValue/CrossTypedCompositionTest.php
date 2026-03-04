@@ -139,6 +139,24 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
         new $className(['age' => 'abc']);
     }
 
+    public function testAnyOfCrossTypedFloatMatchesNeitherBranch(): void
+    {
+        $this->expectException(ValidationException::class);
+
+        $className = $this->generateClassFromFile('AgeCrossTypedAnyOf.json');
+
+        new $className(['age' => 3.14]);
+    }
+
+    public function testAnyOfCrossTypedMissingRequiredPropertyThrows(): void
+    {
+        $this->expectException(ValidationException::class);
+
+        $className = $this->generateClassFromFile('AgeCrossTypedAnyOf.json');
+
+        new $className([]);
+    }
+
     // --- 3-branch accumulation ---
 
     public function testThreeBranchesAccumulateIntoThreeTypeUnion(): void
