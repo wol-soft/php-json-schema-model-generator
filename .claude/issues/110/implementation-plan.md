@@ -1099,7 +1099,24 @@ Phase 12 is independent of Phases 7–11 and can proceed in parallel, but must b
 
 ---
 
-## Phase 9 — Native type hints on property declarations
+## Phase 9 — Native type hints on property declarations *(DEFERRED — see note)*
+
+> **STATUS: Deferred.** Attempted and reverted. Two blocking issues were discovered during Task
+> 9.4 verification:
+>
+> 1. **Uninitialized non-nullable typed properties.** The generated `processXxx()` methods read
+>    `$this->property` (as a fallback when the key is absent from `$modelData`) before the
+>    property has been assigned. Untyped properties implicitly default to `null`; typed properties
+>    do not — PHP throws "must not be accessed before initialization".
+>
+> 2. **TypeError in error-collection mode.** Validators in error-collection mode record errors but
+>    return the original (potentially invalid) value. The template then assigns that value to the
+>    typed property (`$this->age = false` on `?int`), which throws `TypeError` before the
+>    `ErrorRegistryException` can be raised.
+>
+> A full fix requires template changes to initialize all typed properties to a zero value,
+> and to guard assignments in error-collection mode. This is a larger refactor than is appropriate
+> to bundle with the union-type work. Phase 9 is preserved here for a future branch.
 
 PHP 8.0 supports union types on property declarations (`protected int|string $age;` is valid).
 The current `Model.phptpl` line 32 never emits a native type hint on property declarations at all —

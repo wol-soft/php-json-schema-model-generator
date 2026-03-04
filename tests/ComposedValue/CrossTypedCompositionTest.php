@@ -184,9 +184,9 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
 
         // An untyped branch means "any value is valid", so the root property is unbounded.
         // Keeping the narrow int hint from the first branch would be misleading — the type
-        // hint is removed entirely.
-        $this->assertNull($this->getReturnType($className, 'getAge'));
-        $this->assertNull($this->getParameterType($className, 'setAge'));
+        // hint is widened to mixed.
+        $this->assertSame('mixed', $this->getReturnType($className, 'getAge')->getName());
+        $this->assertSame('mixed', $this->getParameterType($className, 'setAge')->getName());
     }
 
     // --- allOf with conflicting types — SchemaException ---
@@ -335,10 +335,10 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
         );
 
         // Same as AgeNoTypeBranchOneOf.json but with the untyped branch listed first.
-        // The result must be identical: no type hint, because an untyped branch means
-        // any value is structurally valid and the narrow int hint would be misleading.
-        $this->assertNull($this->getReturnType($className, 'getAge'));
-        $this->assertNull($this->getParameterType($className, 'setAge'));
+        // The result must be identical: type is widened to mixed, because an untyped branch
+        // means any value is structurally valid and the narrow int hint would be misleading.
+        $this->assertSame('mixed', $this->getReturnType($className, 'getAge')->getName());
+        $this->assertSame('mixed', $this->getParameterType($className, 'setAge')->getName());
     }
 
     // --- allOf with all-optional branches — nullable single type ---

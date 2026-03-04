@@ -72,16 +72,16 @@ ERROR,
         $this->assertSame('mixed', $this->getPropertyTypeAnnotation($className, 'name'));
 
         $this->assertSame('mixed', $this->getParameterTypeAnnotation($className, 'setAge'));
-        $this->assertNull($this->getParameterType($className, 'setAge'));
+        $this->assertSame('mixed', $this->getParameterType($className, 'setAge')->getName());
 
         $this->assertSame('mixed', $this->getParameterTypeAnnotation($className, 'setName'));
-        $this->assertNull($this->getParameterType($className, 'setName'));
+        $this->assertSame('mixed', $this->getParameterType($className, 'setName')->getName());
 
         $this->assertSame('mixed', $this->getReturnTypeAnnotation($className, 'getAge'));
-        $this->assertNull($this->getReturnType($className, 'getAge'));
+        $this->assertSame('mixed', $this->getReturnType($className, 'getAge')->getName());
 
         $this->assertSame('mixed', $this->getReturnTypeAnnotation($className, 'getName'));
-        $this->assertNull($this->getReturnType($className, 'getName'));
+        $this->assertSame('mixed', $this->getReturnType($className, 'getName')->getName());
     }
 
     /**

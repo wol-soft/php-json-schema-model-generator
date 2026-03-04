@@ -93,7 +93,7 @@ class RenderHelper
         $type = $property->getType($outputType);
 
         if (!$type) {
-            return '';
+            return 'mixed';
         }
 
         $nullable = ($type->isNullable() ?? $this->isPropertyNullable($property, $outputType)) || $forceNullable;

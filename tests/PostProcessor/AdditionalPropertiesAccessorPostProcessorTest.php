@@ -110,7 +110,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             $this->assertFalse($returnType->allowsNull());
 
             $this->assertSame('mixed', $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'));
-            $this->assertNull($this->getReturnType($object, 'getAdditionalProperty'));
+            $this->assertSame('mixed', $this->getReturnType($object, 'getAdditionalProperty')->getName());
         }
     }
 
@@ -125,7 +125,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $object = new $className(['property1' => 100]);
 
         $this->assertSame('mixed', $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1));
-        $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
+        $this->assertSame('mixed', $this->getParameterType($object, 'setAdditionalProperty', 1)->getName());
         $this->assertSame('mixed', $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'));
 
         $this->assertSame(100, $object->getAdditionalProperty('property1'));

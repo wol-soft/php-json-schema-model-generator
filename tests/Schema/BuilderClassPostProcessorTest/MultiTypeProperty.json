@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "age": {
+      "type": [
+        "integer",
+        "string"
+      ]
+    }
+  }
+}
