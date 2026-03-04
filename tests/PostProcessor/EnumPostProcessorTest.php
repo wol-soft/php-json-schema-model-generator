@@ -373,7 +373,10 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $object->setProperty($enum::C);
         $this->assertTrue($object->getProperty()->value());
 
-        $this->assertNull($this->getParameterType($object, 'setProperty'));
+        $this->assertEqualsCanonicalizing(
+            [$enum, 'string', 'int', 'bool', 'null'],
+            $this->getParameterTypeNames($object, 'setProperty'),
+        );
 
         $this->assertSame($enum::A, $enum::from('Hans'));
         $this->assertSame($enum::A, $enum::tryFrom('Hans'));

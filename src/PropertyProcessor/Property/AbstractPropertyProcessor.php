@@ -100,6 +100,20 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
 
             if (count($typesOfEnum) === 1) {
                 $property->setType(new PropertyType($typesOfEnum[0]));
+            } else {
+                // Multiple types: set a union PropertyType so the native PHP type hint path can
+                // emit e.g. string|int instead of falling back to no hint at all.
+                // 'NULL' must be expressed as nullable=true rather than kept as a type name.
+                $hasNull = in_array('null', $typesOfEnum, true);
+                $nonNullTypes = array_values(array_filter(
+                    $typesOfEnum,
+                    static fn(string $t): bool => $t !== 'null',
+                ));
+
+                if ($nonNullTypes) {
+                    $propertyType = new PropertyType($nonNullTypes, $hasNull ? true : null);
+                    $property->setType($propertyType, $propertyType);
+                }
             }
             $property->addTypeHintDecorator(new TypeHintDecorator($typesOfEnum));
         }

@@ -190,13 +190,19 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('string|int|null', $this->getPropertyTypeAnnotation($object, 'property'));
 
         $this->assertSame('string|int|null', $this->getReturnTypeAnnotation($object, 'getProperty'));
-        $this->assertNull($this->getReturnType($object, 'getProperty'));
+        $this->assertEqualsCanonicalizing(
+            ['string', 'int', 'null'],
+            $this->getReturnTypeNames($object, 'getProperty'),
+        );
 
         $this->assertSame(
             $implicitNull ? 'string|int|null' : 'string|int',
             $this->getParameterTypeAnnotation($object, 'setProperty'),
         );
-        $this->assertNull($this->getParameterType($object, 'setProperty'));
+        $this->assertEqualsCanonicalizing(
+            $implicitNull ? ['string', 'int', 'null'] : ['string', 'int'],
+            $this->getParameterTypeNames($object, 'setProperty'),
+        );
     }
 
     /**
@@ -325,10 +331,16 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('string|int', $this->getPropertyTypeAnnotation($object, 'property'));
 
         $this->assertSame('string|int', $this->getReturnTypeAnnotation($object, 'getProperty'));
-        $this->assertNull($this->getReturnType($object, 'getProperty'));
+        $this->assertEqualsCanonicalizing(
+            ['string', 'int'],
+            $this->getReturnTypeNames($object, 'getProperty'),
+        );
 
         $this->assertSame('string|int', $this->getParameterTypeAnnotation($object, 'setProperty'));
-        $this->assertNull($this->getParameterType($object, 'setProperty'));
+        $this->assertEqualsCanonicalizing(
+            ['string', 'int'],
+            $this->getParameterTypeNames($object, 'setProperty'),
+        );
     }
 
     /**

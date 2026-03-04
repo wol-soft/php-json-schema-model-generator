@@ -1,5 +1,30 @@
 # CLAUDE.md
 
+## Clarification policy
+
+Before starting any non-trivial task — one that has more than one degree of freedom, including
+architectural choices, naming decisions, scope boundaries, approach selection, or any other point
+where multiple valid implementations exist — Claude must identify every such ambiguity and ask the
+user to resolve it.
+
+Rules:
+
+- Ask all foreseeable clarifying questions upfront in a single batch before work begins.
+- If new ambiguities emerge during execution that were not foreseeable upfront, pause and ask
+  follow-up questions before proceeding past that decision point.
+- For high-stakes decisions (architecture, scope, data model, API shape, behaviour changes) always
+  block and wait for an explicit answer.
+- For low-stakes decisions (minor naming, formatting, trivially reversible choices) Claude may
+  proceed with a clearly stated assumption rather than blocking, but must make the assumption
+  visible so the user can correct it.
+- There must be no silent interpretation or interpolation of under-specified tasks. If something is
+  unclear, ask. Do not guess and proceed.
+
+When generating a new CLAUDE.md for a repository, include this clarification policy verbatim as a
+preamble before all other content.
+
+---
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Commands
@@ -111,6 +136,41 @@ problem immediately rather than receiving silently incorrect generated code.
 Always add `use` imports for every class referenced in a file, including global PHP classes such as
 `TypeError`, `InvalidArgumentException`, `RuntimeException`, `stdClass`, and PHP Reflection classes.
 Never reference them with a leading backslash (`\TypeError`); import and use the short name instead.
+
+### Issue and topic tracking
+
+For every GitHub issue or non-trivial investigation topic being worked on, create a dedicated
+directory at `.claude/issues/<number>/` (for GitHub issues) or `.claude/topics/<slug>/` (for
+freestanding investigations). Store all analysis, design notes, and implementation plans there as
+Markdown files.
+
+Rules:
+
+- Create the directory and at least a stub `implementation-plan.md` (or `analysis.md`) before
+  writing any code, so the plan is committed alongside the first code change.
+- Every implementation plan must include a dedicated documentation update step. Before finalising
+  the plan, audit `docs/source/` (RST), `README.md`, and any other user-facing docs for content
+  that would be affected by the change, and add a plan phase that updates those docs. Do not skip
+  this even if the doc changes appear minor.
+- Commit the plan files together with related code changes so the reasoning is always traceable in
+  git history.
+- Update the plan file(s) as the work progresses — record decisions made, phases completed, and
+  any pivots in approach.
+- Once a topic is **ready to merge**, delete the entire `.claude/issues/<number>/` or
+  `.claude/topics/<slug>/` directory and commit that deletion as the final commit on the branch,
+  **before** merging to `master`. The tracking files are working notes and must never land on
+  `master`.
+
+Example layout for issue #110:
+
+```
+.claude/issues/110/
+  analysis.md               ← initial investigation and option evaluation
+  implementation-plan.md    ← phased plan, updated as phases complete
+  union-type-preparation.md ← supplementary preparatory notes
+  union-type-test-coverage.md
+  phase6-merger-analysis.md
+```
 
 ### Union type style
 

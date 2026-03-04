@@ -16,7 +16,11 @@
       "WebFetch(domain:api.github.com)",
       "Bash(head:*)",
       "Bash(grep:*)",
-      "WebFetch(domain:wiki.php.net)"
+      "WebFetch(domain:wiki.php.net)",
+      "Bash(cd /c/git/php-json-schema-model-generator && ./vendor/bin/phpunit 2>&1)",
+      "Bash(./vendor/bin/phpunit:*)",
+      "Bash(php:*)",
+      "Bash(cat:*)"
     ]
   }
 }
