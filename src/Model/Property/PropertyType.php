@@ -23,15 +23,6 @@ class PropertyType
     }
 
     /**
-     * Returns the first type name. Kept for backward compatibility with existing single-type callers.
-     * Use getNames() when dealing with union types.
-     */
-    public function getName(): string
-    {
-        return $this->names[0];
-    }
-
-    /**
      * Returns all type names. For a single-type property this is a one-element array.
      *
      * @return string[]

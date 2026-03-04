@@ -123,10 +123,11 @@ class FilterValidator extends PropertyTemplateValidator
             return;
         }
 
+        $typeNames = $property->getType()->getNames();
         if (
             (
-                $property->getType()->getName() &&
-                !in_array($property->getType()->getName(), $this->mapDataTypes($filter->getAcceptedTypes()))
+                !empty($typeNames) &&
+                !empty(array_diff($typeNames, $this->mapDataTypes($filter->getAcceptedTypes())))
             ) || (
                 $property->getType()->isNullable() && !in_array('null', $filter->getAcceptedTypes())
             )
@@ -135,7 +136,7 @@ class FilterValidator extends PropertyTemplateValidator
                 sprintf(
                     'Filter %s is not compatible with property type %s for property %s in file %s',
                     $filter->getToken(),
-                    $property->getType()->getName(),
+                    implode('|', $typeNames),
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
                 )

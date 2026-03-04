@@ -66,7 +66,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             if ($property->getType()) {
                 $property->setType(
                     $property->getType(),
-                    new PropertyType($property->getType(true)->getName(), false),
+                    new PropertyType($property->getType(true)->getNames(), false),
                 );
             }
 

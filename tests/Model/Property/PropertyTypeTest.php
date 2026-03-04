@@ -16,13 +16,6 @@ class PropertyTypeTest extends TestCase
         $this->assertSame(['string'], $t->getNames());
     }
 
-    public function testSingleNameConstructionGetNameReturnsTheName(): void
-    {
-        $t = new PropertyType('string');
-
-        $this->assertSame('string', $t->getName());
-    }
-
     public function testSingleNameConstructionIsNotAUnion(): void
     {
         $t = new PropertyType('string');
@@ -35,13 +28,6 @@ class PropertyTypeTest extends TestCase
         $t = new PropertyType(['int', 'string']);
 
         $this->assertSame(['int', 'string'], $t->getNames());
-    }
-
-    public function testArrayConstructionGetNameReturnsFirstElement(): void
-    {
-        $t = new PropertyType(['int', 'string']);
-
-        $this->assertSame('int', $t->getName());
     }
 
     public function testArrayConstructionIsAUnion(): void

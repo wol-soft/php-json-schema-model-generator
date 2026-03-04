@@ -89,7 +89,7 @@ class FilterProcessor
             );
 
             if ($filter instanceof TransformingFilterInterface) {
-                if ($property->getType() && $property->getType()->getName() === 'array') {
+                if ($property->getType() && in_array('array', $property->getType()->getNames(), true)) {
                     throw new SchemaException(
                         sprintf(
                             'Applying a transforming filter to the array property %s is not supported in file %s',
@@ -116,7 +116,7 @@ class FilterProcessor
 
                 if ($typeAfterFilter &&
                     $typeAfterFilter->getName() &&
-                    (!$property->getType() || $property->getType()->getName() !== $typeAfterFilter->getName())
+                    (!$property->getType() || !in_array($typeAfterFilter->getName(), $property->getType()->getNames(), true))
                 ) {
                     $this->addTransformedValuePassThrough($property, $filter, $typeAfterFilter);
                     $this->extendTypeCheckValidatorToAllowTransformedValue($property, $typeAfterFilter);

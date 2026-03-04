@@ -331,9 +331,10 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->addPostProcessor();
 
+        // All scalar types: string, int, bool, float
         $className = $this->generateClassFromFileTemplate(
             'EnumPropertyMapped.json',
-            ['["Hans", 100, true]', '{"a": "Hans", "b": 100, "c": true}'],
+            ['["Hans", 100, true, 60.5]', '{"a": "Hans", "b": 100, "c": true, "d": 60.5}'],
             (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)->setSerialization(true),
             false,
         );
@@ -366,15 +367,18 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull($reflectionEnum->getBackingType());
 
         $this->assertEqualsCanonicalizing(
-            ['A', 'B', 'C'],
+            ['A', 'B', 'C', 'D'],
             array_map(fn(UnitEnum $value): string => $value->name, $enum::cases()),
         );
 
         $object->setProperty($enum::C);
         $this->assertTrue($object->getProperty()->value());
 
+        $object->setProperty(60.5);
+        $this->assertSame(60.5, $object->getProperty()->value());
+
         $this->assertEqualsCanonicalizing(
-            [$enum, 'string', 'int', 'bool', 'null'],
+            [$enum, 'string', 'int', 'bool', 'float', 'null'],
             $this->getParameterTypeNames($object, 'setProperty'),
         );
 

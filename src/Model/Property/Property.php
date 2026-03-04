@@ -69,7 +69,7 @@ class Property extends AbstractProperty
         if (!$outputType
             && $this->type
             && $this->outputType
-            && $this->outputType->getName() !== $this->type->getName()
+            && $this->outputType->getNames() !== $this->type->getNames()
         ) {
             return new PropertyType(
                 array_merge($this->type->getNames(), $this->outputType->getNames()),
@@ -122,7 +122,7 @@ class Property extends AbstractProperty
         $input = join(
             '|',
             array_filter(array_map(function (?PropertyType $input) use ($outputType, $skipDec): string {
-                $typeHint = $input ? $input->getName() : '';
+                $typeHint = $input ? $input->getNames()[0] : '';
 
                 $filteredDecorators = array_filter(
                     $this->typeHintDecorators,
