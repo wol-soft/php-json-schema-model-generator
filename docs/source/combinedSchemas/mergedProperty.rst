@@ -60,7 +60,7 @@ Generated interface:
     public function getName(): ?string
     public function setName(string $name): static
     public function getAge(): ?int
-    public function setAge(int $name): static
+    public function setAge(int $age): static
 
 If your composition is defined on object level the object will gain access to all properties of the combined schemas:
 
@@ -101,4 +101,4 @@ This schema will generate three classes as no merged property is created. The ma
     public function getName(): ?string
     public function setName(string $name): static
     public function getAge(): ?int
-    public function setAge(int $name): static
+    public function setAge(int $age): static

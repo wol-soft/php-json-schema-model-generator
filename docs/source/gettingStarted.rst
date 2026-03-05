@@ -90,7 +90,7 @@ After generating a class with this JSON-Schema our class with the name `Person` 
 
     // setters to change the values of the model after instantiation
     public function setName(string $name): Person;
-    public function setAge(int ?$age): Person;
+    public function setAge(?int $age): Person;
 
 Now let's have a look at the behaviour of the generated model:
 

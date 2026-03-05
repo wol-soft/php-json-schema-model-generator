@@ -61,7 +61,7 @@ For each type given in the allowed types array additional validators may be adde
         }
     }
 
-The property example will be type hinted with `float|string|string[]`.
+The property example will be type hinted with `float | string | string[]`.
 The validators are applied if the given input matches the corresponding type.
 For example if an array **["Hello", 123, "Goodbye"]** is given the validation will fail as numbers aren't allowed in arrays:
 

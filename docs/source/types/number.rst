@@ -63,8 +63,8 @@ To add a range validation to the property use the `minimum`, `maximum` and `excl
             },
             "example2": {
                 "type": "number",
-                "minimumExclusive": 1.0,
-                "maximumExclusive": 2.0
+                "exclusiveMinimum": 1.0,
+                "exclusiveMaximum": 2.0
             }
         }
     }

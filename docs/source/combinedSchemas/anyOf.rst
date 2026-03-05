@@ -68,3 +68,11 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
     is authoritative. ``anyOf`` branches may add further constraints but will not widen the
     property's type. Only properties that appear exclusively inside composition branches are
     subject to union-type widening.
+
+    If a branch declares a type that conflicts with the root type, a warning is emitted to stdout
+    during generation and the root type is kept:
+
+    .. code-block:: none
+
+        Warning: composition branch defines property 'example' with type integer which differs
+        from root type string — root definition takes precedence.
