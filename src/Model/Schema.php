@@ -15,6 +15,7 @@ use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\PropertyProcessor\ComposedValue\AllOfProcessor;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookInterface;
@@ -57,6 +58,11 @@ class Schema
     /** @var callable[] */
     private array $onAllPropertiesResolvedCallbacks = [];
 
+    /** @var array<string, true> Property names registered from the root (compositionProcessor=null) */
+    private array $rootRegisteredProperties = [];
+
+    private ?GeneratorConfiguration $generatorConfiguration = null;
+
     /**
      * Schema constructor.
      */
@@ -73,6 +79,12 @@ class Schema
         $this->description = $schema->getJson()['description'] ?? '';
 
         $this->addInterface(JSONModelInterface::class);
+    }
+
+    public function setGeneratorConfiguration(GeneratorConfiguration $config): self
+    {
+        $this->generatorConfiguration = $config;
+        return $this;
     }
 
     public function getTargetFileName(): string
@@ -147,6 +159,10 @@ class Schema
         if (!isset($this->properties[$property->getName()])) {
             $this->properties[$property->getName()] = $property;
 
+            if ($compositionProcessor === null) {
+                $this->rootRegisteredProperties[$property->getName()] = true;
+            }
+
             $property->onResolve(function (): void {
                 if (++$this->resolvedProperties === count($this->properties)) {
                     foreach ($this->onAllPropertiesResolvedCallbacks as $callback) {
@@ -161,6 +177,37 @@ class Schema
 
             // Nested-object merging is owned by the merged-property system; don't interfere.
             if ($existing->getNestedSchema() !== null || $property->getNestedSchema() !== null) {
+                return $this;
+            }
+
+            // When an incoming root registration arrives after a composition branch claimed the slot,
+            // mark as authoritative and replace the type.
+            if ($compositionProcessor === null) {
+                $this->rootRegisteredProperties[$property->getName()] = true;
+                $incomingOutput = $property->getType(true);
+                if ($incomingOutput) {
+                    $existing->setType($incomingOutput, $incomingOutput);
+                }
+                return $this;
+            }
+
+            // Root-registered property must not be widened or overwritten by anyOf/oneOf branches.
+            if (isset($this->rootRegisteredProperties[$property->getName()])
+                && !is_a($compositionProcessor, AllOfProcessor::class, true)
+            ) {
+                $existingOutputForWarning = $existing->getType(true);
+                $incomingOutputForWarning = $property->getType(true);
+                if ($incomingOutputForWarning
+                    && $existingOutputForWarning
+                    && array_diff($incomingOutputForWarning->getNames(), $existingOutputForWarning->getNames())
+                    && $this->generatorConfiguration?->isOutputEnabled()
+                ) {
+                    echo "Warning: composition branch defines property '{$property->getName()}' with type "
+                        . implode('|', $incomingOutputForWarning->getNames())
+                        . " which differs from root type "
+                        . implode('|', $existingOutputForWarning->getNames())
+                        . " — root definition takes precedence.\n";
+                }
                 return $this;
             }
 

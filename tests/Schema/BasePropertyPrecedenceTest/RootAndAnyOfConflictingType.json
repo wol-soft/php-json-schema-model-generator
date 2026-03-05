@@ -1,0 +1,28 @@
+{
+  "$id": "RootAndAnyOfConflictingType",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "age": {
+      "type": "integer"
+    }
+  },
+  "anyOf": [
+    {
+      "properties": {
+        "age": {
+          "type": "integer"
+        }
+      }
+    },
+    {
+      "properties": {
+        "age": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}

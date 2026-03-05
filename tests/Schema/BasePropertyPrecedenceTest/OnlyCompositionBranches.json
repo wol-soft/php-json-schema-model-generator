@@ -1,0 +1,20 @@
+{
+  "$id": "OnlyCompositionBranches",
+  "type": "object",
+  "anyOf": [
+    {
+      "properties": {
+        "age": {
+          "type": "integer"
+        }
+      }
+    },
+    {
+      "properties": {
+        "age": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}
