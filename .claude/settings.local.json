@@ -5,12 +5,7 @@
       "WebFetch(domain:github.com)",
       "Bash(find:*)",
       "Bash(cd C:/git/php-json-schema-model-generator && /c/PHP84/php.exe ./vendor/bin/phpunit 2>&1)",
-      "Bash(cd C:/git/php-json-schema-model-generator && git stash && /c/PHP84/php.exe ./vendor/bin/phpunit tests/Basic/BasicSchemaGenerationTest.php --filter testEmptyObjectSerialization 2>&1)",
-      "Bash(cd C:/git/php-micro-template && /c/PHP84/php.exe ./vendor/bin/phpunit 2>&1)",
-      "Bash(cp C:/git/php-micro-template/src/Render.php C:/git/php-json-schema-model-generator/vendor/wol-soft/php-micro-template/src/Render.php && cd C:/git/php-json-schema-model-generator && /c/PHP84/php.exe ./vendor/bin/phpunit 2>&1)",
-      "Bash(cd /c/git/php-json-schema-model-generator && ./vendor/bin/phpunit tests/Issues/Issue/Issue113Test.php --testdox 2>&1)",
       "Bash(find C:\\\\git\\\\php-json-schema-model-generator:*)",
-      "Bash(cd \"C:/git/php-json-schema-model-generator\" && ./vendor/bin/phpunit tests/Issues/Issue/Issue114Test.php --testdox 2>&1)",
       "Bash(tail:*)",
       "Bash(cd:*)",
       "WebFetch(domain:api.github.com)",
@@ -20,7 +15,8 @@
       "Bash(cd /c/git/php-json-schema-model-generator && ./vendor/bin/phpunit 2>&1)",
       "Bash(./vendor/bin/phpunit:*)",
       "Bash(php:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(where gh:*)"
     ]
   }
 }
