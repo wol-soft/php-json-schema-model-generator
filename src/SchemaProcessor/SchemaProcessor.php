@@ -126,10 +126,10 @@ class SchemaProcessor
             $jsonSchema,
             $dictionary,
             $initialClass,
+            $this->generatorConfiguration,
         );
 
         $this->processedSchema[$schemaSignature] = $schema;
-        $schema->setGeneratorConfiguration($this->generatorConfiguration);
         $json = $jsonSchema->getJson();
         $json['type'] = 'base';
 

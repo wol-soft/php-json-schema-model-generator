@@ -1,0 +1,24 @@
+{
+  "$id": "AllOfIntersectionNoImplicitNull",
+  "type": "object",
+  "properties": {
+    "age": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "age": {
+          "type": [
+            "string",
+            "boolean"
+          ]
+        }
+      }
+    }
+  ]
+}
