@@ -1,0 +1,31 @@
+{
+  "$id": "AllOfIntersectionPreservesExplicitNullable",
+  "type": "object",
+  "required": [
+    "age"
+  ],
+  "properties": {
+    "age": {
+      "type": [
+        "integer",
+        "string",
+        "null"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "required": [
+        "age"
+      ],
+      "properties": {
+        "age": {
+          "type": [
+            "integer",
+            "string"
+          ]
+        }
+      }
+    }
+  ]
+}

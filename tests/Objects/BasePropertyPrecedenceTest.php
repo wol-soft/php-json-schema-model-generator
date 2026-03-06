@@ -298,4 +298,105 @@ class BasePropertyPrecedenceTest extends AbstractPHPModelGeneratorTestCase
             $this->getReturnTypeNames($className, 'getAge'),
         );
     }
+
+    /**
+     * Root `age: [integer, string]` (optional), allOf branch `age: integer` (optional).
+     * existingEffective = [integer, string, null], incomingEffective = [integer, null].
+     * Intersection = [integer, null] — narrows to ?int.
+     * This covers the applyAllOfIntersection body after the no-op guard (hasNull from intersection,
+     * nonNull non-empty path).
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testAllOfIntersectionNarrowsMultiTypeToSubset(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AllOfIntersectionNarrows.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertEqualsCanonicalizing(
+            ['int', 'null'],
+            $this->getParameterTypeNames($className, 'setAge'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['int', 'null'],
+            $this->getReturnTypeNames($className, 'getAge'),
+        );
+    }
+
+    /**
+     * Root `age: [integer, string, null]` (required, nullable=true), allOf branch `age: [integer, string]`
+     * (required in branch, nullable=null). Intersection of effective sets = [integer, string] (no null),
+     * but existing.isNullable()===true → explicit nullable is preserved → result is int|string|null.
+     * This covers the explicit-nullable preservation path (lines 245–246) in applyAllOfIntersection.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testAllOfIntersectionPreservesExplicitNullableMultiType(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AllOfIntersectionPreservesExplicitNullable.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+            false,
+            false,
+        );
+
+        $this->assertEqualsCanonicalizing(
+            ['int', 'string', 'null'],
+            $this->getParameterTypeNames($className, 'setAge'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['int', 'string', 'null'],
+            $this->getReturnTypeNames($className, 'getAge'),
+        );
+    }
+
+    /**
+     * Root defines `address` as an object property; an anyOf branch also defines `address` as an
+     * object. The PropertyMerger::merge() nested-schema early return fires (both existing and
+     * incoming have a nested schema), leaving the root object type untouched.
+     * Verifies that the schema generates without error and the property remains accessible.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testRootObjectPropertyNotOverwrittenByAnyOfObjectBranch(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RootObjectPropertyWithAnyOfObjectBranch.json',
+        );
+
+        $this->assertTrue(method_exists($className, 'getAddress'));
+    }
+
+    /**
+     * When outputEnabled is true and a composition branch type differs from the root type,
+     * a warning is printed to stdout.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testWarningIsEmittedWhenBranchTypeConflictsWithRootType(): void
+    {
+        ob_start();
+
+        $this->generateDirectory(
+            'WarningSubDir',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $output = ob_get_clean();
+
+        $this->assertMatchesRegularExpression(
+            '/Warning: composition branch defines property \'age\' with type string which differs from root type int — root definition takes precedence\./',
+            $output,
+        );
+    }
 }
