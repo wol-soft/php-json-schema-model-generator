@@ -8,3 +8,4 @@
     combinedSchemas/not
     combinedSchemas/if
     combinedSchemas/mergedProperty
+    combinedSchemas/crossTypedComposition

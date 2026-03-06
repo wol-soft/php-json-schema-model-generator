@@ -76,3 +76,9 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
 
         Warning: composition branch defines property 'example' with type integer which differs
         from root type string — root definition takes precedence.
+
+.. hint::
+
+    When branches define the same property with different types, the generator widens the property
+    to a union type. See `Cross-typed compositions <crossTypedComposition.html>`__ for a full
+    explanation including nullability rules and the ``allOf`` contrast.

@@ -161,3 +161,9 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
 
     public function setAge(?int $age): static;
     public function getAge(): ?int;
+
+.. hint::
+
+    The union-widening and nullability rules for ``if``/``then``/``else`` follow the same logic as
+    ``anyOf``/``oneOf``. See `Cross-typed compositions <crossTypedComposition.html>`__ for the full
+    explanation.
