@@ -117,3 +117,47 @@ Generated interface:
 
     public function setPostalCode(string $country): static;
     public function getPostalCode(): ?string;
+
+When the ``then`` and ``else`` branches define the same property with **different types**, the generator produces a union type hint — consistent with the behaviour of ``anyOf``/``oneOf``:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "if": {
+            "properties": {
+                "name": {
+                    "const": "Alice"
+                }
+            }
+        },
+        "then": {
+            "properties": {
+                "age": {
+                    "type": "integer"
+                }
+            }
+        },
+        "else": {
+            "properties": {
+                "age": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+
+Generated interface:
+
+.. code-block:: php
+
+    public function setAge(int | string | null $age): static;
+    public function getAge(): int | string | null;
+
+When only a ``then`` block is present (no ``else``), the branch may not apply at runtime, so the property is always nullable:
+
+.. code-block:: php
+
+    public function setAge(?int $age): static;
+    public function getAge(): ?int;

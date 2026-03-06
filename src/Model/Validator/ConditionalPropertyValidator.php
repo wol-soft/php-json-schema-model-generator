@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\PropertyProcessor\ComposedValue\IfProcessor;
 
@@ -16,10 +17,14 @@ use PHPModelGenerator\PropertyProcessor\ComposedValue\IfProcessor;
  */
 class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
 {
+    /** @var CompositionPropertyDecorator[] */
+    private array $dataBranches;
+
     public function __construct(
         GeneratorConfiguration $generatorConfiguration,
         PropertyInterface $property,
         array $composedProperties,
+        array $dataBranches,
         array $validatorVariables,
     ) {
         $this->isResolved = true;
@@ -35,6 +40,18 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
 
         $this->compositionProcessor = IfProcessor::class;
         $this->composedProperties = $composedProperties;
+        $this->dataBranches = $dataBranches;
+    }
+
+    /**
+     * Returns only the then/else data branches, excluding the if condition branch.
+     * Used by BaseProcessor to determine type-widening eligibility.
+     *
+     * @return CompositionPropertyDecorator[]
+     */
+    public function getDataBranches(): array
+    {
+        return $this->dataBranches;
     }
 
     public function getValidatorSetUp(): string

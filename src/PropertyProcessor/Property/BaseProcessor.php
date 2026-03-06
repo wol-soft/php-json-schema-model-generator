@@ -21,6 +21,7 @@ use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\NoAdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyNamesValidator;
@@ -337,7 +338,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                                         $property,
                                         $validator->getCompositionProcessor(),
                                         $composedProperty,
-                                        $validator->getComposedProperties(),
+                                        $validator,
                                     ),
                                     $validator->getCompositionProcessor(),
                                 );
@@ -357,13 +358,15 @@ class BaseProcessor extends AbstractPropertyProcessor
      * to one anyOf/oneOf branch and at least one other branch allows additional properties, preventing TypeError when
      * raw input values of an arbitrary type are stored in the property slot.
      *
-     * @param CompositionPropertyDecorator[] $allBranches
+     * For ConditionalPropertyValidator (if/then/else), the widening check uses only the data branches
+     * (then/else), not the if condition branch, since the if block is a filter and not a competing
+     * data branch for type-widening purposes.
      */
     private function cloneTransferredProperty(
         PropertyInterface $property,
         string $compositionProcessor,
         CompositionPropertyDecorator $sourceBranch,
-        array $allBranches,
+        AbstractComposedPropertyValidator $validator,
     ): PropertyInterface {
         $transferredProperty = (clone $property)
             ->filterValidators(static fn(Validator $validator): bool =>
@@ -380,7 +383,11 @@ class BaseProcessor extends AbstractPropertyProcessor
                 );
             }
 
-            if ($this->exclusiveBranchPropertyNeedsWidening($property->getName(), $sourceBranch, $allBranches)) {
+            $wideningBranches = $validator instanceof ConditionalPropertyValidator
+                ? $validator->getDataBranches()
+                : $validator->getComposedProperties();
+
+            if ($this->exclusiveBranchPropertyNeedsWidening($property->getName(), $sourceBranch, $wideningBranches)) {
                 $transferredProperty->setType(null, null, reset: true);
             }
         }

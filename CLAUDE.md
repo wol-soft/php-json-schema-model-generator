@@ -172,6 +172,12 @@ Example layout for issue #110:
   phase6-merger-analysis.md
 ```
 
+### PHP version compatibility
+
+Before writing any code, check `composer.json` for the minimum PHP version (`require.php`). All
+source code must be compatible with that version. Do not use language features
+introduced in a later PHP release.
+
 ### Union type style
 
 When rendering union types in generated PHP code, use one space before and after the pipe:

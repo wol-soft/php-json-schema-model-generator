@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "if": {
+    "properties": {
+      "qualifier": {
+        "type": "string"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "value": {
+        "type": "integer"
+      }
+    }
+  }
+}

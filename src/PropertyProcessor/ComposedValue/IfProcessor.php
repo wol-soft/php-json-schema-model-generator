@@ -82,6 +82,7 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
                 $this->schemaProcessor->getGeneratorConfiguration(),
                 $property,
                 array_filter($properties),
+                array_filter([$properties['then'], $properties['else']]),
                 [
                     'ifProperty' => $properties['if'],
                     'thenProperty' => $properties['then'],
