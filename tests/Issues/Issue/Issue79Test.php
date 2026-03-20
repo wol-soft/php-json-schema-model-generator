@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class Issue79Test extends AbstractIssueTestCase
 {
@@ -22,9 +23,7 @@ class Issue79Test extends AbstractIssueTestCase
         $this->assertNull($object->getZip());
     }
 
-    /**
-     * @dataProvider invalidInputDataProvider
-     */
+    #[DataProvider('invalidInputDataProvider')]
     public function testCombinedReferenceAndObjectDefinitionWithInvalidDataThrowsAnException(array $data): void
     {
         $className = $this->generateClassFromFile(

@@ -19,6 +19,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class ConstPropertyTest
@@ -42,9 +43,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(42, $object->getIntegerProperty());
     }
 
-    /**
-     * @dataProvider nestedConstStructureDataProvider
-     */
+    #[DataProvider('nestedConstStructureDataProvider')]
     public function testNotProvidedOptionalNestedConstPropertyIsValid(string $file): void
     {
         $className = $this->generateClassFromFile($file);
@@ -54,7 +53,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull($object->getProperty());
     }
 
-    public function nestedConstStructureDataProvider(): array
+    public static function nestedConstStructureDataProvider(): array
     {
         return [
             'array tuple' => ['ArrayTupleConstProperty.json'],
@@ -63,9 +62,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider validArrayConstValues
-     */
+    #[DataProvider('validArrayConstValues')]
     public function testProvidedArrayConstPropertyIsValid(string $file, ?array $value): void
     {
         $className = $this->generateClassFromFile($file);
@@ -75,9 +72,9 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($value, $object->getProperty());
     }
 
-    public function validArrayConstValues(): array
+    public static function validArrayConstValues(): array
     {
-        return $this->combineDataProvider(
+        return self::combineDataProvider(
             [
                 'array tuple' => ['ArrayTupleConstProperty.json'],
                 'array item'  => ['ArrayItemConstProperty.json'],
@@ -90,9 +87,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    /**
-     * @dataProvider invalidArrayConstDataProvider
-     */
+    #[DataProvider('invalidArrayConstDataProvider')]
     public function testNotMatchingArrayConstPropertyThrowsAnException(
         string $file,
         string $exception,
@@ -105,9 +100,9 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $value]);
     }
 
-    public function invalidArrayConstDataProvider(): array
+    public static function invalidArrayConstDataProvider(): array
     {
-        return $this->combineDataProvider(
+        return self::combineDataProvider(
             [
                 'array tuple' => ['ArrayTupleConstProperty.json', InvalidTupleException::class],
                 'array item'  => ['ArrayItemConstProperty.json', InvalidItemException::class],
@@ -120,9 +115,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    /**
-     * @dataProvider nestedConstStructureDataProvider
-     */
+    #[DataProvider('nestedConstStructureDataProvider')]
     public function testNullForNestedConstPropertyWithImplicitNullDisabledThrowsAnException(string $file): void
     {
         $this->expectException(ValidationException::class);
@@ -132,9 +125,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => null]);
     }
 
-    /**
-     * @dataProvider validOneOfDataProvider
-     */
+    #[DataProvider('validOneOfDataProvider')]
     public function testProvidedOneOfConstPropertyIsValid(mixed $propertyValue): void
     {
         $className = $this->generateClassFromFile('OneOfConstProperty.json');
@@ -144,7 +135,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function validOneOfDataProvider(): array
+    public static function validOneOfDataProvider(): array
     {
         return [
             'first branch'  => ['red'],
@@ -164,12 +155,11 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidPropertyDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidPropertyDataProvider')]
     public function testNotMatchingProvidedDataThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
@@ -180,7 +170,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['stringProperty' => $propertyValue]);
     }
 
-    public function invalidPropertyDataProvider(): array
+    public static function invalidPropertyDataProvider(): array
     {
         return [
             'int' => [0],
@@ -224,12 +214,11 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider requiredAndOptionalPropertiesDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('requiredAndOptionalPropertiesDataProvider')]
     public function testProvidedConstPropertiesIsValidWithDifferentImplicitNull(
         bool $implicitNull,
         string $reqPropertyValue,
@@ -278,10 +267,10 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($implicitNull, $setAgeParamType->allowsNull());
     }
 
-    public function requiredAndOptionalPropertiesDataProvider(): array
+    public static function requiredAndOptionalPropertiesDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->implicitNullDataProvider(),
+        return self::combineDataProvider(
+            self::implicitNullDataProvider(),
             [
                 ['red', 'green'],
             ],
@@ -304,12 +293,11 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidRequiredAndOptionalConstPropertiesDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidRequiredAndOptionalConstPropertiesDataProvider')]
     public function testNotMatchingRequiredAndOptionalProvidedDataThrowsAnException(
         bool $implicitNull,
         string $reqPropertyValue,
@@ -330,10 +318,10 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['requiredProperty' => $reqPropertyValue, 'optionalProperty' => $optPropertyValue]);
     }
 
-    public function invalidRequiredAndOptionalConstPropertiesDataProvider(): array
+    public static function invalidRequiredAndOptionalConstPropertiesDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->implicitNullDataProvider(),
+        return self::combineDataProvider(
+            self::implicitNullDataProvider(),
             [
                 ['blue', 'green', 'Invalid value for requiredProperty declined by const constraint'],
                 ['blue', null, 'Invalid value for requiredProperty declined by const constraint'],
@@ -344,9 +332,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testProvidedNullValueConstPropertyIsValid(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile('NullValueConstProperty.json', implicitNull: $implicitNull);
@@ -356,9 +342,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull($object->getNullProperty());
     }
 
-    /**
-     * @dataProvider validConstAdditionalPropertiesDataProvider
-     */
+    #[DataProvider('validConstAdditionalPropertiesDataProvider')]
     public function testValidConstAdditionalProperties(array $value): void
     {
         $className = $this->generateClassFromFile('AdditionalPropertiesConst.json');
@@ -368,7 +352,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($value, $object->getRawModelDataInput());
     }
 
-    public function validConstAdditionalPropertiesDataProvider(): array
+    public static function validConstAdditionalPropertiesDataProvider(): array
     {
         return [
             'no properties'       => [[]],
@@ -377,9 +361,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidConstAdditionalPropertiesDataProvider
-     */
+    #[DataProvider('invalidConstAdditionalPropertiesDataProvider')]
     public function testInvalidConstAdditionalPropertiesThrowsAnException(array $value): void
     {
         $this->expectException(InvalidAdditionalPropertiesException::class);
@@ -390,7 +372,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className($value);
     }
 
-    public function invalidConstAdditionalPropertiesDataProvider(): array
+    public static function invalidConstAdditionalPropertiesDataProvider(): array
     {
         return [
             'null'                           => [['property1' => null]],
@@ -399,9 +381,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider validConstPatternPropertiesDataProvider
-     */
+    #[DataProvider('validConstPatternPropertiesDataProvider')]
     public function testValidConstPatternProperties(array $value): void
     {
         $className = $this->generateClassFromFile('PatternPropertiesConst.json');
@@ -411,7 +391,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($value, $object->getRawModelDataInput());
     }
 
-    public function validConstPatternPropertiesDataProvider(): array
+    public static function validConstPatternPropertiesDataProvider(): array
     {
         return [
             'no properties'         => [[]],
@@ -421,9 +401,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidConstAdditionalPropertiesDataProvider
-     */
+    #[DataProvider('invalidConstAdditionalPropertiesDataProvider')]
     public function testInvalidConstPatternPropertiesThrowsAnException(array $value): void
     {
         $this->expectException(InvalidPatternPropertiesException::class);
@@ -435,9 +413,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
 
-    /**
-     * @dataProvider validConstArrayContainsDataProvider
-     */
+    #[DataProvider('validConstArrayContainsDataProvider')]
     public function testValidConstArrayContains(array $value): void
     {
         $className = $this->generateClassFromFile('ArrayContainsConst.json');
@@ -447,7 +423,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($value, $object->getProperty());
     }
 
-    public function validConstArrayContainsDataProvider(): array
+    public static function validConstArrayContainsDataProvider(): array
     {
         return [
             'one item'                    => [['red']],
@@ -456,9 +432,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidConstArrayContainsDataProvider
-     */
+    #[DataProvider('invalidConstArrayContainsDataProvider')]
     public function testInvalidConstArrayContainsThrowsAnException(array $value): void
     {
         $this->expectException(ContainsException::class);
@@ -469,7 +443,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $value]);
     }
 
-    public function invalidConstArrayContainsDataProvider(): array
+    public static function invalidConstArrayContainsDataProvider(): array
     {
         return [
             'empty array'        => [[]],

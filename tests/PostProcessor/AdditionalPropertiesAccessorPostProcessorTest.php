@@ -22,6 +22,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessor
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class AdditionalPropertiesAccessorPostProcessorTest
@@ -41,9 +42,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         };
     }
 
-    /**
-     * @dataProvider additionalPropertiesAccessorPostProcessorConfigurationDataProvider
-     */
+    #[DataProvider('additionalPropertiesAccessorPostProcessorConfigurationDataProvider')]
     public function testAdditionalPropertiesAccessorsAreNotGeneratedForAdditionalPropertiesFalse(
         bool $addForModelsWithoutAdditionalPropertiesDefinition,
     ): void {
@@ -59,9 +58,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertFalse(is_callable([$object, 'removeAdditionalProperty']));
     }
 
-    /**
-     * @dataProvider additionalPropertiesAccessorPostProcessorConfigurationDataProvider
-     */
+    #[DataProvider('additionalPropertiesAccessorPostProcessorConfigurationDataProvider')]
     public function testAdditionalPropertiesAccessorsAreNotGeneratedWhenAdditionalPropertiesAreDenied(
         bool $addForModelsWithoutAdditionalPropertiesDefinition,
     ): void {
@@ -80,9 +77,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertFalse(is_callable([$object, 'removeAdditionalProperty']));
     }
 
-    /**
-     * @dataProvider additionalPropertiesAccessorPostProcessorConfigurationDataProvider
-     */
+    #[DataProvider('additionalPropertiesAccessorPostProcessorConfigurationDataProvider')]
     public function testAdditionalPropertiesAccessorsDependOnConfigurationForAdditionalPropertiesNotDefined(
         bool $addForModelsWithoutAdditionalPropertiesDefinition,
     ): void {
@@ -142,9 +137,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertNull($object->getAdditionalProperty('property1'));
     }
 
-    /**
-     * @dataProvider additionalPropertiesAccessorPostProcessorConfigurationDataProvider
-     */
+    #[DataProvider('additionalPropertiesAccessorPostProcessorConfigurationDataProvider')]
     public function testAdditionalPropertiesAccessorsAreGeneratedForAdditionalProperties(
         bool $addForModelsWithoutAdditionalPropertiesDefinition,
     ): void {
@@ -172,7 +165,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertNull($object->getAdditionalProperty('property3'));
     }
 
-    public function additionalPropertiesAccessorPostProcessorConfigurationDataProvider(): array
+    public static function additionalPropertiesAccessorPostProcessorConfigurationDataProvider(): array
     {
         return [
             'Add also for models without additional properties definition' => [true],
@@ -248,9 +241,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertFalse($parameterType->allowsNull());
     }
 
-    /**
-     * @dataProvider invalidAdditionalPropertyDataProvider
-     */
+    #[DataProvider('invalidAdditionalPropertyDataProvider')]
     public function testInvalidAdditionalPropertyThrowsAnException(
         string $expectedException,
         string $expectedExceptionMessage,
@@ -276,7 +267,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         }
     }
 
-    public function invalidAdditionalPropertyDataProvider(): array
+    public static function invalidAdditionalPropertyDataProvider(): array
     {
         return [
             'regular object property' => [
@@ -344,9 +335,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $object->setAdditionalProperty('property1', 'Goodbye');
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testAdditionalPropertiesAreSerialized(bool $implicitNull): void
     {
         $this->addPostProcessor(true);

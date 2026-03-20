@@ -21,6 +21,7 @@ use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class PropertyProcessorFactoryTest
@@ -30,10 +31,9 @@ use PHPUnit\Framework\TestCase;
 class PropertyProcessorFactoryTest extends TestCase
 {
     /**
-     * @dataProvider validPropertyProvider
-     *
      * @throws SchemaException
      */
+    #[DataProvider('validPropertyProvider')]
     public function testGetPropertyProcessor(string $type, string $expectedClass): void
     {
         $propertyProcessorFactory = new PropertyProcessorFactory();
@@ -56,7 +56,7 @@ class PropertyProcessorFactoryTest extends TestCase
     /**
      * Provide valid properties which must result in a PropertyProcessor
      */
-    public function validPropertyProvider(): array
+    public static function validPropertyProvider(): array
     {
         return [
             'array' => ['array', ArrayProcessor::class],

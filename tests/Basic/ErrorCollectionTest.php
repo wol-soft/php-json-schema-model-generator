@@ -11,6 +11,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class ErrorCollectionTest
@@ -19,9 +20,7 @@ use stdClass;
  */
 class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
 {
-    /**
-     * @dataProvider validValuesForSinglePropertyDataProvider
-     */
+    #[DataProvider('validValuesForSinglePropertyDataProvider')]
     public function testValidValuesForMultipleChecksForSingleProperty(string $value): void
     {
         $className = $this->generateClassFromFile('MultipleChecksForSingleProperty.json', new GeneratorConfiguration());
@@ -30,7 +29,7 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($value, $object->getProperty());
     }
 
-    public function validValuesForSinglePropertyDataProvider(): array
+    public static function validValuesForSinglePropertyDataProvider(): array
     {
         return [
             'numeric string' => ['10'],
@@ -39,9 +38,7 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidValuesForSinglePropertyDataProvider
-     */
+    #[DataProvider('invalidValuesForSinglePropertyDataProvider')]
     public function testInvalidValuesForMultipleChecksForSinglePropertyThrowsAnException(
         mixed $value,
         array $messages,
@@ -68,7 +65,7 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
         $this->fail('Exception not thrown');
     }
 
-    public function invalidValuesForSinglePropertyDataProvider(): array
+    public static function invalidValuesForSinglePropertyDataProvider(): array
     {
         return [
             'pattern invalid' => [
@@ -95,9 +92,7 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidValuesForCompositionDataProvider
-     */
+    #[DataProvider('invalidValuesForCompositionDataProvider')]
     public function testInvalidValuesForMultipleValuesInCompositionThrowsAnException(
         int|string $value,
         string $message,
@@ -110,7 +105,7 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
         new $className(['integerProperty' => $value]);
     }
 
-    public function invalidValuesForCompositionDataProvider(): array
+    public static function invalidValuesForCompositionDataProvider(): array
     {
         return [
             'matching both composition elements' => [

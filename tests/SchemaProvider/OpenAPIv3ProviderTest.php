@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\SchemaProvider;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\SchemaProvider\OpenAPIv3Provider;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class OpenAPIv3ProviderTest
@@ -23,9 +24,7 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFile('InvalidJSONSchema.json', null, false, true, OpenAPIv3Provider::class);
     }
 
-    /**
-     * @dataProvider missingSchemasDataProvider
-     */
+    #[DataProvider('missingSchemasDataProvider')]
     public function testOpenApiV3JsonSchemaFileWithoutSchemasThrowsAnException(string $file): void
     {
         $this->expectException(SchemaException::class);
@@ -36,7 +35,7 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFile($file, null, false, true, OpenAPIv3Provider::class);
     }
 
-    public function missingSchemasDataProvider(): array
+    public static function missingSchemasDataProvider(): array
     {
         return [
             'No components section defined' => ['NoComponents.json'],
@@ -58,9 +57,7 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(150, $car->getPs());
     }
 
-    /**
-     * @dataProvider referencedSchemaDataProvider
-     */
+    #[DataProvider('referencedSchemaDataProvider')]
     public function testOpenApiV3ReferencedSchemaProvider(
         string $reference,
         array $personData,
@@ -84,21 +81,21 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
         $carAssert(new $carClass($carData));
     }
 
-    public function referencedSchemaDataProvider(): array
+    public static function referencedSchemaDataProvider(): array
     {
         return [
             'Empty data path reference' => [
                 '#/components/modules/person',
                 [],
-                function ($person): void {
-                    $this->assertNull($person->getName());
-                    $this->assertIsArray($person->getChildren());
-                    $this->assertEmpty($person->getChildren());
+                static function ($person): void {
+                    self::assertNull($person->getName());
+                    self::assertIsArray($person->getChildren());
+                    self::assertEmpty($person->getChildren());
                 },
                 [],
-                function ($car): void {
-                    $this->assertNull($car->getPs());
-                    $this->assertNull($car->getOwner());
+                static function ($car): void {
+                    self::assertNull($car->getPs());
+                    self::assertNull($car->getOwner());
                 },
             ],
             'one level data id reference' => [
@@ -111,11 +108,11 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
                         ],
                     ],
                 ],
-                function ($person): void {
-                    $this->assertSame('Hannes', $person->getName());
-                    $this->assertCount(1, $person->getChildren());
-                    $this->assertSame('Erwin', $person->getChildren()[0]->getName());
-                    $this->assertEmpty($person->getChildren()[0]->getChildren());
+                static function ($person): void {
+                    self::assertSame('Hannes', $person->getName());
+                    self::assertCount(1, $person->getChildren());
+                    self::assertSame('Erwin', $person->getChildren()[0]->getName());
+                    self::assertEmpty($person->getChildren()[0]->getChildren());
                 },
                 [
                     'ps' => 150,
@@ -123,10 +120,10 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
                         'name' => 'Susi',
                     ],
                 ],
-                function ($car): void {
-                    $this->assertSame(150, $car->getPs());
-                    $this->assertSame('Susi', $car->getOwner()->getName());
-                    $this->assertEmpty($car->getOwner()->getChildren());
+                static function ($car): void {
+                    self::assertSame(150, $car->getPs());
+                    self::assertSame('Susi', $car->getOwner()->getName());
+                    self::assertEmpty($car->getOwner()->getChildren());
                 },
             ],
             'nested recursive data id reference' => [
@@ -144,13 +141,13 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
                         ],
                     ],
                 ],
-                function ($person): void {
-                    $this->assertSame('Hannes', $person->getName());
-                    $this->assertCount(1, $person->getChildren());
-                    $this->assertSame('Erwin', $person->getChildren()[0]->getName());
-                    $this->assertCount(1, $person->getChildren()[0]->getChildren());
-                    $this->assertSame('Gerda', $person->getChildren()[0]->getChildren()[0]->getName());
-                    $this->assertEmpty($person->getChildren()[0]->getChildren()[0]->getChildren());
+                static function ($person): void {
+                    self::assertSame('Hannes', $person->getName());
+                    self::assertCount(1, $person->getChildren());
+                    self::assertSame('Erwin', $person->getChildren()[0]->getName());
+                    self::assertCount(1, $person->getChildren()[0]->getChildren());
+                    self::assertSame('Gerda', $person->getChildren()[0]->getChildren()[0]->getName());
+                    self::assertEmpty($person->getChildren()[0]->getChildren()[0]->getChildren());
                 },
                 [
                     'ps' => 150,
@@ -163,12 +160,12 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
                         ],
                     ],
                 ],
-                function ($car): void {
-                    $this->assertSame(150, $car->getPs());
-                    $this->assertSame('Susi', $car->getOwner()->getName());
-                    $this->assertCount(1, $car->getOwner()->getChildren());
-                    $this->assertSame('Gerda', $car->getOwner()->getChildren()[0]->getName());
-                    $this->assertEmpty($car->getOwner()->getChildren()[0]->getChildren());
+                static function ($car): void {
+                    self::assertSame(150, $car->getPs());
+                    self::assertSame('Susi', $car->getOwner()->getName());
+                    self::assertCount(1, $car->getOwner()->getChildren());
+                    self::assertSame('Gerda', $car->getOwner()->getChildren()[0]->getName());
+                    self::assertEmpty($car->getOwner()->getChildren()[0]->getChildren());
                 },
             ],
         ];

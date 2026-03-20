@@ -19,7 +19,7 @@ class PropertyTransferDecorator implements PropertyDecoratorInterface
     /**
      * PropertyTransferDecorator constructor.
      */
-    public function __construct(private PropertyInterface $property) {}
+    public function __construct(private readonly PropertyInterface $property) {}
 
     /**
      * @inheritdoc

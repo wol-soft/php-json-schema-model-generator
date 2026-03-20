@@ -15,7 +15,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
  */
 class NullProcessor extends AbstractTypedValueProcessor
 {
-    protected const TYPE = 'null';
+    protected const string TYPE = 'null';
 
     /**
      * Explicitly unset the type of the property

@@ -11,5 +11,5 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
  */
 class IntegerProcessor extends AbstractNumericProcessor
 {
-    protected const TYPE = 'int';
+    protected const string TYPE = 'int';
 }

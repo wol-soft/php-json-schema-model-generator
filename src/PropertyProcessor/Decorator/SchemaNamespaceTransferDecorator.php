@@ -14,7 +14,7 @@ class SchemaNamespaceTransferDecorator
     /**
      * SchemaNamespaceTransferDecorator constructor.
      */
-    public function __construct(private Schema $schema) {}
+    public function __construct(private readonly Schema $schema) {}
 
     /**
      * Get all used classes to use the referenced schema

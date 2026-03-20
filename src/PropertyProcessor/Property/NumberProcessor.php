@@ -15,7 +15,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntToFloatCastDecorat
  */
 class NumberProcessor extends AbstractNumericProcessor
 {
-    protected const TYPE = 'float';
+    protected const string TYPE = 'float';
 
     /**
      * @inheritdoc

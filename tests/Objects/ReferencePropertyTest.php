@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class ReferencePropertyTest
@@ -24,12 +25,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     protected const EXTERNAL_JSON_DIRECTORIES = ['../ReferencePropertyTest_external'];
 
     /**
-     * @dataProvider internalReferenceProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('internalReferenceProvider')]
     public function testNotResolvedInternalReferenceThrowsAnException(string $reference): void
     {
         $this->expectException(SchemaException::class);
@@ -40,7 +40,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFileTemplate('NotResolvedReference.json', [$reference]);
     }
 
-    public function internalReferenceProvider(): array
+    public static function internalReferenceProvider(): array
     {
         return [
             'Internal path reference' => ['#/definitions/person'],
@@ -48,7 +48,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    public function externalReferenceProvider(): array
+    public static function externalReferenceProvider(): array
     {
         return [
             'external path reference' => ['../ReferencePropertyTest_external/library.json#/definitions/person'],
@@ -58,13 +58,12 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider internalReferenceProvider
-     * @dataProvider externalReferenceProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('internalReferenceProvider')]
+    #[DataProvider('externalReferenceProvider')]
     public function testNotProvidedOptionalReferenceObjectPropertyIsValid(string $reference): void
     {
         $className = $this->generateClassFromFileTemplate('ObjectReference.json', [$reference]);
@@ -82,12 +81,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validReferenceObjectInputProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validReferenceObjectInputProvider')]
     public function testProvidedReferenceObjectPropertyIsValid(
         string $reference,
         ?array $input,
@@ -105,10 +103,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
-    public function validReferenceObjectInputProvider(): array
+    public static function validReferenceObjectInputProvider(): array
     {
-        return $this->combineDataProvider(
-            array_merge($this->internalReferenceProvider(), $this->externalReferenceProvider()),
+        return self::combineDataProvider(
+            array_merge(self::internalReferenceProvider(), self::externalReferenceProvider()),
             [
                 'Empty object' => [[], 'object'],
                 'Object with property' => [['name' => 'Hannes', 'age' => 42, 'stringProperty' => 'Hello'], 'object'],
@@ -118,13 +116,12 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidInternalReferenceObjectPropertyTypeDataProvider
-     * @dataProvider invalidExternalReferenceObjectPropertyTypeDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidInternalReferenceObjectPropertyTypeDataProvider')]
+    #[DataProvider('invalidExternalReferenceObjectPropertyTypeDataProvider')]
     public function testInvalidReferenceObjectPropertyTypeThrowsAnException(
         string $reference,
         mixed $propertyValue,
@@ -143,23 +140,23 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['person' => $propertyValue]);
     }
 
-    public function invalidInternalReferenceObjectPropertyTypeDataProvider(): array
+    public static function invalidInternalReferenceObjectPropertyTypeDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->internalReferenceProvider(),
-            $this->invalidObjectPropertyTypeDataProvider(),
+        return self::combineDataProvider(
+            self::internalReferenceProvider(),
+            static::invalidObjectPropertyTypeDataProvider(),
         );
     }
 
-    public function invalidExternalReferenceObjectPropertyTypeDataProvider(): array
+    public static function invalidExternalReferenceObjectPropertyTypeDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->externalReferenceProvider(),
-            $this->invalidObjectPropertyTypeDataProvider(),
+        return self::combineDataProvider(
+            self::externalReferenceProvider(),
+            static::invalidObjectPropertyTypeDataProvider(),
         );
     }
 
-    public function invalidObjectPropertyTypeDataProvider(): array
+    public static function invalidObjectPropertyTypeDataProvider(): array
     {
         return [
             'bool' => [true],
@@ -171,12 +168,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validReferenceIntInputProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validReferenceIntInputProvider')]
     public function testProvidedReferenceIntPropertyIsValid(string $reference, ?int $input): void
     {
         $className = $this->generateClassFromFileTemplate('IntReference.json', [$reference]);
@@ -185,7 +181,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($input, $object->getYear());
     }
 
-    public function intReferenceProvider(): array
+    public static function intReferenceProvider(): array
     {
         return [
             'Internal path reference' => ['#/definitions/yearBetween1900and2000'],
@@ -195,10 +191,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    public function validReferenceIntInputProvider(): array
+    public static function validReferenceIntInputProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->intReferenceProvider(),
+        return self::combineDataProvider(
+            static::intReferenceProvider(),
             [
                 'Null' => [null],
                 'Upper limit' => [2000],
@@ -208,12 +204,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidReferenceIntPropertyTypeDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidReferenceIntPropertyTypeDataProvider')]
     public function testInvalidReferenceIntPropertyTypeThrowsAnException(
         string $reference,
         mixed $propertyValue,
@@ -227,10 +222,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['year' => $propertyValue]);
     }
 
-    public function invalidReferenceIntPropertyTypeDataProvider(): array
+    public static function invalidReferenceIntPropertyTypeDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->intReferenceProvider(),
+        return self::combineDataProvider(
+            static::intReferenceProvider(),
             [
                 'bool' => [true, 'Invalid type for year'],
                 'float' => [0.92, 'Invalid type for year'],
@@ -243,7 +238,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    public function recursiveExternalReferenceProvider(): array
+    public static function recursiveExternalReferenceProvider(): array
     {
         return [
             'external path reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personDirect'],
@@ -253,22 +248,21 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    public function combinedReferenceProvider(): array
+    public static function combinedReferenceProvider(): array
     {
         return array_merge(
-            $this->combineDataProvider($this->internalReferenceProvider(), $this->internalReferenceProvider()),
-            $this->combineDataProvider($this->recursiveExternalReferenceProvider(), $this->internalReferenceProvider()),
-            $this->combineDataProvider($this->recursiveExternalReferenceProvider(), $this->recursiveExternalReferenceProvider()),
+            self::combineDataProvider(self::internalReferenceProvider(), self::internalReferenceProvider()),
+            self::combineDataProvider(static::recursiveExternalReferenceProvider(), self::internalReferenceProvider()),
+            self::combineDataProvider(static::recursiveExternalReferenceProvider(), static::recursiveExternalReferenceProvider()),
         );
     }
 
     /**
-     * @dataProvider combinedReferenceProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('combinedReferenceProvider')]
     public function testNotProvidedOptionalRecursiveReferenceObjectPropertyIsValid(
         string $reference1,
         string $reference2,
@@ -281,12 +275,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider combinedReferenceProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('combinedReferenceProvider')]
     public function testProvidedRecursiveReferenceObjectPropertyIsValid(
         string $reference1,
         string $reference2,
@@ -323,12 +316,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidCombinedReferenceObjectPropertyTypeDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidCombinedReferenceObjectPropertyTypeDataProvider')]
     public function testInvalidProvidedRecursiveReferenceObjectPropertyValueThrowsAnException(
         string $reference1,
         string $reference2,
@@ -354,37 +346,36 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         ]);
     }
 
-    public function invalidCombinedReferenceObjectPropertyTypeDataProvider(): array
+    public static function invalidCombinedReferenceObjectPropertyTypeDataProvider(): array
     {
         // the combination external reference - external reference must'nt be tested. If the internal person definition
         // from the RecursiveObjectReference.json maps to an external definition and the object reference maps to an
         // external definition the internal definition is never used and thus can be ignored
         return array_merge(
-            $this->combineDataProvider(
-                $this->internalReferenceProvider(),
-                $this->invalidInternalReferenceObjectPropertyTypeDataProvider(),
+            self::combineDataProvider(
+                self::internalReferenceProvider(),
+                self::invalidInternalReferenceObjectPropertyTypeDataProvider(),
             ),
-            $this->combineDataProvider(
-                $this->externalReferenceProvider(),
-                $this->invalidInternalReferenceObjectPropertyTypeDataProvider(),
+            self::combineDataProvider(
+                self::externalReferenceProvider(),
+                self::invalidInternalReferenceObjectPropertyTypeDataProvider(),
             ),
-            $this->combineDataProvider(
-                $this->internalReferenceProvider(),
-                $this->combineDataProvider(
-                    $this->recursiveExternalReferenceProvider(),
-                    $this->invalidObjectPropertyTypeDataProvider(),
+            self::combineDataProvider(
+                self::internalReferenceProvider(),
+                self::combineDataProvider(
+                    static::recursiveExternalReferenceProvider(),
+                    static::invalidObjectPropertyTypeDataProvider(),
                 )
             ),
         );
     }
 
     /**
-     * @dataProvider nestedReferenceProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('nestedReferenceProvider')]
     public function testNestedExternalReference(string $id, string $reference): void
     {
         $className = $this->generateClassFromFileTemplate('NestedExternalReference.json', [$id, $reference]);
@@ -414,7 +405,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertEmpty($object->getFamily()->getMember()[1]->getChildren());
     }
 
-    public function nestedReferenceProvider(): array
+    public static function nestedReferenceProvider(): array
     {
         $baseURL = 'https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/';
 
@@ -442,9 +433,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider nonResolvableExternalReferenceProvider
-     */
+    #[DataProvider('nonResolvableExternalReferenceProvider')]
     public function testNonResolvableExternalReference(string $id, string $reference): void
     {
         $this->expectException(SchemaException::class);
@@ -455,7 +444,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFileTemplate('NestedExternalReference.json', [$id, $reference]);
     }
 
-    public function nonResolvableExternalReferenceProvider(): array
+    public static function nonResolvableExternalReferenceProvider(): array
     {
         $baseURL = 'https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/';
 
@@ -492,12 +481,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validBaseReferenceObjectInputProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validBaseReferenceObjectInputProvider')]
     public function testValidBaseReference(
         string $reference,
         ?array $input,
@@ -511,10 +499,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($input, ($object->getRawModelDataInput()));
     }
 
-    public function validBaseReferenceObjectInputProvider(): array
+    public static function validBaseReferenceObjectInputProvider(): array
     {
-        return $this->combineDataProvider(
-            array_merge($this->internalReferenceProvider(), $this->externalReferenceProvider()),
+        return self::combineDataProvider(
+            array_merge(self::internalReferenceProvider(), self::externalReferenceProvider()),
             [
                 'Empty object' => [[]],
                 'Object with one property' => [['name' => 'Hannes']],
@@ -548,9 +536,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Susi', $object->getPersonB()->getName());
     }
 
-    /**
-     * @dataProvider invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider
-     */
+    #[DataProvider('invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider')]
     public function testInvalidValuesForMultiplePropertiesWithIdenticalReferenceThrowsAnException(
         array $input,
         string $exceptionMessage,
@@ -566,7 +552,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className($input);
     }
 
-    public function invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider(): array {
+    public static function invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider(): array {
         return [
             'Invalid value for personA' => [
                 ['personA' => 10],

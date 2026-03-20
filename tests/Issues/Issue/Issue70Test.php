@@ -7,12 +7,11 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class Issue70Test extends AbstractIssueTestCase
 {
-    /**
-     * @dataProvider validInputDataProvider
-     */
+    #[DataProvider('validInputDataProvider')]
     public function testValidInput(string $filter, array $input, string|int|null $expectedOutput): void
     {
         $className = $this->generateClassFromFileTemplate(
@@ -28,7 +27,7 @@ class Issue70Test extends AbstractIssueTestCase
         $this->assertSame($expectedOutput, $object->getItems()[0]->getProperty());
     }
 
-    public function validInputDataProvider(): array
+    public static function validInputDataProvider(): array
     {
         return [
             'basic filter - default value' => ['trim', ['items' => [['title' => ' Hello ']]], 'now'],

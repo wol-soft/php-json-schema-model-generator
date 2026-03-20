@@ -19,6 +19,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PatternPropertiesAccessorPos
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class PatternPropertiesAccessorPostProcessorTest
@@ -74,9 +75,7 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
         );
     }
 
-    /**
-     * @dataProvider invalidPatternPropertyKeysDataProvider
-     */
+    #[DataProvider('invalidPatternPropertyKeysDataProvider')]
     public function testAccessingNonExistingPatternProperties(string $key): void
     {
         $this->expectException(UnknownPatternPropertyException::class);
@@ -89,7 +88,7 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
         $object->getPatternProperties($key);
     }
 
-    public function invalidPatternPropertyKeysDataProvider(): array
+    public static function invalidPatternPropertyKeysDataProvider(): array
     {
         return [
             'Access Pattern with key via RegEx' => ['^a'],
@@ -138,9 +137,7 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
         $this->assertSame(['c0' => false], $object->getAdditionalProperties());
     }
 
-    /**
-     * @dataProvider invalidPatternPropertiesDataProvider
-     */
+    #[DataProvider('invalidPatternPropertiesDataProvider')]
     public function testInvalidPatternPropertiesViaAdditionalPropertiesAccessorThrowsAnException(
         GeneratorConfiguration $configuration,
         string $property,
@@ -166,7 +163,7 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
                 $this->assertInstanceOf(ValidationException::class, $exception);
             }
 
-            $this->assertRegExp("/$exceptionMessage/", $exception->getMessage());
+            $this->assertMatchesRegularExpression("/$exceptionMessage/", $exception->getMessage());
         }
 
         $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $object->getPatternProperties('Numerics'));
@@ -176,10 +173,10 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
         $this->assertEqualsCanonicalizing(['a0' => 100, 'b0' => 'Hello'], $object->getRawModelDataInput());
     }
 
-    public function invalidPatternPropertiesDataProvider(): array
+    public static function invalidPatternPropertiesDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'invalid type for integer properties' => [
                     'a0',
@@ -284,9 +281,7 @@ ERROR
         $this->assertEqualsCanonicalizing(['alpha' => 30, 'beta' => null, 'a0' => 10, 'a1' => 20], $object->toArray());
     }
 
-    /**
-     * @dataProvider invalidPatternPropertiesDataProvider
-     */
+    #[DataProvider('invalidPatternPropertiesDataProvider')]
     public function testInvalidPatternPropertiesViaPopulateThrowsAnException(
         GeneratorConfiguration $configuration,
         string $property,
@@ -309,7 +304,7 @@ ERROR
                 $this->assertInstanceOf(ValidationException::class, $exception);
             }
 
-            $this->assertRegExp("/$exceptionMessage/", $exception->getMessage());
+            $this->assertMatchesRegularExpression("/$exceptionMessage/", $exception->getMessage());
         }
 
         $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $object->getPatternProperties('Numerics'));
@@ -345,9 +340,7 @@ ERROR
         $this->assertSame('abcde', $object->getBeta());
     }
 
-    /**
-     * @dataProvider invalidPropertiesDataProvider
-     */
+    #[DataProvider('invalidPropertiesDataProvider')]
     public function testInvalidPatternPropertiesViaSetterThrowsAnException(
         string $property,
         int $value,
@@ -368,7 +361,7 @@ ERROR
 
             $this->fail('Expected exception not thrown');
         } catch (ErrorRegistryException $exception) {
-            $this->assertRegExp("/$exceptionMessage/", $exception->getMessage());
+            $this->assertMatchesRegularExpression("/$exceptionMessage/", $exception->getMessage());
         }
 
         $this->assertSame(['alpha' => 20], $object->getPatternProperties('Numerics'));
@@ -379,7 +372,7 @@ ERROR
         $this->assertSame('abcde', $object->getBeta());
     }
 
-    public function invalidPropertiesDataProvider(): array
+    public static function invalidPropertiesDataProvider(): array
     {
         return [
             'value declined by property constraint' => [

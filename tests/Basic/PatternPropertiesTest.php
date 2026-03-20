@@ -10,6 +10,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PatternPropertiesAccessorPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class PatternPropertiesTest
@@ -26,9 +27,7 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFileTemplate('PatternProperty.json', ['ab[c']);
     }
 
-    /**
-     * @dataProvider invalidTypedPatternPropertyDataProvider
-     */
+    #[DataProvider('invalidTypedPatternPropertyDataProvider')]
     public function testTypedPatternPropertyWithInvalidInputThrowsAnException(
         GeneratorConfiguration $configuration,
         $propertyValue,
@@ -44,10 +43,10 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         new $className(['S_invalid' => $propertyValue]);
     }
 
-    public function invalidTypedPatternPropertyDataProvider(): array
+    public static function invalidTypedPatternPropertyDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'int' => [1],
                 'float' => [0.92],
@@ -58,9 +57,7 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    /**
-     * @dataProvider validTypedPatternPropertyDataProvider
-     */
+    #[DataProvider('validTypedPatternPropertyDataProvider')]
     public function testTypedPatternPropertyWithValidInputIsValid(string $propertyValue): void
     {
         $className = $this->generateClassFromFile('TypedPatternProperty.json');
@@ -69,7 +66,7 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(['S_valid' => $propertyValue], $object->getRawModelDataInput());
     }
 
-    public function validTypedPatternPropertyDataProvider(): array
+    public static function validTypedPatternPropertyDataProvider(): array
     {
         return [
             'empty string' => [''],

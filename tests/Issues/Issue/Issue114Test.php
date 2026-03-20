@@ -10,9 +10,6 @@ use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
 
 class Issue114Test extends AbstractIssueTestCase
 {
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testEnumWithConstConditionalGeneratesClass(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {
@@ -30,9 +27,6 @@ class Issue114Test extends AbstractIssueTestCase
         $this->assertSame(10, $object->getMinQuantity());
     }
 
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testEnumWithConstConditionalBriefModeIsValid(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {

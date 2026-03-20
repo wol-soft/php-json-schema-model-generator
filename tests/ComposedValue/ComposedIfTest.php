@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class ComposedIfTest
@@ -18,9 +19,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
  */
 class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
 {
-    /**
-     * @dataProvider conditionalKeywordsDataProvider
-     */
+    #[DataProvider('conditionalKeywordsDataProvider')]
     public function testIncompleteConditionalsOnPropertyLevelResolveToProperties(string $keyword): void
     {
         $className = $this->generateClassFromFileTemplate('IncompleteConditionalOnPropertyLevel.json', [$keyword]);
@@ -31,7 +30,7 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Hello', $object->$getter());
     }
 
-    public function conditionalKeywordsDataProvider(): array
+    public static function conditionalKeywordsDataProvider(): array
     {
         return [
             'if' => ['if'],
@@ -40,9 +39,7 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider validConditionalPropertyDefinitionDataProvider
-     */
+    #[DataProvider('validConditionalPropertyDefinitionDataProvider')]
     public function testConditionalPropertyDefinition(int $value): void
     {
         $className = $this->generateClassFromFile('ConditionalPropertyDefinition.json');
@@ -51,7 +48,7 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($value, $object->getProperty());
     }
 
-    public function validConditionalPropertyDefinitionDataProvider(): array
+    public static function validConditionalPropertyDefinitionDataProvider(): array
     {
         return [
             'zero' => [0],
@@ -63,9 +60,7 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidConditionalPropertyDefinitionDataProvider
-     */
+    #[DataProvider('invalidConditionalPropertyDefinitionDataProvider')]
     public function testInvalidConditionalPropertyDefinition(int $value, string $expectedExceptionMessage): void {
         $this->expectException(ConditionalException::class);
         $this->expectExceptionMessage($expectedExceptionMessage);
@@ -74,7 +69,7 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $value]);
     }
 
-    public function invalidConditionalPropertyDefinitionDataProvider(): array
+    public static function invalidConditionalPropertyDefinitionDataProvider(): array
     {
         return [
             'invalid negative' => [
@@ -109,9 +104,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider validConditionalObjectPropertyDataProvider
-     */
+    #[DataProvider('validConditionalObjectPropertyDataProvider')]
     public function testConditionalObjectProperty(
         string $schemaFile,
         GeneratorConfiguration $configuration,
@@ -132,7 +125,7 @@ ERROR
         $this->assertSame($postalCode, $object->getPostalCode());
     }
 
-    public function objectLevelConditionalSchemaDataProvider(): array
+    public static function objectLevelConditionalSchemaDataProvider(): array
     {
         return [
             'Object top level conditional composition' => ['ConditionalObjectProperty.json'],
@@ -140,12 +133,12 @@ ERROR
         ];
     }
 
-    public function validConditionalObjectPropertyDataProvider(): array
+    public static function validConditionalObjectPropertyDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->objectLevelConditionalSchemaDataProvider(),
-            $this->combineDataProvider(
-                $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            static::objectLevelConditionalSchemaDataProvider(),
+            self::combineDataProvider(
+                self::validationMethodDataProvider(),
                 [
                     'not provided postal code' => ['1600 Pennsylvania Avenue NW', 'USA', null],
                     'USA postal code' => ['1600 Pennsylvania Avenue NW', 'USA', '20500'],
@@ -156,12 +149,11 @@ ERROR
     }
 
     /**
-     * @dataProvider invalidConditionalObjectPropertyDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidConditionalObjectPropertyDataProvider')]
     public function testInvalidConditionalObjectPropertyThrowsAnException(
         string $schemaFile,
         GeneratorConfiguration $configuration,
@@ -183,12 +175,12 @@ ERROR
         ]);
     }
 
-    public function invalidConditionalObjectPropertyDataProvider(): array
+    public static function invalidConditionalObjectPropertyDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->objectLevelConditionalSchemaDataProvider(),
-            $this->combineDataProvider(
-                $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            static::objectLevelConditionalSchemaDataProvider(),
+            self::combineDataProvider(
+                self::validationMethodDataProvider(),
                 [
                     'empty provided postal code' => ['1600 Pennsylvania Avenue NW', 'USA', ''],
                     'Canadian postal code for USA' => ['1600 Pennsylvania Avenue NW', 'USA', 'K1M 1M4'],

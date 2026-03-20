@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class AbstractNumericPropertyTest
@@ -18,21 +19,19 @@ abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGenerator
 
     abstract protected function getMultipleOfFile(): string;
 
-    abstract public function validRangeDataProvider(): iterable;
+    abstract public static function validRangeDataProvider(): iterable;
 
-    abstract public function invalidRangeDataProvider(): iterable;
+    abstract public static function invalidRangeDataProvider(): iterable;
 
-    abstract public function validExclusiveRangeDataProvider(): iterable;
+    abstract public static function validExclusiveRangeDataProvider(): iterable;
 
-    abstract public function invalidExclusiveRangeDataProvider(): iterable;
+    abstract public static function invalidExclusiveRangeDataProvider(): iterable;
 
-    abstract public function validMultipleOfDataProvider(): iterable;
+    abstract public static function validMultipleOfDataProvider(): iterable;
 
-    abstract public function invalidMultipleOfDataProvider(): iterable;
+    abstract public static function invalidMultipleOfDataProvider(): iterable;
 
-    /**
-     * @dataProvider validRangeDataProvider
-     */
+    #[DataProvider('validRangeDataProvider')]
     public function testValidValueForRangeValidator($propertyValue): void
     {
         $className = $this->generateClassFromFile($this->getRangeFile(false));
@@ -40,9 +39,7 @@ abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGenerator
         $object = new $className(['property' => $propertyValue]);
         $this->assertEquals($propertyValue, $object->getProperty());
     }
-    /**
-     * @dataProvider validExclusiveRangeDataProvider
-     */
+    #[DataProvider('validExclusiveRangeDataProvider')]
     public function testValidValueForExclusiveRangeValidator($propertyValue): void
     {
         $className = $this->generateClassFromFile($this->getRangeFile(true));
@@ -51,9 +48,7 @@ abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGenerator
         $this->assertEquals($propertyValue, $object->getProperty());
     }
 
-    /**
-     * @dataProvider invalidRangeDataProvider
-     */
+    #[DataProvider('invalidRangeDataProvider')]
     public function testInvalidValueForRangeValidatorThrowsAnException($propertyValue, string $exceptionMessage): void
     {
         $this->expectException(ValidationException::class);
@@ -65,10 +60,9 @@ abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGenerator
     }
 
     /**
-     * @dataProvider invalidExclusiveRangeDataProvider
-     *
      * @param $propertyValue
      */
+    #[DataProvider('invalidExclusiveRangeDataProvider')]
     public function testInvalidValueForExclusiveRangeValidatorThrowsAnException($propertyValue, string $exceptionMessage): void
     {
         $this->expectException(ValidationException::class);
@@ -80,11 +74,10 @@ abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGenerator
     }
 
     /**
-     * @dataProvider validMultipleOfDataProvider
-     *
      * @param $multipleOf
      * @param $propertyValue
      */
+    #[DataProvider('validMultipleOfDataProvider')]
     public function testValidValueForMultipleOfValidator($multipleOf, $propertyValue): void
     {
         $className = $this->generateClassFromFileTemplate($this->getMultipleOfFile(), [$multipleOf]);
@@ -94,11 +87,10 @@ abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGenerator
     }
 
     /**
-     * @dataProvider invalidMultipleOfDataProvider
-     *
      * @param $multipleOf
      * @param $propertyValue
      */
+    #[DataProvider('invalidMultipleOfDataProvider')]
     public function testInvalidValueForMultipleOfValidatorThrowsAnException($multipleOf, $propertyValue): void
     {
         $this->expectException(ValidationException::class);

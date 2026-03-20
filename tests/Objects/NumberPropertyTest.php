@@ -9,6 +9,7 @@ use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class NumberPropertyTest
@@ -44,14 +45,13 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
     }
 
     /**
-     * @dataProvider validInputProvider
-     *
      * @param $input
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validInputProvider')]
     public function testProvidedNumberPropertyIsValid(int|float|null $input): void
     {
         $className = $this->generateClassFromFile('NumberProperty.json');
@@ -60,7 +60,7 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
         $this->assertEquals($input, $object->getProperty());
     }
 
-    public function validInputProvider(): array
+    public static function validInputProvider(): array
     {
         return [
             'Positive int' => [1],
@@ -74,12 +74,11 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
     }
     
     /**
-     * @dataProvider invalidPropertyTypeDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidPropertyTypeDataProvider')]
     public function testInvalidPropertyTypeThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
@@ -93,7 +92,7 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidPropertyTypeDataProvider(): array
+    public static function invalidPropertyTypeDataProvider(): array
     {
         return [
             'bool' => [true],
@@ -103,12 +102,14 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
+    #[\Override]
     protected function getMultipleOfFile(): string
     {
         return 'NumberPropertyMultipleOf.json';
     }
 
-    public function validMultipleOfDataProvider(): iterable
+    #[\Override]
+    public static function validMultipleOfDataProvider(): iterable
     {
         return [
             // check valid integers
@@ -129,7 +130,8 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
-    public function invalidMultipleOfDataProvider(): iterable
+    #[\Override]
+    public static function invalidMultipleOfDataProvider(): iterable
     {
         return [
             // check valid integers
@@ -152,12 +154,14 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
+    #[\Override]
     protected function getRangeFile(bool $exclusive): string
     {
         return $exclusive ? 'NumberPropertyRangeExclusive.json' : 'NumberPropertyRange.json';
     }
 
-    public function validRangeDataProvider(): iterable
+    #[\Override]
+    public static function validRangeDataProvider(): iterable
     {
         return [
             'Upper limit float' => [1.6],
@@ -170,7 +174,8 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
-    public function invalidRangeDataProvider(): iterable
+    #[\Override]
+    public static function invalidRangeDataProvider(): iterable
     {
         return [
             'Too large number int' => [2, 'Value for property must not be larger than 1.6'],
@@ -179,7 +184,8 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
             'Too small number float' => [-1.7, 'Value for property must not be smaller than -1.6'],
         ];
     }
-    public function validExclusiveRangeDataProvider(): iterable
+    #[\Override]
+    public static function validExclusiveRangeDataProvider(): iterable
     {
         return [
             'Upper limit float' => [1.59],
@@ -192,7 +198,8 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
         ];
     }
 
-    public function invalidExclusiveRangeDataProvider(): iterable
+    #[\Override]
+    public static function invalidExclusiveRangeDataProvider(): iterable
     {
         return [
             'Too large number int' => [2, 'Value for property must be smaller than 1.6'],

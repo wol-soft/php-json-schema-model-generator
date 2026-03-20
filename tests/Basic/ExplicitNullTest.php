@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class ExplicitNullTest
@@ -51,9 +52,7 @@ class ExplicitNullTest extends AbstractPHPModelGeneratorTestCase
         new $className(['name' => null]);
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testNullForOptionalValueWithExplicitNullIsValid(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile('ExplicitNull.json', null, false, $implicitNull);
@@ -63,9 +62,7 @@ class ExplicitNullTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull($object->getAge());
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testNullForRequiredValueWithExplicitNullIsValid(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile('ExplicitNull.json', null, false, $implicitNull);

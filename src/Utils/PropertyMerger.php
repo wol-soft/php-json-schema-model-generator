@@ -27,7 +27,7 @@ class PropertyMerger
     /** @var array<string, true> Property names registered from the root (compositionProcessor=null) */
     private array $rootRegisteredProperties = [];
 
-    public function __construct(private ?GeneratorConfiguration $generatorConfiguration = null) {}
+    public function __construct(private readonly ?GeneratorConfiguration $generatorConfiguration = null) {}
 
     /**
      * Record a property name as having been registered from the root (compositionProcessor=null).

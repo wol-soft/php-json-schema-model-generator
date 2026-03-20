@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class BooleanPropertyTest
@@ -32,14 +33,13 @@ class BooleanPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validInputProvider
-     *
      * @param bool $input
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validInputProvider')]
     public function testProvidedBooleanPropertyIsValid(?bool $input): void
     {
         $className = $this->generateClassFromFile('BooleanProperty.json');
@@ -48,7 +48,7 @@ class BooleanPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($input, $object->getProperty());
     }
 
-    public function validInputProvider(): array
+    public static function validInputProvider(): array
     {
         return [
             'true' => [true],
@@ -58,12 +58,11 @@ class BooleanPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
     
     /**
-     * @dataProvider invalidPropertyTypeDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidPropertyTypeDataProvider')]
     public function testInvalidPropertyTypeThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
@@ -77,7 +76,7 @@ class BooleanPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidPropertyTypeDataProvider(): array
+    public static function invalidPropertyTypeDataProvider(): array
     {
         return [
             'int' => [0],

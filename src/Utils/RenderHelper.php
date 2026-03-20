@@ -182,7 +182,7 @@ if ({$validator->getCheck()}) {
         // filter out non-compound uses and uses which link to the current namespace
         return array_filter($imports, static fn($classPath): bool =>
             strstr(trim(str_replace("$namespace", '', $classPath), '\\'), '\\') ||
-            (!strstr($classPath, '\\') && !empty($namespace)),
+            (!strstr((string) $classPath, '\\') && !empty($namespace)),
         );
     }
 }

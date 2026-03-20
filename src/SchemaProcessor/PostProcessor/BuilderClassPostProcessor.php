@@ -22,8 +22,8 @@ class BuilderClassPostProcessor extends PostProcessor
 {
     /** @var Schema[] */
     private array $schemas = [];
-    private ?GeneratorConfiguration $generatorConfiguration;
-    private ?RenderHelper $renderHelper;
+    private ?GeneratorConfiguration $generatorConfiguration = null;
+    private ?RenderHelper $renderHelper = null;
 
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
@@ -116,7 +116,7 @@ class BuilderClassPostProcessor extends PostProcessor
 
                 // as the typehint only knows the class name but not the fqcn, lookup in the original imports
                 foreach ($originalClassImports as $originalClassImport) {
-                    if (str_ends_with($originalClassImport, "\\$type")) {
+                    if (str_ends_with((string) $originalClassImport, "\\$type")) {
                         $type = $originalClassImport;
                     }
                 }

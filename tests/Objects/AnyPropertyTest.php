@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class AnyPropertyTest
@@ -19,12 +20,11 @@ use stdClass;
 class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
-     * @dataProvider validationMethodDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validationMethodDataProvider')]
     public function testNotProvidedOptionalAnyPropertyIsValid(GeneratorConfiguration $configuration): void
     {
         $className = $this->generateClassFromFile('AnyProperty.json', $configuration);
@@ -34,12 +34,11 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validationMethodDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validationMethodDataProvider')]
     public function testNotProvidedRequiredAnyPropertyThrowsAnException(GeneratorConfiguration $configuration): void
     {
         $this->expectValidationError($configuration, 'Missing required value for property');
@@ -49,12 +48,11 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validPropertyTypeDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validPropertyTypeDataProvider')]
     public function testAnyProvidedTypeIsValid(GeneratorConfiguration $configuration, mixed $propertyValue): void
     {
         $className = $this->generateClassFromFile('AnyProperty.json', $configuration);
@@ -63,10 +61,10 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function validPropertyTypeDataProvider(): array
+    public static function validPropertyTypeDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'int' => [0],
                 'float' => [0.92],

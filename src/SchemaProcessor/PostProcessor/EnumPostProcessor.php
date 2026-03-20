@@ -31,9 +31,9 @@ class EnumPostProcessor extends PostProcessor
 {
     private array $generatedEnums = [];
 
-    private string $namespace;
-    private Render $renderer;
-    private string $targetDirectory;
+    private readonly string $namespace;
+    private readonly Render $renderer;
+    private readonly string $targetDirectory;
 
     /**
      * @param string $targetDirectory  The directory where to put the generated PHP enums
@@ -46,14 +46,8 @@ class EnumPostProcessor extends PostProcessor
     public function __construct(
         string $targetDirectory,
         string $namespace,
-        private bool $skipNonMappedEnums = false,
+        private readonly bool $skipNonMappedEnums = false,
     ) {
-        if (PHP_VERSION_ID < 80100) {
-            // @codeCoverageIgnoreStart
-            throw new Exception('Enumerations are only allowed since PHP 8.1');
-            // @codeCoverageIgnoreEnd
-        }
-
         (new ModelGenerator())->generateModelDirectory($targetDirectory);
 
         $this->renderer = new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);
@@ -100,7 +94,7 @@ class EnumPostProcessor extends PostProcessor
             }
 
             $fqcn = $this->generatedEnums[$enumSignature]['fqcn'];
-            $name = substr($fqcn, strrpos($fqcn, "\\") + 1);
+            $name = substr((string) $fqcn, strrpos((string) $fqcn, "\\") + 1);
 
             $inputType = $property->getType();
 
@@ -237,7 +231,7 @@ class EnumPostProcessor extends PostProcessor
         ?array $map,
     ): string {
         $cases = [];
-        $name = ucfirst(preg_replace('/\W/', '', ucwords($name, '_-. ')));
+        $name = ucfirst((string) preg_replace('/\W/', '', ucwords($name, '_-. ')));
 
         foreach ($values as $value) {
             $cases[$this->getCaseName($map, $value, $jsonSchema)] = var_export($value, true);
@@ -291,7 +285,7 @@ class EnumPostProcessor extends PostProcessor
         $caseName = ucfirst(NormalizedName::from($map ? array_search($value, $map, true) : $value, $jsonSchema));
 
         if (preg_match('/^\d/', $caseName) === 1) {
-            $caseName = "_$caseName";
+            return "_$caseName";
         }
 
         return $caseName;

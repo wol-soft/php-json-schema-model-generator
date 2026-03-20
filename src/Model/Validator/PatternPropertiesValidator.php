@@ -23,8 +23,8 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class PatternPropertiesValidator extends PropertyTemplateValidator
 {
-    private PropertyInterface $validationProperty;
-    private string $key;
+    private readonly PropertyInterface $validationProperty;
+    private readonly string $key;
 
     /**
      * PatternPropertiesValidator constructor.
@@ -34,7 +34,7 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
     public function __construct(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        private string $pattern,
+        private readonly string $pattern,
         JsonSchema $propertyStructure,
     ) {
         $this->key = md5($propertyStructure->getJson()['key'] ?? $this->pattern);

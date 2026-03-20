@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class ComposedAnyOfTest
@@ -28,10 +29,9 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validEmptyAnyOfDataProvider
-     *
      * @param $propertyValue
      */
+    #[DataProvider('validEmptyAnyOfDataProvider')]
     public function testValueProvidedForEmptyOptionalAnyOfIsInvalid(string|int|array $propertyValue): void
     {
         $this->expectException(ValidationException::class);
@@ -46,7 +46,7 @@ ERROR,
         new $className(['property' => $propertyValue]);
     }
 
-    public function validEmptyAnyOfDataProvider(): array
+    public static function validEmptyAnyOfDataProvider(): array
     {
         return [
             'empty array' => [[]],
@@ -56,9 +56,7 @@ ERROR,
         ];
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testCompositionTypes(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile(
@@ -121,9 +119,7 @@ ERROR,
         $this->assertSame(42, $object->getIntegerProperty());
     }
 
-    /**
-     * @dataProvider propertyLevelAnyOfSchemaFileDataProvider
-     */
+    #[DataProvider('propertyLevelAnyOfSchemaFileDataProvider')]
     public function testNotProvidedPropertyLevelAnyOfIsValid(string $schema): void
     {
         $className = $this->generateClassFromFile($schema);
@@ -132,7 +128,7 @@ ERROR,
         $this->assertNull($object->getProperty());
     }
 
-    public function propertyLevelAnyOfSchemaFileDataProvider(): array
+    public static function propertyLevelAnyOfSchemaFileDataProvider(): array
     {
         return [
             'Scalar types' => ['AnyOfType.json'],
@@ -172,10 +168,8 @@ ERROR,
         $this->assertEmpty($object->getStringProperty());
     }
 
-    /**
-     * @dataProvider validPropertyTypeDataProvider
-     * @dataProvider nullDataProvider
-     */
+    #[DataProvider('validPropertyTypeDataProvider')]
+    #[DataProvider('nullDataProvider')]
     public function testValidProvidedAnyOfTypePropertyIsValid(mixed $propertyValue): void
     {
         $className = $this->generateClassFromFile('AnyOfType.json');
@@ -184,9 +178,7 @@ ERROR,
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    /**
-     * @dataProvider annotationDataProvider
-     */
+    #[DataProvider('annotationDataProvider')]
     public function testAnyOfTypePropertyHasTypeAnnotation(
         string $schema,
         string $annotationPattern,
@@ -194,13 +186,13 @@ ERROR,
     ): void {
         $className = $this->generateClassFromFile($schema);
 
-        $this->assertRegExp($annotationPattern, $this->getPropertyTypeAnnotation($className, 'property'));
-        $this->assertRegExp($annotationPattern, $this->getReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertMatchesRegularExpression($annotationPattern, $this->getPropertyTypeAnnotation($className, 'property'));
+        $this->assertMatchesRegularExpression($annotationPattern, $this->getReturnTypeAnnotation($className, 'getProperty'));
 
         $this->assertCount($generatedClasses, $this->getGeneratedFiles());
     }
 
-    public function annotationDataProvider(): array
+    public static function annotationDataProvider(): array
     {
         return [
             'Multiple scalar types (no merged property)' => [
@@ -231,9 +223,7 @@ ERROR,
         ];
     }
 
-    /**
-     * @dataProvider invalidPropertyTypeDataProvider
-     */
+    #[DataProvider('invalidPropertyTypeDataProvider')]
     public function testInvalidProvidedAnyOfTypePropertyThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
@@ -244,7 +234,7 @@ ERROR,
         new $className(['property' => $propertyValue]);
     }
 
-    public function validPropertyTypeDataProvider(): array
+    public static function validPropertyTypeDataProvider(): array
     {
         return [
             'empty string' => [''],
@@ -257,7 +247,7 @@ ERROR,
         ];
     }
 
-    public function invalidPropertyTypeDataProvider(): array
+    public static function invalidPropertyTypeDataProvider(): array
     {
         return [
             'float' => [0.92],
@@ -267,9 +257,7 @@ ERROR,
     }
 
 
-    /**
-     * @dataProvider validPropertyTypeDataProvider
-     */
+    #[DataProvider('validPropertyTypeDataProvider')]
     public function testValidProvidedRequiredAnyOfTypePropertyIsValid(mixed $propertyValue): void
     {
         $className = $this->generateClassFromFile('AnyOfTypeRequired.json');
@@ -278,10 +266,8 @@ ERROR,
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    /**
-     * @dataProvider invalidPropertyTypeDataProvider
-     * @dataProvider nullDataProvider
-     */
+    #[DataProvider('invalidPropertyTypeDataProvider')]
+    #[DataProvider('nullDataProvider')]
     public function testInvalidProvidedRequiredAnyOfTypePropertyThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
@@ -292,14 +278,12 @@ ERROR,
         new $className(['property' => $propertyValue]);
     }
 
-    public function nullDataProvider(): array
+    public static function nullDataProvider(): array
     {
         return ['null' => [null]];
     }
 
-    /**
-     * @dataProvider validExtendedPropertyDataProvider
-     */
+    #[DataProvider('validExtendedPropertyDataProvider')]
     public function testExtendedPropertyDefinitionWithValidValues(int | float | null $propertyValue): void
     {
         $className = $this->generateClassFromFile('ExtendedPropertyDefinition.json');
@@ -309,7 +293,7 @@ ERROR,
         $this->assertSame(is_int($propertyValue) ? (float) $propertyValue : $propertyValue, $object->getProperty());
     }
 
-    public function validExtendedPropertyDataProvider(): array
+    public static function validExtendedPropertyDataProvider(): array
     {
         return [
             'one match - int 12' => [12],
@@ -322,9 +306,7 @@ ERROR,
         ];
     }
 
-    /**
-     * @dataProvider invalidExtendedPropertyDataProvider
-     */
+    #[DataProvider('invalidExtendedPropertyDataProvider')]
     public function testExtendedPropertyDefinitionWithInvalidValuesThrowsAnException(
         mixed $propertyValue,
         string $exceptionMessage,
@@ -337,7 +319,7 @@ ERROR,
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidExtendedPropertyDataProvider(): array
+    public static function invalidExtendedPropertyDataProvider(): array
     {
         return [
             'int 13' => [13, 'Invalid value for property declined by composition constraint'],
@@ -350,9 +332,7 @@ ERROR,
         ];
     }
 
-    /**
-     * @dataProvider composedPropertyWithReferencedSchemaDataProvider
-     */
+    #[DataProvider('composedPropertyWithReferencedSchemaDataProvider')]
     public function testMatchingComposedPropertyWithReferencedSchemaIsValid(
         string $schema,
         ?string $propertyValue,
@@ -363,9 +343,9 @@ ERROR,
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function composedPropertyWithReferencedSchemaDataProvider(): array
+    public static function composedPropertyWithReferencedSchemaDataProvider(): array
     {
-        return $this->combineDataProvider(
+        return self::combineDataProvider(
             [
                 'ReferencedObjectSchema.json' => ['ReferencedObjectSchema.json'],
                 'ReferencedObjectSchema3.json' => ['ReferencedObjectSchema3.json'],
@@ -377,9 +357,7 @@ ERROR,
         );
     }
 
-    /**
-     * @dataProvider referencedPersonDataProvider
-     */
+    #[DataProvider('referencedPersonDataProvider')]
     public function testMatchingObjectPropertyWithReferencedPersonSchemaIsValid(string $schema): void
     {
         $className = $this->generateClassFromFile($schema);
@@ -391,7 +369,7 @@ ERROR,
         $this->assertSame(42, $object->getProperty()->getAge());
     }
 
-    public function referencedPersonDataProvider(): array
+    public static function referencedPersonDataProvider(): array
     {
         return [
             'ReferencedObjectSchema.json' => ['ReferencedObjectSchema.json'],
@@ -400,7 +378,7 @@ ERROR,
         ];
     }
 
-    public function referencedPetDataProvider(): array
+    public static function referencedPetDataProvider(): array
     {
         return [
             'ReferencedObjectSchema2.json' => ['ReferencedObjectSchema2.json'],
@@ -408,9 +386,7 @@ ERROR,
         ];
     }
 
-    /**
-     * @dataProvider referencedPetDataProvider
-     */
+    #[DataProvider('referencedPetDataProvider')]
     public function testMatchingObjectPropertyWithReferencedPetSchemaIsValid(string $schema): void
     {
         $className = $this->generateClassFromFile($schema);
@@ -421,9 +397,7 @@ ERROR,
         $this->assertSame('Horse', $object->getProperty()->getRace());
     }
 
-    /**
-     * @dataProvider invalidObjectPropertyWithReferencedPersonSchemaDataProvider
-     */
+    #[DataProvider('invalidObjectPropertyWithReferencedPersonSchemaDataProvider')]
     public function testNotMatchingObjectPropertyWithReferencedPersonSchemaThrowsAnException(
         string $schema,
         mixed $propertyValue,
@@ -436,10 +410,10 @@ ERROR,
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidObjectPropertyWithReferencedPersonSchemaDataProvider(): array
+    public static function invalidObjectPropertyWithReferencedPersonSchemaDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->referencedPersonDataProvider(),
+        return self::combineDataProvider(
+            self::referencedPersonDataProvider(),
             [
                 'int' => [0],
                 'float' => [0.92],
@@ -456,9 +430,7 @@ ERROR,
         );
     }
 
-    /**
-     * @dataProvider invalidObjectPropertyWithReferencedPetSchemaDataProvider
-     */
+    #[DataProvider('invalidObjectPropertyWithReferencedPetSchemaDataProvider')]
     public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException(
         string $schema,
         mixed $propertyValue,
@@ -471,10 +443,10 @@ ERROR,
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidObjectPropertyWithReferencedPetSchemaDataProvider(): array
+    public static function invalidObjectPropertyWithReferencedPetSchemaDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->referencedPetDataProvider(),
+        return self::combineDataProvider(
+            self::referencedPetDataProvider(),
             [
                 'int' => [0],
                 'float' => [0.92],
@@ -490,11 +462,9 @@ ERROR,
         );
     }
 
-    /**
-     * @dataProvider validComposedObjectDataProvider
-     * @dataProvider validComposedObjectDataProviderRequired
-     * @dataProvider validComposedObjectWithRequiredPropertiesDataProvider
-     */
+    #[DataProvider('validComposedObjectDataProvider')]
+    #[DataProvider('validComposedObjectDataProviderRequired')]
+    #[DataProvider('validComposedObjectWithRequiredPropertiesDataProvider')]
     public function testMatchingPropertyForComposedAnyOfObjectIsValid(
         array $input,
         mixed $stringPropertyValue,
@@ -507,7 +477,7 @@ ERROR,
         $this->assertSame($intPropertyValue, $object->getIntegerProperty());
     }
 
-    public function validComposedObjectDataProvider(): array
+    public static function validComposedObjectDataProvider(): array
     {
         return [
             'no properties' => [[], null, null],
@@ -516,7 +486,7 @@ ERROR,
         ];
     }
 
-    public function validComposedObjectDataProviderRequired(): array
+    public static function validComposedObjectDataProviderRequired(): array
     {
         // Raw input values are preserved in both properties regardless of which branch matched.
         // The non-matching branch's property retains the raw input value (no null-truncation).
@@ -531,9 +501,7 @@ ERROR,
         ];
     }
 
-    /**
-     * @dataProvider invalidComposedObjectDataProvider
-     */
+    #[DataProvider('invalidComposedObjectDataProvider')]
     public function testNotMatchingPropertyForComposedAnyOfObjectThrowsAnException(array $input): void
     {
         $this->expectException(ValidationException::class);
@@ -543,7 +511,7 @@ ERROR,
         new $className($input);
     }
 
-    public function invalidComposedObjectDataProvider(): array
+    public static function invalidComposedObjectDataProvider(): array
     {
         return [
             'both invalid types' => [['integerProperty' => '10', 'stringProperty' => 10]],
@@ -555,10 +523,8 @@ ERROR,
     }
 
 
-    /**
-     * @dataProvider validComposedObjectDataProviderRequired
-     * @dataProvider validComposedObjectWithRequiredPropertiesDataProvider
-     */
+    #[DataProvider('validComposedObjectDataProviderRequired')]
+    #[DataProvider('validComposedObjectWithRequiredPropertiesDataProvider')]
     public function testMatchingPropertyForComposedAnyOfObjectWithRequiredPropertiesIsValid(
         array $input,
         mixed $stringPropertyValue,
@@ -571,9 +537,7 @@ ERROR,
         $this->assertSame($intPropertyValue, $object->getIntegerProperty());
     }
 
-    /**
-     * @dataProvider invalidComposedObjectDataProvider
-     */
+    #[DataProvider('invalidComposedObjectDataProvider')]
     public function testNotMatchingPropertyForComposedAnyOfObjectWithRequiredPropertiesThrowsAnException(array $input): void
     {
         $this->expectException(ValidationException::class);
@@ -583,7 +547,7 @@ ERROR,
         new $className($input);
     }
 
-    public function validComposedObjectWithRequiredPropertiesDataProvider(): array
+    public static function validComposedObjectWithRequiredPropertiesDataProvider(): array
     {
         return [
             'only int property' => [['integerProperty' => 4], null, 4],
@@ -593,9 +557,7 @@ ERROR,
         ];
     }
 
-    /**
-     * @dataProvider validationInSetterDataProvider
-     */
+    #[DataProvider('validationInSetterDataProvider')]
     public function testValidationInSetterMethods(
         GeneratorConfiguration $generatorConfiguration,
         string $exceptionMessageBothInvalid,
@@ -647,7 +609,7 @@ ERROR,
         $this->assertNull($object->getStringProperty());
     }
 
-    public function validationInSetterDataProvider(): array
+    public static function validationInSetterDataProvider(): array
     {
         return [
             'Exception Collection' => [

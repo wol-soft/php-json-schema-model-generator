@@ -11,9 +11,6 @@ use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
 
 class Issue105Test extends AbstractIssueTestCase
 {
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testEnumInComposition(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator) : void {

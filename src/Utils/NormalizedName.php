@@ -19,7 +19,7 @@ class NormalizedName
 
         $elements = array_map(
             static fn(string $element): string => ucfirst(strtolower($element)),
-            preg_split('/[^a-z0-9]/i', $attributeName),
+            preg_split('/[^a-z0-9]/i', (string) $attributeName),
         );
 
         $attributeName = join('', $elements);

@@ -13,6 +13,7 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionUnionType;
 use SplFileInfo;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -85,9 +86,7 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Albert', $object->getName());
         $this->assertNull($object->getAge());
     }
-    /**
-     * @dataProvider validationMethodDataProvider
-     */
+    #[DataProvider('validationMethodDataProvider')]
     public function testInvalidBuilderDataThrowsAnExceptionOnValidate(GeneratorConfiguration $configuration): void
     {
         $className = $this->generateClassFromFile('BasicSchema.json', $configuration);
@@ -255,8 +254,8 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $nestedObjectClassName = null;
         foreach ($this->getGeneratedFiles() as $file) {
-            if (str_contains($file, 'ItemOfArray')) {
-                $nestedObjectClassName = str_replace('.php', '', basename($file));
+            if (str_contains((string) $file, 'ItemOfArray')) {
+                $nestedObjectClassName = str_replace('.php', '', basename((string) $file));
 
                 break;
             }

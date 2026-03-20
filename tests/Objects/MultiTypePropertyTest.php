@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Exception\ValidationException;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class MultiTypePropertyTest
@@ -35,9 +36,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull($object->getProperty());
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testOptionalMultiTypeAnnotation(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile(
@@ -68,9 +67,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testRequiredMultiTypeAnnotation(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile(
@@ -123,9 +120,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('hello', $object->getProperty());
     }
 
-    /**
-     * @dataProvider validValueDataProvider
-     */
+    #[DataProvider('validValueDataProvider')]
     public function testValidProvidedValuePassesValidation(mixed $propertyValue): void
     {
         $className = $this->generateClassFromFile('MultiTypeProperty.json');
@@ -134,7 +129,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertEquals($propertyValue, $object->getProperty());
     }
 
-    public function validValueDataProvider(): array
+    public static function validValueDataProvider(): array
     {
         return [
             'Null' => [null],
@@ -145,9 +140,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidValueDataProvider
-     */
+    #[DataProvider('invalidValueDataProvider')]
     public function testInvalidProvidedValueThrowsAnException(mixed $propertyValue, string $exceptionMessage): void
     {
         $this->expectException(ValidationException::class);
@@ -158,7 +151,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidValueDataProvider(): array
+    public static function invalidValueDataProvider(): array
     {
         return [
             'Bool' => [true, 'Invalid type for property. Requires [float, string, array], got boolean'],
@@ -179,9 +172,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider nestedObjectDataProvider
-     */
+    #[DataProvider('nestedObjectDataProvider')]
     public function testValidNestedObjectInMultiTypePropertyIsValidWithNestedObjectProvided(
         ?array $propertyValue,
         ?string $expected,
@@ -198,7 +189,7 @@ ERROR
         }
     }
 
-    public function nestedObjectDataProvider(): array
+    public static function nestedObjectDataProvider(): array
     {
         return [
             'not provided' => [null, null],
@@ -216,9 +207,7 @@ ERROR
         $this->assertSame('Hello', $object->getProperty());
     }
 
-    /**
-     * @dataProvider invalidNestedObjectDataProvider
-     */
+    #[DataProvider('invalidNestedObjectDataProvider')]
     public function testInvalidNestedObjectInMultiTypePropertyThrowsAnException(
         array $propertyValue,
         string $exceptionMessage,
@@ -231,7 +220,7 @@ ERROR
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidNestedObjectDataProvider(): array
+    public static function invalidNestedObjectDataProvider(): array
     {
         return [
             'invalid type' => [
@@ -251,9 +240,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider validRecursiveMultiTypeDataProvider
-     */
+    #[DataProvider('validRecursiveMultiTypeDataProvider')]
     public function testValidRecursiveMultiType(string|array $input): void
     {
 
@@ -263,7 +250,7 @@ ERROR
         $this->assertSame($input, $object->getProperty());
     }
 
-    public function validRecursiveMultiTypeDataProvider(): array
+    public static function validRecursiveMultiTypeDataProvider(): array
     {
         return [
             'string'       => ['Test'],
@@ -272,9 +259,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider invalidRecursiveMultiTypeDataProvider
-     */
+    #[DataProvider('invalidRecursiveMultiTypeDataProvider')]
     public function testInvalidRecursiveMultiType(
         int|array $input,
         string $expectedException,
@@ -288,7 +273,7 @@ ERROR
         new $className(['property' => $input]);
     }
 
-    public function invalidRecursiveMultiTypeDataProvider(): array
+    public static function invalidRecursiveMultiTypeDataProvider(): array
     {
         return [
             'int' => [

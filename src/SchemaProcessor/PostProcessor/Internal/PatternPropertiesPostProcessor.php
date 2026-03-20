@@ -127,7 +127,7 @@ class PatternPropertiesPostProcessor extends PostProcessor
     private function initObjectPropertiesMatchingPatternProperties(Schema $schema, array $patternHashes): void
     {
         $schema->addSchemaHook(new class ($patternHashes) implements ConstructorBeforeValidationHookInterface {
-            public function __construct(private array $patternHashes) {}
+            public function __construct(private readonly array $patternHashes) {}
 
             public function getCode(): string
             {
@@ -138,7 +138,6 @@ class PatternPropertiesPostProcessor extends PostProcessor
                         continue;
                     }
 
-                    /** @var PropertyInterface $matchingProperty */
                     foreach ($matchingProperties as $matchingProperty) {
                         $code .= sprintf(
                             '$this->_patternProperties["%s"]["%s"] = &$this->%s;' . PHP_EOL,

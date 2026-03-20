@@ -17,14 +17,12 @@ use PHPModelGenerator\PropertyProcessor\ComposedValue\IfProcessor;
  */
 class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
 {
-    /** @var CompositionPropertyDecorator[] */
-    private array $dataBranches;
-
     public function __construct(
         GeneratorConfiguration $generatorConfiguration,
         PropertyInterface $property,
         array $composedProperties,
-        array $dataBranches,
+        /** @var CompositionPropertyDecorator[] */
+        private readonly array $dataBranches,
         array $validatorVariables,
     ) {
         $this->isResolved = true;
@@ -40,7 +38,6 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
 
         $this->compositionProcessor = IfProcessor::class;
         $this->composedProperties = $composedProperties;
-        $this->dataBranches = $dataBranches;
     }
 
     /**

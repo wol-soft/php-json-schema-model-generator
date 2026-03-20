@@ -20,6 +20,7 @@ use PHPModelGenerator\SchemaProcessor\Hook\SetterAfterValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class SchemaHookTest
@@ -45,9 +46,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
         new $className(['name' => false]);
     }
 
-    /**
-     * @dataProvider constructorAfterValidationHookDataProvider
-     */
+    #[DataProvider('constructorAfterValidationHookDataProvider')]
     public function testConstructorAfterValidationHookIsResolved(
         bool|string $value,
         string $expectedException,
@@ -68,7 +67,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
         new $className(['name' => $value]);
     }
 
-    public function constructorAfterValidationHookDataProvider(): array
+    public static function constructorAfterValidationHookDataProvider(): array
     {
         return [
             'Invalid value' => [
@@ -130,9 +129,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
     }
 
 
-    /**
-     * @dataProvider setterAfterValidationHookDataProvider
-     */
+    #[DataProvider('setterAfterValidationHookDataProvider')]
     public function testSetterAfterValidationHookIsResolved(
         int $value,
         string $expectedException,
@@ -160,7 +157,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
         $object->setAge($value);
     }
 
-    public function setterAfterValidationHookDataProvider(): array
+    public static function setterAfterValidationHookDataProvider(): array
     {
         return [
             'Invalid value' => [
@@ -202,7 +199,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator) use ($schemaHook): void {
             $modelGenerator->addPostProcessor(new class ($schemaHook) extends PostProcessor {
-                public function __construct(private SchemaHookInterface $schemaHook) {}
+                public function __construct(private readonly SchemaHookInterface $schemaHook) {}
 
                 public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
                 {

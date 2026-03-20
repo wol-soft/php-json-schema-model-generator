@@ -19,7 +19,7 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
  */
 abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
 {
-    protected const TYPE = '';
+    protected const string TYPE = '';
 
     /**
      * AbstractTypedValueProcessor constructor.

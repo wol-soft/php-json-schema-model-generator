@@ -38,7 +38,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        private bool $rootLevelComposition,
+        private readonly bool $rootLevelComposition,
     ) {
         parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
     }

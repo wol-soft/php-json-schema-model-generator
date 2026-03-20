@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\Basic;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class FalsePropertySchemaTest
@@ -29,9 +30,7 @@ class FalsePropertySchemaTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Alice', $object->getName());
     }
 
-    /**
-     * @dataProvider falsePropertyValueDataProvider
-     */
+    #[DataProvider('falsePropertyValueDataProvider')]
     public function testProvidingFalsePropertyThrowsException(
         GeneratorConfiguration $configuration,
         mixed $value,
@@ -41,10 +40,10 @@ class FalsePropertySchemaTest extends AbstractPHPModelGeneratorTestCase
         new $className(['forbidden' => $value]);
     }
 
-    public function falsePropertyValueDataProvider(): array
+    public static function falsePropertyValueDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'string' => ['hello'],
                 'int'    => [42],
