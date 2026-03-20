@@ -182,4 +182,24 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
 
         $this->generateClassFromFile('CompositionPropertyConflictsWithPattern.json');
     }
+
+    public function testPatternWithNonTransformingFilterStillAppliesIntersection(): void
+    {
+        $className = $this->generateClassFromFile('PatternWithNonTransformingFilterNarrows.json');
+
+        // A non-transforming filter (trim) does not change the PHP type, so the intersection
+        // check must still run. Both the declared and pattern type are string, so the type is
+        // unchanged — but crucially no false conflict is raised and the schema generates cleanly.
+        $this->assertSame(['string'], $this->getReturnTypeNames($className, 'getAlpha'));
+    }
+
+    public function testPatternWithTransformingFilterSkipsIntersectionCheck(): void
+    {
+        $className = $this->generateClassFromFile('PatternWithTransformingFilterSkipsIntersection.json');
+
+        // A transforming filter (dateTime) changes the PHP type of the pattern property.
+        // The intersection check is skipped; transferPatternPropertiesFilterToProperty runs and
+        // updates the declared property type to DateTime (the filter's output type).
+        $this->assertEqualsCanonicalizing(['DateTime', 'null'], $this->getReturnTypeNames($className, 'getAlpha'));
+    }
 }

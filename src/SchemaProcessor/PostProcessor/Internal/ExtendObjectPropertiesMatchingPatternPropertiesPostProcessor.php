@@ -117,6 +117,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
 
                 $patternType = $this->resolvePatternTypeFromJson(
                     $schema->getJsonSchema()->getJson()['patternProperties'][$patternPropertiesValidator->getPattern()],
+                    $generatorConfiguration,
                 );
 
                 if ($patternType === null) {
@@ -147,26 +148,28 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
     /**
      * Resolve the PHP-side PropertyType from a raw patternProperties JSON schema entry.
      *
-     * Returns null when the schema has no 'type' key or carries only a transforming filter
-     * (in that case the schema-level type was already applied by the filter pipeline and the
-     * comparison is not meaningful at the JSON Schema level).
+     * Returns null when the schema has no 'type' key or when the pattern carries a transforming
+     * filter (in that case the declared property type has already been replaced by the filter's
+     * output type by transferPatternPropertiesFilterToProperty, so a JSON-level type comparison
+     * would produce a false conflict).
+     *
+     * Non-transforming filters (e.g. trim, notEmpty) do not change the PHP type and are not a
+     * reason to skip the intersection check.
      *
      * Maps JSON type names to the PHP type names used by PropertyType:
      *   integer → int, number → float, boolean → bool, string/array/object/null → as-is.
      */
-    private function resolvePatternTypeFromJson(array $patternJson): ?PropertyType
-    {
+    private function resolvePatternTypeFromJson(
+        array $patternJson,
+        GeneratorConfiguration $generatorConfiguration,
+    ): ?PropertyType {
         if (!isset($patternJson['type'])) {
             return null;
         }
 
         // A transforming filter changes the PHP type of the property (e.g. string → DateTime).
-        // The type constraint on the schema side still applies to the raw input value; comparing
-        // the pre-filter JSON type against the declared property type is correct, but we must
-        // skip properties that have a transforming filter because the declared property will
-        // have already had its type transformed by transferPatternPropertiesFilterToProperty.
-        // We detect this by the presence of 'filter' in the pattern JSON.
-        if (isset($patternJson['filter'])) {
+        // Skip the intersection only when at least one filter in the pattern is transforming.
+        if ($this->patternHasTransformingFilter($patternJson, $generatorConfiguration)) {
             return null;
         }
 
@@ -192,6 +195,42 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
         $nullable = in_array('null', $typeNames, true) ? true : null;
 
         return new PropertyType(array_values($phpNames), $nullable);
+    }
+
+    /**
+     * Returns true if the pattern JSON contains at least one transforming filter.
+     *
+     * The 'filter' value follows the same format as on a regular property: a string token,
+     * a single filter-spec array (['filter' => 'token', ...]), or a list of either.
+     */
+    private function patternHasTransformingFilter(
+        array $patternJson,
+        GeneratorConfiguration $generatorConfiguration,
+    ): bool {
+        if (!isset($patternJson['filter'])) {
+            return false;
+        }
+
+        $filterList = $patternJson['filter'];
+
+        // Normalise to a list, mirroring FilterProcessor::process lines 44-46.
+        if (is_string($filterList) || (is_array($filterList) && isset($filterList['filter']))) {
+            $filterList = [$filterList];
+        }
+
+        foreach ($filterList as $filterToken) {
+            if (is_array($filterToken)) {
+                $filterToken = $filterToken['filter'] ?? '';
+            }
+
+            $filter = $generatorConfiguration->getFilter((string) $filterToken);
+
+            if ($filter instanceof TransformingFilterInterface) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
