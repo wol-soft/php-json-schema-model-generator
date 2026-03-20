@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
@@ -16,6 +17,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
+use PHPModelGenerator\Utils\PropertyMerger;
 
 class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostProcessor
 {
@@ -24,6 +26,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
      */
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
+        $this->applyPatternPropertiesTypeIntersection($schema, $generatorConfiguration);
         $this->transferPatternPropertiesFilterToProperty($schema, $generatorConfiguration);
 
         $schema->addSchemaHook(
@@ -63,6 +66,132 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                 }
             },
         );
+    }
+
+    /**
+     * For every declared/composition-transferred property whose name matches a patternProperties
+     * pattern, intersect the property's type with the pattern's type constraint.
+     *
+     * patternProperties applies simultaneously with properties (allOf semantics), so the
+     * effective type of a matching property is the intersection. An empty intersection means the
+     * schema is unsatisfiable and a SchemaException is thrown.
+     *
+     * Properties with no type (truly untyped) and pattern validators with no type are skipped.
+     *
+     * @throws SchemaException
+     */
+    protected function applyPatternPropertiesTypeIntersection(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
+        $patternPropertiesValidators = array_filter(
+            $schema->getBaseValidators(),
+            static fn(PropertyValidatorInterface $validator): bool => $validator instanceof PatternPropertiesValidator,
+        );
+
+        if (empty($patternPropertiesValidators)) {
+            return;
+        }
+
+        $merger = new PropertyMerger($generatorConfiguration);
+
+        foreach ($schema->getProperties() as $property) {
+            if ($property->isInternal()) {
+                continue;
+            }
+
+            $propertyType = $property->getType(true);
+
+            if ($propertyType === null) {
+                continue;
+            }
+
+            /** @var PatternPropertiesValidator $patternPropertiesValidator */
+            foreach ($patternPropertiesValidators as $patternPropertiesValidator) {
+                if (!preg_match(
+                    '/' . addcslashes($patternPropertiesValidator->getPattern(), '/') . '/',
+                    $property->getName(),
+                )) {
+                    continue;
+                }
+
+                $patternType = $this->resolvePatternTypeFromJson(
+                    $schema->getJsonSchema()->getJson()['patternProperties'][$patternPropertiesValidator->getPattern()],
+                );
+
+                if ($patternType === null) {
+                    continue;
+                }
+
+                $merger->narrowToIntersection(
+                    $property,
+                    $property->getType(true),
+                    $patternType,
+                    sprintf(
+                        "Property '%s' has type %s but the matching patternProperties pattern '%s' requires type %s." .
+                        " These constraints are contradictory, making this schema unsatisfiable.",
+                        $property->getName(),
+                        implode('|', $property->getType(true)->getNames()),
+                        $patternPropertiesValidator->getPattern(),
+                        implode('|', $patternType->getNames()),
+                    ),
+                    $generatorConfiguration->isImplicitNullAllowed(),
+                    $property,
+                    null,
+                    false,
+                );
+            }
+        }
+    }
+
+    /**
+     * Resolve the PHP-side PropertyType from a raw patternProperties JSON schema entry.
+     *
+     * Returns null when the schema has no 'type' key or carries only a transforming filter
+     * (in that case the schema-level type was already applied by the filter pipeline and the
+     * comparison is not meaningful at the JSON Schema level).
+     *
+     * Maps JSON type names to the PHP type names used by PropertyType:
+     *   integer → int, number → float, boolean → bool, string/array/object/null → as-is.
+     */
+    private function resolvePatternTypeFromJson(array $patternJson): ?PropertyType
+    {
+        if (!isset($patternJson['type'])) {
+            return null;
+        }
+
+        // A transforming filter changes the PHP type of the property (e.g. string → DateTime).
+        // The type constraint on the schema side still applies to the raw input value; comparing
+        // the pre-filter JSON type against the declared property type is correct, but we must
+        // skip properties that have a transforming filter because the declared property will
+        // have already had its type transformed by transferPatternPropertiesFilterToProperty.
+        // We detect this by the presence of 'filter' in the pattern JSON.
+        if (isset($patternJson['filter'])) {
+            return null;
+        }
+
+        /** @var string|string[] $rawType */
+        $rawType = $patternJson['type'];
+        $typeNames = is_array($rawType) ? $rawType : [$rawType];
+
+        $phpTypeMap = [
+            'integer' => 'int',
+            'number'  => 'float',
+            'boolean' => 'bool',
+        ];
+
+        $phpNames = array_map(
+            static fn(string $t): string => $phpTypeMap[$t] ?? $t,
+            array_filter($typeNames, static fn(string $t): bool => $t !== 'null'),
+        );
+
+        if (empty($phpNames)) {
+            return null;
+        }
+
+        $nullable = in_array('null', $typeNames, true) ? true : null;
+
+        return new PropertyType(array_values($phpNames), $nullable);
     }
 
     /**

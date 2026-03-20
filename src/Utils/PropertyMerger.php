@@ -11,6 +11,7 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\ComposedValue\AllOfProcessor;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntToFloatCastDecorator;
 
 /**
  * Merges an incoming property into an already-registered slot on a Schema.
@@ -210,26 +211,65 @@ class PropertyMerger
         PropertyType $existingOutput,
         PropertyType $incomingOutput,
     ): void {
-        $declaredIntersection = array_values(
-            array_intersect($existingOutput->getNames(), $incomingOutput->getNames()),
+        $this->narrowToIntersection(
+            $existing,
+            $existingOutput,
+            $incomingOutput,
+            sprintf(
+                "Property '%s' is defined with conflicting types across allOf branches. " .
+                "allOf requires all constraints to hold simultaneously, making this schema unsatisfiable.",
+                $incoming->getName(),
+            ),
+            $this->generatorConfiguration?->isImplicitNullAllowed() ?? false,
+            $existing,
+            $incoming,
+        );
+    }
+
+    /**
+     * Narrow $existing to the intersection of $existingOutput and $incomingType.
+     *
+     * Throws SchemaException with $conflictMessage when the declared intersection is empty.
+     *
+     * Nullability: when $preserveNullable is true, an explicitly nullable existing type retains
+     * its nullable flag even if the incoming type does not carry 'null' — unless the incoming
+     * type explicitly denies nullability (nullable=false).
+     * When $preserveNullable is false, nullability is determined purely by whether 'null' survives
+     * the effective-type intersection (strict intersection semantics).
+     *
+     * @throws SchemaException
+     */
+    public function narrowToIntersection(
+        PropertyInterface $existing,
+        PropertyType $existingOutput,
+        PropertyType $incomingType,
+        string $conflictMessage,
+        bool $implicitNull = false,
+        ?PropertyInterface $existingProperty = null,
+        ?PropertyInterface $incomingProperty = null,
+        bool $preserveNullable = true,
+    ): void {
+        $declaredIntersection = $this->computeDeclaredIntersection(
+            $existingOutput->getNames(),
+            $incomingType->getNames(),
         );
 
         if (!$declaredIntersection) {
-            throw new SchemaException(
-                sprintf(
-                    "Property '%s' is defined with conflicting types across allOf branches. " .
-                    "allOf requires all constraints to hold simultaneously, making this schema unsatisfiable.",
-                    $incoming->getName(),
-                ),
-            );
+            throw new SchemaException($conflictMessage);
         }
 
-        $implicitNull = $this->generatorConfiguration?->isImplicitNullAllowed() ?? false;
+        $existingEffective = $this->buildEffectiveTypeSet(
+            $existingOutput,
+            $existingProperty ?? $existing,
+            $implicitNull,
+        );
+        $incomingEffective = $this->buildEffectiveTypeSet(
+            $incomingType,
+            $incomingProperty ?? $existing,
+            $implicitNull,
+        );
 
-        $existingEffective = $this->buildEffectiveTypeSet($existingOutput, $existing, $implicitNull);
-        $incomingEffective = $this->buildEffectiveTypeSet($incomingOutput, $incoming, $implicitNull);
-
-        $intersection = array_values(array_intersect($existingEffective, $incomingEffective));
+        $intersection = $this->computeDeclaredIntersection($existingEffective, $incomingEffective);
 
         // No-op when the intersection already equals the existing effective set.
         if (!array_diff($existingEffective, $intersection) && !array_diff($intersection, $existingEffective)) {
@@ -238,12 +278,12 @@ class PropertyMerger
 
         $hasNull = in_array('null', $intersection, true);
 
-        // If the existing type is explicitly nullable (nullable=true) and the incoming branch does
-        // not explicitly deny nullability (nullable=false), preserve the explicit nullable.
-        // An allOf branch that says {"type":"integer"} does not say "must not be null" — it only
-        // constrains the non-null value. Only an explicit nullable=false would override this.
-        if (!$hasNull && $existingOutput->isNullable() === true && $incomingOutput->isNullable() !== false) {
-            $hasNull = true;
+        if ($preserveNullable) {
+            // If the existing type is explicitly nullable (nullable=true) and the incoming type does
+            // not explicitly deny nullability (nullable=false), preserve the explicit nullable.
+            if (!$hasNull && $existingOutput->isNullable() === true && $incomingType->isNullable() !== false) {
+                $hasNull = true;
+            }
         }
 
         $nonNull = array_values(array_filter($intersection, fn(string $t): bool => $t !== 'null'));
@@ -261,6 +301,14 @@ class PropertyMerger
             static fn(Validator $validator): bool =>
                 !($validator->getValidator() instanceof TypeCheckInterface),
         );
+
+        // When narrowing from float to int (JSON: number → integer), the IntToFloatCastDecorator
+        // is no longer appropriate — the property now holds a strict int value.
+        if (in_array('float', $existingOutput->getNames(), true) && in_array('int', $nonNull, true)) {
+            $existing->filterDecorators(
+                static fn($decorator): bool => !($decorator instanceof IntToFloatCastDecorator),
+            );
+        }
     }
 
     /**
@@ -325,5 +373,33 @@ class PropertyMerger
         }
 
         return $names;
+    }
+
+    /**
+     * Compute the intersection of two type-name sets, treating 'int' as a subtype of 'float'
+     * (JSON Schema: integer is a subset of number).
+     *
+     * When one side contains 'float' and the other contains 'int' (but not 'float'), the
+     * intersection resolves to 'int' — the narrower concrete type — rather than empty.
+     *
+     * @param string[] $a
+     * @param string[] $b
+     * @return string[]
+     */
+    private function computeDeclaredIntersection(array $a, array $b): array
+    {
+        $intersection = array_values(array_intersect($a, $b));
+
+        // int ⊂ float (JSON Schema: integer is a subtype of number).
+        // When one side has float and the other has int (without float), resolve to int.
+        if (!in_array('float', $intersection, true)) {
+            if (in_array('float', $a, true) && in_array('int', $b, true)) {
+                $intersection[] = 'int';
+            } elseif (in_array('int', $a, true) && in_array('float', $b, true)) {
+                $intersection[] = 'int';
+            }
+        }
+
+        return array_values(array_unique($intersection));
     }
 }

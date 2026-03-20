@@ -117,4 +117,69 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(['10' => 'Hello', '12' => 'World'], $object->toArray());
         $this->assertSame(['10' => 'Hello', '12' => 'World'], $object->getPatternProperties('^[0-9]+$'));
     }
+
+    public function testDeclaredPropertyTypeIsNarrowedByPatternConstraint(): void
+    {
+        $className = $this->generateClassFromFile('DeclaredPropertyNarrowedByPattern.json');
+
+        $this->assertSame(['int'], $this->getReturnTypeNames($className, 'getAlpha'));
+
+        $object = new $className(['alpha' => 42]);
+        $this->assertSame(42, $object->getAlpha());
+    }
+
+    public function testDeclaredPropertyConflictingWithPatternThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/Property 'alpha' has type string but the matching patternProperties pattern '\\^a' requires type int/",
+        );
+
+        $this->generateClassFromFile('DeclaredPropertyConflictsWithPattern.json');
+    }
+
+    public function testDeclaredPropertyMatchingPatternExactlyIsUnchanged(): void
+    {
+        $className = $this->generateClassFromFile('DeclaredPropertyMatchesPatternExactly.json');
+
+        $this->assertSame(['int'], $this->getReturnTypeNames($className, 'getAlpha'));
+
+        $object = new $className(['alpha' => 20]);
+        $this->assertSame(20, $object->getAlpha());
+    }
+
+    public function testDeclaredPropertyNotMatchingPatternIsUnaffected(): void
+    {
+        $className = $this->generateClassFromFile('DeclaredPropertyNotMatchingPattern.json');
+
+        $this->assertSame(['string'], $this->getReturnTypeNames($className, 'getBeta'));
+    }
+
+    public function testPatternWithNoTypeDoesNotAffectDeclaredPropertyType(): void
+    {
+        $className = $this->generateClassFromFile('PatternWithNoType.json');
+
+        $this->assertSame(['string'], $this->getReturnTypeNames($className, 'getAlpha'));
+    }
+
+    public function testCompositionPropertyTypeIsNarrowedByPatternConstraint(): void
+    {
+        $className = $this->generateClassFromFile('CompositionPropertyNarrowedByPattern.json');
+
+        // anyOf-transferred properties are always non-required, so the return type includes null.
+        $this->assertEqualsCanonicalizing(['int', 'null'], $this->getReturnTypeNames($className, 'getAlpha'));
+
+        $object = new $className(['alpha' => 42]);
+        $this->assertSame(42, $object->getAlpha());
+    }
+
+    public function testCompositionPropertyConflictingWithPatternThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/Property 'alpha' has type int\|string but the matching patternProperties pattern '\\^a' requires type bool/",
+        );
+
+        $this->generateClassFromFile('CompositionPropertyConflictsWithPattern.json');
+    }
 }

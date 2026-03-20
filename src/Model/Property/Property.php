@@ -231,6 +231,16 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
+    public function filterDecorators(callable $filter): PropertyInterface
+    {
+        $this->decorators = array_values(array_filter($this->decorators, $filter));
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function resolveDecorator(string $input, bool $nestedProperty): string
     {
         foreach ($this->decorators as $decorator) {
