@@ -178,6 +178,60 @@ Before writing any code, check `composer.json` for the minimum PHP version (`req
 source code must be compatible with that version. Do not use language features
 introduced in a later PHP release.
 
+### Code review and implementation quality
+
+Apply these standards both while implementing and as a final review before considering work done.
+
+#### Code quality
+
+Before committing, run PHP CodeSniffer on all changed files and resolve every reported issue:
+
+```bash
+./vendor/bin/phpcs --standard=phpcs.xml <changed-files>
+```
+
+The project uses a custom `phpcs.xml` based on PSR-12. When a new rule triggers an issue for the
+first time, ask the user whether the rule should be applied or disabled, then update `phpcs.xml`
+accordingly before proceeding.
+
+For pull requests, also check the qlty.sh issues page by constructing the URL from the PR number:
+
+```
+https://qlty.sh/gh/wol-soft/projects/php-json-schema-model-generator/pull/<PR_NUMBER>/issues
+```
+
+The scan on that page must be triggered manually via the button in the UI before results are
+visible. Review all reported issues and resolve or consciously justify every relevant finding.
+
+#### Architectural fit
+
+New code must fit naturally into the existing pipeline and responsibility model:
+- Schema processing logic belongs in processors; post-processing modifications belong in post
+  processors; validation rules belong in validators; rendering logic belongs in templates.
+- When in doubt, ask where analogous existing behaviour lives and follow that pattern.
+
+#### General solutions over workarounds
+
+Prefer solutions that address the underlying problem at the right level of abstraction. A fix
+that works for one specific schema shape but breaks or ignores others is not acceptable. Before
+implementing, ask: "Does this solution handle the general case, or only the example at hand?" If
+only the specific case, redesign until the solution is general.
+
+#### Test coverage
+
+Every identified edge case must have a corresponding test. During planning, enumerate all edge
+cases explicitly (in the implementation plan). Before marking work done, verify that each
+enumerated edge case is covered by at least one test.
+
+For pull requests, check the qlty.sh coverage report by constructing the URL from the current PR
+number:
+
+```
+https://qlty.sh/gh/wol-soft/projects/php-json-schema-model-generator/pull/<PR_NUMBER>/coverage
+```
+
+Review the coverage report and address any uncovered lines in changed or new code.
+
 ### Union type style
 
 When rendering union types in generated PHP code, use one space before and after the pipe:

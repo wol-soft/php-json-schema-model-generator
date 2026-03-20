@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
@@ -66,7 +66,8 @@ class Property extends AbstractProperty
     {
         // If the output type differs from the input type (transforming filter case), return a union
         // so the setter can express that it accepts either the raw input or the already-transformed value.
-        if (!$outputType
+        if (
+            !$outputType
             && $this->type
             && $this->outputType
             && $this->outputType->getNames() !== $this->type->getNames()

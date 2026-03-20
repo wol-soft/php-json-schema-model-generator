@@ -27,8 +27,9 @@ interface SchemaProviderInterface
     public function getBaseDirectory(): string;
 
     /**
-     * Load the content of a referenced file. You may include the RefResolverTrait which tries local and URL loading.
-     * If your referenced files are not easily accessible, e.g. behind a login, you need to implement the lookup yourself.
+     * Load the content of a referenced file. You may include the RefResolverTrait which tries local and URL
+     * loading. If your referenced files are not easily accessible, e.g. behind a login, you need to implement
+     * the lookup yourself.
      * The JsonSchema object must contain the whole referenced schema.
      *
      * @param string $currentFile The file containing the reference

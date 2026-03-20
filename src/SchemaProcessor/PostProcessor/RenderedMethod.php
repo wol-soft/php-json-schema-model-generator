@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
@@ -20,7 +20,7 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class RenderedMethod implements MethodInterface
 {
-    static private ?Render $renderer = null;
+    private static ?Render $renderer = null;
 
     public function __construct(
         private Schema $schema,

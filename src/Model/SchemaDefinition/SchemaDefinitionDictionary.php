@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\SchemaDefinition;
 
@@ -30,7 +30,8 @@ class SchemaDefinitionDictionary extends ArrayObject
     /**
      * Set up the definition directory for the schema
      */
-    public function setUpDefinitionDictionary(SchemaProcessor $schemaProcessor, Schema $schema): void {
+    public function setUpDefinitionDictionary(SchemaProcessor $schemaProcessor, Schema $schema): void
+    {
         // attach the root node to the definition dictionary
         $this->addDefinition('#', new SchemaDefinition($schema->getJsonSchema(), $schemaProcessor, $schema));
 

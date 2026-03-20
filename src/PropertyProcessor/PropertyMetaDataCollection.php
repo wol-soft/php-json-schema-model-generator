@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor;
 
@@ -22,7 +22,8 @@ class PropertyMetaDataCollection
      *                                  are required if the key attribute is present or a valid schema which must be
      *                                  fulfilled if the key attribute is present
      */
-    public function __construct(protected array $requiredAttributes = [], protected array $dependencies = []) {}
+    public function __construct(protected array $requiredAttributes = [], protected array $dependencies = [])
+    {}
 
     /**
      * Check if a given attribute is required

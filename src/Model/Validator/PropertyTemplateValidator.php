@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
@@ -22,7 +22,7 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
     /** @var Schema|null */
     protected $scope;
 
-    static private ?Render $renderer = null;
+    private static ?Render $renderer = null;
 
     /**
      * PropertyTemplateValidator constructor.

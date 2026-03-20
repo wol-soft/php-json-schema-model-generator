@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 
@@ -129,7 +129,8 @@ class CompositionValidationPostProcessor extends PostProcessor
     private function addValidationCallsToSetterMethods(Schema $schema, array $validatorPropertyMap): void
     {
         $schema->addSchemaHook(new class ($validatorPropertyMap) implements SetterBeforeValidationHookInterface {
-            public function __construct(protected array $validatorPropertyMap) {}
+            public function __construct(protected array $validatorPropertyMap)
+            {}
 
             public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
             {

@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
@@ -69,7 +69,11 @@ class BuilderClassPostProcessor extends PostProcessor
                         'class'                  => $schema->getClassName(),
                         'schema'                 => $schema,
                         'properties'             => $properties,
-                        'use'                    => $this->getBuilderClassImports($properties, $schema->getUsedClasses(), $namespace),
+                        'use'                    => $this->getBuilderClassImports(
+                            $properties,
+                            $schema->getUsedClasses(),
+                            $namespace,
+                        ),
                         'generatorConfiguration' => $this->generatorConfiguration,
                         'viewHelper'             => new RenderHelper($this->generatorConfiguration),
                     ],
@@ -108,10 +112,12 @@ class BuilderClassPostProcessor extends PostProcessor
 
         foreach ($properties as $property) {
             // use typehint instead of type to cover multi-types
-            foreach (array_unique([
+            foreach (
+                array_unique([
                 ...explode('|', $this->renderHelper->getTypeHintAnnotation($property)),
                 ...explode('|', $this->renderHelper->getTypeHintAnnotation($property, true)),
-            ]) as $typeAnnotation) {
+                ]) as $typeAnnotation
+            ) {
                 $type = str_replace('[]', '', $typeAnnotation);
 
                 // as the typehint only knows the class name but not the fqcn, lookup in the original imports

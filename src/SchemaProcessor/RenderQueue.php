@@ -38,7 +38,8 @@ class RenderQueue
      * @throws FileSystemException
      * @throws RenderException
      */
-    public function execute(GeneratorConfiguration $generatorConfiguration, array $postProcessors): void {
+    public function execute(GeneratorConfiguration $generatorConfiguration, array $postProcessors): void
+    {
         foreach ($postProcessors as $postProcessor) {
             $postProcessor->preProcess();
         }

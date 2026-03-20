@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
@@ -114,9 +114,11 @@ class FilterProcessor
                 $typeAfterFilter = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))
                     ->getReturnType();
 
-                if ($typeAfterFilter &&
+                if (
+                    $typeAfterFilter &&
                     $typeAfterFilter->getName() &&
-                    (!$property->getType() || !in_array($typeAfterFilter->getName(), $property->getType()->getNames(), true))
+                    (!$property->getType() ||
+                        !in_array($typeAfterFilter->getName(), $property->getType()->getNames(), true))
                 ) {
                     $this->addTransformedValuePassThrough($property, $filter, $typeAfterFilter);
                     $this->extendTypeCheckValidatorToAllowTransformedValue($property, $typeAfterFilter);

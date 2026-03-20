@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<ruleset name="php-json-schema-model-generator">
+    <description>PSR-12 based coding standard</description>
+
+    <file>src</file>
+
+    <rule ref="PSR12">
+        <!-- Keep ) {} on one line for compact empty bodies -->
+        <exclude name="Squiz.WhiteSpace.ScopeClosingBrace.ContentBefore"/>
+        <!-- Allow extends/implements on separate lines for long class declarations -->
+        <exclude name="PSR2.Classes.ClassDeclaration.ExtendsLine"/>
+        <exclude name="PSR2.Classes.ClassDeclaration.ImplementsLine"/>
+        <!-- Allow snake_case for internal utility methods -->
+        <exclude name="PSR1.Methods.CamelCapsMethodName.NotCamelCaps"/>
+    </rule>
+</ruleset>

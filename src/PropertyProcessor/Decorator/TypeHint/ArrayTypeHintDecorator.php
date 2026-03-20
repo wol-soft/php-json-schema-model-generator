@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Decorator\TypeHint;
 
@@ -15,14 +15,16 @@ class ArrayTypeHintDecorator implements TypeHintDecoratorInterface
 {
     private int $recursiveArrayCheck = 0;
 
-    public function __construct(protected PropertyInterface $nestedProperty) {}
+    public function __construct(protected PropertyInterface $nestedProperty)
+    {}
 
     /**
      * @inheritdoc
      */
     public function decorate(string $input, bool $outputType = false): string
     {
-        // TODO: provide better type hints. Currently provides e.g. "string|array[]" instead of "string|string[]" for a recursive string array
+        // TODO: provide better type hints. Currently provides e.g. "string|array[]" instead of
+        // "string|string[]" for a recursive string array
         if (++$this->recursiveArrayCheck > 1) {
             return $this->nestedProperty->getTypeHint($outputType, [self::class]);
         }

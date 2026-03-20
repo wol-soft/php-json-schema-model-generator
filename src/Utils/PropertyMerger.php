@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Utils;
 
@@ -28,7 +28,8 @@ class PropertyMerger
     /** @var array<string, true> Property names registered from the root (compositionProcessor=null) */
     private array $rootRegisteredProperties = [];
 
-    public function __construct(private ?GeneratorConfiguration $generatorConfiguration = null) {}
+    public function __construct(private ?GeneratorConfiguration $generatorConfiguration = null)
+    {}
 
     /**
      * Record a property name as having been registered from the root (compositionProcessor=null).
@@ -75,7 +76,8 @@ class PropertyMerger
             return;
         }
 
-        if ($compositionProcessor !== null
+        if (
+            $compositionProcessor !== null
             && is_a($compositionProcessor, AllOfProcessor::class, true)
         ) {
             $this->applyAllOfIntersection($existing, $incoming, $existingOutput, $incomingOutput);
@@ -96,7 +98,8 @@ class PropertyMerger
         PropertyInterface $incoming,
         ?string $compositionProcessor,
     ): bool {
-        if (!isset($this->rootRegisteredProperties[$incoming->getName()])
+        if (
+            !isset($this->rootRegisteredProperties[$incoming->getName()])
             || is_a($compositionProcessor, AllOfProcessor::class, true)
         ) {
             return false;
@@ -105,7 +108,8 @@ class PropertyMerger
         $existingOutput = $existing->getType(true);
         $incomingOutput = $incoming->getType(true);
 
-        if ($incomingOutput
+        if (
+            $incomingOutput
             && $existingOutput
             && array_diff($incomingOutput->getNames(), $existingOutput->getNames())
             && $this->generatorConfiguration?->isOutputEnabled()
@@ -336,7 +340,8 @@ class PropertyMerger
 
         $mergedType = new PropertyType($nonNullNames, $hasNull ? true : null);
 
-        if ($mergedType->getNames() === $existingOutput->getNames()
+        if (
+            $mergedType->getNames() === $existingOutput->getNames()
             && $mergedType->isNullable() === $existingOutput->isNullable()
         ) {
             return;
@@ -366,7 +371,8 @@ class PropertyMerger
     ): array {
         $names = $type->getNames();
 
-        if ($type->isNullable() === true
+        if (
+            $type->isNullable() === true
             || ($type->isNullable() === null && $implicitNull && !$property->isRequired())
         ) {
             $names[] = 'null';

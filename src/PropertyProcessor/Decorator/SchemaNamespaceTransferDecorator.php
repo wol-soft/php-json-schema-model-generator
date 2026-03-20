@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Decorator;
 
@@ -14,7 +14,8 @@ class SchemaNamespaceTransferDecorator
     /**
      * SchemaNamespaceTransferDecorator constructor.
      */
-    public function __construct(private Schema $schema) {}
+    public function __construct(private Schema $schema)
+    {}
 
     /**
      * Get all used classes to use the referenced schema

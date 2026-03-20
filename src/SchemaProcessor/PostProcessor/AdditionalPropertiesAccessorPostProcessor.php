@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
@@ -36,7 +36,8 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
      * properties. If set to true the accessor methods will be generated for models which don't define
      * additionalProperties constraints.
      */
-    public function __construct(private bool $addForModelsWithoutAdditionalPropertiesDefinition = false) {}
+    public function __construct(private bool $addForModelsWithoutAdditionalPropertiesDefinition = false)
+    {}
 
     /**
      * Add methods to handle additional properties to the provided schema
@@ -47,7 +48,8 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
     {
         $json = $schema->getJsonSchema()->getJson();
 
-        if ((!$this->addForModelsWithoutAdditionalPropertiesDefinition && !isset($json['additionalProperties']))
+        if (
+            (!$this->addForModelsWithoutAdditionalPropertiesDefinition && !isset($json['additionalProperties']))
             || (isset($json['additionalProperties']) && $json['additionalProperties'] === false)
             || (!isset($json['additionalProperties']) && $generatorConfiguration->denyAdditionalProperties())
         ) {
@@ -65,7 +67,8 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         if ($this->addForModelsWithoutAdditionalPropertiesDefinition && !isset($json['additionalProperties'])) {
             (new AdditionalPropertiesPostProcessor())->addAdditionalPropertiesCollectionProperty($schema);
         }
-        if ($generatorConfiguration->hasSerializationEnabled() &&
+        if (
+            $generatorConfiguration->hasSerializationEnabled() &&
             $this->addForModelsWithoutAdditionalPropertiesDefinition &&
             !isset($json['additionalProperties'])
         ) {

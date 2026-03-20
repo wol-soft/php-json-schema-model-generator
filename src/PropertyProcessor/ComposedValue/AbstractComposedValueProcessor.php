@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
@@ -50,7 +50,8 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
     {
         $json = $propertySchema->getJson()['propertySchema']->getJson();
 
-        if (empty($json[$propertySchema->getJson()['type']]) &&
+        if (
+            empty($json[$propertySchema->getJson()['type']]) &&
             $this->schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()
         ) {
             // @codeCoverageIgnoreStart
@@ -74,7 +75,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                                     $property,
                                     $compositionProperties,
                                     $propertySchema,
-                                  )
+                                )
                                 : null;
                     }
                 },
@@ -144,9 +145,10 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             );
 
             $compositionProperty->onResolve(function () use ($compositionProperty, $property): void {
-                $compositionProperty->filterValidators(static fn(Validator $validator): bool =>
-                    !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                    !is_a($validator->getValidator(), ComposedPropertyValidator::class)
+                $compositionProperty->filterValidators(
+                    static fn(Validator $validator): bool =>
+                        !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
+                        !is_a($validator->getValidator(), ComposedPropertyValidator::class)
                 );
 
                 // only create a composed type hint if we aren't a AnyOf or an AllOf processor and the
