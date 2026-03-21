@@ -128,9 +128,8 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                     continue;
                 }
 
-                $merger->narrowToIntersection(
+                $merger->applyTypeConstraint(
                     $property,
-                    $property->getType(true),
                     $patternType,
                     sprintf(
                         "Property '%s' has type %s but the matching patternProperties pattern '%s' requires type %s." .
@@ -140,10 +139,6 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                         $patternPropertiesValidator->getPattern(),
                         implode('|', $patternType->getNames()),
                     ),
-                    $generatorConfiguration->isImplicitNullAllowed(),
-                    $property,
-                    null,
-                    false,
                 );
             }
         }

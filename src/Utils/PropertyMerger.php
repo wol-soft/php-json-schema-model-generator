@@ -10,7 +10,6 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
-use PHPModelGenerator\PropertyProcessor\ComposedValue\AllOfProcessor;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntToFloatCastDecorator;
 
 /**
@@ -43,6 +42,9 @@ class PropertyMerger
     /**
      * Merge $incoming into the $existing slot already registered on the schema.
      *
+     * $isAllOf must be true when the merge originates from an allOf composition, false for anyOf,
+     * oneOf, if/then/else, or any non-composition context (null compositionProcessor in Schema).
+     *
      * Returns early (no-op) when:
      * - Either property has a nested schema (object merging is handled elsewhere)
      * - Root-precedence guard blocks a non-allOf composition branch
@@ -52,14 +54,14 @@ class PropertyMerger
     public function merge(
         PropertyInterface $existing,
         PropertyInterface $incoming,
-        ?string $compositionProcessor,
+        bool $isAllOf,
     ): void {
         // Nested-object merging is owned by the merged-property system; don't interfere.
         if ($existing->getNestedSchema() !== null || $incoming->getNestedSchema() !== null) {
             return;
         }
 
-        if ($this->guardRootPrecedence($existing, $incoming, $compositionProcessor)) {
+        if ($this->guardRootPrecedence($existing, $incoming, $isAllOf)) {
             return;
         }
 
@@ -76,11 +78,16 @@ class PropertyMerger
             return;
         }
 
-        if (
-            $compositionProcessor !== null
-            && is_a($compositionProcessor, AllOfProcessor::class, true)
-        ) {
-            $this->applyAllOfIntersection($existing, $incoming, $existingOutput, $incomingOutput);
+        if ($isAllOf) {
+            $this->narrowToIntersection(
+                $existing,
+                $incoming,
+                sprintf(
+                    "Property '%s' is defined with conflicting types across allOf branches. " .
+                    "allOf requires all constraints to hold simultaneously, making this schema unsatisfiable.",
+                    $incoming->getName(),
+                ),
+            );
             return;
         }
 
@@ -96,12 +103,9 @@ class PropertyMerger
     private function guardRootPrecedence(
         PropertyInterface $existing,
         PropertyInterface $incoming,
-        ?string $compositionProcessor,
+        bool $isAllOf,
     ): bool {
-        if (
-            !isset($this->rootRegisteredProperties[$incoming->getName()])
-            || is_a($compositionProcessor, AllOfProcessor::class, true)
-        ) {
+        if (!isset($this->rootRegisteredProperties[$incoming->getName()]) || $isAllOf) {
             return false;
         }
 
@@ -198,98 +202,129 @@ class PropertyMerger
     }
 
     /**
-     * allOf: every branch must hold simultaneously, so narrow the existing type to the intersection.
+     * Narrow $existing's type to its intersection with $incoming's type.
      *
-     * Conflict detection uses the declared scalar names only (implicit-null is a rendering concern
-     * and does not affect whether two types are mutually satisfiable). If the declared intersection
-     * is empty the schema is unsatisfiable and a SchemaException is thrown.
+     * Intended for allOf branch merging: both properties' required flags and explicit nullable
+     * flags are respected, and an explicitly nullable existing type is preserved unless the
+     * incoming type explicitly denies nullability.
      *
-     * Type narrowing then uses the effective type set, which expands nullable=null to include 'null'
-     * when implicitNull is enabled and the property is optional.
-     *
-     * @throws SchemaException
-     */
-    private function applyAllOfIntersection(
-        PropertyInterface $existing,
-        PropertyInterface $incoming,
-        PropertyType $existingOutput,
-        PropertyType $incomingOutput,
-    ): void {
-        $this->narrowToIntersection(
-            $existing,
-            $existingOutput,
-            $incomingOutput,
-            sprintf(
-                "Property '%s' is defined with conflicting types across allOf branches. " .
-                "allOf requires all constraints to hold simultaneously, making this schema unsatisfiable.",
-                $incoming->getName(),
-            ),
-            $this->generatorConfiguration?->isImplicitNullAllowed() ?? false,
-            $existing,
-            $incoming,
-        );
-    }
-
-    /**
-     * Narrow $existing to the intersection of $existingOutput and $incomingType.
-     *
-     * Throws SchemaException with $conflictMessage when the declared intersection is empty.
-     *
-     * Nullability: when $preserveNullable is true, an explicitly nullable existing type retains
-     * its nullable flag even if the incoming type does not carry 'null' — unless the incoming
-     * type explicitly denies nullability (nullable=false).
-     * When $preserveNullable is false, nullability is determined purely by whether 'null' survives
-     * the effective-type intersection (strict intersection semantics).
+     * Throws SchemaException with $conflictMessage when the declared intersection is empty
+     * (the schema is unsatisfiable).
      *
      * @throws SchemaException
      */
     public function narrowToIntersection(
         PropertyInterface $existing,
-        PropertyType $existingOutput,
-        PropertyType $incomingType,
+        PropertyInterface $incoming,
         string $conflictMessage,
-        bool $implicitNull = false,
-        ?PropertyInterface $existingProperty = null,
-        ?PropertyInterface $incomingProperty = null,
-        bool $preserveNullable = true,
     ): void {
-        $declaredIntersection = $this->computeDeclaredIntersection(
-            $existingOutput->getNames(),
-            $incomingType->getNames(),
-        );
+        $existingOutput = $existing->getType(true);
+        $incomingOutput = $incoming->getType(true);
 
-        if (!$declaredIntersection) {
-            throw new SchemaException($conflictMessage);
-        }
-
-        $existingEffective = $this->buildEffectiveTypeSet(
+        $intersection = $this->resolveEffectiveIntersection(
             $existingOutput,
-            $existingProperty ?? $existing,
-            $implicitNull,
-        );
-        $incomingEffective = $this->buildEffectiveTypeSet(
-            $incomingType,
-            $incomingProperty ?? $existing,
-            $implicitNull,
+            $existing->isRequired(),
+            $incomingOutput,
+            $incoming->isRequired(),
+            $conflictMessage,
         );
 
-        $intersection = $this->computeDeclaredIntersection($existingEffective, $incomingEffective);
-
-        // No-op when the intersection already equals the existing effective set.
-        if (!array_diff($existingEffective, $intersection) && !array_diff($intersection, $existingEffective)) {
+        if ($intersection === null) {
             return;
         }
 
         $hasNull = in_array('null', $intersection, true);
 
-        if ($preserveNullable) {
-            // If the existing type is explicitly nullable (nullable=true) and the incoming type does
-            // not explicitly deny nullability (nullable=false), preserve the explicit nullable.
-            if (!$hasNull && $existingOutput->isNullable() === true && $incomingType->isNullable() !== false) {
-                $hasNull = true;
-            }
+        // If the existing type is explicitly nullable (nullable=true) and the incoming type does
+        // not explicitly deny nullability (nullable=false), preserve the explicit nullable.
+        if (!$hasNull && $existingOutput->isNullable() === true && $incomingOutput->isNullable() !== false) {
+            $hasNull = true;
         }
 
+        $this->applyNarrowedType($existing, $existingOutput, $intersection, $hasNull);
+    }
+
+    /**
+     * Constrain $existing's type to its intersection with $constraintType.
+     *
+     * Intended for patternProperties enforcement: uses strict intersection semantics —
+     * nullability is determined solely by what survives the intersection, without
+     * preserving any existing explicit nullable flag.
+     *
+     * Throws SchemaException with $conflictMessage when the declared intersection is empty
+     * (the schema is unsatisfiable).
+     *
+     * @throws SchemaException
+     */
+    public function applyTypeConstraint(
+        PropertyInterface $existing,
+        PropertyType $constraintType,
+        string $conflictMessage,
+    ): void {
+        $existingOutput = $existing->getType(true);
+
+        $intersection = $this->resolveEffectiveIntersection(
+            $existingOutput,
+            $existing->isRequired(),
+            $constraintType,
+            $existing->isRequired(),
+            $conflictMessage,
+        );
+
+        if ($intersection === null) {
+            return;
+        }
+
+        $this->applyNarrowedType($existing, $existingOutput, $intersection, in_array('null', $intersection, true));
+    }
+
+    /**
+     * Compute the effective type-name intersection of two sides, throwing when the declared
+     * (scalar-only) intersection is empty.
+     *
+     * Returns null when the effective intersection equals the existing effective set (no-op).
+     *
+     * @return string[]|null null = no change needed; array = effective intersection to apply
+     * @throws SchemaException
+     */
+    private function resolveEffectiveIntersection(
+        PropertyType $existingType,
+        bool $existingIsRequired,
+        PropertyType $incomingType,
+        bool $incomingIsRequired,
+        string $conflictMessage,
+    ): ?array {
+        $implicitNull = $this->generatorConfiguration?->isImplicitNullAllowed() ?? false;
+
+        if (!$this->computeDeclaredIntersection($existingType->getNames(), $incomingType->getNames())) {
+            throw new SchemaException($conflictMessage);
+        }
+
+        $existingEffective = $this->buildEffectiveTypeSet($existingType, $existingIsRequired, $implicitNull);
+        $incomingEffective = $this->buildEffectiveTypeSet($incomingType, $incomingIsRequired, $implicitNull);
+
+        $intersection = $this->computeDeclaredIntersection($existingEffective, $incomingEffective);
+
+        // No-op when the intersection already equals the existing effective set.
+        if (!array_diff($existingEffective, $intersection) && !array_diff($intersection, $existingEffective)) {
+            return null;
+        }
+
+        return $intersection;
+    }
+
+    /**
+     * Apply the result of a type intersection to $existing: update its PropertyType, strip stale
+     * type-check validators, and remove the IntToFloatCastDecorator when narrowing float → int.
+     *
+     * @param string[] $intersection effective type name set after intersection (may include 'null')
+     */
+    private function applyNarrowedType(
+        PropertyInterface $existing,
+        PropertyType $existingOutput,
+        array $intersection,
+        bool $hasNull,
+    ): void {
         $nonNull = array_values(array_filter($intersection, fn(string $t): bool => $t !== 'null'));
 
         if (!$nonNull) {
@@ -366,14 +401,14 @@ class PropertyMerger
      */
     private function buildEffectiveTypeSet(
         PropertyType $type,
-        PropertyInterface $property,
+        bool $isRequired,
         bool $implicitNull,
     ): array {
         $names = $type->getNames();
 
         if (
             $type->isNullable() === true
-            || ($type->isNullable() === null && $implicitNull && !$property->isRequired())
+            || ($type->isNullable() === null && $implicitNull && !$isRequired)
         ) {
             $names[] = 'null';
         }
