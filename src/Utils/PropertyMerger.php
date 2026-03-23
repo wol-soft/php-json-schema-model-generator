@@ -60,9 +60,9 @@ class PropertyMerger
     ): void {
         // Nested-object merging is owned by the merged-property system; don't interfere.
         if (
-            $existing->getNestedSchema() !== null ||
-            $incoming->getNestedSchema() !== null ||
-            $this->guardRootPrecedence($existing, $incoming, $isAllOf)
+            $existing->getNestedSchema() !== null
+            || $incoming->getNestedSchema() !== null
+            || $this->guardRootPrecedence($existing, $incoming, $isAllOf)
         ) {
             return;
         }
@@ -112,7 +112,7 @@ class PropertyMerger
             ? $this->computeDeclaredIntersection($incomingOutput->getNames(), $existingOutput->getNames())
             : null;
 
-        if ($intersection !== null && $intersection === []) {
+        if ($intersection === []) {
             $this->rootConflictCounts[$incoming->getName()] =
                 ($this->rootConflictCounts[$incoming->getName()] ?? 0) + 1;
 

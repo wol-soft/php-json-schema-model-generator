@@ -88,6 +88,6 @@ widen the property type.
 
 .. note::
 
-    The same type-widening and intersection behaviour also applies to properties defined via
+    The same intersection behaviour also applies to properties defined via
     ``patternProperties`` when their names match declared properties. See
     `Pattern properties <../object/patternProperties.html>`__ for details.
