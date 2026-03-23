@@ -19,7 +19,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorat
  */
 class ObjectProcessor extends AbstractTypedValueProcessor
 {
-    protected const TYPE = 'object';
+    protected const string TYPE = 'object';
 
     /**
      * @inheritdoc

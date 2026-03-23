@@ -23,8 +23,8 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class ArrayItemValidator extends ExtractedMethodValidator
 {
-    private string $variableSuffix;
-    private PropertyInterface $nestedProperty;
+    private readonly string $variableSuffix;
+    private readonly PropertyInterface $nestedProperty;
 
     /**
      * ArrayItemValidator constructor.

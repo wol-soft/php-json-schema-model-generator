@@ -31,7 +31,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
 
         $schema->addSchemaHook(
             new class ($schema) implements SetterBeforeValidationHookInterface {
-                public function __construct(private Schema $schema)
+                public function __construct(private readonly Schema $schema)
                 {}
 
                 public function getCode(PropertyInterface $property, bool $batchUpdate = false): string

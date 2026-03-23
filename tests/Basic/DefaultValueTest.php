@@ -9,6 +9,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class DefaultValueTest
@@ -18,12 +19,11 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
-     * @dataProvider defaultValueForTypedPropertyDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('defaultValueForTypedPropertyDataProvider')]
     public function testDefaultValueForTypedProperty(string $valueType, mixed $defaultValue, mixed $compareValue): void
     {
         $className = $this->generateClassFromFileTemplate(
@@ -89,7 +89,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
         $this->assertFalse($parameterType->allowsNull());
     }
 
-    public function defaultValueForTypedPropertyDataProvider(): array
+    public static function defaultValueForTypedPropertyDataProvider(): array
     {
         return [
             'int negative value' => ['"integer"', -10, -10],
@@ -116,12 +116,11 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidDefaultValueForTypedPropertyDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidDefaultValueForTypedPropertyDataProvider')]
     public function testInvalidDefaultValueForTypedPropertyThrowsAnException(
         string $valueType,
         mixed $defaultValue,
@@ -137,7 +136,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    public function invalidDefaultValueForTypedPropertyDataProvider(): array
+    public static function invalidDefaultValueForTypedPropertyDataProvider(): array
     {
         return [
             'int property float default' => ['"integer"', 10.5],
@@ -167,13 +166,13 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider defaultValueForUntypedPropertyDataProvider
      *
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('defaultValueForUntypedPropertyDataProvider')]
     public function testDefaultValueForUntypedTypedProperty(mixed $defaultValue, mixed $compareValue): void
     {
         $className = $this->generateClassFromFileTemplate(
@@ -188,7 +187,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($object->getProperty(), $compareValue);
     }
 
-    public function defaultValueForUntypedPropertyDataProvider(): array
+    public static function defaultValueForUntypedPropertyDataProvider(): array
     {
         return [
             'int' => [9, 9],
@@ -199,9 +198,7 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testUntypedPropertyTypeAnnotationsAreMixed(bool $implicitNull): void
     {
         $className = $this->generateClassFromFileTemplate(

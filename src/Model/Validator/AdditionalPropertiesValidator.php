@@ -30,7 +30,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
 
     protected const EXCEPTION_CLASS = InvalidAdditionalPropertiesException::class;
 
-    private PropertyInterface $validationProperty;
+    private readonly PropertyInterface $validationProperty;
     private bool $collectAdditionalProperties = false;
 
     /**

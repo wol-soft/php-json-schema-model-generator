@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class ObjectPropertyTest
@@ -32,12 +33,11 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validInputProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validInputProvider')]
     public function testProvidedObjectPropertyIsValid(?array $input, string $typeCheck): void
     {
         $className = $this->generateClassFromFile('ObjectProperty.json');
@@ -46,7 +46,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertTrue(('is_' . $typeCheck)($object->getProperty()));
     }
 
-    public function validInputProvider(): array
+    public static function validInputProvider(): array
     {
         return [
             'Empty object' => [[], 'object'],
@@ -56,12 +56,11 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidPropertyTypeDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidPropertyTypeDataProvider')]
     public function testInvalidPropertyTypeThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
@@ -72,7 +71,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidPropertyTypeDataProvider(): array
+    public static function invalidPropertyTypeDataProvider(): array
     {
         return [
             'bool' => [true],
@@ -100,12 +99,11 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validInputProviderObjectLevelValidation
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validInputProviderObjectLevelValidation')]
     public function testObjectLevelValidationApplyForNestedObjectsWithValidInput(?array $input, string $typeCheck):void
     {
         $className = $this->generateClassFromFile('ObjectLevelValidation.json');
@@ -121,7 +119,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
-    public function validInputProviderObjectLevelValidation(): array
+    public static function validInputProviderObjectLevelValidation(): array
     {
         return [
             'Null' => [null, 'null'],
@@ -133,12 +131,11 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidInputProviderObjectLevelValidation
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidInputProviderObjectLevelValidation')]
     public function testObjectLevelValidationApplyForNestedObjectsWithInvalidInput(
         array $input,
         string $exceptionClass,
@@ -152,7 +149,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $input]);
     }
 
-    public function invalidInputProviderObjectLevelValidation(): array
+    public static function invalidInputProviderObjectLevelValidation(): array
     {
         return [
             'Missing required property' => [

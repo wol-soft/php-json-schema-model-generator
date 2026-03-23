@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\Basic;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class PropertyNamesTest
@@ -15,9 +16,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
  */
 class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
 {
-    /**
-     * @dataProvider validationMethodDataProvider
-     */
+    #[DataProvider('validationMethodDataProvider')]
     public function testEmptyPropertyNamesAcceptsAllProperties(GeneratorConfiguration $generatorConfiguration): void
     {
         $className = $this->generateClassFromFileTemplate('PropertyNames.json', ['{}'], $generatorConfiguration);
@@ -35,9 +34,7 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(4, $object->getRawModelDataInput()['#']);
     }
 
-    /**
-     * @dataProvider validPropertyNamesDataProvider
-     */
+    #[DataProvider('validPropertyNamesDataProvider')]
     public function testValidPropertyNames(
         GeneratorConfiguration $generatorConfiguration,
         string $propertyNames,
@@ -57,10 +54,10 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
-    public function validPropertyNamesDataProvider(): array
+    public static function validPropertyNamesDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'length limitations' => [
                     '{"minLength": 3, "maxLength": 5}',
@@ -89,10 +86,8 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    /**
-     * @dataProvider invalidPropertyNamesDataProvider
-     * @dataProvider invalidCombinedPropertyNamesDataProvider
-     */
+    #[DataProvider('invalidPropertyNamesDataProvider')]
+    #[DataProvider('invalidCombinedPropertyNamesDataProvider')]
     public function testInvalidPropertyNamesThrowsAnException(
         GeneratorConfiguration $generatorConfiguration,
         string $propertyNames,
@@ -111,10 +106,10 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
         new $className($properties);
     }
 
-    public function invalidPropertyNamesDataProvider(): array
+    public static function invalidPropertyNamesDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'length limitation violation' => [
                     '{"minLength": 3, "maxLength": 5}',
@@ -149,21 +144,6 @@ contains properties with invalid names.
     * Value for property name doesn't match pattern ^test[0-9]+$
 ERROR
                 ],
-                'multiple violations' => [
-                    '{"minLength": 6, "maxLength": 8, "pattern": "^test[0-9]+$"}',
-                    [
-                        'test12345a' => 123,
-                        'test123' => 2,
-                        'test' => 1,
-                    ],
-                    <<<ERROR
-contains properties with invalid names.
-  - invalid property 'test12345a'
-    * Value for property name doesn't match pattern ^test[0-9]+$
-  - invalid property 'test'
-    * Value for property name doesn't match pattern ^test[0-9]+$
-ERROR
-                ],
                 'const violation' => [
                     '{"const": "test"}',
                     [
@@ -183,10 +163,10 @@ ERROR
         );
     }
 
-    public function invalidCombinedPropertyNamesDataProvider(): array
+    public static function invalidCombinedPropertyNamesDataProvider(): array
     {
         return [
-            'Direct Exception - multiple violations' => [
+            'Direct Exception - combined multiple violations' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 '{"minLength": 6, "maxLength": 8, "pattern": "^test[0-9]+$"}',
                 [
@@ -202,7 +182,7 @@ contains properties with invalid names.
     * Value for property name doesn't match pattern ^test[0-9]+$
 ERROR
             ],
-            'Error Collection - multiple violations' => [
+            'Error Collection - combined multiple violations' => [
                 new GeneratorConfiguration(),
                 '{"minLength": 6, "maxLength": 8, "pattern": "^test[0-9]+$"}',
                 [

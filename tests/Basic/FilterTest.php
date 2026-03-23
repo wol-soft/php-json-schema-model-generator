@@ -18,6 +18,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class FilterTest
@@ -36,9 +37,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull((new GeneratorConfiguration())->getFilter('somethingElse'));
     }
 
-    /**
-     * @dataProvider invalidCustomFilterDataProvider
-     */
+    #[DataProvider('invalidCustomFilterDataProvider')]
     public function testAddInvalidFilterThrowsAnException(array $customInvalidFilter): void
     {
         $this->expectException(InvalidFilterException::class);
@@ -47,7 +46,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         (new GeneratorConfiguration())->addFilter($this->getCustomFilter($customInvalidFilter));
     }
 
-    public function invalidCustomFilterDataProvider(): array
+    public static function invalidCustomFilterDataProvider(): array
     {
         return [
             'empty array' => [[]],
@@ -85,9 +84,9 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
     ): FilterInterface {
         return new class ($customFilter, $token, $acceptedTypes) implements FilterInterface {
             public function __construct(
-                private array $customFilter,
-                private string $token,
-                private array $acceptedTypes,
+                private readonly array $customFilter,
+                private readonly string $token,
+                private readonly array $acceptedTypes,
             ) {}
 
             public function getAcceptedTypes(): array
@@ -107,9 +106,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         };
     }
 
-    /**
-     * @dataProvider validBuiltInFilterDataProvider
-     */
+    #[DataProvider('validBuiltInFilterDataProvider')]
     public function testValidUsageOfBuiltInFilter(string $template, array $input, ?string $expected): void
     {
         $className = $this->generateClassFromFileTemplate($template, ['"string"'], null, false);
@@ -121,9 +118,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($input, $object->getRawModelDataInput());
     }
 
-    /**
-     * @dataProvider validTrimDataFormatProvider
-     */
+    #[DataProvider('validTrimDataFormatProvider')]
     public function testNotProvidedOptionalValueWithFilterIsValid(string $template): void
     {
         $className = $this->generateClassFromFileTemplate($template, ['"string"'], null, false);
@@ -133,7 +128,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull($object->getProperty());
     }
 
-    public function validTrimDataFormatProvider(): array
+    public static function validTrimDataFormatProvider(): array
     {
         return [
             'trimAsList' => ['TrimAsList.json'],
@@ -141,10 +136,10 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    public function validBuiltInFilterDataProvider(): array
+    public static function validBuiltInFilterDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validTrimDataFormatProvider(),
+        return self::combineDataProvider(
+            self::validTrimDataFormatProvider(),
             [
                 'Optional Value not provided' => [[], null],
                 'Null' => [['property' => null], null],
@@ -156,9 +151,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    /**
-     * @dataProvider invalidUsageOfBuiltInFilterDataProvider
-     */
+    #[DataProvider('invalidUsageOfBuiltInFilterDataProvider')]
     public function testInvalidUsageOfBuiltInFilterThrowsAnException(
         string $template,
         string $jsonType,
@@ -172,10 +165,10 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFileTemplate($template, ['"' . $jsonType . '"'], null, false);
     }
 
-    public function invalidUsageOfBuiltInFilterDataProvider(): array
+    public static function invalidUsageOfBuiltInFilterDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validTrimDataFormatProvider(),
+        return self::combineDataProvider(
+            self::validTrimDataFormatProvider(),
             [
                 'boolean' => ['boolean', 'bool'],
                 'integer' => ['integer', 'int'],
@@ -186,9 +179,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    /**
-     * @dataProvider validLengthAfterFilterDataProvider
-     */
+    #[DataProvider('validLengthAfterFilterDataProvider')]
     public function testLengthValidationForFilteredValueForValidValues(?string $input, ?string $expectedValue): void
     {
         $className = $this->generateClassFromFile('TrimAsStringWithLengthValidation.json');
@@ -197,7 +188,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($expectedValue, $object->getProperty());
     }
 
-    public function validLengthAfterFilterDataProvider(): array
+    public static function validLengthAfterFilterDataProvider(): array
     {
         return [
             'String with two chars' => ["  AB \n", "AB"],
@@ -205,9 +196,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidLengthAfterFilterDataProvider
-     */
+    #[DataProvider('invalidLengthAfterFilterDataProvider')]
     public function testLengthValidationForFilteredValueForInvalidValuesThrowsAnException(string $input): void
     {
         $this->expectException(ValidationException::class);
@@ -218,7 +207,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $input]);
     }
 
-    public function invalidLengthAfterFilterDataProvider(): array
+    public static function invalidLengthAfterFilterDataProvider(): array
     {
         return [
             'Empty string' => [''],
@@ -232,9 +221,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         return $value !== null ? strtoupper($value) : null;
     }
 
-    /**
-     * @dataProvider customFilterDataProvider
-     */
+    #[DataProvider('customFilterDataProvider')]
     public function testCustomFilter(?string $input, ?string $expectedValue): void
     {
         $className = $this->generateClassFromFile(
@@ -256,7 +243,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('hi', $object->getRawModelDataInput()['property']);
     }
 
-    public function customFilterDataProvider(): array
+    public static function customFilterDataProvider(): array
     {
         return [
             'null' => [null, null],
@@ -268,9 +255,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidEncodingFilterConfigurationsDataProvider
-     */
+    #[DataProvider('invalidEncodingFilterConfigurationsDataProvider')]
     public function testInvalidCustomFilterOptionValidation(string $configuration, string $expectedErrorMessage): void
     {
         $this->expectException(SchemaException::class);
@@ -286,7 +271,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    public function invalidEncodingFilterConfigurationsDataProvider(): array
+    public static function invalidEncodingFilterConfigurationsDataProvider(): array
     {
         return [
             'simple notation without options' => ['"encode"', 'Missing charset configuration'],
@@ -296,9 +281,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider validEncodingsDataProvider
-     */
+    #[DataProvider('validEncodingsDataProvider')]
     public function testValidCustomFilterOptionValidation(string $encoding, string $input, string $output): void
     {
         $classname = $this->generateClassFromFileTemplate(
@@ -314,7 +297,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($output, $object->getProperty());
     }
 
-    public function validEncodingsDataProvider(): array
+    public static function validEncodingsDataProvider(): array
     {
         return [
             'ASCII to ASCII' => ['ASCII', 'Hello World', 'Hello World'],
@@ -359,9 +342,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         return mb_convert_encoding($value, $options['charset'], 'auto');
     }
 
-    /**
-     * @dataProvider multipleFilterDataProvider
-     */
+    #[DataProvider('multipleFilterDataProvider')]
     public function testMultipleFilters(?string $input, ?string $expectedValue): void
     {
         $className = $this->generateClassFromFile(
@@ -378,7 +359,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($expectedValue, $object->getProperty());
     }
 
-    public function multipleFilterDataProvider(): array
+    public static function multipleFilterDataProvider(): array
     {
         return [
             'null' => [null, null],
@@ -390,9 +371,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidCustomFilterDataProvider
-     */
+    #[DataProvider('invalidCustomFilterDataProvider')]
     public function testAddFilterWithInvalidSerializerThrowsAnException(array $customInvalidFilter): void
     {
         $this->expectException(InvalidFilterException::class);
@@ -412,10 +391,10 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
             implements TransformingFilterInterface
         {
             public function __construct(
-                private array $customSerializer,
-                private array $customFilter,
-                private string $token,
-                private array $acceptedTypes,
+                private readonly array $customSerializer,
+                private readonly array $customFilter,
+                private readonly string $token,
+                private readonly array $acceptedTypes,
             ) {}
 
             public function getAcceptedTypes(): array
@@ -439,9 +418,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         };
     }
 
-    /**
-     * @dataProvider validDateTimeFilterDataProvider
-     */
+    #[DataProvider('validDateTimeFilterDataProvider')]
     public function testTransformingFilter(array $input, ?string $expected): void
     {
         $className = $this->generateClassFromFile(
@@ -490,7 +467,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(json_encode($expectedSerialization), $object->toJSON());
     }
 
-    public function validDateTimeFilterDataProvider(): array
+    public static function validDateTimeFilterDataProvider(): array
     {
         return [
             'Optional Value not provided' => [[], null],
@@ -518,9 +495,7 @@ ERROR,
         new $className(['created' => 'Hello', 'name' => 12]);
     }
 
-    /**
-     * @dataProvider additionalFilterOptionsDataProvider
-     */
+    #[DataProvider('additionalFilterOptionsDataProvider')]
     public function testAdditionalFilterOptions(string $namespace, string $schemaFile): void
     {
         $className = $this->generateClassFromFile(
@@ -538,10 +513,10 @@ ERROR,
         $this->assertSame(json_encode($expectedSerialization), $object->toJSON());
     }
 
-    public function additionalFilterOptionsDataProvider(): array
+    public static function additionalFilterOptionsDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->namespaceDataProvider(),
+        return self::combineDataProvider(
+            self::namespaceDataProvider(),
             [
                 'Chain notation' => ['FilterOptionsChainNotation.json'],
                 'Single filter notation' => ['FilterOptions.json'],
@@ -640,9 +615,7 @@ ERROR,
         throw new Exception("Exception filter called with $value");
     }
 
-    /**
-     * @dataProvider implicitNullNamespaceDataProvider
-     */
+    #[DataProvider('implicitNullNamespaceDataProvider')]
     public function testTransformingToScalarType(bool $implicitNull, string $namespace): void
     {
         $className = $this->generateClassFromFile(
@@ -733,9 +706,7 @@ ERROR,
         $this->assertSame('2020-12-12T00:00:00+00:00', $object->getFilteredProperty()->format(DateTime::ATOM));
     }
 
-    /**
-     * @dataProvider implicitNullNamespaceDataProvider
-     */
+    #[DataProvider('implicitNullNamespaceDataProvider')]
     public function testFilterChainWithTransformingFilterOnMultiTypeProperty(
         bool $implicitNull,
         string $namespace,
@@ -772,11 +743,11 @@ ERROR,
         $this->assertSame(['filteredProperty' => '2020-12-12T00:00:00+0000'], $object->toArray());
     }
 
-    public function implicitNullNamespaceDataProvider(): array
+    public static function implicitNullNamespaceDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->implicitNullDataProvider(),
-            $this->namespaceDataProvider(),
+        return self::combineDataProvider(
+            self::implicitNullDataProvider(),
+            self::namespaceDataProvider(),
         );
     }
 
@@ -862,9 +833,7 @@ ERROR,
         return $value->setTime(0, 0);
     }
 
-    /**
-     * @dataProvider arrayFilterDataProvider
-     */
+    #[DataProvider('arrayFilterDataProvider')]
     public function testArrayFilter(?array $input, ?array $output): void
     {
         $className = $this->generateClassFromFile('ArrayFilter.json');
@@ -873,7 +842,7 @@ ERROR,
         $this->assertSame($output, $object->getList());
     }
 
-    public function arrayFilterDataProvider(): array
+    public static function arrayFilterDataProvider(): array
     {
         return [
             'null' => [null, null],
@@ -913,9 +882,7 @@ ERROR,
         );
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testDefaultValuesAreTransformed(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile('DefaultValueFilter.json', null, false, $implicitNull);

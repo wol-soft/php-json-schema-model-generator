@@ -29,7 +29,7 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
         PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-        private string $type = '',
+        private readonly string $type = '',
     ) {
         parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
     }

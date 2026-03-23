@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\Basic;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class SchemaDependencyTest
@@ -15,9 +16,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
  */
 class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
-    /**
-     * @dataProvider validSchemaDependencyDataProvider
-     */
+    #[DataProvider('validSchemaDependencyDataProvider')]
     public function testValidSchemaDependency(array $propertyValue): void
     {
         $className = $this->generateClassFromFile('SchemaDependency.json');
@@ -28,7 +27,7 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue['date_of_birth'] ?? null, $object->getDateOfBirth());
     }
 
-    public function validSchemaDependencyDataProvider(): array
+    public static function validSchemaDependencyDataProvider(): array
     {
         return [
             'No properties provided' => [[]],
@@ -43,9 +42,7 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidSchemaDependencyDataProvider
-     */
+    #[DataProvider('invalidSchemaDependencyDataProvider')]
     public function testInvalidSchemaDependency(
         GeneratorConfiguration $configuration,
         array $propertyValue,
@@ -58,10 +55,10 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         new $className($propertyValue);
     }
 
-    public function invalidSchemaDependencyDataProvider(): array
+    public static function invalidSchemaDependencyDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'required attribute not provided 1' => [
                     ['credit_card' => 12345],
@@ -88,9 +85,7 @@ ERROR
         );
     }
 
-    /**
-     * @dataProvider validSchemaDependencyReferenceDataProvider
-     */
+    #[DataProvider('validSchemaDependencyReferenceDataProvider')]
     public function testSchemaDependencyReference(array $propertyValue): void
     {
         $className = $this->generateClassFromFile('ReferenceSchemaDependency.json');
@@ -101,7 +96,7 @@ ERROR
         $this->assertSame($propertyValue['age'] ?? null, $object->getAge());
     }
 
-    public function validSchemaDependencyReferenceDataProvider(): array
+    public static function validSchemaDependencyReferenceDataProvider(): array
     {
         return [
             'No properties provided' => [[]],
@@ -116,9 +111,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider invalidSchemaDependencyReferenceDataProvider
-     */
+    #[DataProvider('invalidSchemaDependencyReferenceDataProvider')]
     public function testInvalidSchemaDependencyReference(
         GeneratorConfiguration $configuration,
         array $propertyValue,
@@ -131,10 +124,10 @@ ERROR
         new $className($propertyValue);
     }
 
-    public function invalidSchemaDependencyReferenceDataProvider(): array
+    public static function invalidSchemaDependencyReferenceDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'required attribute not provided 1' => [
                     ['credit_card' => 12345],
@@ -161,9 +154,7 @@ ERROR
         );
     }
 
-    /**
-     * @dataProvider validSchemaDependencyCompositionDataProvider
-     */
+    #[DataProvider('validSchemaDependencyCompositionDataProvider')]
     public function testSchemaDependencyComposition(array $propertyValue): void
     {
         $className = $this->generateClassFromFile('CompositionSchemaDependency.json');
@@ -174,7 +165,7 @@ ERROR
         $this->assertSame($propertyValue['age'] ?? null, $object->getAge());
     }
 
-    public function validSchemaDependencyCompositionDataProvider(): array
+    public static function validSchemaDependencyCompositionDataProvider(): array
     {
         return [
             'No properties provided' => [[]],
@@ -188,9 +179,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider invalidSchemaDependencyCompositionDataProvider
-     */
+    #[DataProvider('invalidSchemaDependencyCompositionDataProvider')]
     public function testInvalidSchemaDependencyComposition(
         array $propertyValue,
         string $message,
@@ -206,7 +195,7 @@ ERROR
         new $className($propertyValue);
     }
 
-    public function invalidSchemaDependencyCompositionDataProvider(): array
+    public static function invalidSchemaDependencyCompositionDataProvider(): array
     {
         return [
             'required attribute not provided 1' => [
@@ -251,9 +240,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider validSchemaDependencyNestedObjectDataProvider
-     */
+    #[DataProvider('validSchemaDependencyNestedObjectDataProvider')]
     public function testSchemaDependencyNestedObject(array $propertyValue): void
     {
         $className = $this->generateClassFromFile('NestedObjectSchemaDependency.json');
@@ -270,7 +257,7 @@ ERROR
         }
     }
 
-    public function validSchemaDependencyNestedObjectDataProvider(): array
+    public static function validSchemaDependencyNestedObjectDataProvider(): array
     {
         return [
             'No properties provided' => [[]],
@@ -296,9 +283,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider invalidSchemaDependencyNestedObjectDataProvider
-     */
+    #[DataProvider('invalidSchemaDependencyNestedObjectDataProvider')]
     public function testInvalidSchemaDependencyNestedObject(
         array $propertyValue,
         string $message,
@@ -314,7 +299,7 @@ ERROR
         new $className($propertyValue);
     }
 
-    public function invalidSchemaDependencyNestedObjectDataProvider(): array
+    public static function invalidSchemaDependencyNestedObjectDataProvider(): array
     {
         return [
             'required attribute not provided 1' => [

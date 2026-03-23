@@ -1,10 +1,6 @@
 EnumPostProcessor
 =================
 
-.. warning::
-
-    Requires at least PHP 8.1
-
 .. code-block:: php
 
     $generator = new ModelGenerator();

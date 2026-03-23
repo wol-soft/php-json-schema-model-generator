@@ -12,6 +12,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class ArrayPropertyTest
@@ -21,12 +22,11 @@ use stdClass;
 class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
-     * @dataProvider validArrayPropertyValueProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validArrayPropertyValueProvider')]
     public function testProvidedArrayPropertyIsValidForUntypedArray(
         GeneratorConfiguration $configuration,
         ?array $propertyValue,
@@ -37,10 +37,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function validArrayPropertyValueProvider(): array
+    public static function validArrayPropertyValueProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'Associative Array' => [['a' => 1, 'b' => 2, 'c' => 1]],
                 'Numeric Array' => [['a', 'b', 'b']],
@@ -51,9 +51,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testUntypedOptionalArrayType(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile(
@@ -79,9 +77,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('array', $setterType->getName());
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testNotProvidedValueDefaultsToEmptyArrayWithDefaultArraysToEmptyArrayEnabled(
         bool $implicitNull,
     ): void {
@@ -112,9 +108,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('array', $setterType->getName());
     }
 
-    /**
-     * @dataProvider defaultArraysToEmptyArrayDataProvider
-     */
+    #[DataProvider('defaultArraysToEmptyArrayDataProvider')]
     public function testValidValueWithDefaultArraysToEmptyArrayEnabled(?array $input, array $expectedOutput): void
     {
         $className = $this->generateClassFromFile(
@@ -127,7 +121,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($expectedOutput, $object->getProperty());
     }
 
-    public function defaultArraysToEmptyArrayDataProvider(): array
+    public static function defaultArraysToEmptyArrayDataProvider(): array
     {
         return [
             'null' => [null, []],
@@ -136,9 +130,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testUntypedRequiredArrayType(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile(
@@ -162,12 +154,11 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider optionalArrayPropertyDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('optionalArrayPropertyDataProvider')]
     public function testNotProvidedOptionalArrayPropertyIsValid(
         GeneratorConfiguration $configuration,
         string $file,
@@ -179,12 +170,11 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider optionalArrayPropertyDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('optionalArrayPropertyDataProvider')]
     public function testNullProvidedOptionalArrayPropertyIsValid(
         GeneratorConfiguration $configuration,
         string $file,
@@ -195,10 +185,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull($object->getProperty());
     }
 
-    public function optionalArrayPropertyDataProvider(): array
+    public static function optionalArrayPropertyDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'simple array' => ['ArrayProperty.json'],
                 'tuple array' => ['./../TupleArrayPropertyTest/TupleArray.json'],
@@ -207,12 +197,11 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidPropertyTypeDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidPropertyTypeDataProvider')]
     public function testInvalidPropertyTypeThrowsAnException(
         GeneratorConfiguration $configuration,
         mixed $propertyValue,
@@ -228,10 +217,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidPropertyTypeDataProvider(): array
+    public static function invalidPropertyTypeDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'int' => [1],
                 'float' => [0.92],
@@ -243,12 +232,11 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validUniqueArrayPropertyValueProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validUniqueArrayPropertyValueProvider')]
     public function testUniqueArrayIsValidWithUniqueConstraint(
         GeneratorConfiguration $configuration,
         ?array $propertyValue,
@@ -259,10 +247,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function validUniqueArrayPropertyValueProvider(): array
+    public static function validUniqueArrayPropertyValueProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'Array containing strings' => [['a', 'b', 'c']],
                 'Array containing numbers' => [[1, 1.5, 2]],
@@ -274,12 +262,11 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidUniqueArrayPropertyValueProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidUniqueArrayPropertyValueProvider')]
     public function testNotUniqueArrayThrowsAnExceptionWithUniqueConstraint(
         GeneratorConfiguration $configuration,
         array $propertyValue,
@@ -291,10 +278,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidUniqueArrayPropertyValueProvider(): array
+    public static function invalidUniqueArrayPropertyValueProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'Array containing strings' => [['a', 'b', 'a']],
                 'Array containing numbers (int violation)' => [[1, 1.5, 1]],
@@ -305,12 +292,11 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider arrayInItemAmountValidationRangePassesDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('arrayInItemAmountValidationRangePassesDataProvider')]
     public function testArrayInItemAmountValidationRangePasses(
         GeneratorConfiguration $configuration,
         ?array $propertyValue,
@@ -321,10 +307,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function arrayInItemAmountValidationRangePassesDataProvider(): array
+    public static function arrayInItemAmountValidationRangePassesDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'Lower limit' => [[1, 2]],
                 'Upper limit' => [[1, 2, 3]],
@@ -334,12 +320,11 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidItemAmountDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidItemAmountDataProvider')]
     public function testArrayWithInvalidItemAmountThrowsAnException(
         GeneratorConfiguration $configuration,
         array $propertyValue,
@@ -352,10 +337,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidItemAmountDataProvider(): array
+    public static function invalidItemAmountDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'Empty array' => [[], 'Array property must not contain less than 2 items'],
                 'Too few array items' => [[1], 'Array property must not contain less than 2 items'],
@@ -365,12 +350,11 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validTypedArrayDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validTypedArrayDataProvider')]
     public function testTypedArrayIsValid(
         GeneratorConfiguration $configuration,
         string $type,
@@ -383,10 +367,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($expectedValue ?? $propertyValue, $object->getProperty());
     }
 
-    public function validTypedArrayDataProvider(): array
+    public static function validTypedArrayDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'null' => ['"string"', null],
                 'Empty array' => ['"string"', []],
@@ -405,9 +389,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    /**
-     * @dataProvider typedArrayTypeDataProvider
-     */
+    #[DataProvider('typedArrayTypeDataProvider')]
     public function testTypedOptionalArrayType(bool $implicitNull, string $type, string $expectedAnnotation): void
     {
         $className = $this->generateClassFromFileTemplate(
@@ -437,9 +419,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('array', $setterType->getName());
     }
 
-    /**
-     * @dataProvider typedArrayTypeDataProvider
-     */
+    #[DataProvider('typedArrayTypeDataProvider')]
     public function testTypedRequiredArrayType(bool $implicitNull, string $type, string $expectedAnnotation): void
     {
         $className = $this->generateClassFromFileTemplate(
@@ -463,10 +443,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('array', $setterType->getName());
     }
 
-    public function typedArrayTypeDataProvider(): array
+    public static function typedArrayTypeDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->implicitNullDataProvider(),
+        return self::combineDataProvider(
+            self::implicitNullDataProvider(),
             [
                 'single type' => ['"string"', 'string[]'],
                 'multi type' => ['["string", "integer"]', 'string[]|int[]'],
@@ -476,12 +456,11 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
     /**
-     * @dataProvider invalidTypedArrayDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidTypedArrayDataProvider')]
     public function testInvalidTypedArrayThrowsAnException(
         GeneratorConfiguration $configuration,
         string $type,
@@ -495,10 +474,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidTypedArrayDataProvider(): array
+    public static function invalidTypedArrayDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'String array containing int' => [
                     '"string"',
@@ -618,9 +597,7 @@ ERROR
         );
     }
 
-    /**
-     * @dataProvider validArrayContainsDataProvider
-     */
+    #[DataProvider('validArrayContainsDataProvider')]
     public function testValidValuesForArrayContains(GeneratorConfiguration $configuration, array $propertyValue): void
     {
         $className = $this->generateClassFromFile('ArrayPropertyContains.json', $configuration);
@@ -629,10 +606,10 @@ ERROR
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function validArrayContainsDataProvider(): array
+    public static function validArrayContainsDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'empty string' => [[3, '', true]],
                 'lowercase string' => [[3, 'abc', true]],
@@ -643,9 +620,7 @@ ERROR
         );
     }
 
-    /**
-     * @dataProvider invalidArrayContainsDataProvider
-     */
+    #[DataProvider('invalidArrayContainsDataProvider')]
     public function testInvalidValuesForArrayContainsTrowsAnException(
         GeneratorConfiguration $configuration,
         array $propertyValue,
@@ -657,10 +632,10 @@ ERROR
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidArrayContainsDataProvider(): array
+    public static function invalidArrayContainsDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'Empty array' => [[]],
                 'numeric array' => [[1, 2.3]],
@@ -672,12 +647,11 @@ ERROR
     }
 
     /**
-     * @dataProvider validObjectArrayDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validObjectArrayDataProvider')]
     public function testValidObjectArray(
         string $file,
         GeneratorConfiguration $configuration,
@@ -702,16 +676,16 @@ ERROR
         }
     }
 
-    public function validObjectArrayDataProvider(): array
+    public static function validObjectArrayDataProvider(): array
     {
-        return $this->combineDataProvider(
+        return self::combineDataProvider(
             [
                 'nested object' => ['ArrayPropertyNestedObject.json'],
                 'referenced object' => ['ArrayPropertyReferencedObject.json'],
                 'combined object' => ['ArrayPropertyCombinedObject.json'],
             ],
-            $this->combineDataProvider(
-                $this->validationMethodDataProvider(),
+            self::combineDataProvider(
+                self::validationMethodDataProvider(),
                 [
                     'empty array' => [[]],
                     'minimal object' => [[['name' => 'Hannes']]],
@@ -730,13 +704,12 @@ ERROR
     }
 
     /**
-     * @dataProvider invalidObjectArrayDataProvider
-     * @dataProvider invalidCombinedObjectArrayDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidObjectArrayDataProvider')]
+    #[DataProvider('invalidCombinedObjectArrayDataProvider')]
     public function testInvalidObjectArrayThrowsAnException(
         string $file,
         GeneratorConfiguration $configuration,
@@ -750,15 +723,15 @@ ERROR
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidObjectArrayDataProvider(): array
+    public static function invalidObjectArrayDataProvider(): array
     {
-        return $this->combineDataProvider(
+        return self::combineDataProvider(
             [
                 'nested object' => ['ArrayPropertyNestedObject.json'],
                 'referenced object' => ['ArrayPropertyReferencedObject.json'],
             ],
-            $this->combineDataProvider(
-                $this->validationMethodDataProvider(),
+            self::combineDataProvider(
+                self::validationMethodDataProvider(),
                 [
                     'null' => [
                         [null],
@@ -811,13 +784,13 @@ ERROR
         );
     }
 
-    public function invalidCombinedObjectArrayDataProvider(): array
+    public static function invalidCombinedObjectArrayDataProvider(): array
     {
-        return $this->combineDataProvider(
+        return self::combineDataProvider(
             [
                 'combined object' => ['ArrayPropertyCombinedObject.json'],
             ],
-            $this->combineDataProvider(
+            self::combineDataProvider(
                 ['Error Collection' => [new GeneratorConfiguration()]],
                 [
                     'invalid type bool' => [
@@ -896,9 +869,7 @@ ERROR
         );
     }
 
-    /**
-     * @dataProvider validRecursiveArrayDataProvider
-     */
+    #[DataProvider('validRecursiveArrayDataProvider')]
     public function testValidRecursiveArray(array $input): void
     {
         $className = $this->generateClassFromFile('RecursiveArray.json');
@@ -908,7 +879,7 @@ ERROR
         $this->assertSame($input, $object->getProperty());
     }
 
-    public function validRecursiveArrayDataProvider(): array
+    public static function validRecursiveArrayDataProvider(): array
     {
         return [
             'only string' => [['Hello']],
@@ -918,9 +889,7 @@ ERROR
         ];
     }
 
-    /**
-     * @dataProvider invalidRecursiveArrayDataProvider
-     */
+    #[DataProvider('invalidRecursiveArrayDataProvider')]
     public function testInvalidRecursiveArrayThrowsAnException(string $expectedException, array $input): void
     {
         $this->expectException($expectedException);
@@ -930,7 +899,7 @@ ERROR
         new $className(['property' => $input]);
     }
 
-    public function invalidRecursiveArrayDataProvider(): array
+    public static function invalidRecursiveArrayDataProvider(): array
     {
         return [
             'empty array' => [MinItemsException::class, []],

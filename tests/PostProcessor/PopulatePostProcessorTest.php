@@ -21,9 +21,11 @@ use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
+    #[\Override]
     public function setUp(): void
     {
         parent::setUp();
@@ -82,9 +84,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testImplicitNullCheckOnPopulateMethodForOptionalProperty(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile('BasicSchema.json', null, false, $implicitNull);
@@ -106,9 +106,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull($object->getAge());
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testImplicitNullCheckOnPopulateMethodForOptionalRequiredProperty(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile('BasicSchema.json', null, false, $implicitNull);
@@ -127,9 +125,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $object->populate(['name' => null]);
     }
 
-    /**
-     * @dataProvider invalidPopulateDataProvider
-     */
+    #[DataProvider('invalidPopulateDataProvider')]
     public function testInvalidPopulateThrowsAnException(
         array $data,
         bool $collectErrors,
@@ -157,7 +153,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
-    public function invalidPopulateDataProvider(): array
+    public static function invalidPopulateDataProvider(): array
     {
         return [
             'No error collection - multiple violations' => [
@@ -244,9 +240,7 @@ Invalid type for age. Requires int, got boolean"
         $object->populate(['age' => 40]);
     }
 
-    /**
-     * @dataProvider setterAfterValidationHookDataProvider
-     */
+    #[DataProvider('setterAfterValidationHookDataProvider')]
     public function testSetterAfterValidationHookInsidePopulateIsResolved(
         ?string $expectedException,
         ?string $expectedExceptionMessage,
@@ -284,7 +278,7 @@ Invalid type for age. Requires int, got boolean"
         $object->populate($populateValues);
     }
 
-    public function setterAfterValidationHookDataProvider(): array
+    public static function setterAfterValidationHookDataProvider(): array
     {
         return [
             'update not hooked value valid' => [
@@ -315,9 +309,7 @@ Invalid type for age. Requires int, got boolean"
         ];
     }
 
-    /**
-     * @dataProvider compositionValidationInPopulateDataProvider
-     */
+    #[DataProvider('compositionValidationInPopulateDataProvider')]
     public function testPopulateComposition(
         GeneratorConfiguration $generatorConfiguration,
         string $exceptionMessageBothValid,
@@ -380,7 +372,7 @@ Invalid type for age. Requires int, got boolean"
         $this->assertSame('Hello', $object->getStringProperty());
     }
 
-    public function compositionValidationInPopulateDataProvider(): array
+    public static function compositionValidationInPopulateDataProvider(): array
     {
         return [
             'Exception Collection' => [

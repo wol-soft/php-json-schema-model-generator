@@ -15,7 +15,7 @@ use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
  */
 class CompositionPropertyDecorator extends PropertyProxy
 {
-    private const PROPERTY_KEY = 'composition';
+    private const string PROPERTY_KEY = 'composition';
 
     /**
      * Store all properties from nested schemas of the composed property validator. If the composition validator fails

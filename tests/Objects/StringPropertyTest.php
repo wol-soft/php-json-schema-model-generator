@@ -12,6 +12,7 @@ use PHPModelGenerator\Format\FormatValidatorFromRegEx;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class StringPropertyTest
@@ -21,12 +22,11 @@ use stdClass;
 class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
-     * @dataProvider validStringPropertyValueProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validStringPropertyValueProvider')]
     public function testProvidedStringPropertyIsValid(
         GeneratorConfiguration $configuration,
         ?string $propertyValue,
@@ -37,10 +37,10 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function validStringPropertyValueProvider(): array
+    public static function validStringPropertyValueProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'Hello' => ['Hello'],
                 'Empty string' => [''],
@@ -50,12 +50,11 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validationMethodDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validationMethodDataProvider')]
     public function testNotProvidedOptionalStringPropertyIsValid(GeneratorConfiguration $configuration): void
     {
         $className = $this->generateClassFromFile('StringProperty.json', $configuration);
@@ -65,12 +64,11 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidPropertyTypeDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidPropertyTypeDataProvider')]
     public function testInvalidPropertyTypeThrowsAnException(
         GeneratorConfiguration $configuration,
         mixed $propertyValue,
@@ -86,10 +84,10 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidPropertyTypeDataProvider(): array
+    public static function invalidPropertyTypeDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'int' => [1],
                 'float' => [0.92],
@@ -101,12 +99,11 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider stringInLengthValidationRangePassesDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('stringInLengthValidationRangePassesDataProvider')]
     public function testStringInLengthValidationRangePasses(
         GeneratorConfiguration $configuration,
         ?string $propertyValue,
@@ -117,10 +114,10 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function stringInLengthValidationRangePassesDataProvider(): array
+    public static function stringInLengthValidationRangePassesDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'Lower limit' => ['11'],
                 'Upper limit' => ['12345678'],
@@ -131,12 +128,11 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidStringLengthDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidStringLengthDataProvider')]
     public function testStringWithInvalidLengthThrowsAnException(
         GeneratorConfiguration $configuration,
         string $propertyValue,
@@ -149,10 +145,10 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidStringLengthDataProvider(): array
+    public static function invalidStringLengthDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'Empty string' => ['', 'Value for property must not be shorter than 2'],
                 'Too short string' => ['1', 'Value for property must not be shorter than 2'],
@@ -162,12 +158,11 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider validPatternProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validPatternProvider')]
     public function testPatternMatchingStringIsValid(
         GeneratorConfiguration $configuration,
         string $pattern,
@@ -192,10 +187,10 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFileTemplate('StringPropertyPattern.json', ['ab[c']);
     }
 
-    public function validPatternProvider(): array
+    public static function validPatternProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'Null' => ['^The', null],
                 'String starts with' => ['^The', 'The Test starts with The'],
@@ -211,12 +206,11 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider invalidPatternProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('invalidPatternProvider')]
     public function testStringThatDoesntMatchPatternThrowsAnException(
         GeneratorConfiguration $configuration,
         string $pattern,
@@ -229,10 +223,10 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $propertyValue]);
     }
 
-    public function invalidPatternProvider(): array
+    public static function invalidPatternProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'String starts with' => ['^The', 'This Test doesn\'t start with The'],
                 'No spaces in string' => ['^[^\\s]+$', 'This String Contains Spaces'],
@@ -264,9 +258,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('12345', $object->getProperty());
     }
 
-    /**
-     * @dataProvider invalidStringFormatDataProvider
-     */
+    #[DataProvider('invalidStringFormatDataProvider')]
     public function testInvalidStringFormatCheck(string $value): void
     {
         $this->expectException(ErrorRegistryException::class);
@@ -280,7 +272,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => $value]);
     }
 
-    public function invalidStringFormatDataProvider(): array
+    public static function invalidStringFormatDataProvider(): array
     {
         return [
             'empty string' => [''],

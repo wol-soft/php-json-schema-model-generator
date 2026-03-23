@@ -36,7 +36,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
      * properties. If set to true the accessor methods will be generated for models which don't define
      * additionalProperties constraints.
      */
-    public function __construct(private bool $addForModelsWithoutAdditionalPropertiesDefinition = false)
+    public function __construct(private readonly bool $addForModelsWithoutAdditionalPropertiesDefinition = false)
     {}
 
     /**

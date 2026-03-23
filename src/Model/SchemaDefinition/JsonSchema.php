@@ -13,7 +13,7 @@ use PHPModelGenerator\Utils\ArrayHash;
  */
 class JsonSchema
 {
-    private const SCHEMA_SIGNATURE_RELEVANT_FIELDS = [
+    private const array SCHEMA_SIGNATURE_RELEVANT_FIELDS = [
         'type',
         'properties',
         '$ref',

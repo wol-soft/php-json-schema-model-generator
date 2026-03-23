@@ -20,7 +20,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
  */
 class StringProcessor extends AbstractTypedValueProcessor
 {
-    protected const TYPE = 'string';
+    protected const string TYPE = 'string';
 
     protected const JSON_FIELD_PATTERN = 'pattern';
     protected const JSON_FIELD_FORMAT = 'format';
@@ -52,7 +52,7 @@ class StringProcessor extends AbstractTypedValueProcessor
             return;
         }
 
-        $escapedPattern = addcslashes($json[static::JSON_FIELD_PATTERN], '/');
+        $escapedPattern = addcslashes((string) $json[static::JSON_FIELD_PATTERN], '/');
 
         if (@preg_match("/$escapedPattern/", '') === false) {
             throw new SchemaException(

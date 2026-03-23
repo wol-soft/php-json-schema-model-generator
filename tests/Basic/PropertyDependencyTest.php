@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class PropertyDependencyTest
@@ -14,9 +15,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
  */
 class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
-    /**
-     * @dataProvider validPropertyDependencyDataProvider
-     */
+    #[DataProvider('validPropertyDependencyDataProvider')]
     public function testValidPropertyDependency(array $propertyValue): void
     {
         $className = $this->generateClassFromFile('PropertyDependency.json');
@@ -26,7 +25,7 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue['billing_address'] ?? null, $object->getBillingAddress());
     }
 
-    public function validPropertyDependencyDataProvider(): array
+    public static function validPropertyDependencyDataProvider(): array
     {
         return [
             'No properties provided' => [[]],
@@ -35,9 +34,7 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider validMultiplePropertyDependenciesDataProvider
-     */
+    #[DataProvider('validMultiplePropertyDependenciesDataProvider')]
     public function testValidMultiplePropertyDependencies(array $propertyValue): void
     {
         $className = $this->generateClassFromFile('MultiplePropertyDependencies.json');
@@ -48,7 +45,7 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue['name'] ?? null, $object->getName());
     }
 
-    public function validMultiplePropertyDependenciesDataProvider(): array
+    public static function validMultiplePropertyDependenciesDataProvider(): array
     {
         return [
             'No properties provided' => [[]],
@@ -59,9 +56,7 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider validBidirectionalPropertyDependencyDataProvider
-     */
+    #[DataProvider('validBidirectionalPropertyDependencyDataProvider')]
     public function testValidBidirectionalPropertyDependency(array $propertyValue): void
     {
         $className = $this->generateClassFromFile('BidirectionalPropertyDependency.json');
@@ -71,7 +66,7 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue['billing_address'] ?? null, $object->getBillingAddress());
     }
 
-    public function validBidirectionalPropertyDependencyDataProvider(): array
+    public static function validBidirectionalPropertyDependencyDataProvider(): array
     {
         return [
             'No properties provided' => [[]],
@@ -79,9 +74,7 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider validationMethodDataProvider
-     */
+    #[DataProvider('validationMethodDataProvider')]
     public function testInvalidPropertyDependencyThrowsAnException(GeneratorConfiguration $configuration): void {
         $this->expectValidationError(
             $configuration,
@@ -96,9 +89,7 @@ ERROR,
         new $className(['credit_card' => 12345]);
     }
 
-    /**
-     * @dataProvider invalidMultiplePropertyDependenciesDataProvider
-     */
+    #[DataProvider('invalidMultiplePropertyDependenciesDataProvider')]
     public function testInvalidMultiplePropertyDependenciesThrowsAnException(
         GeneratorConfiguration $configuration,
         array $propertyValue,
@@ -111,10 +102,10 @@ ERROR,
         new $className($propertyValue);
     }
 
-    public function invalidMultiplePropertyDependenciesDataProvider(): array
+    public static function invalidMultiplePropertyDependenciesDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 'no required attribute provided' => [
                     ['credit_card' => 12345],
@@ -142,9 +133,7 @@ ERROR
         );
     }
 
-    /**
-     * @dataProvider invalidBidirectionalPropertyDependencyDataProvider
-     */
+    #[DataProvider('invalidBidirectionalPropertyDependencyDataProvider')]
     public function testInvalidBidirectionalPropertyDependencyThrowsAnException(
         GeneratorConfiguration $configuration,
         array $propertyValue,
@@ -157,10 +146,10 @@ ERROR
         new $className($propertyValue);
     }
 
-    public function invalidBidirectionalPropertyDependencyDataProvider(): array
+    public static function invalidBidirectionalPropertyDependencyDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(),
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
             [
                 [
                     ['credit_card' => 12345],

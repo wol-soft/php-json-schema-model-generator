@@ -7,7 +7,7 @@ namespace PHPModelGenerator\Model\Property;
 class PropertyType
 {
     /** @var string[] */
-    private array $names;
+    private readonly array $names;
 
     /**
      * PropertyType constructor.
@@ -17,7 +17,7 @@ class PropertyType
      * @param bool|null $nullable  Is the property nullable? If not provided the nullability will be
      *                             determined automatically from the required flag/implicitNull setting etc.
      */
-    public function __construct(string|array $name, private ?bool $nullable = null)
+    public function __construct(string|array $name, private readonly ?bool $nullable = null)
     {
         $this->names = array_values(array_unique((array) $name));
     }

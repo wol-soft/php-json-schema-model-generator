@@ -36,12 +36,12 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class ArrayProcessor extends AbstractTypedValueProcessor
 {
-    protected const TYPE = 'array';
+    protected const string TYPE = 'array';
 
-    private const JSON_FIELD_MIN_ITEMS = 'minItems';
-    private const JSON_FIELD_MAX_ITEMS = 'maxItems';
-    private const JSON_FIELD_ITEMS     = 'items';
-    private const JSON_FIELD_CONTAINS  = 'contains';
+    private const string JSON_FIELD_MIN_ITEMS = 'minItems';
+    private const string JSON_FIELD_MAX_ITEMS = 'maxItems';
+    private const string JSON_FIELD_ITEMS     = 'items';
+    private const string JSON_FIELD_CONTAINS  = 'contains';
 
     /**
      * @throws FileSystemException

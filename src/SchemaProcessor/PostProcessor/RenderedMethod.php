@@ -23,10 +23,10 @@ class RenderedMethod implements MethodInterface
     private static ?Render $renderer = null;
 
     public function __construct(
-        private Schema $schema,
-        private GeneratorConfiguration $generatorConfiguration,
-        private string $template,
-        private array $templateValues = [],
+        private readonly Schema $schema,
+        private readonly GeneratorConfiguration $generatorConfiguration,
+        private readonly string $template,
+        private readonly array $templateValues = [],
     ) {}
 
     /**

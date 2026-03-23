@@ -57,8 +57,8 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             new class ($this->composedProperties, $this->modifiedValuesMethod) implements MethodInterface {
                 public function __construct(
                     /** @var CompositionPropertyDecorator[] $compositionProperties */
-                    private array $compositionProperties,
-                    private string $modifiedValuesMethod
+                    private readonly array $compositionProperties,
+                    private readonly string $modifiedValuesMethod
                 ) {}
 
                 public function getCode(): string

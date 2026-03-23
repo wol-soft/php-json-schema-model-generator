@@ -11,5 +11,5 @@ namespace PHPModelGenerator\PropertyProcessor\Property;
  */
 class BooleanProcessor extends AbstractTypedValueProcessor
 {
-    protected const TYPE = 'bool';
+    protected const string TYPE = 'bool';
 }

@@ -11,6 +11,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class RequiredPropertyTest
@@ -20,13 +21,13 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
-     * @dataProvider validStringPropertyValueProvider
      *
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validStringPropertyValueProvider')]
     public function testRequiredPropertyIsValidIfProvided(bool $implicitNull, string $file, string $propertyValue): void
     {
         $className = $this->generateClassFromFile($file, null, false, $implicitNull);
@@ -35,10 +36,10 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue, $object->getProperty());
     }
 
-    public function requiredDefinitionsDataProvider(): array
+    public static function requiredDefinitionsDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->implicitNullDataProvider(),
+        return self::combineDataProvider(
+            self::implicitNullDataProvider(),
             [
                 'Defined property' => ['RequiredStringProperty.json'],
                 'Undefined property' => ['RequiredUndefinedProperty.json'],
@@ -47,10 +48,10 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    public function validStringPropertyValueProvider(): array
+    public static function validStringPropertyValueProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->requiredDefinitionsDataProvider(),
+        return self::combineDataProvider(
+            self::requiredDefinitionsDataProvider(),
             [
                 'Hello' => ['Hello'],
                 'Empty string' => [''],
@@ -59,13 +60,13 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider requiredDefinitionsDataProvider
      *
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('requiredDefinitionsDataProvider')]
     public function testNotProvidedRequiredPropertyThrowsAnException(bool $implicitNull, string $file): void
     {
         $this->expectException(ErrorRegistryException::class);
@@ -81,9 +82,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className([]);
     }
 
-    /**
-     * @dataProvider requiredStringPropertyDataProvider
-     */
+    #[DataProvider('requiredStringPropertyDataProvider')]
     public function testRequiredPropertyType(bool $implicitNull, string $schemaFile): void
     {
         $className = $this->generateClassFromFile(
@@ -102,9 +101,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertFalse($setType->allowsNull());
     }
 
-    /**
-     * @dataProvider implicitNullDataProvider
-     */
+    #[DataProvider('implicitNullDataProvider')]
     public function testUndefinedRequiredPropertyType(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile(
@@ -122,13 +119,13 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider requiredStringPropertyDataProvider
      *
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('requiredStringPropertyDataProvider')]
     public function testNullProvidedForRequiredPropertyThrowsAnException(bool $implicitNull, string $schemaFile): void
     {
         $this->expectException(ErrorRegistryException::class);
@@ -144,10 +141,10 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => null]);
     }
 
-    public function requiredStringPropertyDataProvider(): array
+    public static function requiredStringPropertyDataProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->implicitNullDataProvider(),
+        return self::combineDataProvider(
+            self::implicitNullDataProvider(),
             [
                 'RequiredStringProperty' => ['RequiredStringProperty.json'],
                 'RequiredReferencePropertyInComposition' => ['RequiredReferencePropertyInComposition.json'],

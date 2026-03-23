@@ -14,7 +14,7 @@ class SchemaNamespaceTransferDecorator
     /**
      * SchemaNamespaceTransferDecorator constructor.
      */
-    public function __construct(private Schema $schema)
+    public function __construct(private readonly Schema $schema)
     {}
 
     /**

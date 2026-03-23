@@ -30,7 +30,6 @@ use RecursiveIteratorIterator;
  */
 class ModelGenerator
 {
-    protected GeneratorConfiguration $generatorConfiguration;
     /** @var PostProcessor[] */
     protected $postProcessors = [];
 
@@ -39,10 +38,8 @@ class ModelGenerator
      *
      * @param GeneratorConfiguration|null $generatorConfiguration The configuration to apply to the generator
      */
-    public function __construct(?GeneratorConfiguration $generatorConfiguration = null)
+    public function __construct(protected GeneratorConfiguration $generatorConfiguration = new GeneratorConfiguration())
     {
-        $this->generatorConfiguration = $generatorConfiguration ?? new GeneratorConfiguration();
-
         // add internal post processors which must always be executed
         $this
             ->addPostProcessor(new CompositionValidationPostProcessor())

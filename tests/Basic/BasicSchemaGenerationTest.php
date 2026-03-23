@@ -17,6 +17,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class BasicSchemaGenerationTest
@@ -26,10 +27,9 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
-     * @dataProvider implicitNullDataProvider
-     *
      * @param bool $nullable
      */
+    #[DataProvider('implicitNullDataProvider')]
     public function testGetterAndSetterAreGeneratedForMutableObjects(bool $implicitNull): void
     {
         $className = $this->generateClassFromFile(
@@ -261,9 +261,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('{"property":{},"array":[{}],"nested":{"property":{}}}', $object->toJSON());
     }
 
-    /**
-     * @dataProvider invalidStringPropertyValueProvider
-     */
+    #[DataProvider('invalidStringPropertyValueProvider')]
     public function testInvalidSetterThrowsAnException(
         GeneratorConfiguration $configuration,
         string $propertyValue,
@@ -277,10 +275,10 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
         $object->setProperty($propertyValue);
     }
 
-    public function invalidStringPropertyValueProvider(): array
+    public static function invalidStringPropertyValueProvider(): array
     {
-        return $this->combineDataProvider(
-            $this->validationMethodDataProvider(), [
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(), [
                 'Too long string' => [
                     'HelloMyOldFriend',
                     [

@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class ObjectSizeTest
@@ -14,9 +15,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
  */
 class ObjectSizeTest extends AbstractPHPModelGeneratorTestCase
 {
-    /**
-     * @dataProvider validObjectPropertyAmountDataProvider
-     */
+    #[DataProvider('validObjectPropertyAmountDataProvider')]
     public function testObjectWithPropertyAmountInRangeIsValid(array $propertyValue): void
     {
         $className = $this->generateClassFromFile('ObjectSize.json');
@@ -25,7 +24,7 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue, $object->getRawModelDataInput());
     }
 
-    public function validObjectPropertyAmountDataProvider(): array
+    public static function validObjectPropertyAmountDataProvider(): array
     {
         return [
             'lower limit' => [['a' => 1, 'b' => 2]],
@@ -33,9 +32,7 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidObjectPropertyAmountDataProvider
-     */
+    #[DataProvider('invalidObjectPropertyAmountDataProvider')]
     public function testObjectWithInvalidPropertyAmountThrowsAnException(
         array $propertyValue,
         string $exceptionMessage,
@@ -48,7 +45,7 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTestCase
         new $className($propertyValue);
     }
 
-    public function invalidObjectPropertyAmountDataProvider(): array
+    public static function invalidObjectPropertyAmountDataProvider(): array
     {
         return [
             'empty object' => [

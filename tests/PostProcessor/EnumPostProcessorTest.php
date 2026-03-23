@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\PostProcessor;
 
 use BackedEnum;
-use Exception;
 use PHPModelGenerator\Exception\Generic\EnumException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Object\RequiredValueException;
@@ -18,23 +17,10 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use ReflectionEnum;
 use TypeError;
 use UnitEnum;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
-    /**
-     * @requires PHP < 8.1
-     */
-    public function testEnumPostProcessorThrowsAnExceptionPriorToPhp81(): void
-    {
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessage('Enumerations are only allowed since PHP 8.1');
-
-        new EnumPostProcessor('', '');
-    }
-
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testStringOnlyEnum(): void
     {
         $this->addPostProcessor();
@@ -103,9 +89,6 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $object->setProperty('Meier');
     }
 
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testInvalidStringOnlyEnumValueThrowsAnException(): void
     {
         $this->addPostProcessor();
@@ -117,9 +100,6 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => 'Meier']);
     }
 
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testInvalidEnumThrowsAnException(): void
     {
         $this->addPostProcessor();
@@ -134,9 +114,6 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => IntEnum::A]);
     }
 
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testMappedStringOnlyEnum(): void
     {
         $this->addPostProcessor();
@@ -182,10 +159,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Hans', $object->getProperty()->value);
     }
 
-    /**
-     * @dataProvider unmappedEnumThrowsAnExceptionDataProvider
-     * @requires PHP >= 8.1
-     */
+    #[DataProvider('unmappedEnumThrowsAnExceptionDataProvider')]
     public function testUnmappedEnumThrowsAnException(string $enumValues): void
     {
         $this->expectException(SchemaException::class);
@@ -196,7 +170,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFileTemplate('EnumProperty.json', [$enumValues], null, false);
     }
 
-    public function unmappedEnumThrowsAnExceptionDataProvider(): array
+    public static function unmappedEnumThrowsAnExceptionDataProvider(): array
     {
         return [
             'int enum'                         => ['[0, 1, 2]'],
@@ -205,9 +179,6 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testUnmappedEnumIsSkippedWithEnabledSkipOption(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
@@ -228,10 +199,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(1, $object->getProperty());
     }
 
-    /**
-     * @dataProvider invalidEnumMapThrowsAnExceptionDataProvider
-     * @requires PHP >= 8.1
-     */
+    #[DataProvider('invalidEnumMapThrowsAnExceptionDataProvider')]
     public function testInvalidEnumMapThrowsAnException(string $enumValues, string $enumMap): void
     {
         $this->expectException(SchemaException::class);
@@ -242,7 +210,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFileTemplate('EnumPropertyMapped.json', [$enumValues, $enumMap], null, false);
     }
 
-    public function invalidEnumMapThrowsAnExceptionDataProvider(): array
+    public static function invalidEnumMapThrowsAnExceptionDataProvider(): array
     {
         return [
             'invalid map (int)'                 => ['[0, 1, 2]',       '100'],
@@ -256,9 +224,6 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testIntOnlyEnum(): void
     {
         $this->addPostProcessor();
@@ -324,9 +289,6 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $object->setProperty(1);
     }
 
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testMixedEnum(): void
     {
         $this->addPostProcessor();
@@ -391,9 +353,6 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $object->setProperty(1);
     }
 
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testEnumPropertyWithTransformingFilterThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
@@ -403,10 +362,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFile('EnumPropertyWithTransformingFilter.json');
     }
 
-    /**
-     * @dataProvider identicalEnumsDataProvider
-     * @requires PHP >= 8.1
-     */
+    #[DataProvider('identicalEnumsDataProvider')]
     public function testIdenticalEnumsAreMappedToOneEnum(string $file, array $enums): void
     {
         $this->addPostProcessor();
@@ -427,7 +383,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($object->getProperty1()::class, $object->getProperty2()::class);
     }
 
-    public function identicalEnumsDataProvider(): array
+    public static function identicalEnumsDataProvider(): array
     {
         return [
             'simple enum' => [
@@ -444,10 +400,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @dataProvider differentEnumsDataProvider
-     * @requires PHP >= 8.1
-     */
+    #[DataProvider('differentEnumsDataProvider')]
     public function testDifferentEnumsAreNotMappedToOneEnum(string $file, array $enums): void
     {
         $this->addPostProcessor();
@@ -468,7 +421,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNotSame($object->getProperty1()::class, $object->getProperty2()::class);
     }
 
-    public function differentEnumsDataProvider(): array
+    public static function differentEnumsDataProvider(): array
     {
         return [
             'different values' => [
@@ -499,9 +452,6 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testDefaultValue(): void
     {
         $this->addPostProcessor();
@@ -517,9 +467,6 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('_2Value', $object->getProperty()->name);
     }
 
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testNotProvidedRequiredEnumThrowsAnException(): void
     {
         $this->addPostProcessor();
@@ -532,9 +479,6 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         new $className();
     }
 
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testRequiredEnum(): void
     {
         $this->addPostProcessor();
@@ -573,9 +517,6 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $object->setProperty(null);
     }
 
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testEmptyNormalizedCaseNameThrowsAnException(): void
     {
         $this->addPostProcessor();
@@ -586,10 +527,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFileTemplate('EnumProperty.json', ['["__ -- __"]'], null, false);
     }
 
-    /**
-     * @dataProvider normalizedNamesDataProvider
-     * @requires PHP >= 8.1
-     */
+    #[DataProvider('normalizedNamesDataProvider')]
     public function testNameNormalization(string $name, string $expectedNormalizedName): void
     {
         $this->addPostProcessor();
@@ -607,9 +545,6 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    /**
-     * @requires PHP >= 8.1
-     */
     public function testEnumForBuilderClass(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
@@ -671,7 +606,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $builder->validate();
     }
 
-    public function normalizedNamesDataProvider(): array
+    public static function normalizedNamesDataProvider(): array
     {
         return [
             'includes spaces' => ['not available', 'NotAvailable'],

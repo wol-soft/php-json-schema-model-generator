@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use ReflectionClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class IdenticalNestedSchemaTest
@@ -66,12 +67,11 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * @dataProvider identicalReferencedSchemaDataProvider
-     *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('identicalReferencedSchemaDataProvider')]
     public function testIdenticalReferencedSchemaInMultipleFilesAreMappedToOneClass(
         string $file,
         string $class1FQCN,
@@ -95,7 +95,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($object1->getMember()::class, $object2->getMember()::class);
     }
 
-    public function identicalReferencedSchemaDataProvider(): array
+    public static function identicalReferencedSchemaDataProvider(): array
     {
         return [
             'In same namespace' => [
@@ -169,7 +169,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
              '/(.*)Warning: empty composition for property2 may lead to unexpected results(.*)/m',
          ] as $message
         ) {
-            $this->assertRegExp($message, $output);
+            $this->assertMatchesRegularExpression($message, $output);
         }
 
         $subClass1FQCN = '\\IdenticalSubSchemaInComposition\\CompositionSubFolder1\\SubSchema';

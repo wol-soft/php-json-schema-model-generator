@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Issues\Regression;
 
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class RegressionIssue65Test extends AbstractIssueTestCase
 {
@@ -21,9 +22,7 @@ class RegressionIssue65Test extends AbstractIssueTestCase
         $this->assertSame('Hans', $object->getList()[0]->getName());
     }
 
-    /**
-     * @dataProvider invalidInputDataProvider
-     */
+    #[DataProvider('invalidInputDataProvider')]
     public function testInvalidInput(array $input): void
     {
         $this->expectException(AllOfException::class);
@@ -33,7 +32,7 @@ class RegressionIssue65Test extends AbstractIssueTestCase
         new $className($input);
     }
 
-    public function invalidInputDataProvider(): array
+    public static function invalidInputDataProvider(): array
     {
         return [
             'invalid label' => [['label' => 10]],

@@ -22,7 +22,7 @@ class SchemaDefinitionDictionary extends ArrayObject
     /**
      * SchemaDefinitionDictionary constructor.
      */
-    public function __construct(private JsonSchema $schema)
+    public function __construct(private readonly JsonSchema $schema)
     {
         parent::__construct();
     }
@@ -62,7 +62,7 @@ class SchemaDefinitionDictionary extends ArrayObject
 
         if (isset($json['$id'])) {
             $this->addDefinition(
-                str_starts_with($json['$id'], '#') ? $json['$id'] : "#{$json['$id']}",
+                str_starts_with((string) $json['$id'], '#') ? $json['$id'] : "#{$json['$id']}",
                 new SchemaDefinition($jsonSchema, $schemaProcessor, $schema),
             );
         }
@@ -104,8 +104,8 @@ class SchemaDefinitionDictionary extends ArrayObject
         }
 
         if (!isset($this[$key])) {
-            if (strstr($key, '#', true)) {
-                [$jsonSchemaFile, $externalKey] = explode('#', $key);
+            if (strstr((string) $key, '#', true)) {
+                [$jsonSchemaFile, $externalKey] = explode('#', (string) $key);
             } else {
                 $jsonSchemaFile = $key;
                 $externalKey = '';

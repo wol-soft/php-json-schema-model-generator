@@ -42,7 +42,7 @@ class BaseProcessor extends AbstractPropertyProcessor
 {
     protected const TYPE = 'object';
 
-    private const COUNT_PROPERTIES =
+    private const string COUNT_PROPERTIES =
         'count(
             array_unique(
                 array_merge(
@@ -161,7 +161,7 @@ class BaseProcessor extends AbstractPropertyProcessor
         }
 
         foreach ($json['patternProperties'] as $pattern => $schema) {
-            $escapedPattern = addcslashes($pattern, '/');
+            $escapedPattern = addcslashes((string) $pattern, '/');
 
             if (@preg_match("/$escapedPattern/", '') === false) {
                 throw new SchemaException(

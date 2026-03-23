@@ -8,12 +8,11 @@ use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class Issue86Test extends AbstractIssueTestCase
 {
-    /**
-     * @dataProvider validRefDataProvider
-     */
+    #[DataProvider('validRefDataProvider')]
     public function testDifferentRequiredConfigurationForReferencedObject(array $input, bool $implicitNull): void
     {
         $className = $this->generateClassFromFile('ref.json', implicitNull: $implicitNull);
@@ -23,7 +22,7 @@ class Issue86Test extends AbstractIssueTestCase
         $this->assertSame($input['optional'] ?? null, $object->getOptional());
     }
 
-    public function validRefDataProvider(): array
+    public static function validRefDataProvider(): array
     {
         return [
             'both properties provided' => [['required' => 'Hello', 'optional' => 'World'], true],
@@ -31,9 +30,7 @@ class Issue86Test extends AbstractIssueTestCase
             'optional property null' => [['required' => 'Hello', 'optional' => null], true],
         ];
     }
-    /**
-     * @dataProvider invalidRefDataProvider
-     */
+    #[DataProvider('invalidRefDataProvider')]
     public function testDifferentRequiredConfigurationForReferencedObjectWithInvalidInput(
         array $input,
         bool $implicitNull,
@@ -46,7 +43,7 @@ class Issue86Test extends AbstractIssueTestCase
         new $className($input);
     }
 
-    public function invalidRefDataProvider(): array
+    public static function invalidRefDataProvider(): array
     {
         return [
             'required property not provided' => [['optional' => 'World'], true, RequiredValueException::class],
@@ -56,9 +53,7 @@ class Issue86Test extends AbstractIssueTestCase
         ];
     }
 
-    /**
-     * @dataProvider validSchemaDependencyDataProvider
-     */
+    #[DataProvider('validSchemaDependencyDataProvider')]
     public function testDifferentSchemaDependenciesForReferencedObject(array $input): void
     {
         $className = $this->generateClassFromFile('schemaDependency.json');
@@ -69,7 +64,7 @@ class Issue86Test extends AbstractIssueTestCase
         $this->assertSame($input['property3'] ?? null, $object->getProperty3());
     }
 
-    public function validSchemaDependencyDataProvider(): array
+    public static function validSchemaDependencyDataProvider(): array
     {
         return [
             'No properties provided'        => [[]],
@@ -79,9 +74,7 @@ class Issue86Test extends AbstractIssueTestCase
         ];
     }
 
-    /**
-     * @dataProvider invalidSchemaDependencyDataProvider
-     */
+    #[DataProvider('invalidSchemaDependencyDataProvider')]
     public function testDifferentSchemaDependenciesForReferencedObjectWithInvalidInput(array $input): void
     {
         $className = $this->generateClassFromFile('schemaDependency.json');
@@ -91,7 +84,7 @@ class Issue86Test extends AbstractIssueTestCase
         new $className($input);
     }
 
-    public function invalidSchemaDependencyDataProvider(): array
+    public static function invalidSchemaDependencyDataProvider(): array
     {
         return [
             'Dependency missing property 1'      => [['property1' => 'Hello']],

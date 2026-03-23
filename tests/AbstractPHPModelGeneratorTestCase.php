@@ -53,19 +53,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     }
 
     /**
-     * Polyfill for assertRegEx to avoid warnings during test execution
-     *
-     * TODO: remove and switch all calls to assertMatchesRegularExpression when dropping support for PHPUnit < 9.1
-     * TODO: (dropping support for PHP < 7.4)
-     */
-    public static function assertRegExp(string $pattern, string $string, string $message = ''): void
-    {
-        is_callable([parent::class, 'assertMatchesRegularExpression'])
-            ? parent::assertMatchesRegularExpression($pattern, $string, $message)
-            : parent::assertRegExp($pattern, $string, $message);
-    }
-
-    /**
      * Check if the test has failed. In this case move all JSON files and generated classes in a directory for debugging
      *
      * Additionally clear the test folder so the next test starts in an empty environment
@@ -74,8 +61,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     {
         parent::tearDown();
 
-        if ($this->hasFailed()) {
-            $failedResultDir = FAILED_CLASSES_PATH . preg_replace( '/[^a-z0-9]+/i', '-', $this->getName());
+        if ($this->status()->isFailure() || $this->status()->isError()) {
+            $failedResultDir = FAILED_CLASSES_PATH . preg_replace('/[^a-z0-9]+/i', '-', $this->name());
             $dir = sys_get_temp_dir() . '/PHPModelGeneratorTest';
 
             foreach (
@@ -296,7 +283,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     /**
      * Combine two data providers
      */
-    protected function combineDataProvider(array $dataProvider1, array $dataProvider2): array
+    protected static function combineDataProvider(array $dataProvider1, array $dataProvider2): array
     {
         $result = [];
         foreach ($dataProvider1 as $dp1Key => $dp1Value) {
@@ -378,7 +365,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         $this->fail("Error exception $expectedException not found in error registry exception");
     }
 
-    public function validationMethodDataProvider(): array
+    public static function validationMethodDataProvider(): array
     {
         return [
             'Error Collection' => [new GeneratorConfiguration()],
@@ -386,7 +373,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         ];
     }
 
-    public function implicitNullDataProvider(): array
+    public static function implicitNullDataProvider(): array
     {
         return [
             'implicit null enabled' => [true],
@@ -394,7 +381,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         ];
     }
 
-    public function namespaceDataProvider(): array
+    public static function namespaceDataProvider(): array
     {
         return [
             'No namespace' => [''],
@@ -502,7 +489,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         }
 
         if ($type instanceof ReflectionUnionType) {
-            return array_map(fn(ReflectionNamedType $t) => $t->getName(), $type->getTypes());
+            return array_map(fn(ReflectionNamedType $t): string => $t->getName(), $type->getTypes());
         }
 
         /** @var ReflectionNamedType $type */

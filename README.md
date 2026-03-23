@@ -1,5 +1,5 @@
 [![Latest Version](https://img.shields.io/packagist/v/wol-soft/php-json-schema-model-generator.svg)](https://packagist.org/packages/wol-soft/php-json-schema-model-generator)
-[![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%208.0-8892BF.svg)](https://php.net/)
+[![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%208.4-8892BF.svg)](https://php.net/)
 [![Maintainability](https://qlty.sh/gh/wol-soft/projects/php-json-schema-model-generator/maintainability.svg)](https://qlty.sh/gh/wol-soft/projects/php-json-schema-model-generator)
 [![Build Status](https://github.com/wol-soft/php-json-schema-model-generator/actions/workflows/main.yml/badge.svg)](https://github.com/wol-soft/php-json-schema-model-generator/actions/workflows/main.yml)
 [![Coverage Status](https://coveralls.io/repos/github/wol-soft/php-json-schema-model-generator/badge.svg?branch=master)](https://coveralls.io/github/wol-soft/php-json-schema-model-generator?branch=master)
@@ -27,7 +27,7 @@ Simple example from a PHP application: you define and document an API with swagg
 
 ## Requirements ##
 
-- Requires at least PHP 8.0
+- Requires at least PHP 8.4
 - Requires the PHP extensions ext-json and ext-mbstring
 
 ## Installation ##
