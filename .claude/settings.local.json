@@ -16,7 +16,22 @@
       "Bash(./vendor/bin/phpunit:*)",
       "Bash(php:*)",
       "Bash(cat:*)",
-      "Bash(where gh:*)"
+      "Bash(where gh:*)",
+      "Bash(composer update:*)",
+      "Bash(./vendor/bin/rector process:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(./vendor/bin/rector --version 2>&1 | grep Rector)",
+      "Bash(./vendor/bin/phpcs --standard=PSR12 --report=summary src/ 2>&1)",
+      "Bash(./vendor/bin/phpcs --standard=PSR12 --report=source src/)",
+      "Bash(./vendor/bin/phpcs --standard=PSR12 --report=json src/)",
+      "Bash(python3 -c \":*)",
+      "Bash(./vendor/bin/phpcbf --standard=phpcs.xml src/)",
+      "Bash(./vendor/bin/phpcs --standard=phpcs.xml --report=full src/)",
+      "Bash(./vendor/bin/phpcs --standard=phpcs.xml src/)",
+      "Bash(./vendor/bin/phpcs --standard=phpcs.xml --report=summary src/)",
+      "Bash(git merge:*)",
+      "Bash(gh api:*)"
     ]
   }
 }

@@ -6,7 +6,6 @@ namespace PHPModelGenerator\Tests\PostProcessor;
 
 use DateTime;
 use Exception;
-use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\Object\MaxPropertiesException;
