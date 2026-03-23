@@ -1,0 +1,25 @@
+{
+  "$id": "RootPropertyExclusiveToOneBranch",
+  "type": "object",
+  "properties": {
+    "age": {
+      "type": "string"
+    }
+  },
+  "anyOf": [
+    {
+      "properties": {
+        "name": {
+          "type": "integer"
+        }
+      }
+    },
+    {
+      "properties": {
+        "age": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}

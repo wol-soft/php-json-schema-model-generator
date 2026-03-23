@@ -32,7 +32,8 @@ class OpenAPIv3Provider implements SchemaProviderInterface
             throw new SchemaException("Invalid JSON-Schema file {$this->sourceFile}");
         }
 
-        if (!isset($this->openAPIv3Spec['components']['schemas']) ||
+        if (
+            !isset($this->openAPIv3Spec['components']['schemas']) ||
             empty($this->openAPIv3Spec['components']['schemas'])
         ) {
             throw new SchemaException(

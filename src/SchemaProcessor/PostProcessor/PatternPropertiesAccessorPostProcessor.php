@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
@@ -73,9 +73,11 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
     private function getReturnTypeAnnotationForGetPatternProperties(array $patternTypes): string
     {
         $baseTypes = array_unique(
-            array_map(
-                static fn(PropertyType $type): string => $type->getName(),
-                $patternTypes,
+            array_merge(
+                ...array_map(
+                    static fn(PropertyType $type): array => $type->getNames(),
+                    $patternTypes,
+                )
             )
         );
 

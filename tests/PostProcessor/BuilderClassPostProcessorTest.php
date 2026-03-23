@@ -11,6 +11,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use ReflectionUnionType;
 use SplFileInfo;
 
 class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
@@ -118,6 +119,48 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('int|null', $this->getParameterTypeAnnotation($builderObject, 'setAge'));
         $this->assertSame('string|null', $this->getReturnTypeAnnotation($builderObject, 'getName'));
         $this->assertSame('int|null', $this->getReturnTypeAnnotation($builderObject, 'getAge'));
+    }
+
+    public function testBuilderWithMultiTypeProperty(): void
+    {
+        $className = $this->generateClassFromFile(
+            'MultiTypeProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertGeneratedBuilders(1);
+
+        $builderClassName = $className . 'Builder';
+        $builderObject = new $builderClassName();
+
+        // Setter must accept int | string | null (union, not ?int|string which is a PHP syntax error)
+        $this->assertSame('int|string|null', $this->getParameterTypeAnnotation($builderObject, 'setAge'));
+        $setterType = $this->getParameterType($builderObject, 'setAge');
+        $this->assertInstanceOf(ReflectionUnionType::class, $setterType);
+        $this->assertEqualsCanonicalizing(
+            ['int', 'string', 'null'],
+            $this->getParameterTypeNames($builderObject, 'setAge'),
+        );
+
+        // Getter must return int | string | null (forceNullable=true appends null to the union)
+        $this->assertSame('int|string|null', $this->getReturnTypeAnnotation($builderObject, 'getAge'));
+        $returnType = $this->getReturnType($builderObject, 'getAge');
+        $this->assertInstanceOf(ReflectionUnionType::class, $returnType);
+        $this->assertEqualsCanonicalizing(
+            ['int', 'string', 'null'],
+            $this->getReturnTypeNames($builderObject, 'getAge'),
+        );
+
+        // Functional round-trip
+        $builderObject->setAge(42);
+        $this->assertSame(42, $builderObject->getAge());
+        $validatedObject = $builderObject->validate();
+        $this->assertInstanceOf($className, $validatedObject);
+        $this->assertSame(42, $validatedObject->getAge());
+
+        $builderObject->setAge('old');
+        $validatedObject = $builderObject->validate();
+        $this->assertSame('old', $validatedObject->getAge());
     }
 
     public function testNestedObject(): void

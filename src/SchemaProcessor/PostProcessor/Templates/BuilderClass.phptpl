@@ -83,7 +83,7 @@ class {{ class }}Builder implements BuilderInterface
              *
              * {% if viewHelper.getTypeHintAnnotation(property) %}@return {{ viewHelper.getTypeHintAnnotation(property, false, true) }}{% endif %}
              */
-            public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(){% if property.getType() %}: {{ viewHelper.getType(property, false, true) }}{% endif %}
+            public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(): {{ viewHelper.getType(property, false, true) }}
             {
                 return $this->_rawModelDataInput['{{ property.getName() }}'] ?? null;
             }

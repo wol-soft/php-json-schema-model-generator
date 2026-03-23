@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
@@ -36,7 +36,7 @@ class PassThroughTypeCheckValidator extends PropertyValidator implements TypeChe
                 $typeCheckValidator->getCheck(),
             ),
             InvalidTypeException::class,
-            [[$passThroughType->getName(), $property->getType()->getName()]],
+            [[$passThroughType->getName(), $property->getType()->getNames()[0]]],
         );
     }
 

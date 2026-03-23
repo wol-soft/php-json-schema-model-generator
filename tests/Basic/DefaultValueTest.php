@@ -217,9 +217,9 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('mixed', $this->getPropertyTypeAnnotation($object, 'property'));
 
         $this->assertSame('mixed', $this->getReturnTypeAnnotation($object, 'getProperty'));
-        $this->assertNull($this->getReturnType($object, 'getProperty'));
+        $this->assertSame('mixed', $this->getReturnType($object, 'getProperty')->getName());
 
         $this->assertSame('mixed', $this->getParameterTypeAnnotation($object, 'setProperty'));
-        $this->assertNull($this->getParameterType($object, 'setProperty'));
+        $this->assertSame('mixed', $this->getParameterType($object, 'setProperty')->getName());
     }
 }

@@ -15,14 +15,13 @@ By providing an array with types for a property multiple types can be allowed.
         }
     }
 
-Generated interface (doesn't contain type hints as multiple types are allowed):
+Generated interface:
 
 .. code-block:: php
 
-    // $example will be type-annotated with `float|string`
-    public function setExample($example): static;
-    // $example will be type-annotated with `float|string|null` (as the property isn't required)
-    public function getExample();
+    public function setExample(float | string $example): static;
+    // the property isn't required, so null is included in the return type
+    public function getExample(): float | string | null;
 
 Possible exceptions:
 
@@ -62,7 +61,7 @@ For each type given in the allowed types array additional validators may be adde
         }
     }
 
-The property example will be type hinted with `float|string|string[]`.
+The property example will be type hinted with `float | string | string[]`.
 The validators are applied if the given input matches the corresponding type.
 For example if an array **["Hello", 123, "Goodbye"]** is given the validation will fail as numbers aren't allowed in arrays:
 

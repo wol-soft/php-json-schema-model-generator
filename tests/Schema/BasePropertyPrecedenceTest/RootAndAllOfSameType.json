@@ -1,0 +1,18 @@
+{
+  "$id": "RootAndAllOfSameType",
+  "type": "object",
+  "properties": {
+    "age": {
+      "type": "integer"
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "age": {
+          "type": "integer"
+        }
+      }
+    }
+  ]
+}

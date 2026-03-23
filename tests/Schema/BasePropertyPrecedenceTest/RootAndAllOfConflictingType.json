@@ -1,0 +1,18 @@
+{
+  "$id": "RootAndAllOfConflictingType",
+  "type": "object",
+  "properties": {
+    "age": {
+      "type": "integer"
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "age": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}

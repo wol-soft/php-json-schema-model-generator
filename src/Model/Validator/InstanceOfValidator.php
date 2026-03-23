@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
@@ -23,10 +23,10 @@ class InstanceOfValidator extends PropertyValidator
             $property,
             sprintf(
                 'is_object($value) && !($value instanceof \Exception) && !($value instanceof %s)',
-                $property->getType()->getName(),
+                $property->getType()->getNames()[0],
             ),
             InvalidInstanceOfException::class,
-            [$property->getType()->getName()],
+            [$property->getType()->getNames()[0]],
         );
     }
 }

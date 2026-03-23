@@ -58,8 +58,14 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
         $this->assertSame($expectedAnnotation, $this->getReturnTypeAnnotation($className, 'getProperty'));
 
-        $this->assertNull($this->getParameterType($className, 'setProperty'));
-        $this->assertNull($this->getReturnType($className, 'getProperty'));
+        $this->assertEqualsCanonicalizing(
+            $implicitNull ? ['float', 'string', 'array', 'null'] : ['float', 'string', 'array'],
+            $this->getParameterTypeNames($className, 'setProperty'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['float', 'string', 'array', 'null'],
+            $this->getReturnTypeNames($className, 'getProperty'),
+        );
     }
 
     /**
@@ -81,8 +87,40 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($expectedAnnotation, $this->getPropertyTypeAnnotation($className, 'property'));
         $this->assertSame($expectedAnnotation, $this->getReturnTypeAnnotation($className, 'getProperty'));
 
-        $this->assertNull($this->getParameterType($className, 'setProperty'));
-        $this->assertNull($this->getReturnType($className, 'getProperty'));
+        $this->assertEqualsCanonicalizing(
+            ['float', 'string', 'array'],
+            $this->getParameterTypeNames($className, 'setProperty'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['float', 'string', 'array'],
+            $this->getReturnTypeNames($className, 'getProperty'),
+        );
+    }
+
+    public function testNullableMultiTypeAnnotation(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NullableMultiTypeProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // Native hint: ?string (single non-null type, nullable=true from explicit 'null' in type array)
+        $this->assertEqualsCanonicalizing(
+            ['string', 'null'],
+            $this->getReturnTypeNames($className, 'getProperty'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['string', 'null'],
+            $this->getParameterTypeNames($className, 'setProperty'),
+        );
+
+        // null is a valid value (it is a listed type)
+        $object = new $className(['property' => null]);
+        $this->assertNull($object->getProperty());
+
+        // string is a valid value
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('hello', $object->getProperty());
     }
 
     /**

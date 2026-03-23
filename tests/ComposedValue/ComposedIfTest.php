@@ -206,4 +206,101 @@ ERROR
 
         $this->generateClassFromFile('IncompleteConditional.json');
     }
+
+    public function testCrossTypedThenElseProducesUnionHint(): void
+    {
+        $className = $this->generateClassFromFile(
+            'CrossTypedThenElse.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertEqualsCanonicalizing(
+            ['int', 'string', 'null'],
+            $this->getParameterTypeNames($className, 'setAge'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['int', 'string', 'null'],
+            $this->getReturnTypeNames($className, 'getAge'),
+        );
+    }
+
+    public function testCrossTypedThenOnlyProducesNullableHint(): void
+    {
+        $className = $this->generateClassFromFile(
+            'CrossTypedThenOnly.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertSame(
+            ['int', 'null'],
+            $this->getParameterTypeNames($className, 'setAge'),
+        );
+        $this->assertSame(
+            ['int', 'null'],
+            $this->getReturnTypeNames($className, 'getAge'),
+        );
+    }
+
+    public function testSameTypeIsNotWidened(): void
+    {
+        $className = $this->generateClassFromFile(
+            'SameTypeThenElse.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertSame(
+            ['int', 'null'],
+            $this->getParameterTypeNames($className, 'setAge'),
+        );
+        $this->assertSame(
+            ['int', 'null'],
+            $this->getReturnTypeNames($className, 'getAge'),
+        );
+    }
+
+    public function testIfOnlyPropertyIsTransferredToParentSchema(): void
+    {
+        $className = $this->generateClassFromFile(
+            'IfOnlyProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // 'qualifier' is defined only in the if block — it must be transferred as a nullable mixed
+        // property because the if condition can receive any additional property value when the
+        // then branch applies (then allows additional properties).
+        $this->assertSame('mixed', $this->getReturnType($className, 'getQualifier')->getName());
+        $this->assertSame('mixed', $this->getParameterType($className, 'setQualifier')->getName());
+
+        // 'value' is from the then-only branch with no other data branch — not widened
+        $this->assertSame(['int', 'null'], $this->getReturnTypeNames($className, 'getValue'));
+        $this->assertSame(['int', 'null'], $this->getParameterTypeNames($className, 'setValue'));
+
+        // Both properties are accessible from a constructed object
+        $object = new $className(['qualifier' => 'test', 'value' => 42]);
+        $this->assertSame('test', $object->getQualifier());
+        $this->assertSame(42, $object->getValue());
+    }
+
+    public function testExclusiveBranchPropertiesAreTransferred(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ExclusiveBranchProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // 'kind' is only in if block — transferred as mixed (then allows additional properties)
+        $this->assertSame('mixed', $this->getReturnType($className, 'getKind')->getName());
+
+        // 'amount' is exclusive to then; else allows additional properties — widened to mixed
+        $this->assertSame('mixed', $this->getReturnType($className, 'getAmount')->getName());
+
+        // 'label' is exclusive to else; then allows additional properties — widened to mixed
+        $this->assertSame('mixed', $this->getReturnType($className, 'getLabel')->getName());
+
+        // All properties are accessible
+        $object = new $className(['kind' => 'numeric', 'amount' => 5, 'label' => 'hello']);
+        $this->assertSame('numeric', $object->getKind());
+        $this->assertSame(5, $object->getAmount());
+        $this->assertSame('hello', $object->getLabel());
+    }
 }

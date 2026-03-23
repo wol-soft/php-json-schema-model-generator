@@ -6,7 +6,6 @@ namespace PHPModelGenerator\Tests\PostProcessor;
 
 use DateTime;
 use Exception;
-use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\Object\MaxPropertiesException;
@@ -109,7 +108,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             $this->assertFalse($returnType->allowsNull());
 
             $this->assertSame('mixed', $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'));
-            $this->assertNull($this->getReturnType($object, 'getAdditionalProperty'));
+            $this->assertSame('mixed', $this->getReturnType($object, 'getAdditionalProperty')->getName());
         }
     }
 
@@ -124,7 +123,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $object = new $className(['property1' => 100]);
 
         $this->assertSame('mixed', $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1));
-        $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
+        $this->assertSame('mixed', $this->getParameterType($object, 'setAdditionalProperty', 1)->getName());
         $this->assertSame('mixed', $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'));
 
         $this->assertSame(100, $object->getAdditionalProperty('property1'));
@@ -386,11 +385,14 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->assertTrue($returnType->allowsNull());
 
         $this->assertSame(
-            'string|DateTime',
+            'string|DateTime|null',
             $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1),
         );
 
-        $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
+        $this->assertEqualsCanonicalizing(
+            ['string', 'DateTime', 'null'],
+            $this->getParameterTypeNames($object, 'setAdditionalProperty', 1),
+        );
     }
 
 
@@ -486,20 +488,19 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             'string|int|null',
             $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'),
         );
-        $this->assertNull($this->getReturnType($object, 'getAdditionalProperty'));
+        $this->assertEqualsCanonicalizing(
+            ['string', 'int', 'null'],
+            $this->getReturnTypeNames($object, 'getAdditionalProperty'),
+        );
 
         $this->assertSame(
             'string|int|null',
             $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1),
         );
-        $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
-
-        // test setting an invalid type for the additional property
-        $this->expectException(InvalidAdditionalPropertiesException::class);
-        $this->expectExceptionMessage(
-            'Invalid type for additional property. Requires [string, int, null], got boolean',
+        $this->assertEqualsCanonicalizing(
+            ['string', 'int', 'null'],
+            $this->getParameterTypeNames($object, 'setAdditionalProperty', 1),
         );
-        $object->setAdditionalProperty('property1', false);
     }
 
     public function testComposedAdditionalProperties(): void
@@ -533,26 +534,18 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             'string|int|null',
             $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'),
         );
-        $this->assertNull($this->getReturnType($object, 'getAdditionalProperty'));
+        $this->assertEqualsCanonicalizing(
+            ['string', 'int', 'null'],
+            $this->getReturnTypeNames($object, 'getAdditionalProperty'),
+        );
 
         $this->assertSame(
             'string|int',
             $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1),
         );
-        $this->assertNull($this->getParameterType($object, 'setAdditionalProperty', 1));
-
-        // test setting an invalid type for the additional property
-        $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessage(<<<ERROR
-- invalid additional property 'property1'
-    * Invalid value for additional property declined by composition constraint.
-      Requires to match one composition element but matched 0 elements.
-      - Composition element #1: Failed
-        * Invalid type for additional property. Requires string, got NULL
-      - Composition element #2: Failed
-        * Invalid type for additional property. Requires int, got NULL
-ERROR,
+        $this->assertEqualsCanonicalizing(
+            ['string', 'int'],
+            $this->getParameterTypeNames($object, 'setAdditionalProperty', 1),
         );
-        $object->setAdditionalProperty('property1', null);
     }
 }

@@ -66,28 +66,22 @@ ERROR,
             $implicitNull,
         );
 
-        $this->assertSame('int|null', $this->getPropertyTypeAnnotation($className, 'age'));
-        $this->assertSame('string|null', $this->getPropertyTypeAnnotation($className, 'name'));
+        // Both properties are exclusive to one branch and the other branch allows additional
+        // properties → types are widened to mixed so raw input values can be stored without TypeError.
+        $this->assertSame('mixed', $this->getPropertyTypeAnnotation($className, 'age'));
+        $this->assertSame('mixed', $this->getPropertyTypeAnnotation($className, 'name'));
 
-        $this->assertSame('int|null', $this->getParameterTypeAnnotation($className, 'setAge'));
-        $setAgeParamType = $this->getParameterType($className, 'setAge');
-        $this->assertSame('int', $setAgeParamType->getName());
-        $this->assertTrue($setAgeParamType->allowsNull());
+        $this->assertSame('mixed', $this->getParameterTypeAnnotation($className, 'setAge'));
+        $this->assertSame('mixed', $this->getParameterType($className, 'setAge')->getName());
 
-        $this->assertSame('string|null', $this->getParameterTypeAnnotation($className, 'setName'));
-        $setNameParamType = $this->getParameterType($className, 'setName');
-        $this->assertSame('string', $setNameParamType->getName());
-        $this->assertTrue($setNameParamType->allowsNull());
+        $this->assertSame('mixed', $this->getParameterTypeAnnotation($className, 'setName'));
+        $this->assertSame('mixed', $this->getParameterType($className, 'setName')->getName());
 
-        $this->assertSame('int|null', $this->getReturnTypeAnnotation($className, 'getAge'));
-        $getAgeReturnType = $this->getReturnType($className, 'getAge');
-        $this->assertSame('int', $getAgeReturnType->getName());
-        $this->assertTrue($getAgeReturnType->allowsNull());
+        $this->assertSame('mixed', $this->getReturnTypeAnnotation($className, 'getAge'));
+        $this->assertSame('mixed', $this->getReturnType($className, 'getAge')->getName());
 
-        $this->assertSame('string|null', $this->getReturnTypeAnnotation($className, 'getName'));
-        $getNameReturnType = $this->getReturnType($className, 'getName');
-        $this->assertSame('string', $getNameReturnType->getName());
-        $this->assertTrue($getNameReturnType->allowsNull());
+        $this->assertSame('mixed', $this->getReturnTypeAnnotation($className, 'getName'));
+        $this->assertSame('mixed', $this->getReturnType($className, 'getName')->getName());
     }
 
     /**
@@ -409,8 +403,8 @@ ERROR,
      */
     public function testMatchingPropertyForComposedOneOfObjectIsValid(
         array $input,
-        ?string $stringPropertyValue,
-        ?int $intPropertyValue,
+        mixed $stringPropertyValue,
+        mixed $intPropertyValue,
     ): void {
         $className = $this->generateClassFromFile('ObjectLevelComposition.json');
 
@@ -421,14 +415,16 @@ ERROR,
 
     public function validComposedObjectDataProvider(): array
     {
+        // Raw input values are preserved in both properties regardless of which branch matched.
+        // The non-matching branch's property retains the raw input value (no null-truncation).
         return [
-            'negative int' => [['integerProperty' => -10, 'stringProperty' => -10], null, -10],
-            'zero int' => [['integerProperty' => 0, 'stringProperty' => 0], null, 0],
-            'positive int' => [['integerProperty' => 10, 'stringProperty' => 10], null, 10],
-            'empty string' => [['integerProperty' => '', 'stringProperty' => ''], '', null],
-            'numeric string' => [['integerProperty' => '100', 'stringProperty' => '100'], '100', null],
-            'filled string' => [['integerProperty' => 'Hello', 'stringProperty' => 'Hello'], 'Hello', null],
-            'additional property' => [['integerProperty' => 'A', 'stringProperty' => 'A', 'test' => 1234], 'A', null],
+            'negative int' => [['integerProperty' => -10, 'stringProperty' => -10], -10, -10],
+            'zero int' => [['integerProperty' => 0, 'stringProperty' => 0], 0, 0],
+            'positive int' => [['integerProperty' => 10, 'stringProperty' => 10], 10, 10],
+            'empty string' => [['integerProperty' => '', 'stringProperty' => ''], '', ''],
+            'numeric string' => [['integerProperty' => '100', 'stringProperty' => '100'], '100', '100'],
+            'filled string' => [['integerProperty' => 'Hello', 'stringProperty' => 'Hello'], 'Hello', 'Hello'],
+            'additional property' => [['integerProperty' => 'A', 'stringProperty' => 'A', 'test' => 1234], 'A', 'A'],
         ];
     }
 
@@ -469,8 +465,8 @@ ERROR,
      */
     public function testMatchingPropertyForComposedOneOfObjectWithRequiredPropertiesIsValid(
         array $input,
-        ?string $stringPropertyValue,
-        ?int $intPropertyValue,
+        mixed $stringPropertyValue,
+        mixed $intPropertyValue,
     ): void {
         $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
 
@@ -514,12 +510,14 @@ ERROR,
             $generatorConfiguration->setImmutable(false),
         );
 
+        // stringProperty=99 (int) passes construction: branch1 fails (not string), branch2 succeeds.
+        // Raw value 99 is preserved in stringProperty since no null-truncation occurs.
         $object = new $className(['integerProperty' => 2, 'stringProperty' => 99]);
 
-        // test a valid change
+        // test a valid change: integerProperty=4, stringProperty stays at 99 (raw value preserved)
         $object->setIntegerProperty(4);
         $this->assertSame(4, $object->getIntegerProperty());
-        $this->assertNull($object->getStringProperty());
+        $this->assertSame(99, $object->getStringProperty());
 
         // set the string to null is a valid step as the composition stays valid
         $object->setStringProperty(null);
@@ -572,7 +570,7 @@ ERROR
 declined by composition constraint.
   Requires to match one composition element but matched 0 elements.
   - Composition element #1: Failed
-    * Invalid type for stringProperty. Requires string, got integer
+    * Invalid type for stringProperty. Requires string, got NULL
   - Composition element #2: Failed
     * Invalid type for integerProperty. Requires int, got NULL
 ERROR

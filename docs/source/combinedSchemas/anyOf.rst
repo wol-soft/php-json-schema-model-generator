@@ -61,3 +61,12 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
 .. hint::
 
     When combining multiple nested objects with an `anyOf` composition a `merged property <mergedProperty.html>`__ will be generated
+
+.. note::
+
+    When a property is also defined in the root ``properties`` section, the root type definition
+    is authoritative. ``anyOf`` branches may add further constraints but will not widen the
+    property's type. When branches define the same property with different types, the generator
+    widens the property to a union type. See
+    `Cross-typed compositions <crossTypedComposition.html>`__ for the full explanation including
+    nullability rules and the ``allOf`` contrast.

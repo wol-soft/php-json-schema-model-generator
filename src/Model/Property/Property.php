@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
@@ -64,15 +64,18 @@ class Property extends AbstractProperty
      */
     public function getType(bool $outputType = false): ?PropertyType
     {
-        // If the output type differs from an input type also accept the output type
-        // (in this case the transforming filter is skipped)
-        // TODO: PHP 8 use union types to accept multiple input types
-        if (!$outputType
+        // If the output type differs from the input type (transforming filter case), return a union
+        // so the setter can express that it accepts either the raw input or the already-transformed value.
+        if (
+            !$outputType
             && $this->type
             && $this->outputType
-            && $this->outputType->getName() !== $this->type->getName()
+            && $this->outputType->getNames() !== $this->type->getNames()
         ) {
-            return null;
+            return new PropertyType(
+                array_merge($this->type->getNames(), $this->outputType->getNames()),
+                $this->type->isNullable() ?? $this->outputType->isNullable(),
+            );
         }
 
         return $outputType && $this->outputType !== null ? $this->outputType : $this->type;
@@ -120,7 +123,7 @@ class Property extends AbstractProperty
         $input = join(
             '|',
             array_filter(array_map(function (?PropertyType $input) use ($outputType, $skipDec): string {
-                $typeHint = $input ? $input->getName() : '';
+                $typeHint = $input ? $input->getNames()[0] : '';
 
                 $filteredDecorators = array_filter(
                     $this->typeHintDecorators,
@@ -222,6 +225,16 @@ class Property extends AbstractProperty
     public function addDecorator(PropertyDecoratorInterface $decorator): PropertyInterface
     {
         $this->decorators[] = $decorator;
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function filterDecorators(callable $filter): PropertyInterface
+    {
+        $this->decorators = array_values(array_filter($this->decorators, $filter));
 
         return $this;
     }

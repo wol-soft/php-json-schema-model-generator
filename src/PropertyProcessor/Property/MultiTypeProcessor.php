@@ -1,11 +1,12 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
@@ -101,6 +102,23 @@ class MultiTypeProcessor extends AbstractValueProcessor
                             ),
                             2,
                         );
+
+                        // Set a union PropertyType so the native PHP type hint path can emit
+                        // e.g. float|string|array instead of falling back to no hint at all.
+                        // 'null' must be converted to nullable=true rather than kept as a type name,
+                        // otherwise the render pipeline would emit string|null|null.
+                        $hasNull = in_array('null', $this->allowedPropertyTypes, true);
+                        $nonNullTypes = array_values(array_filter(
+                            $this->allowedPropertyTypes,
+                            fn(string $type): bool => $type !== 'null',
+                        ));
+
+                        if ($nonNullTypes) {
+                            $property->setType(
+                                new PropertyType($nonNullTypes, $hasNull ? true : null),
+                                new PropertyType($nonNullTypes, $hasNull ? true : null),
+                            );
+                        }
                     }
                 });
             }

@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "numeric"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "amount": {
+        "type": "integer"
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "label": {
+        "type": "string"
+      }
+    }
+  }
+}

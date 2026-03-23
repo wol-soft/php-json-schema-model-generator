@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
@@ -11,7 +11,7 @@ class EnumFilter implements TransformingFilterInterface
 {
     public function getAcceptedTypes(): array
     {
-        return ['string', 'integer', 'null'];
+        return ['string', 'integer', 'number', 'boolean', 'null'];
     }
 
     public function getToken(): string

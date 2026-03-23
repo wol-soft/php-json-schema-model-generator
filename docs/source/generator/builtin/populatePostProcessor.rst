@@ -26,8 +26,8 @@ Generated interface with the **PopulatePostProcessor**:
 
     public function getRawModelDataInput(): array;
 
-    public function setExample(float $example): static;
-    public function getExample(): float;
+    public function setExample(string $example): static;
+    public function getExample(): ?string;
 
     public function populate(array $modelData): static;
 

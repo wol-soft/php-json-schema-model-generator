@@ -439,12 +439,35 @@ ERROR
         $this->assertTrue($returnType->allowsNull());
 
         $this->assertSame('string|DateTime|null', $this->getParameterTypeAnnotation($object, 'setAlpha'));
-        $this->assertNull($this->getParameterType($object, 'setAlpha'));
+        $this->assertEqualsCanonicalizing(
+            ['string', 'DateTime', 'null'],
+            $this->getParameterTypeNames($object, 'setAlpha'),
+        );
 
         $this->assertSame('DateTime[]|null[]', $this->getReturnTypeAnnotation($object, 'getPatternProperties'));
         $returnType = $this->getReturnType($object, 'getPatternProperties');
         $this->assertSame('array', $returnType->getName());
         $this->assertFalse($returnType->allowsNull());
+    }
+
+    public function testPatternPropertiesFilterSetterAcceptsAlreadyTransformedDateTime(): void
+    {
+        $this->addPostProcessors(
+            new PatternPropertiesAccessorPostProcessor(),
+            new AdditionalPropertiesAccessorPostProcessor(true),
+        );
+
+        $className = $this->generateClassFromFile(
+            'PatternPropertiesWithFilter.json',
+            (new GeneratorConfiguration())->setSerialization(true)->setImmutable(false),
+        );
+
+        $object = new $className(['alpha' => '01.01.1970']);
+
+        $dt = new DateTime('2020-06-15');
+        $object->setAlpha($dt);
+
+        $this->assertSame($dt, $object->getAlpha());
     }
 
     public function testPatternPropertiesCanBeAddedWhenAdditionalPropertiesAreDenied(): void

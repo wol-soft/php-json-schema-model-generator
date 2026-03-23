@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor;
 
@@ -86,7 +86,8 @@ class SchemaProcessor
         SchemaDefinitionDictionary $dictionary,
         bool $initialClass = false,
     ): ?Schema {
-        if ((!isset($jsonSchema->getJson()['type']) || $jsonSchema->getJson()['type'] !== 'object') &&
+        if (
+            (!isset($jsonSchema->getJson()['type']) || $jsonSchema->getJson()['type'] !== 'object') &&
             !array_intersect(array_keys($jsonSchema->getJson()), ['anyOf', 'allOf', 'oneOf', 'if', '$ref'])
         ) {
             // skip the JSON schema as neither an object, a reference nor a composition is defined on the root level
@@ -126,6 +127,7 @@ class SchemaProcessor
             $jsonSchema,
             $dictionary,
             $initialClass,
+            $this->generatorConfiguration,
         );
 
         $this->processedSchema[$schemaSignature] = $schema;
@@ -148,7 +150,8 @@ class SchemaProcessor
     /**
      * Attach a new class file render job to the render proxy
      */
-    public function generateClassFile(Schema $schema): void {
+    public function generateClassFile(Schema $schema): void
+    {
         $this->renderQueue->addRenderJob(new RenderJob($schema));
 
         if ($this->generatorConfiguration->isOutputEnabled()) {
@@ -214,10 +217,10 @@ class SchemaProcessor
             );
 
             $this->processedMergedProperties[$schemaSignature] = (new Property(
-                    'MergedProperty',
-                    new PropertyType($mergedClassName),
-                    $mergedPropertySchema->getJsonSchema(),
-                ))
+                'MergedProperty',
+                new PropertyType($mergedClassName),
+                $mergedPropertySchema->getJsonSchema(),
+            ))
                 ->addDecorator(new ObjectInstantiationDecorator($mergedClassName, $this->getGeneratorConfiguration()))
                 ->setNestedSchema($mergedPropertySchema);
 

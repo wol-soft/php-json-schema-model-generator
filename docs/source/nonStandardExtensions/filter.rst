@@ -234,7 +234,7 @@ Generated interface:
 
     // $productionDate accepts string|DateTime
     // if a string is provided the string will be transformed into a DateTime
-    public function setProductionDate($productionDate): static;
+    public function setProductionDate(string | DateTime $productionDate): static;
     public function getProductionDate(): ?DateTime;
 
 Let's have a look how the generated model behaves:
@@ -249,7 +249,7 @@ Let's have a look how the generated model behaves:
 
     // A valid example
     $car = new Car(['productionDate' => '2020-10-10']);
-    $car->productionDate(); // returns a DateTime object
+    $car->getProductionDate(); // returns a DateTime object
     // the raw model data input is not affected by the filter
     $car->getRawModelDataInput(); // returns ['productionDate' => '2020-10-10']
 

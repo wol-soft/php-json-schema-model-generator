@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
@@ -58,7 +58,8 @@ class ArrayProcessor extends AbstractTypedValueProcessor
         $this->addItemsValidation($property, $propertySchema);
         $this->addContainsValidation($property, $propertySchema);
 
-        if (!$property->isRequired() &&
+        if (
+            !$property->isRequired() &&
             $this->schemaProcessor->getGeneratorConfiguration()->isDefaultArraysToEmptyArrayEnabled()
         ) {
             $property->addDecorator(new DefaultArrayToEmptyArrayDecorator());
@@ -66,7 +67,7 @@ class ArrayProcessor extends AbstractTypedValueProcessor
             if ($property->getType()) {
                 $property->setType(
                     $property->getType(),
-                    new PropertyType($property->getType(true)->getName(), false),
+                    new PropertyType($property->getType(true)->getNames(), false),
                 );
             }
 
@@ -144,7 +145,8 @@ class ArrayProcessor extends AbstractTypedValueProcessor
         }
 
         // check if the items require a tuple validation
-        if (is_array($json[self::JSON_FIELD_ITEMS]) &&
+        if (
+            is_array($json[self::JSON_FIELD_ITEMS]) &&
             array_keys($json[self::JSON_FIELD_ITEMS]) === range(0, count($json[self::JSON_FIELD_ITEMS]) - 1)
         ) {
             $this->addTupleValidator($property, $propertySchema);

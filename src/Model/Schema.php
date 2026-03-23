@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model;
 
@@ -9,11 +9,14 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
+use PHPModelGenerator\PropertyProcessor\ComposedValue\AllOfProcessor;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookInterface;
+use PHPModelGenerator\Utils\PropertyMerger;
 
 /**
  * Class Schema
@@ -53,6 +56,8 @@ class Schema
     /** @var callable[] */
     private array $onAllPropertiesResolvedCallbacks = [];
 
+    private PropertyMerger $propertyMerger;
+
     /**
      * Schema constructor.
      */
@@ -63,10 +68,12 @@ class Schema
         JsonSchema $schema,
         ?SchemaDefinitionDictionary $dictionary = null,
         protected bool $initialClass = false,
+        ?GeneratorConfiguration $generatorConfiguration = null,
     ) {
         $this->jsonSchema = $schema;
         $this->schemaDefinitionDictionary = $dictionary ?? new SchemaDefinitionDictionary($schema);
         $this->description = $schema->getJson()['description'] ?? '';
+        $this->propertyMerger = new PropertyMerger($generatorConfiguration);
 
         $this->addInterface(JSONModelInterface::class);
     }
@@ -132,10 +139,20 @@ class Schema
         return $this->properties;
     }
 
-    public function addProperty(PropertyInterface $property): self
+    /**
+     * @param string|null $compositionProcessor The FQCN of the composition processor transferring this property,
+     *                                           or null when not called from a composition context.
+     *
+     * @throws SchemaException
+     */
+    public function addProperty(PropertyInterface $property, ?string $compositionProcessor = null): self
     {
         if (!isset($this->properties[$property->getName()])) {
             $this->properties[$property->getName()] = $property;
+
+            if ($compositionProcessor === null) {
+                $this->propertyMerger->markRootRegistered($property->getName());
+            }
 
             $property->onResolve(function (): void {
                 if (++$this->resolvedProperties === count($this->properties)) {
@@ -146,13 +163,15 @@ class Schema
                     }
                 }
             });
-        } else {
-            // TODO tests:
-            // testConditionalObjectProperty
-            // testInvalidConditionalObjectPropertyThrowsAnException
-            // testInvalidValuesForMultipleValuesInCompositionThrowsAnException
-          //  throw new SchemaException("Duplicate attribute name {$property->getName()}");
+
+            return $this;
         }
+
+        $this->propertyMerger->merge(
+            $this->properties[$property->getName()],
+            $property,
+            is_a($compositionProcessor, AllOfProcessor::class, true),
+        );
 
         return $this;
     }
@@ -302,5 +321,10 @@ class Schema
     public function isInitialClass(): bool
     {
         return $this->initialClass;
+    }
+
+    public function getPropertyMerger(): PropertyMerger
+    {
+        return $this->propertyMerger;
     }
 }

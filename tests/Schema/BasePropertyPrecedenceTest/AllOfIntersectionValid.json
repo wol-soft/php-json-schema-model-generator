@@ -1,0 +1,34 @@
+{
+  "$id": "AllOfIntersectionValid",
+  "type": "object",
+  "properties": {
+    "age": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "age": {
+          "type": [
+            "string",
+            "boolean"
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "age": {
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      }
+    }
+  ]
+}

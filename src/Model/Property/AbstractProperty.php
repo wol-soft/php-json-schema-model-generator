@@ -17,7 +17,8 @@ use PHPModelGenerator\Utils\ResolvableTrait;
  */
 abstract class AbstractProperty implements PropertyInterface
 {
-    use JsonSchemaTrait, ResolvableTrait;
+    use JsonSchemaTrait;
+    use ResolvableTrait;
 
     protected string $attribute;
 

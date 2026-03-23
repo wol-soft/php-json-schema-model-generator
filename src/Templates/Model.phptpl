@@ -109,8 +109,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
              *
              * {% if viewHelper.getTypeHintAnnotation(property, true) %}@return {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}
              */
-            public function get{{ viewHelper.ucfirst(property.getAttribute()) }}()
-                {% if property.getType(true) %}: {{ viewHelper.getType(property, true) }}{% endif %}
+            public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(): {{ viewHelper.getType(property, true) }}
             {
                 {{ schemaHookResolver.resolveGetterHook(property) }}
 

@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
@@ -96,10 +96,12 @@ class FilterValidator extends PropertyTemplateValidator
      *
      * @throws ReflectionException
      */
-    public function addTransformedCheck(TransformingFilterInterface $filter, PropertyInterface $property): self {
+    public function addTransformedCheck(TransformingFilterInterface $filter, PropertyInterface $property): self
+    {
         $typeAfterFilter = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))->getReturnType();
 
-        if ($typeAfterFilter &&
+        if (
+            $typeAfterFilter &&
             $typeAfterFilter->getName() &&
             !in_array($typeAfterFilter->getName(), $this->mapDataTypes($filter->getAcceptedTypes()))
         ) {
@@ -123,10 +125,11 @@ class FilterValidator extends PropertyTemplateValidator
             return;
         }
 
+        $typeNames = $property->getType()->getNames();
         if (
             (
-                $property->getType()->getName() &&
-                !in_array($property->getType()->getName(), $this->mapDataTypes($filter->getAcceptedTypes()))
+                !empty($typeNames) &&
+                !empty(array_diff($typeNames, $this->mapDataTypes($filter->getAcceptedTypes())))
             ) || (
                 $property->getType()->isNullable() && !in_array('null', $filter->getAcceptedTypes())
             )
@@ -135,7 +138,7 @@ class FilterValidator extends PropertyTemplateValidator
                 sprintf(
                     'Filter %s is not compatible with property type %s for property %s in file %s',
                     $filter->getToken(),
-                    $property->getType()->getName(),
+                    implode('|', $typeNames),
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
                 )
@@ -159,7 +162,8 @@ class FilterValidator extends PropertyTemplateValidator
             $transformingFilter->getFilter()[1],
         ))->getReturnType();
 
-        if (!empty($filter->getAcceptedTypes()) &&
+        if (
+            !empty($filter->getAcceptedTypes()) &&
             (
                 !in_array($transformedType->getName(), $this->mapDataTypes($filter->getAcceptedTypes())) ||
                 ($transformedType->allowsNull() && !in_array('null', $filter->getAcceptedTypes()))

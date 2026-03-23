@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
@@ -32,7 +32,8 @@ class ReferenceProcessor extends AbstractTypedValueProcessor
             $definition = $dictionary->getDefinition($reference, $this->schemaProcessor, $path);
 
             if ($definition) {
-                if ($this->schema->getClassPath() !== $definition->getSchema()->getClassPath() ||
+                if (
+                    $this->schema->getClassPath() !== $definition->getSchema()->getClassPath() ||
                     $this->schema->getClassName() !== $definition->getSchema()->getClassName() ||
                     (
                         $this->schema->getClassName() === 'ExternalSchema' &&

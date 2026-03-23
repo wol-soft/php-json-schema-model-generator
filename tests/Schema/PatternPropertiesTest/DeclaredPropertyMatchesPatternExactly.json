@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "required": [
+    "alpha"
+  ],
+  "properties": {
+    "alpha": {
+      "type": "integer",
+      "minimum": 10
+    }
+  },
+  "patternProperties": {
+    "^a": {
+      "type": "integer"
+    }
+  }
+}

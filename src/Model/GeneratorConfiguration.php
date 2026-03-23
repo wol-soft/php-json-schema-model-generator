@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model;
 
@@ -84,7 +84,8 @@ class GeneratorConfiguration
             }
 
             foreach ($filter->getAcceptedTypes() as $acceptedType) {
-                if (!in_array($acceptedType, ['integer', 'number', 'boolean', 'string', 'array', 'null']) &&
+                if (
+                    !in_array($acceptedType, ['integer', 'number', 'boolean', 'string', 'array', 'null']) &&
                     !class_exists($acceptedType)
                 ) {
                     throw new InvalidFilterException('Filter accepts invalid types');
@@ -117,7 +118,8 @@ class GeneratorConfiguration
      */
     private function validateFilterCallback(array $callback, string $message): void
     {
-        if (!(count($callback) === 2) ||
+        if (
+            !(count($callback) === 2) ||
             !is_string($callback[0]) ||
             !is_string($callback[1]) ||
             !is_callable($callback)

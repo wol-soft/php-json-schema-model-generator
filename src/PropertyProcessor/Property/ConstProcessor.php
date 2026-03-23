@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
@@ -36,13 +36,14 @@ class ConstProcessor extends AbstractPropertyProcessor
 
         $property->setRequired($this->propertyMetaDataCollection->isAttributeRequired($propertyName));
 
-        $check = match(true) {
+        $check = match (true) {
             $property->isRequired()
                 => '$value !== ' . var_export($json['const'], true),
             $this->isImplicitNullAllowed($property)
                 => '!in_array($value, ' . RenderHelper::varExportArray([$json['const'], null]) . ', true)',
             default
-                => "array_key_exists('{$property->getName()}', \$modelData) && \$value !== " . var_export($json['const'], true),
+                => "array_key_exists('{$property->getName()}', \$modelData) && \$value !== "
+                    . var_export($json['const'], true),
         };
 
         $property->addValidator(new PropertyValidator(

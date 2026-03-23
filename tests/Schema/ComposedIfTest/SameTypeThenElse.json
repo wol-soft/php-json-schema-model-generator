@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "if": {
+    "properties": {
+      "name": {
+        "const": "Alice"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "age": {
+        "type": "integer"
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "age": {
+        "type": "integer"
+      }
+    }
+  }
+}

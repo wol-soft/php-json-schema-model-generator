@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
@@ -32,6 +32,21 @@ use ReflectionType;
 class FilterProcessor
 {
     /**
+     * Normalize a filter specification to a list of filter entries.
+     *
+     * Accepts a string token, a single filter-spec array (['filter' => 'token', ...]),
+     * or a list of either. Always returns a list.
+     */
+    public static function normalizeFilterList(mixed $filterList): array
+    {
+        if (is_string($filterList) || (is_array($filterList) && isset($filterList['filter']))) {
+            return [$filterList];
+        }
+
+        return $filterList;
+    }
+
+    /**
      * @throws ReflectionException
      * @throws SchemaException
      */
@@ -41,9 +56,7 @@ class FilterProcessor
         GeneratorConfiguration $generatorConfiguration,
         Schema $schema,
     ): void {
-        if (is_string($filterList) || (is_array($filterList) && isset($filterList['filter']))) {
-            $filterList = [$filterList];
-        }
+        $filterList = self::normalizeFilterList($filterList);
 
         $transformingFilter = null;
         // apply a different priority to each filter to make sure the order is kept
@@ -89,7 +102,7 @@ class FilterProcessor
             );
 
             if ($filter instanceof TransformingFilterInterface) {
-                if ($property->getType() && $property->getType()->getName() === 'array') {
+                if ($property->getType() && in_array('array', $property->getType()->getNames(), true)) {
                     throw new SchemaException(
                         sprintf(
                             'Applying a transforming filter to the array property %s is not supported in file %s',
@@ -114,9 +127,11 @@ class FilterProcessor
                 $typeAfterFilter = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))
                     ->getReturnType();
 
-                if ($typeAfterFilter &&
+                if (
+                    $typeAfterFilter &&
                     $typeAfterFilter->getName() &&
-                    (!$property->getType() || $property->getType()->getName() !== $typeAfterFilter->getName())
+                    (!$property->getType() ||
+                        !in_array($typeAfterFilter->getName(), $property->getType()->getNames(), true))
                 ) {
                     $this->addTransformedValuePassThrough($property, $filter, $typeAfterFilter);
                     $this->extendTypeCheckValidatorToAllowTransformedValue($property, $typeAfterFilter);

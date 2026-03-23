@@ -22,7 +22,9 @@ use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
+use ReflectionNamedType;
 use ReflectionType;
+use ReflectionUnionType;
 
 /**
  * Class AbstractPHPModelGeneratorTest
@@ -453,6 +455,63 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     protected function getReturnType($object, string $method): ?ReflectionType
     {
         return (new ReflectionClass($object))->getMethod($method)->getReturnType();
+    }
+
+    /**
+     * Returns all type names from a native PHP return type hint.
+     * Handles both ReflectionNamedType (single type) and ReflectionUnionType (union type).
+     * Null is represented as the string 'null'. Returns [] if no type hint exists.
+     */
+    protected function getReturnTypeNames($object, string $method): array
+    {
+        return $this->reflectionTypeToNames($this->getReturnType($object, $method));
+    }
+
+    /**
+     * Returns all type names from a native PHP parameter type hint.
+     * Handles both ReflectionNamedType (single type) and ReflectionUnionType (union type).
+     * Null is represented as the string 'null'. Returns [] if no type hint exists.
+     */
+    protected function getParameterTypeNames($object, string $method, int $parameter = 0): array
+    {
+        return $this->reflectionTypeToNames($this->getParameterType($object, $method, $parameter));
+    }
+
+    /**
+     * Returns the native PHP type of a property declaration via Reflection.
+     */
+    protected function getPropertyType($object, string $property): ?ReflectionType
+    {
+        return (new ReflectionClass($object))->getProperty($property)->getType();
+    }
+
+    /**
+     * Returns all type names from a native PHP property declaration type hint.
+     * Handles both ReflectionNamedType (single type) and ReflectionUnionType (union type).
+     * Null is represented as the string 'null'. Returns [] if no type hint exists.
+     */
+    protected function getPropertyTypeNames($object, string $property): array
+    {
+        return $this->reflectionTypeToNames($this->getPropertyType($object, $property));
+    }
+
+    private function reflectionTypeToNames(?ReflectionType $type): array
+    {
+        if (!$type) {
+            return [];
+        }
+
+        if ($type instanceof ReflectionUnionType) {
+            return array_map(fn(ReflectionNamedType $t) => $t->getName(), $type->getTypes());
+        }
+
+        /** @var ReflectionNamedType $type */
+        $names = [$type->getName()];
+        if ($type->allowsNull() && $type->getName() !== 'null') {
+            $names[] = 'null';
+        }
+
+        return $names;
     }
 
     protected function getGeneratedFiles(): array

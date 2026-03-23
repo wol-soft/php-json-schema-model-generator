@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
@@ -58,5 +58,15 @@ class CompositionPropertyDecorator extends PropertyProxy
     public function getAffectedObjectProperties(): array
     {
         return $this->affectedObjectProperties;
+    }
+
+    /**
+     * Return the branch-level JSON schema (the composition element schema, which may contain
+     * additionalProperties constraints). This is distinct from getJsonSchema(), which proxies
+     * to the inner wrapped property's schema via PropertyProxy.
+     */
+    public function getBranchSchema(): JsonSchema
+    {
+        return $this->jsonSchema;
     }
 }

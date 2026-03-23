@@ -1,0 +1,27 @@
+{
+  "$id": "AllOfIntersectionRequiredProperty",
+  "type": "object",
+  "required": [
+    "age"
+  ],
+  "properties": {
+    "age": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "age": {
+          "type": [
+            "string",
+            "boolean"
+          ]
+        }
+      }
+    }
+  ]
+}

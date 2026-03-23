@@ -61,7 +61,7 @@ class PropertyProxy extends AbstractProperty
         ?PropertyType $outputType = null,
         bool $reset = false,
     ): PropertyInterface {
-        return $this->getProperty()->setType($type, $outputType);
+        return $this->getProperty()->setType($type, $outputType, $reset);
     }
 
     /**
@@ -130,6 +130,14 @@ class PropertyProxy extends AbstractProperty
     public function addDecorator(PropertyDecoratorInterface $decorator): PropertyInterface
     {
         return $this->getProperty()->addDecorator($decorator);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function filterDecorators(callable $filter): PropertyInterface
+    {
+        return $this->getProperty()->filterDecorators($filter);
     }
 
     /**

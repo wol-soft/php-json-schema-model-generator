@@ -21,7 +21,8 @@ class ComposedValueProcessorFactory implements ProcessorFactoryInterface
      *
      * @param bool $rootLevelComposition is the composed value on object root level (true) or on property level (false)?
      */
-    public function __construct(private bool $rootLevelComposition) {}
+    public function __construct(private bool $rootLevelComposition)
+    {}
 
     /**
      * @inheritdoc

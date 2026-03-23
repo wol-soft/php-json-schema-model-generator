@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "properties": {
+        "age": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    {
+      "properties": {
+        "age": {
+          "type": "integer",
+          "maximum": 150
+        }
+      }
+    }
+  ]
+}

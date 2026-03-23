@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
@@ -48,7 +48,8 @@ class ObjectProcessor extends AbstractTypedValueProcessor
         // $propertySchema is duplicated) add used classes to the current schema. By importing the class which is
         // represented by $schema and by transferring all imports of $schema as well as imports for all properties
         // of $schema to $this->schema the already generated schema can be used
-        if ($schema->getClassPath() !== $this->schema->getClassPath() ||
+        if (
+            $schema->getClassPath() !== $this->schema->getClassPath() ||
             $schema->getClassName() !== $this->schema->getClassName()
         ) {
             $this->schema->addUsedClass(

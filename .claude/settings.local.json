@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh issue:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(find:*)",
+      "Bash(cd C:/git/php-json-schema-model-generator && /c/PHP84/php.exe ./vendor/bin/phpunit 2>&1)",
+      "Bash(find C:\\\\git\\\\php-json-schema-model-generator:*)",
+      "Bash(tail:*)",
+      "Bash(cd:*)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(head:*)",
+      "Bash(grep:*)",
+      "WebFetch(domain:wiki.php.net)",
+      "Bash(cd /c/git/php-json-schema-model-generator && ./vendor/bin/phpunit 2>&1)",
+      "Bash(./vendor/bin/phpunit:*)",
+      "Bash(php:*)",
+      "Bash(cat:*)",
+      "Bash(where gh:*)",
+      "Bash(composer update:*)",
+      "Bash(./vendor/bin/rector process:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(./vendor/bin/rector --version 2>&1 | grep Rector)",
+      "Bash(./vendor/bin/phpcs --standard=PSR12 --report=summary src/ 2>&1)",
+      "Bash(./vendor/bin/phpcs --standard=PSR12 --report=source src/)",
+      "Bash(./vendor/bin/phpcs --standard=PSR12 --report=json src/)",
+      "Bash(python3 -c \":*)",
+      "Bash(./vendor/bin/phpcbf --standard=phpcs.xml src/)",
+      "Bash(./vendor/bin/phpcs --standard=phpcs.xml --report=full src/)",
+      "Bash(./vendor/bin/phpcs --standard=phpcs.xml src/)",
+      "Bash(./vendor/bin/phpcs --standard=phpcs.xml --report=summary src/)",
+      "Bash(git merge:*)",
+      "Bash(gh api:*)"
+    ]
+  }
+}

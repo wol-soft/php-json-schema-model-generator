@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Decorator\TypeHint;
 
@@ -13,7 +13,8 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  */
 class CompositionTypeHintDecorator implements TypeHintDecoratorInterface
 {
-    public function __construct(protected PropertyInterface $nestedProperty) {}
+    public function __construct(protected PropertyInterface $nestedProperty)
+    {}
 
     /**
      * @inheritdoc

@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "oneOf": [
+    {
+      "properties": {
+        "age": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "age"
+      ]
+    },
+    {
+      "properties": {
+        "age": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}

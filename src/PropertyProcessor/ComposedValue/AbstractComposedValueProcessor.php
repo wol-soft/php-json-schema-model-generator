@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
@@ -50,7 +50,8 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
     {
         $json = $propertySchema->getJson()['propertySchema']->getJson();
 
-        if (empty($json[$propertySchema->getJson()['type']]) &&
+        if (
+            empty($json[$propertySchema->getJson()['type']]) &&
             $this->schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()
         ) {
             // @codeCoverageIgnoreStart
@@ -74,7 +75,7 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
                                     $property,
                                     $compositionProperties,
                                     $propertySchema,
-                                  )
+                                )
                                 : null;
                     }
                 },
@@ -144,9 +145,10 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             );
 
             $compositionProperty->onResolve(function () use ($compositionProperty, $property): void {
-                $compositionProperty->filterValidators(static fn(Validator $validator): bool =>
-                    !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                    !is_a($validator->getValidator(), ComposedPropertyValidator::class)
+                $compositionProperty->filterValidators(
+                    static fn(Validator $validator): bool =>
+                        !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
+                        !is_a($validator->getValidator(), ComposedPropertyValidator::class)
                 );
 
                 // only create a composed type hint if we aren't a AnyOf or an AllOf processor and the
@@ -171,26 +173,71 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      */
     private function transferPropertyType(PropertyInterface $property, array $compositionProperties): void
     {
-        $compositionPropertyTypes = array_values(
-            array_unique(
-                array_map(
-                    static fn(CompositionPropertyDecorator $property): string =>
-                        $property->getType() ? $property->getType()->getName() : '',
-                    $compositionProperties,
-                )
-            ),
-        );
-
-        $nonEmptyCompositionPropertyTypes = array_values(array_filter($compositionPropertyTypes));
-
-        if (count($nonEmptyCompositionPropertyTypes) === 1 && !($this instanceof NotProcessor)) {
-            $property->setType(
-                new PropertyType(
-                    $nonEmptyCompositionPropertyTypes[0],
-                    count($compositionPropertyTypes) > 1 ? true : null,
-                )
-            );
+        if ($this instanceof NotProcessor) {
+            return;
         }
+
+        // Skip widening when any branch has a nested schema (object): the merged-property
+        // mechanism creates a combined class whose name is not among the per-branch type names.
+        foreach ($compositionProperties as $compositionProperty) {
+            if ($compositionProperty->getNestedSchema() !== null) {
+                return;
+            }
+        }
+
+        // Flatten all type names from all branches. Use getNames() to handle branches that
+        // already carry a union PropertyType.
+        $allNames = array_merge(...array_map(
+            static fn(CompositionPropertyDecorator $compositionProperty): array =>
+                $compositionProperty->getType() ? $compositionProperty->getType()->getNames() : [],
+            $compositionProperties,
+        ));
+
+        // A branch with no type contributes nothing but signals that nullable=true is required.
+        $hasBranchWithNoType = array_filter(
+            $compositionProperties,
+            static fn(CompositionPropertyDecorator $compositionProperty): bool =>
+                $compositionProperty->getType() === null,
+        ) !== [];
+
+        // An optional branch (property not required in that branch) means the property can be
+        // absent at runtime, causing the root getter to return null. This is a structural
+        // nullable — independent of the implicit-null configuration setting.
+        //
+        // For oneOf/anyOf: any optional branch makes the property nullable (the branch that
+        // omits the property can match, leaving the value as null).
+        //
+        // For allOf: all branches must hold simultaneously. If at least one branch marks the
+        // property as required, the property is required overall — an optional branch in allOf
+        // does not by itself make the property nullable. Only if NO branch requires the property
+        // (i.e. the property is optional across all allOf branches) is it structurally nullable.
+        $hasBranchWithRequiredProperty = array_filter(
+            $compositionProperties,
+            static fn(CompositionPropertyDecorator $compositionProperty): bool =>
+                $compositionProperty->isRequired(),
+        ) !== [];
+        $hasBranchWithOptionalProperty = $this instanceof AllOfProcessor
+            ? !$hasBranchWithRequiredProperty
+            : array_filter(
+                $compositionProperties,
+                static fn(CompositionPropertyDecorator $compositionProperty): bool =>
+                    !$compositionProperty->isRequired(),
+            ) !== [];
+
+        // Strip 'null' → nullable flag; PropertyType constructor deduplicates the rest.
+        $hasNull = in_array('null', $allNames, true);
+        $nonNullNames = array_values(array_filter(
+            array_unique($allNames),
+            fn(string $t): bool => $t !== 'null',
+        ));
+
+        if (!$nonNullNames) {
+            return;
+        }
+
+        $nullable = ($hasNull || $hasBranchWithNoType || $hasBranchWithOptionalProperty) ? true : null;
+
+        $property->setType(new PropertyType($nonNullNames, $nullable));
     }
 
     /**

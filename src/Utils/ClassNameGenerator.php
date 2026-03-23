@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Utils;
 
@@ -29,7 +29,7 @@ class ClassNameGenerator implements ClassNameGeneratorInterface
         $className = sprintf(
             $isMergeClass ? '%s_Merged_%s' : '%s_%s',
             $currentClassName,
-            ucfirst(match(true) {
+            ucfirst(match (true) {
                 isset($json['title']) => $json['title'],
                 isset($json['$id']) => basename($json['$id']),
                 default => ($propertyName . ($currentClassName ? md5(json_encode($json)) : '')),
