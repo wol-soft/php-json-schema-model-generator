@@ -185,6 +185,16 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      */
     protected function addComposedValueValidator(PropertyInterface $property, JsonSchema $propertySchema): void
     {
+        // For non-root object-type properties, composition keywords are processed in full
+        // inside the nested schema by ObjectProcessor (via processSchema with rootLevelComposition=true).
+        // Adding a composition validator here would duplicate the validation at the parent level:
+        // by the time this validator runs, $value is already an instantiated object, so branch
+        // instanceof checks against branch-specific classes fail, rejecting valid input.
+        // It would also inject a _Merged_ class name into the type hint, overriding the correct type.
+        if (!($property instanceof BaseProperty) && ($propertySchema->getJson()['type'] ?? '') === 'object') {
+            return;
+        }
+
         $composedValueKeywords = ['allOf', 'anyOf', 'oneOf', 'not', 'if'];
         $propertyFactory = new PropertyFactory(new ComposedValueProcessorFactory($property instanceof BaseProperty));
 

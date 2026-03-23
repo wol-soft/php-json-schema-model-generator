@@ -1,0 +1,26 @@
+{
+  "title": "Container",
+  "type": "object",
+  "properties": {
+    "config": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "anyOf": [
+        {
+          "minProperties": 1
+        },
+        {
+          "maxProperties": 5
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}
