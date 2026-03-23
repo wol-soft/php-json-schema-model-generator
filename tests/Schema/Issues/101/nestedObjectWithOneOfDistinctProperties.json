@@ -1,0 +1,30 @@
+{
+  "title": "Product",
+  "type": "object",
+  "properties": {
+    "pricing_option": {
+      "type": "object",
+      "oneOf": [
+        {
+          "properties": {
+            "price_per_unit": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": ["price_per_unit"]
+        },
+        {
+          "properties": {
+            "flat_fee": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": ["flat_fee"]
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}
