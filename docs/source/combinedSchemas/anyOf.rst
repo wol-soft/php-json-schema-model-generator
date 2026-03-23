@@ -66,19 +66,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
 
     When a property is also defined in the root ``properties`` section, the root type definition
     is authoritative. ``anyOf`` branches may add further constraints but will not widen the
-    property's type. Only properties that appear exclusively inside composition branches are
-    subject to union-type widening.
-
-    If a branch declares a type that conflicts with the root type, a warning is emitted to stdout
-    during generation and the root type is kept:
-
-    .. code-block:: none
-
-        Warning: composition branch defines property 'example' with type integer which differs
-        from root type string — root definition takes precedence.
-
-.. hint::
-
-    When branches define the same property with different types, the generator widens the property
-    to a union type. See `Cross-typed compositions <crossTypedComposition.html>`__ for a full
-    explanation including nullability rules and the ``allOf`` contrast.
+    property's type. When branches define the same property with different types, the generator
+    widens the property to a union type. See
+    `Cross-typed compositions <crossTypedComposition.html>`__ for the full explanation including
+    nullability rules and the ``allOf`` contrast.

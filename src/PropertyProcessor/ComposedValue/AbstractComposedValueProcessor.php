@@ -179,23 +179,25 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
 
         // Skip widening when any branch has a nested schema (object): the merged-property
         // mechanism creates a combined class whose name is not among the per-branch type names.
-        foreach ($compositionProperties as $p) {
-            if ($p->getNestedSchema() !== null) {
+        foreach ($compositionProperties as $compositionProperty) {
+            if ($compositionProperty->getNestedSchema() !== null) {
                 return;
             }
         }
 
         // Flatten all type names from all branches. Use getNames() to handle branches that
-        // already carry a union PropertyType (e.g. from Phase 4 or Phase 5).
+        // already carry a union PropertyType.
         $allNames = array_merge(...array_map(
-            static fn(CompositionPropertyDecorator $p): array => $p->getType() ? $p->getType()->getNames() : [],
+            static fn(CompositionPropertyDecorator $compositionProperty): array =>
+                $compositionProperty->getType() ? $compositionProperty->getType()->getNames() : [],
             $compositionProperties,
         ));
 
         // A branch with no type contributes nothing but signals that nullable=true is required.
         $hasBranchWithNoType = array_filter(
             $compositionProperties,
-            static fn(CompositionPropertyDecorator $p): bool => $p->getType() === null,
+            static fn(CompositionPropertyDecorator $compositionProperty): bool =>
+                $compositionProperty->getType() === null,
         ) !== [];
 
         // An optional branch (property not required in that branch) means the property can be
@@ -211,13 +213,15 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
         // (i.e. the property is optional across all allOf branches) is it structurally nullable.
         $hasBranchWithRequiredProperty = array_filter(
             $compositionProperties,
-            static fn(CompositionPropertyDecorator $p): bool => $p->isRequired(),
+            static fn(CompositionPropertyDecorator $compositionProperty): bool =>
+                $compositionProperty->isRequired(),
         ) !== [];
         $hasBranchWithOptionalProperty = $this instanceof AllOfProcessor
             ? !$hasBranchWithRequiredProperty
             : array_filter(
                 $compositionProperties,
-                static fn(CompositionPropertyDecorator $p): bool => !$p->isRequired(),
+                static fn(CompositionPropertyDecorator $compositionProperty): bool =>
+                    !$compositionProperty->isRequired(),
             ) !== [];
 
         // Strip 'null' → nullable flag; PropertyType constructor deduplicates the rest.

@@ -319,8 +319,24 @@ class BaseProcessor extends AbstractPropertyProcessor
                 continue;
             }
 
+            $branchesForValidator = $validator instanceof ConditionalPropertyValidator
+                ? $validator->getConditionBranches()
+                : $validator->getComposedProperties();
+
+            $totalBranches = count($branchesForValidator);
+            $resolvedPropertiesCallbacks = 0;
+            $seenBranchPropertyNames = [];
+
             foreach ($validator->getComposedProperties() as $composedProperty) {
-                $composedProperty->onResolve(function () use ($composedProperty, $property, $validator): void {
+                $composedProperty->onResolve(function () use (
+                    $composedProperty,
+                    $property,
+                    $validator,
+                    $branchesForValidator,
+                    $totalBranches,
+                    &$resolvedPropertiesCallbacks,
+                    &$seenBranchPropertyNames,
+                ): void {
                     if (!$composedProperty->getNestedSchema()) {
                         throw new SchemaException(
                             sprintf(
@@ -331,20 +347,38 @@ class BaseProcessor extends AbstractPropertyProcessor
                         );
                     }
 
+                    $isBranchForValidator = in_array($composedProperty, $branchesForValidator, true);
+
                     $composedProperty->getNestedSchema()->onAllPropertiesResolved(
-                        function () use ($composedProperty, $validator): void {
-                            foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
+                        function () use (
+                            $composedProperty,
+                            $validator,
+                            $isBranchForValidator,
+                            $totalBranches,
+                            &$resolvedPropertiesCallbacks,
+                            &$seenBranchPropertyNames,
+                        ): void {
+                            foreach ($composedProperty->getNestedSchema()->getProperties() as $branchProperty) {
                                 $this->schema->addProperty(
                                     $this->cloneTransferredProperty(
-                                        $property,
-                                        $validator->getCompositionProcessor(),
+                                        $branchProperty,
                                         $composedProperty,
                                         $validator,
                                     ),
                                     $validator->getCompositionProcessor(),
                                 );
 
-                                $composedProperty->appendAffectedObjectProperty($property);
+                                $composedProperty->appendAffectedObjectProperty($branchProperty);
+                                $seenBranchPropertyNames[$branchProperty->getName()] = true;
+                            }
+
+                            if ($isBranchForValidator && ++$resolvedPropertiesCallbacks === $totalBranches) {
+                                foreach (array_keys($seenBranchPropertyNames) as $branchPropertyName) {
+                                    $this->schema->getPropertyMerger()->checkForTotalConflict(
+                                        $branchPropertyName,
+                                        $totalBranches,
+                                    );
+                                }
                             }
                         },
                     );
@@ -358,17 +392,14 @@ class BaseProcessor extends AbstractPropertyProcessor
      * composition processor used to set up the composition. Widens the type to mixed when the property is exclusive
      * to one anyOf/oneOf branch and at least one other branch allows additional properties, preventing TypeError when
      * raw input values of an arbitrary type are stored in the property slot.
-     *
-     * For ConditionalPropertyValidator (if/then/else), the widening check uses only the data branches
-     * (then/else), not the if condition branch, since the if block is a filter and not a competing
-     * data branch for type-widening purposes.
      */
     private function cloneTransferredProperty(
         PropertyInterface $property,
-        string $compositionProcessor,
         CompositionPropertyDecorator $sourceBranch,
         AbstractComposedPropertyValidator $validator,
     ): PropertyInterface {
+        $compositionProcessor = $validator->getCompositionProcessor();
+
         $transferredProperty = (clone $property)
             ->filterValidators(static fn(Validator $validator): bool =>
                 is_a($validator->getValidator(), PropertyTemplateValidator::class));
@@ -384,7 +415,7 @@ class BaseProcessor extends AbstractPropertyProcessor
             }
 
             $wideningBranches = $validator instanceof ConditionalPropertyValidator
-                ? $validator->getDataBranches()
+                ? $validator->getConditionBranches()
                 : $validator->getComposedProperties();
 
             if ($this->exclusiveBranchPropertyNeedsWidening($property->getName(), $sourceBranch, $wideningBranches)) {
@@ -401,9 +432,9 @@ class BaseProcessor extends AbstractPropertyProcessor
      * additionalProperties: false). In that case the property slot can receive an arbitrarily-typed
      * raw input value from a non-matching branch, so the native type hint must be removed.
      *
-     * Returns false when the property appears in another branch too (Phase 6 handles that via
-     * Schema::addProperty merging) or when all other branches have additionalProperties: false
-     * (making the property mutually exclusive with the other branches' properties).
+     * Returns false when the property appears in another branch too (Schema::addProperty handles
+     * that via type merging) or when all other branches have additionalProperties: false (making
+     * the property mutually exclusive with the other branches' properties).
      *
      * @param CompositionPropertyDecorator[] $allBranches
      */

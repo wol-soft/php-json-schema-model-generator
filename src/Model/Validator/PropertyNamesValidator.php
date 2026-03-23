@@ -48,7 +48,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
             // the property name validator doesn't need type checks or required checks so simply filter them out
             ->filterValidators(static fn(Validator $validator): bool =>
                 !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                !is_a($validator->getValidator(), TypeCheckValidator::class),);
+                !is_a($validator->getValidator(), TypeCheckValidator::class));
 
         parent::__construct(
             new Property($schema->getClassName(), null, $propertiesNames),

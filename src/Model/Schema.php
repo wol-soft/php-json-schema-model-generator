@@ -322,4 +322,9 @@ class Schema
     {
         return $this->initialClass;
     }
+
+    public function getPropertyMerger(): PropertyMerger
+    {
+        return $this->propertyMerger;
+    }
 }

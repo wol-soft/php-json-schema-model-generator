@@ -32,6 +32,21 @@ use ReflectionType;
 class FilterProcessor
 {
     /**
+     * Normalize a filter specification to a list of filter entries.
+     *
+     * Accepts a string token, a single filter-spec array (['filter' => 'token', ...]),
+     * or a list of either. Always returns a list.
+     */
+    public static function normalizeFilterList(mixed $filterList): array
+    {
+        if (is_string($filterList) || (is_array($filterList) && isset($filterList['filter']))) {
+            return [$filterList];
+        }
+
+        return $filterList;
+    }
+
+    /**
      * @throws ReflectionException
      * @throws SchemaException
      */
@@ -41,9 +56,7 @@ class FilterProcessor
         GeneratorConfiguration $generatorConfiguration,
         Schema $schema,
     ): void {
-        if (is_string($filterList) || (is_array($filterList) && isset($filterList['filter']))) {
-            $filterList = [$filterList];
-        }
+        $filterList = self::normalizeFilterList($filterList);
 
         $transformingFilter = null;
         // apply a different priority to each filter to make sure the order is kept

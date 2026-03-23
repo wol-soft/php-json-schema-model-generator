@@ -85,3 +85,9 @@ Root-level property precedence
 When a property is defined in the root ``properties`` section **and** in a composition branch, the
 root definition takes precedence. Composition branches may add further constraints but will not
 widen the property type.
+
+.. note::
+
+    The same type-widening and intersection behaviour also applies to properties defined via
+    ``patternProperties`` when their names match declared properties. See
+    `Pattern properties <../object/patternProperties.html>`__ for details.

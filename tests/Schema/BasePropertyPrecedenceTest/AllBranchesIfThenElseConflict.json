@@ -1,0 +1,33 @@
+{
+  "$id": "AllBranchesIfThenElseConflict",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "age": {
+      "type": "integer"
+    }
+  },
+  "if": {
+    "properties": {
+      "name": {
+        "const": "admin"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "age": {
+        "type": "string"
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "age": {
+        "type": "string"
+      }
+    }
+  }
+}

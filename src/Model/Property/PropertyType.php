@@ -12,10 +12,10 @@ class PropertyType
     /**
      * PropertyType constructor.
      *
-     * @param string|string[] $name   The name(s) of the type (eg. 'array', 'int', ...).
-     *                                Pass a string for a single type, an array for a union type.
-     * @param bool|null $nullable     Is the property nullable? If not provided the nullability will be
-     *                                determined automatically from the required flag/implicitNull setting etc.
+     * @param string|string[] $name The name(s) of the type (eg. 'array', 'int', ...).
+     *                             Pass a string for a single type, an array for a union type.
+     * @param bool|null $nullable  Is the property nullable? If not provided the nullability will be
+     *                             determined automatically from the required flag/implicitNull setting etc.
      */
     public function __construct(string|array $name, private readonly ?bool $nullable = null)
     {

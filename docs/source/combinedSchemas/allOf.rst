@@ -77,13 +77,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
     When a property is defined in multiple ``allOf`` branches with conflicting types (e.g. one branch
     requires ``string`` and another requires ``integer``), the generator will throw a ``SchemaException``
     at generation time. ``allOf`` requires all constraints to hold simultaneously, so conflicting types
-    make the schema unsatisfiable.
-
-    When branches agree on a type, the generator narrows the property to the intersection of all
-    declared types across branches.
-
-.. hint::
-
-    When ``allOf`` branches define the same property with conflicting types, the generator throws a
-    ``SchemaException`` at generation time. See `Cross-typed compositions <crossTypedComposition.html>`__
-    for the full explanation and a contrast with ``anyOf``/``oneOf`` union widening.
+    make the schema unsatisfiable. When branches agree on a type, the generator narrows the property to
+    the intersection of all declared types across branches. See
+    `Cross-typed compositions <crossTypedComposition.html>`__ for the full explanation and a contrast
+    with ``anyOf``/``oneOf`` union widening.
