@@ -1,0 +1,34 @@
+{
+  "title": "Filters",
+  "type": "object",
+  "properties": {
+    "budget_range": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max": {
+          "type": "number",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      },
+      "required": ["currency"],
+      "anyOf": [
+        {
+          "required": ["min"]
+        },
+        {
+          "required": ["max"]
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

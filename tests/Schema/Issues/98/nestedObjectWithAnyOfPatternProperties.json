@@ -1,0 +1,27 @@
+{
+  "title": "Container",
+  "type": "object",
+  "properties": {
+    "config": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "anyOf": [
+        {
+          "patternProperties": {
+            "^x-": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "required": ["name"]
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

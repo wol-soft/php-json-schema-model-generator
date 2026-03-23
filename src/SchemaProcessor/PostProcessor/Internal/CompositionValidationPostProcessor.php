@@ -30,16 +30,18 @@ class CompositionValidationPostProcessor extends PostProcessor
 {
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
-        $validatorPropertyMap = $this->generateValidatorPropertyMap($schema);
+        $compositionValidatorKeys = $schema->getCompositionValidatorKeys();
 
-        if (empty($validatorPropertyMap)) {
+        if (empty($compositionValidatorKeys)) {
             return;
         }
 
-        $this->addValidationMethods($schema, $generatorConfiguration, $validatorPropertyMap);
+        $validatorPropertyMap = $this->generateValidatorPropertyMap($schema);
+
+        $this->addValidationMethods($schema, $generatorConfiguration, $compositionValidatorKeys);
 
         // if the generator is immutable no validation on value updates are required
-        if ($generatorConfiguration->isImmutable()) {
+        if ($generatorConfiguration->isImmutable() || empty($validatorPropertyMap)) {
             return;
         }
 
@@ -61,6 +63,10 @@ class CompositionValidationPostProcessor extends PostProcessor
             }
 
             foreach ($validator->getComposedProperties() as $composedProperty) {
+                if ($composedProperty->getNestedSchema() === null) {
+                    continue;
+                }
+
                 foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
                     if (!isset($validatorPropertyMap[$property->getName()])) {
                         $validatorPropertyMap[$property->getName()] = [];
@@ -94,12 +100,15 @@ class CompositionValidationPostProcessor extends PostProcessor
         return $validatorPropertyMap;
     }
 
+    /**
+     * @param int[] $compositionValidatorKeys
+     */
     private function addValidationMethods(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
-        array $validatorPropertyMap,
+        array $compositionValidatorKeys,
     ): void {
-        foreach (array_unique(array_merge(...array_values($validatorPropertyMap))) as $validatorIndex) {
+        foreach ($compositionValidatorKeys as $validatorIndex) {
             /** @var AbstractComposedPropertyValidator $compositionValidator */
             $compositionValidator = $schema->getBaseValidators()[$validatorIndex];
 
