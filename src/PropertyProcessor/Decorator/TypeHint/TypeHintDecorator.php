@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Decorator\TypeHint;
 
@@ -11,7 +11,8 @@ namespace PHPModelGenerator\PropertyProcessor\Decorator\TypeHint;
  */
 class TypeHintDecorator implements TypeHintDecoratorInterface
 {
-    public function __construct(protected array $types) {}
+    public function __construct(protected array $types)
+    {}
 
     /**
      * @inheritdoc

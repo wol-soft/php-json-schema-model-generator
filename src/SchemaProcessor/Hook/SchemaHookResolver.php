@@ -9,7 +9,8 @@ use PHPModelGenerator\Model\Schema;
 
 class SchemaHookResolver
 {
-    public function __construct(private readonly Schema $schema) {}
+    public function __construct(private readonly Schema $schema)
+    {}
 
     public function resolveConstructorBeforeValidationHook(): string
     {

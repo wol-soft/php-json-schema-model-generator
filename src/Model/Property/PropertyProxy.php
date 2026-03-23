@@ -135,6 +135,14 @@ class PropertyProxy extends AbstractProperty
     /**
      * @inheritdoc
      */
+    public function filterDecorators(callable $filter): PropertyInterface
+    {
+        return $this->getProperty()->filterDecorators($filter);
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function resolveDecorator(string $input, bool $nestedProperty): string
     {
         foreach ($this->getProperty()->getDecorators() as $decorator) {

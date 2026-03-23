@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
@@ -68,8 +68,7 @@ abstract class AbstractPropertyValidator implements PropertyValidatorInterface
     {
         $property->onResolve(static function () use ($property): void {
             $property->filterValidators(static fn(Validator $validator): bool =>
-                !is_a($validator->getValidator(), RequiredPropertyValidator::class)
-            );
+                !is_a($validator->getValidator(), RequiredPropertyValidator::class));
         });
     }
 }

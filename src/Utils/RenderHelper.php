@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Utils;
 
@@ -18,7 +18,8 @@ use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
  */
 class RenderHelper
 {
-    public function __construct(protected GeneratorConfiguration $generatorConfiguration) {}
+    public function __construct(protected GeneratorConfiguration $generatorConfiguration)
+    {}
 
     public function ucfirst(string $value): string
     {
@@ -182,7 +183,6 @@ if ({$validator->getCheck()}) {
         // filter out non-compound uses and uses which link to the current namespace
         return array_filter($imports, static fn($classPath): bool =>
             strstr(trim(str_replace("$namespace", '', $classPath), '\\'), '\\') ||
-            (!strstr((string) $classPath, '\\') && !empty($namespace)),
-        );
+            (!strstr((string) $classPath, '\\') && !empty($namespace)),);
     }
 }

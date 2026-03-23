@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 
@@ -63,7 +63,8 @@ class SerializationPostProcessor extends PostProcessor
             foreach ($property->getValidators() as $validator) {
                 $validator = $validator->getValidator();
 
-                if ($validator instanceof FilterValidator &&
+                if (
+                    $validator instanceof FilterValidator &&
                     $validator->getFilter() instanceof TransformingFilterInterface
                 ) {
                     [$serializerClass, $serializerMethod] = $validator->getFilter()->getSerializer();
@@ -94,7 +95,8 @@ class SerializationPostProcessor extends PostProcessor
                 foreach ($validator->getValidationProperty()->getValidators() as $patternPropertyValidator) {
                     $filterValidator = $patternPropertyValidator->getValidator();
 
-                    if ($filterValidator instanceof FilterValidator &&
+                    if (
+                        $filterValidator instanceof FilterValidator &&
                         $filterValidator->getFilter() instanceof TransformingFilterInterface
                     ) {
                         [$serializerClass, $serializerMethod] = $filterValidator->getFilter()->getSerializer();
@@ -184,7 +186,8 @@ class SerializationPostProcessor extends PostProcessor
             foreach ($validationProperty->getValidators() as $validator) {
                 $validator = $validator->getValidator();
 
-                if ($validator instanceof FilterValidator &&
+                if (
+                    $validator instanceof FilterValidator &&
                     $validator->getFilter() instanceof TransformingFilterInterface
                 ) {
                     $transformingFilterValidator = $validator;

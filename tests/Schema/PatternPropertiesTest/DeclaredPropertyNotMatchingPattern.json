@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "required": [
+    "beta"
+  ],
+  "properties": {
+    "beta": {
+      "type": "string"
+    }
+  },
+  "patternProperties": {
+    "^a": {
+      "type": "integer"
+    }
+  }
+}

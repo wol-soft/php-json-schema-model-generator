@@ -51,8 +51,12 @@ class PatternPropertiesPostProcessor extends PostProcessor
                     static function (
                         array $carry,
                         PropertyInterface $property,
-                    ) use ($schemaProperties, $validator): array {
-                        if (in_array($property->getName(), $schemaProperties) &&
+                    ) use (
+                        $schemaProperties,
+                        $validator
+                    ): array {
+                        if (
+                            in_array($property->getName(), $schemaProperties) &&
                             preg_match('/' . addcslashes($validator->getPattern(), '/') . '/', $property->getName())
                         ) {
                             $carry[] = $property;
@@ -97,7 +101,8 @@ class PatternPropertiesPostProcessor extends PostProcessor
      *
      * @throws SchemaException
      */
-    private function addPatternPropertiesMapProperty(Schema $schema): void {
+    private function addPatternPropertiesMapProperty(Schema $schema): void
+    {
         $properties = [];
 
         foreach ($schema->getProperties() as $property) {
@@ -127,7 +132,8 @@ class PatternPropertiesPostProcessor extends PostProcessor
     private function initObjectPropertiesMatchingPatternProperties(Schema $schema, array $patternHashes): void
     {
         $schema->addSchemaHook(new class ($patternHashes) implements ConstructorBeforeValidationHookInterface {
-            public function __construct(private readonly array $patternHashes) {}
+            public function __construct(private readonly array $patternHashes)
+            {}
 
             public function getCode(): string
             {

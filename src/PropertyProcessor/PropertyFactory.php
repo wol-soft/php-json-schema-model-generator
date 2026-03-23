@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor;
 
@@ -17,7 +17,8 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
  */
 class PropertyFactory
 {
-    public function __construct(protected ProcessorFactoryInterface $processorFactory) {}
+    public function __construct(protected ProcessorFactoryInterface $processorFactory)
+    {}
 
     /**
      * Create a property

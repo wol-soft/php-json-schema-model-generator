@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
@@ -147,7 +147,8 @@ class EnumPostProcessor extends PostProcessor
         foreach ($property->getValidators() as $validator) {
             $validator = $validator->getValidator();
 
-            if ($validator instanceof FilterValidator
+            if (
+                $validator instanceof FilterValidator
                 && $validator->getFilter() instanceof TransformingFilterInterface
             ) {
                 throw new SchemaException(sprintf(
@@ -200,7 +201,8 @@ class EnumPostProcessor extends PostProcessor
                 asort($json['enum-map']);
             }
 
-            if (!is_array($json['enum-map'])
+            if (
+                !is_array($json['enum-map'])
                 || $this->getArrayTypes(array_keys($json['enum-map'])) !== ['string']
                 || count(array_uintersect(
                     $json['enum-map'],
@@ -239,8 +241,12 @@ class EnumPostProcessor extends PostProcessor
 
         $backedType = null;
         switch ($this->getArrayTypes($values)) {
-            case ['string']: $backedType = 'string'; break;
-            case ['integer']: $backedType = 'int'; break;
+            case ['string']:
+                $backedType = 'string';
+                break;
+            case ['integer']:
+                $backedType = 'int';
+                break;
         }
 
         // make sure different enums with an identical name don't overwrite each other

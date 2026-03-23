@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Property;
 
@@ -118,7 +118,8 @@ class BaseProcessor extends AbstractPropertyProcessor
     {
         $json = $propertySchema->getJson();
 
-        if (!isset($json['additionalProperties']) &&
+        if (
+            !isset($json['additionalProperties']) &&
             $this->schemaProcessor->getGeneratorConfiguration()->denyAdditionalProperties()
         ) {
             $json['additionalProperties'] = false;
@@ -370,8 +371,7 @@ class BaseProcessor extends AbstractPropertyProcessor
     ): PropertyInterface {
         $transferredProperty = (clone $property)
             ->filterValidators(static fn(Validator $validator): bool =>
-                is_a($validator->getValidator(), PropertyTemplateValidator::class)
-            );
+                is_a($validator->getValidator(), PropertyTemplateValidator::class));
 
         if (!is_a($compositionProcessor, AllOfProcessor::class, true)) {
             $transferredProperty->setRequired(false);
@@ -423,7 +423,7 @@ class BaseProcessor extends AbstractPropertyProcessor
                 ? array_map(
                     static fn(PropertyInterface $p): string => $p->getName(),
                     $branch->getNestedSchema()->getProperties(),
-                  )
+                )
                 : [];
 
             if (in_array($propertyName, $branchPropertyNames, true)) {

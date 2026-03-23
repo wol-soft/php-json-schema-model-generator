@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "anyOf": [
+    {
+      "properties": {
+        "alpha": {
+          "type": "integer"
+        }
+      }
+    },
+    {
+      "properties": {
+        "alpha": {
+          "type": "string"
+        }
+      }
+    }
+  ],
+  "patternProperties": {
+    "^a": {
+      "type": "integer"
+    }
+  }
+}

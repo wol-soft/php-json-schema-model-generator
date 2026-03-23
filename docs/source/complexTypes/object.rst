@@ -564,3 +564,19 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidPat
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+
+.. note::
+
+    When a declared property's name matches a ``patternProperties`` pattern, both the
+    ``properties`` schema and the ``patternProperties`` schema apply simultaneously (allOf
+    semantics). The generator enforces this at generation time by intersecting the two type
+    constraints:
+
+    - If the types are **compatible** (e.g. the declared type is ``number`` and the pattern
+      requires ``integer``), the property type is narrowed to the intersection (``int``).
+    - If the types are **contradictory** (e.g. declared ``string``, pattern requires
+      ``integer``), a ``SchemaException`` is thrown at generation time because no value can
+      satisfy both constraints.
+
+    This also applies to properties transferred from composition branches (``anyOf``,
+    ``oneOf``, ``allOf``, ``if``/``then``/``else``).

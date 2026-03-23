@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\ComposedValue;
 
@@ -70,8 +70,7 @@ class IfProcessor extends AbstractValueProcessor implements ComposedPropertiesIn
             $compositionProperty->onResolve(static function () use ($compositionProperty): void {
                 $compositionProperty->filterValidators(static fn(Validator $validator): bool =>
                     !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                    !is_a($validator->getValidator(), ComposedPropertyValidator::class),
-                );
+                    !is_a($validator->getValidator(), ComposedPropertyValidator::class),);
             });
 
             $properties[$compositionElement] = $compositionProperty;

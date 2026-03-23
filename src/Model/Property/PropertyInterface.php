@@ -100,6 +100,11 @@ interface PropertyInterface extends ResolvableInterface
     public function resolveDecorator(string $input, bool $nestedProperty): string;
 
     /**
+     * Filter the assigned decorators
+     */
+    public function filterDecorators(callable $filter): PropertyInterface;
+
+    /**
      * @return PropertyDecoratorInterface[]
      */
     public function getDecorators(): array;

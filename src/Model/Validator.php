@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Model;
 
@@ -13,7 +13,8 @@ use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
  */
 class Validator
 {
-    public function __construct(protected PropertyValidatorInterface $validator, protected int $priority) {}
+    public function __construct(protected PropertyValidatorInterface $validator, protected int $priority)
+    {}
 
     public function getValidator(): PropertyValidatorInterface
     {
