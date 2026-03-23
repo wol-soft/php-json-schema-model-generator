@@ -399,4 +399,46 @@ class BasePropertyPrecedenceTest extends AbstractPHPModelGeneratorTestCase
             $output,
         );
     }
+
+    /**
+     * Root defines `age: integer`; all anyOf branches define `age: string` — every possible
+     * branch conflicts with root, so the schema is unsatisfiable.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     */
+    public function testAllAnyOfBranchesConflictWithRootThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+
+        $this->generateClassFromFile('AllBranchesAnyOfConflict.json');
+    }
+
+    /**
+     * Root defines `age: integer`; all oneOf branches define `age: string` — every possible
+     * branch conflicts with root, so the schema is unsatisfiable.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     */
+    public function testAllOneOfBranchesConflictWithRootThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+
+        $this->generateClassFromFile('AllBranchesOneOfConflict.json');
+    }
+
+    /**
+     * Root defines `age: integer`; both then and else branches define `age: string` — every
+     * possible conditional branch conflicts with root, so the schema is unsatisfiable.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     */
+    public function testAllIfThenElseBranchesConflictWithRootThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+
+        $this->generateClassFromFile('AllBranchesIfThenElseConflict.json');
+    }
 }

@@ -1,0 +1,28 @@
+{
+  "$id": "AllBranchesOneOfConflict",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "age": {
+      "type": "integer"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "age": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "properties": {
+        "age": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}

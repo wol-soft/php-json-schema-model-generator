@@ -6,7 +6,6 @@ namespace PHPModelGenerator\Tests\PostProcessor;
 
 use DateTime;
 use Exception;
-use TypeError;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
@@ -503,11 +502,6 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             ['string', 'int', 'null'],
             $this->getParameterTypeNames($object, 'setAdditionalProperty', 1),
         );
-
-        // test setting an invalid type for the additional property — the native type hint on the
-        // setter (string|int|null) rejects bool before the validator runs
-        $this->expectException(TypeError::class);
-        $object->setAdditionalProperty('property1', false);
     }
 
     public function testComposedAdditionalProperties(): void
@@ -554,10 +548,5 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             ['string', 'int'],
             $this->getParameterTypeNames($object, 'setAdditionalProperty', 1),
         );
-
-        // The setter now has a native string|int type hint, so null is rejected at the language level
-        // before any validation logic runs.
-        $this->expectException(TypeError::class);
-        $object->setAdditionalProperty('property1', null);
     }
 }

@@ -110,12 +110,14 @@ class MultiTypeProcessor extends AbstractValueProcessor
                         $hasNull = in_array('null', $this->allowedPropertyTypes, true);
                         $nonNullTypes = array_values(array_filter(
                             $this->allowedPropertyTypes,
-                            fn(string $t): bool => $t !== 'null',
+                            fn(string $type): bool => $type !== 'null',
                         ));
 
                         if ($nonNullTypes) {
-                            $propertyType = new PropertyType($nonNullTypes, $hasNull ? true : null);
-                            $property->setType($propertyType, $propertyType);
+                            $property->setType(
+                                new PropertyType($nonNullTypes, $hasNull ? true : null),
+                                new PropertyType($nonNullTypes, $hasNull ? true : null),
+                            );
                         }
                     }
                 });

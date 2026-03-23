@@ -18,13 +18,13 @@ use PHPModelGenerator\PropertyProcessor\ComposedValue\IfProcessor;
 class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
 {
     /** @var CompositionPropertyDecorator[] */
-    private array $dataBranches;
+    private array $conditionBranches;
 
     public function __construct(
         GeneratorConfiguration $generatorConfiguration,
         PropertyInterface $property,
         array $composedProperties,
-        array $dataBranches,
+        array $conditionBranches,
         array $validatorVariables,
     ) {
         $this->isResolved = true;
@@ -40,18 +40,17 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
 
         $this->compositionProcessor = IfProcessor::class;
         $this->composedProperties = $composedProperties;
-        $this->dataBranches = $dataBranches;
+        $this->conditionBranches = $conditionBranches;
     }
 
     /**
-     * Returns only the then/else data branches, excluding the if condition branch.
-     * Used by BaseProcessor to determine type-widening eligibility.
+     * Returns the then/else branches, excluding the if condition branch.
      *
      * @return CompositionPropertyDecorator[]
      */
-    public function getDataBranches(): array
+    public function getConditionBranches(): array
     {
-        return $this->dataBranches;
+        return $this->conditionBranches;
     }
 
     public function getValidatorSetUp(): string

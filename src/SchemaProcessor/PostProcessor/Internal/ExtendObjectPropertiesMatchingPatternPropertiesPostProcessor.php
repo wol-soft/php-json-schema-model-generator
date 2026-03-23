@@ -154,9 +154,6 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
      *
      * Non-transforming filters (e.g. trim, notEmpty) do not change the PHP type and are not a
      * reason to skip the intersection check.
-     *
-     * Maps JSON type names to the PHP type names used by PropertyType:
-     *   integer → int, number → float, boolean → bool, string/array/object/null → as-is.
      */
     private function resolvePatternTypeFromJson(
         array $patternJson,
@@ -198,9 +195,6 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
 
     /**
      * Returns true if the pattern JSON contains at least one transforming filter.
-     *
-     * The 'filter' value follows the same format as on a regular property: a string token,
-     * a single filter-spec array (['filter' => 'token', ...]), or a list of either.
      */
     private function patternHasTransformingFilter(
         array $patternJson,
@@ -210,21 +204,12 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
             return false;
         }
 
-        $filterList = $patternJson['filter'];
-
-        // Normalise to a list, mirroring FilterProcessor::process lines 44-46.
-        if (is_string($filterList) || (is_array($filterList) && isset($filterList['filter']))) {
-            $filterList = [$filterList];
-        }
-
-        foreach ($filterList as $filterToken) {
+        foreach (FilterProcessor::normalizeFilterList($patternJson['filter']) as $filterToken) {
             if (is_array($filterToken)) {
                 $filterToken = $filterToken['filter'] ?? '';
             }
 
-            $filter = $generatorConfiguration->getFilter((string) $filterToken);
-
-            if ($filter instanceof TransformingFilterInterface) {
+            if ($generatorConfiguration->getFilter((string) $filterToken) instanceof TransformingFilterInterface) {
                 return true;
             }
         }

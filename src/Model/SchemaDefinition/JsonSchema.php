@@ -44,8 +44,13 @@ class JsonSchema
     public function __construct(private string $file, array $json)
     {
         // wrap in an allOf to pass the processing to multiple handlers - ugly hack to be removed after rework
-        $relevantKeys = array_intersect(array_keys($json), self::SCHEMA_SIGNATURE_RELEVANT_FIELDS);
-        if (isset($json['$ref']) && count(array_diff($relevantKeys, ['$ref', 'type']))) {
+        if (
+            isset($json['$ref']) &&
+            count(array_diff(
+                array_intersect(array_keys($json), self::SCHEMA_SIGNATURE_RELEVANT_FIELDS),
+                ['$ref', 'type'],
+            ))
+        ) {
             $json = array_merge(
                 array_diff_key($json, array_fill_keys(self::SCHEMA_SIGNATURE_RELEVANT_FIELDS, null)),
                 [

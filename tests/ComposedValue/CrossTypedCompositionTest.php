@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
+use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
+use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use ReflectionUnionType;
 
-/**
- * Tests for JSON Schema compositions where two branches define the same property
- * name with different types (Scenario C of issue #110 — cross-typed union widening).
- */
 class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
 {
     // --- oneOf cross-typed property ---
@@ -52,7 +51,7 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
 
     public function testOneOfCrossTypedIntegerConstraintIsEnforced(): void
     {
-        $this->expectException(ValidationException::class);
+        $this->expectException(OneOfException::class);
 
         $className = $this->generateClassFromFile('AgeCrossTypedOneOf.json');
 
@@ -61,7 +60,7 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
 
     public function testOneOfCrossTypedStringConstraintIsEnforced(): void
     {
-        $this->expectException(ValidationException::class);
+        $this->expectException(OneOfException::class);
 
         $className = $this->generateClassFromFile('AgeCrossTypedOneOf.json');
 
@@ -70,7 +69,7 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
 
     public function testOneOfCrossTypedFloatMatchesNeitherBranch(): void
     {
-        $this->expectException(ValidationException::class);
+        $this->expectException(OneOfException::class);
 
         $className = $this->generateClassFromFile('AgeCrossTypedOneOf.json');
 
@@ -79,7 +78,7 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
 
     public function testOneOfCrossTypedMissingRequiredPropertyThrows(): void
     {
-        $this->expectException(ValidationException::class);
+        $this->expectException(OneOfException::class);
 
         $className = $this->generateClassFromFile('AgeCrossTypedOneOf.json');
 
@@ -123,7 +122,7 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
 
     public function testAnyOfCrossTypedIntegerConstraintIsEnforced(): void
     {
-        $this->expectException(ValidationException::class);
+        $this->expectException(AnyOfException::class);
 
         $className = $this->generateClassFromFile('AgeCrossTypedAnyOf.json');
 
@@ -132,7 +131,7 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
 
     public function testAnyOfCrossTypedStringConstraintIsEnforced(): void
     {
-        $this->expectException(ValidationException::class);
+        $this->expectException(AnyOfException::class);
 
         $className = $this->generateClassFromFile('AgeCrossTypedAnyOf.json');
 
@@ -141,7 +140,7 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
 
     public function testAnyOfCrossTypedFloatMatchesNeitherBranch(): void
     {
-        $this->expectException(ValidationException::class);
+        $this->expectException(AnyOfException::class);
 
         $className = $this->generateClassFromFile('AgeCrossTypedAnyOf.json');
 
@@ -150,7 +149,7 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
 
     public function testAnyOfCrossTypedMissingRequiredPropertyThrows(): void
     {
-        $this->expectException(ValidationException::class);
+        $this->expectException(AnyOfException::class);
 
         $className = $this->generateClassFromFile('AgeCrossTypedAnyOf.json');
 
@@ -188,7 +187,7 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
             ['int', 'null'],
             $this->getReturnTypeNames($className, 'getAge'),
         );
-        $this->assertFalse($this->getReturnType($className, 'getAge') instanceof \ReflectionUnionType);
+        $this->assertFalse($this->getReturnType($className, 'getAge') instanceof ReflectionUnionType);
     }
 
     // --- no-type branch — no widening applied ---
@@ -278,8 +277,8 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
         // null explicitly passed is NOT valid when implicit null is disabled.
         // Branch 1 (required integer): null fails !is_int check.
         // Branch 2 (optional string): null fails !is_string check (no null bypass without implicit null).
-        // Both branches fail → oneOf throws a ValidationException.
-        $this->expectException(ValidationException::class);
+        // Both branches fail → oneOf throws.
+        $this->expectException(OneOfException::class);
         new $className(['age' => null]);
     }
 
@@ -297,8 +296,8 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(42, $object->getAge());
 
         // Setting null explicitly is NOT valid when implicit null is disabled:
-        // branch 1 fails !is_int(null), branch 2 fails !is_string(null) → ValidationException.
-        $this->expectException(ValidationException::class);
+        // branch 1 fails !is_int(null), branch 2 fails !is_string(null) → oneOf throws.
+        $this->expectException(OneOfException::class);
         $object->setAge(null);
     }
 
@@ -324,7 +323,7 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(50, $object->getAge());
 
         // Invalid: age absent — branch 1 requires it.
-        $this->expectException(ValidationException::class);
+        $this->expectException(AllOfException::class);
         new $className([]);
     }
 
@@ -340,7 +339,7 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
             ['int', 'null'],
             $this->getReturnTypeNames($className, 'getAge'),
         );
-        $this->assertFalse($this->getReturnType($className, 'getAge') instanceof \ReflectionUnionType);
+        $this->assertFalse($this->getReturnType($className, 'getAge') instanceof ReflectionUnionType);
     }
 
     // --- untyped branch first, typed branch second — no hint regardless of order ---
@@ -371,7 +370,7 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
             ['int', 'null'],
             $this->getReturnTypeNames($className, 'getAge'),
         );
-        $this->assertFalse($this->getReturnType($className, 'getAge') instanceof \ReflectionUnionType);
+        $this->assertFalse($this->getReturnType($className, 'getAge') instanceof ReflectionUnionType);
     }
 
     // --- same type in both branches — no widening to union ---

@@ -27,12 +27,14 @@ class PropertyMerger
     /** @var array<string, true> Property names registered from the root (compositionProcessor=null) */
     private array $rootRegisteredProperties = [];
 
+    /** @var array<string, int> Number of branches that conflicted with the root type, keyed by property name */
+    private array $rootConflictCounts = [];
+
     public function __construct(private ?GeneratorConfiguration $generatorConfiguration = null)
     {}
 
     /**
      * Record a property name as having been registered from the root (compositionProcessor=null).
-     * Called by Schema::addProperty on first registration when compositionProcessor is null.
      */
     public function markRootRegistered(string $propertyName): void
     {
@@ -57,24 +59,17 @@ class PropertyMerger
         bool $isAllOf,
     ): void {
         // Nested-object merging is owned by the merged-property system; don't interfere.
-        if ($existing->getNestedSchema() !== null || $incoming->getNestedSchema() !== null) {
-            return;
-        }
-
-        if ($this->guardRootPrecedence($existing, $incoming, $isAllOf)) {
+        if (
+            $existing->getNestedSchema() !== null ||
+            $incoming->getNestedSchema() !== null ||
+            $this->guardRootPrecedence($existing, $incoming, $isAllOf)
+        ) {
             return;
         }
 
         // Use getType(true) for the stored output type.
         // getType(false) post-Phase-5 returns a synthesised union and cannot be decomposed.
-        $existingOutput = $existing->getType(true);
-        $incomingOutput = $incoming->getType(true);
-
-        if ($this->mergeNullableBranch($existing, $incoming, $existingOutput, $incomingOutput)) {
-            return;
-        }
-
-        if ($this->mergeIntoExistingNull($existing, $existingOutput, $incomingOutput)) {
+        if ($this->mergeNullableBranch($existing, $incoming) || $this->mergeIntoExistingNull($existing, $incoming)) {
             return;
         }
 
@@ -91,12 +86,13 @@ class PropertyMerger
             return;
         }
 
-        $this->applyAnyOfOneOfUnion($existing, $existingOutput, $incomingOutput);
+        $this->applyAnyOfOneOfUnion($existing, $incoming);
     }
 
     /**
      * Guard: anyOf/oneOf branches must not widen a property already registered by the root.
-     * Emits an optional warning when the branch declares a type that differs from the root type.
+     * Emits an optional warning when the branch declares a type that differs from the root type,
+     * and tracks the conflict count so checkForTotalConflict can detect unsatisfiable schemas.
      *
      * Returns true when the caller should return early (the guard handled this call).
      */
@@ -112,20 +108,44 @@ class PropertyMerger
         $existingOutput = $existing->getType(true);
         $incomingOutput = $incoming->getType(true);
 
-        if (
-            $incomingOutput
-            && $existingOutput
-            && array_diff($incomingOutput->getNames(), $existingOutput->getNames())
-            && $this->generatorConfiguration?->isOutputEnabled()
-        ) {
-            echo "Warning: composition branch defines property '{$incoming->getName()}' with type "
-                . implode('|', $incomingOutput->getNames())
-                . " which differs from root type "
-                . implode('|', $existingOutput->getNames())
-                . " — root definition takes precedence.\n";
+        $intersection = $incomingOutput && $existingOutput
+            ? $this->computeDeclaredIntersection($incomingOutput->getNames(), $existingOutput->getNames())
+            : null;
+
+        if ($intersection !== null && $intersection === []) {
+            $this->rootConflictCounts[$incoming->getName()] =
+                ($this->rootConflictCounts[$incoming->getName()] ?? 0) + 1;
+
+            if ($this->generatorConfiguration?->isOutputEnabled()) {
+                echo "Warning: composition branch defines property '{$incoming->getName()}' with type "
+                    . implode('|', $incomingOutput->getNames())
+                    . " which differs from root type "
+                    . implode('|', $existingOutput->getNames())
+                    . " — root definition takes precedence.\n";
+            }
         }
 
         return true;
+    }
+
+    /**
+     * Throw a SchemaException if all $branchCount branches that define $propertyName conflicted
+     * with the root type. When every branch is incompatible the schema is unsatisfiable.
+     *
+     * @throws SchemaException
+     */
+    public function checkForTotalConflict(string $propertyName, int $branchCount): void
+    {
+        if (
+            isset($this->rootConflictCounts[$propertyName]) &&
+            $this->rootConflictCounts[$propertyName] >= $branchCount
+        ) {
+            throw new SchemaException(sprintf(
+                "Property '%s' is defined in root with a type that conflicts with all composition branches, " .
+                "making this schema unsatisfiable.",
+                $propertyName,
+            ));
+        }
     }
 
     /**
@@ -139,12 +159,14 @@ class PropertyMerger
     private function mergeNullableBranch(
         PropertyInterface $existing,
         PropertyInterface $incoming,
-        ?PropertyType $existingOutput,
-        ?PropertyType $incomingOutput,
     ): bool {
+        $incomingOutput = $incoming->getType(true);
+
         if ($incomingOutput !== null) {
             return false;
         }
+
+        $existingOutput = $existing->getType(true);
 
         if (str_contains($incoming->getTypeHint(), 'null')) {
             // Explicit null-type branch: treat as nullable=true with no added scalar names.
@@ -179,12 +201,15 @@ class PropertyMerger
      */
     private function mergeIntoExistingNull(
         PropertyInterface $existing,
-        ?PropertyType $existingOutput,
-        ?PropertyType $incomingOutput,
+        PropertyInterface $incoming,
     ): bool {
+        $existingOutput = $existing->getType(true);
+
         if ($existingOutput !== null) {
             return false;
         }
+
+        $incomingOutput = $incoming->getType(true);
 
         if (str_contains($existing->getTypeHint(), 'null')) {
             $existing->setType(
@@ -359,9 +384,11 @@ class PropertyMerger
      */
     private function applyAnyOfOneOfUnion(
         PropertyInterface $existing,
-        PropertyType $existingOutput,
-        PropertyType $incomingOutput,
+        PropertyInterface $incoming,
     ): void {
+        $existingOutput = $existing->getType(true);
+        $incomingOutput = $incoming->getType(true);
+
         $allNames = array_merge($existingOutput->getNames(), $incomingOutput->getNames());
 
         $hasNull = in_array('null', $allNames, true)
