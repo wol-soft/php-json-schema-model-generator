@@ -4,10 +4,16 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
+use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
+use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
+use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
+use ReflectionMethod;
 
 /**
  * Tests for CompositionRequiredPromotionPostProcessor.
@@ -67,7 +73,7 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
             $implicitNull,
         );
 
-        $this->assertNullableStringProperty($className, 'name', $implicitNull);
+        $this->assertNullableStringProperty($className, 'name');
     }
 
     /**
@@ -106,8 +112,35 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
             false,
         );
 
-        $this->expectException(\Exception::class);
+        $this->expectException(AllOfException::class);
         new $className([]);
+    }
+
+    /**
+     * allOf + implicitNull=true + error-collection: absent promoted property collects exactly
+     * one allOf composition error and no spurious type error.
+     */
+    public function testAllOfPromotedPropertyAbsentUnderImplicitNullCollectsOnlyCompositionError(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AllOfRequiredInAnyBranch.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+            false,
+            true,
+        );
+
+        try {
+            new $className([]);
+            $this->fail('Expected ErrorRegistryException');
+        } catch (ErrorRegistryException $e) {
+            $errors = $e->getErrors();
+            $this->assertCount(1, $errors, 'Only the composition error should be collected');
+            $this->assertInstanceOf(
+                AllOfException::class,
+                $errors[0],
+                'The collected error must be an AllOfException',
+            );
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -143,7 +176,7 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
             $implicitNull,
         );
 
-        $this->assertNullableStringProperty($className, 'name', $implicitNull);
+        $this->assertNullableStringProperty($className, 'name');
     }
 
     /**
@@ -159,7 +192,7 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
             $implicitNull,
         );
 
-        $this->assertNullableStringProperty($className, 'name', $implicitNull);
+        $this->assertNullableStringProperty($className, 'name');
     }
 
     /**
@@ -195,8 +228,49 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
             false,
         );
 
-        $this->expectException(\Exception::class);
+        $this->expectException(AnyOfException::class);
         new $className([]);
+    }
+
+    /**
+     * anyOf: empty composition array → no promotable names, no crash.
+     */
+    public function testAnyOfEmptyCompositionDoesNotCrash(): void
+    {
+        $className = $this->generateClassFromFile('AnyOfEmptyComposition.json', null, false, false);
+
+        // An object with empty anyOf generates successfully; no branch properties to promote.
+        $rc = new ReflectionClass($className);
+        $this->assertEmpty($rc->getProperties(ReflectionMethod::IS_PUBLIC));
+    }
+
+    /**
+     * anyOf: branches carry only required constraints, no properties — the promoted property name
+     * does not appear in the schema's property list, so promoteProperty returns early.
+     */
+    public function testAnyOfRequiredOnlyBranchesDoesNotCrash(): void
+    {
+        $className = $this->generateClassFromFile('AnyOfRequiredOnlyBranches.json', null, false, false);
+
+        // Branches have no 'properties', so no branch properties are transferred to the schema.
+        $rc = new ReflectionClass($className);
+        $this->assertEmpty($rc->getProperties(ReflectionMethod::IS_PUBLIC));
+    }
+
+    /**
+     * anyOf: branches define an untyped property (no 'type' keyword) in required —
+     * promoteProperty returns early when getType() is null. No crash, and the
+     * property must not be incorrectly promoted to non-nullable.
+     */
+    public function testAnyOfUntypedPropertyInBranchesDoesNotCrash(): void
+    {
+        $className = $this->generateClassFromFile('AnyOfUntypedPropertyInBranches.json', null, false, false);
+
+        // The property exists but has no scalar type — the generator emits 'mixed'.
+        // The important thing is that promotion did not apply (no PropertyType to strip nullable from).
+        $returnType = $this->getReturnType($className, 'getValue');
+        $this->assertNotNull($returnType, 'Getter must exist for transferred untyped property');
+        $this->assertTrue($returnType->allowsNull(), 'Untyped property must not be promoted to non-nullable');
     }
 
     // -------------------------------------------------------------------------
@@ -232,7 +306,7 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
             $implicitNull,
         );
 
-        $this->assertNullableStringProperty($className, 'name', $implicitNull);
+        $this->assertNullableStringProperty($className, 'name');
     }
 
     /**
@@ -248,7 +322,7 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
             $implicitNull,
         );
 
-        $this->assertNullableStringProperty($className, 'name', $implicitNull);
+        $this->assertNullableStringProperty($className, 'name');
     }
 
     /**
@@ -284,8 +358,35 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
             false,
         );
 
-        $this->expectException(\Exception::class);
+        $this->expectException(OneOfException::class);
         new $className([]);
+    }
+
+    /**
+     * oneOf + implicitNull=true + error-collection: absent promoted property collects exactly
+     * one oneOf composition error and no spurious type error.
+     */
+    public function testOneOfPromotedPropertyAbsentUnderImplicitNullCollectsOnlyCompositionError(): void
+    {
+        $className = $this->generateClassFromFile(
+            'OneOfRequiredInAllBranches.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+            false,
+            true,
+        );
+
+        try {
+            new $className([]);
+            $this->fail('Expected ErrorRegistryException');
+        } catch (ErrorRegistryException $e) {
+            $errors = $e->getErrors();
+            $this->assertCount(1, $errors, 'Only the composition error should be collected');
+            $this->assertInstanceOf(
+                OneOfException::class,
+                $errors[0],
+                'The collected error must be a OneOfException',
+            );
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -323,7 +424,7 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
             $implicitNull,
         );
 
-        $this->assertNullableStringProperty($className, 'name', $implicitNull);
+        $this->assertNullableStringProperty($className, 'name');
     }
 
     /**
@@ -339,7 +440,7 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
             $implicitNull,
         );
 
-        $this->assertNullableStringProperty($className, 'name', $implicitNull);
+        $this->assertNullableStringProperty($className, 'name');
     }
 
     /**
@@ -378,7 +479,7 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
             false,
         );
 
-        $this->expectException(\Exception::class);
+        $this->expectException(ConditionalException::class);
         new $className([]);
     }
 
@@ -396,7 +497,7 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * implicitNull=true + error collection: when a promoted property is absent, only the
+     * anyOf + implicitNull=true + error-collection: when a promoted property is absent, only the
      * composition error is collected. No spurious InvalidTypeException must be added.
      */
     public function testPromotedPropertyAbsentUnderImplicitNullCollectsOnlyCompositionError(): void
@@ -414,7 +515,34 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
         } catch (ErrorRegistryException $e) {
             $errors = $e->getErrors();
             $this->assertCount(1, $errors, 'Only the composition error should be collected');
+            $this->assertInstanceOf(
+                AnyOfException::class,
+                $errors[0],
+                'The collected error must be an AnyOfException',
+            );
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Multiple properties: only some promoted
+    // -------------------------------------------------------------------------
+
+    /**
+     * anyOf with two transferred properties: 'name' is required in every branch (→ promoted),
+     * 'age' is not required in any branch (→ stays nullable).
+     */
+    #[DataProvider('implicitNullDataProvider')]
+    public function testMultiplePropertiesOnlySomePromoted(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile(
+            'AnyOfMultiplePropertiesSomePromoted.json',
+            null,
+            false,
+            $implicitNull,
+        );
+
+        $this->assertNonNullableStringProperty($className, 'name');
+        $this->assertNullableIntProperty($className, 'age');
     }
 
     // -------------------------------------------------------------------------
@@ -430,15 +558,24 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
         $this->assertFalse($returnType->allowsNull(), 'Return type must not allow null for promoted property');
     }
 
-    private function assertNullableStringProperty(string $className, string $property, bool $implicitNull): void
+    private function assertNullableStringProperty(string $className, string $property): void
     {
         $getter = 'get' . ucfirst($property);
 
         $returnTypeNames = $this->getReturnTypeNames($className, $getter);
         $this->assertContains('string', $returnTypeNames, "Return type should contain 'string'");
+        // Composition-transferred non-promoted properties are always nullable: the property is
+        // optional, so a valid object may not provide it. This holds regardless of implicitNull.
+        $this->assertContains('null', $returnTypeNames, 'Non-promoted property must remain nullable');
+    }
 
-        if ($implicitNull) {
-            $this->assertContains('null', $returnTypeNames, 'Non-promoted property should be nullable');
-        }
+    private function assertNullableIntProperty(string $className, string $property): void
+    {
+        $getter = 'get' . ucfirst($property);
+
+        $returnTypeNames = $this->getReturnTypeNames($className, $getter);
+        $this->assertContains('int', $returnTypeNames, "Return type should contain 'int'");
+        // Same reasoning as assertNullableStringProperty.
+        $this->assertContains('null', $returnTypeNames, 'Non-promoted property must remain nullable');
     }
 }
