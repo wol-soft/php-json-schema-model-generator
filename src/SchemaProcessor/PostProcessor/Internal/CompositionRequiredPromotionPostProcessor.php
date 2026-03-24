@@ -11,7 +11,6 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
-use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\ComposedValue\AllOfProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 
@@ -114,20 +113,12 @@ class CompositionRequiredPromotionPostProcessor extends PostProcessor
      */
     private function promoteProperty(Schema $schema, string $propertyName): void
     {
-        $property = null;
+        $property = array_find(
+            $schema->getProperties(),
+            static fn (PropertyInterface $property): bool => $property->getName() === $propertyName,
+        );
 
-        foreach ($schema->getProperties() as $candidate) {
-            if ($candidate->getName() === $propertyName) {
-                $property = $candidate;
-                break;
-            }
-        }
-
-        if ($property === null) {
-            return;
-        }
-
-        if ($property->isRequired()) {
+        if (!$property || $property->isRequired()) {
             return;
         }
 

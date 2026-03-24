@@ -125,8 +125,6 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFile(
             'AllOfRequiredInAnyBranch.json',
             (new GeneratorConfiguration())->setCollectErrors(true),
-            false,
-            true,
         );
 
         try {
@@ -371,8 +369,6 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFile(
             'OneOfRequiredInAllBranches.json',
             (new GeneratorConfiguration())->setCollectErrors(true),
-            false,
-            true,
         );
 
         try {
@@ -491,7 +487,7 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
     {
         // With implicitNull=true every non-required property would normally be nullable.
         // Promotion must override that and force non-nullable.
-        $className = $this->generateClassFromFile('AnyOfRequiredInAllBranches.json', null, false, true);
+        $className = $this->generateClassFromFile('AnyOfRequiredInAllBranches.json');
 
         $this->assertNonNullableStringProperty($className, 'name');
     }
@@ -505,8 +501,6 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFile(
             'AnyOfRequiredInAllBranches.json',
             (new GeneratorConfiguration())->setCollectErrors(true),
-            false,
-            true,
         );
 
         try {
