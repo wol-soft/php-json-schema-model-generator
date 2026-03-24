@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["name"]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "minLength": 1
+        }
+      },
+      "required": ["name"]
+    }
+  ]
+}

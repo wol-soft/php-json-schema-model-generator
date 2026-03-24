@@ -49,15 +49,72 @@ The ``age`` property appears in both branches with different types, so the gener
 object might satisfy the ``anyOf`` constraint via a branch that carries a different property
 entirely, leaving ``age`` absent.
 
-Nullability
------------
+Nullability and required promotion
+------------------------------------
 
 A property that is present in some branches but not others is always nullable in the generated
 class. The matching branch at runtime may not define the property at all, so the getter must be
 able to return ``null``.
 
-If a property is marked as ``required`` in **every** branch that defines it, and at least one
-branch is guaranteed to apply, the property may be non-nullable.
+When the composition structure **guarantees** that a property will always be present, the generator
+promotes the property to non-nullable — regardless of whether ``implicitNull`` is enabled. The
+promotion rules depend on the keyword:
+
+* **allOf** — property is promoted when it appears in ``required`` in **any** branch (because all
+  branches must hold simultaneously, so any branch's ``required`` constraint applies globally).
+* **anyOf** / **oneOf** — property is promoted only when it appears in ``required`` in **every**
+  branch (because only one branch applies at runtime; the property is present only if all branches
+  guarantee it).
+* **if / then / else** — property is promoted only when it appears in ``required`` in **both**
+  ``then`` and ``else``. If only a ``then`` block exists (no ``else``), the property is never
+  promoted because the ``else`` path may apply at runtime and the property would be absent.
+
+For example, with a two-branch ``oneOf`` where ``age`` is required in both branches:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "oneOf": [
+            {
+                "type": "object",
+                "required": ["age"],
+                "properties": {
+                    "age": {
+                        "type": "integer"
+                    }
+                }
+            },
+            {
+                "type": "object",
+                "required": ["age"],
+                "properties": {
+                    "age": {
+                        "type": "string"
+                    }
+                }
+            }
+        ]
+    }
+
+Generated interface:
+
+.. code-block:: php
+
+    public function setAge(int | string $age): static;
+    public function getAge(): int | string;
+
+Because ``age`` is required in every branch, the generator removes the ``null`` from the union — a
+valid input always provides ``age``. If ``age`` were optional in even one branch, the getter would
+be ``int | string | null``.
+
+.. note::
+
+    Promotion only affects the PHP type hint (nullability). It does **not** set ``isRequired()``
+    to ``true`` on the property. The schema-level ``required`` constraint is still enforced by the
+    composition validator, not by a separate required-value check. This means omitting a promoted
+    property still raises a composition exception, not a ``RequiredValueException``.
 
 Properties exclusive to a single branch
 ----------------------------------------

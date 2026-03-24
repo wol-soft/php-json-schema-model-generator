@@ -69,6 +69,19 @@ class PropertyMerger
 
         // Use getType(true) for the stored output type.
         // getType(false) post-Phase-5 returns a synthesised union and cannot be decomposed.
+        //
+        // For allOf: a truly-untyped incoming branch (no type keyword, not an explicit null-type
+        // branch) adds no type constraint — all allOf branches apply simultaneously, so the
+        // existing type is unaffected. Skip mergeNullableBranch in that case to avoid wrongly
+        // wiping the existing type.
+        if (
+            $isAllOf
+            && $incoming->getType(true) === null
+            && !str_contains($incoming->getTypeHint(), 'null')
+        ) {
+            return;
+        }
+
         if ($this->mergeNullableBranch($existing, $incoming) || $this->mergeIntoExistingNull($existing, $incoming)) {
             return;
         }

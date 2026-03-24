@@ -167,3 +167,12 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
     The union-widening and nullability rules for ``if``/``then``/``else`` follow the same logic as
     ``anyOf``/``oneOf``. See `Cross-typed compositions <crossTypedComposition.html>`__ for the full
     explanation.
+
+.. note::
+
+    For object-level ``if``/``then``/``else`` compositions, when a property appears in the
+    ``required`` array of **both** ``then`` and ``else``, the generator promotes that property to
+    non-nullable. Exactly one of the two branches applies at runtime, and both guarantee the
+    property's presence. If there is no ``else`` block, the property is never promoted — the schema
+    is silent when the condition fails, so the property may be absent. See
+    `Cross-typed compositions <crossTypedComposition.html>`__ for the full promotion rules.
