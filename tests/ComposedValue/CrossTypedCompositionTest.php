@@ -23,12 +23,13 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
             (new GeneratorConfiguration())->setImmutable(false),
         );
 
+        // age is required in every branch → promoted to non-nullable union.
         $this->assertEqualsCanonicalizing(
-            ['int', 'string', 'null'],
+            ['int', 'string'],
             $this->getReturnTypeNames($className, 'getAge'),
         );
         $this->assertEqualsCanonicalizing(
-            ['int', 'string', 'null'],
+            ['int', 'string'],
             $this->getParameterTypeNames($className, 'setAge'),
         );
     }
@@ -94,12 +95,13 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
             (new GeneratorConfiguration())->setImmutable(false),
         );
 
+        // age is required in every branch → promoted to non-nullable union.
         $this->assertEqualsCanonicalizing(
-            ['int', 'string', 'null'],
+            ['int', 'string'],
             $this->getReturnTypeNames($className, 'getAge'),
         );
         $this->assertEqualsCanonicalizing(
-            ['int', 'string', 'null'],
+            ['int', 'string'],
             $this->getParameterTypeNames($className, 'setAge'),
         );
     }
@@ -165,12 +167,13 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
             (new GeneratorConfiguration())->setImmutable(false),
         );
 
+        // age is required in all three branches → promoted to non-nullable union.
         $this->assertEqualsCanonicalizing(
-            ['int', 'string', 'bool', 'null'],
+            ['int', 'string', 'bool'],
             $this->getReturnTypeNames($className, 'getAge'),
         );
         $this->assertEqualsCanonicalizing(
-            ['int', 'string', 'bool', 'null'],
+            ['int', 'string', 'bool'],
             $this->getParameterTypeNames($className, 'setAge'),
         );
     }
@@ -211,7 +214,9 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
     public function testAllOfWithConflictingTypesBranchesThrowsSchemaException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches("/Property 'age' is defined with conflicting types across allOf branches/");
+        $this->expectExceptionMessageMatches(
+            "/Property 'age' is defined with conflicting types across allOf branches/",
+        );
 
         $this->generateClassFromFile('AgeAllOfConflicting.json');
     }
@@ -373,15 +378,39 @@ class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
         $this->assertFalse($this->getReturnType($className, 'getAge') instanceof ReflectionUnionType);
     }
 
-    // --- same type in both branches — no widening to union ---
+    // --- allOf with untyped branch alongside typed branch — type preserved ---
 
-    public function testOneOfSameTypeBranchesRetainsNullableInt(): void
+    public function testAllOfUntypedBranchPreservesTypeFromTypedBranch(): void
     {
-        $className = $this->generateClassFromFile('AgeSameTypeOneOf.json');
+        $className = $this->generateClassFromFile(
+            'AgeAllOfUntypedBranch.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
 
+        // One allOf branch declares age as integer; the second branch adds only a constraint
+        // (maximum) with no 'type' keyword. An untyped allOf branch must not wipe the type —
+        // all branches apply simultaneously, so a branch with no type adds no type constraint.
+        // The result must be ?int (same as AgeAllOfAllOptional.json with matching types).
         $this->assertEqualsCanonicalizing(
             ['int', 'null'],
             $this->getReturnTypeNames($className, 'getAge'),
         );
+
+        $object = new $className(['age' => 50]);
+        $this->assertSame(50, $object->getAge());
+    }
+
+    // --- same type in both branches — no widening to union ---
+
+    public function testOneOfSameTypeBranchesRetainsNonNullableInt(): void
+    {
+        $className = $this->generateClassFromFile('AgeSameTypeOneOf.json');
+
+        // age is required in both branches → promoted to non-nullable.
+        $this->assertEqualsCanonicalizing(
+            ['int'],
+            $this->getReturnTypeNames($className, 'getAge'),
+        );
+        $this->assertFalse($this->getReturnType($className, 'getAge')->allowsNull());
     }
 }

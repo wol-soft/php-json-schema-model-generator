@@ -81,3 +81,10 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
     the intersection of all declared types across branches. See
     `Cross-typed compositions <crossTypedComposition.html>`__ for the full explanation and a contrast
     with ``anyOf``/``oneOf`` union widening.
+
+.. note::
+
+    For object-level ``allOf`` compositions, when a property appears in the ``required`` array of
+    **any** branch, the generator promotes that property to non-nullable in the generated class. All
+    ``allOf`` branches must hold simultaneously, so any branch's ``required`` constraint is effectively
+    global. See `Cross-typed compositions <crossTypedComposition.html>`__ for the full promotion rules.

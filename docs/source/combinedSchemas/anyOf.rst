@@ -70,3 +70,11 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
     widens the property to a union type. See
     `Cross-typed compositions <crossTypedComposition.html>`__ for the full explanation including
     nullability rules and the ``allOf`` contrast.
+
+.. note::
+
+    For object-level ``anyOf`` compositions, when a property appears in the ``required`` array of
+    **every** branch, the generator promotes that property to non-nullable in the generated class.
+    Because at least one branch must apply and all branches guarantee the property's presence, the
+    getter can safely be non-nullable. See `Cross-typed compositions <crossTypedComposition.html>`__
+    for the full promotion rules.

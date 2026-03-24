@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "anyOf": [
+    {
+      "required": ["name"]
+    },
+    {
+      "required": ["name"]
+    }
+  ]
+}

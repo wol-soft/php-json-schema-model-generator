@@ -11,6 +11,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\ {
     AdditionalPropertiesPostProcessor,
+    CompositionRequiredPromotionPostProcessor,
     CompositionValidationPostProcessor,
     ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor,
     PatternPropertiesPostProcessor,
@@ -45,7 +46,8 @@ class ModelGenerator
             ->addPostProcessor(new CompositionValidationPostProcessor())
             ->addPostProcessor(new AdditionalPropertiesPostProcessor())
             ->addPostProcessor(new PatternPropertiesPostProcessor())
-            ->addPostProcessor(new ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor());
+            ->addPostProcessor(new ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor())
+            ->addPostProcessor(new CompositionRequiredPromotionPostProcessor());
     }
 
     public function addPostProcessor(PostProcessor $postProcessor): self

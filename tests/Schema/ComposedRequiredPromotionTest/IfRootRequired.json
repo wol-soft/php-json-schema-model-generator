@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "type": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    }
+  },
+  "if": {
+    "properties": {
+      "type": {
+        "const": "admin"
+      }
+    }
+  },
+  "then": {
+    "required": ["name"]
+  },
+  "else": {
+    "required": ["name"]
+  }
+}
