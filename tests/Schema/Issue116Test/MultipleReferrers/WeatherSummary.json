@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "current": {
+      "$ref": "ForecastRange.json"
+    }
+  }
+}

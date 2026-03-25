@@ -32,17 +32,33 @@ class ReferenceProcessor extends AbstractTypedValueProcessor
             $definition = $dictionary->getDefinition($reference, $this->schemaProcessor, $path);
 
             if ($definition) {
+                $definitionSchema = $definition->getSchema();
+
                 if (
-                    $this->schema->getClassPath() !== $definition->getSchema()->getClassPath() ||
-                    $this->schema->getClassName() !== $definition->getSchema()->getClassName() ||
+                    $this->schema->getClassPath() !== $definitionSchema->getClassPath() ||
+                    $this->schema->getClassName() !== $definitionSchema->getClassName() ||
                     (
                         $this->schema->getClassName() === 'ExternalSchema' &&
-                        $definition->getSchema()->getClassName() === 'ExternalSchema'
+                        $definitionSchema->getClassName() === 'ExternalSchema'
                     )
                 ) {
                     $this->schema->addNamespaceTransferDecorator(
-                        new SchemaNamespaceTransferDecorator($definition->getSchema()),
+                        new SchemaNamespaceTransferDecorator($definitionSchema),
                     );
+
+                    // When the definition resolves to a canonical (non-ExternalSchema) class that
+                    // lives in a different namespace from the current schema, register its FQCN
+                    // directly as a used class. The ExternalSchema intermediary that previously
+                    // performed this registration (transitively via its own usedClasses list) is
+                    // no longer created when the file was already processed; this explicit call
+                    // ensures the referencing schema's import list remains complete.
+                    if ($definitionSchema->getClassName() !== 'ExternalSchema') {
+                        $this->schema->addUsedClass(join('\\', array_filter([
+                            $this->schemaProcessor->getGeneratorConfiguration()->getNamespacePrefix(),
+                            $definitionSchema->getClassPath(),
+                            $definitionSchema->getClassName(),
+                        ])));
+                    }
                 }
 
                 return $definition->resolveReference($propertyName, $path, $this->propertyMetaDataCollection);

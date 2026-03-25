@@ -93,3 +93,19 @@ Generated interface:
 If a base reference is used and the reference doesn't point to an object definition an Exception will be thrown during the model generation process:
 
 * A referenced schema on base level must provide an object definition [Citizen]
+
+External file deduplication
+----------------------------
+
+When multiple schemas in the same provider directory reference the same external file via ``$ref``,
+the generator processes that file only once and reuses the resulting class for every reference site.
+The canonical class name is derived from the referenced filename — for example, a ``$ref`` to
+``address.json`` resolves to the ``Address`` class, regardless of which schema first triggers the
+resolution and regardless of the order in which the provider iterates the files.
+
+This means that all type hints across all referencing schemas point to the same ``Address`` class,
+so ``instanceof`` checks, serialisation, and builder post-processors all see a consistent type.
+
+Files outside the provider's base directory (e.g. referenced via ``../`` paths) are handled via
+an internal placeholder and are not rendered as standalone classes; they still resolve correctly
+for fragment references (``file.json#/definitions/Foo``).

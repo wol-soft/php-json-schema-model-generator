@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "forecasts": {
+      "type": "array",
+      "items": {
+        "$ref": "ForecastRange.json"
+      }
+    }
+  }
+}

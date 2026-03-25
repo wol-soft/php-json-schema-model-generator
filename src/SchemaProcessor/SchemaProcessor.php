@@ -36,6 +36,24 @@ class SchemaProcessor
     protected array $processedSchema = [];
     /** @var PropertyInterface[] Collect processed schemas to avoid duplicated classes */
     protected array $processedMergedProperties = [];
+    /**
+     * Global index of schemas keyed by the canonical file path or URL returned by
+     * SchemaProviderInterface::getRef(). Used to deduplicate external $ref resolutions across
+     * all schema processings, making class generation order-independent.
+     *
+     * When a $ref triggers processTopLevelSchema() for a file that the provider has not yet
+     * reached, the canonical Schema is registered here before property processing begins. If
+     * the provider later iterates the same file, generateModel() detects the match via the
+     * combined file-path + content-signature check and returns the already-registered Schema
+     * without creating a duplicate render job.
+     *
+     * Note: for providers such as OpenAPIv3Provider that yield multiple distinct schemas from
+     * a single source file, each schema has a unique content signature; the signature check
+     * prevents false-positive deduplication across schemas that merely share the same file.
+     *
+     * @var Schema[]
+     */
+    protected array $processedFileSchemas = [];
     /** @var string[] */
     protected array $generatedFiles = [];
 
@@ -120,6 +138,18 @@ class SchemaProcessor
             return $this->processedSchema[$schemaSignature];
         }
 
+        // For initial-class calls: if this exact file+content was already processed eagerly via
+        // processTopLevelSchema() (triggered by a $ref resolution), reuse that schema to avoid a
+        // duplicate render job. The signature check ensures we do not short-circuit when a
+        // different schema shares the same source file (e.g. OpenAPI v3 schemas where all
+        // component schemas are yielded from the same spec file).
+        if (
+            $initialClass && isset($this->processedSchema[$schemaSignature])
+            && $this->getProcessedFileSchema($jsonSchema->getFile()) !== null
+        ) {
+            return $this->processedSchema[$schemaSignature];
+        }
+
         $schema = new Schema(
             $this->getTargetFileName($classPath, $className),
             $classPath,
@@ -130,7 +160,13 @@ class SchemaProcessor
             $this->generatorConfiguration,
         );
 
+        // Register by content signature (secondary dedup for content-identical inline schemas).
         $this->processedSchema[$schemaSignature] = $schema;
+        // Register by canonical file path/URL (primary dedup for external $ref resolutions).
+        // Registering here — before property processing — ensures that any $ref back to this
+        // file encountered while processing the referencing schema finds this canonical schema
+        // immediately, regardless of which schema was discovered first by the provider.
+        $this->registerProcessedFileSchema($jsonSchema->getFile(), $schema);
         $json = $jsonSchema->getJson();
         $json['type'] = 'base';
 
@@ -310,10 +346,20 @@ class SchemaProcessor
      */
     protected function setCurrentClassPath(string $jsonSchemaFile): void
     {
-        $path = str_replace($this->schemaProvider->getBaseDirectory(), '', dirname($jsonSchemaFile));
+        $fileDir  = str_replace('\\', '/', dirname($jsonSchemaFile));
+        $baseDir  = str_replace('\\', '/', $this->schemaProvider->getBaseDirectory());
+        $relative = str_replace($baseDir, '', $fileDir);
+
+        // If the file is outside the provider's base directory, str_replace leaves the absolute
+        // path untouched. In that case fall back to using just the last directory component so
+        // the generated class path stays sensible rather than encoding an absolute path.
+        if ($relative === $fileDir) {
+            $relative = basename($fileDir);
+        }
+
         $pieces = array_map(
             static fn(string $directory): string => ucfirst((string) preg_replace('/\W/', '', $directory)),
-            explode(DIRECTORY_SEPARATOR, $path),
+            explode('/', $relative),
         );
 
         $this->currentClassPath = join('\\', array_filter($pieces));
@@ -342,6 +388,62 @@ class SchemaProcessor
     public function getSchemaProvider(): SchemaProviderInterface
     {
         return $this->schemaProvider;
+    }
+
+    public function getProcessedFileSchema(string $fileKey): ?Schema
+    {
+        return $this->processedFileSchemas[$this->normaliseFileKey($fileKey)] ?? null;
+    }
+
+    public function registerProcessedFileSchema(string $fileKey, Schema $schema): void
+    {
+        $this->processedFileSchemas[$this->normaliseFileKey($fileKey)] = $schema;
+    }
+
+    /**
+     * Normalise a file path or URL to a consistent key for processedFileSchemas.
+     * On Windows, RecursiveDirectoryIterator may produce backslash-separated paths while
+     * RefResolverTrait produces forward-slash paths for the same file. Normalising to forward
+     * slashes ensures the two representations map to the same key.
+     */
+    private function normaliseFileKey(string $fileKey): string
+    {
+        return str_replace('\\', '/', $fileKey);
+    }
+
+    /**
+     * Process an external schema file with its canonical class name and path, exactly as
+     * process() would, but without overwriting the current class path / class name context
+     * (which belongs to the schema that triggered the $ref resolution).
+     *
+     * Returns the resulting Schema, or null if the file does not define an object/composition.
+     *
+     * @throws SchemaException
+     */
+    public function processTopLevelSchema(JsonSchema $jsonSchema): ?Schema
+    {
+        $savedClassPath  = $this->currentClassPath;
+        $savedClassName  = $this->currentClassName;
+
+        $this->setCurrentClassPath($jsonSchema->getFile());
+        $this->currentClassName = $this->generatorConfiguration->getClassNameGenerator()->getClassName(
+            str_ireplace('.json', '', basename($jsonSchema->getFile())),
+            $jsonSchema,
+            false,
+        );
+
+        $schema = $this->processSchema(
+            $jsonSchema,
+            $this->currentClassPath,
+            $this->currentClassName,
+            new SchemaDefinitionDictionary($jsonSchema),
+            true,
+        );
+
+        $this->currentClassPath = $savedClassPath;
+        $this->currentClassName = $savedClassName;
+
+        return $schema;
     }
 
     private function getTargetFileName(string $classPath, string $className): string

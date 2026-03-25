@@ -1,0 +1,16 @@
+{
+  "definitions": {
+    "ForecastRange": {
+      "type": "object",
+      "properties": {
+        "mid": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "mid"
+      ]
+    }
+  }
+}
