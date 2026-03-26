@@ -12,5 +12,7 @@
         <exclude name="PSR2.Classes.ClassDeclaration.ImplementsLine"/>
         <!-- Allow snake_case for internal utility methods -->
         <exclude name="PSR1.Methods.CamelCapsMethodName.NotCamelCaps"/>
+        <!-- Allow underscore-separated class names (e.g. Draft_07, Draft_2020_12) -->
+        <exclude name="Squiz.Classes.ValidClassName.NotPascalCase"/>
     </rule>
 </ruleset>

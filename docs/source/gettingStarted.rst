@@ -309,6 +309,60 @@ The output of a generation process may look like:
     Rendered class MyApp\User\Response\Login
     Rendered class MyApp\User\Response\Register
 
+JSON Schema draft version
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: php
+
+    setDraft(DraftInterface|DraftFactoryInterface $draft);
+
+Controls which JSON Schema draft version is used during generation. Accepts either a concrete
+draft instance (``DraftInterface``) to pin all schemas to one draft, or a factory
+(``DraftFactoryInterface``) to select the draft per schema file.
+
+By default ``AutoDetectionDraft`` is used. It implements ``DraftFactoryInterface`` and inspects
+the ``$schema`` keyword of each schema file to select the appropriate draft automatically. When
+the keyword is absent or unrecognised, it falls back to JSON Schema Draft 7 behaviour, so schemas
+with different ``$schema`` declarations in the same generation run can use different drafts.
+
+To pin all schemas to a specific draft:
+
+.. code-block:: php
+
+    use PHPModelGenerator\Draft\Draft_07;
+
+    (new GeneratorConfiguration())
+        ->setDraft(new Draft_07());
+
+To use a custom draft factory that selects the draft based on your own logic:
+
+.. code-block:: php
+
+    use PHPModelGenerator\Draft\DraftFactoryInterface;
+    use PHPModelGenerator\Draft\DraftInterface;
+    use PHPModelGenerator\Draft\Draft_07;
+    use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+
+    class MyDraftFactory implements DraftFactoryInterface
+    {
+        public function getDraftForSchema(JsonSchema $jsonSchema): DraftInterface
+        {
+            // select draft based on schema content
+            return new Draft_07();
+        }
+    }
+
+    (new GeneratorConfiguration())
+        ->setDraft(new MyDraftFactory());
+
+Available draft classes:
+
+============= ================================
+Draft class   Description
+============= ================================
+``Draft_07``  JSON Schema Draft 7 (default)
+============= ================================
+
 Custom filter
 ^^^^^^^^^^^^^
 
