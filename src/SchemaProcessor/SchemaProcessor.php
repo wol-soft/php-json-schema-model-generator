@@ -140,11 +140,14 @@ class SchemaProcessor
 
         // For initial-class calls: if this exact file+content was already processed eagerly via
         // processTopLevelSchema() (triggered by a $ref resolution), reuse that schema to avoid a
-        // duplicate render job. The signature check ensures we do not short-circuit when a
-        // different schema shares the same source file (e.g. OpenAPI v3 schemas where all
-        // component schemas are yielded from the same spec file).
+        // duplicate render job. Both checks are required:
+        // - The file-path check detects that this file was already processed via a $ref.
+        // - The signature check ensures we do not short-circuit when a different schema shares
+        //   the same source file (e.g. OpenAPI v3 where all component schemas are yielded from
+        //   the same spec file — each has a unique signature).
         if (
-            $initialClass && isset($this->processedSchema[$schemaSignature])
+            $initialClass
+            && isset($this->processedSchema[$schemaSignature])
             && $this->getProcessedFileSchema($jsonSchema->getFile()) !== null
         ) {
             return $this->processedSchema[$schemaSignature];

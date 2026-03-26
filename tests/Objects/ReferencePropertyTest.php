@@ -129,7 +129,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(ValidationException::class);
         if ($propertyValue instanceof stdClass) {
             $this->expectExceptionMessageMatches(
-                '/Invalid class for person. Requires .+, got stdClass/',
+                '/Invalid class for person. Requires ReferencePropertyTest_.*, got stdClass/',
             );
         } else {
             $this->expectExceptionMessage('Invalid type for person. Requires object, got ' . gettype($propertyValue));
@@ -700,7 +700,8 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className([
             'personA' => ['name' => 'Hannes'],
-            'personB' => ['name' => 'Susi']],);
+            'personB' => ['name' => 'Susi']],
+        );
 
         $this->assertTrue(is_callable([$object, 'getPersonA']));
         $this->assertTrue(is_callable([$object, 'getPersonB']));

@@ -170,20 +170,29 @@ class SchemaDefinitionDictionary extends ArrayObject
         // so we use an ExternalSchema placeholder instead — this avoids rendering and requiring
         // the class on every generateModels() call when test infrastructure re-runs the generator
         // with a fresh SchemaProcessor that has no memory of previous runs.
-        $baseDir      = str_replace('\\', '/', $schemaProcessor->getSchemaProvider()->getBaseDirectory());
-        $canonicalNorm = str_replace('\\', '/', $canonicalKey);
+        $baseDir         = str_replace('\\', '/', $schemaProcessor->getSchemaProvider()->getBaseDirectory());
+        $canonicalNorm   = str_replace('\\', '/', $canonicalKey);
         $isInsideBaseDir = str_starts_with($canonicalNorm, $baseDir . '/') || $canonicalNorm === $baseDir;
 
         if ($isInsideBaseDir) {
+            // The file lives within the provider's base directory and will eventually be iterated.
+            // Process it eagerly now so the canonical class name (derived from the filename) is
+            // used regardless of which schema the provider discovers first (issue #116).
+            // processTopLevelSchema also registers the schema in processedFileSchemas, so no
+            // separate registerProcessedFileSchema call is needed here.
+            //
+            // processTopLevelSchema returns null when the file has no top-level type:object or
+            // composition (e.g. a definitions-only file). Fall through to ExternalSchema in that
+            // case so fragment refs inside it still resolve.
             $schema = $schemaProcessor->processTopLevelSchema($jsonSchema);
         } else {
             $schema = null;
         }
 
         if ($schema === null) {
-            // The file does not define an object or composition (e.g. a definitions-only file),
-            // or it is outside the provider's base directory. Fall back to the ExternalSchema
-            // approach so fragment refs inside it still resolve.
+            // The file is outside the provider's base directory, or it defines no top-level
+            // object/composition. Use an ExternalSchema placeholder so fragment refs still
+            // resolve, without rendering or requiring a class file on disk.
             $schema = new Schema(
                 '',
                 $schemaProcessor->getCurrentClassPath(),
