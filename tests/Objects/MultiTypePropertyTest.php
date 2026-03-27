@@ -285,7 +285,7 @@ ERROR
                 ['Test1', 1],
                 InvalidItemException::class,
                 <<<ERROR
-Invalid items in array item of array property:
+Invalid items in array property:
   - invalid item #1
     * Invalid type for item of array property. Requires [string, array], got integer
 ERROR
@@ -299,9 +299,9 @@ ERROR
                 ['Test1', [3, 'Test3']],
                 InvalidItemException::class,
                 <<<ERROR
-Invalid items in array item of array property:
+Invalid items in array property:
   - invalid item #1
-    * Invalid items in array item of array property:
+    * Invalid items in array property:
       - invalid item #0
         * Invalid type for item of array property. Requires [string, array], got integer
 ERROR
@@ -310,7 +310,7 @@ ERROR
                 ['Test1', []],
                 InvalidItemException::class,
                 <<<ERROR
-Invalid items in array item of array property:
+Invalid items in array property:
   - invalid item #1
     * Array item of array property must not contain less than 2 items
 ERROR

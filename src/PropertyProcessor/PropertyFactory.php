@@ -7,9 +7,15 @@ namespace PHPModelGenerator\PropertyProcessor;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
+use PHPModelGenerator\Model\Validator\TypeCheckInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
@@ -52,6 +58,19 @@ class PropertyFactory
 
         $resolvedType = $json['type'] ?? 'any';
 
+        if (is_array($resolvedType)) {
+            return $this->createMultiTypeProperty(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema,
+                $resolvedType,
+                $required,
+            );
+        }
+
+        $this->checkType($resolvedType, $schema);
+
         $property = $this->processorFactory
             ->getProcessor(
                 $resolvedType,
@@ -61,25 +80,160 @@ class PropertyFactory
             )
             ->process($propertyName, $propertySchema);
 
-        if (is_array($resolvedType)) {
-            // For multi-type properties the type-specific modifiers run per sub-property inside
-            // MultiTypeProcessor via applyTypeModifiers(). Only the universal modifiers run here.
-            $this->applyUniversalModifiers($schemaProcessor, $schema, $property, $propertySchema);
-        } else {
-            $this->applyDraftModifiers($schemaProcessor, $schema, $property, $propertySchema);
+        $this->applyDraftModifiers($schemaProcessor, $schema, $property, $propertySchema);
+
+        return $property;
+    }
+
+    /**
+     * Handle "type": [...] properties by processing each type through its legacy processor,
+     * merging validators and decorators onto a single property, then consolidating type checks.
+     *
+     * @param string[] $types
+     *
+     * @throws SchemaException
+     */
+    private function createMultiTypeProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        array $types,
+        bool $required,
+    ): PropertyInterface {
+        $json = $propertySchema->getJson();
+
+        $property = (new Property(
+            $propertyName,
+            null,
+            $propertySchema,
+            $json['description'] ?? '',
+        ))
+            ->setRequired($required)
+            ->setReadOnly(
+                (isset($json['readOnly']) && $json['readOnly'] === true) ||
+                $schemaProcessor->getGeneratorConfiguration()->isImmutable(),
+            );
+
+        $collectedTypes   = [];
+        $typeHints        = [];
+        $resolvedSubCount = 0;
+        $totalSubCount    = count($types);
+
+        // Strip the default from sub-schemas so that default handling runs only once via the
+        // universal DefaultValueModifier below, which already handles the multi-type case.
+        $subJson = $json;
+        unset($subJson['default']);
+
+        foreach ($types as $type) {
+            $this->checkType($type, $schema);
+
+            $subJson['type'] = $type;
+            $subSchema       = $propertySchema->withJson($subJson);
+
+            $subProperty = $this->processorFactory
+                ->getProcessor($type, $schemaProcessor, $schema, $required)
+                ->process($propertyName, $subSchema);
+
+            $this->applyTypeModifiers($schemaProcessor, $schema, $subProperty, $subSchema);
+
+            $subProperty->onResolve(function () use (
+                $property,
+                $subProperty,
+                $schemaProcessor,
+                $schema,
+                $propertySchema,
+                $totalSubCount,
+                &$collectedTypes,
+                &$typeHints,
+                &$resolvedSubCount,
+            ): void {
+                foreach ($subProperty->getValidators() as $validatorContainer) {
+                    $validator = $validatorContainer->getValidator();
+
+                    if ($validator instanceof TypeCheckInterface) {
+                        array_push($collectedTypes, ...$validator->getTypes());
+                        continue;
+                    }
+
+                    $property->addValidator($validator, $validatorContainer->getPriority());
+                }
+
+                if ($subProperty->getDecorators()) {
+                    $property->addDecorator(new PropertyTransferDecorator($subProperty));
+                }
+
+                $typeHints[] = $subProperty->getTypeHint();
+
+                if (++$resolvedSubCount < $totalSubCount || empty($collectedTypes)) {
+                    return;
+                }
+
+                $this->finalizeMultiTypeProperty(
+                    $property,
+                    array_unique($collectedTypes),
+                    $typeHints,
+                    $schemaProcessor,
+                    $schema,
+                    $propertySchema,
+                );
+            });
         }
 
         return $property;
     }
 
     /**
-     * Run only the type-specific Draft modifiers (no universal 'any' modifiers) for the given
-     * property. Used by MultiTypeProcessor to apply per-type modifiers to each sub-property
-     * without double-applying universal modifiers that run separately on the main property.
+     * Called once all sub-properties of a multi-type property have resolved.
+     * Adds the consolidated MultiTypeCheckValidator, sets the union PropertyType,
+     * attaches the type-hint decorator, and runs universal modifiers.
+     *
+     * @param string[] $collectedTypes
+     * @param string[] $typeHints
      *
      * @throws SchemaException
      */
-    public function applyTypeModifiers(
+    private function finalizeMultiTypeProperty(
+        PropertyInterface $property,
+        array $collectedTypes,
+        array $typeHints,
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        JsonSchema $propertySchema,
+    ): void {
+        $hasNull      = in_array('null', $collectedTypes, true);
+        $nonNullTypes = array_values(array_filter(
+            $collectedTypes,
+            static fn(string $t): bool => $t !== 'null',
+        ));
+
+        $allowImplicitNull = $schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed()
+            && !$property->isRequired();
+
+        $property->addValidator(
+            new MultiTypeCheckValidator($collectedTypes, $property, $allowImplicitNull),
+            2,
+        );
+
+        if ($nonNullTypes) {
+            $property->setType(
+                new PropertyType($nonNullTypes, $hasNull ? true : null),
+                new PropertyType($nonNullTypes, $hasNull ? true : null),
+            );
+        }
+
+        $property->addTypeHintDecorator(new TypeHintDecorator($typeHints));
+
+        $this->applyUniversalModifiers($schemaProcessor, $schema, $property, $propertySchema);
+    }
+
+    /**
+     * Run only the type-specific Draft modifiers (no universal 'any' modifiers) for the given
+     * property.
+     *
+     * @throws SchemaException
+     */
+    private function applyTypeModifiers(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         PropertyInterface $property,
@@ -108,7 +262,7 @@ class PropertyFactory
      *
      * @throws SchemaException
      */
-    public function applyUniversalModifiers(
+    private function applyUniversalModifiers(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         PropertyInterface $property,
@@ -162,6 +316,24 @@ class PropertyFactory
                 $modifier->modify($schemaProcessor, $schema, $property, $propertySchema);
             }
         }
+    }
+
+    /**
+     * @throws SchemaException
+     */
+    private function checkType(mixed $type, Schema $schema): void
+    {
+        if (is_string($type)) {
+            return;
+        }
+
+        throw new SchemaException(
+            sprintf(
+                'Invalid property type %s in file %s',
+                $type,
+                $schema->getJsonSchema()->getFile(),
+            )
+        );
     }
 
     private function resolveBuiltDraft(SchemaProcessor $schemaProcessor, JsonSchema $propertySchema): Draft
