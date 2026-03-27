@@ -8,8 +8,8 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\Model\Validator\TypeCheckValidator;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
@@ -25,11 +25,11 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
      * AbstractTypedValueProcessor constructor.
      */
     public function __construct(
-        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
+        bool $required = false,
     ) {
-        parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema, static::TYPE);
+        parent::__construct($schemaProcessor, $schema, $required, static::TYPE);
     }
 
     /**
@@ -75,6 +75,17 @@ abstract class AbstractTypedValueProcessor extends AbstractValueProcessor
     protected function generateValidators(PropertyInterface $property, JsonSchema $propertySchema): void
     {
         parent::generateValidators($property, $propertySchema);
+
+        // Skip adding TypeCheckValidator if a Draft modifier already added one for this type,
+        // preventing duplicate type-check validators during the bridge period.
+        foreach ($property->getValidators() as $validator) {
+            if (
+                $validator->getValidator() instanceof TypeCheckInterface &&
+                in_array(strtolower(static::TYPE), $validator->getValidator()->getTypes(), true)
+            ) {
+                return;
+            }
+        }
 
         $property->addValidator(
             new TypeCheckValidator(static::TYPE, $property, $this->isImplicitNullAllowed($property)),

@@ -13,7 +13,6 @@ use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -41,18 +40,18 @@ class MultiTypeProcessor extends AbstractValueProcessor
     public function __construct(
         PropertyProcessorFactory $propertyProcessorFactory,
         array $types,
-        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
+        bool $required = false,
     ) {
-        parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
+        parent::__construct($schemaProcessor, $schema, $required);
 
         foreach ($types as $type) {
             $this->propertyProcessors[$type] = $propertyProcessorFactory->getProcessor(
                 $type,
-                $propertyMetaDataCollection,
                 $schemaProcessor,
                 $schema,
+                $required,
             );
         }
     }

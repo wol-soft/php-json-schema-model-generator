@@ -10,7 +10,6 @@ use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -42,11 +41,11 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
 
         $this->validationProperty = $propertyFactory->create(
-            new PropertyMetaDataCollection(['pattern property']),
             $schemaProcessor,
             $schema,
             'pattern property',
             $propertyStructure,
+            true,
         );
 
         $this->validationProperty->onResolve(function (): void {

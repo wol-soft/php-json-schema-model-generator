@@ -15,7 +15,6 @@ use PHPModelGenerator\PropertyProcessor\Property\NullProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\NumberProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\ObjectProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\StringProcessor;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -40,7 +39,6 @@ class PropertyProcessorFactoryTest extends TestCase
 
         $propertyProcessor = $propertyProcessorFactory->getProcessor(
             $type,
-            new PropertyMetaDataCollection(),
             new SchemaProcessor(
                 new RecursiveDirectoryProvider(__DIR__),
                 '',
@@ -81,7 +79,6 @@ class PropertyProcessorFactoryTest extends TestCase
 
         $propertyProcessorFactory->getProcessor(
             'Hello',
-            new PropertyMetaDataCollection(),
             new SchemaProcessor(
                 new RecursiveDirectoryProvider(__DIR__),
                 '',

@@ -24,6 +24,11 @@ final class Draft
         return $this->types;
     }
 
+    public function hasType(string $type): bool
+    {
+        return isset($this->types[$type]);
+    }
+
     /**
      * Returns the Type entries whose modifiers apply to a property of the given type(s).
      * The special type 'any' always applies to every property; passing 'any' returns all types.

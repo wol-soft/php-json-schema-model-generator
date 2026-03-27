@@ -11,7 +11,6 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use ReflectionException;
 
@@ -26,12 +25,12 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
      * AbstractValueProcessor constructor.
      */
     public function __construct(
-        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
+        bool $required = false,
         private readonly string $type = '',
     ) {
-        parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
+        parent::__construct($schemaProcessor, $schema, $required);
     }
 
     /**
@@ -50,7 +49,7 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
             $propertySchema,
             $json['description'] ?? '',
         ))
-            ->setRequired($this->propertyMetaDataCollection->isAttributeRequired($propertyName))
+            ->setRequired($this->required)
             ->setReadOnly(
                 (isset($json['readOnly']) && $json['readOnly'] === true) ||
                 $this->schemaProcessor->getGeneratorConfiguration()->isImmutable(),

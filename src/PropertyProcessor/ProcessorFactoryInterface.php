@@ -15,12 +15,12 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 interface ProcessorFactoryInterface
 {
     /**
-     * @param string|array               $type
+     * @param string|array $type
      */
     public function getProcessor(
         $type,
-        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
+        bool $required = false,
     ): PropertyProcessorInterface;
 }

@@ -34,7 +34,7 @@ class ConstProcessor extends AbstractPropertyProcessor
             $json['description'] ?? '',
         );
 
-        $property->setRequired($this->propertyMetaDataCollection->isAttributeRequired($propertyName));
+        $property->setRequired($this->required);
 
         $check = match (true) {
             $property->isRequired()

@@ -10,7 +10,6 @@ use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -46,11 +45,11 @@ class ArrayTupleValidator extends PropertyTemplateValidator
 
             // an item of the array behaves like a nested property to add item-level validation
             $tupleProperty = $propertyFactory->create(
-                new PropertyMetaDataCollection([$tupleItemName]),
                 $schemaProcessor,
                 $schema,
                 $tupleItemName,
                 $propertiesStructure->withJson($tupleItem),
+                true,
             );
 
             $this->tupleProperties[] = $tupleProperty;

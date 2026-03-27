@@ -12,7 +12,6 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\PropertyProcessor\Property\ConstProcessor;
 use PHPModelGenerator\PropertyProcessor\Property\StringProcessor;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -43,7 +42,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
             throw new SchemaException("Invalid const property name in file {$propertiesNames->getFile()}");
         }
 
-        $nameValidationProperty = (new $processor(new PropertyMetaDataCollection(), $schemaProcessor, $schema))
+        $nameValidationProperty = (new $processor($schemaProcessor, $schema))
             ->process('property name', $propertiesNames)
             // the property name validator doesn't need type checks or required checks so simply filter them out
             ->filterValidators(static fn(Validator $validator): bool =>

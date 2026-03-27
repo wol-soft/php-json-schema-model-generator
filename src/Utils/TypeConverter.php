@@ -15,4 +15,13 @@ class TypeConverter
             'NULL' => 'null',
         ][$type] ?? $type;
     }
+
+    public static function jsonSchemaToPhp(string $type): string
+    {
+        return [
+            'integer' => 'int',
+            'number'  => 'float',
+            'boolean' => 'bool',
+        ][$type] ?? $type;
+    }
 }

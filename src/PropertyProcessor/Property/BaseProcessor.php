@@ -15,6 +15,7 @@ use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
@@ -27,9 +28,11 @@ use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyNamesValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
+use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\PropertyProcessor\ComposedValue\AllOfProcessor;
 use PHPModelGenerator\PropertyProcessor\ComposedValue\ComposedPropertiesInterface;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
+use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 
@@ -244,10 +247,6 @@ class BaseProcessor extends AbstractPropertyProcessor
         $json = $propertySchema->getJson();
 
         $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
-        $propertyMetaDataCollection = new PropertyMetaDataCollection(
-            $json['required'] ?? [],
-            $json['dependencies'] ?? [],
-        );
 
         $json['properties'] ??= [];
         // setup empty properties for required properties which aren't defined in the properties section of the schema
@@ -278,14 +277,79 @@ class BaseProcessor extends AbstractPropertyProcessor
                 continue;
             }
 
+            $required = in_array($propertyName, $json['required'] ?? [], true);
+            $dependencies = $json['dependencies'][$propertyName] ?? null;
+            $property = $propertyFactory->create(
+                $this->schemaProcessor,
+                $this->schema,
+                (string) $propertyName,
+                $propertySchema->withJson(
+                    $dependencies !== null
+                        ? $propertyStructure + ['_dependencies' => $dependencies]
+                        : $propertyStructure,
+                ),
+                $required,
+            );
+
+            if ($dependencies !== null) {
+                $this->addDependencyValidator($property, $dependencies);
+            }
+
+            $this->schema->addProperty($property);
+        }
+    }
+
+    /**
+     * @throws SchemaException
+     */
+    private function addDependencyValidator(PropertyInterface $property, array $dependencies): void
+    {
+        // check if we have a simple list of properties which must be present if the current property is present
+        $propertyDependency = true;
+
+        array_walk(
+            $dependencies,
+            static function ($dependency, $index) use (&$propertyDependency): void {
+                $propertyDependency = $propertyDependency && is_int($index) && is_string($dependency);
+            },
+        );
+
+        if ($propertyDependency) {
+            $property->addValidator(new PropertyDependencyValidator($property, $dependencies));
+
+            return;
+        }
+
+        if (!isset($dependencies['type'])) {
+            $dependencies['type'] = 'object';
+        }
+
+        $dependencySchema = $this->schemaProcessor->processSchema(
+            new JsonSchema($this->schema->getJsonSchema()->getFile(), $dependencies),
+            $this->schema->getClassPath(),
+            "{$this->schema->getClassName()}_{$property->getName()}_Dependency",
+            $this->schema->getSchemaDictionary(),
+        );
+
+        $property->addValidator(new SchemaDependencyValidator($this->schemaProcessor, $property, $dependencySchema));
+        $this->schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
+
+        $this->transferDependentPropertiesToBaseSchema($dependencySchema);
+    }
+
+    /**
+     * Transfer all properties from $dependencySchema to the base schema of the current property
+     */
+    private function transferDependentPropertiesToBaseSchema(Schema $dependencySchema): void
+    {
+        foreach ($dependencySchema->getProperties() as $property) {
             $this->schema->addProperty(
-                $propertyFactory->create(
-                    $propertyMetaDataCollection,
-                    $this->schemaProcessor,
-                    $this->schema,
-                    (string) $propertyName,
-                    $propertySchema->withJson($propertyStructure),
-                )
+                // validators and types must not be transferred as any value is acceptable for the property if the
+                // property defining the dependency isn't present
+                (clone $property)
+                    ->setRequired(false)
+                    ->setType(null)
+                    ->filterValidators(static fn(): bool => false),
             );
         }
     }

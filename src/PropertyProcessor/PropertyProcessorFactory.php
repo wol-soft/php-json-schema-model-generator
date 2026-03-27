@@ -17,27 +17,22 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 class PropertyProcessorFactory implements ProcessorFactoryInterface
 {
     /**
-     * @param string|array               $type
+     * @param string|array $type
      *
      * @throws SchemaException
      */
     public function getProcessor(
         $type,
-        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
+        bool $required = false,
     ): PropertyProcessorInterface {
         if (is_string($type)) {
-            return $this->getSingleTypePropertyProcessor(
-                $type,
-                $propertyMetaDataCollection,
-                $schemaProcessor,
-                $schema,
-            );
+            return $this->getSingleTypePropertyProcessor($type, $schemaProcessor, $schema, $required);
         }
 
         if (is_array($type)) {
-            return new MultiTypeProcessor($this, $type, $propertyMetaDataCollection, $schemaProcessor, $schema);
+            return new MultiTypeProcessor($this, $type, $schemaProcessor, $schema, $required);
         }
 
         throw new SchemaException(
@@ -54,9 +49,9 @@ class PropertyProcessorFactory implements ProcessorFactoryInterface
      */
     protected function getSingleTypePropertyProcessor(
         string $type,
-        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
+        bool $required = false,
     ): PropertyProcessorInterface {
         $processor = '\\PHPModelGenerator\\PropertyProcessor\\Property\\' . ucfirst(strtolower($type)) . 'Processor';
         if (!class_exists($processor)) {
@@ -69,6 +64,6 @@ class PropertyProcessorFactory implements ProcessorFactoryInterface
             );
         }
 
-        return new $processor($propertyMetaDataCollection, $schemaProcessor, $schema);
+        return new $processor($schemaProcessor, $schema, $required);
     }
 }

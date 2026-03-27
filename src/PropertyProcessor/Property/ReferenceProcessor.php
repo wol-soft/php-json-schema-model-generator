@@ -61,7 +61,12 @@ class ReferenceProcessor extends AbstractTypedValueProcessor
                     }
                 }
 
-                return $definition->resolveReference($propertyName, $path, $this->propertyMetaDataCollection);
+                return $definition->resolveReference(
+                    $propertyName,
+                    $path,
+                    $this->required,
+                    $propertySchema->getJson()['_dependencies'] ?? null,
+                );
             }
         } catch (Exception $exception) {
             throw new SchemaException(

@@ -31,13 +31,13 @@ class ComposedValueProcessorFactory implements ProcessorFactoryInterface
      */
     public function getProcessor(
         $type,
-        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
+        bool $required = false,
     ): PropertyProcessorInterface {
         $processor = '\\PHPModelGenerator\\PropertyProcessor\\ComposedValue\\' . ucfirst($type) . 'Processor';
 
-        $params = [$propertyMetaDataCollection, $schemaProcessor, $schema];
+        $params = [$schemaProcessor, $schema, $required];
 
         if (is_a($processor, AbstractComposedValueProcessor::class, true)) {
             $params[] = $this->rootLevelComposition;

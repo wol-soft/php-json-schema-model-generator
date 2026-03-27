@@ -9,7 +9,10 @@ user to resolve it.
 
 Rules:
 
-- Ask all foreseeable clarifying questions upfront in a single batch before work begins.
+- When there are multiple clarifying questions to ask, ask them **one at a time**, in order of
+  dependency (earlier answers may resolve later questions). Wait for the answer before asking the
+  next question. This allows the user to discuss each point in depth without being overwhelmed by
+  a wall of questions.
 - If new ambiguities emerge during execution that were not foreseeable upfront, pause and ask
   follow-up questions before proceeding past that decision point.
 - For high-stakes decisions (architecture, scope, data model, API shape, behaviour changes) always
@@ -19,6 +22,9 @@ Rules:
   visible so the user can correct it.
 - There must be no silent interpretation or interpolation of under-specified tasks. If something is
   unclear, ask. Do not guess and proceed.
+- For multi-phase implementations, **never start the next phase without an explicit go-ahead from
+  the user**. After completing a phase, summarise what was done and wait for confirmation before
+  proceeding.
 
 When generating a new CLAUDE.md for a repository, include this clarification policy verbatim as a
 preamble before all other content.
@@ -47,6 +53,20 @@ composer update
 ```
 
 Tests write generated PHP classes to `sys_get_temp_dir()/PHPModelGeneratorTest/Models/` and dump failed classes to `./failed-classes/` (auto-cleaned on bootstrap).
+
+### Running the full test suite
+
+When running the full test suite (all 2246 tests), always save output to a file so the complete
+output is available for analysis without re-running. Use `--display-warnings` to capture warning
+details and `--no-coverage` to skip slow coverage collection:
+
+```bash
+php -d memory_limit=128M ./vendor/bin/phpunit --no-coverage --display-warnings 2>&1 | sed 's/\x1b\[[0-9;]*m//g' > /tmp/phpunit-output.txt; tail -5 /tmp/phpunit-output.txt
+```
+
+Then analyse with: `grep -E "FAIL|ERROR|WARN|Tests:" /tmp/phpunit-output.txt`
+
+After analysis is complete, delete the file: `rm /tmp/phpunit-output.txt`
 
 ## Architecture
 
@@ -130,6 +150,10 @@ every detectable invalid case — including `allOf` branches with contradictory 
 property, duplicate property names with unresolvable type conflicts, and any other schema structure
 that cannot produce a correct PHP model. Fail loudly at generation time so the developer sees the
 problem immediately rather than receiving silently incorrect generated code.
+
+### Reading files
+
+Always use the dedicated `Read` tool to read file contents. Never use `sed`, `head`, `tail`, `cat`, or `awk` to read or extract portions of files. The `Read` tool supports `offset` and `limit` parameters for reading partial files when needed.
 
 ### PHP import style
 

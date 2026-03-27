@@ -16,7 +16,6 @@ use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Property\AbstractValueProcessor;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -35,12 +34,12 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
      * AbstractComposedValueProcessor constructor.
      */
     public function __construct(
-        PropertyMetaDataCollection $propertyMetaDataCollection,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
+        bool $required = false,
         private readonly bool $rootLevelComposition,
     ) {
-        parent::__construct($propertyMetaDataCollection, $schemaProcessor, $schema);
+        parent::__construct($schemaProcessor, $schema, $required);
     }
 
     /**
@@ -134,14 +133,13 @@ abstract class AbstractComposedValueProcessor extends AbstractValueProcessor
             $compositionProperty = new CompositionPropertyDecorator(
                 $property->getName(),
                 $compositionSchema,
-                $propertyFactory
-                    ->create(
-                        new PropertyMetaDataCollection([$property->getName() => $property->isRequired()]),
-                        $this->schemaProcessor,
-                        $this->schema,
-                        $property->getName(),
-                        $compositionSchema,
-                    )
+                $propertyFactory->create(
+                    $this->schemaProcessor,
+                    $this->schema,
+                    $property->getName(),
+                    $compositionSchema,
+                    $property->isRequired(),
+                ),
             );
 
             $compositionProperty->onResolve(function () use ($compositionProperty, $property): void {

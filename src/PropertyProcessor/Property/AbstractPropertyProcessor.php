@@ -11,14 +11,10 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\EnumValidator;
-use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
-use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\PropertyProcessor\ComposedValueProcessorFactory;
-use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintTransferDecorator;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -32,9 +28,9 @@ use PHPModelGenerator\Utils\TypeConverter;
 abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
 {
     public function __construct(
-        protected PropertyMetaDataCollection $propertyMetaDataCollection,
         protected SchemaProcessor $schemaProcessor,
-        protected Schema $schema
+        protected Schema $schema,
+        protected bool $required = false,
     ) {}
 
     /**
@@ -44,10 +40,6 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
      */
     protected function generateValidators(PropertyInterface $property, JsonSchema $propertySchema): void
     {
-        if ($dependencies = $this->propertyMetaDataCollection->getAttributeDependencies($property->getName())) {
-            $this->addDependencyValidator($property, $dependencies);
-        }
-
         if ($property->isRequired() && !str_starts_with($property->getName(), 'item of array ')) {
             $property->addValidator(new RequiredPropertyValidator($property), 1);
         }
@@ -128,61 +120,6 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
     /**
      * @throws SchemaException
      */
-    protected function addDependencyValidator(PropertyInterface $property, array $dependencies): void
-    {
-        // check if we have a simple list of properties which must be present if the current property is present
-        $propertyDependency = true;
-
-        array_walk(
-            $dependencies,
-            static function ($dependency, $index) use (&$propertyDependency): void {
-                $propertyDependency = $propertyDependency && is_int($index) && is_string($dependency);
-            },
-        );
-
-        if ($propertyDependency) {
-            $property->addValidator(new PropertyDependencyValidator($property, $dependencies));
-
-            return;
-        }
-
-        if (!isset($dependencies['type'])) {
-            $dependencies['type'] = 'object';
-        }
-
-        $dependencySchema = $this->schemaProcessor->processSchema(
-            new JsonSchema($this->schema->getJsonSchema()->getFile(), $dependencies),
-            $this->schema->getClassPath(),
-            "{$this->schema->getClassName()}_{$property->getName()}_Dependency",
-            $this->schema->getSchemaDictionary(),
-        );
-
-        $property->addValidator(new SchemaDependencyValidator($this->schemaProcessor, $property, $dependencySchema));
-        $this->schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
-
-        $this->transferDependentPropertiesToBaseSchema($dependencySchema);
-    }
-
-    /**
-     * Transfer all properties from $dependencySchema to the base schema of the current property
-     */
-    private function transferDependentPropertiesToBaseSchema(Schema $dependencySchema): void
-    {
-        foreach ($dependencySchema->getProperties() as $property) {
-            $this->schema->addProperty(
-                // validators and types must not be transferred as any value is acceptable for the property if the
-                // property defining the dependency isn't present
-                (clone $property)
-                    ->setRequired(false)
-                    ->setType(null)
-                    ->filterValidators(static fn(): bool => false),
-            );
-        }
-    }
-
-    /**
-     * @throws SchemaException
-     */
     protected function addComposedValueValidator(PropertyInterface $property, JsonSchema $propertySchema): void
     {
         // For non-root object-type properties, composition keywords are processed in full
@@ -207,7 +144,6 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
 
             $composedProperty = $propertyFactory
                 ->create(
-                    $this->propertyMetaDataCollection,
                     $this->schemaProcessor,
                     $this->schema,
                     $property->getName(),
@@ -218,6 +154,7 @@ abstract class AbstractPropertyProcessor implements PropertyProcessorInterface
                             (!$property->isRequired()
                                 && $this->schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed()),
                     ]),
+                    $property->isRequired(),
                 );
 
             foreach ($composedProperty->getValidators() as $validator) {
