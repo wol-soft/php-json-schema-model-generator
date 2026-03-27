@@ -386,9 +386,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         string $token = 'customTransformingFilter',
         array $acceptedTypes = ['string'],
     ): TransformingFilterInterface {
-        return new class ($customSerializer, $customFilter, $token, $acceptedTypes)
-            extends TrimFilter
-            implements TransformingFilterInterface
+        return new class ($customSerializer, $customFilter, $token, $acceptedTypes) extends TrimFilter implements TransformingFilterInterface
         {
             public function __construct(
                 private readonly array $customSerializer,
@@ -484,8 +482,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         $this->expectExceptionMessage(<<<ERROR
 Invalid value for property created denied by filter dateTime: Invalid Date Time value "Hello"
 Invalid type for name. Requires string, got integer
-ERROR,
-        );
+ERROR,);
 
         $className = $this->generateClassFromFile(
             'TransformingFilter.json',
@@ -799,7 +796,7 @@ ERROR,
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage(
-            'Filter trim is not compatible with property type null for property filteredProperty',
+            'Filter trim is not compatible with property type string|null for property filteredProperty',
         );
 
         $this->generateClassFromFile(

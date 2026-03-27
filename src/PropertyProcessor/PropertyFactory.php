@@ -26,7 +26,7 @@ class PropertyFactory
     {}
 
     /**
-     * Create a property
+     * Create a property, applying all applicable Draft modifiers.
      *
      * @throws SchemaException
      */
@@ -61,7 +61,11 @@ class PropertyFactory
             )
             ->process($propertyName, $propertySchema);
 
-        if (!is_array($resolvedType)) {
+        if (is_array($resolvedType)) {
+            // For multi-type properties the type-specific modifiers run per sub-property inside
+            // MultiTypeProcessor via applyTypeModifiers(). Only the universal modifiers run here.
+            $this->applyUniversalModifiers($schemaProcessor, $schema, $property, $propertySchema);
+        } else {
             $this->applyDraftModifiers($schemaProcessor, $schema, $property, $propertySchema);
         }
 
@@ -69,7 +73,62 @@ class PropertyFactory
     }
 
     /**
-     * Run all Draft modifiers for the property's type(s) on the given property.
+     * Run only the type-specific Draft modifiers (no universal 'any' modifiers) for the given
+     * property. Used by MultiTypeProcessor to apply per-type modifiers to each sub-property
+     * without double-applying universal modifiers that run separately on the main property.
+     *
+     * @throws SchemaException
+     */
+    public function applyTypeModifiers(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): void {
+        $type = $propertySchema->getJson()['type'] ?? 'any';
+        $builtDraft = $this->resolveBuiltDraft($schemaProcessor, $propertySchema);
+
+        if ($type === 'any' || !$builtDraft->hasType($type)) {
+            return;
+        }
+
+        foreach ($builtDraft->getCoveredTypes($type) as $coveredType) {
+            if ($coveredType->getType() === 'any') {
+                continue;
+            }
+
+            foreach ($coveredType->getModifiers() as $modifier) {
+                $modifier->modify($schemaProcessor, $schema, $property, $propertySchema);
+            }
+        }
+    }
+
+    /**
+     * Run only the universal ('any') Draft modifiers for the given property.
+     *
+     * @throws SchemaException
+     */
+    public function applyUniversalModifiers(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): void {
+        $builtDraft = $this->resolveBuiltDraft($schemaProcessor, $propertySchema);
+
+        foreach ($builtDraft->getCoveredTypes('any') as $coveredType) {
+            if ($coveredType->getType() !== 'any') {
+                continue;
+            }
+
+            foreach ($coveredType->getModifiers() as $modifier) {
+                $modifier->modify($schemaProcessor, $schema, $property, $propertySchema);
+            }
+        }
+    }
+
+    /**
+     * Run all Draft modifiers (type-specific and universal) for the given property.
      *
      * @throws SchemaException
      */
@@ -79,15 +138,8 @@ class PropertyFactory
         PropertyInterface $property,
         JsonSchema $propertySchema,
     ): void {
-        $configDraft = $schemaProcessor->getGeneratorConfiguration()->getDraft();
-
-        $draft = $configDraft instanceof DraftFactoryInterface
-            ? $configDraft->getDraftForSchema($propertySchema)
-            : $configDraft;
-
         $type = $propertySchema->getJson()['type'] ?? 'any';
-
-        $builtDraft = $this->draftCache[$draft::class] ??= $draft->getDefinition()->build();
+        $builtDraft = $this->resolveBuiltDraft($schemaProcessor, $propertySchema);
 
         // Types not declared in the draft are internal routing signals (e.g. 'allOf', 'base',
         // 'reference'). They have no draft modifiers to apply.
@@ -110,5 +162,16 @@ class PropertyFactory
                 $modifier->modify($schemaProcessor, $schema, $property, $propertySchema);
             }
         }
+    }
+
+    private function resolveBuiltDraft(SchemaProcessor $schemaProcessor, JsonSchema $propertySchema): Draft
+    {
+        $configDraft = $schemaProcessor->getGeneratorConfiguration()->getDraft();
+
+        $draft = $configDraft instanceof DraftFactoryInterface
+            ? $configDraft->getDraftForSchema($propertySchema)
+            : $configDraft;
+
+        return $this->draftCache[$draft::class] ??= $draft->getDefinition()->build();
     }
 }

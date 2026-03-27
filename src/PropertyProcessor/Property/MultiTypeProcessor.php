@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
+use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorInterface;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -38,7 +39,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
      * @throws SchemaException
      */
     public function __construct(
-        PropertyProcessorFactory $propertyProcessorFactory,
+        private readonly PropertyProcessorFactory $propertyProcessorFactory,
         array $types,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
@@ -47,7 +48,7 @@ class MultiTypeProcessor extends AbstractValueProcessor
         parent::__construct($schemaProcessor, $schema, $required);
 
         foreach ($types as $type) {
-            $this->propertyProcessors[$type] = $propertyProcessorFactory->getProcessor(
+            $this->propertyProcessors[$type] = $this->propertyProcessorFactory->getProcessor(
                 $type,
                 $schemaProcessor,
                 $schema,
@@ -172,10 +173,19 @@ class MultiTypeProcessor extends AbstractValueProcessor
             unset($json['default']);
         }
 
+        $subPropertyFactory = new PropertyFactory($this->propertyProcessorFactory);
+
         foreach ($this->propertyProcessors as $type => $propertyProcessor) {
             $json['type'] = $type;
+            $subSchema = $propertySchema->withJson($json);
 
-            $subProperty = $propertyProcessor->process($propertyName, $propertySchema->withJson($json));
+            $subProperty = $propertyProcessor->process($propertyName, $subSchema);
+            $subPropertyFactory->applyTypeModifiers(
+                $this->schemaProcessor,
+                $this->schema,
+                $subProperty,
+                $subSchema,
+            );
 
             $subProperty->onResolve(function () use ($property, $subProperty): void {
                 $this->transferValidators($subProperty, $property);

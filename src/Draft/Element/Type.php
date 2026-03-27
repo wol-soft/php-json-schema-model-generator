@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Draft\Element;
 
 use PHPModelGenerator\Draft\Modifier\ModifierInterface;
 use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
+use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Utils\TypeConverter;
 
 class Type
@@ -23,6 +24,14 @@ class Type
     public function addModifier(ModifierInterface $modifier): self
     {
         $this->modifiers[] = $modifier;
+
+        return $this;
+    }
+
+    public function addValidator(string $validatorKey, AbstractValidatorFactory $factory): self
+    {
+        $factory->setKey($validatorKey);
+        $this->modifiers[] = $factory;
 
         return $this;
     }

@@ -24,7 +24,7 @@ class PassThroughTypeCheckValidator extends PropertyValidator implements TypeChe
     public function __construct(
         ReflectionType $passThroughType,
         PropertyInterface $property,
-        TypeCheckValidator $typeCheckValidator,
+        TypeCheckValidator|MultiTypeCheckValidator $typeCheckValidator,
     ) {
         $this->types = array_merge($typeCheckValidator->getTypes(), [$passThroughType->getName()]);
 

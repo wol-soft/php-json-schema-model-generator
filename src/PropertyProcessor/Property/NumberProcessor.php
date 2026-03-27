@@ -13,7 +13,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntToFloatCastDecorat
  *
  * @package PHPModelGenerator\PropertyProcessor\Property
  */
-class NumberProcessor extends AbstractNumericProcessor
+class NumberProcessor extends AbstractTypedValueProcessor
 {
     protected const string TYPE = 'float';
 

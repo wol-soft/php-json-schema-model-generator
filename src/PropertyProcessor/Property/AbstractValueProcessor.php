@@ -10,9 +10,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
-use ReflectionException;
 
 /**
  * Class AbstractScalarValueProcessor
@@ -56,15 +54,6 @@ abstract class AbstractValueProcessor extends AbstractPropertyProcessor
             );
 
         $this->generateValidators($property, $propertySchema);
-
-        if (isset($json['filter'])) {
-            (new FilterProcessor())->process(
-                $property,
-                $json['filter'],
-                $this->schemaProcessor->getGeneratorConfiguration(),
-                $this->schema,
-            );
-        }
 
         return $property;
     }
