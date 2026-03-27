@@ -325,36 +325,6 @@ the ``$schema`` keyword of each schema file to select the appropriate draft auto
 the keyword is absent or unrecognised, it falls back to JSON Schema Draft 7 behaviour, so schemas
 with different ``$schema`` declarations in the same generation run can use different drafts.
 
-To pin all schemas to a specific draft:
-
-.. code-block:: php
-
-    use PHPModelGenerator\Draft\Draft_07;
-
-    (new GeneratorConfiguration())
-        ->setDraft(new Draft_07());
-
-To use a custom draft factory that selects the draft based on your own logic:
-
-.. code-block:: php
-
-    use PHPModelGenerator\Draft\DraftFactoryInterface;
-    use PHPModelGenerator\Draft\DraftInterface;
-    use PHPModelGenerator\Draft\Draft_07;
-    use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-
-    class MyDraftFactory implements DraftFactoryInterface
-    {
-        public function getDraftForSchema(JsonSchema $jsonSchema): DraftInterface
-        {
-            // select draft based on schema content
-            return new Draft_07();
-        }
-    }
-
-    (new GeneratorConfiguration())
-        ->setDraft(new MyDraftFactory());
-
 Available draft classes:
 
 ============= ================================

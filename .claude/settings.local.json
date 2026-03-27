@@ -31,7 +31,9 @@
       "Bash(composer show:*)",
       "Bash(php -r \":*)",
       "Bash(gh pr:*)",
-      "Bash(xargs wc:*)"
+      "Bash(xargs wc:*)",
+      "Bash(tee /tmp/phpunit-output.txt)",
+      "Read(//tmp/**)"
     ]
   }
 }
