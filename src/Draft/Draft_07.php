@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Draft;
 use PHPModelGenerator\Draft\Element\Type;
 use PHPModelGenerator\Draft\Modifier\DefaultArrayToEmptyArrayModifier;
 use PHPModelGenerator\Draft\Modifier\DefaultValueModifier;
+use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
 use PHPModelGenerator\Model\Validator\Factory\Any\EnumValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Any\FilterValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Arrays\ContainsValidatorFactory;
@@ -19,6 +20,12 @@ use PHPModelGenerator\Model\Validator\Factory\Number\ExclusiveMinimumValidatorFa
 use PHPModelGenerator\Model\Validator\Factory\Number\MaximumValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Number\MinimumValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Number\MultipleOfPropertyValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Object\AdditionalPropertiesValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Object\PropertiesValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Object\MaxPropertiesValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Object\MinPropertiesValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Object\PatternPropertiesValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Object\PropertyNamesValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\String\FormatValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\String\MaxLengthValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\String\MinLengthPropertyValidatorFactory;
@@ -29,7 +36,14 @@ class Draft_07 implements DraftInterface
     public function getDefinition(): DraftBuilder
     {
         return (new DraftBuilder())
-            ->addType(new Type('object', false))
+            ->addType((new Type('object'))
+                ->addValidator('properties', new PropertiesValidatorFactory())
+                ->addValidator('propertyNames', new PropertyNamesValidatorFactory())
+                ->addValidator('patternProperties', new PatternPropertiesValidatorFactory())
+                ->addValidator('additionalProperties', new AdditionalPropertiesValidatorFactory())
+                ->addValidator('minProperties', new MinPropertiesValidatorFactory())
+                ->addValidator('maxProperties', new MaxPropertiesValidatorFactory())
+                ->addModifier(new ObjectModifier()))
             ->addType((new Type('array'))
                 ->addValidator('items', new ItemsValidatorFactory())
                 ->addValidator('minItems', new MinItemsValidatorFactory())
