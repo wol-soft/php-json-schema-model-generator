@@ -11,7 +11,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
-use PHPModelGenerator\PropertyProcessor\ComposedValue\AllOfProcessor;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 
 /**
@@ -100,7 +100,7 @@ class CompositionRequiredPromotionPostProcessor extends PostProcessor
             $branches,
         );
 
-        if (is_a($validator->getCompositionProcessor(), AllOfProcessor::class, true)) {
+        if (is_a($validator->getCompositionProcessor(), AllOfValidatorFactory::class, true)) {
             return array_values(array_unique(array_merge(...$requiredPerBranch)));
         }
 

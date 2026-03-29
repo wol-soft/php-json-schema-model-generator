@@ -13,7 +13,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
-use PHPModelGenerator\PropertyProcessor\ComposedValue\AllOfProcessor;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookInterface;
 use PHPModelGenerator\Utils\PropertyMerger;
@@ -170,7 +170,7 @@ class Schema
         $this->propertyMerger->merge(
             $this->properties[$property->getName()],
             $property,
-            is_a($compositionProcessor, AllOfProcessor::class, true),
+            is_a($compositionProcessor, AllOfValidatorFactory::class, true),
         );
 
         return $this;

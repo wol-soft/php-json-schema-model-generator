@@ -6,6 +6,11 @@ namespace PHPModelGenerator\Draft;
 
 use PHPModelGenerator\Draft\Element\Type;
 use PHPModelGenerator\Draft\Modifier\DefaultArrayToEmptyArrayModifier;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\IfValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\OneOfValidatorFactory;
 use PHPModelGenerator\Draft\Modifier\DefaultValueModifier;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
 use PHPModelGenerator\Model\Validator\Factory\Any\EnumValidatorFactory;
@@ -73,6 +78,11 @@ class Draft_07 implements DraftInterface
             ->addType((new Type('any', false))
                 ->addValidator('enum', new EnumValidatorFactory())
                 ->addValidator('filter', new FilterValidatorFactory())
+                ->addValidator('allOf', new AllOfValidatorFactory())
+                ->addValidator('anyOf', new AnyOfValidatorFactory())
+                ->addValidator('oneOf', new OneOfValidatorFactory())
+                ->addValidator('not', new NotValidatorFactory())
+                ->addValidator('if', new IfValidatorFactory())
                 ->addModifier(new DefaultValueModifier()));
     }
 }

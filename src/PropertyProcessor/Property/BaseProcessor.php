@@ -30,8 +30,8 @@ use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
-use PHPModelGenerator\PropertyProcessor\ComposedValue\AllOfProcessor;
-use PHPModelGenerator\PropertyProcessor\ComposedValue\ComposedPropertiesInterface;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\ComposedPropertiesValidatorFactoryInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
@@ -369,7 +369,13 @@ class BaseProcessor extends AbstractPropertyProcessor
                     : $validator,
             );
 
-            if (!is_a($validator->getCompositionProcessor(), ComposedPropertiesInterface::class, true)) {
+            if (
+                !is_a(
+                    $validator->getCompositionProcessor(),
+                    ComposedPropertiesValidatorFactoryInterface::class,
+                    true,
+                )
+            ) {
                 continue;
             }
 
@@ -458,7 +464,7 @@ class BaseProcessor extends AbstractPropertyProcessor
             ->filterValidators(static fn(Validator $validator): bool =>
                 is_a($validator->getValidator(), PropertyTemplateValidator::class));
 
-        if (!is_a($compositionProcessor, AllOfProcessor::class, true)) {
+        if (!is_a($compositionProcessor, AllOfValidatorFactory::class, true)) {
             $transferredProperty->setRequired(false);
 
             if ($transferredProperty->getType()) {

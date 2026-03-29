@@ -477,7 +477,7 @@ No user-visible behaviour change. No doc updates needed this phase.
 
 ---
 
-## Phase 5 — Eliminate `MultiTypeProcessor`
+## Phase 5 — Eliminate `MultiTypeProcessor` **[DONE — commit 997b639]**
 
 **Goal**: `"type": ["string","null"]` is handled by `PropertyFactory` directly — it iterates
 the type list, processes each type through the legacy per-type processor to collect validators
@@ -554,56 +554,162 @@ Delete:
 
 ## Phase 6 — `ObjectProcessor` as modifier; `object` modifier list complete
 
-**Goal**: The `'object'` type modifier list in `Draft07` now includes an `ObjectModifier` that
-handles nested-object instantiation (what `ObjectProcessor::process` does today) in addition to
-the keyword modifiers from Phase 4. `ObjectProcessor` is then deprecated and the legacy bridge
-for `type=object` is removed.
+**Goal**: The `'object'` type modifier list in `Draft07` is completed with all object keyword
+modifiers (originally scoped to Phase 4 but deferred — see note below) plus a new `ObjectModifier`
+that handles nested-object instantiation (what `ObjectProcessor::process` does today). The
+`BaseProcessor` keyword methods are also migrated to modifiers so the `type=base` path runs
+entirely through `PropertyFactory` → Draft modifiers. `ObjectProcessor` and `BaseProcessor` are
+then deprecated and the legacy bridge for `type=object`/`type=base` is removed.
 
-### 6.1 — `ObjectModifier`
+**Note on Phase 4 omission**: The object keyword validator factories were listed in Phase 4's scope
+but were not implemented in that phase. They are implemented here in Phase 6 alongside the
+`ObjectModifier`. Unlike scalar keyword factories (which extend `AbstractValidatorFactory`), the
+object keyword handlers are too complex for `SimplePropertyValidatorFactory` and are implemented
+as `ModifierInterface` classes directly (following the `*Modifier` naming convention).
 
-New file `src/Draft/Modifier/ObjectType/ObjectModifier.php` — extracts the nested schema
-processing logic from `ObjectProcessor::process`:
-- Calls `$schemaProcessor->processSchema(...)` to generate the nested class
-- Adds `ObjectInstantiationDecorator`, `InstanceOfValidator`, sets `PropertyType` to class name
-- Handles namespace transfer
+**Architectural decision — single `object` type entry**: The Draft does not differentiate between
+`type=base` (root class) and `type=object` (nested property). A single `'object'` entry in
+`Draft_07` holds ALL object modifiers — keyword modifiers and `ObjectModifier` — because the same
+JSON Schema keywords (`properties`, `minProperties`, `additionalProperties`, etc.) apply to every
+object-typed schema regardless of context. This also preserves the ability for users to attach
+custom modifiers to the `object` type cleanly.
 
-### 6.2 — Remove legacy bridge for `type=object`
+The key to making this work: keyword modifiers always add validators/properties to `$schema`.
+For `type=base`, `$schema` is the class being built — correct. For `type=object` nested
+properties, `PropertyFactory` resolves the nested Schema first (via `processSchema`), then passes
+that nested Schema as `$schema` when invoking the Draft modifiers. `ObjectModifier` then wires
+the instantiation linkage (`ObjectInstantiationDecorator`, `InstanceOfValidator`, `setType`,
+`setNestedSchema`) on the outer property. Result: same modifier list, always correct `$schema`.
 
-Once `ObjectModifier` is registered in `Draft07`'s `object` modifier list and the Phase 4
-object keyword modifiers are also there, `ObjectProcessor` can be deprecated.
+### 6.1 — Object keyword modifiers
 
-### 6.3 — `BaseProcessor` pipeline step
+New files in `src/Draft/Modifier/ObjectType/`:
 
-`BaseProcessor` handles the root-level object (`type=base`). Its pipeline steps are:
-1. `setUpDefinitionDictionary` — stays in `SchemaProcessor` (internal mechanic)
-2. All `object` keyword modifiers (now in `Draft07`) — called by `PropertyFactory`
-3. `transferComposedPropertiesToSchema` — stays as explicit post-step in `SchemaProcessor`
+- **`PropertiesModifier`** — extracts `BaseProcessor::addPropertiesToSchema`. Reads
+  `$json['properties']` (and fills in entries for undeclared-but-required properties), then for
+  each property calls `PropertyFactory::create` and `$schema->addProperty`. Also calls
+  `addDependencyValidator` for properties that have a dependency. The `addDependencyValidator`
+  helper is lifted out of `BaseProcessor` into a private method on `PropertiesModifier`.
+- **`PropertyNamesModifier`** — extracts `BaseProcessor::addPropertyNamesValidator`. Reads
+  `$json['propertyNames']` and adds a `PropertyNamesValidator` to `$schema`.
+- **`PatternPropertiesModifier`** — extracts `BaseProcessor::addPatternPropertiesValidator`.
+  Reads `$json['patternProperties']` and adds `PatternPropertiesValidator` instances to `$schema`.
+- **`AdditionalPropertiesModifier`** — extracts `BaseProcessor::addAdditionalPropertiesValidator`.
+  Reads `$json['additionalProperties']` (and the generator config's `denyAdditionalProperties`)
+  and adds `AdditionalPropertiesValidator` or `NoAdditionalPropertiesValidator` to `$schema`.
+- **`MinPropertiesModifier`** / **`MaxPropertiesModifier`** — extract
+  `BaseProcessor::addMinPropertiesValidator` / `addMaxPropertiesValidator`. Each adds a
+  `PropertyValidator` to `$schema`'s base validators.
 
-`SchemaProcessor::generateModel` calls `PropertyFactory::create` with `type=base`, which the
-factory translates to constructing a `BaseProperty` and running the `object` modifier list.
-`type=base` is no longer a type string in the Draft — `PropertyFactory` detects it as the
-special root-schema signal:
+The dependency-related helpers (`addDependencyValidator`, `transferDependentPropertiesToBaseSchema`)
+that currently live in `BaseProcessor` move into `PropertiesModifier` as private methods.
+
+All modifiers call `$schema->addBaseValidator(...)` / `$schema->addProperty(...)`, exactly as
+`BaseProcessor` does today.
+
+### 6.2 — `ObjectModifier`
+
+New file `src/Draft/Modifier/ObjectType/ObjectModifier.php` — wires the instantiation linkage
+for `type=object` properties:
+- Adds `ObjectInstantiationDecorator`, `InstanceOfValidator`, sets `PropertyType` to class name,
+  sets `nestedSchema` on the property
+- Handles namespace transfer (adds `usedClass` and `SchemaNamespaceTransferDecorator` when
+  the nested schema lives in a different namespace)
+- **Does NOT call `processSchema`** — the nested Schema is already available on the property
+  via `$property->getNestedSchema()`, set before the modifier list runs (see 6.4)
+- Skips when `$property instanceof BaseProperty` (root schema — no instantiation needed)
+
+### 6.3 — Register in `Draft_07`
+
+Register all object modifiers on the `object` type in `Draft_07::getDefinition()`:
 
 ```php
-if ($json['type'] === 'base') {
-    $property = new BaseProperty($propertyName, new PropertyType('object'), $propertySchema);
-    $types = ['object'];
-} else {
-    $property = new Property(...);
-    $types = $this->resolveTypes($json);
-}
+(new Type('object', false))
+    ->addModifier(new PropertiesModifier())
+    ->addModifier(new PropertyNamesModifier())
+    ->addModifier(new PatternPropertiesModifier())
+    ->addModifier(new AdditionalPropertiesModifier())
+    ->addModifier(new MinPropertiesModifier())
+    ->addModifier(new MaxPropertiesModifier())
+    ->addModifier(new ObjectModifier())
 ```
 
-This is the minimal special-casing agreed in Q2.1 (Option A from the analysis).
+(`addModifier` is the appropriate call since these are `ModifierInterface` implementations
+directly, not `AbstractValidatorFactory` subclasses.)
+
+### 6.4 — `PropertyFactory` handling of `type=object` and `type=base`
+
+The trick that makes the single `object` modifier list work for both contexts: `PropertyFactory`
+**resolves the nested Schema before running modifiers**, then passes that nested Schema as
+`$schema` when invoking `applyDraftModifiers`. Keyword modifiers always add to `$schema` —
+which is now the correct target in both cases.
+
+**For `type=base` (root schema):**
+```
+SchemaProcessor::generateModel
+  → PropertyFactory::create(type=base)
+  → construct BaseProperty
+  → applyDraftModifiers(schemaProcessor, schema=$outerSchema, property, propertySchema)
+     → PropertiesModifier  — adds to $outerSchema ✓ (it IS the class being built)
+     → PropertyNamesModifier — adds to $outerSchema ✓
+     → … other keyword modifiers …
+     → ObjectModifier — skips (instanceof BaseProperty)
+```
+
+**For `type=object` (nested property):**
+```
+PropertyFactory::create(type=object)
+  → construct Property
+  → call processSchema → returns nestedSchema
+  → store nestedSchema on property (property->setNestedSchema(nestedSchema))
+  → applyDraftModifiers(schemaProcessor, schema=$nestedSchema, property, propertySchema)
+     → PropertiesModifier  — adds to $nestedSchema ✓
+     → PropertyNamesModifier — adds to $nestedSchema ✓
+     → … other keyword modifiers …
+     → ObjectModifier — wires ObjectInstantiationDecorator, InstanceOfValidator, setType
+                        on the outer property using the already-set nestedSchema ✓
+```
+
+`processSchema` is called from `PropertyFactory` before `applyDraftModifiers`. This replaces
+what `ObjectProcessor::process` previously did. `ObjectModifier` no longer calls `processSchema`
+at all — it only reads `$property->getNestedSchema()`.
+
+**For `type=base`**, `applyDraftModifiers` is called with the existing outer `$schema` (unchanged
+from before). `PropertyFactory` does NOT call `processSchema` for `type=base` — `generateModel`
+already created the Schema before calling `PropertyFactory::create`.
+
+The `type=base` path in `PropertyFactory` still routes through the legacy `BaseProcessor` for
+the bridge period (composition/required validators). The object keyword modifiers run via
+`applyDraftModifiers` AFTER the legacy processor, with dedup guards in the legacy processor's
+keyword methods to skip if the modifier already added the validator.
+
+**Simpler chosen approach**: remove the legacy bridge for `type=object` immediately (clean cut,
+no dedup needed). For `type=base`, keep `BaseProcessor` as the bridge but bypass its keyword
+methods since `applyDraftModifiers` now handles them. `BaseProcessor::process` is updated to
+skip `addPropertiesToSchema`, `addPropertyNamesValidator`, `addPatternPropertiesValidator`,
+`addAdditionalPropertiesValidator`, `addMinPropertiesValidator`, `addMaxPropertiesValidator` —
+these are now handled by Draft modifiers. It retains only `setUpDefinitionDictionary`,
+`generateValidators` (composition), and `transferComposedPropertiesToSchema`.
+
+### 6.5 — Deprecate `ObjectProcessor` and `BaseProcessor`
+
+Once the modifiers are in place and the legacy bridges are updated:
+- Mark `ObjectProcessor` as `@deprecated` (deletion in Phase 8)
+- Mark `BaseProcessor` as `@deprecated` (deletion in Phase 8)
+- `PropertyProcessorFactory` no longer routes `object` to a legacy processor
+- `base` still routes to the stripped-down `BaseProcessor` bridge (composition only)
 
 ### Tests for Phase 6
 
 - All object-property and nested-object integration tests must stay green.
 - `ObjectPropertyTest`, `IdenticalNestedSchemaTest`, `ReferencePropertyTest`.
+- All property-level tests for `properties`, `propertyNames`, `patternProperties`,
+  `additionalProperties`, `minProperties`, `maxProperties` must stay green.
+- `BaseProcessor`-related tests (object schema tests) must stay green.
 
 ---
 
-## Phase 7 — `CompositionModifier`; eliminate `ComposedValueProcessorFactory`
+## Phase 7 — Composition validator factories; eliminate `ComposedValueProcessorFactory` **[DONE]**
 
 **Goal**: Replace `AbstractComposedValueProcessor` and `ComposedValueProcessorFactory` with a
 single `CompositionModifier` universal modifier. This is the highest-risk phase.
@@ -625,29 +731,27 @@ All PMC-mutation workarounds were **fully resolved in Phase 2**:
 It propagates correctly via `$property->isRequired()` in `getCompositionProperties`. No
 change is needed here in Phase 7.
 
-### 7.1 — `CompositionModifier`
+### 7.1 — Composition validator factories
 
-New file `src/Draft/Modifier/CompositionModifier.php`. Extracts the logic from
-`AbstractPropertyProcessor::addComposedValueValidator`:
-- Iterates `['allOf','anyOf','oneOf','not','if']` keywords
-- Uses `$property instanceof BaseProperty` to determine root-level (replacing `rootLevelComposition`)
-- Creates `CompositionPropertyDecorator` instances, sets up `onResolve` callbacks,
-  emits `ComposedPropertyValidator`
-- Calls `SchemaProcessor::createMergedProperty` for non-root non-allOf compositions
-- Handles `not`-keyword strict-null enforcement **without** mutating `isRequired` on the
-  composition property — instead passes an explicit `allowImplicitNull=false` signal through the
-  sub-property creation API (see bridge-period debt above).
+New files in `src/Model/Validator/Factory/Composition/`:
+- `AbstractCompositionValidatorFactory` — extends `AbstractValidatorFactory`; shared helpers
+  (`warnIfEmpty`, `shouldSkip`, `getCompositionProperties`, `inheritPropertyType`,
+  `transferPropertyType`). The `$this->key` (set by `Type::addValidator`) is the composition
+  keyword (`allOf`, `anyOf`, etc.).
+- `ComposedPropertiesValidatorFactoryInterface` — marker interface for factories that transfer
+  properties to the parent schema (all except `NotValidatorFactory`).
+- `AllOfValidatorFactory`, `AnyOfValidatorFactory`, `OneOfValidatorFactory`,
+  `NotValidatorFactory`, `IfValidatorFactory` — each implements `modify()` directly.
 
-The `AbstractComposedValueProcessor` subclasses (`AllOfProcessor`, `AnyOfProcessor`,
-`OneOfProcessor`, `NotProcessor`, `IfProcessor`) are replaced by the logic inside
-`CompositionModifier` (using `match($keyword)` or strategy objects for the
-`getComposedValueValidation` difference between allOf/anyOf/oneOf/not/if).
+All registered on the `'any'` type in `Draft_07` via `addValidator('allOf', ...)` etc.
+`ComposedPropertyValidator` and `ConditionalPropertyValidator` store `static::class` of the
+factory as the composition processor string; all `is_a()` checks updated accordingly.
 
 ### 7.2 — `ComposedValueProcessorFactory` deletion
 
-Once `CompositionModifier` is in the universal modifier list of `Draft07` and handles both
-root-level and property-level composition, `ComposedValueProcessorFactory` and the
-composition processor classes are deleted.
+`ComposedValueProcessorFactory` and the composition processor classes were already deleted in
+the prior commit (git status showed them as `D`). The validator factories are the sole
+composition mechanism.
 
 ### 7.3 — `ConstProcessor` and `ReferenceProcessor`
 
