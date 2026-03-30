@@ -363,7 +363,6 @@ class PropertyFactory
                     $subSchema,
                     $type,
                     $required,
-                    $json,
                 );
 
             $subProperty->onResolve(function () use (
@@ -425,7 +424,6 @@ class PropertyFactory
         JsonSchema $propertySchema,
         string $type,
         bool $required,
-        array $parentJson,
     ): Property {
         $subProperty = $this->buildProperty(
             $schemaProcessor,
@@ -461,7 +459,7 @@ class PropertyFactory
         $hasNull      = in_array('null', $collectedTypes, true);
         $nonNullTypes = array_values(array_filter(
             $collectedTypes,
-            static fn(string $t): bool => $t !== 'null',
+            static fn(string $type): bool => $type !== 'null',
         ));
 
         $allowImplicitNull = $schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed()
@@ -481,7 +479,7 @@ class PropertyFactory
 
         $property->addTypeHintDecorator(new TypeHintDecorator($typeHints));
 
-        $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema, anyOnly: true);
+        $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema, true);
     }
 
     /**
