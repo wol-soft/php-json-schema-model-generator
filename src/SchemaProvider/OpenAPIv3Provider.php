@@ -26,6 +26,7 @@ class OpenAPIv3Provider implements SchemaProviderInterface
      */
     public function __construct(private string $sourceFile)
     {
+        $this->sourceFile = realpath($this->sourceFile) ?: $this->sourceFile;
         $jsonSchema = file_get_contents($this->sourceFile);
 
         if (!$jsonSchema || !($this->openAPIv3Spec = json_decode($jsonSchema, true))) {

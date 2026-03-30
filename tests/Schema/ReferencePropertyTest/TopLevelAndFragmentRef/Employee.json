@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "profile": {
+      "$ref": "PersonWithHistory.json"
+    },
+    "home": {
+      "$ref": "PersonWithHistory.json#/definitions/address"
+    }
+  }
+}

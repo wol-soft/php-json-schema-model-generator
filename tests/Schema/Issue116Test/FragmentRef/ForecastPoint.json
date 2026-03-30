@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "baseline": {
+      "$ref": "Ranges.json#/definitions/ForecastRange"
+    },
+    "peak": {
+      "$ref": "Ranges.json#/definitions/ForecastRange"
+    }
+  }
+}

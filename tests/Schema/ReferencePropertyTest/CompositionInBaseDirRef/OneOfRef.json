@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "tag": {
+      "oneOf": [
+        {
+          "$ref": "Tag.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "ForecastRange.json"
+      }
+    }
+  }
+}

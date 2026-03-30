@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "tag": {
+      "type": "object"
+    }
+  },
+  "if": {
+    "properties": {
+      "tag": {
+        "type": "object"
+      }
+    }
+  },
+  "then": {
+    "$ref": "Tag.json"
+  }
+}

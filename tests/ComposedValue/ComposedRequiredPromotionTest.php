@@ -256,6 +256,24 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * anyOf: property is defined in root schema properties and required in every branch
+     * (branches carry only 'required', no 'properties'). The root-level property must be
+     * promoted to non-nullable because every anyOf branch guarantees its presence.
+     */
+    #[DataProvider('implicitNullDataProvider')]
+    public function testAnyOfRootPropertyRequiredInAllBranchesIsPromoted(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile(
+            'AnyOfRootPropertyRequiredInAllBranches.json',
+            null,
+            false,
+            $implicitNull,
+        );
+
+        $this->assertNonNullableStringProperty($className, 'name');
+    }
+
+    /**
      * anyOf: branches define an untyped property (no 'type' keyword) in required —
      * promoteProperty returns early when getType() is null. No crash, and the
      * property must not be incorrectly promoted to non-nullable.
@@ -431,6 +449,23 @@ class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
     {
         $className = $this->generateClassFromFile(
             'IfThenElseOneBranchRequired.json',
+            null,
+            false,
+            $implicitNull,
+        );
+
+        $this->assertNullableStringProperty($className, 'name');
+    }
+
+    /**
+     * if/else only (no then): required in else only → not promoted
+     * (collectFromConditional count < 2 path — only one condition branch exists).
+     */
+    #[DataProvider('implicitNullDataProvider')]
+    public function testIfElseOnlyNotPromoted(bool $implicitNull): void
+    {
+        $className = $this->generateClassFromFile(
+            'IfElseOnlyRequired.json',
             null,
             false,
             $implicitNull,

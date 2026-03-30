@@ -512,6 +512,188 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
+    // -------------------------------------------------------------------------
+    // T1: Two schemas in the same base dir both use an out-of-base-dir fragment
+    //     ref pointing to the same file. The second schema must reuse the
+    //     ExternalSchema from the global processedFileSchemas dedup without
+    //     re-parsing the file or producing a duplicate class.
+    // -------------------------------------------------------------------------
+
+    public function testOutOfBaseDirFragmentRefReusedAcrossMultipleReferrers(): void
+    {
+        $namespace = 'T1OutOfBaseDirRef';
+        $this->generateDirectory('OutOfBaseDirFragmentRefMultipleReferrers', $this->directoryConfig($namespace));
+
+        $schemaAClass = "\\{$namespace}\\SchemaA";
+        $schemaBClass = "\\{$namespace}\\SchemaB";
+
+        $objectA = new $schemaAClass(['person' => ['name' => 'Alice', 'age' => 30]]);
+        $objectB = new $schemaBClass(['person' => ['name' => 'Bob', 'age' => 25]]);
+
+        $this->assertSame('Alice', $objectA->getPerson()->getName());
+        $this->assertSame('Bob', $objectB->getPerson()->getName());
+
+        // Both schemas resolve the same ref; the person objects must share one class
+        $this->assertSame(
+            $objectA->getPerson()::class,
+            $objectB->getPerson()::class,
+            'Both schemas must resolve the out-of-base-dir ref to the same class',
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // T2: Two schemas in the same base dir both reference the same in-base-dir
+    //     file. The second schema's $ref must reuse the already-registered
+    //     canonical class via processedFileSchemas.
+    // -------------------------------------------------------------------------
+
+    public function testMultipleReferrersToSharedInBaseDirFileProduceSingleClass(): void
+    {
+        $namespace = 'T2SharedInBaseDirRef';
+        $this->generateDirectory('MultipleReferrersSharedInBaseDirFile', $this->directoryConfig($namespace));
+
+        $schemaAClass = "\\{$namespace}\\SchemaA";
+        $schemaBClass = "\\{$namespace}\\SchemaB";
+        $personClass  = "\\{$namespace}\\Person";
+
+        $objectA = new $schemaAClass(['person' => ['name' => 'Alice']]);
+        $objectB = new $schemaBClass(['person' => ['name' => 'Bob']]);
+
+        $this->assertInstanceOf($personClass, $objectA->getPerson());
+        $this->assertInstanceOf($personClass, $objectB->getPerson());
+
+        $this->assertSame(
+            $objectA->getPerson()::class,
+            $objectB->getPerson()::class,
+            'Both schemas must share the same canonical Person class',
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // T3: A file has both a top-level type:object definition and a definitions
+    //     section. One schema refs the file top-level, another refs a fragment.
+    //     Both must resolve to correct classes.
+    // -------------------------------------------------------------------------
+
+    public function testTopLevelAndFragmentRefToBothWorkCorrectly(): void
+    {
+        $namespace = 'T3TopLevelAndFragment';
+        $this->generateDirectory('TopLevelAndFragmentRef', $this->directoryConfig($namespace));
+
+        $employeeClass = "\\{$namespace}\\Employee";
+        $personClass   = "\\{$namespace}\\PersonWithHistory";
+
+        $employee = new $employeeClass([
+            'profile' => ['name' => 'Alice', 'age' => 30],
+            'home'    => ['street' => '123 Main St', 'city' => 'Springfield'],
+        ]);
+
+        // Top-level ref resolves to canonical PersonWithHistory class
+        $this->assertInstanceOf($personClass, $employee->getProfile());
+        $this->assertSame('Alice', $employee->getProfile()->getName());
+
+        // Fragment ref resolves to the definitions/address inline schema
+        $this->assertNotNull($employee->getHome());
+        $this->assertSame('123 Main St', $employee->getHome()->getStreet());
+    }
+
+    // -------------------------------------------------------------------------
+    // T5: BasereferenceProcessor with an in-base-dir external file. A schema
+    //     with a root-level $ref to another in-base-dir file must merge the
+    //     referenced schema's properties into itself.
+    // -------------------------------------------------------------------------
+
+    public function testBaseRefToInBaseDirFileMergesProperties(): void
+    {
+        $namespace = 'T5BaseDirBaseRef';
+        $this->generateDirectory('BaseDirBaseRef', $this->directoryConfig($namespace));
+
+        $locationClass = "\\{$namespace}\\Location";
+
+        $location = new $locationClass(['street' => '42 Elm St', 'city' => 'Shelbyville']);
+
+        // Properties from Address.json must be merged directly into Location
+        $this->assertSame('42 Elm St', $location->getStreet());
+        $this->assertSame('Shelbyville', $location->getCity());
+    }
+
+    public function testBaseRefToInBaseDirFileEnforcesRequiredProperty(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Missing required value for street');
+
+        $namespace = 'T5BaseDirBaseRefRequired';
+        $this->generateDirectory('BaseDirBaseRef', $this->directoryConfig($namespace));
+
+        $locationClass = "\\{$namespace}\\Location";
+        new $locationClass(['city' => 'Shelbyville']);
+    }
+
+    // -------------------------------------------------------------------------
+    // T6: $ref inside allOf/anyOf/oneOf pointing to an in-base-dir external
+    //     file. The referenced file must resolve to the canonical class.
+    // -------------------------------------------------------------------------
+
+    public function testAllOfRefToInBaseDirFile(): void
+    {
+        $namespace = 'T6AllOfRef';
+        $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
+
+        $allOfClass = "\\{$namespace}\\AllOfRef";
+        $object = new $allOfClass(['label' => 'urgent']);
+
+        // allOf with $ref Tag.json: label property must be merged in and required
+        $this->assertSame('urgent', $object->getLabel());
+    }
+
+    public function testAllOfRefToInBaseDirFileEnforcesTagValidation(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessageMatches('/declined by composition constraint/');
+
+        $namespace = 'T6AllOfRefValidation';
+        $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
+
+        $allOfClass = "\\{$namespace}\\AllOfRef";
+        new $allOfClass([]);
+    }
+
+    public function testAnyOfRefToInBaseDirFileAcceptsTagInstance(): void
+    {
+        $namespace = 'T6AnyOfRef';
+        $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
+
+        $anyOfClass = "\\{$namespace}\\AnyOfRef";
+        $tagClass   = "\\{$namespace}\\Tag";
+
+        $object = new $anyOfClass(['tag' => ['label' => 'feature']]);
+
+        $this->assertInstanceOf($tagClass, $object->getTag());
+        $this->assertSame('feature', $object->getTag()->getLabel());
+    }
+
+    public function testOneOfRefToInBaseDirFileAcceptsTagInstance(): void
+    {
+        $namespace = 'T6OneOfRef';
+        $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
+
+        $oneOfClass = "\\{$namespace}\\OneOfRef";
+        $tagClass   = "\\{$namespace}\\Tag";
+
+        $object = new $oneOfClass(['tag' => ['label' => 'bugfix']]);
+
+        $this->assertInstanceOf($tagClass, $object->getTag());
+        $this->assertSame('bugfix', $object->getTag()->getLabel());
+    }
+
+    private function directoryConfig(string $namespace): GeneratorConfiguration
+    {
+        return (new GeneratorConfiguration())
+            ->setNamespacePrefix($namespace)
+            ->setOutputEnabled(false)
+            ->setCollectErrors(false);
+    }
+
     public function testMultiplePropertiesWithIdenticalReference(): void
     {
         $className = $this->generateClassFromFile('multiplePropertiesIdenticalReference.json');
@@ -552,7 +734,8 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className($input);
     }
 
-    public static function invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider(): array {
+    public static function invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider(): array
+    {
         return [
             'Invalid value for personA' => [
                 ['personA' => 10],

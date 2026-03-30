@@ -73,7 +73,7 @@ trait RefResolverTrait
         if (!str_starts_with($jsonSchemaFile, '/')) {
             $candidate = $currentDir . '/' . $jsonSchemaFile;
 
-            return file_exists($candidate) ? $candidate : null;
+            return file_exists($candidate) ? realpath($candidate) : null;
         }
 
         // absolute paths: traverse up to find the context root directory
@@ -83,7 +83,7 @@ trait RefResolverTrait
         while (true) {
             $candidate = $dir . '/' . $relative;
             if (file_exists($candidate)) {
-                return $candidate;
+                return realpath($candidate);
             }
 
             $parent = dirname($dir);
