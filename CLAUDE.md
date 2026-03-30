@@ -56,7 +56,7 @@ Tests write generated PHP classes to `sys_get_temp_dir()/PHPModelGeneratorTest/M
 
 ### Running the full test suite
 
-When running the full test suite (all 2246 tests), always save output to a file so the complete
+When running the full test suite, always save output to a file so the complete
 output is available for analysis without re-running. Use `--display-warnings` to capture warning
 details and `--no-coverage` to skip slow coverage collection:
 
@@ -92,15 +92,25 @@ This library generates PHP model classes from JSON Schema files. The process is 
 ### Schema Processing
 
 `SchemaProcessor` (`src/SchemaProcessor/SchemaProcessor.php`) orchestrates property parsing:
-- Uses `PropertyProcessorFactory` to instantiate the correct processor by JSON type (String, Integer, Number, Boolean, Array, Object, Null, Const, Any, Reference)
-- Convention: processor class name is `PHPModelGenerator\PropertyProcessor\Property\{Type}Processor`
+- Uses `PropertyFactory` (`src/PropertyProcessor/PropertyFactory.php`) to create and configure each property
+- `PropertyFactory` resolves `$ref` references, delegates `object` types to `processSchema`, and for all other types constructs a `Property` directly and applies Draft modifiers
 - `ComposedValueProcessorFactory` handles `allOf`, `anyOf`, `oneOf`, `if/then/else`, `not`
 - `SchemaDefinitionDictionary` tracks `$ref` definitions to avoid duplicate processing
 
+### Draft System (`src/Draft/`)
+
+The Draft system defines per-type modifier and validator registrations:
+- **`DraftInterface`** / **`DraftBuilder`** / **`Draft`** — Draft definition, builder, and built (immutable) registry
+- **`Draft_07.php`** — The JSON Schema Draft 7 definition; registers all types, modifiers, and validator factories
+- **`Element/Type`** — One entry per JSON Schema type; holds an ordered list of `ModifierInterface` instances
+- **`Modifier/`** — `TypeCheckModifier`, `ConstModifier`, `NumberModifier`, `NullModifier`, `ObjectType/ObjectModifier`, `DefaultValueModifier`, `DefaultArrayToEmptyArrayModifier`; each implements `ModifierInterface::modify()`
+- **`Model/Validator/Factory/`** — `AbstractValidatorFactory` subclasses keyed to schema keywords (e.g. `MinLengthPropertyValidatorFactory` for `minLength`); run as modifiers when a matching key exists in the schema
+
+`PropertyFactory::applyDraftModifiers` resolves `getCoveredTypes($type)` (which always includes `'any'`) and runs every modifier for each covered type in order.
+
 ### Property Processors (`src/PropertyProcessor/`)
 
-- `Property/` — One processor per JSON Schema type
-- `ComposedValue/` — Processors for composition keywords
+- `ComposedValue/` — Processors for composition keywords (`allOf`, `anyOf`, `oneOf`, `if/then/else`, `not`)
 - `Filter/` — Custom filter processing
 - `Decorator/` — Property decorators (ObjectInstantiation, PropertyTransfer, IntToFloatCast, etc.)
 

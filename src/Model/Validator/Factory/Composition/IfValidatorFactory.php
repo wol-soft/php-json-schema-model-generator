@@ -15,7 +15,6 @@ use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -51,7 +50,7 @@ class IfValidatorFactory
         $propertySchema = $this->inheritPropertyType($propertySchema);
         $json = $propertySchema->getJson();
 
-        $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
+        $propertyFactory = new PropertyFactory();
 
         $onlyForDefinedValues = !($property instanceof BaseProperty)
             && (!$property->isRequired()

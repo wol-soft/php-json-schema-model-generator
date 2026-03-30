@@ -11,7 +11,10 @@ use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\IfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\OneOfValidatorFactory;
+use PHPModelGenerator\Draft\Modifier\ConstModifier;
 use PHPModelGenerator\Draft\Modifier\DefaultValueModifier;
+use PHPModelGenerator\Draft\Modifier\IntToFloatModifier;
+use PHPModelGenerator\Draft\Modifier\NullModifier;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
 use PHPModelGenerator\Model\Validator\Factory\Any\EnumValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Any\FilterValidatorFactory;
@@ -41,7 +44,7 @@ class Draft_07 implements DraftInterface
     public function getDefinition(): DraftBuilder
     {
         return (new DraftBuilder())
-            ->addType((new Type('object'))
+            ->addType((new Type('object', false))
                 ->addValidator('properties', new PropertiesValidatorFactory())
                 ->addValidator('propertyNames', new PropertyNamesValidatorFactory())
                 ->addValidator('patternProperties', new PatternPropertiesValidatorFactory())
@@ -72,9 +75,11 @@ class Draft_07 implements DraftInterface
                 ->addValidator('maximum', new MaximumValidatorFactory('is_float'))
                 ->addValidator('exclusiveMinimum', new ExclusiveMinimumValidatorFactory('is_float'))
                 ->addValidator('exclusiveMaximum', new ExclusiveMaximumValidatorFactory('is_float'))
-                ->addValidator('multipleOf', new MultipleOfPropertyValidatorFactory('is_float', false)))
+                ->addValidator('multipleOf', new MultipleOfPropertyValidatorFactory('is_float', false))
+                ->addModifier(new IntToFloatModifier()))
             ->addType(new Type('boolean'))
-            ->addType(new Type('null'))
+            ->addType((new Type('null'))
+                ->addModifier(new NullModifier()))
             ->addType((new Type('any', false))
                 ->addValidator('enum', new EnumValidatorFactory())
                 ->addValidator('filter', new FilterValidatorFactory())
@@ -83,6 +88,7 @@ class Draft_07 implements DraftInterface
                 ->addValidator('oneOf', new OneOfValidatorFactory())
                 ->addValidator('not', new NotValidatorFactory())
                 ->addValidator('if', new IfValidatorFactory())
-                ->addModifier(new DefaultValueModifier()));
+                ->addModifier(new DefaultValueModifier())
+                ->addModifier(new ConstModifier()));
     }
 }

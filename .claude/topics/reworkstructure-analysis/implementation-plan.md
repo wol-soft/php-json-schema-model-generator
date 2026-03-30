@@ -775,11 +775,14 @@ permanent special-case routes inside `PropertyFactory` — they represent keywor
 
 ---
 
-## Phase 8 — Delete empty processor classes and legacy bridge
+## Phase 8 — Delete empty processor classes and legacy bridge **[DONE]**
 
 **Goal**: Remove all now-empty or deprecated processor classes, the legacy bridge in
-`PropertyFactory`, `PropertyProcessorFactory`, `ComposedValueProcessorFactory`, and
+`PropertyFactory`, `PropertyProcessorFactory`, and
 `AbstractPropertyProcessor`/`AbstractValueProcessor`/`AbstractTypedValueProcessor`.
+Introduce `ConstModifier` and `NumberModifier`. Inline `$ref`/`baseReference` logic as
+private methods on `PropertyFactory`. Remove the `ProcessorFactoryInterface` constructor
+parameter from `PropertyFactory` entirely.
 
 ### Remaining bridge-period debt to clean up
 
@@ -791,8 +794,113 @@ At the time Phase 8 runs, the following bridge artifact must be removed:
 
 All PMC-mutation workarounds were already resolved in Phase 2.
 
-### Classes to delete
+### 8.1 — `ConstModifier` on the `'any'` type
 
+New file `src/Draft/Modifier/ConstModifier.php` — registered on the `'any'` type in
+`Draft_07` via `addModifier`. Does not use the `AbstractValidatorFactory`/`setKey` mechanism
+because it needs to set both a `PropertyType` AND add a `PropertyValidator` on the same
+property (two things, not just a validator keyed to one keyword). Implements
+`ModifierInterface` directly.
+
+`ConstModifier::modify`:
+- Guard: return immediately if `!isset($json['const'])`.
+- Set `PropertyType` using `TypeConverter::gettypeToInternal(gettype($json['const']))`.
+- Build the validator check expression (same logic as `ConstProcessor::process`):
+  - `$property->isRequired()` → `'$value !== ' . var_export($json['const'], true)`
+  - implicit null allowed → `'!in_array($value, [const, null], true)'`
+  - otherwise → `"array_key_exists('name', \$modelData) && \$value !== const"`
+- Add `new PropertyValidator($property, $check, InvalidConstException::class, [$json['const']])`.
+
+The `$json['type'] = 'const'` routing signal in `PropertyFactory::create` is removed.
+`ConstProcessor` is deleted.
+
+### 8.2 — `NumberModifier` on the `'number'` type
+
+New file `src/Draft/Modifier/NumberModifier.php` — registered on the `'number'` type in
+`Draft_07` via `addModifier`. Adds `IntToFloatCastDecorator` unconditionally (all `number`
+properties need the int→float cast). Implements `ModifierInterface` directly.
+
+`NumberProcessor::process` currently calls `parent::process(...)->addDecorator(new IntToFloatCastDecorator())`.
+This moves into `NumberModifier` so `NumberProcessor` can be deleted.
+
+### 8.3 — Inline `$ref` / `baseReference` as private methods on `PropertyFactory`
+
+`$ref` is categorically different from keyword validators: `ReferenceProcessor::process`
+**replaces** the property entirely (returns a resolved `PropertyProxy` from the definition
+dictionary). The `ModifierInterface::modify` contract returns `void` and cannot replace a
+property — any attempt to "copy fields" would lose the `PropertyProxy`'s deferred-resolution
+callbacks. Therefore `$ref` remains a routing signal handled before Draft modifiers run.
+
+New private methods on `PropertyFactory`:
+- `processReference(SchemaProcessor, Schema, string $propertyName, JsonSchema, bool $required): PropertyInterface`
+  — inlines `ReferenceProcessor::process` logic
+- `processBaseReference(SchemaProcessor, Schema, string $propertyName, JsonSchema, bool $required): PropertyInterface`
+  — inlines `BasereferenceProcessor::process` logic (calls `processReference`, validates nested
+  schema, copies properties to parent schema)
+
+The `$json['$ref'] → type = 'reference'/'baseReference'` detection in `PropertyFactory::create`
+remains but routes to these private methods instead of via `processorFactory`.
+
+`ReferenceProcessor` and `BasereferenceProcessor` are deleted.
+
+### 8.4 — Inline `base` path; construct `Property`/`BaseProperty` directly in `PropertyFactory`
+
+The remaining legacy bridge in `PropertyFactory::create` calls `$this->processorFactory->getProcessor(type)->process()` for:
+- `base` — `BaseProcessor::process` does `setUpDefinitionDictionary` + constructs `BaseProperty`
+- scalar/array/any types — `AbstractTypedValueProcessor::process` constructs `Property`,
+  sets required/readOnly, calls `generateValidators` (adds `RequiredPropertyValidator` +
+  `TypeCheckValidator` with dedup guard)
+
+After Phase 8 these are inlined directly:
+
+**`base` path**:
+```php
+$schema->getSchemaDictionary()->setUpDefinitionDictionary($schemaProcessor, $schema);
+$property = new BaseProperty($propertyName, new PropertyType('object'), $propertySchema);
+// applyDraftModifiers and transferComposedPropertiesToSchema follow (already in place)
+```
+
+**Scalar/array/any paths** (`string`, `integer`, `number`, `boolean`, `null`, `array`, `any`):
+```php
+$property = (new Property($propertyName, null, $propertySchema, $json['description'] ?? ''))
+    ->setRequired($required)
+    ->setReadOnly(...);
+if ($required && !str_starts_with($propertyName, 'item of array ')) {
+    $property->addValidator(new RequiredPropertyValidator($property), 1);
+}
+// applyDraftModifiers follows (TypeCheckValidator, keyword validators all come from Draft)
+```
+
+`NullProcessor` added `setType(null)` and `TypeHintDecorator(['null'])` — these must be added
+as a `NullModifier` on the `'null'` type in `Draft_07`. The TypeCheckModifier already adds the
+`TypeCheckValidator('null', ...)` — but `NullProcessor` called `setType(null)` to clear the
+type hint. A `NullModifier` runs after `TypeCheckModifier` and calls `$property->setType(null)`
+and `$property->addTypeHintDecorator(new TypeHintDecorator(['null']))`. This preserves existing
+behaviour: null-typed properties have no PHP type hint (rendered as `mixed`/no type).
+
+### 8.5 — Remove `ProcessorFactoryInterface` from `PropertyFactory`
+
+`PropertyFactory::__construct` loses the `ProcessorFactoryInterface $processorFactory` parameter.
+All `new PropertyFactory(new PropertyProcessorFactory())` call sites across the codebase become
+`new PropertyFactory()`.
+
+Call sites:
+- `src/SchemaProcessor/SchemaProcessor.php` (1 site)
+- `src/Model/SchemaDefinition/SchemaDefinition.php` (1 site)
+- `src/Model/Validator/AdditionalPropertiesValidator.php` (1 site)
+- `src/Model/Validator/ArrayItemValidator.php` (1 site)
+- `src/Model/Validator/ArrayTupleValidator.php` (1 site)
+- `src/Model/Validator/Factory/Arrays/ContainsValidatorFactory.php` (1 site)
+- `src/Model/Validator/Factory/Composition/AbstractCompositionValidatorFactory.php` (1 site)
+- `src/Model/Validator/Factory/Composition/IfValidatorFactory.php` (1 site)
+- `src/Model/Validator/Factory/Object/PropertiesValidatorFactory.php` (1 site)
+- `src/Model/Validator/PatternPropertiesValidator.php` (1 site)
+- `src/Model/Validator/PropertyNamesValidator.php` (1 site)
+- `src/PropertyProcessor/Property/BaseProcessor.php` (1 site, deleted in 8.6)
+
+### 8.6 — Delete all processor classes and infrastructure
+
+Files to delete:
 - `src/PropertyProcessor/Property/AbstractPropertyProcessor.php`
 - `src/PropertyProcessor/Property/AbstractValueProcessor.php`
 - `src/PropertyProcessor/Property/AbstractTypedValueProcessor.php`
@@ -805,35 +913,41 @@ All PMC-mutation workarounds were already resolved in Phase 2.
 - `src/PropertyProcessor/Property/ArrayProcessor.php`
 - `src/PropertyProcessor/Property/ObjectProcessor.php`
 - `src/PropertyProcessor/Property/AnyProcessor.php`
-- `src/PropertyProcessor/Property/MultiTypeProcessor.php` (deleted in Phase 5)
-- `src/PropertyProcessor/ComposedValue/AbstractComposedValueProcessor.php`
-- `src/PropertyProcessor/ComposedValue/AllOfProcessor.php`
-- `src/PropertyProcessor/ComposedValue/AnyOfProcessor.php`
-- `src/PropertyProcessor/ComposedValue/OneOfProcessor.php`
-- `src/PropertyProcessor/ComposedValue/NotProcessor.php`
-- `src/PropertyProcessor/ComposedValue/IfProcessor.php`
-- `src/PropertyProcessor/ComposedValueProcessorFactory.php`
+- `src/PropertyProcessor/Property/ConstProcessor.php` (replaced by ConstModifier in 8.1)
+- `src/PropertyProcessor/Property/ReferenceProcessor.php` (inlined in 8.3)
+- `src/PropertyProcessor/Property/BasereferenceProcessor.php` (inlined in 8.3)
+- `src/PropertyProcessor/Property/BaseProcessor.php` (inlined in 8.4)
 - `src/PropertyProcessor/PropertyProcessorFactory.php`
 - `src/PropertyProcessor/ProcessorFactoryInterface.php`
 - `src/PropertyProcessor/PropertyProcessorInterface.php`
 
-### Tests to delete/replace
+The `src/PropertyProcessor/Property/` directory becomes empty and is removed.
 
-- `tests/PropertyProcessor/PropertyProcessorFactoryTest.php` — tests the deleted factory.
-  Replace with `tests/Draft/DraftRegistryTest.php` testing that `Draft07` returns the correct
-  modifier list for each type.
+### 8.7 — Delete `BaseProcessor::transferComposedPropertiesToSchema`
 
-### Remaining processors (kept permanently)
+`BaseProcessor` contains a `transferComposedPropertiesToSchema` method that duplicates the
+identical method on `SchemaProcessor`. `PropertyFactory`'s `base` path already calls
+`$schemaProcessor->transferComposedPropertiesToSchema`. The `BaseProcessor` copy is dead code
+and is deleted along with the class.
 
-- `src/PropertyProcessor/Property/ConstProcessor.php` — becomes a standalone callable, no
-  longer part of the processor hierarchy; or folds into `PropertyFactory` directly
-- `src/PropertyProcessor/Property/ReferenceProcessor.php` — same
-- `src/PropertyProcessor/Property/BasereferenceProcessor.php` — same
+### Tests for Phase 8
+
+- Delete `tests/PropertyProcessor/PropertyProcessorFactoryTest.php`.
+- Add `tests/Draft/DraftRegistryTest.php` — verifies `Draft_07::getDefinition()->build()`:
+  - Returns the correct modifier list (including new modifiers) for each type
+  - `'null'` type has `NullModifier` in its list
+  - `'number'` type has `NumberModifier` in its list
+  - `'any'` type has `ConstModifier` in its list
+  - All types have `TypeCheckModifier` (except `'object'` and `'any'`)
+- Add `tests/Draft/Modifier/ConstModifierTest.php` — unit tests for `ConstModifier`
+- Add `tests/Draft/Modifier/NumberModifierTest.php` — unit tests for `NumberModifier`
+- Add `tests/Draft/Modifier/NullModifierTest.php` — unit tests for `NullModifier`
+- Full integration suite must stay green.
 
 ### Docs for Phase 8
 
 - Remove all references to `PropertyProcessorFactory` from docs.
-- Update architecture overview in docs and `CLAUDE.md`.
+- Update architecture overview in `CLAUDE.md`.
 - Document the final `DraftInterface` / modifier system for users.
 
 ---

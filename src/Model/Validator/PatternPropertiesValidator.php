@@ -11,7 +11,6 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -38,7 +37,7 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
     ) {
         $this->key = md5($propertyStructure->getJson()['key'] ?? $this->pattern);
 
-        $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
+        $propertyFactory = new PropertyFactory();
 
         $this->validationProperty = $propertyFactory->create(
             $schemaProcessor,

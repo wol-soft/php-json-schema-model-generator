@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor;
 
+use Exception;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
 use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
@@ -18,6 +20,7 @@ use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\TypeConverter;
@@ -31,9 +34,6 @@ class PropertyFactory
 {
     /** @var Draft[] Keyed by draft class name */
     private array $draftCache = [];
-
-    public function __construct(protected ProcessorFactoryInterface $processorFactory)
-    {}
 
     /**
      * Create a property, applying all applicable Draft modifiers.
@@ -49,15 +49,21 @@ class PropertyFactory
     ): PropertyInterface {
         $json = $propertySchema->getJson();
 
-        // redirect properties with a constant value to the ConstProcessor
-        if (isset($json['const'])) {
-            $json['type'] = 'const';
-        }
-        // redirect references to the ReferenceProcessor
+        // $ref: replace the property entirely via the definition dictionary.
+        // This is a schema-identity primitive — it cannot be a Draft modifier because
+        // ModifierInterface::modify returns void and cannot replace the property object.
         if (isset($json['$ref'])) {
-            $json['type'] = isset($json['type']) && $json['type'] === 'base'
-                ? 'baseReference'
-                : 'reference';
+            if (isset($json['type']) && $json['type'] === 'base') {
+                return $this->processBaseReference(
+                    $schemaProcessor,
+                    $schema,
+                    $propertyName,
+                    $propertySchema,
+                    $required,
+                );
+            }
+
+            return $this->processReference($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
         }
 
         $resolvedType = $json['type'] ?? 'any';
@@ -75,103 +81,245 @@ class PropertyFactory
 
         $this->checkType($resolvedType, $schema);
 
-        // Nested object properties: bypass the legacy ObjectProcessor. Call processSchema to
-        // generate the nested class, store it on the property, then run Draft modifiers with
-        // the nested Schema as $schema so keyword modifiers add to the correct target.
-        if ($resolvedType === 'object') {
-            $json = $propertySchema->getJson();
-            $property = (new Property(
-                $propertyName,
-                null,
-                $propertySchema,
-                $json['description'] ?? '',
-            ))
-                ->setRequired($required)
-                ->setReadOnly(
-                    (isset($json['readOnly']) && $json['readOnly'] === true) ||
-                    $schemaProcessor->getGeneratorConfiguration()->isImmutable(),
-                );
-
-            if ($required && !str_starts_with($propertyName, 'item of array ')) {
-                $property->addValidator(new RequiredPropertyValidator($property), 1);
-            }
-
-            $className = $schemaProcessor->getGeneratorConfiguration()->getClassNameGenerator()->getClassName(
-                $propertyName,
-                $propertySchema,
-                false,
-                $schemaProcessor->getCurrentClassName(),
-            );
-
-            // Strip property-level keywords (filter, enum, default) before passing the schema to
-            // processSchema. These keywords target the outer property — not the nested class root —
-            // and are handled by applyUniversalModifiers below after processSchema returns.
-            $nestedJson = $json;
-            unset($nestedJson['filter'], $nestedJson['enum'], $nestedJson['default']);
-            $nestedSchema = $schemaProcessor->processSchema(
-                $propertySchema->withJson($nestedJson),
-                $schemaProcessor->getCurrentClassPath(),
-                $className,
-                $schema->getSchemaDictionary(),
-            );
-
-            if ($nestedSchema !== null) {
-                // Store on the property so ObjectModifier can read it.
-                $property->setNestedSchema($nestedSchema);
-
-                // processSchema already ran all schema-targeting Draft modifiers (PropertiesModifier,
-                // PatternPropertiesModifier, etc.) on the nested schema internally via the type=base
-                // path. Here we only wire the outer property: add the type-check validator and the
-                // instantiation linkage. Passing the outer $schema ensures addUsedClass and
-                // addNamespaceTransferDecorator target the correct parent class.
-                $this->wireObjectProperty($schemaProcessor, $schema, $property, $propertySchema);
-            }
-
-            // Universal modifiers (filter, enum, default) must still run on the outer property
-            // with the outer $schema context. They are property-targeting, not schema-targeting,
-            // so they must not be applied inside processSchema (which targets the nested class).
-            $this->applyUniversalModifiers($schemaProcessor, $schema, $property, $propertySchema);
-
-            return $property;
-        }
-
-        // Root-level schema: run the legacy BaseProcessor bridge (handles setUpDefinitionDictionary
-        // and composition validators), then Draft modifiers (PropertiesModifier etc. — must run
-        // BEFORE transferComposedPropertiesToSchema so root properties are registered first and
-        // the allOf merger can narrow them correctly), then composition property transfer.
-        // ObjectModifier skips for BaseProperty instances.
-        // The propertySchema is rewritten from type=base to type=object so applyDraftModifiers
-        // correctly resolves the 'object' modifier list from the Draft.
-        if ($resolvedType === 'base') {
-            $property = $this->processorFactory
-                ->getProcessor('base', $schemaProcessor, $schema, $required)
-                ->process($propertyName, $propertySchema);
-
-            $objectJson = $json;
-            $objectJson['type'] = 'object';
-            $this->applyDraftModifiers($schemaProcessor, $schema, $property, $propertySchema->withJson($objectJson));
-
-            $schemaProcessor->transferComposedPropertiesToSchema($property, $schema);
-
-            return $property;
-        }
-
-        $property = $this->processorFactory
-            ->getProcessor(
-                $resolvedType,
+        return match ($resolvedType) {
+            'object' => $this->createObjectProperty(
                 $schemaProcessor,
                 $schema,
+                $propertyName,
+                $propertySchema,
                 $required,
-            )
-            ->process($propertyName, $propertySchema);
+            ),
+            'base'   => $this->createBaseProperty($schemaProcessor, $schema, $propertyName, $propertySchema),
+            default  => $this->createTypedProperty(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema,
+                $resolvedType,
+                $required,
+            ),
+        };
+    }
 
-        $this->applyDraftModifiers($schemaProcessor, $schema, $property, $propertySchema);
+    /**
+     * Handle a nested object property: generate the nested class, wire the outer property,
+     * then apply universal modifiers (filter, enum, default, const) on the outer property.
+     *
+     * @throws SchemaException
+     */
+    private function createObjectProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        bool $required,
+    ): PropertyInterface {
+        $json     = $propertySchema->getJson();
+        $property = $this->buildProperty($schemaProcessor, $propertyName, null, $propertySchema, $required);
+
+        $className = $schemaProcessor->getGeneratorConfiguration()->getClassNameGenerator()->getClassName(
+            $propertyName,
+            $propertySchema,
+            false,
+            $schemaProcessor->getCurrentClassName(),
+        );
+
+        // Strip property-level keywords before passing the schema to processSchema: these keywords
+        // target the outer property and are handled by the universal modifiers below.
+        $nestedJson = $json;
+        unset($nestedJson['filter'], $nestedJson['enum'], $nestedJson['default']);
+        $nestedSchema = $schemaProcessor->processSchema(
+            $propertySchema->withJson($nestedJson),
+            $schemaProcessor->getCurrentClassPath(),
+            $className,
+            $schema->getSchemaDictionary(),
+        );
+
+        if ($nestedSchema !== null) {
+            $property->setNestedSchema($nestedSchema);
+            $this->wireObjectProperty($schemaProcessor, $schema, $property, $propertySchema);
+        }
+
+        // Universal modifiers (filter, enum, default, const) run on the outer property.
+        $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema, anyOnly: true);
 
         return $property;
     }
 
     /**
-     * Handle "type": [...] properties by processing each type through its legacy processor,
+     * Handle a root-level schema (type=base): set up definitions, run all Draft modifiers,
+     * then transfer any composed properties to the schema.
+     *
+     * @throws SchemaException
+     */
+    private function createBaseProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+    ): PropertyInterface {
+        $schema->getSchemaDictionary()->setUpDefinitionDictionary($schemaProcessor, $schema);
+        $property = new BaseProperty($propertyName, new PropertyType('object'), $propertySchema);
+
+        $objectJson         = $propertySchema->getJson();
+        $objectJson['type'] = 'object';
+        $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema->withJson($objectJson));
+
+        $schemaProcessor->transferComposedPropertiesToSchema($property, $schema);
+
+        return $property;
+    }
+
+    /**
+     * Handle scalar, array, and untyped properties: construct directly and run all Draft modifiers.
+     *
+     * @throws SchemaException
+     */
+    private function createTypedProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        string $type,
+        bool $required,
+    ): PropertyInterface {
+        $phpType  = $type !== 'any' ? TypeConverter::jsonSchemaToPhp($type) : null;
+        $property = $this->buildProperty(
+            $schemaProcessor,
+            $propertyName,
+            $phpType !== null ? new PropertyType($phpType) : null,
+            $propertySchema,
+            $required,
+        );
+
+        $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema);
+
+        return $property;
+    }
+
+    /**
+     * Construct a Property with the common required/readOnly setup.
+     */
+    private function buildProperty(
+        SchemaProcessor $schemaProcessor,
+        string $propertyName,
+        ?PropertyType $type,
+        JsonSchema $propertySchema,
+        bool $required,
+    ): Property {
+        $json = $propertySchema->getJson();
+
+        $property = (new Property($propertyName, $type, $propertySchema, $json['description'] ?? ''))
+            ->setRequired($required)
+            ->setReadOnly(
+                (isset($json['readOnly']) && $json['readOnly'] === true) ||
+                $schemaProcessor->getGeneratorConfiguration()->isImmutable(),
+            );
+
+        if ($required && !str_starts_with($propertyName, 'item of array ')) {
+            $property->addValidator(new RequiredPropertyValidator($property), 1);
+        }
+
+        return $property;
+    }
+
+    /**
+     * Resolve a $ref reference by looking it up in the definition dictionary.
+     *
+     * @throws SchemaException
+     */
+    private function processReference(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        bool $required,
+    ): PropertyInterface {
+        $path       = [];
+        $reference  = $propertySchema->getJson()['$ref'];
+        $dictionary = $schema->getSchemaDictionary();
+
+        try {
+            $definition = $dictionary->getDefinition($reference, $schemaProcessor, $path);
+
+            if ($definition) {
+                $definitionSchema = $definition->getSchema();
+
+                if (
+                    $schema->getClassPath() !== $definitionSchema->getClassPath() ||
+                    $schema->getClassName() !== $definitionSchema->getClassName() ||
+                    (
+                        $schema->getClassName() === 'ExternalSchema' &&
+                        $definitionSchema->getClassName() === 'ExternalSchema'
+                    )
+                ) {
+                    $schema->addNamespaceTransferDecorator(
+                        new SchemaNamespaceTransferDecorator($definitionSchema),
+                    );
+
+                    if ($definitionSchema->getClassName() !== 'ExternalSchema') {
+                        $schema->addUsedClass(join('\\', array_filter([
+                            $schemaProcessor->getGeneratorConfiguration()->getNamespacePrefix(),
+                            $definitionSchema->getClassPath(),
+                            $definitionSchema->getClassName(),
+                        ])));
+                    }
+                }
+
+                return $definition->resolveReference(
+                    $propertyName,
+                    $path,
+                    $required,
+                    $propertySchema->getJson()['_dependencies'] ?? null,
+                );
+            }
+        } catch (Exception $exception) {
+            throw new SchemaException(
+                "Unresolved Reference $reference in file {$propertySchema->getFile()}",
+                0,
+                $exception,
+            );
+        }
+
+        throw new SchemaException("Unresolved Reference $reference in file {$propertySchema->getFile()}");
+    }
+
+    /**
+     * Resolve a $ref on a base-level schema: set up definitions, delegate to processReference,
+     * then copy the referenced schema's properties to the parent schema.
+     *
+     * @throws SchemaException
+     */
+    private function processBaseReference(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        bool $required,
+    ): PropertyInterface {
+        $schema->getSchemaDictionary()->setUpDefinitionDictionary($schemaProcessor, $schema);
+
+        $property = $this->processReference($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
+
+        if (!$property->getNestedSchema()) {
+            throw new SchemaException(
+                sprintf(
+                    'A referenced schema on base level must provide an object definition for property %s in file %s',
+                    $propertyName,
+                    $propertySchema->getFile(),
+                )
+            );
+        }
+
+        foreach ($property->getNestedSchema()->getProperties() as $propertiesOfReferencedObject) {
+            $schema->addProperty($propertiesOfReferencedObject);
+        }
+
+        return $property;
+    }
+
+    /**
+     * Handle "type": [...] properties by processing each type through its Draft modifiers,
      * merging validators and decorators onto a single property, then consolidating type checks.
      *
      * @param string[] $types
@@ -186,19 +334,8 @@ class PropertyFactory
         array $types,
         bool $required,
     ): PropertyInterface {
-        $json = $propertySchema->getJson();
-
-        $property = (new Property(
-            $propertyName,
-            null,
-            $propertySchema,
-            $json['description'] ?? '',
-        ))
-            ->setRequired($required)
-            ->setReadOnly(
-                (isset($json['readOnly']) && $json['readOnly'] === true) ||
-                $schemaProcessor->getGeneratorConfiguration()->isImmutable(),
-            );
+        $json     = $propertySchema->getJson();
+        $property = $this->buildProperty($schemaProcessor, $propertyName, null, $propertySchema, $required);
 
         $collectedTypes   = [];
         $typeHints        = [];
@@ -216,16 +353,18 @@ class PropertyFactory
             $subJson['type'] = $type;
             $subSchema       = $propertySchema->withJson($subJson);
 
-            $subProperty = $this->processorFactory
-                ->getProcessor($type, $schemaProcessor, $schema, $required)
-                ->process($propertyName, $subSchema);
-
-            // For type=object, ObjectProcessor::process already called processSchema (which ran
-            // all schema-targeting Draft modifiers) and wired the property. Running
-            // applyTypeModifiers would re-apply PropertiesModifier etc. to the outer $schema.
-            if ($type !== 'object') {
-                $this->applyTypeModifiers($schemaProcessor, $schema, $subProperty, $subSchema);
-            }
+            // For type=object, delegate to the same object path (processSchema + wireObjectProperty).
+            $subProperty = $type === 'object'
+                ? $this->createObjectProperty($schemaProcessor, $schema, $propertyName, $subSchema, $required)
+                : $this->createSubTypeProperty(
+                    $schemaProcessor,
+                    $schema,
+                    $propertyName,
+                    $subSchema,
+                    $type,
+                    $required,
+                    $json,
+                );
 
             $subProperty->onResolve(function () use (
                 $property,
@@ -274,6 +413,34 @@ class PropertyFactory
     }
 
     /**
+     * Build a non-object sub-property for a multi-type array, applying only type-specific
+     * modifiers (no universal 'any' modifiers — those run once on the parent after finalization).
+     *
+     * @throws SchemaException
+     */
+    private function createSubTypeProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        string $type,
+        bool $required,
+        array $parentJson,
+    ): Property {
+        $subProperty = $this->buildProperty(
+            $schemaProcessor,
+            $propertyName,
+            new PropertyType(TypeConverter::jsonSchemaToPhp($type)),
+            $propertySchema,
+            $required,
+        );
+
+        $this->applyModifiers($schemaProcessor, $schema, $subProperty, $propertySchema, anyOnly: false, typeOnly: true);
+
+        return $subProperty;
+    }
+
+    /**
      * Called once all sub-properties of a multi-type property have resolved.
      * Adds the consolidated MultiTypeCheckValidator, sets the union PropertyType,
      * attaches the type-hint decorator, and runs universal modifiers.
@@ -314,13 +481,13 @@ class PropertyFactory
 
         $property->addTypeHintDecorator(new TypeHintDecorator($typeHints));
 
-        $this->applyUniversalModifiers($schemaProcessor, $schema, $property, $propertySchema);
+        $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema, anyOnly: true);
     }
 
     /**
      * Wire the outer property for a nested object: add the type-check validator and instantiation
-     * linkage. Schema-targeting modifiers (PropertiesModifier etc.) are intentionally NOT run here
-     * because processSchema already applied them to the nested schema via the type=base path.
+     * linkage. Schema-targeting modifiers are intentionally NOT run here because processSchema
+     * already applied them to the nested schema.
      *
      * @throws SchemaException
      */
@@ -341,90 +508,42 @@ class PropertyFactory
     }
 
     /**
-     * Run only the type-specific Draft modifiers (no universal 'any' modifiers) for the given
-     * property.
+     * Run Draft modifiers for the given property.
+     *
+     * By default all covered types (type-specific + 'any') run. Pass $anyOnly=true to run
+     * only the 'any' entry (used for object outer-property universal keywords), or $typeOnly=true
+     * to run only type-specific entries (used for multi-type sub-properties).
      *
      * @throws SchemaException
      */
-    private function applyTypeModifiers(
+    private function applyModifiers(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         PropertyInterface $property,
         JsonSchema $propertySchema,
+        bool $anyOnly = false,
+        bool $typeOnly = false,
     ): void {
-        $type = $propertySchema->getJson()['type'] ?? 'any';
+        $type       = $propertySchema->getJson()['type'] ?? 'any';
         $builtDraft = $this->resolveBuiltDraft($schemaProcessor, $propertySchema);
 
-        if ($type === 'any' || !$builtDraft->hasType($type)) {
-            return;
-        }
-
-        foreach ($builtDraft->getCoveredTypes($type) as $coveredType) {
-            if ($coveredType->getType() === 'any') {
-                continue;
-            }
-
-            foreach ($coveredType->getModifiers() as $modifier) {
-                $modifier->modify($schemaProcessor, $schema, $property, $propertySchema);
-            }
-        }
-    }
-
-    /**
-     * Run only the universal ('any') Draft modifiers for the given property.
-     *
-     * @throws SchemaException
-     */
-    private function applyUniversalModifiers(
-        SchemaProcessor $schemaProcessor,
-        Schema $schema,
-        PropertyInterface $property,
-        JsonSchema $propertySchema,
-    ): void {
-        $builtDraft = $this->resolveBuiltDraft($schemaProcessor, $propertySchema);
-
-        foreach ($builtDraft->getCoveredTypes('any') as $coveredType) {
-            if ($coveredType->getType() !== 'any') {
-                continue;
-            }
-
-            foreach ($coveredType->getModifiers() as $modifier) {
-                $modifier->modify($schemaProcessor, $schema, $property, $propertySchema);
-            }
-        }
-    }
-
-    /**
-     * Run all Draft modifiers (type-specific and universal) for the given property.
-     *
-     * @throws SchemaException
-     */
-    private function applyDraftModifiers(
-        SchemaProcessor $schemaProcessor,
-        Schema $schema,
-        PropertyInterface $property,
-        JsonSchema $propertySchema,
-    ): void {
-        $type = $propertySchema->getJson()['type'] ?? 'any';
-        $builtDraft = $this->resolveBuiltDraft($schemaProcessor, $propertySchema);
-
-        // Types not declared in the draft are internal routing signals (e.g. 'allOf', 'base',
-        // 'reference'). They have no draft modifiers to apply.
-        if ($type !== 'any' && !$builtDraft->hasType($type)) {
-            return;
-        }
-
-        // For untyped properties ('any'), only run universal modifiers (the 'any' entry itself).
-        // getCoveredTypes('any') returns all types — that would incorrectly apply type-specific
-        // modifiers (e.g. TypeCheckModifier) to properties that carry no type constraint.
+        // For untyped properties ('any'), only run the 'any' entry — getCoveredTypes('any')
+        // returns all types, which would incorrectly apply type-specific modifiers.
         $coveredTypes = $type === 'any'
-            ? array_filter(
-                $builtDraft->getCoveredTypes('any'),
-                static fn($t) => $t->getType() === 'any',
-            )
+            ? array_filter($builtDraft->getCoveredTypes('any'), static fn($t) => $t->getType() === 'any')
             : $builtDraft->getCoveredTypes($type);
 
         foreach ($coveredTypes as $coveredType) {
+            $isAnyEntry = $coveredType->getType() === 'any';
+
+            if ($anyOnly && !$isAnyEntry) {
+                continue;
+            }
+
+            if ($typeOnly && $isAnyEntry) {
+                continue;
+            }
+
             foreach ($coveredType->getModifiers() as $modifier) {
                 $modifier->modify($schemaProcessor, $schema, $property, $propertySchema);
             }

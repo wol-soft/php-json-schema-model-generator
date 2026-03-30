@@ -11,7 +11,6 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -36,7 +35,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
         JsonSchema $propertiesStructure,
         string $propertyName,
     ) {
-        $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
+        $propertyFactory = new PropertyFactory();
 
         $this->tupleProperties = [];
 

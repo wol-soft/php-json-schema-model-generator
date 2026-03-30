@@ -16,7 +16,6 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 class PropertiesValidatorFactory extends AbstractValidatorFactory
@@ -32,7 +31,7 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
     ): void {
         $json = $propertySchema->getJson();
 
-        $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
+        $propertyFactory = new PropertyFactory();
 
         $json[$this->key] ??= [];
         // Setup empty properties for required properties which aren't defined in the properties section

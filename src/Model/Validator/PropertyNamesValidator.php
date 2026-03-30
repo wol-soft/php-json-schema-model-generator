@@ -11,7 +11,6 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -47,7 +46,7 @@ class PropertyNamesValidator extends PropertyTemplateValidator
             ? $propertiesNames
             : $propertiesNames->withJson(['type' => 'string'] + $propertiesNames->getJson());
 
-        $nameValidationProperty = (new PropertyFactory(new PropertyProcessorFactory()))
+        $nameValidationProperty = (new PropertyFactory())
             ->create($schemaProcessor, $schema, 'property name', $propertiesNamesAsString)
             // the property name validator doesn't need type checks or required checks so simply filter them out
             ->filterValidators(static fn(Validator $validator): bool =>

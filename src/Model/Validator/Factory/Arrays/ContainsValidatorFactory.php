@@ -12,7 +12,6 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -33,7 +32,7 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
             return;
         }
 
-        $nestedProperty = (new PropertyFactory(new PropertyProcessorFactory()))
+        $nestedProperty = (new PropertyFactory())
             ->create(
                 $schemaProcessor,
                 $schema,

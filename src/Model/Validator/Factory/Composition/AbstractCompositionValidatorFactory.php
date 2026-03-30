@@ -18,7 +18,6 @@ use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFactory
@@ -71,7 +70,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         JsonSchema $propertySchema,
         bool $merged,
     ): array {
-        $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
+        $propertyFactory = new PropertyFactory();
         $compositionProperties = [];
         $json = $propertySchema->getJson()['propertySchema']->getJson();
 

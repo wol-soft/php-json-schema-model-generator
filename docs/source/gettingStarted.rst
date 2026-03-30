@@ -333,6 +333,10 @@ Draft class   Description
 ``Draft_07``  JSON Schema Draft 7 (default)
 ============= ================================
 
+.. seealso::
+
+    :doc:`generator/custom/customDraft` — how to implement a custom draft or modifier.
+
 Custom filter
 ^^^^^^^^^^^^^
 

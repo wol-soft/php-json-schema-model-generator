@@ -25,7 +25,6 @@ use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDe
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
 
 /**
@@ -179,7 +178,7 @@ class SchemaProcessor
         $json = $jsonSchema->getJson();
         $json['type'] = 'base';
 
-        (new PropertyFactory(new PropertyProcessorFactory()))->create(
+        (new PropertyFactory())->create(
             $this,
             $schema,
             $className,

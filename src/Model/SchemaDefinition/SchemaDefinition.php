@@ -10,7 +10,6 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyProxy;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
@@ -75,7 +74,7 @@ class SchemaDefinition
             $this->resolvedPaths->offsetSet($key, null);
 
             try {
-                $property = (new PropertyFactory(new PropertyProcessorFactory()))
+                $property = (new PropertyFactory())
                     ->create(
                         $this->schemaProcessor,
                         $this->schema,
