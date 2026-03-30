@@ -127,6 +127,10 @@ interface PropertyInterface extends ResolvableInterface
 
     public function isReadOnly(): bool;
 
+    public function isWriteOnly(): bool;
+
+    public function setWriteOnly(bool $isPropertyWriteOnly): PropertyInterface;
+
     public function isInternal(): bool;
 
     /**

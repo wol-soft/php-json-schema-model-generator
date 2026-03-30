@@ -42,6 +42,7 @@ class SerializationPostProcessor extends PostProcessor
         $this->addSerializeFunctionsForTransformingFilters($schema, $generatorConfiguration);
         $this->addSerializationHookMethod($schema, $generatorConfiguration);
         $this->addSkipNotProvidedPropertiesMap($schema, $generatorConfiguration);
+        $this->addWriteOnlyExclusion($schema, $generatorConfiguration);
 
         $this->addPatternPropertiesSerialization($schema, $generatorConfiguration);
 
@@ -217,6 +218,41 @@ class SerializationPostProcessor extends PostProcessor
                 public function getCode(): string
                 {
                     return '$data = array_merge($this->serializeAdditionalProperties($depth, $except), $data);';
+                }
+            },
+        );
+    }
+
+    private function addWriteOnlyExclusion(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
+        $writeOnlyAttributes = array_map(
+            static fn(PropertyInterface $property): string => $property->getAttribute(true),
+            array_filter(
+                $schema->getProperties(),
+                static fn(PropertyInterface $property): bool => $property->isWriteOnly(),
+            ),
+        );
+
+        if (!$writeOnlyAttributes) {
+            return;
+        }
+
+        $keysExport = var_export(array_values($writeOnlyAttributes), true);
+
+        $schema->addSchemaHook(
+            new class ($keysExport) implements SerializationHookInterface
+            {
+                public function __construct(private readonly string $keysExport)
+                {}
+
+                public function getCode(): string
+                {
+                    return sprintf(
+                        'foreach (%s as $_writeOnlyKey) { unset($data[$_writeOnlyKey]); }',
+                        $this->keysExport,
+                    );
                 }
             },
         );

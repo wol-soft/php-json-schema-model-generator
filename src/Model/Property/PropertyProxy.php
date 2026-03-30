@@ -195,6 +195,22 @@ class PropertyProxy extends AbstractProperty
     /**
      * @inheritdoc
      */
+    public function setWriteOnly(bool $isPropertyWriteOnly): PropertyInterface
+    {
+        return $this->getProperty()->setWriteOnly($isPropertyWriteOnly);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function isWriteOnly(): bool
+    {
+        return $this->getProperty()->isWriteOnly();
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function setDefaultValue($defaultValue, bool $raw = false): PropertyInterface
     {
         return $this->getProperty()->setDefaultValue($defaultValue, $raw);

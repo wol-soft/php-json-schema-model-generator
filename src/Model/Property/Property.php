@@ -26,6 +26,8 @@ class Property extends AbstractProperty
     /** @var bool */
     protected $isPropertyReadOnly = false;
     /** @var bool */
+    protected $isPropertyWriteOnly = false;
+    /** @var bool */
     protected $isPropertyInternal = false;
     /** @var mixed */
     protected $defaultValue;
@@ -282,6 +284,16 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
+    public function setWriteOnly(bool $isPropertyWriteOnly): PropertyInterface
+    {
+        $this->isPropertyWriteOnly = $isPropertyWriteOnly;
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function setDefaultValue($defaultValue, bool $raw = false): PropertyInterface
     {
         $this->defaultValue = $defaultValue !== null && !$raw ? var_export($defaultValue, true) : $defaultValue;
@@ -311,6 +323,14 @@ class Property extends AbstractProperty
     public function isReadOnly(): bool
     {
         return $this->isPropertyReadOnly;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function isWriteOnly(): bool
+    {
+        return $this->isPropertyWriteOnly;
     }
 
     /**

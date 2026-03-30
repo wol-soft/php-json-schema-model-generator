@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "writeOnlyTrue": {
+      "type": "string",
+      "writeOnly": true
+    },
+    "writeOnlyFalse": {
+      "type": "string",
+      "writeOnly": false
+    },
+    "noWriteOnly": {
+      "type": "string"
+    }
+  }
+}
