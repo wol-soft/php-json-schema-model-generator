@@ -156,7 +156,7 @@ class SchemaDefinitionDictionary extends ArrayObject
             // The file was already processed (either as a top-level initial class, or by an
             // earlier $ref from another schema). Reuse the existing schema — no duplicate class.
             $this->parsedExternalFileSchemas[$canonicalKey] = $existingSchema;
-            $this->rawRefToCanonical[$jsonSchemaFile]        = $canonicalKey;
+            $this->rawRefToCanonical[$jsonSchemaFile] = $canonicalKey;
 
             return $existingSchema->getSchemaDictionary()->getDefinition($externalKey, $schemaProcessor, $path);
         }
@@ -206,7 +206,7 @@ class SchemaDefinitionDictionary extends ArrayObject
         }
 
         $this->parsedExternalFileSchemas[$canonicalKey] = $schema;
-        $this->rawRefToCanonical[$jsonSchemaFile]        = $canonicalKey;
+        $this->rawRefToCanonical[$jsonSchemaFile] = $canonicalKey;
 
         return $schema->getSchemaDictionary()->getDefinition($externalKey, $schemaProcessor, $path);
     }
