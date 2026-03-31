@@ -224,11 +224,9 @@ class PropertyFactory
             );
         }
 
-        $isReadOnly = $isSchemaReadOnly || $schemaProcessor->getGeneratorConfiguration()->isImmutable();
-
         $property = (new Property($propertyName, $type, $propertySchema, $json['description'] ?? ''))
             ->setRequired($required)
-            ->setReadOnly($isReadOnly)
+            ->setReadOnly($isSchemaReadOnly || $schemaProcessor->getGeneratorConfiguration()->isImmutable())
             ->setWriteOnly($isWriteOnly);
 
         if ($required && !str_starts_with($propertyName, 'item of array ')) {
