@@ -57,6 +57,14 @@ interface PropertyInterface extends ResolvableInterface
      */
     public function getDescription(): string;
 
+    public function getComment(): ?string;
+
+    public function setComment(string $comment): PropertyInterface;
+
+    public function getExamples(): array;
+
+    public function setExamples(array $examples): PropertyInterface;
+
     /**
      * Add a validator for the property
      *

@@ -88,6 +88,30 @@ class PropertyProxy extends AbstractProperty
         return $this->getProperty()->getDescription();
     }
 
+    public function getComment(): ?string
+    {
+        return $this->getProperty()->getComment();
+    }
+
+    public function setComment(string $comment): PropertyInterface
+    {
+        $this->getProperty()->setComment($comment);
+
+        return $this;
+    }
+
+    public function getExamples(): array
+    {
+        return $this->getProperty()->getExamples();
+    }
+
+    public function setExamples(array $examples): PropertyInterface
+    {
+        $this->getProperty()->setExamples($examples);
+
+        return $this;
+    }
+
     /**
      * @inheritdoc
      */

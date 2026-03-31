@@ -229,6 +229,14 @@ class PropertyFactory
             ->setReadOnly($isSchemaReadOnly || $schemaProcessor->getGeneratorConfiguration()->isImmutable())
             ->setWriteOnly($isWriteOnly);
 
+        if (isset($json['$comment'])) {
+            $property->setComment($json['$comment']);
+        }
+
+        if (isset($json['examples']) && is_array($json['examples'])) {
+            $property->setExamples($json['examples']);
+        }
+
         if ($required && !str_starts_with($propertyName, 'item of array ')) {
             $property->addValidator(new RequiredPropertyValidator($property), 1);
         }

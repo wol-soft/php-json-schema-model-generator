@@ -105,8 +105,10 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
             {% if not property.isWriteOnly() %}
                 /**
                  * Get the value of {{ property.getName() }}.
-                 *
-                 * {% if property.getDescription() %}{{ property.getDescription() }}{% endif %}
+                 *{% if property.getDescription() %}
+                 * {{ property.getDescription() }}{% endif %}{% if property.getComment() %}
+                 * {{ property.getComment() }}{% endif %}{% foreach property.getExamples() as example %}
+                 * @example {{ viewHelper.exportValue(example) }}{% endforeach %}
                  *
                  * {% if viewHelper.getTypeHintAnnotation(property, true) %}@return {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}
                  */

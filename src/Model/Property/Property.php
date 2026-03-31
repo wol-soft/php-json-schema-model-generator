@@ -29,6 +29,10 @@ class Property extends AbstractProperty
     protected $isPropertyWriteOnly = false;
     /** @var bool */
     protected $isPropertyInternal = false;
+    /** @var string|null */
+    protected $comment = null;
+    /** @var array */
+    protected $examples = [];
     /** @var mixed */
     protected $defaultValue;
 
@@ -162,6 +166,30 @@ class Property extends AbstractProperty
     public function getDescription(): string
     {
         return $this->description;
+    }
+
+    public function getComment(): ?string
+    {
+        return $this->comment;
+    }
+
+    public function setComment(string $comment): PropertyInterface
+    {
+        $this->comment = $comment;
+
+        return $this;
+    }
+
+    public function getExamples(): array
+    {
+        return $this->examples;
+    }
+
+    public function setExamples(array $examples): PropertyInterface
+    {
+        $this->examples = $examples;
+
+        return $this;
     }
 
     /**

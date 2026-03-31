@@ -31,6 +31,15 @@ class RenderHelper
         return $value === null;
     }
 
+    public function exportValue(mixed $value): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+
+        return json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: var_export($value, true);
+    }
+
     public function getSimpleClassName(string $fqcn): string
     {
         $parts = explode('\\', $fqcn);
