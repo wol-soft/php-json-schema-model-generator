@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\PhpAttribute;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\Schema;
@@ -246,5 +247,23 @@ class PropertyProxy extends AbstractProperty
     public function isInternal(): bool
     {
         return $this->getProperty()->isInternal();
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function addAttribute(PhpAttribute $attribute): static
+    {
+        $this->getProperty()->addAttribute($attribute);
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getAttributes(): array
+    {
+        return $this->getProperty()->getAttributes();
     }
 }

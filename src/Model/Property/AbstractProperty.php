@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\AttributesTrait;
+use PHPModelGenerator\Model\PhpAttribute;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Utils\NormalizedName;
@@ -19,6 +21,7 @@ abstract class AbstractProperty implements PropertyInterface
 {
     use JsonSchemaTrait;
     use ResolvableTrait;
+    use AttributesTrait;
 
     protected string $attribute;
 

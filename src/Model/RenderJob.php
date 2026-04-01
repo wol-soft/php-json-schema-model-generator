@@ -9,6 +9,7 @@ use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\Model\PhpAttribute;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
@@ -146,10 +147,22 @@ class RenderJob
      */
     protected function getUseForSchema(GeneratorConfiguration $generatorConfiguration, string $namespace): array
     {
+        $attributeFqcns = array_map(
+            static fn(PhpAttribute $attr): string => $attr->getFqcn(),
+            $this->schema->getAttributes(),
+        );
+
+        foreach ($this->schema->getProperties() as $property) {
+            foreach ($property->getAttributes() as $attr) {
+                $attributeFqcns[] = $attr->getFqcn();
+            }
+        }
+
         return RenderHelper::filterClassImports(
             array_unique(
                 array_merge(
                     $this->schema->getUsedClasses(),
+                    $attributeFqcns,
                     $generatorConfiguration->collectErrors()
                         ? [$generatorConfiguration->getErrorRegistryClass()]
                         : [ValidationException::class],
