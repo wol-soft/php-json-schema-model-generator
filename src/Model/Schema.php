@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model;
 
 use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\AttributesTrait;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
@@ -26,6 +27,7 @@ use PHPModelGenerator\Utils\PropertyMerger;
 class Schema
 {
     use JsonSchemaTrait;
+    use AttributesTrait;
 
     /** @var string */
     protected $description;
