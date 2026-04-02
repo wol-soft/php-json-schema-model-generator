@@ -24,7 +24,8 @@ All added post processors will be executed after a schema was processed and befo
     builtin/patternPropertiesAccessorPostProcessor
 
 .. toctree::
-    :caption: Custom Post Processors
+    :caption: Custom Extensions
     :maxdepth: 1
 
     custom/customPostProcessor
+    custom/customDraft

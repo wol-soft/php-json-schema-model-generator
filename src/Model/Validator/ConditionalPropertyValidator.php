@@ -8,7 +8,7 @@ use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\PropertyProcessor\ComposedValue\IfProcessor;
+use PHPModelGenerator\Model\Validator\Factory\Composition\IfValidatorFactory;
 
 /**
  * Class ConditionalPropertyValidator
@@ -38,7 +38,7 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
             ['&$ifException', '&$thenException', '&$elseException'],
         );
 
-        $this->compositionProcessor = IfProcessor::class;
+        $this->compositionProcessor = IfValidatorFactory::class;
         $this->composedProperties = $composedProperties;
         $this->conditionBranches = $conditionBranches;
     }

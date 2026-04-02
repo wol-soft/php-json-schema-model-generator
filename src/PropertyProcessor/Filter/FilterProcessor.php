@@ -15,6 +15,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
+use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\PassThroughTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\ReflectionTypeCheckValidator;
@@ -210,7 +211,10 @@ class FilterProcessor
         $typeCheckValidator = null;
 
         $property->filterValidators(static function (Validator $validator) use (&$typeCheckValidator): bool {
-            if (is_a($validator->getValidator(), TypeCheckValidator::class)) {
+            if (
+                is_a($validator->getValidator(), TypeCheckValidator::class) ||
+                is_a($validator->getValidator(), MultiTypeCheckValidator::class)
+            ) {
                 $typeCheckValidator = $validator->getValidator();
                 return false;
             }
@@ -218,7 +222,10 @@ class FilterProcessor
             return true;
         });
 
-        if ($typeCheckValidator instanceof TypeCheckValidator) {
+        if (
+            $typeCheckValidator instanceof TypeCheckValidator
+            || $typeCheckValidator instanceof MultiTypeCheckValidator
+        ) {
             // add a combined validator which checks for the transformed value or the original type of the property as a
             // replacement for the removed TypeCheckValidator
             $property->addValidator(

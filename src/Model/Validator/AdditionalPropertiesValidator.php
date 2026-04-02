@@ -10,9 +10,7 @@ use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -44,14 +42,14 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
         JsonSchema $propertiesStructure,
         ?string $propertyName = null,
     ) {
-        $propertyFactory = new PropertyFactory(new PropertyProcessorFactory());
+        $propertyFactory = new PropertyFactory();
 
         $this->validationProperty = $propertyFactory->create(
-            new PropertyMetaDataCollection([static::PROPERTY_NAME]),
             $schemaProcessor,
             $schema,
             static::PROPERTY_NAME,
             $propertiesStructure->withJson($propertiesStructure->getJson()[static::ADDITIONAL_PROPERTIES_KEY]),
+            true,
         );
 
         $this->validationProperty->onResolve(function (): void {

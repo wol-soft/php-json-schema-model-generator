@@ -121,24 +121,25 @@ class FilterValidator extends PropertyTemplateValidator
      */
     private function validateFilterCompatibilityWithBaseType(FilterInterface $filter, PropertyInterface $property): void
     {
-        if (empty($filter->getAcceptedTypes()) || !$property->getType()) {
+        if (empty($filter->getAcceptedTypes()) || (!$property->getType() && !$property->getNestedSchema())) {
             return;
         }
 
-        $typeNames = $property->getType()->getNames();
-        if (
-            (
-                !empty($typeNames) &&
-                !empty(array_diff($typeNames, $this->mapDataTypes($filter->getAcceptedTypes())))
-            ) || (
-                $property->getType()->isNullable() && !in_array('null', $filter->getAcceptedTypes())
-            )
-        ) {
+        $typeNames = $property->getNestedSchema() !== null ? ['object'] : $property->getType()->getNames();
+        $incompatibleTypes = !empty($typeNames)
+            ? array_diff($typeNames, $this->mapDataTypes($filter->getAcceptedTypes()))
+            : [];
+
+        if ($property->getType()?->isNullable() && !in_array('null', $filter->getAcceptedTypes())) {
+            $incompatibleTypes[] = 'null';
+        }
+
+        if (!empty($incompatibleTypes)) {
             throw new SchemaException(
                 sprintf(
                     'Filter %s is not compatible with property type %s for property %s in file %s',
                     $filter->getToken(),
-                    implode('|', $typeNames),
+                    implode('|', array_merge($typeNames, $property->getType()?->isNullable() ? ['null'] : [])),
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
                 )

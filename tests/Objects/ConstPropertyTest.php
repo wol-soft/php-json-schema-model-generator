@@ -226,7 +226,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     ): void {
         $className = $this->generateClassFromFile(
             'RequiredAndOptionalConstProperties.json',
-            new GeneratorConfiguration(),
+            (new GeneratorConfiguration())->setImmutable(false),
             false,
             $implicitNull,
         );
@@ -244,8 +244,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('string', $returnType->getName());
         $this->assertFalse($returnType->allowsNull());
 
-        $this->assertSame('string', $this->getParameterTypeAnnotation($className, 'setRequiredProperty'),
-        );
+        $this->assertSame('string', $this->getParameterTypeAnnotation($className, 'setRequiredProperty'),);
         $setAgeParamType = $this->getParameterType($className, 'setRequiredProperty');
         $this->assertSame('string', $setAgeParamType->getName());
         $this->assertFalse($returnType->allowsNull());
@@ -303,8 +302,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
         string $reqPropertyValue,
         ?string $optPropertyValue,
         string $exceptionMessage
-    ): void
-    {
+    ): void {
         $className = $this->generateClassFromFile(
             'RequiredAndOptionalConstProperties.json',
             new GeneratorConfiguration(),
@@ -330,6 +328,18 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
                 ['red', '', 'Invalid value for optionalProperty declined by const constraint'],
             ],
         );
+    }
+
+    public function testConstPropertyHasNoSetterWhenImmutable(): void
+    {
+        $className = $this->generateClassFromFile('RequiredAndOptionalConstProperties.json');
+
+        $object = new $className(['requiredProperty' => 'red']);
+
+        $this->assertTrue(is_callable([$object, 'getRequiredProperty']));
+        $this->assertFalse(is_callable([$object, 'setRequiredProperty']));
+        $this->assertTrue(is_callable([$object, 'getOptionalProperty']));
+        $this->assertFalse(is_callable([$object, 'setOptionalProperty']));
     }
 
     #[DataProvider('implicitNullDataProvider')]

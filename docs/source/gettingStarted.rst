@@ -309,6 +309,34 @@ The output of a generation process may look like:
     Rendered class MyApp\User\Response\Login
     Rendered class MyApp\User\Response\Register
 
+JSON Schema draft version
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: php
+
+    setDraft(DraftInterface|DraftFactoryInterface $draft);
+
+Controls which JSON Schema draft version is used during generation. Accepts either a concrete
+draft instance (``DraftInterface``) to pin all schemas to one draft, or a factory
+(``DraftFactoryInterface``) to select the draft per schema file.
+
+By default ``AutoDetectionDraft`` is used. It implements ``DraftFactoryInterface`` and inspects
+the ``$schema`` keyword of each schema file to select the appropriate draft automatically. When
+the keyword is absent or unrecognised, it falls back to JSON Schema Draft 7 behaviour, so schemas
+with different ``$schema`` declarations in the same generation run can use different drafts.
+
+Available draft classes:
+
+============= ================================
+Draft class   Description
+============= ================================
+``Draft_07``  JSON Schema Draft 7 (default)
+============= ================================
+
+.. seealso::
+
+    :doc:`generator/custom/customDraft` — how to implement a custom draft or modifier.
+
 Custom filter
 ^^^^^^^^^^^^^
 

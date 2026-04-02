@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
-use PHPModelGenerator\Exception\ComposedValue\InvalidComposedValueException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
@@ -25,6 +24,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         PropertyInterface $property,
         array $composedProperties,
         string $compositionProcessor,
+        string $exceptionClass,
         array $validatorVariables,
     ) {
         $this->modifiedValuesMethod = '_getModifiedValues_' . substr(md5(spl_object_hash($this)), 0, 5);
@@ -35,7 +35,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
             array_merge($validatorVariables, ['modifiedValuesMethod' => $this->modifiedValuesMethod]),
-            $this->getExceptionByProcessor($compositionProcessor),
+            $exceptionClass,
             ['&$succeededCompositionElements', '&$compositionErrorCollection'],
         );
 
@@ -140,21 +140,5 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         }
 
         return $validator;
-    }
-
-    /**
-     * Parse the composition type (allOf, anyOf, ...) from the given processor and get the corresponding exception class
-     */
-    private function getExceptionByProcessor(string $compositionProcessor): string
-    {
-        return str_replace(
-            DIRECTORY_SEPARATOR,
-            '\\',
-            dirname(str_replace('\\', DIRECTORY_SEPARATOR, InvalidComposedValueException::class)),
-        ) . '\\' . str_replace(
-            'Processor',
-            '',
-            substr($compositionProcessor, strrpos($compositionProcessor, '\\') + 1),
-        ) . 'Exception';
     }
 }

@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model;
 
 use Exception;
+use PHPModelGenerator\Draft\AutoDetectionDraft;
+use PHPModelGenerator\Draft\DraftFactoryInterface;
+use PHPModelGenerator\Draft\DraftInterface;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
@@ -14,7 +18,6 @@ use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Utils\ClassNameGeneratorInterface;
-use PHPModelGenerator\Exception\ErrorRegistryException;
 
 /**
  * Class GeneratorConfiguration
@@ -42,6 +45,9 @@ class GeneratorConfiguration
     /** @var bool */
     protected $serialization = false;
 
+    /** @var DraftInterface | DraftFactoryInterface */
+    protected $draft;
+
     /** @var ClassNameGeneratorInterface */
     protected $classNameGenerator;
 
@@ -55,6 +61,7 @@ class GeneratorConfiguration
      */
     public function __construct()
     {
+        $this->draft = new AutoDetectionDraft();
         $this->classNameGenerator = new ClassNameGenerator();
 
         // add all built-in filter and format validators
@@ -240,6 +247,18 @@ class GeneratorConfiguration
     public function setErrorRegistryClass(string $errorRegistryClass): self
     {
         $this->errorRegistryClass = $errorRegistryClass;
+
+        return $this;
+    }
+
+    public function getDraft(): DraftInterface | DraftFactoryInterface
+    {
+        return $this->draft;
+    }
+
+    public function setDraft(DraftInterface | DraftFactoryInterface $draft): self
+    {
+        $this->draft = $draft;
 
         return $this;
     }

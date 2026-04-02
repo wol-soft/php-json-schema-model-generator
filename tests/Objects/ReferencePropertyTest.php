@@ -10,10 +10,10 @@ use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\WithoutErrorHandler;
 
 /**
  * Class ReferencePropertyTest
@@ -434,6 +434,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     #[DataProvider('nonResolvableExternalReferenceProvider')]
+    #[WithoutErrorHandler]
     public function testNonResolvableExternalReference(string $id, string $reference): void
     {
         $this->expectException(SchemaException::class);
