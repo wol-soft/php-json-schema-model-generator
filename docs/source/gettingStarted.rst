@@ -284,6 +284,56 @@ Additionally the class will implement the PHP builtin interface **\JsonSerializa
 
     If you provide `additional properties <complexTypes/object.html#additional-properties>`__ you may want to use the `AdditionalPropertiesAccessorPostProcessor <generator/builtin/additionalPropertiesAccessorPostProcessor.html>`__ as the additional properties by default aren't included into the serialization result.
 
+Attributes
+^^^^^^^^^^
+
+By default, the generator adds a predefined set of attributes to the generated classes and their properties.
+To control, which attributes are generated, the **GeneratorConfiguration** class provides the following methods:
+
+.. code-block:: php
+
+    // overwrite all defined attributes
+    setEnabledAttributes(int $enabledAttributes);
+    // enable a specific set of attributes
+    enableAttributes(int $attributes);
+    // disable a specific set of attributes
+    disableAttributes(int $attributes);
+
+The following attributes are available:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Attribute
+     - Target
+     - Description
+     - Enabled by default
+   * - JSON_POINTER
+     - Classes & Properties
+     - Adds a JSON Pointer with the path in the source Schema
+     - Yes
+   * - SCHEMA_NAME
+     - Properties
+     - Provides the original JSON Schema name of the property. If serialization is enabled, this attribute can't be disabled
+     - Yes
+   * - SOURCE
+     - Classes
+     - Provides the source file which contains the schema used for generation
+     - No
+   * - JSON_SCHEMA
+     - Classes & Properties
+     - Provides the full JSON Schema used to generate the class or the property
+     - No
+
+The following example would keep the *SCHEMA_NAME* and *JSON_SCHEMA* attributes enabled:
+
+.. code-block:: php
+
+    $configuration = (new GeneratorConfiguration())
+        ->setEnabledAttributes(PhpAttribute::JSON_POINTER | PhpAttribute::SCHEMA_NAME)
+        ->enableAttributes(PhpAttribute::SOURCE | PhpAttribute::JSON_SCHEMA)
+        ->disableAttributes(PhpAttribute::JSON_POINTER | PhpAttribute::SOURCE);
+
 Output generation process
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 

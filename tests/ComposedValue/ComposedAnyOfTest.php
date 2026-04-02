@@ -166,6 +166,8 @@ ERROR,
         $object = new $className([]);
         $this->assertEmpty($object->getIntegerProperty());
         $this->assertEmpty($object->getStringProperty());
+        $this->assertPropertyHasJsonPointer($object, 'stringProperty', '/anyOf/0/properties/stringProperty');
+        $this->assertPropertyHasJsonPointer($object, 'integerProperty', '/anyOf/1/properties/integerProperty');
     }
 
     #[DataProvider('validPropertyTypeDataProvider')]

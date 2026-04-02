@@ -124,6 +124,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className([]);
         $this->assertEmpty($object->getIntegerProperty());
         $this->assertEmpty($object->getStringProperty());
+        $this->assertPropertyHasJsonPointer($object, 'stringProperty', '/allOf/0/properties/stringProperty');
+        $this->assertPropertyHasJsonPointer($object, 'integerProperty', '/allOf/1/properties/integerProperty');
     }
 
     public function testAllOfTypePropertyHasTypeAnnotation(): void

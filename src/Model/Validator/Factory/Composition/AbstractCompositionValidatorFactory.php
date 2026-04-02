@@ -76,8 +76,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         $property->addTypeHintDecorator(new ClearTypeHintDecorator());
 
-        foreach ($json[$this->key] as $compositionElement) {
-            $compositionSchema = $propertySchema->getJson()['propertySchema']->withJson($compositionElement);
+        foreach ($json[$this->key] as $index => $compositionElement) {
+            $compositionSchema = $propertySchema->getJson()['propertySchema']->navigate("$this->key/$index");
 
             $compositionProperty = new CompositionPropertyDecorator(
                 $property->getName(),

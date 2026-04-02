@@ -40,7 +40,7 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
             is_array($itemsSchema) &&
             array_keys($itemsSchema) === range(0, count($itemsSchema) - 1)
         ) {
-            $this->addTupleValidator($schemaProcessor, $schema, $property, $propertySchema, $itemsSchema);
+            $this->addTupleValidator($schemaProcessor, $schema, $property, $propertySchema);
 
             return;
         }
@@ -49,7 +49,7 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
             new ArrayItemValidator(
                 $schemaProcessor,
                 $schema,
-                $propertySchema->withJson($itemsSchema),
+                $propertySchema->navigate($this->key),
                 $property,
             ),
         );
@@ -63,19 +63,18 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         Schema $schema,
         PropertyInterface $property,
         JsonSchema $propertySchema,
-        array $itemsSchema,
     ): void {
         $json = $propertySchema->getJson();
 
         if (isset($json['additionalItems']) && $json['additionalItems'] !== true) {
-            $this->addAdditionalItemsValidator($schemaProcessor, $schema, $property, $propertySchema, $itemsSchema);
+            $this->addAdditionalItemsValidator($schemaProcessor, $schema, $property, $propertySchema);
         }
 
         $property->addValidator(
             new ArrayTupleValidator(
                 $schemaProcessor,
                 $schema,
-                $propertySchema->withJson($itemsSchema),
+                $propertySchema->navigate($this->key),
                 $property->getName(),
             ),
         );
@@ -89,7 +88,6 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         Schema $schema,
         PropertyInterface $property,
         JsonSchema $propertySchema,
-        array $itemsSchema,
     ): void {
         $json = $propertySchema->getJson();
 
@@ -106,7 +104,7 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
             return;
         }
 
-        $expectedAmount = count($itemsSchema);
+        $expectedAmount = count($json[$this->key]);
 
         $property->addValidator(
             new PropertyValidator(

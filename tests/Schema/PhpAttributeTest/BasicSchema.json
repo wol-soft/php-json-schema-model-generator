@@ -1,11 +1,14 @@
 {
   "type": "object",
   "properties": {
-    "name": {
+    "my property": {
       "type": "string"
     },
-    "age": {
-      "type": "integer"
+    "slash/property": {
+      "type": "string"
+    },
+    "tilde~property": {
+      "type": "string"
     }
   }
 }

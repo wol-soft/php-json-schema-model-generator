@@ -13,6 +13,7 @@ use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Format\FormatValidatorInterface;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
@@ -44,6 +45,8 @@ class GeneratorConfiguration
     protected $errorRegistryClass = ErrorRegistryException::class;
     /** @var bool */
     protected $serialization = false;
+    /** @var int */
+    protected $enabledAttributes = PhpAttribute::JSON_POINTER | PhpAttribute::SCHEMA_NAME;
 
     /** @var DraftInterface | DraftFactoryInterface */
     protected $draft;
@@ -281,6 +284,32 @@ class GeneratorConfiguration
             ->addFilter(new DateTimeFilter())
             ->addFilter(new NotEmptyFilter())
             ->addFilter(new TrimFilter());
+    }
+
+    public function getEnabledAttributes(): int
+    {
+        return $this->enabledAttributes;
+    }
+
+    public function setEnabledAttributes(int $enabledAttributes): self
+    {
+        $this->enabledAttributes = $enabledAttributes;
+
+        return $this;
+    }
+
+    public function enableAttributes(int $attributes): self
+    {
+        $this->enabledAttributes = $this->enabledAttributes | $attributes;
+
+        return $this;
+    }
+
+    public function disableAttributes(int $attributes): self
+    {
+        $this->enabledAttributes = $this->enabledAttributes & ~$attributes;
+
+        return $this;
     }
 
     // TODO: add builtin format validators

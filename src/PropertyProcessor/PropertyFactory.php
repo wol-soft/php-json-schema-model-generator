@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor;
 
+use PHPModelGenerator\Attributes\JsonPointer;
+use PHPModelGenerator\Attributes\JsonSchema as JsonSchemaAttribute;
+use PHPModelGenerator\Attributes\SchemaName;
 use Exception;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
 use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -128,6 +132,7 @@ class PropertyFactory
         // target the outer property and are handled by the universal modifiers below.
         $nestedJson = $json;
         unset($nestedJson['filter'], $nestedJson['enum'], $nestedJson['default']);
+
         $nestedSchema = $schemaProcessor->processSchema(
             $propertySchema->withJson($nestedJson),
             $schemaProcessor->getCurrentClassPath(),
@@ -220,6 +225,26 @@ class PropertyFactory
             $property->addValidator(new RequiredPropertyValidator($property), 1);
         }
 
+        $property
+            ->addAttribute(
+                new PhpAttribute(JsonPointer::class, [$propertySchema->getPointer()]),
+                $schemaProcessor->getGeneratorConfiguration(),
+                PhpAttribute::JSON_POINTER,
+            )
+            ->addAttribute(
+                new PhpAttribute(SchemaName::class, [$propertyName]),
+                $schemaProcessor->getGeneratorConfiguration(),
+                PhpAttribute::SCHEMA_NAME,
+            )
+            ->addAttribute(
+                new PhpAttribute(
+                    JsonSchemaAttribute::class,
+                    [empty($propertySchema->getJson()) ? '{}' : json_encode($propertySchema->getJson())],
+                ),
+                $schemaProcessor->getGeneratorConfiguration(),
+                PhpAttribute::JSON_SCHEMA,
+            );
+
         return $property;
     }
 
@@ -268,7 +293,7 @@ class PropertyFactory
 
                 return $definition->resolveReference(
                     $propertyName,
-                    $path,
+                    implode('/', $path),
                     $required,
                     $propertySchema->getJson()['_dependencies'] ?? null,
                 );

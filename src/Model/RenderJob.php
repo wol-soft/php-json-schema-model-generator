@@ -9,7 +9,7 @@ use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\ValidationException;
-use PHPModelGenerator\Model\PhpAttribute;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;

@@ -673,6 +673,11 @@ ERROR
 
             $this->assertSame($propertyValue[$key]['name'], $person->getName());
             $this->assertSame($propertyValue[$key]['age'] ?? null, $person->getAge());
+
+            if ($file === 'ArrayPropertyNestedObject.json') {
+                $this->assertClassHasJsonPointer($person, '/properties/property/items');
+                $this->assertPropertyHasJsonPointer($person, 'name', '/properties/property/items/properties/name');
+            }
         }
     }
 

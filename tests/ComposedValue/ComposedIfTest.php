@@ -46,6 +46,7 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['property' => $value]);
         $this->assertSame($value, $object->getProperty());
+        $this->assertPropertyHasJsonPointer($object, 'property', '/properties/property');
     }
 
     public static function validConditionalPropertyDefinitionDataProvider(): array
@@ -61,7 +62,8 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     #[DataProvider('invalidConditionalPropertyDefinitionDataProvider')]
-    public function testInvalidConditionalPropertyDefinition(int $value, string $expectedExceptionMessage): void {
+    public function testInvalidConditionalPropertyDefinition(int $value, string $expectedExceptionMessage): void
+    {
         $this->expectException(ConditionalException::class);
         $this->expectExceptionMessage($expectedExceptionMessage);
 
@@ -271,6 +273,8 @@ ERROR
         $object = new $className(['qualifier' => 'test', 'value' => 42]);
         $this->assertSame('test', $object->getQualifier());
         $this->assertSame(42, $object->getValue());
+        $this->assertPropertyHasJsonPointer($object, 'qualifier', '/if/properties/qualifier');
+        $this->assertPropertyHasJsonPointer($object, 'value', '/then/properties/value');
     }
 
     public function testExclusiveBranchPropertiesAreTransferred(): void
@@ -294,5 +298,8 @@ ERROR
         $this->assertSame('numeric', $object->getKind());
         $this->assertSame(5, $object->getAmount());
         $this->assertSame('hello', $object->getLabel());
+        $this->assertPropertyHasJsonPointer($object, 'kind', '/if/properties/kind');
+        $this->assertPropertyHasJsonPointer($object, 'amount', '/then/properties/amount');
+        $this->assertPropertyHasJsonPointer($object, 'label', '/else/properties/label');
     }
 }

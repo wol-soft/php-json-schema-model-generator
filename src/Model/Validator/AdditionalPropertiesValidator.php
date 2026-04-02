@@ -48,7 +48,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
             $schemaProcessor,
             $schema,
             static::PROPERTY_NAME,
-            $propertiesStructure->withJson($propertiesStructure->getJson()[static::ADDITIONAL_PROPERTIES_KEY]),
+            $propertiesStructure->navigate(static::ADDITIONAL_PROPERTIES_KEY),
             true,
         );
 

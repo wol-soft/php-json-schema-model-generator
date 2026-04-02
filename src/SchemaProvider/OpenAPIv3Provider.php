@@ -54,7 +54,11 @@ class OpenAPIv3Provider implements SchemaProviderInterface
                 $schema['$id'] = $schemaKey;
             }
 
-            yield new JsonSchema($this->sourceFile, array_merge($this->openAPIv3Spec, $schema));
+            yield new JsonSchema(
+                $this->sourceFile,
+                array_merge($this->openAPIv3Spec, $schema),
+                "/components/schemas/$schemaKey"
+            );
         }
     }
 

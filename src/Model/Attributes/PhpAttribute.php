@@ -2,10 +2,15 @@
 
 declare(strict_types=1);
 
-namespace PHPModelGenerator\Model;
+namespace PHPModelGenerator\Model\Attributes;
 
 final class PhpAttribute
 {
+    public const JSON_POINTER = 1;
+    public const SCHEMA_NAME = 2;
+    public const SOURCE = 4;
+    public const JSON_SCHEMA = 8;
+
     /**
      * @param string  $fqcn      Fully-qualified class name of the attribute.
      * @param array   $arguments Pre-rendered PHP expression strings.
@@ -37,6 +42,7 @@ final class PhpAttribute
 
         $args = [];
         foreach ($this->arguments as $key => $value) {
+            $value = var_export($value, true);
             $args[] = is_string($key) ? "$key: $value" : $value;
         }
 

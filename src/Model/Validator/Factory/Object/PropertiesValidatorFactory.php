@@ -40,6 +40,8 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
             [],
         );
 
+        $propertySchema = $propertySchema->withJson($json);
+
         foreach ($json[$this->key] as $propertyName => $propertyStructure) {
             if ($propertyStructure === false) {
                 if (in_array($propertyName, $json['required'] ?? [], true)) {
@@ -68,7 +70,7 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
                 $schemaProcessor,
                 $schema,
                 (string) $propertyName,
-                $propertySchema->withJson(
+                $propertySchema->navigate("$this->key/" . JsonSchema::encodePointer($propertyName))->withJson(
                     $dependencies !== null
                         ? $propertyStructure + ['_dependencies' => $dependencies]
                         : $propertyStructure,
@@ -77,7 +79,12 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
             );
 
             if ($dependencies !== null) {
-                $this->addDependencyValidator($nestedProperty, $dependencies, $schemaProcessor, $schema);
+                $this->addDependencyValidator(
+                    $nestedProperty,
+                    $schema->getJsonSchema()->navigate("dependencies/" . JsonSchema::encodePointer($propertyName)),
+                    $schemaProcessor,
+                    $schema,
+                );
             }
 
             $schema->addProperty($nestedProperty);
@@ -89,31 +96,32 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
      */
     private function addDependencyValidator(
         PropertyInterface $property,
-        array $dependencies,
+        JsonSchema $dependencyJsonSchema,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
     ): void {
         $propertyDependency = true;
 
-        array_walk(
-            $dependencies,
-            static function ($dependency, $index) use (&$propertyDependency): void {
-                $propertyDependency = $propertyDependency && is_int($index) && is_string($dependency);
-            },
-        );
+        foreach ($dependencyJsonSchema->getJson() as $index => $dependency) {
+            if (!is_int($index) || !is_string($dependency)) {
+                $propertyDependency = false;
+                break;
+            }
+        }
 
         if ($propertyDependency) {
-            $property->addValidator(new PropertyDependencyValidator($property, $dependencies));
+            $property->addValidator(new PropertyDependencyValidator($property, $dependencyJsonSchema->getJson()));
 
             return;
         }
 
-        if (!isset($dependencies['type'])) {
-            $dependencies['type'] = 'object';
+        $json = $dependencyJsonSchema->getJson();
+        if (!isset($json['type'])) {
+            $dependencyJsonSchema = $dependencyJsonSchema->withJson($json + ['type' => 'object']);
         }
 
         $dependencySchema = $schemaProcessor->processSchema(
-            new JsonSchema($schema->getJsonSchema()->getFile(), $dependencies),
+            $dependencyJsonSchema,
             $schema->getClassPath(),
             "{$schema->getClassName()}_{$property->getName()}_Dependency",
             $schema->getSchemaDictionary(),

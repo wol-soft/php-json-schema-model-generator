@@ -6,6 +6,8 @@ namespace PHPModelGenerator\Tests;
 
 use Exception;
 use FilesystemIterator;
+use PHPModelGenerator\Attributes\JsonPointer;
+use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\SchemaProvider\OpenAPIv3Provider;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
@@ -23,6 +25,7 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
 use ReflectionNamedType;
+use ReflectionProperty;
 use ReflectionType;
 use ReflectionUnionType;
 
@@ -363,6 +366,27 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         }
 
         $this->fail("Error exception $expectedException not found in error registry exception");
+    }
+
+    protected function assertClassHasJsonPointer(JSONModelInterface $object, string $expectedPointer): void
+    {
+        $this->assertJsonPointer(new ReflectionClass($object), $expectedPointer);
+    }
+
+    protected function assertPropertyHasJsonPointer(
+        JSONModelInterface $object,
+        string $property,
+        string $expectedPointer,
+    ): void {
+        $this->assertJsonPointer(new ReflectionClass($object)->getProperty($property), $expectedPointer);
+    }
+
+    private function assertJsonPointer(ReflectionClass | ReflectionProperty $target, string $expectedPointer): void
+    {
+        $attributes = $target->getAttributes(JsonPointer::class);
+        $this->assertCount(1, $attributes);
+        $this->assertCount(1, $attributes[0]->getArguments());
+        $this->assertSame($expectedPointer, $attributes[0]->getArguments()[0]);
     }
 
     public static function validationMethodDataProvider(): array
