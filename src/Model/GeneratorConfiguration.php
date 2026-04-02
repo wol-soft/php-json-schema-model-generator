@@ -46,7 +46,11 @@ class GeneratorConfiguration
     /** @var bool */
     protected $serialization = false;
     /** @var int */
-    protected $enabledAttributes = PhpAttribute::JSON_POINTER | PhpAttribute::SCHEMA_NAME;
+    protected $enabledAttributes = PhpAttribute::JSON_POINTER
+        | PhpAttribute::SCHEMA_NAME
+        | PhpAttribute::REQUIRED
+        | PhpAttribute::READ_WRITE_ONLY
+        | PhpAttribute::DEPRECATED;
 
     /** @var DraftInterface | DraftFactoryInterface */
     protected $draft;

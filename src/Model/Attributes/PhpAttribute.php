@@ -10,6 +10,9 @@ final class PhpAttribute
     public const SCHEMA_NAME = 2;
     public const SOURCE = 4;
     public const JSON_SCHEMA = 8;
+    public const REQUIRED = 16;
+    public const READ_WRITE_ONLY = 32;
+    public const DEPRECATED = 64;
 
     /**
      * @param string  $fqcn      Fully-qualified class name of the attribute.

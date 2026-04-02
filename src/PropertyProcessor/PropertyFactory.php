@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor;
 
+use PHPModelGenerator\Attributes\Deprecated;
 use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Attributes\JsonSchema as JsonSchemaAttribute;
+use PHPModelGenerator\Attributes\Required;
 use PHPModelGenerator\Attributes\SchemaName;
+use PHPModelGenerator\Attributes\WriteOnlyProperty;
 use Exception;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
@@ -225,15 +228,17 @@ class PropertyFactory
             $property->addValidator(new RequiredPropertyValidator($property), 1);
         }
 
+        $configuration = $schemaProcessor->getGeneratorConfiguration();
+
         $property
             ->addAttribute(
                 new PhpAttribute(JsonPointer::class, [$propertySchema->getPointer()]),
-                $schemaProcessor->getGeneratorConfiguration(),
+                $configuration,
                 PhpAttribute::JSON_POINTER,
             )
             ->addAttribute(
                 new PhpAttribute(SchemaName::class, [$propertyName]),
-                $schemaProcessor->getGeneratorConfiguration(),
+                $configuration,
                 PhpAttribute::SCHEMA_NAME,
             )
             ->addAttribute(
@@ -241,9 +246,41 @@ class PropertyFactory
                     JsonSchemaAttribute::class,
                     [empty($propertySchema->getJson()) ? '{}' : json_encode($propertySchema->getJson())],
                 ),
-                $schemaProcessor->getGeneratorConfiguration(),
+                $configuration,
                 PhpAttribute::JSON_SCHEMA,
             );
+
+        if ($required && !str_starts_with($propertyName, 'item of array ')) {
+            $property->addAttribute(
+                new PhpAttribute(Required::class),
+                $configuration,
+                PhpAttribute::REQUIRED,
+            );
+        }
+
+        if (isset($json['readOnly']) && $json['readOnly'] === true) {
+            $property->addAttribute(
+                new PhpAttribute('PHPModelGenerator\Attributes\ReadOnlyProperty'),
+                $configuration,
+                PhpAttribute::READ_WRITE_ONLY,
+            );
+        }
+
+        if (isset($json['writeOnly']) && $json['writeOnly'] === true) {
+            $property->addAttribute(
+                new PhpAttribute(WriteOnlyProperty::class),
+                $configuration,
+                PhpAttribute::READ_WRITE_ONLY,
+            );
+        }
+
+        if (isset($json['deprecated']) && $json['deprecated'] === true) {
+            $property->addAttribute(
+                new PhpAttribute(Deprecated::class),
+                $configuration,
+                PhpAttribute::DEPRECATED,
+            );
+        }
 
         return $property;
     }

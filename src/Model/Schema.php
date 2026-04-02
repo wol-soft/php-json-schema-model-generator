@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model;
 
+use PHPModelGenerator\Attributes\Deprecated;
 use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Attributes\JsonSchema as JsonSchemaAttribute;
 use PHPModelGenerator\Attributes\Source;
@@ -101,6 +102,14 @@ class Schema
                 $generatorConfiguration,
                 PhpAttribute::SOURCE,
             );
+
+        if (isset($schema->getJson()['deprecated']) && $schema->getJson()['deprecated'] === true) {
+            $this->addAttribute(
+                new PhpAttribute(Deprecated::class),
+                $generatorConfiguration,
+                PhpAttribute::DEPRECATED,
+            );
+        }
     }
 
     public function getTargetFileName(): string
