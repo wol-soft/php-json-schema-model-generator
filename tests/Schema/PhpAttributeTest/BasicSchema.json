@@ -1,14 +1,24 @@
 {
   "type": "object",
+  "deprecated": true,
   "properties": {
     "my property": {
-      "type": "string"
+      "type": "string",
+      "deprecated": false,
+      "readOnly": true
     },
     "slash/property": {
-      "type": "string"
+      "type": "string",
+      "deprecated": true,
+      "readOnly": false,
+      "writeOnly": false
     },
     "tilde~property": {
-      "type": "string"
+      "type": "string",
+      "writeOnly": true
     }
-  }
+  },
+  "required": [
+    "my property"
+  ]
 }

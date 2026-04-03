@@ -7,6 +7,7 @@ namespace PHPModelGenerator\PropertyProcessor;
 use PHPModelGenerator\Attributes\Deprecated;
 use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Attributes\JsonSchema as JsonSchemaAttribute;
+use PHPModelGenerator\Attributes\ReadOnlyProperty;
 use PHPModelGenerator\Attributes\Required;
 use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Attributes\WriteOnlyProperty;
@@ -250,17 +251,13 @@ class PropertyFactory
                 PhpAttribute::JSON_SCHEMA,
             );
 
-        if ($required && !str_starts_with($propertyName, 'item of array ')) {
-            $property->addAttribute(
-                new PhpAttribute(Required::class),
-                $configuration,
-                PhpAttribute::REQUIRED,
-            );
+        if ($required) {
+            $property->addAttribute(new PhpAttribute(Required::class), $configuration, PhpAttribute::REQUIRED);
         }
 
         if (isset($json['readOnly']) && $json['readOnly'] === true) {
             $property->addAttribute(
-                new PhpAttribute('PHPModelGenerator\Attributes\ReadOnlyProperty'),
+                new PhpAttribute(ReadOnlyProperty::class),
                 $configuration,
                 PhpAttribute::READ_WRITE_ONLY,
             );
@@ -275,11 +272,7 @@ class PropertyFactory
         }
 
         if (isset($json['deprecated']) && $json['deprecated'] === true) {
-            $property->addAttribute(
-                new PhpAttribute(Deprecated::class),
-                $configuration,
-                PhpAttribute::DEPRECATED,
-            );
+            $property->addAttribute(new PhpAttribute(Deprecated::class), $configuration, PhpAttribute::DEPRECATED);
         }
 
         return $property;

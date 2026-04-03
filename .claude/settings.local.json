@@ -30,7 +30,12 @@
       "Bash(gh pr:*)",
       "Bash(xargs wc:*)",
       "Bash(tee /tmp/phpunit-output.txt)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "WebFetch(domain:json-schema.org)",
+      "WebFetch(domain:datatracker.ietf.org)",
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(done)"
     ]
   }
 }
