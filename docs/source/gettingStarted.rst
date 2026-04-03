@@ -324,6 +324,18 @@ The following attributes are available:
      - Classes & Properties
      - Provides the full JSON Schema used to generate the class or the property
      - No
+   * - REQUIRED
+     - Properties
+     - Set for required properties
+     - Yes
+   * - READ_WRITE_ONLY
+     - Properties
+     - Sets the *ReadOnlyProperty* and *WriteOnlyProperty* attribute depending on the corresponding JSON schema flag
+     - Yes
+   * - DEPRECATED
+     - Classes & Properties
+     - If deprecated is set to true in the JSON schema, the *Deprecated* attribute gets added
+     - Yes
 
 The following example would keep the *SCHEMA_NAME* and *JSON_SCHEMA* attributes enabled:
 
