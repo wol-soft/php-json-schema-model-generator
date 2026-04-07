@@ -310,11 +310,11 @@ The following attributes are available:
      - Enabled by default
    * - JSON_POINTER
      - Classes & Properties
-     - Adds a JSON Pointer with the path in the source Schema
+     - Adds a JSON Pointer with the path in the source Schema. This attribute can't be disabled.
      - Yes
    * - SCHEMA_NAME
      - Properties
-     - Provides the original JSON Schema name of the property. If serialization is enabled, this attribute can't be disabled
+     - Provides the original JSON Schema name of the property. This attribute can't be disabled.
      - Yes
    * - SOURCE
      - Classes

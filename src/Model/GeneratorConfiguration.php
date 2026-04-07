@@ -297,7 +297,7 @@ class GeneratorConfiguration
 
     public function setEnabledAttributes(int $enabledAttributes): self
     {
-        $this->enabledAttributes = $enabledAttributes;
+        $this->enabledAttributes = $enabledAttributes | PhpAttribute::ALWAYS_ENABLED_ATTRIBUTES;
 
         return $this;
     }
@@ -311,7 +311,7 @@ class GeneratorConfiguration
 
     public function disableAttributes(int $attributes): self
     {
-        $this->enabledAttributes = $this->enabledAttributes & ~$attributes;
+        $this->enabledAttributes = $this->enabledAttributes & ~$attributes | PhpAttribute::ALWAYS_ENABLED_ATTRIBUTES;
 
         return $this;
     }

@@ -6,13 +6,16 @@ namespace PHPModelGenerator\Model\Attributes;
 
 final class PhpAttribute
 {
-    public const JSON_POINTER = 1;
-    public const SCHEMA_NAME = 2;
-    public const SOURCE = 4;
-    public const JSON_SCHEMA = 8;
-    public const REQUIRED = 16;
-    public const READ_WRITE_ONLY = 32;
-    public const DEPRECATED = 64;
+    public const int JSON_POINTER = 1;
+    public const int SCHEMA_NAME = 2;
+    public const int SOURCE = 4;
+    public const int JSON_SCHEMA = 8;
+    public const int REQUIRED = 16;
+    public const int READ_WRITE_ONLY = 32;
+    public const int DEPRECATED = 64;
+
+    // Attributes which are always enabled because they are used for internal functionality
+    public const int ALWAYS_ENABLED_ATTRIBUTES = self::JSON_POINTER | self::SCHEMA_NAME;
 
     /**
      * @param string  $fqcn      Fully-qualified class name of the attribute.
