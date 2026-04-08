@@ -16,6 +16,9 @@
     "tilde~property": {
       "type": "string",
       "writeOnly": true
+    },
+    "123name": {
+      "type": "string"
     }
   },
   "required": [

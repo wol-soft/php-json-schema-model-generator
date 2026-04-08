@@ -58,6 +58,13 @@ class PhpAttributeTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(WriteOnlyProperty::class, $propertyAttributes[2]->getName());
         $this->assertEmpty($propertyAttributes[2]->getArguments());
 
+        $propertyAttributes = new ReflectionClass($object)->getProperties()[3]->getAttributes();
+        $this->assertCount(2, $propertyAttributes);
+        $this->assertSame(JsonPointer::class, $propertyAttributes[0]->getName());
+        $this->assertSame('/properties/123name', $propertyAttributes[0]->getArguments()[0]);
+        $this->assertSame(SchemaName::class, $propertyAttributes[1]->getName());
+        $this->assertSame('123name', $propertyAttributes[1]->getArguments()[0]);
+
         // Verify JSON Pointer RFC 6901 encoding: '/' encodes to '~1', '~' encodes to '~0'
         $instance = new $object(['my property' => 'Hello World']);
         $this->assertPropertyHasJsonPointer($instance, 'slashProperty', '/properties/slash~1property');
@@ -94,14 +101,16 @@ class PhpAttributeTest extends AbstractPHPModelGeneratorTestCase
         $this->assertStringEndsWith('.json', $classAttributes[2]->getArguments()[0]);
 
         $propertyAttributes = new ReflectionClass($object)->getProperties()[0]->getAttributes();
-        $this->assertCount(2, $propertyAttributes);
+        $this->assertCount(3, $propertyAttributes);
 
         $this->assertSame(JsonPointer::class, $propertyAttributes[0]->getName());
         $this->assertSame('/properties/my property', $propertyAttributes[0]->getArguments()[0]);
-        $this->assertSame(JsonSchema::class, $propertyAttributes[1]->getName());
+        $this->assertSame(SchemaName::class, $propertyAttributes[1]->getName());
+        $this->assertSame('my property', $propertyAttributes[1]->getArguments()[0]);
+        $this->assertSame(JsonSchema::class, $propertyAttributes[2]->getName());
         $this->assertSame(
             '{"type":"string","deprecated":false,"readOnly":true}',
-            $propertyAttributes[1]->getArguments()[0],
+            $propertyAttributes[2]->getArguments()[0],
         );
     }
 }

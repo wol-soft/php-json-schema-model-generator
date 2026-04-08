@@ -231,7 +231,7 @@ class SerializationPostProcessor extends PostProcessor
         }
 
         $skipNotProvidedValues = array_map(
-            static fn(PropertyInterface $property): string => $property->getAttribute(true),
+            static fn(PropertyInterface $property): string => $property->getName(),
             array_filter(
                 $schema->getProperties(),
                 static fn(PropertyInterface $property): bool =>

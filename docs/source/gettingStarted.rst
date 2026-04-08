@@ -280,6 +280,15 @@ The generated class will implement the interface **PHPModelGenerator\\Interfaces
 
 Additionally the class will implement the PHP builtin interface **\JsonSerializable** which allows the direct usage of the generated classes in a custom json_encode.
 
+Output keys
+"""""""""""
+
+The keys in the serialized output are the **original JSON Schema property names**, not the PHP property names. For example, a schema property named ``product_id`` will appear as ``product_id`` in the output, even though the generated PHP property is named ``$productId``. This ensures that the output of ``toArray()`` / ``toJSON()`` can be fed back into the same class constructor without validation errors (round-trip).
+
+The ``$except`` parameter must also contain **schema names** (not PHP property names). Passing the PHP-normalized form will not exclude the property.
+
+If a generated model contains nested objects that also have serialization enabled, the ``$depth`` budget is now correctly shared across all nesting levels. A ``$depth`` of 1 serializes only the top-level properties; nested objects are replaced with ``null`` when the budget is exhausted.
+
 .. warning::
 
     If you provide `additional properties <complexTypes/object.html#additional-properties>`__ you may want to use the `AdditionalPropertiesAccessorPostProcessor <generator/builtin/additionalPropertiesAccessorPostProcessor.html>`__ as the additional properties by default aren't included into the serialization result.
