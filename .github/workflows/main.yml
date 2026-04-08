@@ -29,7 +29,7 @@ jobs:
           coverage: ${{ matrix.coverage && 'xdebug' || 'none' }}
 
       - name: Install dependencies
-        run: composer update --no-interaction
+        run: composer update --no-interaction --no-cache --prefer-source
 
       # Run tests WITHOUT coverage on non-coverage matrix jobs
       - name: Execute tests
