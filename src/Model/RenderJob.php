@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model;
 
 use PHPMicroTemplate\Exception\PHPMicroTemplateException;
 use PHPMicroTemplate\Render;
+use PHPModelGenerator\Attributes\Internal;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\ValidationException;
@@ -157,6 +158,8 @@ class RenderJob
                 $attributeFqcns[] = $attr->getFqcn();
             }
         }
+
+        $attributeFqcns[] = Internal::class;
 
         return RenderHelper::filterClassImports(
             array_unique(

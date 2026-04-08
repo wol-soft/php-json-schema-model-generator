@@ -9,8 +9,8 @@
 ) {
     $originalModelData = $value;
     {% if generatorConfiguration.collectErrors() %}
-        $originalErrorRegistry = $this->_errorRegistry;
-        $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        $originalErrorRegistry = $this->errorRegistry;
+        $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
     {% endif %}
 
     try {
@@ -21,8 +21,8 @@
         {% endforeach %}
 
         {% if generatorConfiguration.collectErrors() %}
-            if ($this->_errorRegistry->getErrors()) {
-                throw $this->_errorRegistry;
+            if ($this->errorRegistry->getErrors()) {
+                throw $this->errorRegistry;
             }
         {% endif %}
     } catch (\Exception $e) {
@@ -31,7 +31,7 @@
     $value = $originalModelData;
 
     {% if generatorConfiguration.collectErrors() %}
-        $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
     {% endif %}
 
     if (!$ifException) {
@@ -44,8 +44,8 @@
                 {% endforeach %}
 
                 {% if generatorConfiguration.collectErrors() %}
-                    if ($this->_errorRegistry->getErrors()) {
-                        throw $this->_errorRegistry;
+                    if ($this->errorRegistry->getErrors()) {
+                        throw $this->errorRegistry;
                     }
                 {% endif %}
             } catch (\Exception $e) {
@@ -62,8 +62,8 @@
                 {% endforeach %}
 
                 {% if generatorConfiguration.collectErrors() %}
-                    if ($this->_errorRegistry->getErrors()) {
-                        throw $this->_errorRegistry;
+                    if ($this->errorRegistry->getErrors()) {
+                        throw $this->errorRegistry;
                     }
                 {% endif %}
             } catch (\Exception $e) {
@@ -73,7 +73,7 @@
     }
 
     {% if generatorConfiguration.collectErrors() %}
-        $this->_errorRegistry = $originalErrorRegistry;
+        $this->errorRegistry = $originalErrorRegistry;
     {% endif %}
 
     return $thenException || $elseException;

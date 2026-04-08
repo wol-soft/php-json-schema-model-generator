@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Attributes\Internal;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
@@ -335,7 +337,14 @@ class Property extends AbstractProperty
      */
     public function setInternal(bool $isPropertyInternal): PropertyInterface
     {
-        $this->isPropertyInternal = $isPropertyInternal;
+        // Internal is a one-way flag: once set to true the #[Internal] attribute has been
+        // added to the property's attribute list and cannot be removed. Subsequent calls
+        // with false (or repeated calls with true) are therefore silently ignored.
+        if ($isPropertyInternal && !$this->isPropertyInternal) {
+            $this->isPropertyInternal = true;
+            $this->addAttribute(new PhpAttribute(Internal::class));
+        }
+
         return $this;
     }
 

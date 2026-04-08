@@ -16,7 +16,7 @@ class MaxPropertiesValidatorFactory extends SimpleBaseValidatorFactory
         'count(
             array_unique(
                 array_merge(
-                    array_keys($this->_rawModelDataInput),
+                    array_keys($this->rawModelDataInput),
                     array_keys($modelData),
                 )
             ),
