@@ -17,7 +17,7 @@ class Type
     public function __construct(private readonly string $type, bool $typeCheck = true)
     {
         if ($typeCheck) {
-            $this->modifiers[] = new TypeCheckModifier(TypeConverter::jsonSchemaToPhp($type));
+            $this->modifiers[] = new TypeCheckModifier(TypeConverter::jsonSchemaToPHP($type));
         }
     }
 

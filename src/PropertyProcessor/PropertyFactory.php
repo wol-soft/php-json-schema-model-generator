@@ -192,7 +192,7 @@ class PropertyFactory
         string $type,
         bool $required,
     ): PropertyInterface {
-        $phpType  = $type !== 'any' ? TypeConverter::jsonSchemaToPhp($type) : null;
+        $phpType  = $type !== 'any' ? TypeConverter::jsonSchemaToPHP($type) : null;
         $property = $this->buildProperty(
             $schemaProcessor,
             $propertyName,
@@ -483,7 +483,7 @@ class PropertyFactory
         $subProperty = $this->buildProperty(
             $schemaProcessor,
             $propertyName,
-            new PropertyType(TypeConverter::jsonSchemaToPhp($type)),
+            new PropertyType(TypeConverter::jsonSchemaToPHP($type)),
             $propertySchema,
             $required,
         );
@@ -550,7 +550,7 @@ class PropertyFactory
         PropertyInterface $property,
         JsonSchema $propertySchema,
     ): void {
-        (new TypeCheckModifier(TypeConverter::jsonSchemaToPhp('object')))->modify(
+        (new TypeCheckModifier(TypeConverter::jsonSchemaToPHP('object')))->modify(
             $schemaProcessor,
             $schema,
             $property,

@@ -907,4 +907,24 @@ ERROR,);
         $this->assertSame('HELLO', $object->getProperty());
     }
 
+    public function testFilterCompatibilityCheckIsSkippedForUntypedProperty(): void
+    {
+        // No SchemaException thrown during class generation even though the 'trim' filter
+        // declares acceptedTypes = ['string', 'null'] and the property has no type.
+        // The schema-level compatibility check is skipped, but the runtime typeCheck in the
+        // generated filter code still rejects values of incompatible types.
+        $className = $this->generateClassFromFile('UntypedPropertyFilter.json');
+
+        $object = new $className(['property' => '  hello  ']);
+        $this->assertSame('hello', $object->getProperty());
+
+        $object = new $className(['property' => null]);
+        $this->assertNull($object->getProperty());
+
+        // Integer is incompatible with the 'trim' filter at runtime — IncompatibleFilterException
+        // is thrown because the filter's acceptedTypes do not include integer.
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Filter trim is not compatible with property type integer');
+        new $className(['property' => 5]);
+    }
 }

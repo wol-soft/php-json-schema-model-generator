@@ -16,7 +16,7 @@ class TypeConverter
         ][$type] ?? $type;
     }
 
-    public static function jsonSchemaToPhp(string $type): string
+    public static function jsonSchemaToPHP(string $type): string
     {
         return [
             'integer' => 'int',
