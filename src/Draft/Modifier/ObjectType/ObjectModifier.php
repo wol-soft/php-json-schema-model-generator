@@ -40,9 +40,6 @@ class ObjectModifier implements ModifierInterface
         }
 
         $nestedSchema = $property->getNestedSchema();
-        if ($nestedSchema === null) {
-            return;
-        }
 
         if (
             $nestedSchema->getClassPath() !== $schema->getClassPath() ||

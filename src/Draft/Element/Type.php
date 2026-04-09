@@ -31,7 +31,7 @@ class Type
     public function addValidator(string $validatorKey, AbstractValidatorFactory $factory): self
     {
         $factory->setKey($validatorKey);
-        $this->modifiers[] = $factory;
+        $this->modifiers[$validatorKey] = $factory;
 
         return $this;
     }

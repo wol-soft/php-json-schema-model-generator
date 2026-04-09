@@ -1,0 +1,21 @@
+{
+  "minProperties": 1,
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "age": {
+          "type": "integer"
+        }
+      }
+    }
+  ]
+}

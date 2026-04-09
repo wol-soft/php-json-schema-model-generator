@@ -914,4 +914,35 @@ ERROR
             'invalid nested type' => [InvalidItemException::class, ['Hello', [2]]],
         ];
     }
+
+    /**
+     * An invalid maxItems value in the schema (non-integer or negative) must throw
+     * SchemaException at generation time.
+     * Covers SimplePropertyValidatorFactory::hasValidValue throwing SchemaException.
+     */
+    #[DataProvider('invalidMaxItemsValueDataProvider')]
+    public function testInvalidMaxItemsValueThrowsSchemaException(mixed $maxItems): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches('/Invalid maxItems .* for property/');
+
+        $this->generateClass(
+            json_encode([
+                'type' => 'object',
+                'properties' => [
+                    'list' => ['type' => 'array', 'maxItems' => $maxItems],
+                ],
+            ]),
+        );
+    }
+
+    public static function invalidMaxItemsValueDataProvider(): array
+    {
+        return [
+            'float'        => [1.5],
+            'negative int' => [-1],
+            'string value' => ['ten'],
+            'boolean'      => [true],
+        ];
+    }
 }

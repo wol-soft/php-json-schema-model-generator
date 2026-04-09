@@ -120,10 +120,6 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             return $propertySchema;
         }
 
-        if ($json['type'] === 'base') {
-            $json['type'] = 'object';
-        }
-
         switch ($this->key) {
             case 'not':
                 if (!isset($json[$this->key]['type'])) {

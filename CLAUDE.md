@@ -134,6 +134,17 @@ Implement `SchemaProviderInterface` to supply schemas from custom sources. Built
 
 `AbstractPHPModelGeneratorTestCase` is the base class for all tests. Tests generate model classes into a temp directory and then instantiate/exercise them to verify validation behavior. The `tests/manual/` directory contains standalone scripts excluded from the test suite.
 
+#### Test case consolidation
+
+Each call to `generateClassFromFile` triggers a code generation pass, which is the dominant cost in the test suite. **Minimise the number of distinct `generateClassFromFile` calls** by combining assertions that share the same schema file and `GeneratorConfiguration` into a single test method.
+
+Rules:
+
+- Group assertions by `(schema file, GeneratorConfiguration)` pair. All assertions that can use the same generated class belong in one test method.
+- A single test method may cover multiple behaviours (e.g. key naming, round-trip, `$except`, custom serializer) as long as they all operate on the same generated class. Use clear inline comments to separate the logical sections.
+- Only split into separate test methods when the behaviours require genuinely different configurations, or when combining them would make the test too complex to understand at a glance.
+- The goal is the balance between runtime efficiency (fewer generations) and readability (each method remains comprehensible). Avoid both extremes: a single monolithic test and a proliferation of single-assertion tests.
+
 ### JSON Schema style
 
 In test schema files (`tests/Schema/**/*.json`), every object value must be expanded across multiple lines — never written inline. Use this style:

@@ -891,4 +891,20 @@ ERROR,);
             $object->getCreated()->format(DATE_ATOM),
         );
     }
+
+    public function testFilterWithEmptyAcceptedTypesIsCompatibleWithAnyPropertyType(): void
+    {
+        // No SchemaException thrown during class generation.
+        $className = $this->generateClass(
+            '{"type":"object","properties":{"property":{"type":"string","filter":"acceptAll"}}}',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'acceptAll', []),
+            ),
+        );
+
+        // The filter runs normally at runtime.
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('HELLO', $object->getProperty());
+    }
+
 }

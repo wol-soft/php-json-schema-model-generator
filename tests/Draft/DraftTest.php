@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Draft;
 
 use PHPModelGenerator\Draft\AutoDetectionDraft;
-use PHPModelGenerator\Draft\DraftFactoryInterface;
-use PHPModelGenerator\Draft\DraftInterface;
 use PHPModelGenerator\Draft\Draft_07;
+use PHPModelGenerator\Draft\Element\Type;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
@@ -15,6 +14,59 @@ use PHPUnit\Framework\TestCase;
 
 class DraftTest extends TestCase
 {
+    // --- DraftBuilder::getType ---
+
+    public function testDraftBuilderGetTypeReturnsExistingType(): void
+    {
+        $builder = (new Draft_07())->getDefinition();
+
+        $type = $builder->getType('string');
+
+        $this->assertInstanceOf(Type::class, $type);
+        $this->assertSame('string', $type->getType());
+    }
+
+    public function testDraftBuilderGetTypeReturnsNullForUnknownType(): void
+    {
+        $builder = (new Draft_07())->getDefinition();
+
+        $this->assertNull($builder->getType('nonexistent'));
+    }
+
+    // --- Draft::getTypes / Draft::hasType ---
+
+    public function testDraftGetTypesReturnsAllRegisteredTypes(): void
+    {
+        $types = (new Draft_07())->getDefinition()->build()->getTypes();
+
+        $this->assertArrayHasKey('string', $types);
+        $this->assertArrayHasKey('integer', $types);
+        $this->assertArrayHasKey('number', $types);
+        $this->assertArrayHasKey('boolean', $types);
+        $this->assertArrayHasKey('array', $types);
+        $this->assertArrayHasKey('object', $types);
+        $this->assertArrayHasKey('null', $types);
+        $this->assertArrayHasKey('any', $types);
+        $this->assertCount(8, $types);
+    }
+
+    public function testDraftHasTypeReturnsTrueForRegisteredType(): void
+    {
+        $draft = (new Draft_07())->getDefinition()->build();
+
+        $this->assertTrue($draft->hasType('string'));
+        $this->assertTrue($draft->hasType('integer'));
+        $this->assertTrue($draft->hasType('any'));
+    }
+
+    public function testDraftHasTypeReturnsFalseForUnknownType(): void
+    {
+        $draft = (new Draft_07())->getDefinition()->build();
+
+        $this->assertFalse($draft->hasType('nonexistent'));
+        $this->assertFalse($draft->hasType('custom'));
+    }
+
     // --- Draft / getCoveredTypes contract ---
 
     public function testGetCoveredTypesThrowsForUnknownType(): void

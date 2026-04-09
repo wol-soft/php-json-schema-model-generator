@@ -126,9 +126,7 @@ class FilterValidator extends PropertyTemplateValidator
         }
 
         $typeNames = $property->getNestedSchema() !== null ? ['object'] : $property->getType()->getNames();
-        $incompatibleTypes = !empty($typeNames)
-            ? array_diff($typeNames, $this->mapDataTypes($filter->getAcceptedTypes()))
-            : [];
+        $incompatibleTypes = array_diff($typeNames, $this->mapDataTypes($filter->getAcceptedTypes()));
 
         if ($property->getType()?->isNullable() && !in_array('null', $filter->getAcceptedTypes())) {
             $incompatibleTypes[] = 'null';
