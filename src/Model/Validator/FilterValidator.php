@@ -38,21 +38,9 @@ class FilterValidator extends PropertyTemplateValidator
     ) {
         $this->isResolved = true;
 
-        if ($this->transformingFilter !== null) {
-            // Post-transforming filter: check against the transformed return type.
-            $this->validateFilterCompatibilityWithTransformedType($this->filter, $this->transformingFilter, $property);
-        } elseif (
-            $property->getType() !== null ||
-            $property->getNestedSchema() !== null ||
-            $this->filter instanceof TransformingFilterInterface
-        ) {
-            // Typed property or transforming filter on untyped property: check immediately.
-            // Transforming filters must not be deferred because FilterProcessor calls setType()
-            // right after this constructor returns, mutating the property type before the
-            // post-processor runs.
-            $this->runCompatibilityCheck($this->filter, $property);
-        }
-        // Untyped property + regular non-transforming filter: defer to FilterCompatibilityPostProcessor.
+        $this->transformingFilter !== null
+            ? $this->validateFilterCompatibilityWithTransformedType($this->filter, $this->transformingFilter, $property)
+            : $this->runCompatibilityCheck($this->filter, $property);
 
         parent::__construct(
             $property,
@@ -133,14 +121,16 @@ class FilterValidator extends PropertyTemplateValidator
     }
 
     /**
-     * Core filter compatibility check. Handles both typed and untyped properties.
+     * Check if the given filter is compatible with the base type of the property defined in the schema.
      *
-     * For typed / nested-object properties, every property type must appear in the filter's
-     * acceptedTypes. For untyped properties, the filter must cover every PHP primitive type so
-     * that no runtime value can slip past the check silently.
+     * A filter is compatible when:
+     * - it accepts all types (empty acceptedTypes or 'mixed'), or
+     * - the property is untyped (any non-empty acceptedTypes has overlap with the infinite type space), or
+     * - the property's types have at least one overlap with the filter's acceptedTypes.
      *
-     * Called from the constructor (typed properties and transforming filters) and from
-     * validateCompatibilityWithProperty (deferred check by the post-processor).
+     * Only a complete zero overlap on a typed property is an error, because the filter could never
+     * execute under any circumstances. Partial overlap is fine: the runtime typeCheck guard in the
+     * generated code already skips the filter for non-matching value types.
      *
      * @throws SchemaException
      */
@@ -150,71 +140,30 @@ class FilterValidator extends PropertyTemplateValidator
             return;
         }
 
+        if ($property->getType() === null && $property->getNestedSchema() === null) {
+            return;
+        }
+
         $mappedAcceptedTypes = array_map(TypeConverter::jsonSchemaToPHP(...), $filter->getAcceptedTypes());
+        $typeNames = $property->getNestedSchema() !== null
+            ? ['object']
+            : $property->getType()->getNames();
+        $isNullable = $property->getType()?->isNullable() ?? false;
 
-        if ($property->getType() !== null || $property->getNestedSchema() !== null) {
-            $typeNames = $property->getNestedSchema() !== null
-                ? ['object']
-                : $property->getType()->getNames();
+        $hasOverlap = !empty(array_intersect($typeNames, $mappedAcceptedTypes))
+            || ($isNullable && in_array('null', $filter->getAcceptedTypes(), true));
 
-            $incompatibleTypes = array_diff($typeNames, $mappedAcceptedTypes);
-            if ($property->getType()?->isNullable() && !in_array('null', $filter->getAcceptedTypes())) {
-                $incompatibleTypes[] = 'null';
-            }
-
-            if (!empty($incompatibleTypes)) {
-                throw new SchemaException(
-                    sprintf(
-                        'Filter %s is not compatible with property type %s for property %s in file %s',
-                        $filter->getToken(),
-                        implode('|', array_merge($typeNames, $property->getType()?->isNullable() ? ['null'] : [])),
-                        $property->getName(),
-                        $property->getJsonSchema()->getFile(),
-                    )
-                );
-            }
-        } else {
-            // Untyped property: the filter must cover every PHP primitive type.
-            $allPhpTypes    = ['string', 'int', 'float', 'bool', 'array', 'object', 'null'];
-            $uncoveredTypes = array_diff($allPhpTypes, $mappedAcceptedTypes);
-
-            if (!empty($uncoveredTypes)) {
-                throw new SchemaException(
-                    sprintf(
-                        'Filter %s is not compatible with untyped property %s in file %s'
-                            . ' (not all types are accepted: %s)',
-                        $filter->getToken(),
-                        $property->getName(),
-                        $property->getJsonSchema()->getFile(),
-                        implode('|', $uncoveredTypes),
-                    )
-                );
-            }
+        if (!$hasOverlap) {
+            throw new SchemaException(
+                sprintf(
+                    'Filter %s is not compatible with property type %s for property %s in file %s',
+                    $filter->getToken(),
+                    implode('|', array_merge($typeNames, $isNullable ? ['null'] : [])),
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile(),
+                )
+            );
         }
-    }
-
-    /**
-     * Re-validate base-type compatibility after full composition resolution.
-     * Called by FilterCompatibilityPostProcessor on the outer schema's final properties.
-     *
-     * @throws SchemaException
-     */
-    public function validateCompatibilityWithProperty(PropertyInterface $property): void
-    {
-        // Post-transforming filters were already verified against the transformed type in the
-        // constructor — re-checking against the base type would be wrong.
-        if ($this->transformingFilter !== null) {
-            return;
-        }
-
-        // Transforming filters were already verified strictly in the constructor.
-        // setType() has since mutated $property->getType() to the transformed type,
-        // so re-running runCompatibilityCheck here would produce a false positive.
-        if ($this->filter instanceof TransformingFilterInterface) {
-            return;
-        }
-
-        $this->runCompatibilityCheck($this->filter, $property);
     }
 
     /**

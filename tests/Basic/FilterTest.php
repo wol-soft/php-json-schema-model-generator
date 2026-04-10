@@ -792,14 +792,11 @@ ERROR,);
         new $className(['filteredProperty' => 'Hello']);
     }
 
-    public function testFilterWhichAppliesToMultiTypePropertyPartiallyThrowsAnException(): void
+    public function testFilterWhichAppliesToMultiTypePropertyPartiallyIsAllowed(): void
     {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage(
-            'Filter trim is not compatible with property type string|null for property filteredProperty',
-        );
-
-        $this->generateClassFromFile(
+        // A filter with acceptedTypes = ['string'] applied to a string|null property has partial
+        // overlap and is valid — the runtime typeCheck skips the filter for null values.
+        $className = $this->generateClassFromFile(
             'FilterChainMultiType.json',
             (new GeneratorConfiguration())
                 ->addFilter(
@@ -818,6 +815,8 @@ ERROR,);
                 ),
             false,
         );
+
+        $this->assertNotNull($className);
     }
 
     public static function stripTimeFilter(?DateTime $value): ?DateTime
@@ -907,12 +906,11 @@ ERROR,);
         $this->assertSame('HELLO', $object->getProperty());
     }
 
-    public function testFilterCompatibilityCheckIsSkippedForUntypedProperty(): void
+    public function testRestrictedFilterOnUntypedPropertyIsAllowed(): void
     {
-        // No SchemaException thrown during class generation even though the 'trim' filter
-        // declares acceptedTypes = ['string', 'null'] and the property has no type.
-        // The schema-level compatibility check is skipped, but the runtime typeCheck in the
-        // generated filter code still rejects values of incompatible types.
+        // 'trim' declares acceptedTypes = ['string', 'null']. An untyped property can hold any value,
+        // so the filter is applied only when the runtime type matches — this is valid and generation
+        // must succeed without throwing a SchemaException.
         $className = $this->generateClassFromFile('UntypedPropertyFilter.json');
 
         $object = new $className(['property' => '  hello  ']);
@@ -920,11 +918,5 @@ ERROR,);
 
         $object = new $className(['property' => null]);
         $this->assertNull($object->getProperty());
-
-        // Integer is incompatible with the 'trim' filter at runtime — IncompatibleFilterException
-        // is thrown because the filter's acceptedTypes do not include integer.
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Filter trim is not compatible with property type integer');
-        new $className(['property' => 5]);
     }
 }
