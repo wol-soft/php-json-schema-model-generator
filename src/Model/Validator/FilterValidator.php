@@ -12,9 +12,10 @@ use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Utils\RenderHelper;
-use PHPModelGenerator\Utils\TypeConverter;
 use ReflectionException;
 use ReflectionMethod;
+use ReflectionNamedType;
+use ReflectionUnionType;
 
 /**
  * Class FilterValidator
@@ -42,6 +43,8 @@ class FilterValidator extends PropertyTemplateValidator
             ? $this->validateFilterCompatibilityWithTransformedType($this->filter, $this->transformingFilter, $property)
             : $this->runCompatibilityCheck($this->filter, $property);
 
+        $acceptedTypes = $this->getAcceptedTypes($this->filter);
+
         parent::__construct(
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'Filter.phptpl',
@@ -51,9 +54,8 @@ class FilterValidator extends PropertyTemplateValidator
                 // Positive type guard: the filter only executes when the value's runtime type
                 // matches one of the acceptedTypes. Non-matching values skip the filter entirely
                 // (the && short-circuits before the filter function is called).
-                // 'mixed' or empty acceptedTypes means "run for all types" — no guard needed.
-                'typeCheck' => !empty($this->filter->getAcceptedTypes()) &&
-                               !in_array('mixed', $this->filter->getAcceptedTypes(), true)
+                // Empty acceptedTypes means "run for all types" — no guard needed.
+                'typeCheck' => !empty($acceptedTypes)
                     ? '(' .
                         implode(
                             ' || ',
@@ -67,7 +69,7 @@ class FilterValidator extends PropertyTemplateValidator
                                     $parts = explode('\\', $type);
                                     return '$value instanceof ' . end($parts);
                                 },
-                                array_map(TypeConverter::jsonSchemaToPHP(...), $this->filter->getAcceptedTypes()),
+                                $acceptedTypes,
                             ),
                         ) .
                       ')'
@@ -86,6 +88,51 @@ class FilterValidator extends PropertyTemplateValidator
             IncompatibleFilterException::class,
             [$this->filter->getToken()],
         );
+    }
+
+    /**
+     * Derive accepted PHP type names from the first parameter of the filter callable.
+     *
+     * Returns a flat string[] of PHP type names (e.g. ['string', 'null']).
+     * Returns an empty array when the parameter has no type hint or is typed as 'mixed',
+     * which means the filter accepts all types and no runtime type guard should be generated.
+     *
+     * @return string[]
+     * @throws ReflectionException
+     */
+    private function getAcceptedTypes(FilterInterface $filter): array
+    {
+        $params = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))->getParameters();
+
+        if (empty($params)) {
+            return [];
+        }
+
+        $type = $params[0]->getType();
+
+        if ($type === null) {
+            return [];
+        }
+
+        if ($type instanceof ReflectionNamedType) {
+            if ($type->getName() === 'mixed') {
+                return [];
+            }
+
+            $types = [$type->getName()];
+
+            if ($type->allowsNull() && $type->getName() !== 'null') {
+                $types[] = 'null';
+            }
+
+            return $types;
+        }
+
+        if ($type instanceof ReflectionUnionType) {
+            return array_map(static fn(ReflectionNamedType $t): string => $t->getName(), $type->getTypes());
+        }
+
+        return [];
     }
 
     /**
@@ -115,10 +162,7 @@ class FilterValidator extends PropertyTemplateValidator
         if (
             $typeAfterFilter &&
             $typeAfterFilter->getName() &&
-            !in_array(
-                $typeAfterFilter->getName(),
-                array_map(TypeConverter::jsonSchemaToPHP(...), $filter->getAcceptedTypes()),
-            )
+            !in_array($typeAfterFilter->getName(), $this->getAcceptedTypes($filter))
         ) {
             $this->templateValues['skipTransformedValuesCheck'] = ReflectionTypeCheckValidator::fromReflectionType(
                 $typeAfterFilter,
@@ -133,7 +177,7 @@ class FilterValidator extends PropertyTemplateValidator
      * Check if the given filter is compatible with the base type of the property defined in the schema.
      *
      * A filter is compatible when:
-     * - it accepts all types (empty acceptedTypes or 'mixed'), or
+     * - it accepts all types (empty acceptedTypes derived from callable's first parameter type hint), or
      * - the property is untyped (any non-empty acceptedTypes has overlap with the infinite type space), or
      * - the property's types have at least one overlap with the filter's acceptedTypes.
      *
@@ -142,10 +186,13 @@ class FilterValidator extends PropertyTemplateValidator
      * generated code already skips the filter for non-matching value types.
      *
      * @throws SchemaException
+     * @throws ReflectionException
      */
     private function runCompatibilityCheck(FilterInterface $filter, PropertyInterface $property): void
     {
-        if (empty($filter->getAcceptedTypes()) || in_array('mixed', $filter->getAcceptedTypes(), true)) {
+        $acceptedTypes = $this->getAcceptedTypes($filter);
+
+        if (empty($acceptedTypes)) {
             return;
         }
 
@@ -153,14 +200,13 @@ class FilterValidator extends PropertyTemplateValidator
             return;
         }
 
-        $mappedAcceptedTypes = array_map(TypeConverter::jsonSchemaToPHP(...), $filter->getAcceptedTypes());
         $typeNames = $property->getNestedSchema() !== null
             ? ['object']
             : $property->getType()->getNames();
         $isNullable = $property->getType()?->isNullable() ?? false;
 
-        $hasOverlap = !empty(array_intersect($typeNames, $mappedAcceptedTypes))
-            || ($isNullable && in_array('null', $filter->getAcceptedTypes(), true));
+        $hasOverlap = !empty(array_intersect($typeNames, $acceptedTypes))
+            || ($isNullable && in_array('null', $acceptedTypes, true));
 
         if (!$hasOverlap) {
             throw new SchemaException(
@@ -179,7 +225,7 @@ class FilterValidator extends PropertyTemplateValidator
      * Check if the given filter is compatible with the result of the given transformation filter.
      *
      * When the transforming filter's return type is unconstrained (null return type or 'mixed'),
-     * the subsequent filter is only safe if it accepts every type ('mixed' or empty acceptedTypes).
+     * the subsequent filter is only safe if it accepts every type (empty acceptedTypes).
      *
      * @throws ReflectionException
      * @throws SchemaException
@@ -197,10 +243,7 @@ class FilterValidator extends PropertyTemplateValidator
         $typeName = $transformedType?->getName();
         if ($transformedType === null || $typeName === 'mixed' || $typeName === '') {
             // Unconstrained output: a subsequent filter is only safe if it accepts all types.
-            if (
-                !empty($filter->getAcceptedTypes()) &&
-                !in_array('mixed', $filter->getAcceptedTypes(), true)
-            ) {
+            if (!empty($this->getAcceptedTypes($filter))) {
                 throw new SchemaException(
                     sprintf(
                         'Filter %s is not compatible with the unconstrained output of'
@@ -217,11 +260,13 @@ class FilterValidator extends PropertyTemplateValidator
             return;
         }
 
+        $acceptedTypes = $this->getAcceptedTypes($filter);
+
         if (
-            !empty($filter->getAcceptedTypes()) &&
+            !empty($acceptedTypes) &&
             (
-                !in_array($typeName, array_map(TypeConverter::jsonSchemaToPHP(...), $filter->getAcceptedTypes())) ||
-                ($transformedType->allowsNull() && !in_array('null', $filter->getAcceptedTypes()))
+                !in_array($typeName, $acceptedTypes) ||
+                ($transformedType->allowsNull() && !in_array('null', $acceptedTypes))
             )
         ) {
             throw new SchemaException(

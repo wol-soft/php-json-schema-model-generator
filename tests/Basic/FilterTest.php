@@ -59,16 +59,6 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-    public function testFilterWithNotAllowedAcceptedTypeThrowsAnException(): void
-    {
-        $this->expectException(InvalidFilterException::class);
-        $this->expectExceptionMessage('Filter accepts invalid types');
-
-        (new GeneratorConfiguration())->addFilter(
-            $this->getCustomFilter([self::class, 'uppercaseFilter'], 'customFilter', ['NotExistingType']),
-        );
-    }
-
     public function testNonExistingFilterThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
@@ -80,19 +70,12 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
     protected function getCustomFilter(
         array $customFilter,
         string $token = 'customFilter',
-        array $acceptedTypes = ['string', 'null'],
     ): FilterInterface {
-        return new class ($customFilter, $token, $acceptedTypes) implements FilterInterface {
+        return new class ($customFilter, $token) implements FilterInterface {
             public function __construct(
                 private readonly array $customFilter,
                 private readonly string $token,
-                private readonly array $acceptedTypes,
             ) {}
-
-            public function getAcceptedTypes(): array
-            {
-                return $this->acceptedTypes;
-            }
 
             public function getToken(): string
             {
@@ -309,11 +292,6 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
     private function getEncodeFilter(): FilterInterface
     {
         return new class () implements FilterInterface, ValidateOptionsInterface {
-            public function getAcceptedTypes(): array
-            {
-                return ['string'];
-            }
-
             public function getToken(): string
             {
                 return 'encode';
@@ -384,21 +362,14 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         array $customSerializer,
         array $customFilter = [],
         string $token = 'customTransformingFilter',
-        array $acceptedTypes = ['string'],
     ): TransformingFilterInterface {
-        return new class ($customSerializer, $customFilter, $token, $acceptedTypes) extends TrimFilter implements TransformingFilterInterface
+        return new class ($customSerializer, $customFilter, $token) extends TrimFilter implements TransformingFilterInterface
         {
             public function __construct(
                 private readonly array $customSerializer,
                 private readonly array $customFilter,
                 private readonly string $token,
-                private readonly array $acceptedTypes,
             ) {}
-
-            public function getAcceptedTypes(): array
-            {
-                return $this->acceptedTypes;
-            }
 
             public function getToken(): string
             {
@@ -409,6 +380,7 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
             {
                 return empty($this->customFilter) ? parent::getFilter() : $this->customFilter;
             }
+
             public function getSerializer(): array
             {
                 return $this->customSerializer;
@@ -535,7 +507,6 @@ ERROR,);
                     [self::class, 'serializeBinaryToInt'],
                     [self::class, 'filterIntToBinary'],
                     'customArrayTransformer',
-                    ['array'],
                 )
             ),
         );
@@ -553,11 +524,6 @@ ERROR,);
             ['["dateTime", "customTransformer"]'],
             (new GeneratorConfiguration())->addFilter(
                 new class () extends DateTimeFilter {
-                    public function getAcceptedTypes(): array
-                    {
-                        return [DateTime::class, 'null'];
-                    }
-
                     public function getToken(): string
                     {
                         return 'customTransformer';
@@ -626,7 +592,6 @@ ERROR,);
                         [self::class, 'serializeBinaryToInt'],
                         [self::class, 'filterIntToBinary'],
                         'binary',
-                        ['integer'],
                     )
                 ),
             false,
@@ -682,7 +647,6 @@ ERROR,);
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilter'],
                         'stripTime',
-                        [DateTime::class, 'null'],
                     )
                 ),
             false,
@@ -715,7 +679,6 @@ ERROR,);
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilter'],
                         'stripTime',
-                        [DateTime::class, 'null'],
                     )
                 ),
             false,
@@ -760,7 +723,6 @@ ERROR,);
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilterStrict'],
                         'stripTime',
-                        [DateTime::class],
                     )
                 ),
         );
@@ -778,9 +740,8 @@ ERROR,);
             (new GeneratorConfiguration())
                 ->addFilter(
                     $this->getCustomFilter(
-                        [self::class, 'exceptionFilter'],
+                        [self::class, 'exceptionFilterDateTime'],
                         'stripTime',
-                        [DateTime::class, 'null'],
                     )
                 ),
             false,
@@ -798,16 +759,14 @@ ERROR,);
             (new GeneratorConfiguration())
                 ->addFilter(
                     $this->getCustomFilter(
-                        [self::class, 'stripTimeFilter'],
+                        [self::class, 'uppercaseFilterStringOnly'],
                         'trim',
-                        ['string'],
                     )
                 )
                 ->addFilter(
                     $this->getCustomFilter(
                         [self::class, 'stripTimeFilter'],
                         'stripTime',
-                        [DateTime::class, 'null'],
                     )
                 ),
             false,
@@ -888,26 +847,65 @@ ERROR,);
         );
     }
 
-    public function testFilterWithEmptyAcceptedTypesIsCompatibleWithAnyPropertyType(): void
+    // --- Filter callables used in the tests below ---
+
+    public static function uppercaseFilterAllTypes($value): ?string
     {
-        // No SchemaException thrown during class generation.
+        return is_string($value) ? strtoupper($value) : null;
+    }
+
+    public static function uppercaseFilterStringOnly(string $value): string
+    {
+        return strtoupper($value);
+    }
+
+    public static function uppercaseFilterFloat(float $value): string
+    {
+        return (string) $value;
+    }
+
+    public static function uppercaseFilterMixed(mixed $value): ?string
+    {
+        return is_string($value) ? strtoupper($value) : null;
+    }
+
+    public static function nullPassthrough(null $value): mixed
+    {
+        return $value;
+    }
+
+    public static function exceptionFilterDateTime(?\DateTime $value): void
+    {
+        throw new Exception("Exception filter called with DateTime");
+    }
+
+    public static function negateFilterMixed(mixed $value): mixed
+    {
+        return is_int($value) ? -$value : $value;
+    }
+
+    // --- Tests ---
+
+    public function testFilterWithNoTypeHintIsCompatibleWithAnyPropertyType(): void
+    {
+        // A callable with no type hint derives empty acceptedTypes — no runtime type guard,
+        // the filter runs for all value types.
         $className = $this->generateClass(
             '{"type":"object","properties":{"property":{"type":"string","filter":"acceptAll"}}}',
             (new GeneratorConfiguration())->addFilter(
-                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'acceptAll', []),
+                $this->getCustomFilter([self::class, 'uppercaseFilterAllTypes'], 'acceptAll'),
             ),
         );
 
-        // The filter runs normally at runtime.
         $object = new $className(['property' => 'hello']);
         $this->assertSame('HELLO', $object->getProperty());
     }
 
     public function testRestrictedFilterOnUntypedPropertyIsAllowed(): void
     {
-        // 'trim' declares acceptedTypes = ['string', 'null']. An untyped property can hold any value,
-        // so the filter is applied only when the runtime type matches — this is valid and generation
-        // must succeed without throwing a SchemaException.
+        // 'trim' accepts string|null (from ?string type hint). An untyped property can hold any
+        // value, so the filter is applied only when the runtime type matches — generation must
+        // succeed without throwing a SchemaException.
         $className = $this->generateClassFromFile('UntypedPropertyFilter.json');
 
         $object = new $className(['property' => '  hello  ']);
@@ -917,9 +915,9 @@ ERROR,);
         $this->assertNull($object->getProperty());
     }
 
-    public function testZeroOverlapAfterTypeMapThrowsSchemaException(): void
+    public function testZeroOverlapThrowsSchemaException(): void
     {
-        // 'integer' maps to 'int'; 'number' maps to 'float' — no overlap with int.
+        // float has zero overlap with int — SchemaException at generation time.
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
             '/Filter numberFilter is not compatible with property type int for property property/',
@@ -928,7 +926,7 @@ ERROR,);
         $this->generateClass(
             '{"type":"object","properties":{"property":{"type":"integer","filter":"numberFilter"}}}',
             (new GeneratorConfiguration())->addFilter(
-                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'numberFilter', ['number']),
+                $this->getCustomFilter([self::class, 'uppercaseFilterFloat'], 'numberFilter'),
             ),
         );
     }
@@ -937,12 +935,13 @@ ERROR,);
 
     public function testPartialOverlapStringFilterOnMultiTypeProperty(): void
     {
-        // Filter applies for string values; integer is not in acceptedTypes so the filter
+        // Filter callable has (string $value) — accepted type is string only.
+        // Filter applies for string values; integer is not accepted so the filter
         // is skipped and the integer value passes through unchanged.
         $className = $this->generateClass(
             '{"type":"object","properties":{"property":{"type":["string","integer"],"filter":"f"}}}',
             (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
-                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'f', ['string']),
+                $this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'f'),
             ),
         );
 
@@ -957,12 +956,12 @@ ERROR,);
 
     public function testPartialOverlapStringFilterSkipsNullOnNullableProperty(): void
     {
-        // Filter applies for string values; null is not in acceptedTypes so the filter
-        // is skipped and null passes through unchanged.
+        // Filter callable has (string $value) — null is not accepted.
+        // Filter applies for string values; null passes through unchanged.
         $className = $this->generateClass(
             '{"type":"object","properties":{"property":{"type":["string","null"],"filter":"f"}}}',
             (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
-                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'f', ['string']),
+                $this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'f'),
             ),
         );
 
@@ -977,31 +976,31 @@ ERROR,);
 
     public function testPartialOverlapNullFilterSkipsStringOnNullableProperty(): void
     {
-        // Filter applies for null values; string is not in acceptedTypes so the filter
-        // is skipped and the string value passes through unchanged.
+        // Filter callable has (null $value) — only null is accepted.
+        // Filter runs for null (passes through); string is not accepted so skipped.
         $className = $this->generateClass(
             '{"type":"object","properties":{"property":{"type":["string","null"],"filter":"f"}}}',
             (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
-                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'f', ['null']),
+                $this->getCustomFilter([self::class, 'nullPassthrough'], 'f'),
             ),
         );
 
         $object = new $className(['property' => null]);
-        $this->assertNull($object->getProperty()); // filter ran (uppercaseFilter(null) = null)
+        $this->assertNull($object->getProperty()); // filter ran, returned null
 
         $object = new $className(['property' => 'hello']);
         $this->assertSame('hello', $object->getProperty()); // filter skipped, string unchanged
     }
 
-    // --- P5: integer property, filter covers integer and string ---
+    // --- P5: integer property, filter covers integer ---
 
     public function testPartialOverlapFilterRunsWhenPropertyTypeIsInAcceptedTypes(): void
     {
-        // acceptedTypes includes 'integer' — overlap with property type, filter runs.
+        // Filter callable has (int $value) — overlap with integer property type, filter runs.
         $className = $this->generateClass(
             '{"type":"object","properties":{"property":{"type":"integer","filter":"f"}}}',
             (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
-                $this->getCustomFilter([self::class, 'negateFilter'], 'f', ['integer', 'string']),
+                $this->getCustomFilter([self::class, 'negateFilter'], 'f'),
             ),
         );
 
@@ -1014,15 +1013,15 @@ ERROR,);
         return -$value;
     }
 
-    // --- U3: 'mixed' filter on untyped property, no typeCheck generated ---
+    // --- U3: mixed-typed callable on untyped property, no typeCheck generated ---
 
-    public function testMixedAcceptedTypesFilterOnUntypedProperty(): void
+    public function testMixedTypedCallableFilterOnUntypedProperty(): void
     {
-        // acceptedTypes=['mixed'] produces no runtime typeCheck — filter runs for all value types.
+        // callable with (mixed $value) derives empty acceptedTypes — no runtime typeCheck.
         $className = $this->generateClass(
             '{"type":"object","properties":{"property":{"filter":"f"}}}',
             (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
-                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'f', ['mixed']),
+                $this->getCustomFilter([self::class, 'uppercaseFilterMixed'], 'f'),
             ),
         );
 
@@ -1034,12 +1033,12 @@ ERROR,);
 
     public function testNarrowFilterOnUntypedPropertySkipsNonMatchingType(): void
     {
-        // acceptedTypes=['string'] on an untyped property — filter applies for string,
-        // integer is not in acceptedTypes so the filter is skipped and the value passes through.
+        // Callable with (string $value) on an untyped property — filter applies for string,
+        // integer is not accepted so the filter is skipped and the value passes through.
         $className = $this->generateClass(
             '{"type":"object","properties":{"property":{"filter":"f"}}}',
             (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
-                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'f', ['string']),
+                $this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'f'),
             ),
         );
 
@@ -1050,43 +1049,34 @@ ERROR,);
         $this->assertSame(5, $object->getProperty()); // filter skipped, integer unchanged
     }
 
-    public function testAddFilterWithMixedAcceptedTypesIsAllowed(): void
+    public function testAddFilterWithMixedTypedCallableIsAllowed(): void
     {
+        // A callable with (mixed $value) derives empty acceptedTypes — always compatible.
         $config = (new GeneratorConfiguration())->addFilter(
-            $this->getCustomFilter([self::class, 'uppercaseFilter'], 'mixedFilter', ['mixed']),
+            $this->getCustomFilter([self::class, 'uppercaseFilterMixed'], 'mixedFilter'),
         );
 
         $this->assertNotNull($config->getFilter('mixedFilter'));
     }
 
-    public function testAddFilterWithMixedCombinedWithOtherTypesThrowsException(): void
+    public function testMixedTypedCallableGeneratesNoRuntimeTypeCheck(): void
     {
-        $this->expectException(InvalidFilterException::class);
-        $this->expectExceptionMessageMatches("/mixedFilter.*'mixed'.*must not be combined/");
-
-        (new GeneratorConfiguration())->addFilter(
-            $this->getCustomFilter([self::class, 'uppercaseFilter'], 'mixedFilter', ['mixed', 'string']),
-        );
-    }
-
-    public function testMixedFilterGeneratesNoRuntimeTypeCheck(): void
-    {
-        // 'mixed' in acceptedTypes means "accept all types" — generation succeeds for both typed
-        // and untyped properties, and no runtime typeCheck guard is emitted (the filter always runs).
-        $makeStringClass = fn(string $typePart): string => $this->generateClass(
+        // A callable with (mixed $value) means "accept all types" — generation succeeds for both
+        // typed and untyped properties, and no runtime typeCheck guard is emitted.
+        $makeClass = fn(string $typePart): string => $this->generateClass(
             sprintf('{"type":"object","properties":{"property":{%s"filter":"mixedFilter"}}}', $typePart),
             (new GeneratorConfiguration())->addFilter(
-                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'mixedFilter', ['mixed']),
+                $this->getCustomFilter([self::class, 'uppercaseFilterMixed'], 'mixedFilter'),
             ),
         );
 
         // typed string property — filter runs
-        $className = $makeStringClass('"type":"string",');
+        $className = $makeClass('"type":"string",');
         $object = new $className(['property' => 'hello']);
         $this->assertSame('HELLO', $object->getProperty());
 
         // untyped property — filter runs
-        $className = $makeStringClass('');
+        $className = $makeClass('');
         $object = new $className(['property' => 'hello']);
         $this->assertSame('HELLO', $object->getProperty());
 
@@ -1094,7 +1084,7 @@ ERROR,);
         $className = $this->generateClass(
             '{"type":"object","properties":{"property":{"type":"integer","filter":"mixedFilter"}}}',
             (new GeneratorConfiguration())->addFilter(
-                $this->getCustomFilter([self::class, 'negateFilter'], 'mixedFilter', ['mixed']),
+                $this->getCustomFilter([self::class, 'negateFilterMixed'], 'mixedFilter'),
             ),
         );
         $object = new $className(['property' => 5]);
@@ -1103,8 +1093,9 @@ ERROR,);
 
     public function testFilterChainWithTransformingFilterOnUntypedProperty(): void
     {
-        // ['trim', 'dateTime'] on an untyped property — trim has partial acceptedTypes but the
-        // property is untyped, so no SchemaException is thrown and the chain works correctly.
+        // ['trim', 'dateTime'] on an untyped property — trim accepts string|null (from ?string
+        // type hint) but the property is untyped, so no SchemaException is thrown and the
+        // chain works correctly.
         $className = $this->generateClassFromFile('UntypedPropertyFilterChain.json');
 
         $object = new $className(['filteredProperty' => ' 2020-12-12 ']);

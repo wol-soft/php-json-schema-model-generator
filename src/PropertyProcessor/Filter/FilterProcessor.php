@@ -97,10 +97,9 @@ class FilterProcessor
                 }
             }
 
-            $property->addValidator(
-                new FilterValidator($generatorConfiguration, $filter, $property, $filterOptions, $transformingFilter),
-                $filterPriority++,
-            );
+            // Holds the resolved output type when this filter is a transforming filter whose
+            // output type differs from the current property type; null otherwise.
+            $typeAfterFilter = null;
 
             if ($filter instanceof TransformingFilterInterface) {
                 if ($property->getType() && in_array('array', $property->getType()->getNames(), true)) {
@@ -122,19 +121,17 @@ class FilterProcessor
                     );
                 }
 
-                // keep track of the transforming filter to modify type checks for following filters
-                $transformingFilter = $filter;
-
-                $typeAfterFilter = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))
+                $resolvedType = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))
                     ->getReturnType();
 
                 if (
-                    $typeAfterFilter &&
-                    $typeAfterFilter->getName() &&
+                    $resolvedType &&
+                    $resolvedType->getName() &&
                     (!$property->getType() ||
-                        !in_array($typeAfterFilter->getName(), $property->getType()->getNames(), true))
+                        !in_array($resolvedType->getName(), $property->getType()->getNames(), true))
                 ) {
-                    $this->addTransformedValuePassThrough($property, $filter, $typeAfterFilter);
+                    $typeAfterFilter = $resolvedType;
+
                     $this->extendTypeCheckValidatorToAllowTransformedValue($property, $typeAfterFilter);
 
                     $property->setType(
@@ -150,6 +147,23 @@ class FilterProcessor
                         $schema->addUsedClass($typeAfterFilter->getName());
                     }
                 }
+            }
+
+            // $transformingFilter is still null here when the current filter IS the transforming
+            // filter — FilterValidator correctly receives null (no previous transforming filter).
+            $property->addValidator(
+                new FilterValidator($generatorConfiguration, $filter, $property, $filterOptions, $transformingFilter),
+                $filterPriority++,
+            );
+
+            if ($filter instanceof TransformingFilterInterface) {
+                // addTransformedValuePassThrough must run after addValidator so that the transforming
+                // filter's own FilterValidator (just added above) also receives the pass-through check.
+                if ($typeAfterFilter !== null) {
+                    $this->addTransformedValuePassThrough($property, $filter, $typeAfterFilter);
+                }
+
+                $transformingFilter = $filter;
             }
         }
     }
