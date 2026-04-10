@@ -48,16 +48,25 @@ class FilterValidator extends PropertyTemplateValidator
             [
                 'skipTransformedValuesCheck' => $this->transformingFilter !== null ? '!$transformationFailed' : '',
                 'isTransformingFilter' => $this->filter instanceof TransformingFilterInterface,
-                // check if the given value has a type matched by the filter;
-                // 'mixed' in acceptedTypes means "all types" — no runtime check needed
+                // Positive type guard: the filter only executes when the value's runtime type
+                // matches one of the acceptedTypes. Non-matching values skip the filter entirely
+                // (the && short-circuits before the filter function is called).
+                // 'mixed' or empty acceptedTypes means "run for all types" — no guard needed.
                 'typeCheck' => !empty($this->filter->getAcceptedTypes()) &&
                                !in_array('mixed', $this->filter->getAcceptedTypes(), true)
                     ? '(' .
                         implode(
-                            ' && ',
+                            ' || ',
                             array_map(
-                                static fn(string $type): string =>
-                                    ReflectionTypeCheckValidator::fromType($type, $property)->getCheck(),
+                                static function (string $type): string {
+                                    $primitives = ['int', 'float', 'string', 'bool', 'array', 'object', 'null'];
+                                    if (in_array($type, $primitives)) {
+                                        return "is_{$type}(\$value)";
+                                    }
+
+                                    $parts = explode('\\', $type);
+                                    return '$value instanceof ' . end($parts);
+                                },
                                 array_map(TypeConverter::jsonSchemaToPHP(...), $this->filter->getAcceptedTypes()),
                             ),
                         ) .

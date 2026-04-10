@@ -643,14 +643,11 @@ ERROR,);
         $this->assertSame(['value' => 11], $object->toArray());
         $this->assertSame('{"value":11}', $object->toJSON());
 
-        $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessage(
-            $implicitNull
-                ? 'Filter binary is not compatible with property type NULL for property value'
-                : 'Invalid type for value. Requires [string, int], got NULL',
-        );
-
-        new $fqcn(['value' => null]);
+        if (!$implicitNull) {
+            $this->expectException(ErrorRegistryException::class);
+            $this->expectExceptionMessage('Invalid type for value. Requires [string, int], got NULL');
+            new $fqcn(['value' => null]);
+        }
     }
 
     public static function filterIntToBinary(int $value): string
@@ -918,5 +915,206 @@ ERROR,);
 
         $object = new $className(['property' => null]);
         $this->assertNull($object->getProperty());
+    }
+
+    public function testZeroOverlapAfterTypeMapThrowsSchemaException(): void
+    {
+        // 'integer' maps to 'int'; 'number' maps to 'float' — no overlap with int.
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/Filter numberFilter is not compatible with property type int for property property/',
+        );
+
+        $this->generateClass(
+            '{"type":"object","properties":{"property":{"type":"integer","filter":"numberFilter"}}}',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'numberFilter', ['number']),
+            ),
+        );
+    }
+
+    // --- P2: string|integer property with string-only filter ---
+
+    public function testPartialOverlapStringFilterOnMultiTypeProperty(): void
+    {
+        // Filter applies for string values; integer is not in acceptedTypes so the filter
+        // is skipped and the integer value passes through unchanged.
+        $className = $this->generateClass(
+            '{"type":"object","properties":{"property":{"type":["string","integer"],"filter":"f"}}}',
+            (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
+                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'f', ['string']),
+            ),
+        );
+
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('HELLO', $object->getProperty()); // filter applied
+
+        $object = new $className(['property' => 5]);
+        $this->assertSame(5, $object->getProperty()); // filter skipped, value unchanged
+    }
+
+    // --- P3: string|null property, filter does not cover null ---
+
+    public function testPartialOverlapStringFilterSkipsNullOnNullableProperty(): void
+    {
+        // Filter applies for string values; null is not in acceptedTypes so the filter
+        // is skipped and null passes through unchanged.
+        $className = $this->generateClass(
+            '{"type":"object","properties":{"property":{"type":["string","null"],"filter":"f"}}}',
+            (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
+                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'f', ['string']),
+            ),
+        );
+
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('HELLO', $object->getProperty()); // filter applied
+
+        $object = new $className(['property' => null]);
+        $this->assertNull($object->getProperty()); // filter skipped, null unchanged
+    }
+
+    // --- P4: string|null property, filter covers only null ---
+
+    public function testPartialOverlapNullFilterSkipsStringOnNullableProperty(): void
+    {
+        // Filter applies for null values; string is not in acceptedTypes so the filter
+        // is skipped and the string value passes through unchanged.
+        $className = $this->generateClass(
+            '{"type":"object","properties":{"property":{"type":["string","null"],"filter":"f"}}}',
+            (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
+                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'f', ['null']),
+            ),
+        );
+
+        $object = new $className(['property' => null]);
+        $this->assertNull($object->getProperty()); // filter ran (uppercaseFilter(null) = null)
+
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('hello', $object->getProperty()); // filter skipped, string unchanged
+    }
+
+    // --- P5: integer property, filter covers integer and string ---
+
+    public function testPartialOverlapFilterRunsWhenPropertyTypeIsInAcceptedTypes(): void
+    {
+        // acceptedTypes includes 'integer' — overlap with property type, filter runs.
+        $className = $this->generateClass(
+            '{"type":"object","properties":{"property":{"type":"integer","filter":"f"}}}',
+            (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
+                $this->getCustomFilter([self::class, 'negateFilter'], 'f', ['integer', 'string']),
+            ),
+        );
+
+        $object = new $className(['property' => 5]);
+        $this->assertSame(-5, $object->getProperty());
+    }
+
+    public static function negateFilter(int $value): int
+    {
+        return -$value;
+    }
+
+    // --- U3: 'mixed' filter on untyped property, no typeCheck generated ---
+
+    public function testMixedAcceptedTypesFilterOnUntypedProperty(): void
+    {
+        // acceptedTypes=['mixed'] produces no runtime typeCheck — filter runs for all value types.
+        $className = $this->generateClass(
+            '{"type":"object","properties":{"property":{"filter":"f"}}}',
+            (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
+                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'f', ['mixed']),
+            ),
+        );
+
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('HELLO', $object->getProperty()); // filter applied for string
+    }
+
+    // --- U4: narrow filter on untyped property ---
+
+    public function testNarrowFilterOnUntypedPropertySkipsNonMatchingType(): void
+    {
+        // acceptedTypes=['string'] on an untyped property — filter applies for string,
+        // integer is not in acceptedTypes so the filter is skipped and the value passes through.
+        $className = $this->generateClass(
+            '{"type":"object","properties":{"property":{"filter":"f"}}}',
+            (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
+                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'f', ['string']),
+            ),
+        );
+
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('HELLO', $object->getProperty()); // filter applied for string
+
+        $object = new $className(['property' => 5]);
+        $this->assertSame(5, $object->getProperty()); // filter skipped, integer unchanged
+    }
+
+    public function testAddFilterWithMixedAcceptedTypesIsAllowed(): void
+    {
+        $config = (new GeneratorConfiguration())->addFilter(
+            $this->getCustomFilter([self::class, 'uppercaseFilter'], 'mixedFilter', ['mixed']),
+        );
+
+        $this->assertNotNull($config->getFilter('mixedFilter'));
+    }
+
+    public function testAddFilterWithMixedCombinedWithOtherTypesThrowsException(): void
+    {
+        $this->expectException(InvalidFilterException::class);
+        $this->expectExceptionMessageMatches("/mixedFilter.*'mixed'.*must not be combined/");
+
+        (new GeneratorConfiguration())->addFilter(
+            $this->getCustomFilter([self::class, 'uppercaseFilter'], 'mixedFilter', ['mixed', 'string']),
+        );
+    }
+
+    public function testMixedFilterGeneratesNoRuntimeTypeCheck(): void
+    {
+        // 'mixed' in acceptedTypes means "accept all types" — generation succeeds for both typed
+        // and untyped properties, and no runtime typeCheck guard is emitted (the filter always runs).
+        $makeStringClass = fn(string $typePart): string => $this->generateClass(
+            sprintf('{"type":"object","properties":{"property":{%s"filter":"mixedFilter"}}}', $typePart),
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomFilter([self::class, 'uppercaseFilter'], 'mixedFilter', ['mixed']),
+            ),
+        );
+
+        // typed string property — filter runs
+        $className = $makeStringClass('"type":"string",');
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('HELLO', $object->getProperty());
+
+        // untyped property — filter runs
+        $className = $makeStringClass('');
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('HELLO', $object->getProperty());
+
+        // typed integer property — generation succeeds, filter runs (no typeCheck guard)
+        $className = $this->generateClass(
+            '{"type":"object","properties":{"property":{"type":"integer","filter":"mixedFilter"}}}',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomFilter([self::class, 'negateFilter'], 'mixedFilter', ['mixed']),
+            ),
+        );
+        $object = new $className(['property' => 5]);
+        $this->assertSame(-5, $object->getProperty());
+    }
+
+    public function testFilterChainWithTransformingFilterOnUntypedProperty(): void
+    {
+        // ['trim', 'dateTime'] on an untyped property — trim has partial acceptedTypes but the
+        // property is untyped, so no SchemaException is thrown and the chain works correctly.
+        $className = $this->generateClassFromFile('UntypedPropertyFilterChain.json');
+
+        $object = new $className(['filteredProperty' => ' 2020-12-12 ']);
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+        $this->assertSame(
+            (new DateTime('2020-12-12'))->format(DATE_ATOM),
+            $object->getFilteredProperty()->format(DATE_ATOM),
+        );
+
+        $object = new $className(['filteredProperty' => null]);
+        $this->assertNull($object->getFilteredProperty());
     }
 }
