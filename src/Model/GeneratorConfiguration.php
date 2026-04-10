@@ -97,9 +97,20 @@ class GeneratorConfiguration
                 );
             }
 
-            foreach ($filter->getAcceptedTypes() as $acceptedType) {
+            $acceptedTypes = $filter->getAcceptedTypes();
+
+            if (in_array('mixed', $acceptedTypes, true) && count($acceptedTypes) > 1) {
+                throw new InvalidFilterException(
+                    sprintf(
+                        "Filter %s: 'mixed' in acceptedTypes must not be combined with other types",
+                        $filter->getToken(),
+                    )
+                );
+            }
+
+            foreach ($acceptedTypes as $acceptedType) {
                 if (
-                    !in_array($acceptedType, ['integer', 'number', 'boolean', 'string', 'array', 'null']) &&
+                    !in_array($acceptedType, ['integer', 'number', 'boolean', 'string', 'array', 'null', 'mixed']) &&
                     !class_exists($acceptedType)
                 ) {
                     throw new InvalidFilterException('Filter accepts invalid types');
