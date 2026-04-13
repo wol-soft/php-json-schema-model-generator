@@ -15,7 +15,8 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\ {
     CompositionValidationPostProcessor,
     ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor,
     PatternPropertiesPostProcessor,
-    SerializationPostProcessor
+    SerializationPostProcessor,
+    TransformingFilterOutputTypePostProcessor
 };
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\SchemaProcessor\RenderQueue;
@@ -47,7 +48,8 @@ class ModelGenerator
             ->addPostProcessor(new AdditionalPropertiesPostProcessor())
             ->addPostProcessor(new PatternPropertiesPostProcessor())
             ->addPostProcessor(new ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor())
-            ->addPostProcessor(new CompositionRequiredPromotionPostProcessor());
+            ->addPostProcessor(new CompositionRequiredPromotionPostProcessor())
+            ->addPostProcessor(new TransformingFilterOutputTypePostProcessor());
     }
 
     public function addPostProcessor(PostProcessor $postProcessor): self

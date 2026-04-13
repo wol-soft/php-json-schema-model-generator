@@ -849,7 +849,7 @@ ERROR,);
 
     // --- Filter callables used in the tests below ---
 
-    public static function uppercaseFilterAllTypes($value): ?string
+    public static function uppercaseFilterAllTypes(mixed $value): ?string
     {
         return is_string($value) ? strtoupper($value) : null;
     }
@@ -886,9 +886,9 @@ ERROR,);
 
     // --- Tests ---
 
-    public function testFilterWithNoTypeHintIsCompatibleWithAnyPropertyType(): void
+    public function testFilterWithMixedTypeHintIsCompatibleWithAnyPropertyType(): void
     {
-        // A callable with no type hint derives empty acceptedTypes — no runtime type guard,
+        // A callable with 'mixed' type hint derives empty acceptedTypes — no runtime type guard,
         // the filter runs for all value types.
         $className = $this->generateClass(
             '{"type":"object","properties":{"property":{"type":"string","filter":"acceptAll"}}}',

@@ -172,9 +172,32 @@ property, duplicate property names with unresolvable type conflicts, and any oth
 that cannot produce a correct PHP model. Fail loudly at generation time so the developer sees the
 problem immediately rather than receiving silently incorrect generated code.
 
+### Filter callable classes must be in the production library
+
+A `FilterInterface::getFilter()` callable is embedded verbatim in generated PHP code and is
+called at runtime — without the generator package being present. Any class referenced in
+`getFilter()` must therefore live in `php-json-schema-model-generator-production`, not in this
+generator package. Using a generator-package class as a filter callable will produce generated
+code that fails at runtime whenever the generator is not installed.
+
+If a production-library class lacks the required type hints (needed for reflection-based type
+derivation), the fix is to add or update the callable in the production library, not to create
+a wrapper class here.
+
+### Staging changes
+
+After finishing an implementation task, always stage all relevant changed files for commit using
+`git add`. Do not wait for the user to ask — stage immediately when the work is done.
+
 ### Reading files
 
 Always use the dedicated `Read` tool to read file contents. Never use `sed`, `head`, `tail`, `cat`, or `awk` to read or extract portions of files. The `Read` tool supports `offset` and `limit` parameters for reading partial files when needed.
+
+### Variable naming
+
+Never use single-character variable names. All variables must have meaningful, descriptive names
+that convey their purpose. For example, use `$typeName` instead of `$t`, `$validator` instead of
+`$v`, `$property` instead of `$p`.
 
 ### PHP import style
 
