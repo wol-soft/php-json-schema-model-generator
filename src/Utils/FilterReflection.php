@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Utils;
 
-use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -29,7 +29,7 @@ class FilterReflection
      *
      * @return string[]
      *
-     * @throws SchemaException when the first parameter has no type hint
+     * @throws InvalidFilterException when the first parameter has no type hint
      * @throws ReflectionException
      */
     public static function getAcceptedTypes(FilterInterface $filter, PropertyInterface $property): array
@@ -37,7 +37,7 @@ class FilterReflection
         $params = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))->getParameters();
 
         if (empty($params) || $params[0]->getType() === null) {
-            throw new SchemaException(
+            throw new InvalidFilterException(
                 sprintf(
                     'Filter %s must declare a type hint on its first parameter for property %s in file %s',
                     $filter->getToken(),
@@ -78,7 +78,7 @@ class FilterReflection
      *
      * @return string[]
      *
-     * @throws SchemaException when return type is missing or void
+     * @throws InvalidFilterException when return type is missing or void
      * @throws ReflectionException
      */
     public static function getReturnTypeNames(
@@ -88,7 +88,7 @@ class FilterReflection
         $returnType = self::reflectReturnType($filter);
 
         if ($returnType === null) {
-            throw new SchemaException(
+            throw new InvalidFilterException(
                 sprintf(
                     'Transforming filter %s must declare a return type for property %s in file %s',
                     $filter->getToken(),
@@ -101,12 +101,13 @@ class FilterReflection
         if ($returnType instanceof ReflectionNamedType) {
             $name = $returnType->getName();
 
-            if ($name === 'void') {
-                throw new SchemaException(
+            if ($name === 'void' || $name === 'never') {
+                throw new InvalidFilterException(
                     sprintf(
-                        'Transforming filter %s must not declare a void return type'
+                        'Transforming filter %s must not declare a %s return type'
                             . ' for property %s in file %s',
                         $filter->getToken(),
+                        $name,
                         $property->getName(),
                         $property->getJsonSchema()->getFile(),
                     ),

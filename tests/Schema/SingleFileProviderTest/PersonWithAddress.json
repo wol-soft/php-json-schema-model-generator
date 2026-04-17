@@ -1,0 +1,12 @@
+{
+    "title": "SingleFileProviderPersonWithAddress",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string"
+        },
+        "address": {
+            "$ref": "Address.json"
+        }
+    }
+}

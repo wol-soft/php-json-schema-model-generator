@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use DateTime;
 use Exception;
+use RuntimeException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -890,8 +891,8 @@ ERROR,);
     {
         // A callable with 'mixed' type hint derives empty acceptedTypes — no runtime type guard,
         // the filter runs for all value types.
-        $className = $this->generateClass(
-            '{"type":"object","properties":{"property":{"type":"string","filter":"acceptAll"}}}',
+        $className = $this->generateClassFromFile(
+            'StringPropertyAcceptAllFilter.json',
             (new GeneratorConfiguration())->addFilter(
                 $this->getCustomFilter([self::class, 'uppercaseFilterAllTypes'], 'acceptAll'),
             ),
@@ -923,8 +924,8 @@ ERROR,);
             '/Filter numberFilter is not compatible with property type int for property property/',
         );
 
-        $this->generateClass(
-            '{"type":"object","properties":{"property":{"type":"integer","filter":"numberFilter"}}}',
+        $this->generateClassFromFile(
+            'IntegerPropertyZeroOverlapFilter.json',
             (new GeneratorConfiguration())->addFilter(
                 $this->getCustomFilter([self::class, 'uppercaseFilterFloat'], 'numberFilter'),
             ),
@@ -938,10 +939,10 @@ ERROR,);
         // Filter callable has (string $value) — accepted type is string only.
         // Filter applies for string values; integer is not accepted so the filter
         // is skipped and the integer value passes through unchanged.
-        $className = $this->generateClass(
-            '{"type":"object","properties":{"property":{"type":["string","integer"],"filter":"f"}}}',
+        $className = $this->generateClassFromFile(
+            'StringIntegerPropertyCustomFilter.json',
             (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
-                $this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'f'),
+                $this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'customFilter'),
             ),
         );
 
@@ -958,10 +959,10 @@ ERROR,);
     {
         // Filter callable has (string $value) — null is not accepted.
         // Filter applies for string values; null passes through unchanged.
-        $className = $this->generateClass(
-            '{"type":"object","properties":{"property":{"type":["string","null"],"filter":"f"}}}',
+        $className = $this->generateClassFromFile(
+            'StringNullPropertyCustomFilter.json',
             (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
-                $this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'f'),
+                $this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'customFilter'),
             ),
         );
 
@@ -978,10 +979,10 @@ ERROR,);
     {
         // Filter callable has (null $value) — only null is accepted.
         // Filter runs for null (passes through); string is not accepted so skipped.
-        $className = $this->generateClass(
-            '{"type":"object","properties":{"property":{"type":["string","null"],"filter":"f"}}}',
+        $className = $this->generateClassFromFile(
+            'StringNullPropertyCustomFilter.json',
             (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
-                $this->getCustomFilter([self::class, 'nullPassthrough'], 'f'),
+                $this->getCustomFilter([self::class, 'nullPassthrough'], 'customFilter'),
             ),
         );
 
@@ -997,10 +998,10 @@ ERROR,);
     public function testPartialOverlapFilterRunsWhenPropertyTypeIsInAcceptedTypes(): void
     {
         // Filter callable has (int $value) — overlap with integer property type, filter runs.
-        $className = $this->generateClass(
-            '{"type":"object","properties":{"property":{"type":"integer","filter":"f"}}}',
+        $className = $this->generateClassFromFile(
+            'IntegerPropertyCustomFilter.json',
             (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
-                $this->getCustomFilter([self::class, 'negateFilter'], 'f'),
+                $this->getCustomFilter([self::class, 'negateFilter'], 'customFilter'),
             ),
         );
 
@@ -1018,10 +1019,10 @@ ERROR,);
     public function testMixedTypedCallableFilterOnUntypedProperty(): void
     {
         // callable with (mixed $value) derives empty acceptedTypes — no runtime typeCheck.
-        $className = $this->generateClass(
-            '{"type":"object","properties":{"property":{"filter":"f"}}}',
+        $className = $this->generateClassFromFile(
+            'UntypedPropertyCustomFilter.json',
             (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
-                $this->getCustomFilter([self::class, 'uppercaseFilterMixed'], 'f'),
+                $this->getCustomFilter([self::class, 'uppercaseFilterMixed'], 'customFilter'),
             ),
         );
 
@@ -1035,10 +1036,10 @@ ERROR,);
     {
         // Callable with (string $value) on an untyped property — filter applies for string,
         // integer is not accepted so the filter is skipped and the value passes through.
-        $className = $this->generateClass(
-            '{"type":"object","properties":{"property":{"filter":"f"}}}',
+        $className = $this->generateClassFromFile(
+            'UntypedPropertyCustomFilter.json',
             (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
-                $this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'f'),
+                $this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'customFilter'),
             ),
         );
 
@@ -1063,32 +1064,355 @@ ERROR,);
     {
         // A callable with (mixed $value) means "accept all types" — generation succeeds for both
         // typed and untyped properties, and no runtime typeCheck guard is emitted.
-        $makeClass = fn(string $typePart): string => $this->generateClass(
-            sprintf('{"type":"object","properties":{"property":{%s"filter":"mixedFilter"}}}', $typePart),
+
+        // typed string property — filter runs
+        $className = $this->generateClassFromFile(
+            'StringPropertyMixedFilter.json',
             (new GeneratorConfiguration())->addFilter(
                 $this->getCustomFilter([self::class, 'uppercaseFilterMixed'], 'mixedFilter'),
             ),
         );
-
-        // typed string property — filter runs
-        $className = $makeClass('"type":"string",');
         $object = new $className(['property' => 'hello']);
         $this->assertSame('HELLO', $object->getProperty());
 
         // untyped property — filter runs
-        $className = $makeClass('');
+        $className = $this->generateClassFromFile(
+            'UntypedPropertyMixedFilter.json',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomFilter([self::class, 'uppercaseFilterMixed'], 'mixedFilter'),
+            ),
+        );
         $object = new $className(['property' => 'hello']);
         $this->assertSame('HELLO', $object->getProperty());
 
         // typed integer property — generation succeeds, filter runs (no typeCheck guard)
-        $className = $this->generateClass(
-            '{"type":"object","properties":{"property":{"type":"integer","filter":"mixedFilter"}}}',
+        $className = $this->generateClassFromFile(
+            'IntegerPropertyMixedFilter.json',
             (new GeneratorConfiguration())->addFilter(
                 $this->getCustomFilter([self::class, 'negateFilterMixed'], 'mixedFilter'),
             ),
         );
         $object = new $className(['property' => 5]);
         $this->assertSame(-5, $object->getProperty());
+    }
+
+    // --- Static callables for Phase 4d tests ---
+
+    /**
+     * Accepts string or int, converts to string. Used for the union-type-hint guard test.
+     */
+    public static function intOrStringFilter(string|int $value): string
+    {
+        return (string) $value;
+    }
+
+    /**
+     * Accepts string or null, always returns string (never null). Used for null-consumed test.
+     */
+    public static function stringOrNullToStringFilter(string|null $value): string
+    {
+        return (string) $value;
+    }
+
+    /**
+     * Accepts string, returns int|string union. Used for union-return-type test.
+     */
+    public static function stringToIntOrStringFilter(string $value): int|string
+    {
+        return is_numeric($value) ? (int) $value : $value;
+    }
+
+    /**
+     * Serializer for stringToIntOrStringFilter.
+     */
+    public static function intOrStringSerializer(int|string $value): string
+    {
+        return (string) $value;
+    }
+
+    /**
+     * No type hint on first parameter. Used for the no-type-hint InvalidFilterException test.
+     *
+     * @param mixed $value
+     */
+    public static function untypedFilter($value): string
+    {
+        return (string) $value;
+    }
+
+    /**
+     * No return type hint. Used for the missing-return-type InvalidFilterException test (F5).
+     *
+     * @return string
+     */
+    public static function filterWithNoReturnType(string $value)
+    {
+        return $value;
+    }
+
+    /**
+     * Void return type. Used for the void-return-type InvalidFilterException test (F6).
+     */
+    public static function filterWithVoidReturnType(string $value): void
+    {
+    }
+
+    /**
+     * Never return type. Used for the never-return-type InvalidFilterException test (F7).
+     */
+    public static function filterWithNeverReturnType(string $value): never
+    {
+        throw new RuntimeException('never');
+    }
+
+    // --- Phase 4d: output type formula, reflection, filter chain tests ---
+
+    /**
+     * R2: TransformingFilter (int→string via binary) on a string|integer property.
+     * The filter callable accepts only int, so string values bypass the filter unchanged.
+     * Verifies the bypass formula: bypass_names = base_names − accepted_non_null.
+     */
+    public function testTransformingFilterWithBypassOnMultiTypeProperty(): void
+    {
+        // base type = string|int; filter accepts int only → string bypasses, int is transformed.
+        $className = $this->generateClassFromFile(
+            'StringIntegerPropertyBinaryFilter.json',
+            (new GeneratorConfiguration())
+                ->setCollectErrors(false)
+                ->setImmutable(false)
+                ->addFilter(
+                    $this->getCustomTransformingFilter(
+                        [self::class, 'serializeBinaryToInt'],
+                        [self::class, 'filterIntToBinary'],
+                        'binary',
+                    ),
+                ),
+        );
+
+        // int input: filter applies (decbin), returns binary string
+        $object = new $className(['property' => 9]);
+        $this->assertSame('1001', $object->getProperty());
+
+        // string input: filter is skipped (string bypasses), value passes through unchanged
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('hello', $object->getProperty());
+
+        // setter: int is re-transformed
+        $object->setProperty(5);
+        $this->assertSame('101', $object->getProperty());
+
+        // setter: string is preserved (bypass)
+        $object->setProperty('world');
+        $this->assertSame('world', $object->getProperty());
+    }
+
+    /**
+     * R6: TransformingFilter with a union return type (int|string) on a string property.
+     * The output type is widened to int|string; the setter must accept both int and string.
+     */
+    public function testTransformingFilterWithUnionReturnType(): void
+    {
+        $className = $this->generateClassFromFile(
+            'StringPropertyIntOrStringFilter.json',
+            (new GeneratorConfiguration())
+                ->setCollectErrors(false)
+                ->setImmutable(false)
+                ->addFilter(
+                    $this->getCustomTransformingFilter(
+                        [self::class, 'intOrStringSerializer'],
+                        [self::class, 'stringToIntOrStringFilter'],
+                        'intOrString',
+                    ),
+                ),
+        );
+
+        // numeric string → filter converts to int
+        $object = new $className(['property' => '42']);
+        $this->assertSame(42, $object->getProperty());
+
+        // non-numeric string → filter returns as-is (string)
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('hello', $object->getProperty());
+
+        // setter accepts int (pass-through: already a transformed output type)
+        $object->setProperty(7);
+        $this->assertSame(7, $object->getProperty());
+
+        // setter accepts string (base type or output type string)
+        $object->setProperty('abc');
+        $this->assertSame('abc', $object->getProperty());
+    }
+
+    /**
+     * R7: TransformingFilter where both string and null are in its accepted types.
+     * Null is NOT a bypass type — the filter runs for null and converts it to string.
+     */
+    public function testTransformingFilterNullConsumedByFilter(): void
+    {
+        $className = $this->generateClassFromFile(
+            'StringNullPropertyStrOrNullFilter.json',
+            (new GeneratorConfiguration())
+                ->setCollectErrors(false)
+                ->setImmutable(false)
+                ->addFilter(
+                    $this->getCustomTransformingFilter(
+                        [self::class, 'intOrStringSerializer'],
+                        [self::class, 'stringOrNullToStringFilter'],
+                        'strOrNull',
+                    ),
+                ),
+        );
+
+        // string input: filter runs and returns string
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('hello', $object->getProperty());
+
+        // null input: filter runs (null IS accepted) and converts null → ''
+        $object = new $className(['property' => null]);
+        $this->assertSame('', $object->getProperty());
+    }
+
+    /**
+     * F3: Filter callable whose first parameter has no type hint throws an InvalidFilterException
+     * at class-generation time (reflection cannot derive the accepted types).
+     * This is not a SchemaException because the error is in the filter definition, not the schema.
+     */
+    public function testFilterCallableWithNoTypeHintThrowsInvalidFilterException(): void
+    {
+        $this->expectException(InvalidFilterException::class);
+        $this->expectExceptionMessageMatches('/Filter noTypeHint must declare a type hint/');
+
+        $this->generateClassFromFile(
+            'StringPropertyNoTypeHintFilter.json',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomFilter([self::class, 'untypedFilter'], 'noTypeHint'),
+            ),
+        );
+    }
+
+    /**
+     * F5: Transforming filter callable with no return type hint throws an InvalidFilterException
+     * at class-generation time (reflection cannot derive the output type).
+     * This is not a SchemaException because the error is in the filter definition, not the schema.
+     */
+    public function testTransformingFilterWithMissingReturnTypeThrowsInvalidFilterException(): void
+    {
+        $this->expectException(InvalidFilterException::class);
+        $this->expectExceptionMessageMatches('/Transforming filter noReturnType must declare a return type/');
+
+        $this->generateClassFromFile(
+            'StringPropertyNoReturnTypeFilter.json',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomTransformingFilter(
+                    [self::class, 'intOrStringSerializer'],
+                    [self::class, 'filterWithNoReturnType'],
+                    'noReturnType',
+                ),
+            ),
+        );
+    }
+
+    /**
+     * F6: Transforming filter callable with a void return type throws an InvalidFilterException
+     * at class-generation time (void is not a valid output type for a transforming filter).
+     * This is not a SchemaException because the error is in the filter definition, not the schema.
+     */
+    public function testTransformingFilterWithVoidReturnTypeThrowsInvalidFilterException(): void
+    {
+        $this->expectException(InvalidFilterException::class);
+        $this->expectExceptionMessageMatches('/Transforming filter voidReturn must not declare a void return type/');
+
+        $this->generateClassFromFile(
+            'StringPropertyVoidReturnFilter.json',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomTransformingFilter(
+                    [self::class, 'intOrStringSerializer'],
+                    [self::class, 'filterWithVoidReturnType'],
+                    'voidReturn',
+                ),
+            ),
+        );
+    }
+
+    /**
+     * F7: Transforming filter callable with a never return type throws an InvalidFilterException
+     * at class-generation time (never, like void, cannot produce a usable return value).
+     * This is not a SchemaException because the error is in the filter definition, not the schema.
+     */
+    public function testTransformingFilterWithNeverReturnTypeThrowsInvalidFilterException(): void
+    {
+        $this->expectException(InvalidFilterException::class);
+        $this->expectExceptionMessageMatches('/Transforming filter neverReturn must not declare a never return type/');
+
+        $this->generateClassFromFile(
+            'StringPropertyNeverReturnFilter.json',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomTransformingFilter(
+                    [self::class, 'intOrStringSerializer'],
+                    [self::class, 'filterWithNeverReturnType'],
+                    'neverReturn',
+                ),
+            ),
+        );
+    }
+
+    /**
+     * F4: Filter callable with a union type hint (string|int) generates a compound typeCheck
+     * guard: (is_string($value) || is_int($value)). The filter runs for both accepted types.
+     */
+    public function testFilterCallableWithUnionTypeHintAppliesFilterForBothAcceptedTypes(): void
+    {
+        // Both string and int are in the callable's union type hint — both pass the runtime guard.
+        $className = $this->generateClassFromFile(
+            'StringIntegerPropertyCustomFilter.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->addFilter(
+                $this->getCustomFilter([self::class, 'intOrStringFilter'], 'customFilter'),
+            ),
+        );
+
+        // string input: is_string passes → filter runs → result is string (unchanged)
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('hello', $object->getProperty());
+
+        // int input: is_int passes → filter runs → result is string '42'
+        $object = new $className(['property' => 42]);
+        $this->assertSame('42', $object->getProperty());
+    }
+
+    /**
+     * CH2: [trim, dateTime] filter chain on a string|integer property.
+     * trim accepts only string|null — the int input bypasses trim.
+     * dateTime accepts string|int|float|null — both inputs are converted to DateTime.
+     */
+    public function testFilterChainTrimDateTimeOnStringIntegerProperty(): void
+    {
+        $className = $this->generateClassFromFile(
+            'StringIntegerPropertyFilterChain.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        // string input: trim trims whitespace, dateTime converts to DateTime
+        $object = new $className(['created' => ' 2020-12-12 ']);
+        $this->assertInstanceOf(\DateTime::class, $object->getCreated());
+        $this->assertSame(
+            (new \DateTime('2020-12-12'))->format(DATE_ATOM),
+            $object->getCreated()->format(DATE_ATOM),
+        );
+
+        // int input: trim is skipped (not a string), dateTime converts timestamp to DateTime
+        $object = new $className(['created' => 0]);
+        $this->assertInstanceOf(\DateTime::class, $object->getCreated());
+        $this->assertSame(
+            (new \DateTime('@0'))->format(DATE_ATOM),
+            $object->getCreated()->format(DATE_ATOM),
+        );
+
+        // setter accepts DateTime (already-transformed output type)
+        $object->setCreated(new \DateTime('2020-12-12'));
+        $this->assertSame(
+            (new \DateTime('2020-12-12'))->format(DATE_ATOM),
+            $object->getCreated()->format(DATE_ATOM),
+        );
     }
 
     public function testFilterChainWithTransformingFilterOnUntypedProperty(): void
