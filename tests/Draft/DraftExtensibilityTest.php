@@ -18,7 +18,6 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
-
 /**
  * Tests for the Draft extensibility architecture:
  *   - overriding an existing validator on an existing type (via DraftBuilder::addType replacement)

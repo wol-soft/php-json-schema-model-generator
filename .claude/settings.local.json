@@ -25,6 +25,7 @@
       "Bash(gh api:*)",
       "Bash(git restore:*)",
       "Bash(git stash:*)",
+      "Bash(git status:*)",
       "Bash(composer show:*)",
       "Bash(php -r \":*)",
       "Bash(gh pr:*)",
