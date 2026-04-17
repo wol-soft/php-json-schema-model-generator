@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use DateTime;
 use Exception;
+use ReflectionClass;
 use RuntimeException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
@@ -1431,5 +1432,160 @@ ERROR,);
 
         $object = new $className(['filteredProperty' => null]);
         $this->assertNull($object->getFilteredProperty());
+    }
+
+    /**
+     * FC-M1: A transforming filter with a mixed return type followed by a filter that does NOT
+     * accept all types must throw a SchemaException.
+     *
+     * Covers FilterValidator::validateFilterCompatibilityWithTransformedType lines 187–198
+     * (throw when the transforming filter's return type is mixed/unconstrained but the next
+     * filter has non-empty accepted types).
+     */
+    public function testMixedReturnTransformingFilterFollowedByTypedFilterThrowsException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage(
+            'Filter trim is not compatible with the unconstrained output of'
+            . ' transforming filter mixedReturnFilter for property filteredProperty',
+        );
+
+        $this->generateClassFromFileTemplate(
+            'FilterChain.json',
+            ['["mixedReturnFilter", "trim"]'],
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomTransformingFilter(
+                    [self::class, 'serializeMixedReturn'],
+                    [self::class, 'filterWithMixedReturn'],
+                    'mixedReturnFilter',
+                ),
+            ),
+            false,
+        );
+    }
+
+    /**
+     * FC-M2: A transforming filter with a mixed return type followed by a filter that accepts
+     * all types (mixed first parameter) must not throw.
+     * FC-M3: A transforming filter with a concrete return type followed by an accept-all filter
+     * must not throw.
+     *
+     * FC-M2 covers FilterValidator line 201 (return after the unconstrained-output block when
+     * the next filter accepts all types) and TransformingFilterOutputTypePostProcessor line 95
+     * (early return when the transforming filter itself has a mixed/unconstrained return type).
+     * FC-M3 covers FilterValidator line 206 (return when the next filter's accepted types are
+     * empty, i.e. it accepts all types).
+     */
+    public function testFilterChainWithAcceptAllNextFilter(): void
+    {
+        $acceptAllFilter = $this->getCustomFilter([self::class, 'acceptAllFilter'], 'acceptAll');
+
+        // FC-M2: mixed-return transforming filter + accept-all follow-up — no SchemaException.
+        // Lines 201 (FilterValidator) and 95 (TransformingFilterOutputTypePostProcessor) covered.
+        $mixedReturnClassName = $this->generateClassFromFileTemplate(
+            'FilterChain.json',
+            ['["mixedReturnFilter", "acceptAll"]'],
+            (new GeneratorConfiguration())
+                ->addFilter(
+                    $this->getCustomTransformingFilter(
+                        [self::class, 'serializeMixedReturn'],
+                        [self::class, 'filterWithMixedReturn'],
+                        'mixedReturnFilter',
+                    ),
+                )
+                ->addFilter($acceptAllFilter),
+            false,
+        );
+
+        // The mixed-return filter just passes the string through; value is still a string.
+        $object = new $mixedReturnClassName(['filteredProperty' => 'hello']);
+        $this->assertSame('hello', $object->getFilteredProperty());
+
+        // FC-M3: concrete-return transforming filter (dateTime → DateTime) + accept-all follow-up
+        // — no SchemaException. Line 206 (FilterValidator) covered.
+        $dateTimeClassName = $this->generateClassFromFileTemplate(
+            'FilterChain.json',
+            ['["dateTime", "acceptAll"]'],
+            (new GeneratorConfiguration())->addFilter($acceptAllFilter),
+            false,
+        );
+
+        // The dateTime filter converts the string to DateTime; acceptAll passes it through.
+        $object = new $dateTimeClassName(['filteredProperty' => '2020-12-12']);
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+    }
+
+    /**
+     * FC-I1: A transforming filter with a non-nullable return type followed by a filter that
+     * does not accept that return type must throw a SchemaException.
+     *
+     * Covers FilterValidator::validateFilterCompatibilityWithTransformedType lines 212, 218, 221
+     * (false branches of $returnNullable ternaries and single-type display path).
+     */
+    public function testNonNullableReturnTransformingFilterWithIncompatibleNextFilterThrowsException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage(
+            'Filter trim is not compatible with transformed property type int'
+            . ' for property filteredProperty',
+        );
+
+        $this->generateClassFromFileTemplate(
+            'FilterChain.json',
+            ['["intReturnFilter", "trim"]'],
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomTransformingFilter(
+                    [self::class, 'serializeIntReturn'],
+                    [self::class, 'filterWithIntReturn'],
+                    'intReturnFilter',
+                ),
+            ),
+            false,
+        );
+    }
+
+    // --- Callables for mixed-return / accept-all / int-return / mixed-accept filter tests ---
+
+    /**
+     * Transforming filter callable that returns mixed.
+     * Used for FC-M1 and FC-M2.
+     */
+    public static function filterWithMixedReturn(string $value): mixed
+    {
+        return $value;
+    }
+
+    /**
+     * Serializer for filterWithMixedReturn.
+     */
+    public static function serializeMixedReturn(mixed $value): string
+    {
+        return (string) $value;
+    }
+
+    /**
+     * Regular filter callable that accepts and returns mixed (accept-all filter).
+     * Used for FC-M2 and FC-M3.
+     */
+    public static function acceptAllFilter(mixed $value): mixed
+    {
+        return $value;
+    }
+
+    /**
+     * Transforming filter callable that returns a non-nullable int.
+     * Used for FC-I1.
+     */
+    public static function filterWithIntReturn(string $value): int
+    {
+        return (int) $value;
+    }
+
+    /**
+     * Serializer for filterWithIntReturn.
+     */
+    public static function serializeIntReturn(int $value): string
+    {
+        return (string) $value;
     }
 }

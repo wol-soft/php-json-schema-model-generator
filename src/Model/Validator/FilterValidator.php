@@ -101,11 +101,6 @@ class FilterValidator extends PropertyTemplateValidator
     public function addTransformedCheck(TransformingFilterInterface $filter, PropertyInterface $property): self
     {
         $returnTypeNames = FilterReflection::getReturnTypeNames($filter, $property);
-
-        if (empty($returnTypeNames)) {
-            return $this;
-        }
-
         $acceptedTypes = FilterReflection::getAcceptedTypes($filter, $property);
         $nonAccepted = array_values(array_diff($returnTypeNames, $acceptedTypes));
 
