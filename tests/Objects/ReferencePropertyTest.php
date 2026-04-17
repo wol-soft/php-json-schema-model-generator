@@ -100,6 +100,17 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             $this->assertSame($input['name'] ?? null, ($object->getPerson()->getName()));
             $this->assertSame($input['age'] ?? null, ($object->getPerson()->getAge()));
             $this->assertSame($input, ($object->getPerson()->getRawModelDataInput()));
+
+            // External standalone file references resolve at the root of that file (pointer ''),
+            // whereas path/id references into definitions resolve at '/definitions/person'.
+            $person = $object->getPerson();
+            if (str_ends_with($reference, 'person.json')) {
+                $this->assertClassHasJsonPointer($person, '');
+                $this->assertPropertyHasJsonPointer($person, 'name', '/properties/name');
+            } else {
+                $this->assertClassHasJsonPointer($person, '/definitions/person');
+                $this->assertPropertyHasJsonPointer($person, 'name', '/definitions/person/properties/name');
+            }
         }
     }
 
@@ -701,8 +712,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className([
             'personA' => ['name' => 'Hannes'],
-            'personB' => ['name' => 'Susi']],
-        );
+            'personB' => ['name' => 'Susi']],);
 
         $this->assertTrue(is_callable([$object, 'getPersonA']));
         $this->assertTrue(is_callable([$object, 'getPersonB']));

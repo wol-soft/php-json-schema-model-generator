@@ -134,6 +134,17 @@ Implement `SchemaProviderInterface` to supply schemas from custom sources. Built
 
 `AbstractPHPModelGeneratorTestCase` is the base class for all tests. Tests generate model classes into a temp directory and then instantiate/exercise them to verify validation behavior. The `tests/manual/` directory contains standalone scripts excluded from the test suite.
 
+#### Test case consolidation
+
+Each call to `generateClassFromFile` triggers a code generation pass, which is the dominant cost in the test suite. **Minimise the number of distinct `generateClassFromFile` calls** by combining assertions that share the same schema file and `GeneratorConfiguration` into a single test method.
+
+Rules:
+
+- Group assertions by `(schema file, GeneratorConfiguration)` pair. All assertions that can use the same generated class belong in one test method.
+- A single test method may cover multiple behaviours (e.g. key naming, round-trip, `$except`, custom serializer) as long as they all operate on the same generated class. Use clear inline comments to separate the logical sections.
+- Only split into separate test methods when the behaviours require genuinely different configurations, or when combining them would make the test too complex to understand at a glance.
+- The goal is the balance between runtime efficiency (fewer generations) and readability (each method remains comprehensible). Avoid both extremes: a single monolithic test and a proliferation of single-assertion tests.
+
 ### JSON Schema style
 
 In test schema files (`tests/Schema/**/*.json`), every object value must be expanded across multiple lines — never written inline. Use this style:
@@ -161,9 +172,32 @@ property, duplicate property names with unresolvable type conflicts, and any oth
 that cannot produce a correct PHP model. Fail loudly at generation time so the developer sees the
 problem immediately rather than receiving silently incorrect generated code.
 
+### Filter callable classes must be in the production library
+
+A `FilterInterface::getFilter()` callable is embedded verbatim in generated PHP code and is
+called at runtime — without the generator package being present. Any class referenced in
+`getFilter()` must therefore live in `php-json-schema-model-generator-production`, not in this
+generator package. Using a generator-package class as a filter callable will produce generated
+code that fails at runtime whenever the generator is not installed.
+
+If a production-library class lacks the required type hints (needed for reflection-based type
+derivation), the fix is to add or update the callable in the production library, not to create
+a wrapper class here.
+
+### Staging changes
+
+After finishing an implementation task, always stage all relevant changed files for commit using
+`git add`. Do not wait for the user to ask — stage immediately when the work is done.
+
 ### Reading files
 
 Always use the dedicated `Read` tool to read file contents. Never use `sed`, `head`, `tail`, `cat`, or `awk` to read or extract portions of files. The `Read` tool supports `offset` and `limit` parameters for reading partial files when needed.
+
+### Variable naming
+
+Never use single-character variable names. All variables must have meaningful, descriptive names
+that convey their purpose. For example, use `$typeName` instead of `$t`, `$validator` instead of
+`$v`, `$property` instead of `$p`.
 
 ### PHP import style
 

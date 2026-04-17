@@ -46,7 +46,11 @@ class SchemaDefinitionDictionary extends ArrayObject
             // add the root nodes of the schema to resolve path references
             $this->addDefinition(
                 $key,
-                new SchemaDefinition($schema->getJsonSchema()->withJson($propertyEntry), $schemaProcessor, $schema),
+                new SchemaDefinition(
+                    $schema->getJsonSchema()->navigate(JsonSchema::encodePointer($key)),
+                    $schemaProcessor,
+                    $schema,
+                ),
             );
         }
 
@@ -70,12 +74,16 @@ class SchemaDefinitionDictionary extends ArrayObject
             );
         }
 
-        foreach ($json as $item) {
+        foreach ($json as $key => $item) {
             if (!is_array($item)) {
                 continue;
             }
 
-            $this->fetchDefinitionsById($jsonSchema->withJson($item), $schemaProcessor, $schema);
+            $this->fetchDefinitionsById(
+                $jsonSchema->navigate(JsonSchema::encodePointer($key)),
+                $schemaProcessor,
+                $schema,
+            );
         }
     }
 

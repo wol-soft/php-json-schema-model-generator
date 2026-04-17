@@ -17,7 +17,7 @@ class Type
     public function __construct(private readonly string $type, bool $typeCheck = true)
     {
         if ($typeCheck) {
-            $this->modifiers[] = new TypeCheckModifier(TypeConverter::jsonSchemaToPhp($type));
+            $this->modifiers[] = new TypeCheckModifier(TypeConverter::jsonSchemaToPHP($type));
         }
     }
 
@@ -31,7 +31,7 @@ class Type
     public function addValidator(string $validatorKey, AbstractValidatorFactory $factory): self
     {
         $factory->setKey($validatorKey);
-        $this->modifiers[] = $factory;
+        $this->modifiers[$validatorKey] = $factory;
 
         return $this;
     }

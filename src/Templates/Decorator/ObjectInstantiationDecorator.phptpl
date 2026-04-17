@@ -7,7 +7,7 @@
         {% else %}
             {% if generatorConfiguration.collectErrors() %}
                 foreach($instantiationException->getErrors() as $nestedValidationError) {
-                    $this->_errorRegistry->addError($nestedValidationError);
+                    $this->errorRegistry->addError($nestedValidationError);
                 }
             {% else %}
                 throw $instantiationException;

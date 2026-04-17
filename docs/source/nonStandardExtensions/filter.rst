@@ -1,7 +1,8 @@
 Filter
 ======
 
-Filter can be used to preprocess values. Filters are applied after the required and type validation. If a filter is applied to a property which has a type which is not supported by the filter an IncompatibleFilterException will be thrown.
+Filter can be used to preprocess values. Filters are applied after the required and type validation.
+If the property type and the filter's accepted types have **no overlap at all**, a ``SchemaException`` is thrown at generation time. When there is only a **partial overlap**, the filter is silently skipped at runtime for values whose type is not in the accepted set — the value passes through unchanged.
 Filters can be either supplied as a string or as a list of filters (multiple filters can be applied to a single property):
 
 .. code-block:: json
@@ -97,23 +98,12 @@ If you write a custom transforming filter you must define the return type of you
 
 The return type of the transforming filter will be used to define the type of the property inside the generated model (in the example one section above given above the method **getCreated** will return a DateTime object). Additionally the generated model also accepts the transformed type as input type. So **setCreated** will accept a string and a DateTime object. If an already transformed value is provided the filter which transforms the value will **not** be executed. Also all filters which are defined before the transformation will **not** be executed (eg. a trim filter before a dateTime filter will not be executed if a DateTime object is provided).
 
-If you use a filter on a property which accepts multiple types (eg. explicit null ['string', 'null'] or ['string', 'integer']) the filter must accept each of the types defined on the property.
+If you use a filter on a property which accepts multiple types (e.g. ``['string', 'null']`` or ``['string', 'integer']``), the filter only needs to overlap with **at least one** of those types. Values whose type is not accepted by the filter are silently skipped at runtime. Only if the filter's accepted types have *no overlap at all* with the property's types is a ``SchemaException`` raised at generation time.
 
 Exceptions from filter
 ----------------------
 
-If a filter is called with a type which isn't supported by the filter a *PHPModelGenerator\\Exception\\ValidationException\\IncompatibleFilterException* will be thrown which provides the following methods to get further error details:
-
-.. code-block:: php
-
-    // returns the token of the filter which wasn't able to be processed
-    public function getFilterToken(): string
-    // get the name of the property which failed
-    public function getPropertyName(): string
-    // get the value provided to the property
-    public function getProvidedValue()
-
-If the filter throws an exception during the execution the exception will be caught and converted into a *PHPModelGenerator\\Exception\\Filter\\InvalidFilterValueException* which provides the following methods to get further error details:
+If the filter throws an exception during execution the exception will be caught and converted into a *PHPModelGenerator\\Exception\\Filter\\InvalidFilterValueException* which provides the following methods to get further error details:
 
 .. code-block:: php
 
@@ -132,7 +122,7 @@ Builtin filter
 trim
 ^^^^
 
-The trim filter is only valid for string and null properties.
+The trim filter accepts string and null values. Applied to a property that also allows other types (e.g. ``string|integer``), the filter is silently skipped for values of non-matching types and the value passes through unchanged. Only applying trim to a property whose type has *no overlap* with string or null (e.g. a pure integer property) raises an error at generation time.
 
 .. code-block:: json
 
@@ -169,7 +159,7 @@ Let's have a look how the generated model behaves:
     // MinLengthException: 'Value for name must not be shorter than 2'
     $person->setName('  D ');
 
-If the filter trim is used for a property which doesn't require a string value and a non string value is provided an exception will be thrown:
+If trim is applied to a property whose type has zero overlap with string or null (e.g. a pure boolean property), a ``SchemaException`` is raised at generation time:
 
 * Filter trim is not compatible with property type __TYPE__ for property __PROPERTY_NAME__
 
@@ -290,7 +280,9 @@ You can implement custom filter and use them in your schema files. You must add 
     );
 
 Your filter must implement the interface **PHPModelGenerator\\Filter\\FilterInterface**. Make sure the given callable array returned by **getFilter** is accessible as well during the generation process as during code execution using the generated model.
-The callable filter method must be a static method. Internally it will be called via *call_user_func_array*. A custom filter may look like:
+The callable filter method must be a static method. Internally it will be called via *call_user_func_array*.
+
+The accepted value types are derived automatically from the **type hint of the first parameter** of the filter callable via reflection. Use a union type (``string|int``), a nullable type (``?string``), or ``mixed`` to express which types the filter handles. **Every filter callable must declare a type hint on its first parameter** — omitting it raises an ``InvalidFilterException`` at generation time. Using ``mixed`` signals that the filter accepts all types (no runtime type guard is generated). A custom filter may look like:
 
 .. code-block:: php
 
@@ -300,18 +292,11 @@ The callable filter method must be a static method. Internally it will be called
 
     class UppercaseFilter implements FilterInterface
     {
+        // The ?string type hint tells the generator that this filter handles
+        // string and null values. Integer, float, etc. are silently skipped.
         public static function uppercase(?string $value): ?string
         {
-            // we want to handle strings and null values with this filter
             return $value !== null ? strtoupper($value) : null;
-        }
-
-        public function getAcceptedTypes(): array
-        {
-            // return an array of types which can be handled by the filter.
-            // valid types are: [integer, number, boolean, string, array, null]
-            // or available classes (FQCN required, eg. DateTime::class)
-            return ['string', 'null'];
         }
 
         public function getToken(): string
@@ -324,10 +309,6 @@ The callable filter method must be a static method. Internally it will be called
             return [self::class, 'uppercase'];
         }
     }
-
-.. hint::
-
-    If your filter accepts null values add 'null' to your *getAcceptedTypes* to make sure your filter is compatible with explicit null type.
 
 .. hint::
 
@@ -425,7 +406,8 @@ The custom serializer method will be called if the model utilizing the custom fi
     class CustomerFilter implements TransformingFilterInterface
     {
         // Let's assume you have written a Customer model manually eg. due to advanced validations
-        // and you want to use the Customer model as a part of your generated model
+        // and you want to use the Customer model as a part of your generated model.
+        // The ?array type hint tells the generator that this filter accepts array and null values.
         public static function instantiateCustomer(?array $data, array $additionalOptions): ?Customer
         {
             return $data !== null ? new Customer($data, $additionalOptions) : null;
@@ -435,12 +417,7 @@ The custom serializer method will be called if the model utilizing the custom fi
         // $additionalOptions will contain all additional options from the JSON Schema
         public static function serializeCustomer(?Customer $customer, array $additionalOptions): ?string
         {
-            return $data !== null ? $customer->serialize($additionalOptions) : null;
-        }
-
-        public function getAcceptedTypes(): array
-        {
-            return ['string', 'null'];
+            return $customer !== null ? $customer->serialize($additionalOptions) : null;
         }
 
         public function getToken(): string

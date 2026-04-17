@@ -1,6 +1,6 @@
 {% if skipTransformedValuesCheck %}{{ skipTransformedValuesCheck }} && {% endif %}
 (
-    {% if typeCheck %}{{ typeCheck }} || {% endif %}
+    {% if typeCheck %}{{ typeCheck }} && {% endif %}
     (function (&$value) use (&$transformationFailed): bool {
         // make sure exceptions from the filter are caught and added to the error handling
         try {

@@ -13,12 +13,12 @@ public function populate(array $modelData): self
     $rollbackValues = [];
 
     {% if generatorConfiguration.collectErrors() %}
-        $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
     {% else %}
         try {
     {% endif %}
 
-    foreach (['_additionalProperties', '_patternProperties'] as $property) {
+    foreach (['additionalProperties', 'patternProperties'] as $property) {
         if (isset($this->{$property})) {
             $rollbackValues[$property] = $this->{$property};
         }
@@ -42,12 +42,12 @@ public function populate(array $modelData): self
     {% endforeach %}
 
     {% if generatorConfiguration.collectErrors() %}
-        if (count($this->_errorRegistry->getErrors())) {
+        if (count($this->errorRegistry->getErrors())) {
             foreach ($rollbackValues as $property => $value) {
                 $this->{$property} = $value;
             }
 
-            throw $this->_errorRegistry;
+            throw $this->errorRegistry;
         }
     {% else %}
         } catch (ValidationException $exception) {
@@ -59,7 +59,7 @@ public function populate(array $modelData): self
         }
     {% endif %}
 
-    $this->_rawModelDataInput = array_merge($this->_rawModelDataInput, $modelData);
+    $this->rawModelDataInput = array_merge($this->rawModelDataInput, $modelData);
 
     {% foreach schema.getProperties() as property %}
         {% if not property.isInternal() and schemaHookResolver.resolveSetterAfterValidationHook(property) %}

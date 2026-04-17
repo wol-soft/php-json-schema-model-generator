@@ -21,6 +21,7 @@ use PHPModelGenerator\Format\RegexFormatValidator;
 use PHPModelGenerator\Format\UriFormatValidator;
 use PHPModelGenerator\Format\UriReferenceFormatValidator;
 use PHPModelGenerator\Format\UriTemplateFormatValidator;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
@@ -52,6 +53,12 @@ class GeneratorConfiguration
     protected $errorRegistryClass = ErrorRegistryException::class;
     /** @var bool */
     protected $serialization = false;
+    /** @var int */
+    protected $enabledAttributes = PhpAttribute::JSON_POINTER
+        | PhpAttribute::SCHEMA_NAME
+        | PhpAttribute::REQUIRED
+        | PhpAttribute::READ_WRITE_ONLY
+        | PhpAttribute::DEPRECATED;
 
     /** @var DraftInterface | DraftFactoryInterface */
     protected $draft;
@@ -92,15 +99,6 @@ class GeneratorConfiguration
                     $filter->getSerializer(),
                     "Invalid serializer callback for filter {$filter->getToken()}"
                 );
-            }
-
-            foreach ($filter->getAcceptedTypes() as $acceptedType) {
-                if (
-                    !in_array($acceptedType, ['integer', 'number', 'boolean', 'string', 'array', 'null']) &&
-                    !class_exists($acceptedType)
-                ) {
-                    throw new InvalidFilterException('Filter accepts invalid types');
-                }
             }
 
             $this->filter[$filter->getToken()] = $filter;
@@ -285,6 +283,32 @@ class GeneratorConfiguration
             ->addFilter(new DateTimeFilter())
             ->addFilter(new NotEmptyFilter())
             ->addFilter(new TrimFilter());
+    }
+
+    public function getEnabledAttributes(): int
+    {
+        return $this->enabledAttributes;
+    }
+
+    public function setEnabledAttributes(int $enabledAttributes): self
+    {
+        $this->enabledAttributes = $enabledAttributes | PhpAttribute::ALWAYS_ENABLED_ATTRIBUTES;
+
+        return $this;
+    }
+
+    public function enableAttributes(int $attributes): self
+    {
+        $this->enabledAttributes = $this->enabledAttributes | $attributes;
+
+        return $this;
+    }
+
+    public function disableAttributes(int $attributes): self
+    {
+        $this->enabledAttributes = $this->enabledAttributes & ~$attributes | PhpAttribute::ALWAYS_ENABLED_ATTRIBUTES;
+
+        return $this;
     }
 
     private function initFormatValidator(): void

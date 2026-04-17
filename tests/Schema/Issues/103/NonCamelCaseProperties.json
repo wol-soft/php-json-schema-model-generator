@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string"
+    },
+    "my-thing": {
+      "type": "string"
+    },
+    "my property": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "product_id"
+  ]
+}

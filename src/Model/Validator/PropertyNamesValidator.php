@@ -40,6 +40,17 @@ class PropertyNamesValidator extends PropertyTemplateValidator
             throw new SchemaException("Invalid const property name in file {$propertiesNames->getFile()}");
         }
 
+        if (
+            array_key_exists('type', $propertiesNames->getJson()) &&
+            $propertiesNames->getJson()['type'] !== 'string'
+        ) {
+            throw new SchemaException(sprintf(
+                "Invalid type '%s' for propertyNames schema in file %s",
+                $propertiesNames->getJson()['type'],
+                $propertiesNames->getFile(),
+            ));
+        }
+
         // Property names are always strings; ensure the schema declares the type so that
         // string-specific validators (minLength, maxLength, pattern) are applied.
         $propertiesNamesAsString = array_key_exists('type', $propertiesNames->getJson())

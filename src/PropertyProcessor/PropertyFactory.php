@@ -4,12 +4,20 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor;
 
+use PHPModelGenerator\Attributes\Deprecated;
+use PHPModelGenerator\Attributes\JsonPointer;
+use PHPModelGenerator\Attributes\JsonSchema as JsonSchemaAttribute;
+use PHPModelGenerator\Attributes\ReadOnlyProperty;
+use PHPModelGenerator\Attributes\Required;
+use PHPModelGenerator\Attributes\SchemaName;
+use PHPModelGenerator\Attributes\WriteOnlyProperty;
 use Exception;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
 use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -128,6 +136,7 @@ class PropertyFactory
         // target the outer property and are handled by the universal modifiers below.
         $nestedJson = $json;
         unset($nestedJson['filter'], $nestedJson['enum'], $nestedJson['default']);
+
         $nestedSchema = $schemaProcessor->processSchema(
             $propertySchema->withJson($nestedJson),
             $schemaProcessor->getCurrentClassPath(),
@@ -183,7 +192,7 @@ class PropertyFactory
         string $type,
         bool $required,
     ): PropertyInterface {
-        $phpType  = $type !== 'any' ? TypeConverter::jsonSchemaToPhp($type) : null;
+        $phpType  = $type !== 'any' ? TypeConverter::jsonSchemaToPHP($type) : null;
         $property = $this->buildProperty(
             $schemaProcessor,
             $propertyName,
@@ -241,6 +250,52 @@ class PropertyFactory
             $property->addValidator(new RequiredPropertyValidator($property), 1);
         }
 
+        $configuration = $schemaProcessor->getGeneratorConfiguration();
+
+        $property
+            ->addAttribute(
+                new PhpAttribute(JsonPointer::class, [$propertySchema->getPointer()]),
+                $configuration,
+                PhpAttribute::JSON_POINTER,
+            )
+            ->addAttribute(
+                new PhpAttribute(SchemaName::class, [$propertyName]),
+                $configuration,
+                PhpAttribute::SCHEMA_NAME,
+            )
+            ->addAttribute(
+                new PhpAttribute(
+                    JsonSchemaAttribute::class,
+                    [empty($propertySchema->getJson()) ? '{}' : json_encode($propertySchema->getJson())],
+                ),
+                $configuration,
+                PhpAttribute::JSON_SCHEMA,
+            );
+
+        if ($required) {
+            $property->addAttribute(new PhpAttribute(Required::class), $configuration, PhpAttribute::REQUIRED);
+        }
+
+        if (isset($json['readOnly']) && $json['readOnly'] === true) {
+            $property->addAttribute(
+                new PhpAttribute(ReadOnlyProperty::class),
+                $configuration,
+                PhpAttribute::READ_WRITE_ONLY,
+            );
+        }
+
+        if (isset($json['writeOnly']) && $json['writeOnly'] === true) {
+            $property->addAttribute(
+                new PhpAttribute(WriteOnlyProperty::class),
+                $configuration,
+                PhpAttribute::READ_WRITE_ONLY,
+            );
+        }
+
+        if (isset($json['deprecated']) && $json['deprecated'] === true) {
+            $property->addAttribute(new PhpAttribute(Deprecated::class), $configuration, PhpAttribute::DEPRECATED);
+        }
+
         return $property;
     }
 
@@ -289,7 +344,7 @@ class PropertyFactory
 
                 return $definition->resolveReference(
                     $propertyName,
-                    $path,
+                    implode('/', $path),
                     $required,
                     $propertySchema->getJson()['_dependencies'] ?? null,
                 );
@@ -449,7 +504,7 @@ class PropertyFactory
         $subProperty = $this->buildProperty(
             $schemaProcessor,
             $propertyName,
-            new PropertyType(TypeConverter::jsonSchemaToPhp($type)),
+            new PropertyType(TypeConverter::jsonSchemaToPHP($type)),
             $propertySchema,
             $required,
         );
@@ -516,7 +571,7 @@ class PropertyFactory
         PropertyInterface $property,
         JsonSchema $propertySchema,
     ): void {
-        (new TypeCheckModifier(TypeConverter::jsonSchemaToPhp('object')))->modify(
+        (new TypeCheckModifier(TypeConverter::jsonSchemaToPHP('object')))->modify(
             $schemaProcessor,
             $schema,
             $property,

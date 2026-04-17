@@ -10,22 +10,22 @@
  */
 public function removeAdditionalProperty(string $property): bool
 {
-    if (isset($this->_patternProperties)) {
-        foreach ($this->_patternProperties as $patternHash => $_) {
-            if (isset($this->_patternProperties[$patternHash][$property])) {
-                unset($this->_patternProperties[$patternHash][$property]);
-                unset($this->_rawModelDataInput[$property]);
+    if (isset($this->patternProperties)) {
+        foreach ($this->patternProperties as $patternHash => $_) {
+            if (isset($this->patternProperties[$patternHash][$property])) {
+                unset($this->patternProperties[$patternHash][$property]);
+                unset($this->rawModelDataInput[$property]);
             }
         }
     }
 
-    if (!array_key_exists($property, $this->_additionalProperties)) {
+    if (!array_key_exists($property, $this->additionalProperties)) {
         return false;
     }
 
     {% if minPropertyValidator %}
         {% if generatorConfiguration.collectErrors() %}
-            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
 
         if ({{ minPropertyValidator.getCheck() }}) {
@@ -33,14 +33,14 @@ public function removeAdditionalProperty(string $property): bool
         }
 
         {% if generatorConfiguration.collectErrors() %}
-            if (count($this->_errorRegistry->getErrors())) {
-                throw $this->_errorRegistry;
+            if (count($this->errorRegistry->getErrors())) {
+                throw $this->errorRegistry;
             }
         {% endif %}
     {% endif %}
 
-    unset($this->_rawModelDataInput[$property]);
-    unset($this->_additionalProperties[$property]);
+    unset($this->rawModelDataInput[$property]);
+    unset($this->additionalProperties[$property]);
 
     return true;
 }

@@ -6,7 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use ReflectionType;
+use PHPModelGenerator\Utils\TypeCheck;
 
 /**
  * Class PassThroughTypeCheckValidator
@@ -20,23 +20,25 @@ class PassThroughTypeCheckValidator extends PropertyValidator implements TypeChe
 
     /**
      * PassThroughTypeCheckValidator constructor.
+     *
+     * @param string[] $passThroughTypeNames  Simple PHP type names of the transformed output
+     *                                        (e.g. ['DateTime'] or ['DateTime', 'Date', 'Time'])
      */
     public function __construct(
-        ReflectionType $passThroughType,
+        array $passThroughTypeNames,
         PropertyInterface $property,
         TypeCheckValidator|MultiTypeCheckValidator $typeCheckValidator,
     ) {
-        $this->types = array_merge($typeCheckValidator->getTypes(), [$passThroughType->getName()]);
+        $this->types = array_values(array_unique(array_merge($typeCheckValidator->getTypes(), $passThroughTypeNames)));
+
+        // Condition for throwing: value is neither the transformed type nor the original type.
+        $passThroughCheck = TypeCheck::buildNegatedCompound($passThroughTypeNames);
 
         parent::__construct(
             $property,
-            sprintf(
-                '%s && %s',
-                ReflectionTypeCheckValidator::fromReflectionType($passThroughType, $property)->getCheck(),
-                $typeCheckValidator->getCheck(),
-            ),
+            sprintf('%s && %s', $passThroughCheck, $typeCheckValidator->getCheck()),
             InvalidTypeException::class,
-            [[$passThroughType->getName(), $property->getType()->getNames()[0]]],
+            [[implode(' | ', $passThroughTypeNames), implode(' | ', $typeCheckValidator->getTypes())]],
         );
     }
 

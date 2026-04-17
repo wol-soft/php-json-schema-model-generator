@@ -34,7 +34,7 @@ class DefaultValueModifier implements ModifierInterface
         }
 
         foreach ($types as $jsonType) {
-            $phpType = TypeConverter::jsonSchemaToPhp($jsonType);
+            $phpType = TypeConverter::jsonSchemaToPHP($jsonType);
 
             // Allow integer literals as defaults for 'number' (float) properties
             if ($phpType === 'float' && is_int($default)) {

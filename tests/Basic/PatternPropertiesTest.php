@@ -199,4 +199,31 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         // updates the declared property type to DateTime (the filter's output type).
         $this->assertEqualsCanonicalizing(['DateTime', 'null'], $this->getReturnTypeNames($className, 'getAlpha'));
     }
+
+    public function testObjectTypedPatternPropertiesAreValidated(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PatternPropertiesAccessorPostProcessor());
+        };
+
+        $className = $this->generateClassFromFile('PatternPropertiesObjectType.json');
+
+        $object = new $className([
+            'person_alice' => ['name' => 'Alice', 'age' => 30],
+            'person_bob' => ['name' => 'Bob'],
+        ]);
+
+        $instances = $object->getPatternProperties('^person_');
+        $this->assertCount(2, $instances);
+
+        $alice = $instances['person_alice'];
+        $this->assertSame('Alice', $alice->getName());
+        $this->assertSame(30, $alice->getAge());
+        $this->assertClassHasJsonPointer($alice, '/patternProperties/^person_');
+        $this->assertPropertyHasJsonPointer($alice, 'name', '/patternProperties/^person_/properties/name');
+
+        $bob = $instances['person_bob'];
+        $this->assertSame('Bob', $bob->getName());
+        $this->assertNull($bob->getAge());
+    }
 }

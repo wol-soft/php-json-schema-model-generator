@@ -210,4 +210,31 @@ ERROR
 
         $this->generateClassFromFileTemplate('PropertyNames.json', ['{"const": false}'], escape: false);
     }
+
+    #[DataProvider('nonStringPropertyNamesTypeDataProvider')]
+    public function testNonStringTypeInPropertyNamesThrowsSchemaException(string $type): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/Invalid type '$type' for propertyNames schema in file/",
+        );
+
+        $this->generateClassFromFileTemplate(
+            'PropertyNames.json',
+            [sprintf('{"type": "%s"}', $type)],
+            escape: false,
+        );
+    }
+
+    public static function nonStringPropertyNamesTypeDataProvider(): array
+    {
+        return [
+            'integer' => ['integer'],
+            'number'  => ['number'],
+            'boolean' => ['boolean'],
+            'array'   => ['array'],
+            'object'  => ['object'],
+            'null'    => ['null'],
+        ];
+    }
 }
