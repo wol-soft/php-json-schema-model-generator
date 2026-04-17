@@ -134,7 +134,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                 new Property($schema->getClassName(), null, $schema->getJsonSchema()),
                 sprintf(
                     '%s < %d',
-                    'count($this->_rawModelDataInput) - 1',
+                    'count($this->rawModelDataInput) - 1',
                     $json['minProperties'],
                 ),
                 MinPropertiesException::class,

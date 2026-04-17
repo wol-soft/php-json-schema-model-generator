@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "not": {
+    "required": [
+      "name"
+    ],
+    "properties": {
+      "name": {
+        "type": "string"
+      }
+    }
+  }
+}

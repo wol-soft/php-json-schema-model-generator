@@ -15,14 +15,14 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
+use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\PassThroughTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\Model\Validator\ReflectionTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckValidator;
+use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\RenderHelper;
+use PHPModelGenerator\Utils\TypeCheck;
 use ReflectionException;
-use ReflectionMethod;
-use ReflectionType;
 
 /**
  * Class FilterProcessor
@@ -96,12 +96,9 @@ class FilterProcessor
                 }
             }
 
-            $property->addValidator(
-                new FilterValidator($generatorConfiguration, $filter, $property, $filterOptions, $transformingFilter),
-                $filterPriority++,
-            );
+            $isTransformingFilter = $filter instanceof TransformingFilterInterface;
 
-            if ($filter instanceof TransformingFilterInterface) {
+            if ($isTransformingFilter) {
                 if ($property->getType() && in_array('array', $property->getType()->getNames(), true)) {
                     throw new SchemaException(
                         sprintf(
@@ -120,54 +117,169 @@ class FilterProcessor
                         )
                     );
                 }
+            }
 
-                // keep track of the transforming filter to modify type checks for following filters
-                $transformingFilter = $filter;
+            // $transformingFilter is still null here when the current filter IS the transforming
+            // filter — FilterValidator correctly receives null (no previous transforming filter).
+            $property->addValidator(
+                new FilterValidator($generatorConfiguration, $filter, $property, $filterOptions, $transformingFilter),
+                $filterPriority++,
+            );
 
-                $typeAfterFilter = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))
-                    ->getReturnType();
+            if ($isTransformingFilter) {
+                $returnTypeNames = FilterReflection::getReturnTypeNames($filter, $property);
 
-                if (
-                    $typeAfterFilter &&
-                    $typeAfterFilter->getName() &&
-                    (!$property->getType() ||
-                        !in_array($typeAfterFilter->getName(), $property->getType()->getNames(), true))
-                ) {
-                    $this->addTransformedValuePassThrough($property, $filter, $typeAfterFilter);
-                    $this->extendTypeCheckValidatorToAllowTransformedValue($property, $typeAfterFilter);
+                if (!empty($returnTypeNames)) {
+                    // Wire pass-through checks on pre-transforming FilterValidators/EnumValidators
+                    // so they are skipped when an already-transformed value is provided.
+                    // Only validators present at this point (i.e. before the transforming filter)
+                    // receive the check — post-transform validators are added later and use
+                    // !$transformationFailed instead.
+                    $this->addTransformedValuePassThrough($property, $filter, $returnTypeNames);
 
-                    $property->setType(
-                        $property->getType(),
-                        new PropertyType(
-                            (new RenderHelper($generatorConfiguration))
-                                ->getSimpleClassName($typeAfterFilter->getName()),
-                            $typeAfterFilter->allowsNull(),
-                        )
-                    );
-
-                    if (!$typeAfterFilter->isBuiltin()) {
-                        $schema->addUsedClass($typeAfterFilter->getName());
+                    // Eagerly set the output type when the base type is already known.
+                    // This preserves the output type through property cloning in merged composition
+                    // schemas (where validators are stripped but the type fields are retained).
+                    // When the base type is null (type comes from a sibling allOf branch), this is
+                    // skipped and TransformingFilterOutputTypePostProcessor handles it after
+                    // composition has resolved the final base type.
+                    $baseType = $property->getType();
+                    if ($baseType !== null) {
+                        $this->applyOutputType(
+                            $property,
+                            $filter,
+                            $returnTypeNames,
+                            $baseType,
+                            $generatorConfiguration,
+                            $schema,
+                        );
                     }
                 }
+
+                $transformingFilter = $filter;
             }
         }
     }
 
     /**
-     * Apply a check to each FilterValidator which is already associated with the given property to pass through values
-     * which are already transformed.
-     * By adding the pass through eg. a trim filter executed before a dateTime transforming filter will not be executed
-     * if a DateTime object is provided for the property
+     * Compute the output type using the bypass formula and apply it to the property.
+     *
+     * Formula:
+     *   accepted      = filter callable's first-parameter types ([] = accepts all)
+     *   bypass_names  = base_names − non-null accepted  ([] when accepted is empty)
+     *   bypass_nullable = base_nullable AND 'null' NOT in accepted  (false when accepted is empty)
+     *   output_names  = bypass_names ∪ return_type_names
+     *   output_nullable = bypass_nullable OR return_nullable
+     *
+     * @param string[] $returnTypeNames Non-null return type names of the transforming filter.
      *
      * @throws ReflectionException
+     * @throws SchemaException
      */
-    private function addTransformedValuePassThrough(
+    public function applyOutputType(
         PropertyInterface $property,
         TransformingFilterInterface $filter,
-        ReflectionType $filteredType,
+        array $returnTypeNames,
+        PropertyType $baseType,
+        GeneratorConfiguration $generatorConfiguration,
+        Schema $schema,
     ): void {
-        foreach ($property->getValidators() as $validator) {
-            $validator = $validator->getValidator();
+        $returnNullable = FilterReflection::isReturnNullable($filter);
+        $acceptedTypes = FilterReflection::getAcceptedTypes($filter, $property);
+
+        if (empty($acceptedTypes)) {
+            $bypassNames = [];
+            $bypassNullable = false;
+        } else {
+            $nonNullAccepted = array_values(
+                array_filter($acceptedTypes, static fn(string $type): bool => $type !== 'null'),
+            );
+            $hasNullAccepted = in_array('null', $acceptedTypes, true);
+            $bypassNames = array_values(array_diff($baseType->getNames(), $nonNullAccepted));
+            $bypassNullable = ($baseType->isNullable() === true) && !$hasNullAccepted;
+        }
+
+        $baseNames = $baseType->getNames();
+        $newReturnTypeNames = array_values(array_diff($returnTypeNames, $baseNames));
+
+        if (empty($newReturnTypeNames)) {
+            return;
+        }
+
+        $outputNames = array_values(array_unique(array_merge($bypassNames, $returnTypeNames)));
+        $outputNullable = $bypassNullable || $returnNullable;
+
+        $renderHelper = new RenderHelper($generatorConfiguration);
+        $outputTypeNames = array_map(
+            static fn(string $name): string => $renderHelper->getSimpleClassName($name),
+            $outputNames,
+        );
+
+        $property->setType(
+            $property->getType(),
+            new PropertyType($outputTypeNames, $outputNullable),
+        );
+
+        foreach ($returnTypeNames as $typeName) {
+            if (!TypeCheck::isPrimitive($typeName)) {
+                $schema->addUsedClass($typeName);
+            }
+        }
+    }
+
+    /**
+     * Replace the property's TypeCheckValidator / MultiTypeCheckValidator with a
+     * PassThroughTypeCheckValidator that also allows the given pass-through type names.
+     *
+     * When called a second time, the TypeCheckValidator has already been replaced by a
+     * PassThroughTypeCheckValidator, which does not match the filter predicate, so the call
+     * is silently skipped.
+     *
+     * @param string[] $passThroughTypeNames
+     */
+    public function extendTypeCheckValidatorToAllowTransformedValue(
+        PropertyInterface $property,
+        array $passThroughTypeNames,
+    ): void {
+        $typeCheckValidator = null;
+
+        $property->filterValidators(static function (Validator $validator) use (&$typeCheckValidator): bool {
+            if (
+                is_a($validator->getValidator(), TypeCheckValidator::class) ||
+                is_a($validator->getValidator(), MultiTypeCheckValidator::class)
+            ) {
+                $typeCheckValidator = $validator->getValidator();
+                return false;
+            }
+
+            return true;
+        });
+
+        if (
+            $typeCheckValidator instanceof TypeCheckValidator
+            || $typeCheckValidator instanceof MultiTypeCheckValidator
+        ) {
+            $property->addValidator(
+                new PassThroughTypeCheckValidator($passThroughTypeNames, $property, $typeCheckValidator),
+                2,
+            );
+        }
+    }
+
+    /**
+     * Apply a pass-through check to each FilterValidator and EnumValidator already associated
+     * with the given property so that pre-transform filters and enum checks are skipped when
+     * an already-transformed value is provided.
+     *
+     * @param string[] $returnTypeNames Non-null return type names of the transforming filter.
+     */
+    public function addTransformedValuePassThrough(
+        PropertyInterface $property,
+        TransformingFilterInterface $filter,
+        array $returnTypeNames,
+    ): void {
+        foreach ($property->getValidators() as $propertyValidator) {
+            $validator = $propertyValidator->getValidator();
 
             if ($validator instanceof FilterValidator) {
                 $validator->addTransformedCheck($filter, $property);
@@ -175,10 +287,11 @@ class FilterProcessor
 
             if ($validator instanceof EnumValidator) {
                 $property->filterValidators(
-                    static fn(Validator $validator): bool => !is_a($validator->getValidator(), EnumValidator::class),
+                    static fn(Validator $enumCandidate): bool =>
+                        !is_a($enumCandidate->getValidator(), EnumValidator::class),
                 );
 
-                // shift the name from the validator to avoid adding it twice by wrapping the validator into another one
+                // Shift the name from the validator to avoid adding it twice by wrapping it.
                 $exceptionParams = $validator->getExceptionParams();
                 array_shift($exceptionParams);
 
@@ -186,8 +299,8 @@ class FilterProcessor
                     new PropertyValidator(
                         $property,
                         sprintf(
-                            "%s && %s",
-                            ReflectionTypeCheckValidator::fromReflectionType($filteredType, $property)->getCheck(),
+                            '%s && %s',
+                            TypeCheck::buildNegatedCompound($returnTypeNames),
                             $validator->getCheck(),
                         ),
                         $validator->getExceptionClass(),
@@ -196,35 +309,6 @@ class FilterProcessor
                     3,
                 );
             }
-        }
-    }
-
-    /**
-     * Extend a type check of the given property so the type check also allows the type of $typeAfterFilter. This is
-     * used to allow also already transformed values as valid input values
-     */
-    private function extendTypeCheckValidatorToAllowTransformedValue(
-        PropertyInterface $property,
-        ReflectionType $typeAfterFilter,
-    ): void {
-        $typeCheckValidator = null;
-
-        $property->filterValidators(static function (Validator $validator) use (&$typeCheckValidator): bool {
-            if (is_a($validator->getValidator(), TypeCheckValidator::class)) {
-                $typeCheckValidator = $validator->getValidator();
-                return false;
-            }
-
-            return true;
-        });
-
-        if ($typeCheckValidator instanceof TypeCheckValidator) {
-            // add a combined validator which checks for the transformed value or the original type of the property as a
-            // replacement for the removed TypeCheckValidator
-            $property->addValidator(
-                new PassThroughTypeCheckValidator($typeAfterFilter, $property, $typeCheckValidator),
-                2,
-            );
         }
     }
 }

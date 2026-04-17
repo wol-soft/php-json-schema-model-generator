@@ -49,13 +49,13 @@ To execute code before/after the processing of the schemas override the methods 
 PHP Attributes
 --------------
 
-You can attach PHP 8.0 `attributes <https://www.php.net/manual/en/language.attributes.overview.php>`__ to the generated class and to individual properties using **PHPModelGenerator\\Model\\PhpAttribute**.
+You can attach PHP 8.0 `attributes <https://www.php.net/manual/en/language.attributes.overview.php>`__ to the generated class and to individual properties using **PHPModelGenerator\\Model\\Attributes\\PhpAttribute**.
 
 **Class-level attribute** (placed before the ``class`` keyword in the generated file):
 
 .. code-block:: php
 
-    use PHPModelGenerator\Model\PhpAttribute;
+    use PHPModelGenerator\Model\Attributes\PhpAttribute;
     use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 
     class ORM_EntityPostProcessor extends PostProcessor
@@ -80,7 +80,7 @@ You can attach PHP 8.0 `attributes <https://www.php.net/manual/en/language.attri
 
 .. code-block:: php
 
-    use PHPModelGenerator\Model\PhpAttribute;
+    use PHPModelGenerator\Model\Attributes\PhpAttribute;
     use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 
     class ORM_ColumnPostProcessor extends PostProcessor
@@ -103,3 +103,7 @@ The constructor of **PhpAttribute** accepts:
 
   * **Integer keys** → positional arguments (rendered as-is)
   * **String keys** → named arguments (rendered as ``key: value``)
+
+.. hint::
+
+    The library implements a set of attributes which can be configured via the `attribute configuration <../../gettingStarted.html#serialization-methods>`__ on the **GeneratorConfiguration**

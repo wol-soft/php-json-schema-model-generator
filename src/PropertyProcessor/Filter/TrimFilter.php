@@ -19,14 +19,6 @@ class TrimFilter implements FilterInterface
     /**
      * @inheritDoc
      */
-    public function getAcceptedTypes(): array
-    {
-        return ['string', 'null'];
-    }
-
-    /**
-     * @inheritDoc
-     */
     public function getToken(): string
     {
         return 'trim';

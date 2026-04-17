@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
-use PHPModelGenerator\Model\PhpAttribute;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
@@ -147,7 +148,11 @@ interface PropertyInterface extends ResolvableInterface
      */
     public function getJsonSchema(): JsonSchema;
 
-    public function addAttribute(PhpAttribute $attribute): static;
+    public function addAttribute(
+        PhpAttribute $attribute,
+        ?GeneratorConfiguration $generatorConfiguration = null,
+        ?int $enablementFlag = null,
+    ): static;
 
     /**
      * @return PhpAttribute[]

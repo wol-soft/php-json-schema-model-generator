@@ -44,11 +44,6 @@ class Issue70Test extends AbstractIssueTestCase
     public function getFilter(): TransformingFilterInterface
     {
         return new class () implements TransformingFilterInterface {
-            public function getAcceptedTypes(): array
-            {
-                return ['string', 'null'];
-            }
-
             public function getToken(): string
             {
                 return 'countChars';

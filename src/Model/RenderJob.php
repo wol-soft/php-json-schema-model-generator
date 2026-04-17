@@ -6,10 +6,11 @@ namespace PHPModelGenerator\Model;
 
 use PHPMicroTemplate\Exception\PHPMicroTemplateException;
 use PHPMicroTemplate\Render;
+use PHPModelGenerator\Attributes\Internal;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\ValidationException;
-use PHPModelGenerator\Model\PhpAttribute;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
@@ -157,6 +158,8 @@ class RenderJob
                 $attributeFqcns[] = $attr->getFqcn();
             }
         }
+
+        $attributeFqcns[] = Internal::class;
 
         return RenderHelper::filterClassImports(
             array_unique(

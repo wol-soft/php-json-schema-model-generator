@@ -9,9 +9,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyProxy;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
-use PHPModelGenerator\PropertyProcessor\PropertyProcessorFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
@@ -51,23 +49,15 @@ class SchemaDefinition
      */
     public function resolveReference(
         string $propertyName,
-        array $path,
-        PropertyMetaDataCollection $propertyMetaDataCollection,
+        string $path,
+        bool $required,
+        ?array $dependencies = null,
     ): PropertyInterface {
-        $jsonSchema = $this->source->getJson();
-        $originalPath = $path;
-
-        while ($segment = array_shift($path)) {
-            if (!isset($jsonSchema[$segment])) {
-                throw new SchemaException("Unresolved path segment $segment in file {$this->source->getFile()}");
-            }
-
-            $jsonSchema = $jsonSchema[$segment];
-        }
+        $jsonSchema = $this->source->navigate($path);
 
         // if the properties point to the same definition and share identical metadata the generated property can be
         // recycled. Otherwise, a new property must be generated as diverging metadata lead to different validators.
-        $key = implode('-', [...$originalPath, $propertyMetaDataCollection->getHash($propertyName)]);
+        $key = implode('-', [$path, $required ? '1' : '0', md5(json_encode($dependencies))]);
 
         if (!$this->resolvedPaths->offsetExists($key)) {
             // create a dummy entry for the path first. If the path is used recursive the recursive usages will point
@@ -75,14 +65,15 @@ class SchemaDefinition
             $this->resolvedPaths->offsetSet($key, null);
 
             try {
-                $property =  (new PropertyFactory(new PropertyProcessorFactory()))
+                $property = (new PropertyFactory())
                     ->create(
-                        $propertyMetaDataCollection,
                         $this->schemaProcessor,
                         $this->schema,
                         $propertyName,
-                        $this->source->withJson($jsonSchema),
+                        $jsonSchema,
+                        $required,
                     );
+
                 $this->resolvedPaths->offsetSet($key, $property);
 
                 /** @var PropertyProxy $proxy */

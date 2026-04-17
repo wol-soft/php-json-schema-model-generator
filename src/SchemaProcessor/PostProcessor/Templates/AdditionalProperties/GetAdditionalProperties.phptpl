@@ -5,5 +5,5 @@
  */
 public function getAdditionalProperties(): array
 {
-    return $this->_additionalProperties;
+    return $this->additionalProperties;
 }

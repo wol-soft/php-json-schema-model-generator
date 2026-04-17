@@ -4,17 +4,22 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model;
 
+use PHPModelGenerator\Attributes\Deprecated;
+use PHPModelGenerator\Attributes\JsonPointer;
+use PHPModelGenerator\Attributes\JsonSchema as JsonSchemaAttribute;
+use PHPModelGenerator\Attributes\Source;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Interfaces\JSONModelInterface;
+use PHPModelGenerator\Model\Attributes\AttributesTrait;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Property\PropertyInterface;
-use PHPModelGenerator\Model\AttributesTrait;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
-use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
-use PHPModelGenerator\PropertyProcessor\ComposedValue\AllOfProcessor;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookInterface;
 use PHPModelGenerator\Utils\PropertyMerger;
@@ -77,7 +82,34 @@ class Schema
         $this->description = $schema->getJson()['description'] ?? '';
         $this->propertyMerger = new PropertyMerger($generatorConfiguration);
 
-        $this->addInterface(JSONModelInterface::class);
+        $this
+            ->addInterface(JSONModelInterface::class)
+            ->addAttribute(
+                new PhpAttribute(JsonPointer::class, [$schema->getPointer()]),
+                $generatorConfiguration,
+                PhpAttribute::JSON_POINTER,
+            )
+            ->addAttribute(
+                new PhpAttribute(
+                    JsonSchemaAttribute::class,
+                    [empty($schema->getJson()) ? '{}' : json_encode($schema->getJson())],
+                ),
+                $generatorConfiguration,
+                PhpAttribute::JSON_SCHEMA,
+            )
+            ->addAttribute(
+                new PhpAttribute(Source::class, [$schema->getFile()]),
+                $generatorConfiguration,
+                PhpAttribute::SOURCE,
+            );
+
+        if (isset($schema->getJson()['deprecated']) && $schema->getJson()['deprecated'] === true) {
+            $this->addAttribute(
+                new PhpAttribute(Deprecated::class),
+                $generatorConfiguration,
+                PhpAttribute::DEPRECATED,
+            );
+        }
     }
 
     public function getTargetFileName(): string
@@ -172,7 +204,7 @@ class Schema
         $this->propertyMerger->merge(
             $this->properties[$property->getName()],
             $property,
-            is_a($compositionProcessor, AllOfProcessor::class, true),
+            is_a($compositionProcessor, AllOfValidatorFactory::class, true),
         );
 
         return $this;

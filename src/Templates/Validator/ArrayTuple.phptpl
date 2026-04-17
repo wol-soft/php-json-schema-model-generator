@@ -1,6 +1,6 @@
 is_array($value) && (function (&$items) use (&$invalidTuples, $modelData) {
     {% if generatorConfiguration.collectErrors() %}
-        $originalErrorRegistry = $this->_errorRegistry;
+        $originalErrorRegistry = $this->errorRegistry;
     {% endif %}
 
     $index = 0;
@@ -12,7 +12,7 @@ is_array($value) && (function (&$items) use (&$invalidTuples, $modelData) {
             }
 
             {% if generatorConfiguration.collectErrors() %}
-                $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+                $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
             {% endif %}
 
             $value = &$items[$index++];
@@ -23,8 +23,8 @@ is_array($value) && (function (&$items) use (&$invalidTuples, $modelData) {
             {% endforeach %}
 
             {% if generatorConfiguration.collectErrors() %}
-                if ($this->_errorRegistry->getErrors()) {
-                    $invalidTuples[$index] = $this->_errorRegistry->getErrors();
+                if ($this->errorRegistry->getErrors()) {
+                    $invalidTuples[$index] = $this->errorRegistry->getErrors();
                 }
             {% endif %}
         } catch (\Exception $e) {
@@ -36,7 +36,7 @@ is_array($value) && (function (&$items) use (&$invalidTuples, $modelData) {
     {% endforeach %}
 
     {% if generatorConfiguration.collectErrors() %}
-        $this->_errorRegistry = $originalErrorRegistry;
+        $this->errorRegistry = $originalErrorRegistry;
     {% endif %}
 
     return !empty($invalidTuples);

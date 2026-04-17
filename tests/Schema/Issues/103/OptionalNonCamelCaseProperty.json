@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "required_field": {
+      "type": "string"
+    },
+    "product_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "required_field"
+  ]
+}

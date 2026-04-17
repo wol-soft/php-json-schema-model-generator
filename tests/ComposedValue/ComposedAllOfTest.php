@@ -124,6 +124,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className([]);
         $this->assertEmpty($object->getIntegerProperty());
         $this->assertEmpty($object->getStringProperty());
+        $this->assertPropertyHasJsonPointer($object, 'stringProperty', '/allOf/0/properties/stringProperty');
+        $this->assertPropertyHasJsonPointer($object, 'integerProperty', '/allOf/1/properties/integerProperty');
     }
 
     public function testAllOfTypePropertyHasTypeAnnotation(): void
@@ -536,6 +538,35 @@ declined by composition constraint.
 ERROR
             ],
         ];
+    }
+
+    /**
+     * An object-level `allOf` schema that also carries non-composition schema-level validators
+     * (here: `minProperties`) must generate correctly and enforce all constraints.
+     *
+     * During SchemaProcessor::transferComposedPropertiesToSchema the base property's validator
+     * list contains both a TypeCheckValidator (from TypeCheckModifier) and a MinProperties
+     * validator — neither of which is an AbstractComposedPropertyValidator — so both are skipped
+     * via the `continue` guard (line 472) before the allOf composition validator is processed.
+     */
+    public function testObjectLevelAllOfWithAdditionalBaseValidatorTransfersProperties(): void
+    {
+        $className = $this->generateClassFromFile('ObjectLevelCompositionWithMinProperties.json');
+
+        // Properties from both allOf branches are accessible.
+        $object = new $className(['name' => 'Alice', 'age' => 30]);
+        $this->assertSame('Alice', $object->getName());
+        $this->assertSame(30, $object->getAge());
+    }
+
+    public function testObjectLevelAllOfWithMinPropertiesRejectsEmptyObject(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessageMatches('/must not contain less than 1 properties/');
+
+        $className = $this->generateClassFromFile('ObjectLevelCompositionWithMinProperties.json');
+
+        new $className([]);
     }
 
     public function testIdenticalMergedSchemaIsRedirected(): void

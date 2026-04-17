@@ -43,6 +43,12 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             $this->assertSame($propertyValue[2]['name'], $object->getProperty()[2]->getName());
             $this->assertSame($propertyValue[2]['age'] ?? null, $object->getProperty()[2]->getAge());
             $this->assertSame($propertyValue[2], $object->getProperty()[2]->getRawModelDataInput());
+            $this->assertClassHasJsonPointer($object->getProperty()[2], '/properties/property/items/2');
+            $this->assertPropertyHasJsonPointer(
+                $object->getProperty()[2],
+                'name',
+                '/properties/property/items/2/properties/name',
+            );
         }
     }
 

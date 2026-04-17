@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string"
+    },
+    "nested_object": {
+      "type": "object",
+      "properties": {
+        "inner_value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "inner_value"
+      ]
+    }
+  },
+  "required": [
+    "product_id"
+  ]
+}

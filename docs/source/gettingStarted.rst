@@ -280,9 +280,80 @@ The generated class will implement the interface **PHPModelGenerator\\Interfaces
 
 Additionally the class will implement the PHP builtin interface **\JsonSerializable** which allows the direct usage of the generated classes in a custom json_encode.
 
+Output keys
+"""""""""""
+
+The keys in the serialized output are the **original JSON Schema property names**, not the PHP property names. For example, a schema property named ``product_id`` will appear as ``product_id`` in the output, even though the generated PHP property is named ``$productId``. This ensures that the output of ``toArray()`` / ``toJSON()`` can be fed back into the same class constructor without validation errors (round-trip).
+
+The ``$except`` parameter must also contain **schema names** (not PHP property names). Passing the PHP-normalized form will not exclude the property.
+
+If a generated model contains nested objects that also have serialization enabled, the ``$depth`` budget is now correctly shared across all nesting levels. A ``$depth`` of 1 serializes only the top-level properties; nested objects are replaced with ``null`` when the budget is exhausted.
+
 .. warning::
 
     If you provide `additional properties <complexTypes/object.html#additional-properties>`__ you may want to use the `AdditionalPropertiesAccessorPostProcessor <generator/builtin/additionalPropertiesAccessorPostProcessor.html>`__ as the additional properties by default aren't included into the serialization result.
+
+Attributes
+^^^^^^^^^^
+
+By default, the generator adds a predefined set of attributes to the generated classes and their properties.
+To control, which attributes are generated, the **GeneratorConfiguration** class provides the following methods:
+
+.. code-block:: php
+
+    // overwrite all defined attributes
+    setEnabledAttributes(int $enabledAttributes);
+    // enable a specific set of attributes
+    enableAttributes(int $attributes);
+    // disable a specific set of attributes
+    disableAttributes(int $attributes);
+
+The following attributes are available:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Attribute
+     - Target
+     - Description
+     - Enabled by default
+   * - JSON_POINTER
+     - Classes & Properties
+     - Adds a JSON Pointer with the path in the source Schema. This attribute can't be disabled.
+     - Yes
+   * - SCHEMA_NAME
+     - Properties
+     - Provides the original JSON Schema name of the property. This attribute can't be disabled.
+     - Yes
+   * - SOURCE
+     - Classes
+     - Provides the source file which contains the schema used for generation
+     - No
+   * - JSON_SCHEMA
+     - Classes & Properties
+     - Provides the full JSON Schema used to generate the class or the property
+     - No
+   * - REQUIRED
+     - Properties
+     - Set for required properties
+     - Yes
+   * - READ_WRITE_ONLY
+     - Properties
+     - Sets the *ReadOnlyProperty* and *WriteOnlyProperty* attribute depending on the corresponding JSON schema flag
+     - Yes
+   * - DEPRECATED
+     - Classes & Properties
+     - If deprecated is set to true in the JSON schema, the *Deprecated* attribute gets added
+     - Yes
+
+The following example would keep the *SCHEMA_NAME* and *JSON_SCHEMA* attributes enabled:
+
+.. code-block:: php
+
+    $configuration = (new GeneratorConfiguration())
+        ->setEnabledAttributes(PhpAttribute::JSON_POINTER | PhpAttribute::SCHEMA_NAME)
+        ->enableAttributes(PhpAttribute::SOURCE | PhpAttribute::JSON_SCHEMA)
+        ->disableAttributes(PhpAttribute::JSON_POINTER | PhpAttribute::SOURCE);
 
 Output generation process
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -308,6 +379,34 @@ The output of a generation process may look like:
     Duplicated signature 444fd086d8d1f186145a6f81a3ac3f7a for class Register_Message. Redirecting to Login_Message
     Rendered class MyApp\User\Response\Login
     Rendered class MyApp\User\Response\Register
+
+JSON Schema draft version
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: php
+
+    setDraft(DraftInterface|DraftFactoryInterface $draft);
+
+Controls which JSON Schema draft version is used during generation. Accepts either a concrete
+draft instance (``DraftInterface``) to pin all schemas to one draft, or a factory
+(``DraftFactoryInterface``) to select the draft per schema file.
+
+By default ``AutoDetectionDraft`` is used. It implements ``DraftFactoryInterface`` and inspects
+the ``$schema`` keyword of each schema file to select the appropriate draft automatically. When
+the keyword is absent or unrecognised, it falls back to JSON Schema Draft 7 behaviour, so schemas
+with different ``$schema`` declarations in the same generation run can use different drafts.
+
+Available draft classes:
+
+============= ================================
+Draft class   Description
+============= ================================
+``Draft_07``  JSON Schema Draft 7 (default)
+============= ================================
+
+.. seealso::
+
+    :doc:`generator/custom/customDraft` — how to implement a custom draft or modifier.
 
 Custom filter
 ^^^^^^^^^^^^^

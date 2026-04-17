@@ -6,7 +6,6 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
-use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Issue #116: When an external schema file contains a $ref pointing to another schema file and
@@ -117,16 +116,16 @@ class Issue116Test extends AbstractIssueTestCase
 
         $this->assertNotNull($metricsClassName, 'getMetrics() must have a non-null return type');
 
-        // The doc comment on the _additionalProperties property inside the Metrics class must
+        // The doc comment on the additionalProperties property inside the Metrics class must
         // reference the canonical ForecastRange, not the nested duplicate
-        $additionalPropertiesAnnotation = $this->getPropertyTypeAnnotation($metricsClassName, '_additionalProperties');
+        $additionalPropertiesAnnotation = $this->getPropertyTypeAnnotation($metricsClassName, 'additionalProperties');
 
         // The annotation uses the short class name (imports handle the FQCN); check for it.
         $shortRangeClass = substr($rangeClass, strrpos($rangeClass, '\\') + 1);
         $this->assertStringContainsString(
             $shortRangeClass,
             $additionalPropertiesAnnotation,
-            '_additionalProperties @var annotation must reference the standalone ForecastRange class',
+            'additionalProperties @var annotation must reference the standalone ForecastRange class',
         );
         // Must NOT reference a nested duplicate (e.g. ForecastPoint_AdditionalProperty<hash>)
         $this->assertStringNotContainsString(

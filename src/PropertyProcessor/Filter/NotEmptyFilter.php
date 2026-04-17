@@ -19,14 +19,6 @@ class NotEmptyFilter implements FilterInterface
     /**
      * @inheritDoc
      */
-    public function getAcceptedTypes(): array
-    {
-        return ['array', 'null'];
-    }
-
-    /**
-     * @inheritDoc
-     */
     public function getToken(): string
     {
         return 'notEmpty';

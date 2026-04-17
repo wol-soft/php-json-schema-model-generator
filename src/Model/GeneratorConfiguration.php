@@ -5,16 +5,20 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model;
 
 use Exception;
+use PHPModelGenerator\Draft\AutoDetectionDraft;
+use PHPModelGenerator\Draft\DraftFactoryInterface;
+use PHPModelGenerator\Draft\DraftInterface;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Format\FormatValidatorInterface;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Utils\ClassNameGeneratorInterface;
-use PHPModelGenerator\Exception\ErrorRegistryException;
 
 /**
  * Class GeneratorConfiguration
@@ -41,6 +45,15 @@ class GeneratorConfiguration
     protected $errorRegistryClass = ErrorRegistryException::class;
     /** @var bool */
     protected $serialization = false;
+    /** @var int */
+    protected $enabledAttributes = PhpAttribute::JSON_POINTER
+        | PhpAttribute::SCHEMA_NAME
+        | PhpAttribute::REQUIRED
+        | PhpAttribute::READ_WRITE_ONLY
+        | PhpAttribute::DEPRECATED;
+
+    /** @var DraftInterface | DraftFactoryInterface */
+    protected $draft;
 
     /** @var ClassNameGeneratorInterface */
     protected $classNameGenerator;
@@ -55,6 +68,7 @@ class GeneratorConfiguration
      */
     public function __construct()
     {
+        $this->draft = new AutoDetectionDraft();
         $this->classNameGenerator = new ClassNameGenerator();
 
         // add all built-in filter and format validators
@@ -81,15 +95,6 @@ class GeneratorConfiguration
                     $filter->getSerializer(),
                     "Invalid serializer callback for filter {$filter->getToken()}"
                 );
-            }
-
-            foreach ($filter->getAcceptedTypes() as $acceptedType) {
-                if (
-                    !in_array($acceptedType, ['integer', 'number', 'boolean', 'string', 'array', 'null']) &&
-                    !class_exists($acceptedType)
-                ) {
-                    throw new InvalidFilterException('Filter accepts invalid types');
-                }
             }
 
             $this->filter[$filter->getToken()] = $filter;
@@ -244,6 +249,18 @@ class GeneratorConfiguration
         return $this;
     }
 
+    public function getDraft(): DraftInterface | DraftFactoryInterface
+    {
+        return $this->draft;
+    }
+
+    public function setDraft(DraftInterface | DraftFactoryInterface $draft): self
+    {
+        $this->draft = $draft;
+
+        return $this;
+    }
+
     public function isImplicitNullAllowed(): bool
     {
         return $this->allowImplicitNull;
@@ -262,6 +279,32 @@ class GeneratorConfiguration
             ->addFilter(new DateTimeFilter())
             ->addFilter(new NotEmptyFilter())
             ->addFilter(new TrimFilter());
+    }
+
+    public function getEnabledAttributes(): int
+    {
+        return $this->enabledAttributes;
+    }
+
+    public function setEnabledAttributes(int $enabledAttributes): self
+    {
+        $this->enabledAttributes = $enabledAttributes | PhpAttribute::ALWAYS_ENABLED_ATTRIBUTES;
+
+        return $this;
+    }
+
+    public function enableAttributes(int $attributes): self
+    {
+        $this->enabledAttributes = $this->enabledAttributes | $attributes;
+
+        return $this;
+    }
+
+    public function disableAttributes(int $attributes): self
+    {
+        $this->enabledAttributes = $this->enabledAttributes & ~$attributes | PhpAttribute::ALWAYS_ENABLED_ATTRIBUTES;
+
+        return $this;
     }
 
     // TODO: add builtin format validators

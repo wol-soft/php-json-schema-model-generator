@@ -10,9 +10,7 @@ use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
-use PHPModelGenerator\PropertyProcessor\Property\ConstProcessor;
-use PHPModelGenerator\PropertyProcessor\Property\StringProcessor;
-use PHPModelGenerator\PropertyProcessor\PropertyMetaDataCollection;
+use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -35,16 +33,32 @@ class PropertyNamesValidator extends PropertyTemplateValidator
     ) {
         $this->isResolved = true;
 
-        $processor = array_key_exists('const', $propertiesNames->getJson())
-            ? ConstProcessor::class
-            : StringProcessor::class;
-
-        if ($processor === ConstProcessor::class && gettype($propertiesNames->getJson()['const']) !== 'string') {
+        if (
+            array_key_exists('const', $propertiesNames->getJson()) &&
+            gettype($propertiesNames->getJson()['const']) !== 'string'
+        ) {
             throw new SchemaException("Invalid const property name in file {$propertiesNames->getFile()}");
         }
 
-        $nameValidationProperty = (new $processor(new PropertyMetaDataCollection(), $schemaProcessor, $schema))
-            ->process('property name', $propertiesNames)
+        if (
+            array_key_exists('type', $propertiesNames->getJson()) &&
+            $propertiesNames->getJson()['type'] !== 'string'
+        ) {
+            throw new SchemaException(sprintf(
+                "Invalid type '%s' for propertyNames schema in file %s",
+                $propertiesNames->getJson()['type'],
+                $propertiesNames->getFile(),
+            ));
+        }
+
+        // Property names are always strings; ensure the schema declares the type so that
+        // string-specific validators (minLength, maxLength, pattern) are applied.
+        $propertiesNamesAsString = array_key_exists('type', $propertiesNames->getJson())
+            ? $propertiesNames
+            : $propertiesNames->withJson(['type' => 'string'] + $propertiesNames->getJson());
+
+        $nameValidationProperty = (new PropertyFactory())
+            ->create($schemaProcessor, $schema, 'property name', $propertiesNamesAsString)
             // the property name validator doesn't need type checks or required checks so simply filter them out
             ->filterValidators(static fn(Validator $validator): bool =>
                 !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
