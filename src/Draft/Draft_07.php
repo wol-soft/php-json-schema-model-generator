@@ -57,7 +57,7 @@ class Draft_07 implements DraftInterface
                 ->addValidator('minItems', new MinItemsValidatorFactory())
                 ->addValidator('maxItems', new MaxItemsValidatorFactory())
                 ->addValidator('uniqueItems', new UniqueItemsValidatorFactory())
-                ->addValidator('contains', new ContainsValidatorFactory())
+                ->addValidator('contains', new ContainsValidatorFactory(false))
                 ->addModifier(new DefaultArrayToEmptyArrayModifier()))
             ->addType((new Type('string'))
                 ->addValidator('pattern', new PatternPropertyValidatorFactory())

@@ -21,9 +21,9 @@ class MinItemsValidatorFactory extends SimplePropertyValidatorFactory
     {
         return new PropertyValidator(
             $property,
-            "is_array(\$value) && count(\$value) < $value",
+            "is_array(\$value) && (\$count = count(\$value)) < $value",
             MinItemsException::class,
-            [$value],
+            [$value, '&$count'],
         );
     }
 }

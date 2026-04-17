@@ -39,7 +39,7 @@ abstract class SimplePropertyValidatorFactory extends AbstractValidatorFactory
         if (!$this->isValueValid($json[$this->key])) {
             throw new SchemaException(
                 sprintf(
-                    "Invalid %s %s for property '%s' in file %s",
+                    "Invalid %s (%s) for property '%s' in file %s",
                     $this->key,
                     str_replace("\n", '', var_export($json[$this->key], true)),
                     $property->getName(),

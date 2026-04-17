@@ -69,10 +69,6 @@ class GeneratorConfiguration
      */
     public function __construct()
     {
-        $this->draft = new AutoDetectionDraft();
-        $this->classNameGenerator = new ClassNameGenerator();
-
-        // add all built-in filter and format validators
         $this->initFilter();
         $this->initFormatValidator();
     }
@@ -153,7 +149,7 @@ class GeneratorConfiguration
 
     public function getClassNameGenerator(): ClassNameGeneratorInterface
     {
-        return $this->classNameGenerator;
+        return $this->classNameGenerator ??= new ClassNameGenerator();
     }
 
     public function setClassNameGenerator(ClassNameGeneratorInterface $classNameGenerator): self
@@ -261,7 +257,7 @@ class GeneratorConfiguration
 
     public function getDraft(): DraftInterface | DraftFactoryInterface
     {
-        return $this->draft;
+        return $this->draft ??= new AutoDetectionDraft();
     }
 
     public function setDraft(DraftInterface | DraftFactoryInterface $draft): self

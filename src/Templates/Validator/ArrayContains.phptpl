@@ -1,4 +1,4 @@
-is_array($value) && (function (&$items) {
+is_array($value) && (function (&$items){% if countMatches %} use (&$countMatches){% endif %} {
     if (empty($items)) {
         return true;
     }
@@ -27,8 +27,12 @@ is_array($value) && (function (&$items) {
                 $this->_errorRegistry = $originalErrorRegistry;
             {% endif %}
 
-            // one matched item is enough to pass the contains check
-            return false;
+            {% if countMatches %}
+                $countMatches++;
+            {% else %}
+                // one matched item is enough to pass the contains check
+                return false;
+            {% endif %}
         } catch (\Exception $e) {
             continue;
         }
@@ -38,5 +42,9 @@ is_array($value) && (function (&$items) {
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
-    return true;
+    return {% if countMatches %}
+            {% if allowNoMatch %}false{% else %}$countMatches === 0{% endif %}
+        {% else %}
+            true
+        {% endif %};
 })($value)

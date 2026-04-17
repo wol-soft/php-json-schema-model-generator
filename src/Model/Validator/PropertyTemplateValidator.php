@@ -17,8 +17,6 @@ use PHPModelGenerator\Model\Schema;
  */
 class PropertyTemplateValidator extends AbstractPropertyValidator
 {
-    /** @var array */
-    protected $templateValues;
     /** @var Schema|null */
     protected $scope;
 
@@ -30,12 +28,10 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
     public function __construct(
         PropertyInterface $property,
         protected string $template,
-        array $templateValues,
+        protected array $templateValues,
         string $exceptionClass,
         array $exceptionParams = [],
     ) {
-        $this->templateValues = $templateValues;
-
         parent::__construct($property, $exceptionClass, $exceptionParams);
     }
 
