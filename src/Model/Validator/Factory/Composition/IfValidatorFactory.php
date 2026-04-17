@@ -65,7 +65,7 @@ class IfValidatorFactory
                 continue;
             }
 
-            $compositionSchema = $propertySchema->withJson($json[$keyword]);
+            $compositionSchema = $propertySchema->navigate($keyword);
 
             $compositionProperty = new CompositionPropertyDecorator(
                 $property->getName(),

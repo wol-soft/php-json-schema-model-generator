@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "value": {
+      "type": "string",
+      "minLength": 0.5
+    }
+  }
+}

@@ -33,7 +33,7 @@ class PropertyNamesValidatorFactory extends AbstractValidatorFactory
             new PropertyNamesValidator(
                 $schemaProcessor,
                 $schema,
-                $propertySchema->withJson($json[$this->key]),
+                $propertySchema->navigate($this->key),
             )
         );
     }

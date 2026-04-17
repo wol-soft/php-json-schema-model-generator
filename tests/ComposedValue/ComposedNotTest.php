@@ -187,6 +187,20 @@ ERROR,
      * @throws RenderException
      * @throws SchemaException
      */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testObjectLevelNot(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('ObjectLevelNot.json', $configuration);
+
+        // An empty object does not satisfy the `not` branch (required 'name' is absent), so it is valid.
+        $object = new $className([]);
+        $this->assertSame([], $object->getRawModelDataInput());
+
+        // Providing the required 'name' property satisfies the `not` branch → validation fails.
+        $this->expectValidationError($configuration, 'declined by composition constraint');
+        new $className(['name' => 'Alice']);
+    }
+
     #[DataProvider('validExtendedPropertyDataProvider')]
     public function testExtendedPropertyDefinitionWithValidValues(
         GeneratorConfiguration $configuration,

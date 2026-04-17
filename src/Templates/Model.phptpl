@@ -23,20 +23,28 @@ declare(strict_types = 1);
  * If you need to implement something in this class use inheritance. Else you will lose your changes if the classes
  * are re-generated.
  */
+{% foreach schema.getAttributes() as attribute %}
+#[{{ attribute.render() }}]
+{% endforeach %}
 class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinClassNames(schema.getInterfaces()) }}{% endif %}
 {
     {% if schema.getTraits() %}use {{ viewHelper.joinClassNames(schema.getTraits()) }};{% endif %}
 
     {% foreach schema.getProperties() as property %}
+        {% foreach property.getAttributes() as attribute %}
+            #[{{ attribute.render() }}]
+        {% endforeach %}
         /**{% if viewHelper.getTypeHintAnnotation(property, true) %} @var {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
         {% if property.isInternal() %}private{% else %}protected{% endif %} ${{ property.getAttribute(true) }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
+    #[Internal]
     /** @var array */
-    protected $_rawModelDataInput = [];
+    protected $rawModelDataInput = [];
 
     {% if generatorConfiguration.collectErrors() %}
+        #[Internal]
         /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} Collect all validation errors */
-        protected $_errorRegistry;
+        protected $errorRegistry;
     {% endif %}
 
     /**
@@ -49,7 +57,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
     public function __construct(array $rawModelDataInput = [])
     {
         {% if generatorConfiguration.collectErrors() %}
-            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
 
         {{ schemaHookResolver.resolveConstructorBeforeValidationHook() }}
@@ -65,12 +73,12 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
         {% endforeach %}
 
         {% if generatorConfiguration.collectErrors() %}
-            if (count($this->_errorRegistry->getErrors())) {
-                throw $this->_errorRegistry;
+            if (count($this->errorRegistry->getErrors())) {
+                throw $this->errorRegistry;
             }
         {% endif %}
 
-        $this->_rawModelDataInput = $rawModelDataInput;
+        $this->rawModelDataInput = $rawModelDataInput;
 
         {{ schemaHookResolver.resolveConstructorAfterValidationHook() }}
     }
@@ -97,7 +105,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
      */
     public function getRawModelDataInput(): array
     {
-        return $this->_rawModelDataInput;
+        return $this->rawModelDataInput;
     }
 
     {% foreach schema.getProperties() as property %}
@@ -140,7 +148,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
                     $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
 
                     {% if generatorConfiguration.collectErrors() %}
-                        $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+                        $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
                     {% endif %}
 
                     {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
@@ -148,13 +156,13 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
                     $value = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
 
                     {% if generatorConfiguration.collectErrors() %}
-                        if ($this->_errorRegistry->getErrors()) {
-                            throw $this->_errorRegistry;
+                        if ($this->errorRegistry->getErrors()) {
+                            throw $this->errorRegistry;
                         }
                     {% endif %}
 
                     $this->{{ property.getAttribute(true) }} = $value;
-                    $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
+                    $this->rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
 
                     {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
 

@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
+use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -42,7 +45,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue['age'] ?? null, $object->getAge());
     }
 
-    public static function additionalPropertiesDataProvider():array
+    public static function additionalPropertiesDataProvider(): array
     {
         return [
             'all properties plus additional property' => [['name' => 'test', 'age' => 24, 'additional' => 'ignored']],
@@ -61,7 +64,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame($propertyValue['age'] ?? null, $object->getAge());
     }
 
-    public static function definedPropertiesDataProvider():array
+    public static function definedPropertiesDataProvider(): array
     {
         return [
             'all properties' => [['name' => 'test', 'age' => 24]],
@@ -196,6 +199,10 @@ ERROR;
         GeneratorConfiguration $generatorConfiguration,
         array $propertyValue,
     ): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new AdditionalPropertiesAccessorPostProcessor());
+        };
+
         $className = $this->generateClassFromFile('AdditionalPropertiesObject.json', $generatorConfiguration);
 
         $object = new $className($propertyValue);
@@ -203,6 +210,15 @@ ERROR;
         $this->assertEquals($propertyValue['id'] ?? null, $object->getId());
         foreach ($propertyValue as $key => $value) {
             $this->assertSame($value, $object->getRawModelDataInput()[$key]);
+        }
+
+        // Verify JSON pointer for additional property object instances when present
+        $additionalInstance = $object->getAdditionalProperty('additional1')
+            ?? $object->getAdditionalProperty('additional2')
+            ?? null;
+        if ($additionalInstance instanceof JSONModelInterface) {
+            $this->assertClassHasJsonPointer($additionalInstance, '/additionalProperties');
+            $this->assertPropertyHasJsonPointer($additionalInstance, 'name', '/additionalProperties/properties/name');
         }
     }
 

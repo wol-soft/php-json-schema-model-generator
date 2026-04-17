@@ -4,7 +4,7 @@
 protected function serialize{{ viewHelper.ucfirst(key) }}(): array
 {
     $serialized = [];
-    foreach ($this->_patternProperties['{{ key }}'] as $propertyKey => $value) {
+    foreach ($this->patternProperties['{{ key }}'] as $propertyKey => $value) {
         $serialized[$propertyKey] = \{{ serializerClass }}::{{ serializerMethod }}($value, {{ serializerOptions }});
     }
 

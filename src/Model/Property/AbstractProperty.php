@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Attributes\AttributesTrait;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Utils\NormalizedName;
@@ -19,6 +20,7 @@ abstract class AbstractProperty implements PropertyInterface
 {
     use JsonSchemaTrait;
     use ResolvableTrait;
+    use AttributesTrait;
 
     protected string $attribute;
 
@@ -47,11 +49,11 @@ abstract class AbstractProperty implements PropertyInterface
      */
     public function getAttribute(bool $variableName = false): string
     {
-        $attribute = !$this->isInternal() && $variableName && preg_match('/^\d/', $this->attribute) === 1
-            ? 'numeric_property_' . $this->attribute
-            : $this->attribute;
+        if (!$this->isInternal() && $variableName && preg_match('/^\d/', $this->attribute) === 1) {
+            return 'numeric_property_' . $this->attribute;
+        }
 
-        return ($this->isInternal() ? '_' : '') . $attribute;
+        return $this->attribute;
     }
 
     /**

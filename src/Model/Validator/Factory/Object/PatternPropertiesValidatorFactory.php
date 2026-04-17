@@ -43,7 +43,7 @@ class PatternPropertiesValidatorFactory extends AbstractValidatorFactory
                     $schemaProcessor,
                     $schema,
                     $pattern,
-                    $propertySchema->withJson($patternSchema),
+                    $propertySchema->navigate("$this->key/" . JsonSchema::encodePointer($pattern)),
                 )
             );
         }

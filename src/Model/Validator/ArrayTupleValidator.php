@@ -47,7 +47,7 @@ class ArrayTupleValidator extends PropertyTemplateValidator
                 $schemaProcessor,
                 $schema,
                 $tupleItemName,
-                $propertiesStructure->withJson($tupleItem),
+                $propertiesStructure->navigate($tupleIndex),
                 true,
             );
 

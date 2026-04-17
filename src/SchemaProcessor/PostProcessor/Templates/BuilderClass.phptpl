@@ -19,19 +19,19 @@ declare(strict_types = 1);
 class {{ class }}Builder implements BuilderInterface
 {
     /** @var array */
-    protected $_rawModelDataInput = [];
+    protected $rawModelDataInput = [];
 
     {% if generatorConfiguration.collectErrors() %}
         /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} */
-        protected $_errorRegistry;
+        protected $errorRegistry;
     {% endif %}
 
     public function __construct(array $rawModelDataInput = [])
     {
-        $this->_rawModelDataInput = $rawModelDataInput;
+        $this->rawModelDataInput = $rawModelDataInput;
 
         {% if generatorConfiguration.collectErrors() %}
-            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
     }
 
@@ -42,7 +42,7 @@ class {{ class }}Builder implements BuilderInterface
      */
     public function getRawModelDataInput(): array
     {
-        return $this->_rawModelDataInput;
+        return $this->rawModelDataInput;
     }
 
     /**
@@ -51,7 +51,7 @@ class {{ class }}Builder implements BuilderInterface
     public function validate(): {{ class }}
     {
         $this->_array_walk_recursive_real(
-            $this->_rawModelDataInput,
+            $this->rawModelDataInput,
             function (&$property): void {
                 if ($property instanceof BuilderInterface) {
                     $property = $property->getRawModelDataInput();
@@ -59,7 +59,7 @@ class {{ class }}Builder implements BuilderInterface
             },
         );
 
-        return new {{ class }}($this->_rawModelDataInput);
+        return new {{ class }}($this->rawModelDataInput);
     }
 
     // PHPs builtin array_walk_recursive doesn't handle newly inserted arrays which we need to visit
@@ -85,7 +85,7 @@ class {{ class }}Builder implements BuilderInterface
              */
             public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(): {{ viewHelper.getType(property, false, true) }}
             {
-                return $this->_rawModelDataInput['{{ property.getName() }}'] ?? null;
+                return $this->rawModelDataInput['{{ property.getName() }}'] ?? null;
             }
 
             /**
@@ -100,8 +100,8 @@ class {{ class }}Builder implements BuilderInterface
             public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
                 {{ viewHelper.getType(property) }} ${{ property.getAttribute(true) }}
             ): static {
-                if (array_key_exists('{{ property.getName() }}', $this->_rawModelDataInput)
-                    && $this->_rawModelDataInput['{{ property.getName() }}'] === ${{ property.getAttribute(true) }}
+                if (array_key_exists('{{ property.getName() }}', $this->rawModelDataInput)
+                    && $this->rawModelDataInput['{{ property.getName() }}'] === ${{ property.getAttribute(true) }}
                 ) {
                     return $this;
                 }
@@ -113,12 +113,12 @@ class {{ class }}Builder implements BuilderInterface
                 {% endforeach %}
 
                 {% if property.getOrderedValidators() and generatorConfiguration.collectErrors() %}
-                    if ($this->_errorRegistry->getErrors()) {
-                        throw $this->_errorRegistry;
+                    if ($this->errorRegistry->getErrors()) {
+                        throw $this->errorRegistry;
                     }
                 {% endif %}
 
-                $this->_rawModelDataInput['{{ property.getName() }}'] = $value;
+                $this->rawModelDataInput['{{ property.getName() }}'] = $value;
 
                 return $this;
             }

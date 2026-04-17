@@ -281,4 +281,35 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
             'mixed string' => ['1234a'],
         ];
     }
+
+    /**
+     * An invalid minLength value in the schema (non-integer or negative) must throw
+     * SchemaException at generation time.
+     * Covers SimplePropertyValidatorFactory::hasValidValue throwing SchemaException.
+     */
+    #[DataProvider('invalidMinLengthValueDataProvider')]
+    public function testInvalidMinLengthValueThrowsSchemaException(mixed $minLength): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches('/Invalid minLength .* for property/');
+
+        $this->generateClass(
+            json_encode([
+                'type' => 'object',
+                'properties' => [
+                    'name' => ['type' => 'string', 'minLength' => $minLength],
+                ],
+            ]),
+        );
+    }
+
+    public static function invalidMinLengthValueDataProvider(): array
+    {
+        return [
+            'float'        => [1.5],
+            'negative int' => [-1],
+            'string value' => ['two'],
+            'boolean true' => [true],
+        ];
+    }
 }
