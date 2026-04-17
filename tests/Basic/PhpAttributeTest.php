@@ -73,17 +73,25 @@ class PhpAttributeTest extends AbstractPHPModelGeneratorTestCase
 
     public function testBuiltinAttributes(): void
     {
-        $object = $this->generateClassFromFile(
-            'BasicSchema.json',
-            (new GeneratorConfiguration())
-                ->disableAttributes(
-                    PhpAttribute::SCHEMA_NAME
-                    | PhpAttribute::DEPRECATED
+        $configuration = (new GeneratorConfiguration())
+            ->disableAttributes(
+                PhpAttribute::SCHEMA_NAME
                     | PhpAttribute::READ_WRITE_ONLY
-                    | PhpAttribute::REQUIRED
-                )
-                ->enableAttributes(PhpAttribute::JSON_SCHEMA | PhpAttribute::SOURCE),
+                    | PhpAttribute::REQUIRED,
+            )
+            ->enableAttributes(PhpAttribute::JSON_SCHEMA);
+
+        $this->assertSame(
+            PhpAttribute::JSON_SCHEMA
+                | PhpAttribute::DEPRECATED
+                | PhpAttribute::SCHEMA_NAME
+                | PhpAttribute::JSON_POINTER,
+            $configuration->getEnabledAttributes(),
         );
+
+        $configuration->setEnabledAttributes(PhpAttribute::JSON_SCHEMA | PhpAttribute::SOURCE);
+
+        $object = $this->generateClassFromFile('BasicSchema.json', $configuration);
 
         $classAttributes = new ReflectionClass($object)->getAttributes();
         $this->assertCount(3, $classAttributes);
