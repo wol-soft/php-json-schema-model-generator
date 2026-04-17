@@ -207,7 +207,9 @@ class PropertyFactory
     }
 
     /**
-     * Construct a Property with the common required/readOnly setup.
+     * Construct a Property with the common required/readOnly/writeOnly setup.
+     *
+     * @throws SchemaException
      */
     private function buildProperty(
         SchemaProcessor $schemaProcessor,
@@ -218,12 +220,31 @@ class PropertyFactory
     ): Property {
         $json = $propertySchema->getJson();
 
+        $isSchemaReadOnly = isset($json['readOnly']) && $json['readOnly'] === true;
+        $isWriteOnly = isset($json['writeOnly']) && $json['writeOnly'] === true;
+
+        if ($isSchemaReadOnly && $isWriteOnly) {
+            throw new SchemaException(
+                sprintf(
+                    "Property '%s' in file '%s' cannot be both readOnly and writeOnly",
+                    $propertyName,
+                    $propertySchema->getFile(),
+                ),
+            );
+        }
+
         $property = (new Property($propertyName, $type, $propertySchema, $json['description'] ?? ''))
             ->setRequired($required)
-            ->setReadOnly(
-                (isset($json['readOnly']) && $json['readOnly'] === true) ||
-                $schemaProcessor->getGeneratorConfiguration()->isImmutable(),
-            );
+            ->setReadOnly($isSchemaReadOnly || $schemaProcessor->getGeneratorConfiguration()->isImmutable())
+            ->setWriteOnly($isWriteOnly);
+
+        if (isset($json['$comment'])) {
+            $property->setComment($json['$comment']);
+        }
+
+        if (isset($json['examples']) && is_array($json['examples'])) {
+            $property->setExamples($json['examples']);
+        }
 
         if ($required && !str_starts_with($propertyName, 'item of array ')) {
             $property->addValidator(new RequiredPropertyValidator($property), 1);

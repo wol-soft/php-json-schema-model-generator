@@ -12,7 +12,15 @@ use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
+use PHPModelGenerator\Format\FormatValidatorFromRegEx;
 use PHPModelGenerator\Format\FormatValidatorInterface;
+use PHPModelGenerator\Format\IriFormatValidator;
+use PHPModelGenerator\Format\IriReferenceFormatValidator;
+use PHPModelGenerator\Format\Ipv6FormatValidator;
+use PHPModelGenerator\Format\RegexFormatValidator;
+use PHPModelGenerator\Format\UriFormatValidator;
+use PHPModelGenerator\Format\UriReferenceFormatValidator;
+use PHPModelGenerator\Format\UriTemplateFormatValidator;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
@@ -307,8 +315,79 @@ class GeneratorConfiguration
         return $this;
     }
 
-    // TODO: add builtin format validators
     private function initFormatValidator(): void
     {
+        // RFC 3339 date-time: YYYY-MM-DDTHH:MM:SS with optional fractional seconds and timezone
+        $this->addFormat(
+            'date-time',
+            new FormatValidatorFromRegEx(
+                '/^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+\-]\d{2}:\d{2})$/',
+            ),
+        );
+
+        // RFC 3339 full-date: YYYY-MM-DD
+        $this->addFormat(
+            'date',
+            new FormatValidatorFromRegEx('/^\d{4}-\d{2}-\d{2}$/'),
+        );
+
+        // RFC 3339 full-time: HH:MM:SS with optional fractional seconds and timezone
+        $this->addFormat(
+            'time',
+            new FormatValidatorFromRegEx(
+                '/^\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+\-]\d{2}:\d{2})$/',
+            ),
+        );
+
+        // RFC 5322 email address (simplified)
+        $this->addFormat(
+            'email',
+            new FormatValidatorFromRegEx('/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/'),
+        );
+
+        // idn-email: internationalized email — same simplified check allowing unicode
+        $this->addFormat(
+            'idn-email',
+            new FormatValidatorFromRegEx('/^[^\s@]+@[^\s@]+\.[^\s@]+$/u'),
+        );
+
+        // RFC 1123 hostname
+        $hostnamePattern = '/^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)*'
+            . '[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$/';
+        $this->addFormat('hostname', new FormatValidatorFromRegEx($hostnamePattern));
+
+        // idn-hostname: internationalized hostname — allow unicode labels
+        $idnHostnamePattern = '/^(?:[a-zA-Z0-9\pL](?:[a-zA-Z0-9\pL\-]{0,61}[a-zA-Z0-9\pL])?\.)*'
+            . '[a-zA-Z0-9\pL](?:[a-zA-Z0-9\pL\-]{0,61}[a-zA-Z0-9\pL])?$/u';
+        $this->addFormat('idn-hostname', new FormatValidatorFromRegEx($idnHostnamePattern));
+
+        // IPv4 address
+        $this->addFormat(
+            'ipv4',
+            new FormatValidatorFromRegEx(
+                '/^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$/',
+            ),
+        );
+
+        // RFC 6901 JSON Pointer
+        $this->addFormat(
+            'json-pointer',
+            new FormatValidatorFromRegEx('/^(\/([^~]|~[01])*)*$/'),
+        );
+
+        // JSON Schema relative JSON pointer: optional integer prefix + JSON pointer
+        $this->addFormat(
+            'relative-json-pointer',
+            new FormatValidatorFromRegEx('/^\d+(\/([^~]|~[01])*)*$|^\d+#$/'),
+        );
+
+        // Class-based validators from the production package
+        $this->addFormat('ipv6', new Ipv6FormatValidator());
+        $this->addFormat('uri', new UriFormatValidator());
+        $this->addFormat('uri-reference', new UriReferenceFormatValidator());
+        $this->addFormat('uri-template', new UriTemplateFormatValidator());
+        $this->addFormat('iri', new IriFormatValidator());
+        $this->addFormat('iri-reference', new IriReferenceFormatValidator());
+        $this->addFormat('regex', new RegexFormatValidator());
     }
 }

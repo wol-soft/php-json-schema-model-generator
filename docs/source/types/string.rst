@@ -148,7 +148,50 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\String\\FormatExce
 Builtin formats
 ^^^^^^^^^^^^^^^
 
-Currently no builtin formats are available.
+The following JSON Schema Draft 7 formats are supported out of the box and require no additional configuration:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Format keyword
+     - Description
+   * - ``date-time``
+     - RFC 3339 date-time (e.g. ``2023-06-15T10:30:00Z``)
+   * - ``date``
+     - RFC 3339 full-date (e.g. ``2023-06-15``)
+   * - ``time``
+     - RFC 3339 full-time with timezone (e.g. ``10:30:00Z``)
+   * - ``email``
+     - RFC 5322 e-mail address (simplified)
+   * - ``idn-email``
+     - Internationalized e-mail address
+   * - ``hostname``
+     - RFC 1123 Internet host name
+   * - ``idn-hostname``
+     - Internationalized host name
+   * - ``ipv4``
+     - IPv4 address (dotted-decimal notation)
+   * - ``ipv6``
+     - IPv6 address
+   * - ``uri``
+     - RFC 3986 absolute URI (scheme required)
+   * - ``uri-reference``
+     - RFC 3986 URI-reference (absolute or relative)
+   * - ``uri-template``
+     - RFC 6570 URI template
+   * - ``iri``
+     - RFC 3987 absolute IRI (URI extended with Unicode)
+   * - ``iri-reference``
+     - RFC 3987 IRI-reference
+   * - ``json-pointer``
+     - RFC 6901 JSON Pointer (e.g. ``/foo/bar``)
+   * - ``relative-json-pointer``
+     - Relative JSON Pointer (e.g. ``1/foo``)
+   * - ``regex``
+     - PCRE-compatible regular expression
+
+Built-in formats can be overridden by calling ``addFormat`` with the same key on the ``GeneratorConfiguration``.
 
 Custom formats
 ^^^^^^^^^^^^^^

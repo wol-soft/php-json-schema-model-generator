@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "secret": {
+      "type": "string",
+      "writeOnly": true
+    }
+  },
+  "required": [
+    "secret"
+  ]
+}
