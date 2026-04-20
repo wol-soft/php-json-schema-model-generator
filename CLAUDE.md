@@ -189,6 +189,9 @@ a wrapper class here.
 After finishing an implementation task, always stage all relevant changed files for commit using
 `git add`. Do not wait for the user to ask — stage immediately when the work is done.
 
+Never add `.claude/` files (issues, topics, memory, etc.) to git unless the user explicitly asks.
+These are working notes for the session and must not appear in commits.
+
 ### Reading files
 
 Always use the dedicated `Read` tool to read file contents. Never use `sed`, `head`, `tail`, `cat`, or `awk` to read or extract portions of files. The `Read` tool supports `offset` and `limit` parameters for reading partial files when needed.
