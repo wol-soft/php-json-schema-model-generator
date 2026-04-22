@@ -1588,4 +1588,134 @@ ERROR,);
     {
         return (string) $value;
     }
+
+    // -------------------------------------------------------------------------
+    // Phase 2 — Static rejection of unresolvable compositions
+    // -------------------------------------------------------------------------
+
+    /** @return array<string, array{string, string}> */
+    public static function rejectedCompositionProvider(): array
+    {
+        return [
+            'allOf with Mixed branch' => [
+                'FilterCompositionAllOfMixedBranch.json',
+                '/Composition allOf under property filteredProperty.*branch #0 spans both input and output type-spaces/',
+            ],
+            'anyOf with cross-space branches' => [
+                'FilterCompositionAnyOfCrossSpace.json',
+                '/Composition anyOf under property filteredProperty.*branch #0 constrains input type-space but branch #1 constrains output type-space/',
+            ],
+            'oneOf with cross-space branches' => [
+                'FilterCompositionOneOfCrossSpace.json',
+                '/Composition oneOf under property filteredProperty.*branch #0 constrains input type-space but branch #1 constrains output type-space/',
+            ],
+            'not with Mixed inner schema' => [
+                'FilterCompositionNotMixed.json',
+                '/Composition not under property filteredProperty.*inner schema spans both input and output type-spaces/',
+            ],
+            'if\/then with cross-space sub-schemas' => [
+                'FilterCompositionIfThenElseCrossSpace.json',
+                '/Composition if\/then\/else under property filteredProperty.*sub-schemas span different type-spaces/',
+            ],
+            'filter inside allOf branch (with outer filter)' => [
+                'FilterCompositionFilterInBranch.json',
+                '/A filter keyword inside a allOf composition branch is not supported for property filteredProperty.*branch #0/',
+            ],
+            'filter inside allOf branch (no outer filter)' => [
+                'FilterCompositionFilterInBranchNoOuterFilter.json',
+                '/A filter keyword inside a allOf composition branch is not supported for property filteredProperty.*branch #0/',
+            ],
+            'root-level allOf constrains filtered subproperty with output-type constraint' => [
+                'FilterCompositionRootConstrainsFilteredSubproperty.json',
+                '/Composition allOf.*constrains filtered subproperty filteredProperty.*branch #0.*output-type-space/',
+            ],
+        ];
+    }
+
+    #[DataProvider('rejectedCompositionProvider')]
+    public function testUnresolvableCompositionOnTransformingFilterPropertyThrowsSchemaException(
+        string $schemaFile,
+        string $expectedMessagePattern,
+    ): void {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches($expectedMessagePattern);
+
+        $this->generateClassFromFile($schemaFile);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function acceptedCompositionProvider(): array
+    {
+        return [
+            'allOf with input-only branches'                         => ['FilterCompositionAllOfInputOnly.json'],
+            'allOf with output-only branches'                        => ['FilterCompositionAllOfOutputOnly.json'],
+            'anyOf with input-only branches'                         => ['FilterCompositionAnyOfInputOnly.json'],
+            'oneOf with input-only branches'                         => ['FilterCompositionOneOfInputOnly.json'],
+            'if/then/else input-only branches'                       => ['FilterCompositionIfThenElseInputOnly.json'],
+            'root-level allOf branch: filter in inherited-object branch property' =>
+                ['FilterCompositionRootBranchWithFilterInProperty.json'],
+        ];
+    }
+
+    #[DataProvider('acceptedCompositionProvider')]
+    public function testCompatibleCompositionOnTransformingFilterPropertyGeneratesSuccessfully(
+        string $schemaFile,
+    ): void {
+        // Should not throw — generation must succeed for compatible compositions.
+        $this->generateClassFromFile($schemaFile);
+        $this->addToAssertionCount(1);
+    }
+
+    /**
+     * FC-A1: A transforming filter whose callable accepts mixed (empty accepted types) applied
+     * to a property that gets its type from an allOf sibling branch.
+     *
+     * At filter-processing time the property has no type yet (type comes later via the allOf
+     * resolution), so FilterProcessor skips applyOutputType. After composition is resolved the
+     * TransformingFilterOutputTypePostProcessor sets the output type.
+     *
+     * Covers TransformingFilterOutputTypePostProcessor lines 110–111
+     * ($bypassNames = []; $bypassNullable = false; when accepted types are empty) and lines
+     * 146–156 ($property->setType(...) when the post-processor must compute the output type).
+     */
+    public function testAllOfPropertyWithMixedAcceptTransformingFilter(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AllOfPropertyWithMixedAcceptTransformingFilter.json',
+            (new GeneratorConfiguration())
+                ->setCollectErrors(false)
+                ->setImmutable(false)
+                ->addFilter(
+                    $this->getCustomTransformingFilter(
+                        [self::class, 'serializeMixedToDateTime'],
+                        [self::class, 'filterMixedToDateTime'],
+                        'mixedAcceptDateTimeFilter',
+                    ),
+                ),
+        );
+
+        // Generation succeeds. The post-processor set the output type to DateTime for this
+        // property (lines 146–156). Verify via reflection that the setter's type hint includes
+        // DateTime (confirming the output type was wired correctly).
+        $reflection = new ReflectionClass($className);
+        $setterParam = $reflection->getMethod('setFilteredProperty')->getParameters()[0];
+        $this->assertStringContainsString('DateTime', (string) $setterParam->getType());
+    }
+
+    /**
+     * Transforming filter callable that accepts mixed and returns DateTime.
+     * Used for FC-A1.
+     */
+    public static function filterMixedToDateTime(mixed $value): DateTime
+    {
+        return new DateTime((string) $value);
+    }
+
+    /**
+     * Serializer for filterMixedToDateTime.
+     */
+    public static function serializeMixedToDateTime(DateTime $value): string
+    {
+        return $value->format(DATE_ATOM);
+    }
 }

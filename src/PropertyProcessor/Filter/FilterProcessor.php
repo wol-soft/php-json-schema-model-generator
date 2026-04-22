@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
 use Exception;
+use PHPModelGenerator\Draft\Draft;
+use PHPModelGenerator\Draft\DraftFactoryInterface;
+use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Filter\ValidateOptionsInterface;
@@ -47,6 +50,7 @@ class FilterProcessor
     }
 
     /**
+     * @throws InvalidFilterException
      * @throws ReflectionException
      * @throws SchemaException
      */
@@ -128,6 +132,13 @@ class FilterProcessor
 
             if ($isTransformingFilter) {
                 $returnTypeNames = FilterReflection::getReturnTypeNames($filter, $property);
+
+                $inputTypeNames = FilterReflection::getAcceptedTypes($filter, $property);
+                $builtDraft = $this->resolveBuiltDraft($generatorConfiguration, $property);
+                $classifier = new CompositionBranchClassifier($builtDraft, $inputTypeNames, $returnTypeNames);
+                $checker = new CompositionCompatibilityChecker($classifier, $property);
+                $checker->checkTransformingFilterCompositionConflicts($property->getJsonSchema()->getJson());
+                $checker->checkTransformingFilterRootCompositionConflicts($schema->getJsonSchema()->getJson());
 
                 if (!empty($returnTypeNames)) {
                     // Wire pass-through checks on pre-transforming FilterValidators/EnumValidators
@@ -264,6 +275,25 @@ class FilterProcessor
                 2,
             );
         }
+    }
+
+    /**
+     * Build and return the Draft instance for the given property's schema.
+     *
+     * Resolves DraftFactoryInterface vs DraftInterface from the GeneratorConfiguration
+     * and builds the immutable Draft registry.
+     */
+    private function resolveBuiltDraft(
+        GeneratorConfiguration $generatorConfiguration,
+        PropertyInterface $property,
+    ): Draft {
+        $configDraft = $generatorConfiguration->getDraft();
+
+        $draftInterface = $configDraft instanceof DraftFactoryInterface
+            ? $configDraft->getDraftForSchema($property->getJsonSchema())
+            : $configDraft;
+
+        return $draftInterface->getDefinition()->build();
     }
 
     /**
