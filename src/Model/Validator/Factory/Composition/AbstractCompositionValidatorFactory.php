@@ -18,6 +18,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
+use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
@@ -68,6 +69,63 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     {
         return !($property instanceof BaseProperty)
             && ($propertySchema->getJson()['type'] ?? '') === 'object';
+    }
+
+    /**
+     * Check the (post-type-inheritance) composition branches for filter keywords.
+     *
+     * Must be called AFTER inheritPropertyType() in each modify() method. A branch that
+     * inherits "object" from the parent is genuinely object-typed: PropertyFactory routes
+     * it through processSchema, producing a nested class whose properties are processed
+     * independently and are not subject to ComposedItem $value reset. branchContainsFilter()
+     * correctly skips the properties scan for such branches.
+     *
+     * For "not", the value is a single branch schema (not an array); all other keywords
+     * use an array of branches.
+     *
+     * TODO: R-7 — filters inside composition branches cannot be correctly applied
+     * (ComposedItem.phptpl resets $value to $originalModelData after each branch).
+     * Proper per-branch filter chaining is deferred to a follow-up topic.
+     *
+     * @throws SchemaException
+     */
+    protected function checkForFilterInBranches(
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): void {
+        $json = $propertySchema->getJson();
+
+        if ($this->key === 'not') {
+            $branch = $json['not'] ?? null;
+            if (
+                is_array($branch)
+                && CompositionCompatibilityChecker::branchContainsFilter($branch)
+            ) {
+                throw new SchemaException(sprintf(
+                    'A filter keyword inside a not composition branch is not supported'
+                        . ' for property %s in file %s.',
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile(),
+                ));
+            }
+            return;
+        }
+
+        foreach ($json[$this->key] ?? [] as $index => $compositionElement) {
+            if (
+                is_array($compositionElement)
+                && CompositionCompatibilityChecker::branchContainsFilter($compositionElement)
+            ) {
+                throw new SchemaException(sprintf(
+                    'A filter keyword inside a %s composition branch is not supported'
+                        . ' for property %s in file %s (branch #%d).',
+                    $this->key,
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile(),
+                    $index,
+                ));
+            }
+        }
     }
 
     /**

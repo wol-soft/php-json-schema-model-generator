@@ -16,6 +16,7 @@ use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
+use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -55,8 +56,32 @@ class IfValidatorFactory
             return;
         }
 
+        // Inherit the parent type into if/then/else sub-schemas before the filter check so
+        // that sub-schemas that inherit 'object' are correctly recognised as object-typed.
+        // Object-typed sub-schemas create nested schemas whose properties are processed
+        // independently and are not subject to ComposedItem $value reset (R-7).
         $propertySchema = $this->inheritPropertyType($propertySchema->withJson($json));
         $json = $propertySchema->getJson();
+
+        // Check for filter keywords in if/then/else sub-schemas after type inheritance.
+        // TODO: R-7 — filters inside if/then/else sub-schemas cannot be correctly applied
+        // (ComposedItem.phptpl resets $value to $originalModelData after each branch).
+        // Proper per-branch filter chaining is deferred to a follow-up topic.
+        foreach (['if', 'then', 'else'] as $keyword) {
+            if (
+                isset($json[$keyword])
+                && is_array($json[$keyword])
+                && CompositionCompatibilityChecker::branchContainsFilter($json[$keyword])
+            ) {
+                throw new SchemaException(sprintf(
+                    'A filter keyword inside an if/then/else composition branch is not supported'
+                        . ' for property %s in file %s (%s sub-schema).',
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile(),
+                    $keyword,
+                ));
+            }
+        }
 
         $propertyFactory = new PropertyFactory();
 

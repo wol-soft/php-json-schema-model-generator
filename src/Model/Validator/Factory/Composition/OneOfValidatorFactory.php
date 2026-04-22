@@ -38,6 +38,7 @@ class OneOfValidatorFactory
 
         $this->warnIfEmpty($schemaProcessor, $property, $propertySchema);
         $propertySchema = $this->inheritPropertyType($propertySchema);
+        $this->checkForFilterInBranches($property, $propertySchema);
 
         $onlyForDefinedValues = !($property instanceof BaseProperty)
             && (!$property->isRequired()

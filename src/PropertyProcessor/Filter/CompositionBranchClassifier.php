@@ -29,7 +29,7 @@ class CompositionBranchClassifier
      * JSON Schema composition keywords that may contain nested branch schemas.
      * Each is classified recursively rather than via the Draft type registry.
      */
-    private const NESTED_COMPOSITION_KEYWORDS = ['allOf', 'anyOf', 'oneOf', 'not'];
+    private const array NESTED_COMPOSITION_KEYWORDS = ['allOf', 'anyOf', 'oneOf', 'not'];
 
     /**
      * @param Draft    $draft       The active Draft instance used to resolve keyword type-spaces.

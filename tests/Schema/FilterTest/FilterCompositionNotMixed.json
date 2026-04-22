@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "filter": "dateTime",
+      "not": {
+        "minLength": 5,
+        "minProperties": 1
+      }
+    }
+  }
+}
