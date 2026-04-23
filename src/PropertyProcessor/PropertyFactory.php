@@ -15,6 +15,7 @@ use Exception;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
+use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
@@ -439,7 +440,11 @@ class PropertyFactory
                         continue;
                     }
 
-                    $property->addValidator($validator, $validatorContainer->getPriority());
+                    $property->addValidator(
+                        $validator,
+                        $validatorContainer->getPriority(),
+                        $validatorContainer->getSourceKey(),
+                    );
                 }
 
                 if ($subProperty->getDecorators()) {
@@ -598,7 +603,21 @@ class PropertyFactory
             }
 
             foreach ($coveredType->getModifiers() as $modifier) {
+                $countBefore = count($property->getValidators());
                 $modifier->modify($schemaProcessor, $schema, $property, $propertySchema);
+
+                // Tag every validator that was just added by this modifier with its schema
+                // keyword so FilterProcessor can later classify each validator as
+                // input-space or output-space relative to a transforming filter.
+                // This must cover all Draft-registered validators — not only those known
+                // to interact with filters today — because a custom Draft may register
+                // any validator factory under any type, and the classification must work
+                // without enumerating individual keywords.
+                if ($modifier instanceof AbstractValidatorFactory && ($modifierKey = $modifier->getKey()) !== null) {
+                    foreach (array_slice($property->getValidators(), $countBefore) as $validatorWrapper) {
+                        $validatorWrapper->setSourceKey($modifierKey);
+                    }
+                }
             }
         }
     }

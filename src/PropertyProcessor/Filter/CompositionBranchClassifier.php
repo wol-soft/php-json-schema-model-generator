@@ -45,6 +45,28 @@ class CompositionBranchClassifier
     ) {}
 
     /**
+     * Classify a single schema keyword by looking up which Draft-registered types carry it
+     * and mapping those types onto the filter's input / output type-spaces.
+     *
+     * Composition and structural keywords ('type', 'allOf', 'anyOf', 'oneOf', 'not') are not
+     * handled here — call classify() for full branch analysis.  Returns TypeSpace::Empty for
+     * keywords registered only on the 'any' pseudo-type (e.g. 'enum', 'filter') or for
+     * keywords not registered at all (e.g. '$schema', 'description').
+     */
+    public function classifySchemaKey(string $key): TypeSpace
+    {
+        $phpTypeNames = array_values(array_filter(
+            array_map(
+                static fn(string $draftType): string => TypeConverter::jsonSchemaToPHP($draftType),
+                $this->draft->getTypesForKeyword($key),
+            ),
+            static fn(string $type): bool => $type !== 'any',
+        ));
+
+        return empty($phpTypeNames) ? TypeSpace::Empty : $this->resolveTypeSpace($phpTypeNames);
+    }
+
+    /**
      * Classify a single composition branch schema.
      *
      * @param array<string, mixed> $branchSchema Decoded JSON object for one branch.

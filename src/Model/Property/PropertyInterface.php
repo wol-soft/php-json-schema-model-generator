@@ -71,8 +71,17 @@ interface PropertyInterface extends ResolvableInterface
      * Priority 10+: Filter validators
      * Priority 99:  Default priority used for casual validators
      * Priority 100: Validators for compositions
+     *
+     * The optional $sourceKey records which schema keyword (e.g. 'pattern', 'minimum')
+     * caused this validator to be added.  Normally set automatically by PropertyFactory
+     * after each Draft modifier runs; pass it explicitly only when transferring a validator
+     * from another property (e.g. multi-type sub-property transfer).
      */
-    public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): PropertyInterface;
+    public function addValidator(
+        PropertyValidatorInterface $validator,
+        int $priority = 99,
+        ?string $sourceKey = null,
+    ): PropertyInterface;
 
     /**
      * @return Validator[]
