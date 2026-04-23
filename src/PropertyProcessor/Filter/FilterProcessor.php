@@ -16,6 +16,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\AbstractPropertyValidator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
@@ -128,9 +129,10 @@ class FilterProcessor
 
             // $transformingFilter is still null here when the current filter IS the transforming
             // filter — FilterValidator correctly receives null (no previous transforming filter).
+            $actualFilterPriority = $filterPriority++;
             $property->addValidator(
                 new FilterValidator($generatorConfiguration, $filter, $property, $filterOptions, $transformingFilter),
-                $filterPriority++,
+                $actualFilterPriority,
             );
 
             if ($isTransformingFilter) {
@@ -142,6 +144,8 @@ class FilterProcessor
                 $checker = new CompositionCompatibilityChecker($classifier, $property);
                 $checker->checkTransformingFilterCompositionConflicts($property->getJsonSchema()->getJson());
                 $checker->checkTransformingFilterRootCompositionConflicts($schema->getJsonSchema()->getJson());
+
+                $this->reassignValidatorPriorities($property, $actualFilterPriority, $classifier);
 
                 if (!empty($returnTypeNames)) {
                     // Wire pass-through checks on pre-transforming FilterValidators/EnumValidators
@@ -172,6 +176,65 @@ class FilterProcessor
 
                 $transformingFilter = $filter;
             }
+        }
+    }
+
+    /**
+     * After identifying a transforming filter at priority P, scan all existing validators
+     * on the property and adjust their run order:
+     *
+     * - Validators with a source key whose Draft-registered types are a subset of the
+     *   filter's output type-space → leave at their current priority (post-transform).
+     * - All other validators with a source key (input-space, mixed, ambiguous) that are
+     *   currently scheduled to run after the filter → move to just before the filter (P-1),
+     *   so they execute against the raw input value.
+     * - Validators without a source key (type-check, required, non-transforming filters)
+     *   are untouched regardless of their priority.
+     * - Composition validators (AbstractComposedPropertyValidator) are left for Phase 4,
+     *   which will split them into pre- and post-transform blocks.
+     *
+     * @param int $filterPriority The actual priority at which the transforming filter was added.
+     */
+    private function reassignValidatorPriorities(
+        PropertyInterface $property,
+        int $filterPriority,
+        CompositionBranchClassifier $classifier,
+    ): void {
+        foreach ($property->getValidators() as $validatorContainer) {
+            // Validators already scheduled before the filter need no adjustment.
+            if ($validatorContainer->getPriority() < $filterPriority) {
+                continue;
+            }
+
+            // Skip the filter validators themselves.
+            if (is_a($validatorContainer->getValidator(), FilterValidator::class)) {
+                continue;
+            }
+
+            // Composition validators are handled in Phase 4.
+            if (is_a($validatorContainer->getValidator(), AbstractComposedPropertyValidator::class)) {
+                continue;
+            }
+
+            $sourceKey = $validatorContainer->getSourceKey();
+            if ($sourceKey === null) {
+                // No source key: validator was not produced by a Draft AbstractValidatorFactory
+                // (e.g. PassThroughTypeCheckValidator from addTransformedValuePassThrough).
+                // Leave at its current position.
+                continue;
+            }
+
+            $typeSpace = $classifier->classifySchemaKey($sourceKey);
+
+            // Pure output-space validators (e.g. 'minimum' for a string→int filter) are
+            // correct where they are: they must validate the transformed value.
+            if ($typeSpace === TypeSpace::Output) {
+                continue;
+            }
+
+            // Input-space, mixed, and ambiguous validators must run before the filter
+            // so they validate the raw input value.
+            $validatorContainer->setPriority($filterPriority - 1);
         }
     }
 

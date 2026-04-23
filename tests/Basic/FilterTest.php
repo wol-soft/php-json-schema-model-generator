@@ -10,7 +10,9 @@ use ReflectionClass;
 use RuntimeException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
+use PHPModelGenerator\Exception\Number\MinimumException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\String\PatternException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
@@ -260,7 +262,10 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
     {
         return [
             'simple notation without options' => ['"encode"', 'Missing charset configuration'],
-            'object notation without charset configuration' => ['{"filter": "encode"}', 'Missing charset configuration'],
+            'object notation without charset configuration' => [
+                '{"filter": "encode"}',
+                'Missing charset configuration',
+            ],
             'Invalid charset configuration' => ['{"filter": "encode", "charset": 1}', 'Unsupported charset'],
             'Invalid charset configuration 2' => ['{"filter": "encode", "charset": "UTF-16"}', 'Unsupported charset'],
         ];
@@ -365,7 +370,9 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
         array $customFilter = [],
         string $token = 'customTransformingFilter',
     ): TransformingFilterInterface {
-        return new class ($customSerializer, $customFilter, $token) extends TrimFilter implements TransformingFilterInterface
+        return new class ($customSerializer, $customFilter, $token)
+            extends TrimFilter
+            implements TransformingFilterInterface
         {
             public function __construct(
                 private readonly array $customSerializer,
@@ -1650,19 +1657,21 @@ ERROR,);
         return [
             'allOf with Mixed branch' => [
                 'FilterCompositionAllOfMixedBranch.json',
-                '/Composition allOf under property filteredProperty.*branch #0 spans both input and output type-spaces/',
+                '/Composition allOf under property filteredProperty.*branch #0 spans both input and output type-spaces/', // phpcs:ignore Generic.Files.LineLength.TooLong
             ],
             'anyOf with cross-space branches' => [
                 'FilterCompositionAnyOfCrossSpace.json',
-                '/Composition anyOf under property filteredProperty.*branch #0 constrains input type-space but branch #1 constrains output type-space/',
+                '/Composition anyOf under property filteredProperty'
+                    . '.*branch #0 constrains input type-space but branch #1 constrains output type-space/',
             ],
             'oneOf with cross-space branches' => [
                 'FilterCompositionOneOfCrossSpace.json',
-                '/Composition oneOf under property filteredProperty.*branch #0 constrains input type-space but branch #1 constrains output type-space/',
+                '/Composition oneOf under property filteredProperty'
+                    . '.*branch #0 constrains input type-space but branch #1 constrains output type-space/',
             ],
             'not with Mixed inner schema' => [
                 'FilterCompositionNotMixed.json',
-                '/Composition not under property filteredProperty.*inner schema spans both input and output type-spaces/',
+                '/Composition not under property filteredProperty.*inner schema spans both input and output type-spaces/', // phpcs:ignore Generic.Files.LineLength.TooLong
             ],
             'if\/then with cross-space sub-schemas' => [
                 'FilterCompositionIfThenElseCrossSpace.json',
@@ -1670,11 +1679,13 @@ ERROR,);
             ],
             'filter inside allOf branch (with outer filter)' => [
                 'FilterCompositionFilterInBranch.json',
-                '/A filter keyword inside a allOf composition branch is not supported for property filteredProperty.*branch #0/',
+                '/A filter keyword inside a allOf composition branch is not supported'
+                    . ' for property filteredProperty.*branch #0/',
             ],
             'filter inside allOf branch (no outer filter)' => [
                 'FilterCompositionFilterInBranchNoOuterFilter.json',
-                '/A filter keyword inside a allOf composition branch is not supported for property filteredProperty.*branch #0/',
+                '/A filter keyword inside a allOf composition branch is not supported'
+                    . ' for property filteredProperty.*branch #0/',
             ],
             'root-level allOf constrains filtered subproperty with output-type constraint' => [
                 'FilterCompositionRootConstrainsFilteredSubproperty.json',
@@ -1760,5 +1771,108 @@ ERROR,);
     public static function serializeMixedToDateTime(DateTime $value): string
     {
         return $value->format(DATE_ATOM);
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase 3: validator priority reassignment around transforming filters
+    // -------------------------------------------------------------------------
+
+    /**
+     * Phase 3 core test: with a string→int transforming filter, schema validators that are
+     * registered for input types (pattern → string-space) must run PRE-transform, while
+     * validators registered for output types (minimum → int-space) must run POST-transform.
+     *
+     * Schema: { type: [string, integer], filter: stringToInt, pattern: "^\d+$", minimum: 0 }
+     *
+     * Pre-transform proof: "hello" filtered by (int)cast becomes 0 — a value that would pass
+     * both pattern (is_string(0) == false, so silently skipped) and minimum (0 >= 0) if the
+     * validator ran post-transform.  With the fixed ordering, pattern runs against the raw
+     * string "hello" and correctly fails.
+     *
+     * Post-transform proof: -5 passed as an already-transformed integer skips the pre-transform
+     * pipeline and goes straight to minimum, which catches the negative value.
+     */
+    public function testValidatorPriorityReassignmentAroundTransformingFilter(): void
+    {
+        $configuration = (new GeneratorConfiguration())
+            ->setCollectErrors(false)
+            ->setImmutable(false)
+            ->addFilter($this->getCustomTransformingFilter(
+                [self::class, 'serializeIntToString'],
+                [self::class, 'convertStringToInt'],
+                'stringToInt',
+            ));
+
+        $className = $this->generateClassFromFile(
+            'ValidatorPriorityWithTransformingFilter.json',
+            $configuration,
+        );
+
+        // "hello" casts to 0, which would pass both validators post-transform.
+        // The fixed ordering makes pattern catch it against the raw string.
+        try {
+            new $className(['value' => 'hello']);
+            $this->fail('Expected PatternException for input "hello"');
+        } catch (PatternException $patternException) {
+            $this->assertStringContainsString("doesn't match pattern", $patternException->getMessage());
+        }
+
+        // "-5" would silently become -5 post-transform, causing MinimumException instead.
+        // The fixed ordering catches it at pattern (pre-transform) because "-5" ∉ \d+.
+        try {
+            new $className(['value' => '-5']);
+            $this->fail('Expected PatternException for input "-5"');
+        } catch (PatternException $patternException) {
+            $this->assertStringContainsString("doesn't match pattern", $patternException->getMessage());
+        }
+
+        // Valid string input: pattern passes, filter transforms to 42, minimum passes.
+        $object = new $className(['value' => '42']);
+        $this->assertSame(42, $object->getValue());
+
+        // Already-transformed int that satisfies minimum: skips pre-transform pipeline.
+        $object = new $className(['value' => 42]);
+        $this->assertSame(42, $object->getValue());
+
+        // Already-transformed int that fails minimum: minimum runs post-transform.
+        try {
+            new $className(['value' => -5]);
+            $this->fail('Expected MinimumException for input -5');
+        } catch (MinimumException $minimumException) {
+            $this->assertStringContainsString('must not be smaller than 0', $minimumException->getMessage());
+        }
+    }
+
+    /**
+     * Phase 3 regression guard: a non-transforming filter must not trigger any priority
+     * reassignment.  The existing TrimAsStringWithLengthValidation schema exercises this by
+     * verifying that minLength validates the *trimmed* value (i.e. the validator runs after
+     * trim, not before it).  Re-running that assertion here makes the regression explicit.
+     */
+    public function testNonTransformingFilterDoesNotTriggerPriorityReassignment(): void
+    {
+        $className = $this->generateClassFromFile('TrimAsStringWithLengthValidation.json');
+
+        // "  AB \n" trims to "AB" (length 2) — passes minLength: 2.
+        $object = new $className(['property' => "  AB \n"]);
+        $this->assertSame('AB', $object->getProperty());
+
+        // " a " trims to "a" (length 1) — fails minLength: 2 (validates trimmed value).
+        try {
+            new $className(['property' => ' a ']);
+            $this->fail('Expected ValidationException for input " a "');
+        } catch (ValidationException $validationException) {
+            $this->assertStringContainsString('must not be shorter than 2', $validationException->getMessage());
+        }
+    }
+
+    public static function convertStringToInt(string $value): int
+    {
+        return (int) $value;
+    }
+
+    public static function serializeIntToString(int $value): string
+    {
+        return (string) $value;
     }
 }

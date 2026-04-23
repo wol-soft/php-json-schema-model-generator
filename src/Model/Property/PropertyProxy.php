@@ -117,9 +117,12 @@ class PropertyProxy extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): PropertyInterface
-    {
-        return $this->getProperty()->addValidator($validator, $priority);
+    public function addValidator(
+        PropertyValidatorInterface $validator,
+        int $priority = 99,
+        ?string $sourceKey = null,
+    ): PropertyInterface {
+        return $this->getProperty()->addValidator($validator, $priority, $sourceKey);
     }
 
     /**
