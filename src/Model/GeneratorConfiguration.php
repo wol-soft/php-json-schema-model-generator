@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model;
 
 use Exception;
+use InvalidArgumentException;
 use PHPModelGenerator\Draft\AutoDetectionDraft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\DraftInterface;
@@ -27,6 +28,7 @@ use PHPModelGenerator\PropertyProcessor\Filter\ImmutableMediaStringFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\MediaStringFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
+use PHPModelGenerator\MediaString\ContentValidatorInterface;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Utils\ClassNameGeneratorInterface;
 
@@ -72,6 +74,8 @@ class GeneratorConfiguration
     protected $filter;
     /** @var FormatValidatorInterface[] */
     protected $formats;
+    /** @var ContentValidatorInterface[] keyed by "mediaType|encoding" (empty string as null sentinel) */
+    protected $contentValidators = [];
 
     /**
      * GeneratorConfiguration constructor.
@@ -126,6 +130,95 @@ class GeneratorConfiguration
     public function getFormat(string $formatKey): ?FormatValidatorInterface
     {
         return $this->formats[$formatKey] ?? null;
+    }
+
+    /**
+     * Register a content validator for properties carrying contentMediaType and/or contentEncoding.
+     *
+     * Each parameter accepts:
+     *   - null          — wildcard: matches any value (or absence) of that dimension
+     *   - string        — matches exactly that media type or encoding
+     *   - string[]      — matches any of the listed values for that dimension; must contain only
+     *                     non-empty strings (null is not allowed inside an array)
+     *
+     * When arrays are provided the validator is registered once for every combination of
+     * (mediaType × encoding) produced by the Cartesian product of the two lists.
+     *
+     * The lookup at generation time follows specificity order regardless of registration order:
+     *   1. Exact match          ($mediaType, $encoding) — both non-null and matching
+     *   2. Media-type wildcard  ($mediaType, null)      — any encoding
+     *   3. Encoding wildcard    (null, $encoding)       — any media type
+     *   4. Full wildcard        (null, null)            — matches everything
+     *
+     * @param null|string|string[] $mediaType
+     * @param null|string|string[] $encoding
+     *
+     * @throws InvalidArgumentException if an array argument contains a non-string or empty string
+     */
+    public function addContentValidator(
+        null|string|array $mediaType,
+        null|string|array $encoding,
+        ContentValidatorInterface $validator,
+    ): self {
+        $mediaTypes = $this->normalizeContentValidatorDimension($mediaType, 'mediaType');
+        $encodings  = $this->normalizeContentValidatorDimension($encoding, 'encoding');
+
+        foreach ($mediaTypes as $mediaTypeValue) {
+            foreach ($encodings as $encodingValue) {
+                $this->contentValidators[$this->buildContentValidatorKey($mediaTypeValue, $encodingValue)] = $validator;
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Normalise a mediaType/encoding argument into an array of nullable strings.
+     * null  → [null]
+     * string → [string]
+     * array  → validated and returned as-is (each element must be a non-empty string)
+     *
+     * @return array<?string>
+     * @throws InvalidArgumentException
+     */
+    private function normalizeContentValidatorDimension(null|string|array $value, string $dimensionName): array
+    {
+        if (!is_array($value)) {
+            return [$value];
+        }
+
+        foreach ($value as $item) {
+            if (!is_string($item) || $item === '') {
+                throw new InvalidArgumentException(
+                    "addContentValidator: every element of the \$$dimensionName array must be a non-empty string"
+                );
+            }
+        }
+
+        return $value;
+    }
+
+    public function getContentValidator(?string $mediaType, ?string $encoding): ?ContentValidatorInterface
+    {
+        $candidates = [
+            $this->buildContentValidatorKey($mediaType, $encoding),
+            $this->buildContentValidatorKey($mediaType, null),
+            $this->buildContentValidatorKey(null, $encoding),
+            $this->buildContentValidatorKey(null, null),
+        ];
+
+        foreach ($candidates as $key) {
+            if (isset($this->contentValidators[$key])) {
+                return $this->contentValidators[$key];
+            }
+        }
+
+        return null;
+    }
+
+    private function buildContentValidatorKey(?string $mediaType, ?string $encoding): string
+    {
+        return ($mediaType ?? '') . '|' . ($encoding ?? '');
     }
 
     /**

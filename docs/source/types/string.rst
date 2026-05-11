@@ -311,3 +311,75 @@ an ``InvalidFilterValueException``:
 When ``contentMediaType`` or ``contentEncoding`` is combined with ``format``, format validation
 runs on the raw string value before the wrapper is applied. Pre-existing wrapper objects bypass
 the format check.
+
+Content validation
+^^^^^^^^^^^^^^^^^^
+
+``contentMediaType`` and ``contentEncoding`` are annotations in Draft 7 — no validation is
+required. The generator provides an opt-in *content validator registry*: register a validator for
+a media type / encoding combination and it will be called against the raw string at runtime.
+
+Implement ``PHPModelGenerator\MediaString\ContentValidatorInterface``. Return without throwing to
+signal success; throw any ``\Throwable`` to signal failure:
+
+.. code-block:: php
+
+    use PHPModelGenerator\MediaString\ContentValidatorInterface;
+
+    class Base64JsonValidator implements ContentValidatorInterface
+    {
+        public static function validate(string $value): void
+        {
+            $decoded = base64_decode($value, strict: true);
+            if ($decoded === false) {
+                throw new \InvalidArgumentException('Value is not valid base64');
+            }
+            if (json_decode($decoded) === null && json_last_error() !== JSON_ERROR_NONE) {
+                throw new \InvalidArgumentException('Decoded value is not valid JSON');
+            }
+        }
+    }
+
+Register via ``GeneratorConfiguration::addContentValidator``. Each dimension accepts ``null``
+(wildcard), a ``string`` (exact match), or a ``string[]`` (the validator is registered for every
+combination in the Cartesian product):
+
+.. code-block:: php
+
+    (new GeneratorConfiguration())
+        // exact match
+        ->addContentValidator('application/json', 'base64', new Base64JsonValidator())
+        // any encoding, three media types at once
+        ->addContentValidator(['image/png', 'image/jpeg', 'image/webp'], null, new MyImageValidator())
+        // full wildcard — matches every content property
+        ->addContentValidator(null, null, new MyUniversalValidator());
+
+At code-generation time the generator picks the single most specific registered validator for each
+property. Resolution order: exact match → media-type wildcard → encoding wildcard → full wildcard.
+If nothing matches, no content check is generated.
+
+**Runtime behaviour**
+
+* The validator receives the **raw string** before the ``MediaString`` wrapper is applied.
+* ``null`` values and pre-existing wrapper objects passed to a setter bypass the validator.
+* On failure a ``PHPModelGenerator\Exception\String\ContentException`` is thrown; the original
+  exception is available via ``getPrevious()``:
+
+.. code-block:: php
+
+    try {
+        $object->setAvatar('not-valid-base64');
+    } catch (\PHPModelGenerator\Exception\String\ContentException $e) {
+        echo $e->getExpectedMediaType(); // "image/png"
+        echo $e->getExpectedEncoding(); // "base64"
+        echo $e->getPrevious()->getMessage(); // original validator message
+    }
+
+The ``ContentException`` exposes:
+
+.. code-block:: php
+
+    public function getExpectedMediaType(): ?string
+    public function getExpectedEncoding(): ?string
+    public function getPropertyName(): string
+    public function getProvidedValue()

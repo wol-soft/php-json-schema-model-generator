@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use InvalidArgumentException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Filter\InvalidFilterValueException;
+use PHPModelGenerator\Exception\String\ContentException;
 use PHPModelGenerator\Exception\String\FormatException;
 use PHPModelGenerator\Interfaces\SerializationInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\AlwaysInvalidContentValidator;
+use PHPModelGenerator\Tests\Fixtures\AlwaysValidContentValidator;
 use PHPModelGenerator\ValueObject\ImmutableMediaString;
 use PHPModelGenerator\ValueObject\MediaString;
+use RuntimeException;
 
 class ContentMediaStringTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -275,5 +280,279 @@ class ContentMediaStringTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(InvalidFilterValueException::class);
         $this->expectExceptionMessageMatches('/encoding mismatch/');
         $object->setContent(new MediaString('data', 'application/json', 'utf-8'));
+    }
+
+    /**
+     * No content validator registered: property with contentMediaType/contentEncoding validates
+     * without content check — no ContentException thrown.
+     */
+    public function testNoContentValidatorRegistered(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ContentMediaBoth.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className([]);
+        $object->setContent('any-value');
+
+        $this->assertInstanceOf(MediaString::class, $object->getContent());
+        $this->assertSame('any-value', $object->getContent()->getValue());
+    }
+
+    /**
+     * Exact-match validator registered for (mediaType, encoding): fires on matching property.
+     * Validator that passes (no throw) → no exception.
+     * Validator that throws → ContentException with correct media type, encoding, and $previous.
+     * Null value on nullable property → content validator does not run.
+     * Array form of addContentValidator: registers for every combination of the Cartesian product.
+     * Invalid array elements → InvalidArgumentException at registration time.
+     */
+    public function testExactMatchValidatorAndNullBypass(): void
+    {
+        // Validator passes — no exception
+        $className = $this->generateClassFromFile(
+            'ContentMediaBoth.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->addContentValidator('application/json', 'base64', new AlwaysValidContentValidator()),
+        );
+
+        $object = new $className([]);
+        $object->setContent('e30=');
+        $this->assertInstanceOf(MediaString::class, $object->getContent());
+
+        // Validator throws → ContentException with correct fields and $previous set
+        $className = $this->generateClassFromFile(
+            'ContentMediaBoth.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->addContentValidator('application/json', 'base64', new AlwaysInvalidContentValidator()),
+        );
+
+        $object = new $className([]);
+
+        try {
+            $object->setContent('not-valid');
+            $this->fail('Expected ContentException');
+        } catch (ContentException $exception) {
+            $this->assertSame('application/json', $exception->getExpectedMediaType());
+            $this->assertSame('base64', $exception->getExpectedEncoding());
+            $this->assertInstanceOf(RuntimeException::class, $exception->getPrevious());
+            $this->assertStringContainsString('not-valid', $exception->getPrevious()->getMessage());
+        }
+
+        // --- null on nullable property → content validator does not run ---
+
+        $className = $this->generateClassFromFile(
+            'ContentMediaNullable.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->addContentValidator('application/json', 'base64', new AlwaysInvalidContentValidator()),
+        );
+
+        $object = new $className([]);
+        $object->setContent(null);
+        $this->assertNull($object->getContent());
+
+        // --- array form: register for multiple encodings at once ---
+
+        $className = $this->generateClassFromFile(
+            'ContentMediaBoth.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->addContentValidator('application/json', ['base64', 'utf-8'], new AlwaysInvalidContentValidator()),
+        );
+
+        $object = new $className([]);
+        $this->expectException(ContentException::class);
+        $object->setContent('e30=');
+    }
+
+    /**
+     * addContentValidator rejects array arguments containing non-strings or empty strings.
+     */
+    public function testAddContentValidatorRejectsInvalidArrayElements(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new GeneratorConfiguration())->addContentValidator(['application/json', ''], 'base64', new AlwaysValidContentValidator());
+    }
+
+    public function testAddContentValidatorRejectsNonStringInArray(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new GeneratorConfiguration())->addContentValidator('application/json', ['base64', null], new AlwaysValidContentValidator());
+    }
+
+    /**
+     * Media-type wildcard ($mediaType, null): fires when encoding differs or is absent.
+     * Encoding wildcard (null, $encoding): fires when media type differs or is absent.
+     * Full wildcard (null, null): fires for any combination.
+     */
+    public function testWildcardValidators(): void
+    {
+        // ($mediaType, null) wildcard fires for the property with encoding=base64
+        $className = $this->generateClassFromFile(
+            'ContentMediaBoth.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->addContentValidator('application/json', null, new AlwaysInvalidContentValidator()),
+        );
+
+        $object = new $className([]);
+        $this->expectException(ContentException::class);
+        $object->setContent('data');
+    }
+
+    public function testEncodingWildcardFires(): void
+    {
+        // (null, $encoding) wildcard fires for the property with mediaType=application/json
+        $className = $this->generateClassFromFile(
+            'ContentMediaBoth.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->addContentValidator(null, 'base64', new AlwaysInvalidContentValidator()),
+        );
+
+        $object = new $className([]);
+        $this->expectException(ContentException::class);
+        $object->setContent('data');
+    }
+
+    public function testFullWildcardFires(): void
+    {
+        // (null, null) wildcard fires for any property with a content keyword
+        $className = $this->generateClassFromFile(
+            'ContentMediaBoth.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->addContentValidator(null, null, new AlwaysInvalidContentValidator()),
+        );
+
+        $object = new $className([]);
+        $this->expectException(ContentException::class);
+        $object->setContent('data');
+    }
+
+    /**
+     * Specificity: exact match takes priority over media-type wildcard.
+     * Exact match = AlwaysValid; media-type wildcard = AlwaysInvalid → no exception.
+     * Specificity: media-type wildcard over encoding wildcard.
+     * Specificity: encoding wildcard over full wildcard.
+     */
+    public function testSpecificityOrder(): void
+    {
+        // Exact match (valid) beats media-type wildcard (invalid)
+        $className = $this->generateClassFromFile(
+            'ContentMediaBoth.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->addContentValidator('application/json', 'base64', new AlwaysValidContentValidator())
+                ->addContentValidator('application/json', null, new AlwaysInvalidContentValidator()),
+        );
+
+        $object = new $className([]);
+        $object->setContent('e30=');
+        $this->assertInstanceOf(MediaString::class, $object->getContent());
+
+        // Media-type wildcard (valid) beats encoding wildcard (invalid)
+        $className = $this->generateClassFromFile(
+            'ContentMediaBoth.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->addContentValidator('application/json', null, new AlwaysValidContentValidator())
+                ->addContentValidator(null, 'base64', new AlwaysInvalidContentValidator()),
+        );
+
+        $object = new $className([]);
+        $object->setContent('e30=');
+        $this->assertInstanceOf(MediaString::class, $object->getContent());
+
+        // Encoding wildcard (valid) beats full wildcard (invalid)
+        $className = $this->generateClassFromFile(
+            'ContentMediaBoth.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->addContentValidator(null, 'base64', new AlwaysValidContentValidator())
+                ->addContentValidator(null, null, new AlwaysInvalidContentValidator()),
+        );
+
+        $object = new $className([]);
+        $object->setContent('e30=');
+        $this->assertInstanceOf(MediaString::class, $object->getContent());
+    }
+
+    /**
+     * Property with only contentMediaType: lookup key is ($mediaType, null).
+     * An exact ($mediaType, null) validator fires; full wildcard also fires when no exact match.
+     */
+    public function testContentMediaTypeOnlyValidatorKey(): void
+    {
+        // Exact ($mediaType, null) validator fires
+        $className = $this->generateClassFromFile(
+            'ContentMediaTypeSimple.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->addContentValidator('image/png', null, new AlwaysInvalidContentValidator()),
+        );
+
+        $object = new $className([]);
+
+        try {
+            $object->setContent('data');
+            $this->fail('Expected ContentException');
+        } catch (ContentException $exception) {
+            $this->assertSame('image/png', $exception->getExpectedMediaType());
+            $this->assertNull($exception->getExpectedEncoding());
+        }
+
+        // Full wildcard also fires for this property
+        $className = $this->generateClassFromFile(
+            'ContentMediaTypeSimple.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->addContentValidator(null, null, new AlwaysInvalidContentValidator()),
+        );
+
+        $object = new $className([]);
+        $this->expectException(ContentException::class);
+        $object->setContent('data');
+    }
+
+    /**
+     * Property with only contentEncoding: lookup key is (null, $encoding).
+     * An exact (null, $encoding) validator fires.
+     */
+    public function testContentEncodingOnlyValidatorKey(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ContentEncoding.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors(false)
+                ->addContentValidator(null, 'base64', new AlwaysInvalidContentValidator()),
+        );
+
+        $object = new $className([]);
+
+        try {
+            $object->setContent('aGVsbG8=');
+            $this->fail('Expected ContentException');
+        } catch (ContentException $exception) {
+            $this->assertNull($exception->getExpectedMediaType());
+            $this->assertSame('base64', $exception->getExpectedEncoding());
+        }
     }
 }

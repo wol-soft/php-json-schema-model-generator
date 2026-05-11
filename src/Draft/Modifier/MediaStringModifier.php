@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator\ContentValidator;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use ReflectionException;
@@ -48,16 +49,24 @@ class MediaStringModifier implements ModifierInterface
             || $property->isWriteOnly()
             || $generatorConfiguration->isImmutable();
 
+        $mediaType = $json['contentMediaType'] ?? null;
+        $encoding  = $json['contentEncoding'] ?? null;
+
         (new FilterProcessor())->process(
             $property,
             [
                 'filter'    => $useImmutable ? 'immutableMediaString' : 'mediaString',
-                'mediaType' => $json['contentMediaType'] ?? null,
-                'encoding'  => $json['contentEncoding'] ?? null,
+                'mediaType' => $mediaType,
+                'encoding'  => $encoding,
             ],
             $generatorConfiguration,
             $schema,
             self::FILTER_START_PRIORITY,
         );
+
+        $contentValidator = $generatorConfiguration->getContentValidator($mediaType, $encoding);
+        if ($contentValidator !== null) {
+            $property->addValidator(new ContentValidator($property, $contentValidator, $mediaType, $encoding));
+        }
     }
 }
