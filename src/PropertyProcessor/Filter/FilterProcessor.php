@@ -13,8 +13,10 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Model\Validator\AbstractPropertyValidator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
+use PHPModelGenerator\Model\Validator\FormatValidator;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\PassThroughTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -55,12 +57,13 @@ class FilterProcessor
         mixed $filterList,
         GeneratorConfiguration $generatorConfiguration,
         Schema $schema,
+        int $startPriority = 10,
     ): void {
         $filterList = self::normalizeFilterList($filterList);
 
         $transformingFilter = null;
         // apply a different priority to each filter to make sure the order is kept
-        $filterPriority = 10 + count($property->getValidators());
+        $filterPriority = $startPriority + count($property->getValidators());
 
         foreach ($filterList as $filterToken) {
             $filterOptions = [];
@@ -285,30 +288,54 @@ class FilterProcessor
                 $validator->addTransformedCheck($filter, $property);
             }
 
-            if ($validator instanceof EnumValidator) {
-                $property->filterValidators(
-                    static fn(Validator $enumCandidate): bool =>
-                        !is_a($enumCandidate->getValidator(), EnumValidator::class),
+            if ($validator instanceof FormatValidator) {
+                $this->replaceValidatorWithGuardedCheck(
+                    $property,
+                    $validator,
+                    FormatValidator::class,
+                    sprintf('is_string($value) && %s', $validator->getCheck()),
                 );
+            }
 
-                // Shift the name from the validator to avoid adding it twice by wrapping it.
-                $exceptionParams = $validator->getExceptionParams();
-                array_shift($exceptionParams);
-
-                $property->addValidator(
-                    new PropertyValidator(
-                        $property,
-                        sprintf(
-                            '%s && %s',
-                            TypeCheck::buildNegatedCompound($returnTypeNames),
-                            $validator->getCheck(),
-                        ),
-                        $validator->getExceptionClass(),
-                        $exceptionParams,
-                    ),
-                    3,
+            if ($validator instanceof EnumValidator) {
+                $this->replaceValidatorWithGuardedCheck(
+                    $property,
+                    $validator,
+                    EnumValidator::class,
+                    sprintf('%s && %s', TypeCheck::buildNegatedCompound($returnTypeNames), $validator->getCheck()),
                 );
             }
         }
+    }
+
+    /**
+     * Remove all validators of the given class from the property and re-add the same validation
+     * logic wrapped in a new check expression, at priority 3.
+     *
+     * The property name is stripped from exceptionParams before re-adding because
+     * AbstractPropertyValidator::getExceptionParams() prepends it again automatically.
+     */
+    private function replaceValidatorWithGuardedCheck(
+        PropertyInterface $property,
+        AbstractPropertyValidator $validator,
+        string $validatorClass,
+        string $guardedCheck,
+    ): void {
+        $property->filterValidators(
+            static fn(Validator $candidate): bool => !is_a($candidate->getValidator(), $validatorClass),
+        );
+
+        $exceptionParams = $validator->getExceptionParams();
+        array_shift($exceptionParams);
+
+        $property->addValidator(
+            new PropertyValidator(
+                $property,
+                $guardedCheck,
+                $validator->getExceptionClass(),
+                $exceptionParams,
+            ),
+            3,
+        );
     }
 }

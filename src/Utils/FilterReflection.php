@@ -27,6 +27,9 @@ class FilterReflection
      * Returns an empty array for 'mixed' (accepts all types — no runtime type guard is generated).
      * Throws when the parameter has no type hint; all filter callables must declare one.
      *
+     * 'self' and 'static' in the parameter type are resolved to the declaring class FQCN so
+     * that generated type-guard code contains a valid class name.
+     *
      * @return string[]
      *
      * @throws InvalidFilterException when the first parameter has no type hint
@@ -34,7 +37,8 @@ class FilterReflection
      */
     public static function getAcceptedTypes(FilterInterface $filter, PropertyInterface $property): array
     {
-        $params = (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))->getParameters();
+        $reflectionMethod = new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]);
+        $params = $reflectionMethod->getParameters();
 
         if (empty($params) || $params[0]->getType() === null) {
             throw new InvalidFilterException(
@@ -54,7 +58,7 @@ class FilterReflection
                 return [];
             }
 
-            $types = [$type->getName()];
+            $types = [self::resolveTypeName($type->getName(), $reflectionMethod)];
 
             if ($type->allowsNull() && $type->getName() !== 'null') {
                 $types[] = 'null';
@@ -65,7 +69,8 @@ class FilterReflection
 
         if ($type instanceof ReflectionUnionType) {
             return array_map(
-                static fn(ReflectionNamedType $namedType): string => $namedType->getName(),
+                static fn(ReflectionNamedType $namedType): string =>
+                    self::resolveTypeName($namedType->getName(), $reflectionMethod),
                 $type->getTypes(),
             );
         }
@@ -76,6 +81,9 @@ class FilterReflection
     /**
      * Extract non-null return type names from the transforming filter's callable.
      *
+     * 'self' and 'static' in the return type are resolved to the declaring class FQCN so that
+     * the output type registered on the property is a valid, importable class name.
+     *
      * @return string[]
      *
      * @throws InvalidFilterException when return type is missing or void
@@ -85,7 +93,8 @@ class FilterReflection
         TransformingFilterInterface $filter,
         PropertyInterface $property,
     ): array {
-        $returnType = self::reflectReturnType($filter);
+        $reflectionMethod = self::reflectMethod($filter);
+        $returnType = $reflectionMethod->getReturnType();
 
         if ($returnType === null) {
             throw new InvalidFilterException(
@@ -118,13 +127,14 @@ class FilterReflection
                 return [];
             }
 
-            return [$name];
+            return [self::resolveTypeName($name, $reflectionMethod)];
         }
 
         if ($returnType instanceof ReflectionUnionType) {
             return array_values(array_filter(
                 array_map(
-                    static fn(ReflectionNamedType $namedType): string => $namedType->getName(),
+                    static fn(ReflectionNamedType $namedType): string =>
+                        self::resolveTypeName($namedType->getName(), $reflectionMethod),
                     $returnType->getTypes(),
                 ),
                 static fn(string $name): bool => $name !== 'null',
@@ -141,7 +151,7 @@ class FilterReflection
      */
     public static function isReturnNullable(TransformingFilterInterface $filter): bool
     {
-        $returnType = self::reflectReturnType($filter);
+        $returnType = self::reflectMethod($filter)->getReturnType();
 
         if ($returnType === null) {
             return false;
@@ -170,10 +180,28 @@ class FilterReflection
     }
 
     /**
+     * Reflect the filter callable into a ReflectionMethod for further type analysis.
+     *
      * @throws ReflectionException
      */
-    private static function reflectReturnType(TransformingFilterInterface $filter): ?\ReflectionType
+    private static function reflectMethod(TransformingFilterInterface $filter): ReflectionMethod
     {
-        return (new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]))->getReturnType();
+        return new ReflectionMethod($filter->getFilter()[0], $filter->getFilter()[1]);
+    }
+
+    /**
+     * Resolve 'self' and 'static' type names to the declaring class FQCN.
+     *
+     * PHP's Reflection API returns the literal string 'self' or 'static' for self-referential
+     * type hints. Neither is a valid class name for runtime use (e.g. is_a, instanceof, use
+     * imports). This helper replaces them with the FQCN of the class that declares the method.
+     *
+     * For any other type name the input is returned unchanged.
+     */
+    private static function resolveTypeName(string $name, ReflectionMethod $method): string
+    {
+        return ($name === 'self' || $name === 'static')
+            ? $method->getDeclaringClass()->getName()
+            : $name;
     }
 }

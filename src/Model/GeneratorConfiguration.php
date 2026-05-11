@@ -23,6 +23,8 @@ use PHPModelGenerator\Format\UriReferenceFormatValidator;
 use PHPModelGenerator\Format\UriTemplateFormatValidator;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
+use PHPModelGenerator\PropertyProcessor\Filter\ImmutableMediaStringFilter;
+use PHPModelGenerator\PropertyProcessor\Filter\MediaStringFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
 use PHPModelGenerator\Utils\ClassNameGenerator;
@@ -286,7 +288,9 @@ class GeneratorConfiguration
         $this
             ->addFilter(new DateTimeFilter())
             ->addFilter(new NotEmptyFilter())
-            ->addFilter(new TrimFilter());
+            ->addFilter(new TrimFilter())
+            ->addFilter(new MediaStringFilter())
+            ->addFilter(new ImmutableMediaStringFilter());
     }
 
     public function getEnabledAttributes(): int
