@@ -6,7 +6,6 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use DateTime;
 use Exception;
-use ReflectionClass;
 use RuntimeException;
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
@@ -1871,15 +1870,15 @@ ERROR,);
      * resolution), so FilterProcessor skips applyOutputType. After composition is resolved the
      * TransformingFilterOutputTypePostProcessor sets the output type.
      *
-     * Exercises the path where accepted types are empty and the post-processor must compute
-     * and set the output type on the property.
+     * The allOf branch {type:string} is classified as input-space, so it runs pre-transform.
+     * The filter then converts the string to DateTime. No post-transform composition exists.
      */
     public function testAllOfPropertyWithMixedAcceptTransformingFilter(): void
     {
         $className = $this->generateClassFromFile(
             'AllOfPropertyWithMixedAcceptTransformingFilter.json',
             (new GeneratorConfiguration())
-                ->setCollectErrors(false)
+                ->setCollectErrors(true)
                 ->setImmutable(false)
                 ->addFilter(
                     $this->getCustomTransformingFilter(
@@ -1890,12 +1889,36 @@ ERROR,);
                 ),
         );
 
-        // Generation succeeds. The post-processor set the output type to DateTime for this
-        // property. Verify via reflection that the setter's type hint includes DateTime
-        // (confirming the output type was wired correctly).
-        $reflection = new ReflectionClass($className);
-        $setterParam = $reflection->getMethod('setFilteredProperty')->getParameters()[0];
-        $this->assertStringContainsString('DateTime', (string) $setterParam->getType());
+        // Valid string input: input-space allOf passes, filter transforms to DateTime.
+        $object = new $className(['filteredProperty' => '2024-01-01']);
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+
+        // Non-string raw input via constructor: the constructor bypasses the setter type hint,
+        // so 42 reaches validateFilteredProperty directly. The input-space allOf fires pre-transform
+        // and rejects it with AllOfException (not a TypeError).
+        try {
+            new $className(['filteredProperty' => 42]);
+            $this->fail('Expected AllOfException for non-string raw input');
+        } catch (ErrorRegistryException $exception) {
+            $errors = $exception->getErrors();
+            $this->assertCount(1, $errors);
+            $this->assertContainsOnlyInstancesOf(AllOfException::class, $errors);
+            $this->assertStringContainsString(
+                <<<ERROR
+                Invalid value for filteredProperty declined by composition constraint.
+                  Requires to match all composition elements but matched 0 elements.
+                  - Composition element #1: Failed
+                    * Invalid type for filteredProperty. Requires string, got integer
+                ERROR,
+                $errors[0]->getMessage(),
+            );
+            $this->assertSame(0, $errors[0]->getSucceededCompositionElements());
+        }
+
+        // Already-constructed DateTime: pre-transform pipeline skipped (R-8), accepted as-is.
+        $existingDateTime = new DateTime('2024-06-01');
+        $object->setFilteredProperty($existingDateTime);
+        $this->assertSame($existingDateTime, $object->getFilteredProperty());
     }
 
     /**
