@@ -110,19 +110,23 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
 
     {% foreach schema.getProperties() as property %}
         {% if not property.isInternal() %}
-            /**
-             * Get the value of {{ property.getName() }}.
-             *
-             * {% if property.getDescription() %}{{ property.getDescription() }}{% endif %}
-             *
-             * {% if viewHelper.getTypeHintAnnotation(property, true) %}@return {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}
-             */
-            public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(): {{ viewHelper.getType(property, true) }}
-            {
-                {{ schemaHookResolver.resolveGetterHook(property) }}
+            {% if not property.isWriteOnly() %}
+                /**
+                 * Get the value of {{ property.getName() }}.
+                 *{% if property.getDescription() %}
+                 * {{ property.getDescription() }}{% endif %}{% if property.getComment() %}
+                 * {{ property.getComment() }}{% endif %}{% foreach property.getExamples() as example %}
+                 * @example {{ viewHelper.exportValue(example) }}{% endforeach %}
+                 *
+                 * {% if viewHelper.getTypeHintAnnotation(property, true) %}@return {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}
+                 */
+                public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(): {{ viewHelper.getType(property, true) }}
+                {
+                    {{ schemaHookResolver.resolveGetterHook(property) }}
 
-                return $this->{{ property.getAttribute(true) }};
-            }
+                    return $this->{{ property.getAttribute(true) }};
+                }
+            {% endif %}
 
             {% if not property.isReadOnly() %}
                 /**

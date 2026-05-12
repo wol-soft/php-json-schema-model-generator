@@ -29,9 +29,6 @@ class FormatValidator extends AbstractPropertyValidator
         parent::__construct($property, FormatException::class, $exceptionParams);
     }
 
-    /**
-     * Get the source code for the check to perform
-     */
     public function getCheck(): string
     {
         return $this->validator instanceof FormatValidatorFromRegEx

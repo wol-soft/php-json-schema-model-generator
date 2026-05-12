@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Draft;
 
 use PHPModelGenerator\Draft\Element\Type;
 use PHPModelGenerator\Draft\Modifier\DefaultArrayToEmptyArrayModifier;
+use PHPModelGenerator\Draft\Modifier\MediaStringModifier;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\IfValidatorFactory;
@@ -63,7 +64,8 @@ class Draft_07 implements DraftInterface
                 ->addValidator('pattern', new PatternPropertyValidatorFactory())
                 ->addValidator('minLength', new MinLengthPropertyValidatorFactory())
                 ->addValidator('maxLength', new MaxLengthValidatorFactory())
-                ->addValidator('format', new FormatValidatorFactory()))
+                ->addValidator('format', new FormatValidatorFactory())
+                ->addModifier(new MediaStringModifier()))
             ->addType((new Type('integer'))
                 ->addValidator('minimum', new MinimumValidatorFactory('is_int'))
                 ->addValidator('maximum', new MaximumValidatorFactory('is_int'))

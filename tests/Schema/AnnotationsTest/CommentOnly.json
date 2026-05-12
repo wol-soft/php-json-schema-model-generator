@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CommentOnly",
+  "type": "object",
+  "properties": {
+    "value": {
+      "type": "string",
+      "$comment": "This is a developer note about the value field."
+    }
+  }
+}

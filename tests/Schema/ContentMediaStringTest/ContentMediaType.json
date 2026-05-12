@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "requiredContent"
+  ],
+  "properties": {
+    "content": {
+      "type": "string",
+      "contentMediaType": "image/png"
+    },
+    "plain": {
+      "type": "string"
+    },
+    "nullableContent": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "contentMediaType": "image/png"
+    },
+    "requiredContent": {
+      "type": "string",
+      "contentMediaType": "image/png"
+    }
+  }
+}

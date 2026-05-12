@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "JsonPointer",
+  "type": "object",
+  "properties": {
+    "value": {
+      "type": "string",
+      "format": "json-pointer"
+    }
+  }
+}

@@ -59,6 +59,14 @@ interface PropertyInterface extends ResolvableInterface
      */
     public function getDescription(): string;
 
+    public function getComment(): ?string;
+
+    public function setComment(string $comment): PropertyInterface;
+
+    public function getExamples(): array;
+
+    public function setExamples(array $examples): PropertyInterface;
+
     /**
      * Add a validator for the property
      *
@@ -128,6 +136,10 @@ interface PropertyInterface extends ResolvableInterface
     public function isRequired(): bool;
 
     public function isReadOnly(): bool;
+
+    public function isWriteOnly(): bool;
+
+    public function setWriteOnly(bool $isPropertyWriteOnly): PropertyInterface;
 
     public function isInternal(): bool;
 

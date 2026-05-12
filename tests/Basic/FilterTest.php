@@ -1588,4 +1588,55 @@ ERROR,);
     {
         return (string) $value;
     }
+
+    // --- self / static return type tests ---
+
+    public static function selfStaticReturnTypeDataProvider(): array
+    {
+        return [
+            'self return type' => [SelfReturningFilterCallable::class, 'selfReturn', 'hello'],
+            'static return type' => [StaticReturningFilterCallable::class, 'staticReturn', 'world'],
+        ];
+    }
+
+    /**
+     * A transforming filter whose callable declares '?self' or '?static' as return type.
+     * FilterReflection must resolve both to the declaring class FQCN so that the generated
+     * output type and pass-through type check use a valid class name.
+     */
+    #[DataProvider('selfStaticReturnTypeDataProvider')]
+    public function testTransformingFilterWithSelfOrStaticReturnType(
+        string $callableClass,
+        string $token,
+        string $inputValue,
+    ): void {
+        $className = $this->generateClassFromFileTemplate(
+            'FilterChain.json',
+            ['"' . $token . '"'],
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->addFilter(
+                    $this->getCustomTransformingFilter(
+                        [$callableClass, 'serialize'],
+                        [$callableClass, 'filter'],
+                        $token,
+                    ),
+                ),
+            false,
+        );
+
+        // string input → filter wraps it in an instance of the declaring class
+        $object = new $className(['filteredProperty' => $inputValue]);
+        $this->assertInstanceOf($callableClass, $object->getFilteredProperty());
+        $this->assertSame($inputValue, $object->getFilteredProperty()->getValue());
+
+        // null input → null stored
+        $object = new $className(['filteredProperty' => null]);
+        $this->assertNull($object->getFilteredProperty());
+
+        // pre-existing instance → passed through unchanged (setter accepts output type)
+        $existing = new $callableClass('existing');
+        $object->setFilteredProperty($existing);
+        $this->assertSame($existing, $object->getFilteredProperty());
+    }
 }
