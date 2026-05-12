@@ -18,8 +18,10 @@ use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\Number\MinimumException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\String\FormatException;
 use PHPModelGenerator\Exception\String\PatternException;
 use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\Format\FormatValidatorFromRegEx;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Filter\Trim;
@@ -1954,6 +1956,64 @@ ERROR,);
         } catch (ValidationException $validationException) {
             $this->assertStringContainsString('must not be shorter than 2', $validationException->getMessage());
         }
+    }
+
+    /**
+     * A format validator (registered under the string type, hence input-space) that is moved
+     * pre-filter must not run when the property value is already in the filter's output
+     * type-space.  FormatValidatorFromRegEx::validate() declares a string parameter under
+     * strict types, so calling it with an already-transformed int throws TypeError rather than
+     * a validation exception.
+     *
+     * Schema: { type: [string, integer], format: onlyNumbers, filter: stringToInt, minimum: 0 }
+     *
+     * Bug: int -5 arrives as an already-transformed value; the moved format validator fires
+     * against the int and throws TypeError instead of the expected MinimumException.
+     *
+     * Fix: the skip guard prepended to moved input-space validators prevents the format check
+     * from running when the value is already in the output type-space.
+     */
+    public function testFormatValidatorOnMultiTypePropertyDoesNotFireForAlreadyTransformedValue(): void
+    {
+        $configuration = (new GeneratorConfiguration())
+            ->setCollectErrors(false)
+            ->setImmutable(false)
+            ->addFormat('onlyNumbers', new FormatValidatorFromRegEx('/^\d+$/'))
+            ->addFilter($this->getCustomTransformingFilter(
+                [self::class, 'serializeIntToString'],
+                [self::class, 'convertStringToInt'],
+                'stringToInt',
+            ));
+
+        $className = $this->generateClassFromFile(
+            'MultiTypeFormatWithTransformingFilter.json',
+            $configuration,
+        );
+
+        // String "42": format passes pre-transform, filter converts to int 42, minimum passes.
+        $object = new $className(['value' => '42']);
+        $this->assertSame(42, $object->getValue());
+
+        // String "hello": format check fires against the raw string → FormatException.
+        try {
+            new $className(['value' => 'hello']);
+            $this->fail('Expected FormatException for string input "hello"');
+        } catch (FormatException $formatException) {
+            $this->assertStringContainsString('onlyNumbers', $formatException->getMessage());
+        }
+
+        // Already-transformed int -5: skip guard bypasses format check (no TypeError),
+        // execution reaches minimum and correctly throws MinimumException.
+        try {
+            new $className(['value' => -5]);
+            $this->fail('Expected MinimumException for int input -5');
+        } catch (MinimumException $minimumException) {
+            $this->assertStringContainsString('must not be smaller than 0', $minimumException->getMessage());
+        }
+
+        // Already-transformed int 42: skip guard bypasses format check, minimum passes.
+        $object = new $className(['value' => 42]);
+        $this->assertSame(42, $object->getValue());
     }
 
     // -------------------------------------------------------------------------

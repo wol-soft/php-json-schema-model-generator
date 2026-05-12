@@ -34,12 +34,14 @@ class FormatValidator extends AbstractPropertyValidator
      */
     public function getCheck(): string
     {
-        return $this->validator instanceof FormatValidatorFromRegEx
+        $call = $this->validator instanceof FormatValidatorFromRegEx
             ? sprintf(
                 '!\%s::validate($value, %s)',
                 $this->validator::class,
                 var_export($this->validator->getPattern(), true),
             )
             : sprintf('!\%s::validate($value)', $this->validator::class);
+
+        return 'is_string($value) && ' . $call;
     }
 }
