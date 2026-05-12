@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeCheck;
+use PHPModelGenerator\Utils\TypeConverter;
 use ReflectionException;
 
 /**
@@ -123,6 +124,14 @@ class FilterValidator extends PropertyTemplateValidator
      * execute under any circumstances. Partial overlap is fine: the runtime typeCheck guard in the
      * generated code already skips the filter for non-matching value types.
      *
+     * Type source: only an explicit 'type' key in the schema JSON is used for the check.
+     * When no direct 'type' is declared, the property's resolved type (if any) was set by
+     * composition modifiers (allOf, anyOf, oneOf) and is not reliable for input-type checking
+     * — output-space branches mutate the resolved type to the filter's output type rather than
+     * its input type. Skipping the check when there is no direct type declaration is
+     * order-independent and avoids false-positive incompatibility errors regardless of which
+     * modifier ran first.
+     *
      * @param string[] $acceptedTypes Pre-computed accepted types of the filter.
      *
      * @throws SchemaException
@@ -133,14 +142,34 @@ class FilterValidator extends PropertyTemplateValidator
             return;
         }
 
-        if ($property->getType() === null && $property->getNestedSchema() === null) {
-            return;
-        }
+        if ($property->getNestedSchema() !== null) {
+            $typeNames  = ['object'];
+            $isNullable = false;
+        } else {
+            // Prefer the schema-declared type for the overlap check. Composition modifiers may
+            // have mutated property->getType() with output-space branch types (e.g. allOf with a
+            // {type:integer} branch for a string→int filter), causing false incompatibility errors.
+            $schemaJson  = $property->getJsonSchema()->getJson();
+            $schemaType  = $schemaJson['type'] ?? null;
 
-        $typeNames = $property->getNestedSchema() !== null
-            ? ['object']
-            : $property->getType()->getNames();
-        $isNullable = $property->getType()?->isNullable() ?? false;
+            if (is_string($schemaType) && $schemaType !== 'any') {
+                // Single-string schema type: derive the PHP type name directly from the declaration.
+                $typeNames  = [TypeConverter::jsonSchemaToPHP($schemaType)];
+                $isNullable = $property->getType()?->isNullable() ?? false;
+            } elseif ($property->getType() === null || $schemaType === null) {
+                // No direct type declaration in the schema JSON — the property is either
+                // unconstrained or its resolved type was set by composition modifiers (allOf,
+                // anyOf, oneOf). Composition branches that target the filter's output type-space
+                // (e.g. {type:integer} on a string→int filter) mutate the resolved type to the
+                // output type, making it unreliable for input-type compatibility checking. The
+                // filter's runtime type guard and any input-space composition validators enforce
+                // type safety, so no static check is needed here.
+                return;
+            } else {
+                $typeNames  = $property->getType()->getNames();
+                $isNullable = $property->getType()->isNullable() ?? false;
+            }
+        }
 
         $hasOverlap = !empty(array_intersect($typeNames, $acceptedTypes))
             || ($isNullable && in_array('null', $acceptedTypes, true));

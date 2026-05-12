@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "filter": "stringToInt",
+      "not": {
+        "type": "integer",
+        "minimum": 0
+      }
+    }
+  }
+}

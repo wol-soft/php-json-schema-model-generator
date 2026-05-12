@@ -82,12 +82,12 @@ class Draft_07 implements DraftInterface
                 ->addModifier(new NullModifier()))
             ->addType((new Type('any', false))
                 ->addValidator('enum', new EnumValidatorFactory())
-                ->addValidator('filter', new FilterValidatorFactory())
                 ->addValidator('allOf', new AllOfValidatorFactory())
                 ->addValidator('anyOf', new AnyOfValidatorFactory())
                 ->addValidator('oneOf', new OneOfValidatorFactory())
                 ->addValidator('not', new NotValidatorFactory())
                 ->addValidator('if', new IfValidatorFactory())
+                ->addValidator('filter', new FilterValidatorFactory())
                 ->addModifier(new DefaultValueModifier())
                 ->addModifier(new ConstModifier()));
     }

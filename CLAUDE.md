@@ -288,6 +288,38 @@ that works for one specific schema shape but breaks or ignores others is not acc
 implementing, ask: "Does this solution handle the general case, or only the example at hand?" If
 only the specific case, redesign until the solution is general.
 
+#### Never narrow test scope to evade failures
+
+When a test exposes a real bug, fix the bug — do not simplify, remove, or replace the test with
+one that avoids the failing scenario. A failing test is evidence of a defect; discarding it hides
+the defect rather than resolving it.
+
+This applies in both directions:
+- Never swap a schema or assertion for a simpler variant just because the original triggers an
+  error in the implementation. The original schema is the spec; make the implementation handle it.
+- Never stub out, skip, or weaken assertions to make a test green. If the assertion is wrong,
+  fix the assertion with an explicit justification; if the implementation is wrong, fix the
+  implementation.
+
+When the straightforward test case surfaces a deeper issue (object instantiation, type conflict,
+priority ordering, etc.), that is precisely the issue that needs solving. Open it as a tracked
+topic if it cannot be addressed immediately, but keep the test in place and marked as expected to
+fail (`@expectedExceptionMessage`, `$this->expectException(...)`) until the fix lands.
+
+#### No implementation-plan references in code
+
+Do not embed references to implementation-plan phases, issue numbers, or source-code line numbers
+in comments, docblocks, filenames, or any other artifact that lands in the repository. These
+references decay immediately (phases complete, line numbers shift) and add noise without adding
+meaning.
+
+- ❌ `// Phase 2 guarantees anyOf/oneOf have uniform spaces`
+- ✅ `// Static rejection guarantees anyOf/oneOf have uniform spaces`
+- ❌ `* Covers FilterValidator::runCompatibilityCheck lines 130–158`
+- ✅ `* Validates the zero-overlap rejection path in FilterValidator`
+
+Describe *what the code does or why* — not where it came from in a planning document.
+
 #### Test coverage
 
 Every identified edge case must have a corresponding test. During planning, enumerate all edge
@@ -302,6 +334,14 @@ https://qlty.sh/gh/wol-soft/projects/php-json-schema-model-generator/pull/<PR_NU
 ```
 
 Review the coverage report and address any uncovered lines in changed or new code.
+
+### Docblock content
+
+Write docblocks only when they add information beyond what the code already expresses.
+
+- **Omit** class-level `@package` tags and `Class ClassName` lines — the namespace declaration and class keyword already carry that information.
+- **Omit** method docblocks whose prose just restates the method name (e.g. `/** Returns the foo. */` above `getFoo(): Foo`). Write a docblock only when it explains *why* something is done, a non-obvious contract, or a type constraint that native PHP cannot express (e.g. `@return SomeClass[]`).
+- **Do not copy-paste** identical `@param` descriptions across multiple methods. Each docblock should describe what is specific to that method's use of the parameter.
 
 ### Union type style
 

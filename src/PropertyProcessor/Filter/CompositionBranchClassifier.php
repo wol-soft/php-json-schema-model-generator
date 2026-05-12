@@ -111,10 +111,17 @@ class CompositionBranchClassifier
     private function classifyKeyword(string $keyword, mixed $value): TypeSpace
     {
         if ($keyword === 'type') {
-            return $this->resolveTypeSpace(array_map(
-                static fn(string $jsonType): string => TypeConverter::jsonSchemaToPHP($jsonType),
-                (array) $value,
-            ));
+            // The 'type' keyword asserts raw JSON value structure.  It must classify
+            // against the declared output types directly — without the 'object' expansion
+            // from getEffectiveOutputTypes() — so that 'type: object' stays input-space for
+            // filters that return a PHP class instance (e.g. DateTime for dateTime filter).
+            return $this->classifyAgainstSpaces(
+                array_map(
+                    static fn(string $jsonType): string => TypeConverter::jsonSchemaToPHP($jsonType),
+                    (array) $value,
+                ),
+                $this->outputTypes,
+            );
         }
 
         if (in_array($keyword, self::NESTED_COMPOSITION_KEYWORDS, true)) {
@@ -186,13 +193,35 @@ class CompositionBranchClassifier
      * Map a list of PHP type names onto the Input / Output / Mixed / Empty TypeSpace
      * based on whether they overlap with the filter's declared input and output types.
      *
+     * Non-primitive class names in the declared output types are expanded to include
+     * 'object', so that object-targeted Draft keywords (e.g. minProperties) classify as
+     * output-space when the filter returns a class instance.
+     *
+     * 'int' and 'float' are treated as equivalent for overlap detection (JSON Schema:
+     * integer is a subtype of number). Number-typed Draft keywords such as 'minimum' and
+     * 'maximum' register under the 'number' → PHP 'float' type, so they must classify as
+     * output-space for filters that return 'int', and as input-space for filters that
+     * accept 'int'.
+     *
      * @param string[] $phpTypeNames
      */
     private function resolveTypeSpace(array $phpTypeNames): TypeSpace
     {
-        $effectiveOutputTypes = $this->getEffectiveOutputTypes();
-        $inInput  = !empty(array_intersect($phpTypeNames, $this->inputTypes));
-        $inOutput = !empty(array_intersect($phpTypeNames, $effectiveOutputTypes));
+        return $this->classifyAgainstSpaces($phpTypeNames, $this->getEffectiveOutputTypes());
+    }
+
+    /**
+     * Core classification: map a list of PHP type names onto the Input / Output / Mixed /
+     * Empty TypeSpace based on whether they overlap with the filter's input types and the
+     * given output type list.
+     *
+     * @param string[] $phpTypeNames
+     * @param string[] $outputTypes
+     */
+    private function classifyAgainstSpaces(array $phpTypeNames, array $outputTypes): TypeSpace
+    {
+        $inInput  = !empty(array_intersect($phpTypeNames, $this->expandNumericTypes($this->inputTypes)));
+        $inOutput = !empty(array_intersect($phpTypeNames, $this->expandNumericTypes($outputTypes)));
 
         return match (true) {
             $inInput && $inOutput => TypeSpace::Mixed,
@@ -203,9 +232,40 @@ class CompositionBranchClassifier
     }
 
     /**
+     * Expand a set of PHP type names so that 'int' and 'float' are treated as
+     * interchangeable for overlap detection.
+     *
+     * JSON Schema defines integer as a subtype of number. In the Draft type registry
+     * 'number' maps to PHP 'float', so number-typed keywords (minimum, maximum, …)
+     * carry 'float' as their type name. A filter that returns 'int' should still make
+     * those keywords classify as output-space; a filter that accepts 'int' should make
+     * them classify as input-space.
+     *
+     * @param string[] $types
+     * @return string[]
+     */
+    private function expandNumericTypes(array $types): array
+    {
+        $hasInt   = in_array('int', $types, true);
+        $hasFloat = in_array('float', $types, true);
+
+        if ($hasInt && !$hasFloat) {
+            $types[] = 'float';
+        } elseif ($hasFloat && !$hasInt) {
+            $types[] = 'int';
+        }
+
+        return $types;
+    }
+
+    /**
      * Expand the declared output types to include 'object' when any output type is a
      * non-primitive class name. This allows object-type Draft keywords (e.g. minProperties,
      * properties) to be classified as output-targeted when the filter returns a class instance.
+     *
+     * The 'type' keyword is deliberately excluded from this expansion: it validates raw JSON
+     * value structure and must classify against the declared output types only (see
+     * classifyKeyword). This method is used only for non-'type' structural keywords.
      *
      * @return string[]
      */

@@ -5,12 +5,12 @@
       "filter": "stringToInt",
       "allOf": [
         {
-          "type": "integer",
-          "minimum": 0
+          "type": "string",
+          "minLength": 1
         },
         {
           "type": "integer",
-          "maximum": 100
+          "minimum": 0
         }
       ]
     }

@@ -2,13 +2,13 @@
   "type": "object",
   "properties": {
     "filteredProperty": {
+      "type": "string",
       "filter": "dateTime",
-      "if": {
-        "type": "string"
-      },
-      "then": {
-        "minProperties": 1
-      }
+      "allOf": [
+        {
+          "minLength": 5
+        }
+      ]
     }
   }
 }
