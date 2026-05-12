@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "conflict": {
+      "type": "string",
+      "readOnly": true,
+      "writeOnly": true
+    }
+  }
+}

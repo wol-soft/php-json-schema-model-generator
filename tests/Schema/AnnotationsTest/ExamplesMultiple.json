@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExamplesMultiple",
+  "type": "object",
+  "properties": {
+    "value": {
+      "type": "string",
+      "examples": [
+        "first",
+        "second",
+        "third"
+      ]
+    }
+  }
+}

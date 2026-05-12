@@ -64,12 +64,13 @@ class FilterProcessor
         string|array $filterList,
         GeneratorConfiguration $generatorConfiguration,
         Schema $schema,
+        int $startPriority = 10,
     ): void {
         $filterList = self::normalizeFilterList($filterList);
 
         $transformingFilter = null;
         // apply a different priority to each filter to make sure the order is kept
-        $filterPriority = 10 + count($property->getValidators());
+        $filterPriority = $startPriority + count($property->getValidators());
 
         foreach ($filterList as $filterToken) {
             $filterOptions = [];
@@ -699,22 +700,16 @@ class FilterProcessor
 
             if ($validator instanceof EnumValidator) {
                 $property->filterValidators(
-                    static fn(Validator $enumCandidate): bool =>
-                        !is_a($enumCandidate->getValidator(), EnumValidator::class),
+                    static fn(Validator $candidate): bool => !$candidate->getValidator() instanceof EnumValidator,
                 );
 
-                // Shift the name from the validator to avoid adding it twice by wrapping it.
                 $exceptionParams = $validator->getExceptionParams();
                 array_shift($exceptionParams);
 
                 $property->addValidator(
                     new PropertyValidator(
                         $property,
-                        sprintf(
-                            '%s && %s',
-                            TypeCheck::buildNegatedCompound($returnTypeNames),
-                            $validator->getCheck(),
-                        ),
+                        sprintf('%s && %s', TypeCheck::buildNegatedCompound($returnTypeNames), $validator->getCheck()),
                         $validator->getExceptionClass(),
                         $exceptionParams,
                     ),

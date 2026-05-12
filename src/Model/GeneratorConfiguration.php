@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model;
 
 use Exception;
+use InvalidArgumentException;
 use PHPModelGenerator\Draft\AutoDetectionDraft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\DraftInterface;
@@ -12,11 +13,22 @@ use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
+use PHPModelGenerator\Format\FormatValidatorFromRegEx;
 use PHPModelGenerator\Format\FormatValidatorInterface;
+use PHPModelGenerator\Format\IriFormatValidator;
+use PHPModelGenerator\Format\IriReferenceFormatValidator;
+use PHPModelGenerator\Format\Ipv6FormatValidator;
+use PHPModelGenerator\Format\RegexFormatValidator;
+use PHPModelGenerator\Format\UriFormatValidator;
+use PHPModelGenerator\Format\UriReferenceFormatValidator;
+use PHPModelGenerator\Format\UriTemplateFormatValidator;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
+use PHPModelGenerator\PropertyProcessor\Filter\ImmutableMediaStringFilter;
+use PHPModelGenerator\PropertyProcessor\Filter\MediaStringFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
+use PHPModelGenerator\MediaString\ContentValidatorInterface;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Utils\ClassNameGeneratorInterface;
 
@@ -62,6 +74,8 @@ class GeneratorConfiguration
     protected $filter;
     /** @var FormatValidatorInterface[] */
     protected $formats;
+    /** @var ContentValidatorInterface[] keyed by "mediaType|encoding" (empty string as null sentinel) */
+    protected $contentValidators = [];
 
     /**
      * GeneratorConfiguration constructor.
@@ -116,6 +130,95 @@ class GeneratorConfiguration
     public function getFormat(string $formatKey): ?FormatValidatorInterface
     {
         return $this->formats[$formatKey] ?? null;
+    }
+
+    /**
+     * Register a content validator for properties carrying contentMediaType and/or contentEncoding.
+     *
+     * Each parameter accepts:
+     *   - null          — wildcard: matches any value (or absence) of that dimension
+     *   - string        — matches exactly that media type or encoding
+     *   - string[]      — matches any of the listed values for that dimension; must contain only
+     *                     non-empty strings (null is not allowed inside an array)
+     *
+     * When arrays are provided the validator is registered once for every combination of
+     * (mediaType × encoding) produced by the Cartesian product of the two lists.
+     *
+     * The lookup at generation time follows specificity order regardless of registration order:
+     *   1. Exact match          ($mediaType, $encoding) — both non-null and matching
+     *   2. Media-type wildcard  ($mediaType, null)      — any encoding
+     *   3. Encoding wildcard    (null, $encoding)       — any media type
+     *   4. Full wildcard        (null, null)            — matches everything
+     *
+     * @param null|string|string[] $mediaType
+     * @param null|string|string[] $encoding
+     *
+     * @throws InvalidArgumentException if an array argument contains a non-string or empty string
+     */
+    public function addContentValidator(
+        null|string|array $mediaType,
+        null|string|array $encoding,
+        ContentValidatorInterface $validator,
+    ): self {
+        $mediaTypes = $this->normalizeContentValidatorDimension($mediaType, 'mediaType');
+        $encodings  = $this->normalizeContentValidatorDimension($encoding, 'encoding');
+
+        foreach ($mediaTypes as $mediaTypeValue) {
+            foreach ($encodings as $encodingValue) {
+                $this->contentValidators[$this->buildContentValidatorKey($mediaTypeValue, $encodingValue)] = $validator;
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Normalise a mediaType/encoding argument into an array of nullable strings.
+     * null  → [null]
+     * string → [string]
+     * array  → validated and returned as-is (each element must be a non-empty string)
+     *
+     * @return array<?string>
+     * @throws InvalidArgumentException
+     */
+    private function normalizeContentValidatorDimension(null|string|array $value, string $dimensionName): array
+    {
+        if (!is_array($value)) {
+            return [$value];
+        }
+
+        foreach ($value as $item) {
+            if (!is_string($item) || $item === '') {
+                throw new InvalidArgumentException(
+                    "addContentValidator: every element of the \$$dimensionName array must be a non-empty string"
+                );
+            }
+        }
+
+        return $value;
+    }
+
+    public function getContentValidator(?string $mediaType, ?string $encoding): ?ContentValidatorInterface
+    {
+        $candidates = [
+            $this->buildContentValidatorKey($mediaType, $encoding),
+            $this->buildContentValidatorKey($mediaType, null),
+            $this->buildContentValidatorKey(null, $encoding),
+            $this->buildContentValidatorKey(null, null),
+        ];
+
+        foreach ($candidates as $key) {
+            if (isset($this->contentValidators[$key])) {
+                return $this->contentValidators[$key];
+            }
+        }
+
+        return null;
+    }
+
+    private function buildContentValidatorKey(?string $mediaType, ?string $encoding): string
+    {
+        return ($mediaType ?? '') . '|' . ($encoding ?? '');
     }
 
     /**
@@ -278,7 +381,9 @@ class GeneratorConfiguration
         $this
             ->addFilter(new DateTimeFilter())
             ->addFilter(new NotEmptyFilter())
-            ->addFilter(new TrimFilter());
+            ->addFilter(new TrimFilter())
+            ->addFilter(new MediaStringFilter())
+            ->addFilter(new ImmutableMediaStringFilter());
     }
 
     public function getEnabledAttributes(): int
@@ -307,8 +412,79 @@ class GeneratorConfiguration
         return $this;
     }
 
-    // TODO: add builtin format validators
     private function initFormatValidator(): void
     {
+        // RFC 3339 date-time: YYYY-MM-DDTHH:MM:SS with optional fractional seconds and timezone
+        $this->addFormat(
+            'date-time',
+            new FormatValidatorFromRegEx(
+                '/^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+\-]\d{2}:\d{2})$/',
+            ),
+        );
+
+        // RFC 3339 full-date: YYYY-MM-DD
+        $this->addFormat(
+            'date',
+            new FormatValidatorFromRegEx('/^\d{4}-\d{2}-\d{2}$/'),
+        );
+
+        // RFC 3339 full-time: HH:MM:SS with optional fractional seconds and timezone
+        $this->addFormat(
+            'time',
+            new FormatValidatorFromRegEx(
+                '/^\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+\-]\d{2}:\d{2})$/',
+            ),
+        );
+
+        // RFC 5322 email address (simplified)
+        $this->addFormat(
+            'email',
+            new FormatValidatorFromRegEx('/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/'),
+        );
+
+        // idn-email: internationalized email — same simplified check allowing unicode
+        $this->addFormat(
+            'idn-email',
+            new FormatValidatorFromRegEx('/^[^\s@]+@[^\s@]+\.[^\s@]+$/u'),
+        );
+
+        // RFC 1123 hostname
+        $hostnamePattern = '/^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)*'
+            . '[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$/';
+        $this->addFormat('hostname', new FormatValidatorFromRegEx($hostnamePattern));
+
+        // idn-hostname: internationalized hostname — allow unicode labels
+        $idnHostnamePattern = '/^(?:[a-zA-Z0-9\pL](?:[a-zA-Z0-9\pL\-]{0,61}[a-zA-Z0-9\pL])?\.)*'
+            . '[a-zA-Z0-9\pL](?:[a-zA-Z0-9\pL\-]{0,61}[a-zA-Z0-9\pL])?$/u';
+        $this->addFormat('idn-hostname', new FormatValidatorFromRegEx($idnHostnamePattern));
+
+        // IPv4 address
+        $this->addFormat(
+            'ipv4',
+            new FormatValidatorFromRegEx(
+                '/^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$/',
+            ),
+        );
+
+        // RFC 6901 JSON Pointer
+        $this->addFormat(
+            'json-pointer',
+            new FormatValidatorFromRegEx('/^(\/([^~]|~[01])*)*$/'),
+        );
+
+        // JSON Schema relative JSON pointer: optional integer prefix + JSON pointer
+        $this->addFormat(
+            'relative-json-pointer',
+            new FormatValidatorFromRegEx('/^\d+(\/([^~]|~[01])*)*$|^\d+#$/'),
+        );
+
+        // Class-based validators from the production package
+        $this->addFormat('ipv6', new Ipv6FormatValidator());
+        $this->addFormat('uri', new UriFormatValidator());
+        $this->addFormat('uri-reference', new UriReferenceFormatValidator());
+        $this->addFormat('uri-template', new UriTemplateFormatValidator());
+        $this->addFormat('iri', new IriFormatValidator());
+        $this->addFormat('iri-reference', new IriReferenceFormatValidator());
+        $this->addFormat('regex', new RegexFormatValidator());
     }
 }
