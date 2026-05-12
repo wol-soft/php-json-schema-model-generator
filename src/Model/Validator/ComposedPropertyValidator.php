@@ -44,72 +44,93 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
     }
 
     /**
-     * TODO: add method only if nested objects contain filter (else also skip method call)
+     * Registers the helper method that propagates filter-transformed values from nested
+     * composition objects back to the merged model, but only when at least one composition
+     * branch has a nested schema with declared properties (the only case where the method
+     * would ever produce non-empty results).
      */
     public function getCheck(): string
     {
-        /**
-         * Add a method to the schema to gather values from a nested object which are modified.
-         * This is required to adopt filter changes to the values which are passed into a merged property
-         */
-        $this->scope->addMethod(
-            $this->modifiedValuesMethod,
-            new class ($this->composedProperties, $this->modifiedValuesMethod) implements MethodInterface {
-                public function __construct(
-                    /** @var CompositionPropertyDecorator[] $compositionProperties */
-                    private readonly array $compositionProperties,
-                    private readonly string $modifiedValuesMethod
-                ) {}
+        $hasNestedSchemaWithProperties = $this->hasNestedSchemaWithProperties();
 
-                public function getCode(): string
-                {
-                    $defaultValueMap = [];
-                    $propertyAccessors = [];
-                    foreach ($this->compositionProperties as $compositionProperty) {
-                        if (!$compositionProperty->getNestedSchema()) {
-                            continue;
-                        }
+        $this->templateValues['hasModifiedValuesMethod'] = $hasNestedSchemaWithProperties;
 
-                        foreach ($compositionProperty->getNestedSchema()->getProperties() as $property) {
-                            $propertyAccessors[$property->getName()] = 'get' . ucfirst($property->getAttribute());
+        if ($hasNestedSchemaWithProperties) {
+            $this->scope->addMethod(
+                $this->modifiedValuesMethod,
+                new class ($this->composedProperties, $this->modifiedValuesMethod) implements MethodInterface {
+                    public function __construct(
+                        /** @var CompositionPropertyDecorator[] $compositionProperties */
+                        private readonly array $compositionProperties,
+                        private readonly string $modifiedValuesMethod
+                    ) {}
 
-                            if ($property->getDefaultValue() !== null) {
-                                $defaultValueMap[] = $property->getName();
+                    public function getCode(): string
+                    {
+                        $defaultValueMap = [];
+                        $propertyAccessors = [];
+                        foreach ($this->compositionProperties as $compositionProperty) {
+                            if (!$compositionProperty->getNestedSchema()) {
+                                continue;
                             }
-                        }
-                    }
 
-                    return sprintf(
-                        '
-                        private function %s(array $originalModelData, object $nestedCompositionObject): array {
-                            $modifiedValues = [];
-                            $defaultValueMap = %s;
-    
-                            foreach (%s as $key => $accessor) {
-                                if ((isset($originalModelData[$key]) || in_array($key, $defaultValueMap))
-                                    && method_exists($nestedCompositionObject, $accessor)
-                                    && ($modifiedValue = $nestedCompositionObject->$accessor())
-                                        !== ($originalModelData[$key] ?? !$modifiedValue)
-                                ) {
-                                    $modifiedValues[$key] = $modifiedValue;
+                            foreach ($compositionProperty->getNestedSchema()->getProperties() as $property) {
+                                $propertyAccessors[$property->getName()] = 'get' . ucfirst($property->getAttribute());
+
+                                if ($property->getDefaultValue() !== null) {
+                                    $defaultValueMap[] = $property->getName();
                                 }
                             }
-    
-                            return $modifiedValues;
-                        }',
-                        $this->modifiedValuesMethod,
-                        var_export($defaultValueMap, true),
-                        var_export($propertyAccessors, true),
-                    );
-                }
-            },
-        );
+                        }
+
+                        return sprintf(
+                            '
+                            private function %s(array $originalModelData, object $nestedCompositionObject): array {
+                                $modifiedValues = [];
+                                $defaultValueMap = %s;
+
+                                foreach (%s as $key => $accessor) {
+                                    if ((isset($originalModelData[$key]) || in_array($key, $defaultValueMap))
+                                        && method_exists($nestedCompositionObject, $accessor)
+                                        && ($modifiedValue = $nestedCompositionObject->$accessor())
+                                            !== ($originalModelData[$key] ?? !$modifiedValue)
+                                    ) {
+                                        $modifiedValues[$key] = $modifiedValue;
+                                    }
+                                }
+
+                                return $modifiedValues;
+                            }',
+                            $this->modifiedValuesMethod,
+                            var_export($defaultValueMap, true),
+                            var_export($propertyAccessors, true),
+                        );
+                    }
+                },
+            );
+        }
 
         return parent::getCheck();
     }
 
     /**
-     * Initialize all variables which are required to execute a composed property validator
+     * Returns true when at least one composition branch has a nested schema with declared
+     * properties, meaning the modified-values helper method may produce non-empty results.
+     */
+    private function hasNestedSchemaWithProperties(): bool
+    {
+        foreach ($this->composedProperties as $compositionProperty) {
+            $nestedSchema = $compositionProperty->getNestedSchema();
+            if ($nestedSchema !== null && !empty($nestedSchema->getProperties())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Initialize all variables which are required to execute a composed property validator.
      */
     public function getValidatorSetUp(): string
     {
@@ -117,6 +138,47 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             $succeededCompositionElements = 0;
             $compositionErrorCollection = [];
         ';
+    }
+
+    /**
+     * Create a subset of this validator containing only the composition branches at the
+     * given indices. Used by FilterProcessor to split an allOf validator whose branches
+     * span both input-space and output-space around a transforming filter.
+     *
+     * @param int[]  $branchIndices Branch indices (0-based) to retain.
+     * @param string $methodSuffix  Appended to the extracted method name to keep
+     *                              the subset validators distinct in the generated class.
+     *
+     * @return self
+     */
+    public function createSubsetValidator(array $branchIndices, string $methodSuffix): self
+    {
+        $filteredProperties = array_values(
+            array_intersect_key($this->composedProperties, array_flip($branchIndices)),
+        );
+        $availableAmount = count($filteredProperties);
+
+        $subsetValidator = clone $this;
+
+        // Give the subset validator a unique extracted method name so it generates
+        // its own method in the target class instead of colliding with the original.
+        $subsetValidator->extractedMethodName = $this->getExtractedMethodName() . $methodSuffix;
+
+        // Regenerate the modifiedValuesMethod name so the subset validator's helper
+        // method is distinct from the original's.
+        $subsetValidator->modifiedValuesMethod =
+            '_getModifiedValues_' . substr(md5(spl_object_hash($subsetValidator)), 0, 5);
+
+        $subsetValidator->composedProperties = $filteredProperties;
+        $subsetValidator->templateValues = array_merge($this->templateValues, [
+            'compositionProperties' => $filteredProperties,
+            'availableAmount'       => $availableAmount,
+            'composedValueValidation' => "\$succeededCompositionElements === $availableAmount",
+            'mergedProperty'        => null,
+            'modifiedValuesMethod'  => $subsetValidator->modifiedValuesMethod,
+        ]);
+
+        return $subsetValidator;
     }
 
     /**

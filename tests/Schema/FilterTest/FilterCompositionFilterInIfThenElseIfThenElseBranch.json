@@ -2,12 +2,15 @@
   "type": "object",
   "properties": {
     "filteredProperty": {
-      "filter": "dateTime",
+      "filter": "trim",
       "if": {
-        "type": "string"
+        "filter": "trim"
       },
       "then": {
-        "minProperties": 1
+        "minLength": 5
+      },
+      "else": {
+        "maxLength": 10
       }
     }
   }

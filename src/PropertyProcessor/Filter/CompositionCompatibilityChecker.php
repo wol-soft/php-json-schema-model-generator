@@ -48,7 +48,7 @@ class CompositionCompatibilityChecker
 
     /**
      * Validate that root-level composition branches on the parent object schema do not
-     * constrain the filtered subproperty with output-type-space constraints (R-4).
+     * constrain the filtered subproperty with output-type-space constraints.
      *
      * Throws when any root-level composition branch references the filtered subproperty
      * by name via a "properties" constraint whose content targets the output type-space.
@@ -83,9 +83,9 @@ class CompositionCompatibilityChecker
                 $space = $this->classifier->classify($innerConstraint);
 
                 if ($space === TypeSpace::Output || $space === TypeSpace::Mixed) {
-                    // TODO: R-4 — proper handling is deferred to a follow-up topic.
+                    // TODO: proper handling is deferred to a follow-up topic.
                     // Root-level composition branches cannot yet be split around the
-                    // filter's transform boundary. See implementation-plan.md.
+                    // filter's transform boundary.
                     throw new SchemaException(sprintf(
                         'Composition %s in file %s constrains filtered subproperty %s'
                             . ' (branch #%d) with output-type-space constraints;'
@@ -117,7 +117,7 @@ class CompositionCompatibilityChecker
             $space = $this->classifier->classify($innerConstraint);
 
             if ($space === TypeSpace::Output || $space === TypeSpace::Mixed) {
-                // TODO: R-4 — see above.
+                // TODO: see above.
                 throw new SchemaException(sprintf(
                     'Composition %s in file %s constrains filtered subproperty %s'
                         . ' with output-type-space constraints; this combination is not yet supported.',

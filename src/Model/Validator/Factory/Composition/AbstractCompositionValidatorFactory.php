@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
+use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
@@ -83,7 +84,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * For "not", the value is a single branch schema (not an array); all other keywords
      * use an array of branches.
      *
-     * TODO: R-7 — filters inside composition branches cannot be correctly applied
+     * TODO: filters inside composition branches cannot be correctly applied
      * (ComposedItem.phptpl resets $value to $originalModelData after each branch).
      * Proper per-branch filter chaining is deferred to a follow-up topic.
      *
@@ -186,10 +187,31 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             );
 
             $compositionProperty->onResolve(function () use ($compositionProperty, $property, $merged): void {
+                $nestedSchema = $compositionProperty->getNestedSchema();
+
                 $compositionProperty->filterValidators(
-                    static fn(Validator $validator): bool =>
-                        !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                        !is_a($validator->getValidator(), ComposedPropertyValidator::class),
+                    static function (Validator $validator) use ($nestedSchema): bool {
+                        if (is_a($validator->getValidator(), RequiredPropertyValidator::class)) {
+                            return false;
+                        }
+                        if (is_a($validator->getValidator(), ComposedPropertyValidator::class)) {
+                            return false;
+                        }
+                        // An empty object schema ({type: object} with no declared properties)
+                        // must accept any PHP object in composition context. The generated
+                        // placeholder class carries no semantic constraints, so the strict
+                        // instanceof check against it would incorrectly reject valid objects
+                        // (e.g. a DateTime produced by a transforming filter) that are perfectly
+                        // acceptable under the schema's actual semantics.
+                        if (
+                            is_a($validator->getValidator(), InstanceOfValidator::class)
+                            && $nestedSchema !== null
+                            && empty($nestedSchema->getProperties())
+                        ) {
+                            return false;
+                        }
+                        return true;
+                    },
                 );
 
                 if (!($merged && $compositionProperty->getNestedSchema())) {

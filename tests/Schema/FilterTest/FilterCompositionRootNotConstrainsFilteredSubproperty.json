@@ -2,11 +2,12 @@
   "type": "object",
   "properties": {
     "filteredProperty": {
-      "filter": "dateTime",
-      "if": {
-        "type": "string"
-      },
-      "then": {
+      "filter": "dateTime"
+    }
+  },
+  "not": {
+    "properties": {
+      "filteredProperty": {
         "minProperties": 1
       }
     }

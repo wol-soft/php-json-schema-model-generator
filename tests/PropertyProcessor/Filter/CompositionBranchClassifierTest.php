@@ -84,19 +84,23 @@ class CompositionBranchClassifierTest extends TestCase
         );
     }
 
-    public function testTypeBranchObjectClassifiesAsOutput(): void
+    public function testTypeBranchObjectClassifiesAsInput(): void
     {
-        // DateTime is an object — `type: object` targets the output space.
+        // `type` validates raw JSON value structure — not the post-filter PHP class instance.
+        // 'object' is not in the declared output types (['DateTime']), so the type constraint
+        // is input-space regardless of the object-expansion used for other keywords.
         $this->assertSame(
-            TypeSpace::Output,
+            TypeSpace::Input,
             $this->classifierForStringToDateTime()->classify(['type' => 'object']),
         );
     }
 
-    public function testTypeBranchMultipleSpanningBothSpacesClassifiesAsMixed(): void
+    public function testTypeBranchStringAndObjectBothClassifyAsInput(): void
     {
+        // 'string' → Input (in inputTypes); 'object' → not in declared outputTypes → Empty → Input.
+        // Net contribution: Input only → branch is Input.
         $this->assertSame(
-            TypeSpace::Mixed,
+            TypeSpace::Input,
             $this->classifierForStringToDateTime()->classify(['type' => ['string', 'object']]),
         );
     }
@@ -319,10 +323,28 @@ class CompositionBranchClassifierTest extends TestCase
         );
     }
 
-    public function testNestedAllOfWithOutputBranchClassifiesAsOutput(): void
+    public function testNestedAllOfWithAllOutputKeywordBranchesClassifiesAsOutput(): void
     {
+        // Both branches use object-targeted keywords (not the type keyword), which
+        // classify as Output via getEffectiveOutputTypes().
         $this->assertSame(
             TypeSpace::Output,
+            $this->classifierForStringToDateTime()->classify([
+                'allOf' => [
+                    ['minProperties' => 1],
+                    ['maxProperties' => 10],
+                ],
+            ]),
+        );
+    }
+
+    public function testNestedAllOfWithTypeObjectBranchAndOutputKeywordClassifiesAsMixed(): void
+    {
+        // type:object → Input (type keyword uses declared output types, 'object' ∉ ['DateTime']).
+        // minProperties → Output (object-targeted keyword; effective output includes 'object').
+        // Mix → Mixed.
+        $this->assertSame(
+            TypeSpace::Mixed,
             $this->classifierForStringToDateTime()->classify([
                 'allOf' => [
                     ['type' => 'object'],
@@ -332,10 +354,12 @@ class CompositionBranchClassifierTest extends TestCase
         );
     }
 
-    public function testNestedAllOfWithCrossSpaceBranchesClassifiesAsMixed(): void
+    public function testNestedAllOfWithTwoInputTypeBranchesClassifiesAsInput(): void
     {
+        // type:string → Input; type:object → Input (type keyword uses declared output types,
+        // 'object' ∉ ['DateTime']). Both branches are Input → allOf is Input.
         $this->assertSame(
-            TypeSpace::Mixed,
+            TypeSpace::Input,
             $this->classifierForStringToDateTime()->classify([
                 'allOf' => [
                     ['type' => 'string'],
@@ -374,10 +398,26 @@ class CompositionBranchClassifierTest extends TestCase
         );
     }
 
-    public function testNestedAnyOfWithAllOutputBranchesClassifiesAsOutput(): void
+    public function testNestedAnyOfWithAllOutputKeywordBranchesClassifiesAsOutput(): void
     {
+        // Both branches use object-targeted keywords (not type keyword) → both Output → Output.
         $this->assertSame(
             TypeSpace::Output,
+            $this->classifierForStringToDateTime()->classify([
+                'anyOf' => [
+                    ['minProperties' => 1],
+                    ['maxProperties' => 10],
+                ],
+            ]),
+        );
+    }
+
+    public function testNestedAnyOfWithTypeObjectBranchAndOutputKeywordClassifiesAsMixed(): void
+    {
+        // type:object → Input (type keyword uses declared output types, 'object' ∉ ['DateTime']).
+        // minProperties → Output. Mix → Mixed.
+        $this->assertSame(
+            TypeSpace::Mixed,
             $this->classifierForStringToDateTime()->classify([
                 'anyOf' => [
                     ['type' => 'object'],
@@ -389,9 +429,10 @@ class CompositionBranchClassifierTest extends TestCase
 
     public function testNestedCompositionCombinedWithOtherKeywordsContributes(): void
     {
-        // allOf is output-targeted; minLength is input-targeted → Mixed.
+        // allOf [{type: object}] → Input (type:object is Input; only branch → allOf is Input).
+        // minLength → Input. Both Input → branch is Input.
         $this->assertSame(
-            TypeSpace::Mixed,
+            TypeSpace::Input,
             $this->classifierForStringToDateTime()->classify([
                 'allOf'     => [['type' => 'object']],
                 'minLength' => 1,

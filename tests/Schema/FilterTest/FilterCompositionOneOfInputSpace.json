@@ -2,13 +2,14 @@
   "type": "object",
   "properties": {
     "filteredProperty": {
+      "type": "string",
       "filter": "dateTime",
-      "anyOf": [
+      "oneOf": [
         {
-          "type": "string"
+          "minLength": 5
         },
         {
-          "minProperties": 1
+          "maxLength": 3
         }
       ]
     }

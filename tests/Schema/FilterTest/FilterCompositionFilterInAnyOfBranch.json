@@ -2,13 +2,9 @@
   "type": "object",
   "properties": {
     "filteredProperty": {
-      "filter": "dateTime",
       "anyOf": [
         {
-          "type": "string"
-        },
-        {
-          "minProperties": 1
+          "filter": "trim"
         }
       ]
     }

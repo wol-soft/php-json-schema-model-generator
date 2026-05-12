@@ -2,15 +2,12 @@
   "type": "object",
   "properties": {
     "filteredProperty": {
+      "type": "string",
       "filter": "stringToInt",
       "allOf": [
         {
           "type": "integer",
           "minimum": 0
-        },
-        {
-          "type": "integer",
-          "maximum": 100
         }
       ]
     }

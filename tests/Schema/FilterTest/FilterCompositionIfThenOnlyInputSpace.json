@@ -2,12 +2,13 @@
   "type": "object",
   "properties": {
     "filteredProperty": {
+      "type": "string",
       "filter": "dateTime",
       "if": {
-        "type": "string"
+        "minLength": 8
       },
       "then": {
-        "minProperties": 1
+        "maxLength": 20
       }
     }
   }

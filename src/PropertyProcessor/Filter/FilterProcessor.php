@@ -8,6 +8,7 @@ use Exception;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Exception\InvalidFilterException;
+use PHPModelGenerator\Exception\Object\InvalidInstanceOfException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Filter\ValidateOptionsInterface;
@@ -18,9 +19,12 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\AbstractPropertyValidator;
+use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\FormatValidator;
+use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\PassThroughTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -43,7 +47,7 @@ class FilterProcessor
      * Accepts a string token, a single filter-spec array (['filter' => 'token', ...]),
      * or a list of either. Always returns a list.
      */
-    public static function normalizeFilterList(mixed $filterList): array
+    public static function normalizeFilterList(string|array $filterList): array
     {
         if (is_string($filterList) || (is_array($filterList) && isset($filterList['filter']))) {
             return [$filterList];
@@ -59,7 +63,7 @@ class FilterProcessor
      */
     public function process(
         PropertyInterface $property,
-        mixed $filterList,
+        string|array $filterList,
         GeneratorConfiguration $generatorConfiguration,
         Schema $schema,
         int $startPriority = 10,
@@ -145,7 +149,13 @@ class FilterProcessor
                 $checker->checkTransformingFilterCompositionConflicts($property->getJsonSchema()->getJson());
                 $checker->checkTransformingFilterRootCompositionConflicts($schema->getJsonSchema()->getJson());
 
-                $this->reassignValidatorPriorities($property, $actualFilterPriority, $classifier);
+                $this->reassignValidatorPriorities(
+                    $property,
+                    $actualFilterPriority,
+                    $classifier,
+                    $returnTypeNames,
+                    $generatorConfiguration,
+                );
 
                 if (!empty($returnTypeNames)) {
                     // Wire pass-through checks on pre-transforming FilterValidators/EnumValidators
@@ -154,6 +164,18 @@ class FilterProcessor
                     // receive the check — post-transform validators are added later and use
                     // !$transformationFailed instead.
                     $this->addTransformedValuePassThrough($property, $filter, $returnTypeNames);
+
+                    $objectReturnTypes = array_values(array_filter(
+                        $returnTypeNames,
+                        static fn(string $type): bool => !TypeCheck::isPrimitive($type),
+                    ));
+                    if (!empty($objectReturnTypes)) {
+                        $this->addExtendedInstanceOfCheckForObjectBranches(
+                            $property,
+                            $objectReturnTypes,
+                            $actualFilterPriority,
+                        );
+                    }
 
                     // Eagerly set the output type when the base type is already known.
                     // This preserves the output type through property cloning in merged composition
@@ -180,6 +202,87 @@ class FilterProcessor
     }
 
     /**
+     * Adds a property-level validator that rejects objects whose type is not in the filter's
+     * declared non-primitive return types (e.g. rejects stdClass when the filter returns DateTime).
+     *
+     * Empty object schemas ({type: object} with no declared properties) in composition branches
+     * have their strict instanceof check removed so that any PHP object passes the branch's
+     * type check. Without a narrowing check at the property level, foreign objects would
+     * silently pass through. Placing the validator at property level ensures
+     * InvalidInstanceOfException propagates directly rather than being absorbed by the
+     * composition template's catch block.
+     *
+     * Only adds the validator when at least one composition branch had its instanceof removed
+     * (i.e. has an empty nested schema with no declared properties).
+     *
+     * @param string[] $objectReturnTypes Non-primitive PHP class names returned by the filter.
+     * @param int      $filterPriority    Priority at which the transforming filter was added;
+     *                                    the check is scheduled one step later so it runs on
+     *                                    the already-transformed value.
+     */
+    private function addExtendedInstanceOfCheckForObjectBranches(
+        PropertyInterface $property,
+        array $objectReturnTypes,
+        int $filterPriority,
+    ): void {
+        $hasEmptyObjectBranch = false;
+        foreach ($property->getValidators() as $validatorContainer) {
+            $validator = $validatorContainer->getValidator();
+
+            // Unwrap a FilterPreTransformGuardValidator to reach the underlying composed validator.
+            if ($validator instanceof FilterPreTransformGuardValidator) {
+                $validator = $validator->getInnerValidator();
+            }
+
+            if (!is_a($validator, AbstractComposedPropertyValidator::class)) {
+                continue;
+            }
+
+            /** @var AbstractComposedPropertyValidator $composedValidator */
+            $composedValidator = $validator;
+
+            foreach ($composedValidator->getComposedProperties() as $compositionProperty) {
+                $nestedSchema = $compositionProperty->getNestedSchema();
+                if ($nestedSchema === null || !empty($nestedSchema->getProperties())) {
+                    continue;
+                }
+
+                $instanceOfRemoved = true;
+                foreach ($compositionProperty->getValidators() as $compositionValidator) {
+                    if (is_a($compositionValidator->getValidator(), InstanceOfValidator::class)) {
+                        $instanceOfRemoved = false;
+                        break;
+                    }
+                }
+
+                if ($instanceOfRemoved) {
+                    $hasEmptyObjectBranch = true;
+                    break 2;
+                }
+            }
+        }
+
+        if (!$hasEmptyObjectBranch) {
+            return;
+        }
+
+        $instanceOfParts = implode(' || ', array_map(
+            static fn(string $cls): string => "\$value instanceof $cls",
+            $objectReturnTypes,
+        ));
+
+        $property->addValidator(
+            new PropertyValidator(
+                $property,
+                "is_object(\$value) && !(\$value instanceof \\Exception) && !($instanceOfParts)",
+                InvalidInstanceOfException::class,
+                [reset($objectReturnTypes)],
+            ),
+            $filterPriority + 1,
+        );
+    }
+
+    /**
      * After identifying a transforming filter at priority P, scan all existing validators
      * on the property and adjust their run order:
      *
@@ -190,52 +293,268 @@ class FilterProcessor
      *   so they execute against the raw input value.
      * - Validators without a source key (type-check, required, non-transforming filters)
      *   are untouched regardless of their priority.
-     * - Composition validators (AbstractComposedPropertyValidator) are left for Phase 4,
-     *   which will split them into pre- and post-transform blocks.
+     * - Composition validators (AbstractComposedPropertyValidator) are classified by their
+     *   branch type-space and repositioned accordingly:
+     *     - All input-space or ambiguous → moved to P-1, wrapped in a skip guard so that
+     *       already-transformed values bypass the pre-transform check.
+     *     - All output-space → left post-filter (default).
+     *     - Mixed-space allOf (some input, some output branches) → split into a pre-filter
+     *       input-only subset and a post-filter output-only subset; the original is removed.
      *
-     * @param int $filterPriority The actual priority at which the transforming filter was added.
+     * @param int      $filterPriority  The actual priority at which the transforming filter was added.
+     * @param string[] $returnTypeNames Non-null return type names of the transforming filter;
+     *                                  used to build the skip condition for the pre-transform guards.
      */
     private function reassignValidatorPriorities(
         PropertyInterface $property,
         int $filterPriority,
         CompositionBranchClassifier $classifier,
+        array $returnTypeNames,
+        GeneratorConfiguration $generatorConfiguration,
     ): void {
+        $skipCheck = !empty($returnTypeNames) ? TypeCheck::buildCompound($returnTypeNames) : '';
+
+        [$inputSpaceComposed, $mixedAllOf] = $this->classifyValidatorAdjustments(
+            $property,
+            $filterPriority,
+            $classifier,
+            $returnTypeNames,
+        );
+
+        $this->wrapInputSpaceGuards(
+            $property,
+            $inputSpaceComposed,
+            $filterPriority,
+            $skipCheck,
+            $generatorConfiguration,
+        );
+
+        $this->splitMixedSpaceAllOf(
+            $property,
+            $mixedAllOf,
+            $filterPriority,
+            $skipCheck,
+            $returnTypeNames,
+            $generatorConfiguration,
+        );
+    }
+
+    /**
+     * Scan all post-filter validators on the property, move scalar input-space validators
+     * to just before the filter, and return two accumulator lists for deferred structural
+     * changes that cannot be applied while iterating the validator list:
+     *
+     *  - $inputSpaceComposed: uniform input-space composition validators that need a
+     *    pre-transform guard when return types are known.
+     *  - $mixedAllOf: allOf validators whose branches span both type-spaces and must be
+     *    split into separate pre- and post-filter subsets.
+     *
+     * @param string[] $returnTypeNames
+     *
+     * @return array{
+     *     list<array{container: Validator, validator: AbstractComposedPropertyValidator}>,
+     *     list<array{
+     *         container: Validator, validator: ComposedPropertyValidator,
+     *         inputIndices: int[], outputIndices: int[]
+     *     }>
+     * }
+     */
+    private function classifyValidatorAdjustments(
+        PropertyInterface $property,
+        int $filterPriority,
+        CompositionBranchClassifier $classifier,
+        array $returnTypeNames,
+    ): array {
+        /** @var list<array{container: Validator, validator: AbstractComposedPropertyValidator}> */
+        $inputSpaceComposed = [];
+
+        /** @var list<array{container: Validator, validator: ComposedPropertyValidator, inputIndices: int[], outputIndices: int[]}> */
+        $mixedAllOf = [];
+
         foreach ($property->getValidators() as $validatorContainer) {
-            // Validators already scheduled before the filter need no adjustment.
             if ($validatorContainer->getPriority() < $filterPriority) {
-                continue;
+                continue; // Already scheduled before the filter; no adjustment needed.
             }
 
-            // Skip the filter validators themselves.
             if (is_a($validatorContainer->getValidator(), FilterValidator::class)) {
-                continue;
+                continue; // Skip the filter validators themselves.
             }
 
-            // Composition validators are handled in Phase 4.
             if (is_a($validatorContainer->getValidator(), AbstractComposedPropertyValidator::class)) {
+                /** @var AbstractComposedPropertyValidator $composedValidator */
+                $composedValidator = $validatorContainer->getValidator();
+
+                [$inputIndices, $outputIndices] = $this->classifyComposedValidatorBranches(
+                    $composedValidator,
+                    $classifier,
+                );
+
+                // Only allOf can have mixed spaces (static rejection guarantees anyOf/oneOf/not/
+                // if-then-else have uniform spaces). Collect mixed-space allOf validators for
+                // splitting in splitMixedSpaceAllOf().
+                if (
+                    !empty($inputIndices) && !empty($outputIndices)
+                    && $composedValidator instanceof ComposedPropertyValidator
+                    && $composedValidator->getCompositionProcessor() === AllOfValidatorFactory::class
+                ) {
+                    $mixedAllOf[] = [
+                        'container'     => $validatorContainer,
+                        'validator'     => $composedValidator,
+                        'inputIndices'  => $inputIndices,
+                        'outputIndices' => $outputIndices,
+                    ];
+                    continue;
+                }
+
+                if (empty($outputIndices)) {
+                    // All branches are input-space or ambiguous (Empty → Input by liberal policy).
+                    // Defer guard wrapping when return types are known; otherwise move directly.
+                    if (!empty($returnTypeNames)) {
+                        $inputSpaceComposed[] = [
+                            'container' => $validatorContainer,
+                            'validator' => $composedValidator,
+                        ];
+                    } else {
+                        $validatorContainer->setPriority($filterPriority - 1);
+                    }
+                }
+                // Output-space composition validators: leave at their current post-filter position.
+
                 continue;
             }
 
             $sourceKey = $validatorContainer->getSourceKey();
             if ($sourceKey === null) {
                 // No source key: validator was not produced by a Draft AbstractValidatorFactory
-                // (e.g. PassThroughTypeCheckValidator from addTransformedValuePassThrough).
-                // Leave at its current position.
+                // (e.g. PassThroughTypeCheckValidator). Leave at its current position.
                 continue;
             }
 
             $typeSpace = $classifier->classifySchemaKey($sourceKey);
 
-            // Pure output-space validators (e.g. 'minimum' for a string→int filter) are
-            // correct where they are: they must validate the transformed value.
             if ($typeSpace === TypeSpace::Output) {
-                continue;
+                continue; // Output-space validators belong after the filter.
             }
 
             // Input-space, mixed, and ambiguous validators must run before the filter
             // so they validate the raw input value.
             $validatorContainer->setPriority($filterPriority - 1);
         }
+
+        return [$inputSpaceComposed, $mixedAllOf];
+    }
+
+    /**
+     * Replace each uniform input-space composition validator with a FilterPreTransformGuardValidator
+     * that short-circuits when the value is already in the filter's output type-space.
+     *
+     * @param list<array{container: Validator, validator: AbstractComposedPropertyValidator}> $inputSpaceComposed
+     */
+    private function wrapInputSpaceGuards(
+        PropertyInterface $property,
+        array $inputSpaceComposed,
+        int $filterPriority,
+        string $skipCheck,
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
+        foreach ($inputSpaceComposed as ['container' => $originalContainer, 'validator' => $composedValidator]) {
+            $property->filterValidators(
+                static fn(Validator $container): bool => $container !== $originalContainer,
+            );
+            $property->addValidator(
+                new FilterPreTransformGuardValidator(
+                    $generatorConfiguration,
+                    $property,
+                    $composedValidator,
+                    $skipCheck,
+                ),
+                $filterPriority - 1,
+            );
+        }
+    }
+
+    /**
+     * Replace each mixed-space allOf validator with a pre-filter input-subset (wrapped in a guard
+     * when return types are known) and a post-filter output-subset at the original priority.
+     *
+     * @param list<array{
+     *     container: Validator, validator: ComposedPropertyValidator,
+     *     inputIndices: int[], outputIndices: int[]
+     * }> $mixedAllOf
+     * @param string[] $returnTypeNames
+     */
+    private function splitMixedSpaceAllOf(
+        PropertyInterface $property,
+        array $mixedAllOf,
+        int $filterPriority,
+        string $skipCheck,
+        array $returnTypeNames,
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
+        foreach (
+            $mixedAllOf as [
+            'container' => $originalContainer,
+            'validator'     => $originalValidator,
+            'inputIndices'  => $inputIndices,
+            'outputIndices' => $outputIndices,
+            ]
+        ) {
+            $property->filterValidators(
+                static fn(Validator $container): bool => $container !== $originalContainer,
+            );
+
+            // Input-space subset runs before the filter; wrap in a guard when return types are known.
+            $preTransformValidator = $originalValidator->createSubsetValidator($inputIndices, '_pre_filter');
+            if (!empty($returnTypeNames)) {
+                $property->addValidator(
+                    new FilterPreTransformGuardValidator(
+                        $generatorConfiguration,
+                        $property,
+                        $preTransformValidator,
+                        $skipCheck,
+                    ),
+                    $filterPriority - 1,
+                );
+            } else {
+                $property->addValidator($preTransformValidator, $filterPriority - 1);
+            }
+
+            // Output-space subset runs at the original validator's priority so its position
+            // relative to other post-transform validators is preserved.
+            $postTransformValidator = $originalValidator->createSubsetValidator($outputIndices, '_post_filter');
+            $property->addValidator($postTransformValidator, $originalContainer->getPriority());
+        }
+    }
+
+    /**
+     * Classify the branches of a composition validator into input-space and output-space
+     * index lists using the given CompositionBranchClassifier.
+     *
+     * Empty/ambiguous branches (TypeSpace::Empty) are treated as input-space per the
+     * liberal policy, consistent with CompositionBranchClassifier.
+     *
+     * @return array{int[], int[]}  [inputIndices, outputIndices]
+     */
+    private function classifyComposedValidatorBranches(
+        AbstractComposedPropertyValidator $validator,
+        CompositionBranchClassifier $classifier,
+    ): array {
+        $inputIndices  = [];
+        $outputIndices = [];
+
+        foreach ($validator->getComposedProperties() as $index => $compositionProperty) {
+            $branchSchema = $compositionProperty->getBranchSchema()->getJson();
+            $space = $classifier->classify($branchSchema);
+
+            if ($space === TypeSpace::Output) {
+                $outputIndices[] = $index;
+            } else {
+                // Input, Mixed (statically rejected — shouldn't occur), and Empty → Input
+                $inputIndices[] = $index;
+            }
+        }
+
+        return [$inputIndices, $outputIndices];
     }
 
     /**

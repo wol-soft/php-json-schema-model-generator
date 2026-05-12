@@ -3,12 +3,9 @@
   "properties": {
     "filteredProperty": {
       "filter": "dateTime",
-      "if": {
-        "type": "string"
-      },
-      "then": {
-        "minProperties": 1
-      }
+      "allOf": [
+        {}
+      ]
     }
   }
 }

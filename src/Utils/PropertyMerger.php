@@ -68,7 +68,7 @@ class PropertyMerger
         }
 
         // Use getType(true) for the stored output type.
-        // getType(false) post-Phase-5 returns a synthesised union and cannot be decomposed.
+        // getType(false) returns a synthesised union type and cannot be decomposed into its parts.
         //
         // For allOf: a truly-untyped incoming branch (no type keyword, not an explicit null-type
         // branch) adds no type constraint — all allOf branches apply simultaneously, so the
