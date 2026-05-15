@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "if": {
+        "minimum": 0
+      },
+      "then": {
+        "type": "integer"
+      }
+    }
+  }
+}

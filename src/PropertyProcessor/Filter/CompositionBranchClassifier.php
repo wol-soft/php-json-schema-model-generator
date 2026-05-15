@@ -48,9 +48,9 @@ class CompositionBranchClassifier
      * Classify a single schema keyword by looking up which Draft-registered types carry it
      * and mapping those types onto the filter's input / output type-spaces.
      *
-     * Composition and structural keywords ('type', 'allOf', 'anyOf', 'oneOf', 'not') are not
-     * handled here — call classify() for full branch analysis.  Returns TypeSpace::Empty for
-     * keywords registered only on the 'any' pseudo-type (e.g. 'enum', 'filter') or for
+     * Composition keywords ('allOf', 'anyOf', 'oneOf', 'not') and the structural 'type' keyword
+     * are not handled here — call classify() for full branch analysis.  Returns TypeSpace::Empty
+     * for keywords registered only on the 'any' pseudo-type (e.g. 'enum', 'filter') or for
      * keywords not registered at all (e.g. '$schema', 'description').
      */
     public function classifySchemaKey(string $key): TypeSpace
@@ -105,23 +105,21 @@ class CompositionBranchClassifier
     /**
      * Determine the type-space contribution of a single keyword within a branch.
      *
+     * The 'type' keyword is always classified as Input: it asserts raw JSON value structure
+     * and must validate against the unfiltered input regardless of the filter's output type.
+     * Combining 'type' with output-targeted constraints (e.g. minimum/maximum) in the same
+     * branch therefore produces TypeSpace::Mixed, which is correctly rejected as unresolvable.
+     *
+     * Composition keywords ('allOf', 'anyOf', 'oneOf', 'not') are classified recursively via
+     * classifyNestedComposition() — call classify() for full branch analysis.
+     *
      * Returns TypeSpace::Empty when the keyword carries no spatial information
      * (registered only on 'any', not registered at all, or an unrecognised key).
      */
     private function classifyKeyword(string $keyword, mixed $value): TypeSpace
     {
         if ($keyword === 'type') {
-            // The 'type' keyword asserts raw JSON value structure.  It must classify
-            // against the declared output types directly — without the 'object' expansion
-            // from getEffectiveOutputTypes() — so that 'type: object' stays input-space for
-            // filters that return a PHP class instance (e.g. DateTime for dateTime filter).
-            return $this->classifyAgainstSpaces(
-                array_map(
-                    static fn(string $jsonType): string => TypeConverter::jsonSchemaToPHP($jsonType),
-                    (array) $value,
-                ),
-                $this->outputTypes,
-            );
+            return TypeSpace::Input;
         }
 
         if (in_array($keyword, self::NESTED_COMPOSITION_KEYWORDS, true)) {

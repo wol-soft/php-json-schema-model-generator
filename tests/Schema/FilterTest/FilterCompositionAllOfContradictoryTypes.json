@@ -3,16 +3,12 @@
   "properties": {
     "filteredProperty": {
       "filter": "stringToInt",
-      "type": [
-        "string",
-        "integer"
-      ],
       "allOf": [
         {
-          "minimum": 0
+          "type": "integer"
         },
         {
-          "maximum": 100
+          "type": "string"
         }
       ]
     }

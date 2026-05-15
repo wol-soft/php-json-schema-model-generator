@@ -2,9 +2,12 @@
   "type": "object",
   "properties": {
     "filteredProperty": {
+      "type": [
+        "string",
+        "integer"
+      ],
       "filter": "stringToInt",
       "not": {
-        "type": "integer",
         "minimum": 0
       }
     }

@@ -356,7 +356,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     #[DataProvider('invalidComposedObjectDataProvider')]
-    public function testNotMatchingPropertyForComposedAllOfObjectThrowsAnException(array $input, mixed $_stringValue = null, mixed $_intValue = null): void
+    public function testNotMatchingPropertyForComposedAllOfObjectThrowsAnException(array $input): void
     {
         $this->expectException(ValidationException::class);
 
@@ -373,13 +373,13 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'both invalid types bool' => [['integerProperty' => true, 'stringProperty' => false]],
             'both invalid types object' => [['integerProperty' => new stdClass(), 'stringProperty' => new stdClass()]],
             'both invalid types array' => [['integerProperty' => [], 'stringProperty' => []]],
-            'one invalid negative int' => [['integerProperty' => -10, 'stringProperty' => -10], null, -10],
-            'one invalid zero int' => [['integerProperty' => 0, 'stringProperty' => 0], null, 0],
-            'one invalid positive int' => [['integerProperty' => 10, 'stringProperty' => 10], null, 10],
-            'one invalid empty string' => [['integerProperty' => '', 'stringProperty' => ''], '', null],
-            'one invalid numeric string' => [['integerProperty' => '100', 'stringProperty' => '100'], '100', null],
-            'one invalid filled string' => [['integerProperty' => 'Hello', 'stringProperty' => 'Hello'], 'Hello', null],
-            'one invalid additional property' => [['integerProperty' => 'A', 'stringProperty' => 'A', 'test' => 1234], 'A', null],
+            'one invalid negative int' => [['integerProperty' => -10, 'stringProperty' => -10]],
+            'one invalid zero int' => [['integerProperty' => 0, 'stringProperty' => 0]],
+            'one invalid positive int' => [['integerProperty' => 10, 'stringProperty' => 10]],
+            'one invalid empty string' => [['integerProperty' => '', 'stringProperty' => '']],
+            'one invalid numeric string' => [['integerProperty' => '100', 'stringProperty' => '100']],
+            'one invalid filled string' => [['integerProperty' => 'Hello', 'stringProperty' => 'Hello']],
+            'one invalid additional property' => [['integerProperty' => 'A', 'stringProperty' => 'A', 'test' => 1234]],
         ];
     }
 
@@ -387,11 +387,9 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     /**
      * Must throw an exception as only one option matches
      */
-    #[DataProvider('validComposedObjectWithRequiredPropertiesDataProvider')]
+    #[DataProvider('validComposedObjectWithRequiredPropertiesInputDataProvider')]
     public function testMatchingPropertyForComposedAllOfObjectWithRequiredPropertiesThrowsAnException(
         array $input,
-        mixed $_stringValue = null,
-        mixed $_intValue = null,
     ): void {
         $this->expectException(ValidationException::class);
 
@@ -403,8 +401,6 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     #[DataProvider('invalidComposedObjectDataProvider')]
     public function testNotMatchingPropertyForComposedAllOfObjectWithRequiredPropertiesThrowsAnException(
         array $input,
-        mixed $_stringValue = null,
-        mixed $_intValue = null,
     ): void {
         $this->expectException(ValidationException::class);
 
@@ -420,6 +416,16 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'only string property' => [['stringProperty' => 'B'], 'B', null],
             'only int property with additional property' => [['integerProperty' => 4, 'test' => 1234], null, 4],
             'only string property with additional property' => [['stringProperty' => 'B', 'test' => 1234], 'B', null],
+        ];
+    }
+
+    public static function validComposedObjectWithRequiredPropertiesInputDataProvider(): array
+    {
+        return [
+            'only int property' => [['integerProperty' => 4]],
+            'only string property' => [['stringProperty' => 'B']],
+            'only int property with additional property' => [['integerProperty' => 4, 'test' => 1234]],
+            'only string property with additional property' => [['stringProperty' => 'B', 'test' => 1234]],
         ];
     }
 
@@ -604,5 +610,66 @@ ERROR
             $this->getParameterTypeAnnotation($className, 'setCeo'),
             $this->getParameterTypeAnnotation($className, 'setCfo'),
         );
+    }
+
+    /**
+     * A property-level allOf whose branch type constraints have an empty intersection is
+     * unsatisfiable — no value can pass all branch type checks simultaneously.
+     */
+    public function testPropertyLevelAllOfWithConflictingTypesThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/Property 'property' is defined with conflicting types in allOf composition branches/",
+        );
+
+        $this->generateClassFromFile('PropertyLevelAllOfConflictingTypes.json');
+    }
+
+    /**
+     * A property-level allOf where one branch has no type keyword and another declares
+     * integer: the untyped branch imposes no type restriction, so the effective type
+     * comes solely from the typed branch — ?int.
+     */
+    public function testPropertyLevelAllOfWithUntypedBranchPreservesTypedBranchType(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelAllOfUntypedBranch.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertEqualsCanonicalizing(
+            ['int', 'null'],
+            $this->getReturnTypeNames($className, 'getProperty'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['int', 'null'],
+            $this->getParameterTypeNames($className, 'setProperty'),
+        );
+    }
+
+    /**
+     * JSON Schema: integer is a subtype of number (int ⊂ float). A property-level
+     * allOf with one branch typed integer and another typed number must resolve the
+     * intersection to int rather than throwing a contradictory-types SchemaException.
+     */
+    public function testPropertyLevelAllOfIntegerSubtypeOfNumberResolvesToInt(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelAllOfIntegerNumber.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertEqualsCanonicalizing(
+            ['int', 'null'],
+            $this->getReturnTypeNames($className, 'getProperty'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['int', 'null'],
+            $this->getParameterTypeNames($className, 'setProperty'),
+        );
+
+        $object = new $className(['property' => 42]);
+        $this->assertSame(42, $object->getProperty());
     }
 }

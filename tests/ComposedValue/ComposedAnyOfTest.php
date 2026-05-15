@@ -634,4 +634,20 @@ ERROR
             ],
         ];
     }
+
+    /**
+     * A property-level anyOf where one branch has no type keyword accepts every value,
+     * making the anyOf always satisfiable. The property has no effective type restriction
+     * and must carry no type hint (mixed).
+     */
+    public function testPropertyLevelAnyOfWithUntypedBranchProducesMixedType(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelAnyOfUntypedBranch.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertSame('mixed', $this->getReturnType($className, 'getProperty')->getName());
+        $this->assertSame('mixed', $this->getParameterType($className, 'setProperty')->getName());
+    }
 }

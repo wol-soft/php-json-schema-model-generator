@@ -302,4 +302,103 @@ ERROR
         $this->assertPropertyHasJsonPointer($object, 'amount', '/then/properties/amount');
         $this->assertPropertyHasJsonPointer($object, 'label', '/else/properties/label');
     }
+
+    /**
+     * A property-level if/then/else where the property has no declared type and both then and
+     * else branches declare distinct types. The effective property type is the union of the two
+     * branch types (anyOf-like semantics: either branch can fire at runtime).
+     */
+    public function testPropertyLevelIfThenElseWidensTypeToUnionOfBranches(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelIfThenElseTypeWidening.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $this->assertEqualsCanonicalizing(
+            ['int', 'string', 'null'],
+            $this->getReturnTypeNames($className, 'getProperty'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['int', 'string', 'null'],
+            $this->getParameterTypeNames($className, 'setProperty'),
+        );
+
+        // Non-negative integer: if passes, then applies
+        $object = new $className(['property' => 5]);
+        $this->assertSame(5, $object->getProperty());
+
+        // Non-empty string: if fails (not integer), else applies
+        $object = new $className(['property' => 'hello']);
+        $this->assertSame('hello', $object->getProperty());
+
+        // Negative integer: if passes (integer), then (minimum: 0) fails
+        $this->expectException(ConditionalException::class);
+        new $className(['property' => -1]);
+    }
+
+    /**
+     * A property-level if/then/else where else is absent. The absent else branch accepts any
+     * value when if evaluates to false, making the composition unconstraining on that path.
+     * The property type must remain mixed (not widened to the then branch type only).
+     */
+    public function testPropertyLevelIfThenWithAbsentElseProducesMixedType(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelIfThenElseAbsentElse.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertSame('mixed', $this->getReturnType($className, 'getProperty')->getName());
+        $this->assertSame('mixed', $this->getParameterType($className, 'setProperty')->getName());
+    }
+
+    /**
+     * A property-level if/then/else where the parent declares type:string but both then and
+     * else explicitly declare types incompatible with string. No value can satisfy the parent
+     * type constraint together with whichever branch fires — the schema is unsatisfiable.
+     */
+    public function testPropertyLevelIfThenElseConflictingBranchTypesThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/Property 'property' has a type that conflicts with all if\/then\/else composition branches/",
+        );
+
+        $this->generateClassFromFile('PropertyLevelIfThenElseConflictingTypes.json');
+    }
+
+    /**
+     * A property-level if/then/else where the parent declares type:integer and the then/else
+     * branches add only numeric constraints (no explicit type). The branches inherit the parent
+     * type; the property type must remain int (not widened).
+     */
+    public function testPropertyLevelIfThenElseWithCompatibleBranchesPreservesParentType(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelIfThenElseParentTypePreserved.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $this->assertEqualsCanonicalizing(
+            ['int', 'null'],
+            $this->getReturnTypeNames($className, 'getProperty'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['int', 'null'],
+            $this->getParameterTypeNames($className, 'setProperty'),
+        );
+
+        // Even non-negative integer: if passes, then (multipleOf 2) applies
+        $object = new $className(['property' => 4]);
+        $this->assertSame(4, $object->getProperty());
+
+        // Negative integer: if fails, else (maximum -1) applies
+        $object = new $className(['property' => -3]);
+        $this->assertSame(-3, $object->getProperty());
+
+        // Odd non-negative integer: if passes (≥ 0), then (multipleOf 2) fails
+        $this->expectException(ConditionalException::class);
+        new $className(['property' => 3]);
+    }
 }

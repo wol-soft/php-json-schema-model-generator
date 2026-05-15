@@ -2,6 +2,10 @@
   "type": "object",
   "properties": {
     "filteredProperty": {
+      "type": [
+        "string",
+        "integer"
+      ],
       "filter": "stringToInt",
       "allOf": [
         {
@@ -9,7 +13,6 @@
           "minLength": 1
         },
         {
-          "type": "integer",
           "minimum": 0
         }
       ]
