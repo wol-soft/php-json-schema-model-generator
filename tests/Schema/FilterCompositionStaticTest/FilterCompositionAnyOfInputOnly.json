@@ -2,14 +2,13 @@
   "type": "object",
   "properties": {
     "filteredProperty": {
-      "type": "string",
-      "filter": "trim",
+      "filter": "dateTime",
       "anyOf": [
         {
-          "minLength": 5
+          "type": "string"
         },
         {
-          "const": "hi"
+          "type": "integer"
         }
       ]
     }
