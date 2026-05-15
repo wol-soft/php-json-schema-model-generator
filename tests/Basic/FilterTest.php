@@ -469,10 +469,12 @@ class FilterTest extends AbstractPHPModelGeneratorTestCase
     public function testFilterExceptionsAreCaught(): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessage(<<<ERROR
-Invalid value for property created denied by filter dateTime: Invalid Date Time value "Hello"
-Invalid type for name. Requires string, got integer
-ERROR,);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for property created denied by filter dateTime: Invalid Date Time value "Hello"
+            Invalid type for name. Requires string, got integer
+            ERROR,
+        );
 
         $className = $this->generateClassFromFile(
             'TransformingFilter.json',
@@ -1732,6 +1734,18 @@ ERROR,);
                 '/A filter keyword inside an if\/then\/else composition branch is not supported'
                     . ' for property filteredProperty.*if sub-schema/',
             ],
+            // Filter inside a deeply-nested allOf/anyOf branch: recursive scan must descend.
+            'filter inside nested allOf\/anyOf branch' => [
+                'FilterCompositionFilterInNestedBranch.json',
+                '/A filter keyword inside a allOf composition branch is not supported'
+                    . ' for property filteredProperty.*branch #0/',
+            ],
+            // anyOf branch spanning both input and output type-spaces is ambiguous.
+            'anyOf with single Mixed branch' => [
+                'FilterCompositionAnyOfMixedBranch.json',
+                '/Composition anyOf under property filteredProperty'
+                    . '.*branch #0 spans both input and output type-spaces/',
+            ],
         ];
     }
 
@@ -2945,6 +2959,186 @@ ERROR,);
                 $errors[0]->getMessage(),
             );
             $this->assertSame(1, $errors[0]->getSucceededCompositionElements());
+        }
+    }
+
+    /**
+     * if/then (no else) under a transforming filter: the conditional runs pre-transform.
+     * When the if-condition fails (short string), no else means the value passes through.
+     * When the if-condition passes but then fails, ConditionalException is thrown pre-transform.
+     * An already-transformed DateTime bypasses the pre-transform conditional entirely.
+     */
+    public function testInputSpaceIfThenOnlyCompositionRunsPreTransform(): void
+    {
+        $className = $this->generateClassFromFile(
+            'FilterCompositionIfThenOnlyInputSpace.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        // "20240101" satisfies if (minLength:8) and then (maxLength:20) → filter runs → DateTime.
+        $object = new $className(['filteredProperty' => '20240101']);
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+
+        // "now" (3 chars) fails if (minLength:8) → no else → conditional passes → filter → DateTime.
+        $object = new $className(['filteredProperty' => 'now']);
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+
+        // Overlong string: if passes, then fails → ConditionalException thrown pre-transform.
+        try {
+            new $className(['filteredProperty' => 'abcdefghijklmnopqrstuvwxyz']);
+            $this->fail('Expected ConditionalException for overlong string');
+        } catch (ConditionalException $exception) {
+            $this->assertNull($exception->getIfException());
+            $this->assertNotNull($exception->getThenException());
+            $this->assertNull($exception->getElseException());
+            $this->assertStringContainsString(
+                'Value for filteredProperty must not be longer than 20',
+                $exception->getMessage(),
+            );
+        }
+
+        // Already-transformed DateTime skips the pre-transform conditional (R-8 passthrough).
+        $dateTime = new DateTime('2024-06-01');
+        $object = new $className(['filteredProperty' => $dateTime]);
+        $this->assertSame($dateTime, $object->getFilteredProperty());
+    }
+
+    /**
+     * An empty {} allOf branch under a transforming filter is a no-op: it imposes no constraints
+     * so the filter runs and the value is transformed. An already-transformed DateTime passes
+     * through unchanged (R-8 passthrough).
+     */
+    public function testEmptyAllOfBranchWithTransformingFilterIsNoOp(): void
+    {
+        $className = $this->generateClassFromFile(
+            'FilterCompositionAllOfEmptyBranch.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['filteredProperty' => '2024-01-01']);
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+
+        $dateTime = new DateTime('2024-06-01');
+        $object = new $className(['filteredProperty' => $dateTime]);
+        $this->assertSame($dateTime, $object->getFilteredProperty());
+    }
+
+    /**
+     * A root-level allOf with an input-space constraint targeting a filtered sub-property is
+     * allowed at generation time. At runtime the property validator runs first (including the
+     * filter), so the root-level constraint sees the already-transformed output value. For the
+     * dateTime filter, minLength:1 on a DateTime object is a no-op — the constraint is
+     * statically allowed but effectively inert against the transformed value.
+     */
+    public function testRootLevelInputSpaceConstraintOnFilteredSubpropertyRunsSuccessfully(): void
+    {
+        $className = $this->generateClassFromFile(
+            'FilterCompositionRootInputSpaceConstrainsFilteredSubproperty.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['filteredProperty' => '2024-01-01']);
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+
+        $dateTime = new DateTime('2024-06-01');
+        $object = new $className(['filteredProperty' => $dateTime]);
+        $this->assertSame($dateTime, $object->getFilteredProperty());
+    }
+
+    /**
+     * Non-transforming filter (trim) with anyOf, not, and if/then composition:
+     * the composition validators run on the already-trimmed value, not the raw string.
+     */
+    public function testNonTransformingFilterCompositionVariantsValidateAfterFilter(): void
+    {
+        // anyOf: collectErrors(true) required so per-branch failure details are populated.
+        $anyOfClass = $this->generateClassFromFile(
+            'FilterCompositionAnyOfWithTrim.json',
+            (new GeneratorConfiguration())->setCollectErrors(true)->setImmutable(false),
+        );
+
+        $object = new $anyOfClass(['filteredProperty' => '  hello  ']);
+        $this->assertSame('hello', $object->getFilteredProperty());
+
+        // "     no     " → trim → "no" (2 chars): both anyOf branches fail post-trim.
+        // Branch 1: minLength:5 fails (proves trim ran, not raw 12-char string).
+        // Branch 2: const:"hi" fails.
+        try {
+            new $anyOfClass(['filteredProperty' => '     no     ']);
+            $this->fail('Expected AnyOfException for padded "no"');
+        } catch (ErrorRegistryException $registryException) {
+            $errors = $registryException->getErrors();
+            $this->assertCount(1, $errors);
+            $this->assertContainsOnlyInstancesOf(AnyOfException::class, $errors);
+            $this->assertSame(0, $errors[0]->getSucceededCompositionElements());
+            $this->assertStringContainsString(
+                <<<ERROR
+                Invalid value for filteredProperty declined by composition constraint.
+                  Requires to match at least one composition element.
+                  - Composition element #1: Failed
+                    * Value for filteredProperty must not be shorter than 5
+                  - Composition element #2: Failed
+                    * Invalid value for filteredProperty declined by const constraint
+                ERROR,
+                $errors[0]->getMessage(),
+            );
+        }
+
+        // not: collectErrors(true) required so per-element details are populated.
+        $notClass = $this->generateClassFromFile(
+            'FilterCompositionNotWithTrim.json',
+            (new GeneratorConfiguration())->setCollectErrors(true)->setImmutable(false),
+        );
+
+        $object = new $notClass(['filteredProperty' => '  hello  ']);
+        $this->assertSame('hello', $object->getFilteredProperty());
+
+        // "  " → trim → "" (empty string): not{const:""} is violated post-trim.
+        // Raw "  " (non-empty) would pass not{const:""} pre-trim, proving trim ran first.
+        try {
+            new $notClass(['filteredProperty' => '  ']);
+            $this->fail('Expected NotException for whitespace-only string');
+        } catch (ErrorRegistryException $registryException) {
+            $errors = $registryException->getErrors();
+            $this->assertCount(1, $errors);
+            $this->assertContainsOnlyInstancesOf(NotException::class, $errors);
+            $this->assertSame(1, $errors[0]->getSucceededCompositionElements());
+            $this->assertStringContainsString(
+                <<<ERROR
+                Invalid value for filteredProperty declined by composition constraint.
+                  Requires to match none composition element but matched 1 elements.
+                  - Composition element #1: Valid
+                ERROR,
+                $errors[0]->getMessage(),
+            );
+        }
+
+        // if/then: collectErrors(false) is fine; ConditionalException is thrown directly.
+        $ifThenClass = $this->generateClassFromFile(
+            'FilterCompositionIfThenWithTrim.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        // "  Alice  " → trim → "Alice" → pattern:^A passes → no exception (proves post-trim).
+        $object = new $ifThenClass(['filteredProperty' => '  Alice  ']);
+        $this->assertSame('Alice', $object->getFilteredProperty());
+
+        // "  Bob  " → trim → "Bob" → if minLength:1 passes → then pattern:^A fails → ConditionalException.
+        try {
+            new $ifThenClass(['filteredProperty' => '  Bob  ']);
+            $this->fail('Expected ConditionalException for "  Bob  "');
+        } catch (ConditionalException $exception) {
+            $this->assertNull($exception->getIfException());
+            $this->assertNotNull($exception->getThenException());
+            $this->assertStringContainsString(
+                <<<ERROR
+                Invalid value for filteredProperty declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Value for filteredProperty doesn't match pattern ^A
+                ERROR,
+                $exception->getMessage(),
+            );
         }
     }
 }
