@@ -516,32 +516,30 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match all composition elements but matched 1 elements.
-  - Composition element #1: Valid
-  - Composition element #2: Failed
-    * Value for integerProperty must not be smaller than 1
-ERROR
-                ,
+                declined by composition constraint.
+                  Requires to match all composition elements but matched 1 elements.
+                  - Composition element #1: Valid
+                  - Composition element #2: Failed
+                    * Value for integerProperty must not be smaller than 1
+                ERROR,
                 <<<ERROR
-declined by composition constraint.
-  Requires to match all composition elements but matched 1 elements.
-  - Composition element #1: Failed
-    * Value for stringProperty must not be shorter than 2
-  - Composition element #2: Valid
-ERROR
+                declined by composition constraint.
+                  Requires to match all composition elements but matched 1 elements.
+                  - Composition element #1: Failed
+                    * Value for stringProperty must not be shorter than 2
+                  - Composition element #2: Valid
+                ERROR,
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match all composition elements but matched 1 elements.
-ERROR
-                ,
+                declined by composition constraint.
+                  Requires to match all composition elements but matched 1 elements.
+                ERROR,
                 <<<ERROR
-declined by composition constraint.
-  Requires to match all composition elements but matched 1 elements.
-ERROR
+                declined by composition constraint.
+                  Requires to match all composition elements but matched 1 elements.
+                ERROR,
             ],
         ];
     }

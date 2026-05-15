@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": "string",
+      "filter": "trim",
+      "if": {
+        "minLength": 1
+      },
+      "then": {
+        "pattern": "^A"
+      }
+    }
+  }
+}

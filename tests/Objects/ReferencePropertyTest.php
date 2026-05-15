@@ -755,26 +755,26 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             'Invalid value for both persons' => [
                 ['personA' => 10, 'personB' => false],
                 <<<ERROR
-Invalid type for personA. Requires object, got integer
-Invalid type for personB. Requires object, got boolean
-ERROR
+                Invalid type for personA. Requires object, got integer
+                Invalid type for personB. Requires object, got boolean
+                ERROR,
             ],
             'Invalid names for personB' => [
                 ['personA' => ['name' => 'A'], 'personB' => ['name' => 10]],
                 <<<ERROR
-Invalid nested object for property personA:
-  - Value for name must not be shorter than 3
-Invalid nested object for property personB:
-  - Invalid type for name. Requires string, got integer
-ERROR
+                Invalid nested object for property personA:
+                  - Value for name must not be shorter than 3
+                Invalid nested object for property personB:
+                  - Invalid type for name. Requires string, got integer
+                ERROR,
             ],
             'Combined top level validation error and nested error' => [
                 ['personA' => ['name' => 'A'], 'personB' => 10],
                 <<<ERROR
-Invalid nested object for property personA:
-  - Value for name must not be shorter than 3
-Invalid type for personB. Requires object, got integer
-ERROR
+                Invalid nested object for property personA:
+                  - Value for name must not be shorter than 3
+                Invalid type for personB. Requires object, got integer
+                ERROR,
             ],
         ];
     }

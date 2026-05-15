@@ -73,6 +73,7 @@ class FilterProcessor
         $filterList = self::normalizeFilterList($filterList);
 
         $transformingFilter = null;
+        $builtDraft = null;
         // apply a different priority to each filter to make sure the order is kept
         $filterPriority = $startPriority + count($property->getValidators());
 
@@ -145,7 +146,12 @@ class FilterProcessor
                 $returnTypeNames = FilterReflection::getReturnTypeNames($filter, $property);
 
                 $inputTypeNames = FilterReflection::getAcceptedTypes($filter, $property);
-                $builtDraft = $this->resolveBuiltDraft($generatorConfiguration, $property);
+                // Build the Draft at most once per process() call. A filter chain can contain
+                // only one transforming filter (a second throws above), but process() may be
+                // called externally multiple times on the same property; the null-coalescing
+                // assignment ensures we do not rebuild when called from a MediaStringModifier
+                // followed by a FilterValidatorFactory invocation.
+                $builtDraft ??= $this->resolveBuiltDraft($generatorConfiguration, $property);
                 $classifier = new CompositionBranchClassifier($builtDraft, $inputTypeNames, $returnTypeNames);
                 $checker = new CompositionCompatibilityChecker($classifier, $property);
                 $checker->checkTransformingFilterCompositionConflicts($property->getJsonSchema()->getJson());
@@ -276,7 +282,7 @@ class FilterProcessor
         $property->addValidator(
             new PropertyValidator(
                 $property,
-                "is_object(\$value) && !(\$value instanceof \\Exception) && !($instanceOfParts)",
+                "is_object(\$value) && !($instanceOfParts)",
                 InvalidInstanceOfException::class,
                 [reset($objectReturnTypes)],
             ),
@@ -392,8 +398,10 @@ class FilterProcessor
                     $property->getJsonSchema()->getJson(),
                 );
 
-                // Only allOf can have mixed spaces (static rejection guarantees anyOf/oneOf/not/
-                // if-then-else have uniform spaces). Collect mixed-space allOf validators for
+                // Only allOf can have mixed spaces. The CompositionCompatibilityChecker
+                // statically guarantees that anyOf, oneOf, not, and if/then/else validators
+                // all have uniform spaces (entirely input-space or entirely output-space),
+                // so only allOf needs splitting. Collect mixed-space allOf validators for
                 // splitting in splitMixedSpaceAllOf().
                 if (
                     !empty($inputIndices) && !empty($outputIndices)
@@ -614,10 +622,13 @@ class FilterProcessor
         }
 
         if ($processorClass === IfValidatorFactory::class) {
-            // ConditionalPropertyValidator's getComposedProperties() returns non-null if/then/else
-            // properties in declaration order. Reproduce that order from the original JSON.
+            // ConditionalPropertyValidator::getComposedProperties() returns the then and else
+            // composition properties only — the if condition branch is stored separately in
+            // getConditionBranches() and is not iterated in classifyComposedValidatorBranches().
+            // Reproduce the then/else order from the original JSON so index 0 maps to then
+            // and index 1 maps to else, matching the order of getComposedProperties().
             $result = [];
-            foreach (['if', 'then', 'else'] as $keyword) {
+            foreach (['then', 'else'] as $keyword) {
                 if (isset($originalPropertyJson[$keyword]) && is_array($originalPropertyJson[$keyword])) {
                     $result[] = $originalPropertyJson[$keyword];
                 }
@@ -737,7 +748,8 @@ class FilterProcessor
      * Build and return the Draft instance for the given property's schema.
      *
      * Resolves DraftFactoryInterface vs DraftInterface from the GeneratorConfiguration
-     * and builds the immutable Draft registry.
+     * and builds the immutable Draft registry. Callers should cache the result rather
+     * than calling this method more than once per process() invocation.
      */
     private function resolveBuiltDraft(
         GeneratorConfiguration $generatorConfiguration,

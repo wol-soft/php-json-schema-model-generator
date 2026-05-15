@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": "string",
+      "filter": "trim",
+      "anyOf": [
+        {
+          "minLength": 5
+        },
+        {
+          "const": "hi"
+        }
+      ]
+    }
+  }
+}

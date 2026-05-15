@@ -35,10 +35,11 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
     public function testValueProvidedForEmptyOptionalAnyOfIsInvalid(string|int|array $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage(<<<ERROR
-Invalid value for property declined by composition constraint.
-  Requires to match at least one composition element.
-ERROR,
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for property declined by composition constraint.
+              Requires to match at least one composition element.
+            ERROR,
         );
 
         $className = $this->generateClassFromFile('EmptyAnyOf.json');
@@ -617,20 +618,20 @@ ERROR,
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match at least one composition element.
-  - Composition element #1: Failed
-    * Invalid type for stringProperty. Requires string, got NULL
-  - Composition element #2: Failed
-    * Invalid type for integerProperty. Requires int, got NULL
-ERROR
+                declined by composition constraint.
+                  Requires to match at least one composition element.
+                  - Composition element #1: Failed
+                    * Invalid type for stringProperty. Requires string, got NULL
+                  - Composition element #2: Failed
+                    * Invalid type for integerProperty. Requires int, got NULL
+                ERROR,
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match at least one composition element.
-ERROR
+                declined by composition constraint.
+                  Requires to match at least one composition element.
+                ERROR,
             ],
         ];
     }

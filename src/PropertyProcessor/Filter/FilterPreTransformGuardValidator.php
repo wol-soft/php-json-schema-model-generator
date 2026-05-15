@@ -31,7 +31,17 @@ final class FilterPreTransformGuardValidator extends ExtractedMethodValidator
 
     /**
      * Sets scope on both this guard and the wrapped inner validator, and registers the
-     * inner validator's extracted method on the schema so the guard method can call it.
+     * inner validator's extracted method in the schema.
+     *
+     * RenderHelper::renderValidator() processes only validators that are directly in the
+     * property's validators list. The inner wrapped validator is not on that list, so
+     * RenderHelper never registers its extracted method automatically. The guard method's
+     * generated code calls $this->innerMethodName by name, which must exist as a class
+     * method. This block registers it manually; the hasMethod check prevents
+     * double-registration when setScope() is called more than once on the same guard.
+     *
+     * $this->inner->setScope($schema) sets the inner validator's $scope field so that
+     * its getCheck() can reference $this->scope during template rendering.
      */
     public function setScope(Schema $schema): void
     {

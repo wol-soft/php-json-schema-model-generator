@@ -292,8 +292,16 @@ class CompositionCompatibilityChecker
             return true;
         }
 
+        // Object-typed branches create nested schemas whose properties are processed
+        // independently of ComposedItem $value resets, so their inner filters are applied
+        // correctly. Accept both the string form ('object') and the single-element array form
+        // (['object']) — type inheritance may inject the parent type as an array.
+        $branchType = $branchSchema['type'] ?? null;
+        $isObjectTyped = $branchType === 'object'
+            || (is_array($branchType) && in_array('object', $branchType, true));
+
         if (
-            ($branchSchema['type'] ?? null) !== 'object'
+            !$isObjectTyped
             && isset($branchSchema['properties'])
             && is_array($branchSchema['properties'])
         ) {
