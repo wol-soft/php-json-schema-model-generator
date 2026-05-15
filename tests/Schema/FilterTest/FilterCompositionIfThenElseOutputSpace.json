@@ -2,18 +2,18 @@
   "type": "object",
   "properties": {
     "filteredProperty": {
-      "type": "string",
+      "type": [
+        "string",
+        "integer"
+      ],
       "filter": "stringToInt",
       "if": {
-        "type": "integer",
         "minimum": 0
       },
       "then": {
-        "type": "integer",
         "maximum": 100
       },
       "else": {
-        "type": "integer",
         "minimum": -100
       }
     }

@@ -86,9 +86,8 @@ class CompositionBranchClassifierTest extends TestCase
 
     public function testTypeBranchObjectClassifiesAsInput(): void
     {
-        // `type` validates raw JSON value structure — not the post-filter PHP class instance.
-        // 'object' is not in the declared output types (['DateTime']), so the type constraint
-        // is input-space regardless of the object-expansion used for other keywords.
+        // The `type` keyword always validates the raw JSON value structure (pre-transform),
+        // so it always returns Input regardless of filter output types.
         $this->assertSame(
             TypeSpace::Input,
             $this->classifierForStringToDateTime()->classify(['type' => 'object']),
@@ -97,8 +96,7 @@ class CompositionBranchClassifierTest extends TestCase
 
     public function testTypeBranchStringAndObjectBothClassifyAsInput(): void
     {
-        // 'string' → Input (in inputTypes); 'object' → not in declared outputTypes → Empty → Input.
-        // Net contribution: Input only → branch is Input.
+        // `type` always returns Input — multi-value type arrays are also Input.
         $this->assertSame(
             TypeSpace::Input,
             $this->classifierForStringToDateTime()->classify(['type' => ['string', 'object']]),
@@ -107,8 +105,8 @@ class CompositionBranchClassifierTest extends TestCase
 
     public function testTypeBranchOutsideBothSpacesDefaultsToInput(): void
     {
-        // integer is neither string (input) nor object/DateTime (output) for this filter;
-        // the type keyword contributes nothing → all keywords ambiguous → liberal: Input.
+        // `type` always returns Input regardless of whether the declared type is in the
+        // filter's input or output type-space.
         $this->assertSame(
             TypeSpace::Input,
             $this->classifierForStringToDateTime()->classify(['type' => 'integer']),
@@ -123,10 +121,13 @@ class CompositionBranchClassifierTest extends TestCase
         );
     }
 
-    public function testTypeBranchStringClassifiesAsOutputForIntToStringFilter(): void
+    public function testTypeBranchStringClassifiesAsInputForIntToStringFilter(): void
     {
+        // `type` is always Input — it validates the raw input structure, not the transformed output.
+        // Even though 'string' is in the output types of the int→string filter, the type constraint
+        // applies to the raw (pre-transform) value and must run pre-transform.
         $this->assertSame(
-            TypeSpace::Output,
+            TypeSpace::Input,
             $this->classifierForIntegerToString()->classify(['type' => 'string']),
         );
     }
@@ -275,6 +276,24 @@ class CompositionBranchClassifierTest extends TestCase
     // Mixed branches (input + output keywords together)
     // -------------------------------------------------------------------------
 
+    public function testTypeBranchWithNumericConstraintClassifiesAsMixedForStringToIntFilter(): void
+    {
+        // type:integer → Input (type always validates raw input).
+        // minimum:0 → Output (numeric keyword targets the int output type of stringToInt).
+        // Combination → Mixed. This is the key correctness invariant: schemas that combine a
+        // type assertion with value constraints in the same branch are correctly rejected as
+        // unresolvable rather than silently classifying the type check as output-space.
+        $classifier = new CompositionBranchClassifier(
+            (new Draft_07())->getDefinition()->build(),
+            ['string'],
+            ['int'],
+        );
+        $this->assertSame(
+            TypeSpace::Mixed,
+            $classifier->classify(['type' => 'integer', 'minimum' => 0]),
+        );
+    }
+
     public function testBranchWithInputAndOutputKeywordsClassifiesAsMixed(): void
     {
         $this->assertSame(
@@ -340,7 +359,7 @@ class CompositionBranchClassifierTest extends TestCase
 
     public function testNestedAllOfWithTypeObjectBranchAndOutputKeywordClassifiesAsMixed(): void
     {
-        // type:object → Input (type keyword uses declared output types, 'object' ∉ ['DateTime']).
+        // type:object → Input (type always validates raw input).
         // minProperties → Output (object-targeted keyword; effective output includes 'object').
         // Mix → Mixed.
         $this->assertSame(
@@ -356,8 +375,8 @@ class CompositionBranchClassifierTest extends TestCase
 
     public function testNestedAllOfWithTwoInputTypeBranchesClassifiesAsInput(): void
     {
-        // type:string → Input; type:object → Input (type keyword uses declared output types,
-        // 'object' ∉ ['DateTime']). Both branches are Input → allOf is Input.
+        // type:string → Input; type:object → Input (type always validates raw input).
+        // Both branches are Input → allOf is Input.
         $this->assertSame(
             TypeSpace::Input,
             $this->classifierForStringToDateTime()->classify([
@@ -414,7 +433,7 @@ class CompositionBranchClassifierTest extends TestCase
 
     public function testNestedAnyOfWithTypeObjectBranchAndOutputKeywordClassifiesAsMixed(): void
     {
-        // type:object → Input (type keyword uses declared output types, 'object' ∉ ['DateTime']).
+        // type:object → Input (type always validates raw input).
         // minProperties → Output. Mix → Mixed.
         $this->assertSame(
             TypeSpace::Mixed,

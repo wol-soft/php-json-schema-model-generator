@@ -22,6 +22,10 @@ use PHPModelGenerator\Model\Validator\AbstractPropertyValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\IfValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\OneOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\FormatValidator;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
@@ -387,6 +391,7 @@ class FilterProcessor
                 [$inputIndices, $outputIndices] = $this->classifyComposedValidatorBranches(
                     $composedValidator,
                     $classifier,
+                    $property->getJsonSchema()->getJson(),
                 );
 
                 // Only allOf can have mixed spaces (static rejection guarantees anyOf/oneOf/not/
@@ -530,6 +535,11 @@ class FilterProcessor
      * Classify the branches of a composition validator into input-space and output-space
      * index lists using the given CompositionBranchClassifier.
      *
+     * Uses the original (pre-type-inheritance) branch schemas from the property's raw JSON
+     * rather than the post-inheritance schemas stored on the CompositionPropertyDecorator.
+     * This prevents inherited type annotations (injected to drive validator registration)
+     * from shifting a pure output-space branch into Mixed classification.
+     *
      * Empty/ambiguous branches (TypeSpace::Empty) are treated as input-space per the
      * liberal policy, consistent with CompositionBranchClassifier.
      *
@@ -538,12 +548,18 @@ class FilterProcessor
     private function classifyComposedValidatorBranches(
         AbstractComposedPropertyValidator $validator,
         CompositionBranchClassifier $classifier,
+        array $originalPropertyJson,
     ): array {
         $inputIndices  = [];
         $outputIndices = [];
 
+        $originalBranchSchemas = $this->resolveOriginalBranchSchemas($validator, $originalPropertyJson);
+
         foreach ($validator->getComposedProperties() as $index => $compositionProperty) {
-            $branchSchema = $compositionProperty->getBranchSchema()->getJson();
+            $branchSchema = ($originalBranchSchemas !== null && isset($originalBranchSchemas[$index]))
+                ? $originalBranchSchemas[$index]
+                : $compositionProperty->getBranchSchema()->getJson();
+
             $space = $classifier->classify($branchSchema);
 
             if ($space === TypeSpace::Output) {
@@ -555,6 +571,63 @@ class FilterProcessor
         }
 
         return [$inputIndices, $outputIndices];
+    }
+
+    /**
+     * Look up the original (pre-type-inheritance) branch schemas for a composition validator
+     * from the property's raw JSON.
+     *
+     * Type inheritance injects the parent property's type into untyped branches so that
+     * type-specific Draft validators (e.g. minimum for integer branches) are registered.
+     * That injected type must not influence space classification, so we classify the
+     * schemas as they appeared before inheritance.
+     *
+     * Returns null when the original schemas cannot be determined (falls back to
+     * getBranchSchema() in classifyComposedValidatorBranches).
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function resolveOriginalBranchSchemas(
+        AbstractComposedPropertyValidator $validator,
+        array $originalPropertyJson,
+    ): ?array {
+        $processorClass = $validator->getCompositionProcessor();
+
+        $keywordMap = [
+            AllOfValidatorFactory::class => 'allOf',
+            AnyOfValidatorFactory::class => 'anyOf',
+            OneOfValidatorFactory::class => 'oneOf',
+        ];
+
+        if (isset($keywordMap[$processorClass])) {
+            $keyword = $keywordMap[$processorClass];
+            if (!isset($originalPropertyJson[$keyword]) || !is_array($originalPropertyJson[$keyword])) {
+                return null;
+            }
+            return array_values($originalPropertyJson[$keyword]);
+        }
+
+        if ($processorClass === NotValidatorFactory::class) {
+            if (!isset($originalPropertyJson['not']) || !is_array($originalPropertyJson['not'])) {
+                return null;
+            }
+            // NotValidatorFactory wraps the single 'not' schema in an array; index 0 maps to it.
+            return [$originalPropertyJson['not']];
+        }
+
+        if ($processorClass === IfValidatorFactory::class) {
+            // ConditionalPropertyValidator's getComposedProperties() returns non-null if/then/else
+            // properties in declaration order. Reproduce that order from the original JSON.
+            $result = [];
+            foreach (['if', 'then', 'else'] as $keyword) {
+                if (isset($originalPropertyJson[$keyword]) && is_array($originalPropertyJson[$keyword])) {
+                    $result[] = $originalPropertyJson[$keyword];
+                }
+            }
+            return !empty($result) ? $result : null;
+        }
+
+        return null;
     }
 
     /**

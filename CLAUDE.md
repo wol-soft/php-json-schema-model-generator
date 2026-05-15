@@ -228,9 +228,18 @@ Rules:
   commit them. If they appear in `git status`, run `git restore --staged <file>` immediately.
 - Update the plan file(s) as the work progresses — record decisions made, phases completed, and
   any pivots in approach.
-- Once a topic is **complete**, delete the entire `.claude/issues/<number>/` or
-  `.claude/topics/<slug>/` directory. These files must never land on `master` — delete before
-  merging.
+- **Record every non-obvious design decision as it is made**: state the option chosen, every
+  alternative that was considered and rejected, and the reasoning that ruled each alternative out.
+  A rejected alternative that is not recorded can be silently re-introduced in a later session
+  when context is compressed. The record must be specific enough that a cold reader can reconstruct
+  *why* the chosen approach is correct — not just *what* it is. Example: "Classifying `type`
+  against `$outputTypes` was considered and rejected: a branch `{type: integer}` under a
+  `stringToInt` filter must validate the raw input, so routing it through output-type matching
+  would allow string `'50'` to pass a `type: integer` check post-transform."
+- Once a topic is **ready to merge**, delete the entire `.claude/issues/<number>/` or
+  `.claude/topics/<slug>/` directory and commit that deletion as the final commit on the branch,
+  **before** merging to `master`. The tracking files are working notes and must never land on
+  `master`.
 
 Example layout for issue #110:
 
@@ -319,6 +328,21 @@ meaning.
 - ✅ `* Validates the zero-overlap rejection path in FilterValidator`
 
 Describe *what the code does or why* — not where it came from in a planning document.
+
+#### Name the rejected alternative in non-obvious comments
+
+When a decision is non-obvious — especially one where a "natural correction" would silently
+re-introduce a wrong approach — the comment must name the rejected alternative and explain why it
+fails, not just assert the chosen approach.
+
+- ❌ `// type keyword is always classified as Input`
+- ✅ `// Always Input — do NOT classify against outputTypes. A branch {type: integer} under a
+  //   stringToInt filter must validate the raw input; treating it as Output would allow string
+  //   '50' to pass a type: integer check post-transform.`
+
+The same decision must also be covered by a test whose name encodes the specific scenario, so
+that any regression surfaces immediately as a named, self-explaining failure rather than a
+cryptic assertion error.
 
 #### Test coverage
 

@@ -122,7 +122,7 @@ class PropertyMerger
         $incomingOutput = $incoming->getType(true);
 
         $intersection = $incomingOutput && $existingOutput
-            ? $this->computeDeclaredIntersection($incomingOutput->getNames(), $existingOutput->getNames())
+            ? TypeIntersection::compute($incomingOutput->getNames(), $existingOutput->getNames())
             : null;
 
         if ($intersection === []) {
@@ -334,14 +334,14 @@ class PropertyMerger
     ): ?array {
         $implicitNull = $this->generatorConfiguration?->isImplicitNullAllowed() ?? false;
 
-        if (!$this->computeDeclaredIntersection($existingType->getNames(), $incomingType->getNames())) {
+        if (!TypeIntersection::compute($existingType->getNames(), $incomingType->getNames())) {
             throw new SchemaException($conflictMessage);
         }
 
         $existingEffective = $this->buildEffectiveTypeSet($existingType, $existingIsRequired, $implicitNull);
         $incomingEffective = $this->buildEffectiveTypeSet($incomingType, $incomingIsRequired, $implicitNull);
 
-        $intersection = $this->computeDeclaredIntersection($existingEffective, $incomingEffective);
+        $intersection = TypeIntersection::compute($existingEffective, $incomingEffective);
 
         // No-op when the intersection already equals the existing effective set.
         if (!array_diff($existingEffective, $intersection) && !array_diff($intersection, $existingEffective)) {
@@ -454,33 +454,5 @@ class PropertyMerger
         }
 
         return $names;
-    }
-
-    /**
-     * Compute the intersection of two type-name sets, treating 'int' as a subtype of 'float'
-     * (JSON Schema: integer is a subset of number).
-     *
-     * When one side contains 'float' and the other contains 'int' (but not 'float'), the
-     * intersection resolves to 'int' — the narrower concrete type — rather than empty.
-     *
-     * @param string[] $a
-     * @param string[] $b
-     * @return string[]
-     */
-    private function computeDeclaredIntersection(array $a, array $b): array
-    {
-        $intersection = array_values(array_intersect($a, $b));
-
-        // int ⊂ float (JSON Schema: integer is a subtype of number).
-        // When one side has float and the other has int (without float), resolve to int.
-        if (!in_array('float', $intersection, true)) {
-            if (in_array('float', $a, true) && in_array('int', $b, true)) {
-                $intersection[] = 'int';
-            } elseif (in_array('int', $a, true) && in_array('float', $b, true)) {
-                $intersection[] = 'int';
-            }
-        }
-
-        return array_values(array_unique($intersection));
     }
 }

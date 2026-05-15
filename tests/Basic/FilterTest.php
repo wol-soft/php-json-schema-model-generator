@@ -1735,6 +1735,58 @@ ERROR,);
         ];
     }
 
+    /**
+     * An allOf branch whose 'type' constraint excludes the filter's accepted input types means
+     * the filter can never receive any value that passes validation — it is a dead filter.
+     */
+    public function testDeadFilterViaAllOfTypeConstraintThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/Filter stringToInt on property filteredProperty.*can never be executed'
+                . '.*allOf type constraints \(int\) exclude all input types accepted by the filter \(string\)/',
+        );
+
+        // allOf requires integer values but stringToInt only accepts strings; no value
+        // can pass both the allOf validation and reach the filter.
+        $this->generateClassFromFile(
+            'FilterCompositionAllOfDeadFilter.json',
+            (new GeneratorConfiguration())
+                ->addFilter($this->getCustomTransformingFilter(
+                    [self::class, 'serializeIntToString'],
+                    [self::class, 'convertStringToInt'],
+                    'stringToInt',
+                )),
+        );
+    }
+
+    /**
+     * Contradictory allOf type constraints (no value can satisfy all branches simultaneously)
+     * produce an empty intersection. The property-level allOf intersection check fires and
+     * throws SchemaException for the type contradiction. The dead-filter check skips on empty
+     * intersection and is NOT the source of this exception.
+     */
+    public function testContradictoryAllOfTypeConstraintsThrowSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/Property 'filteredProperty' is defined with conflicting types in allOf composition branches/",
+        );
+
+        // Contradictory branches: integer AND string simultaneously — impossible. The
+        // property-level allOf intersection detects the empty intersection and rejects the schema.
+        // The dead-filter check skips (empty intersection is handled by type-contradiction logic).
+        $this->generateClassFromFile(
+            'FilterCompositionAllOfContradictoryTypes.json',
+            (new GeneratorConfiguration())
+                ->addFilter($this->getCustomTransformingFilter(
+                    [self::class, 'serializeIntToString'],
+                    [self::class, 'convertStringToInt'],
+                    'stringToInt',
+                )),
+        );
+    }
+
     #[DataProvider('rejectedCompositionProvider')]
     public function testUnresolvableCompositionOnTransformingFilterPropertyThrowsSchemaException(
         string $schemaFile,
@@ -1776,23 +1828,18 @@ ERROR,);
     /**
      * Output-only allOf (all branches output-space) runs POST-transform.
      *
-     * Schema: { filter: stringToInt, allOf: [{type:integer, minimum: 0}, {type:integer, maximum: 100}] }
-     * Both branches declare type:integer — output-space for the string→int filter.
+     * Schema: { filter: stringToInt, type: [string, integer],
+     *           allOf: [{minimum: 0}, {maximum: 100}] }
+     * Both branches constrain the numeric range — output-space for the string→int filter.
      * The allOf must run AFTER the filter, validating the transformed integer.
      *
      * Observable proof: "200" → filter → 200 → maximum:100 fails → AllOfException.
-     * If the allOf ran PRE-transform, "200" is a string, the type:integer check would fail
-     * the branch immediately, producing AllOfException for the wrong reason (type mismatch
-     * rather than range violation). "50" → filter → 50 → both branches pass → success.
-     * If allOf ran pre-transform, "50" (string) would fail type:integer on both branches.
+     * If the allOf ran PRE-transform, minimum and maximum would be no-ops on the string "200"
+     * and both branches would always pass vacuously — no exception would be thrown.
+     * The AllOfException for "200" proves the allOf ran on the transformed integer.
      *
      * Already-transformed int 50 supplied directly skips the filter; the output-space allOf
      * still runs and passes.
-     *
-     * Note: the property has no explicit base type, so FilterProcessor cannot call
-     * applyOutputType at filter-processing time; the output type is instead wired later by
-     * TransformingFilterOutputTypePostProcessor. Compare testOutputSpaceAllOfCompositionRunsPostTransform
-     * where an explicit type:string causes applyOutputType to run immediately at processing time.
      */
     public function testOutputOnlyAllOfCompositionRunsPostTransform(): void
     {
@@ -1813,8 +1860,8 @@ ERROR,);
         $this->assertSame(50, $object->getFilteredProperty());
 
         // "200": filter → 200 → maximum:100 fails → AllOfException.
-        // Proves post-transform: if allOf ran on the raw string "200", maximum would be a
-        // no-op (non-numeric) and always pass vacuously.
+        // Proves post-transform: if allOf ran on the raw string "200", minimum/maximum would
+        // be no-ops (non-numeric) and always pass vacuously — the exception proves integer evaluation.
         // Branch 0 (minimum:0) passes, branch 1 (maximum:100) fails → succeeded=1.
         try {
             new $className(['filteredProperty' => '200']);
@@ -2149,75 +2196,12 @@ ERROR,);
     }
 
     /**
-     * Output-space allOf runs POST-transform.
-     *
-     * Schema: { type: string, filter: stringToInt, allOf: [{type: integer, minimum: 0}] }
-     *
-     * {type: integer, minimum: 0} targets the filter's output type (int) → output-space.
-     * The allOf must run AFTER the filter, validating the transformed integer.
-     *
-     * Observable proof: "5" (a valid string) succeeds and produces 5.  If the allOf ran
-     * pre-transform it would check the string "5" against {type: integer} and fail.
-     * "−5" produces AllOfException because minimum:0 rejects the negative transformed int.
-     *
-     * Already-transformed value: int 5 supplied directly skips the filter; the output-space allOf
-     * still runs and passes.
-     *
-     * Note: the explicit type:string means FilterProcessor can call applyOutputType immediately
-     * at filter-processing time. Compare testOutputOnlyAllOfCompositionRunsPostTransform where
-     * the absent base type defers output-type assignment to TransformingFilterOutputTypePostProcessor.
-     */
-    public function testOutputSpaceAllOfCompositionRunsPostTransform(): void
-    {
-        $className = $this->generateClassFromFile(
-            'FilterCompositionAllOfOutputSpace.json',
-            (new GeneratorConfiguration())
-                ->setCollectErrors(true)
-                ->setImmutable(false)
-                ->addFilter($this->getCustomTransformingFilter(
-                    [self::class, 'serializeIntToString'],
-                    [self::class, 'convertStringToInt'],
-                    'stringToInt',
-                )),
-        );
-
-        // "5": filter → 5 → allOf {type:integer, minimum:0} passes.
-        // If allOf ran pre-transform, "5" (string) would fail {type:integer} → AllOfException.
-        $object = new $className(['filteredProperty' => '5']);
-        $this->assertSame(5, $object->getFilteredProperty());
-
-        // "-5": filter → −5 → allOf minimum:0 fails → AllOfException.
-        // Single branch (minimum:0) fails → succeeded=0.
-        try {
-            new $className(['filteredProperty' => '-5']);
-            $this->fail('Expected AllOfException for "-5"');
-        } catch (ErrorRegistryException $exception) {
-            $errors = $exception->getErrors();
-            $this->assertCount(1, $errors);
-            $this->assertContainsOnlyInstancesOf(AllOfException::class, $errors);
-            $this->assertStringContainsString(
-                <<<ERROR
-                Invalid value for filteredProperty declined by composition constraint.
-                  Requires to match all composition elements but matched 0 elements.
-                  - Composition element #1: Failed
-                    * Value for filteredProperty must not be smaller than 0
-                ERROR,
-                $errors[0]->getMessage(),
-            );
-            $this->assertSame(0, $errors[0]->getSucceededCompositionElements());
-        }
-
-        // Already-transformed int 5 → filter skipped → output-space allOf still runs and passes.
-        $object = new $className(['filteredProperty' => 5]);
-        $this->assertSame(5, $object->getFilteredProperty());
-    }
-
-    /**
      * Mixed-space allOf is split around the transforming filter.
      *
-     * Schema: { filter: stringToInt, allOf: [{type:string, minLength:1}, {type:integer, minimum:0}] }
+     * Schema: { type: [string, integer], filter: stringToInt,
+     *           allOf: [{type:string, minLength:1}, {minimum:0}] }
      * - {type:string, minLength:1} is input-space  (string constraint, runs PRE-transform).
-     * - {type:integer, minimum:0}  is output-space (int constraint,    runs POST-transform).
+     * - {minimum:0}                is output-space (numeric constraint, runs POST-transform).
      *
      * Validated behaviours:
      *  (a) "5"  → pre-allOf passes (string, len≥1), filter→5, post-allOf passes (int≥0) → 5.
@@ -2463,17 +2447,18 @@ ERROR,);
     /**
      * Output-space anyOf runs POST-transform.
      *
-     * Schema: { type: string, filter: stringToInt,
-     *           anyOf: [{type:integer, min:0, max:10}, {type:integer, min:20, max:30}] }
+     * Schema: { type: [string, integer], filter: stringToInt,
+     *           anyOf: [{min:0, max:10}, {min:20, max:30}] }
      *
-     * Both branches declare type:integer — output-space for the string→int filter.
+     * Both branches constrain the numeric range — output-space for the string→int filter.
      * The anyOf must run AFTER the filter, validating the transformed integer.
      *
-     * Observable proof: "5" → filter → 5 → {min:0,max:10} passes → anyOf passes → result 5.
-     * If the anyOf ran PRE-transform, "5" (string) would fail type:integer on both branches →
-     * AnyOfException. Success proves post-transform execution.
+     * Observable proof: "15" → filter → 15 → neither branch passes → AnyOfException.
+     * If the anyOf ran PRE-transform, minimum/maximum would be no-ops on the string "15" and
+     * both branches would always pass vacuously — no exception would be thrown.
+     * The AnyOfException for "15" proves the anyOf ran on the transformed integer.
      *
-     * "15" → filter → 15 → neither branch passes → AnyOfException (proves it ran on the integer).
+     * "15" → filter → 15 → neither branch passes → AnyOfException (proves integer evaluation).
      *
      * Already-transformed value: int 5 directly skips the filter; the output-space anyOf still runs.
      */
@@ -2492,7 +2477,6 @@ ERROR,);
         );
 
         // "5": filter → 5 → {min:0, max:10} passes → anyOf passes.
-        // If anyOf ran pre-transform, "5" (string) would fail type:integer → AnyOfException.
         $object = new $className(['filteredProperty' => '5']);
         $this->assertSame(5, $object->getFilteredProperty());
 
@@ -2528,20 +2512,17 @@ ERROR,);
     /**
      * Output-space oneOf runs POST-transform.
      *
-     * Schema: { type: string, filter: stringToInt,
-     *           oneOf: [{type:integer, min:0, max:10}, {type:integer, min:20, max:30}] }
+     * Schema: { type: [string, integer], filter: stringToInt,
+     *           oneOf: [{min:0, max:10}, {min:20, max:30}] }
      *
-     * Both branches declare type:integer — output-space for the string→int filter.
+     * Both branches constrain the numeric range — output-space for the string→int filter.
      * The oneOf must run AFTER the filter, validating the transformed integer.
      *
-     * Observable proof: "5" → filter → 5 → exactly {min:0,max:10} passes → oneOf passes.
-     * If the oneOf ran PRE-transform, "5" (string) would fail type:integer on both branches →
-     * 0 pass → OneOfException. Success proves post-transform execution.
-     *
-     * "7" → filter → 7 → both branches pass (0≤7≤10, but 7<20 fails second) wait —
-     * 7 is in [0,10] only; second branch [20,30] fails. Exactly 1 pass → oneOf passes.
-     * "25" → 25 → {min:20,max:30} passes, {min:0,max:10} fails → 1 pass → oneOf passes.
-     * "15" → 15 → neither branch passes → OneOfException.
+     * Observable proof: "15" → filter → 15 → neither branch passes → OneOfException.
+     * If the oneOf ran PRE-transform, minimum/maximum would be no-ops on the string "15" and
+     * both branches would always pass vacuously → 2 pass → OneOfException for the wrong reason.
+     * "5" → filter → 5 → exactly {min:0,max:10} passes → 1 match → oneOf passes.
+     * "25" → 25 → {min:20,max:30} passes → 1 match → oneOf passes.
      *
      * Already-transformed value: int 5 directly skips the filter; the output-space oneOf still runs.
      */
@@ -2560,7 +2541,6 @@ ERROR,);
         );
 
         // "5": filter → 5 → {min:0, max:10} passes, {min:20, max:30} fails → exactly 1 → oneOf passes.
-        // If oneOf ran pre-transform, "5" (string) fails type:integer on both → OneOfException.
         $object = new $className(['filteredProperty' => '5']);
         $this->assertSame(5, $object->getFilteredProperty());
 
@@ -2596,19 +2576,17 @@ ERROR,);
     /**
      * Output-space if/then/else runs POST-transform.
      *
-     * Schema: { type: string, filter: stringToInt,
-     *           if: {type:integer, minimum:0}, then: {type:integer, maximum:100},
-     *           else: {type:integer, minimum:-100} }
+     * Schema: { type: [string, integer], filter: stringToInt,
+     *           if: {minimum:0}, then: {maximum:100}, else: {minimum:-100} }
      *
-     * All branches declare type:integer — output-space for the string→int filter.
+     * All sub-schemas constrain numeric ranges — output-space for the string→int filter.
      * The conditional must run AFTER the filter, validating the transformed integer.
      *
-     * Observable proof: "50" → filter → 50 → if:{min:0} passes → then:{max:100} passes → 50.
-     * If the conditional ran PRE-transform, "50" (string) would fail type:integer on the if-branch →
-     * $ifException set → then-branch skipped → else:{type:integer,min:-100}: "50" fails type:integer →
-     * $elseException set → ConditionalException. Success proves post-transform execution.
+     * Observable proof: "200" → filter → 200 → if:{min:0} passes → then:{max:100} fails
+     * → ConditionalException.  If the conditional ran PRE-transform, minimum/maximum would be
+     * no-ops on the string "200" and all branches would always pass vacuously — no exception.
+     * The ConditionalException for "200" proves the conditional ran on the transformed integer.
      *
-     * "200" → 200 → if passes (200≥0) → then:{max:100} fails → ConditionalException.
      * "-200" → -200 → if fails (−200<0) → else:{min:-100} fails (−200<−100) → ConditionalException.
      *
      * Already-transformed value: int 50 directly skips the filter; the output-space conditional still runs.
@@ -2628,8 +2606,6 @@ ERROR,);
         );
 
         // "50": filter → 50 → if:{min:0} passes → then:{max:100} passes → success.
-        // If conditional ran pre-transform, "50" (string) fails type:integer on if-branch → elseException
-        // path → else:{type:integer,min:-100} also fails string → ConditionalException.
         $object = new $className(['filteredProperty' => '50']);
         $this->assertSame(50, $object->getFilteredProperty());
 
@@ -2685,7 +2661,8 @@ ERROR,);
     /**
      * Mixed-space allOf split in collect-errors mode collects errors from both subsets.
      *
-     * Schema: { filter: stringToInt, allOf: [{type:string, minLength:1}, {type:integer, minimum:0}] }
+     * Schema: { type: [string, integer], filter: stringToInt,
+     *           allOf: [{type:string, minLength:1}, {minimum:0}] }
      *
      * In collect-errors mode validation continues after each failure, so:
      *  - A pre-transform error (minLength) and a post-transform error (minimum) are each
@@ -2754,105 +2731,28 @@ ERROR,);
     }
 
     /**
-     * Object-returning transforming filter with an empty-schema allOf branch.
-     *
      * Schema: { filter: dateTime, allOf: [{type: object}] }
      *
-     * The `type: object` constraint in the allOf validates the RAW input (it classifies as
-     * input-space because the type keyword never uses the object-expansion of effective output
-     * types). A string therefore fails the allOf even though the filter would convert it to a
-     * DateTime.  Only values that ARE already objects bypass the type check via the
-     * pre-transform guard.
+     * The 'type' keyword inside a composition branch always validates the RAW input value
+     * (it is always Input-space — never reclassified as Output-space). The allOf branch
+     * {type: object} therefore requires the raw input to be an object. Because the
+     * dateTime filter only accepts strings (not objects), no raw value can ever both pass
+     * the allOf validation AND be accepted by the filter — the filter is unreachable.
      *
-     * For the objects that do reach the post-filter stage, the property-level extended
-     * instanceof check narrows acceptance to the filter's declared output type (DateTime),
-     * rejecting unrelated objects such as stdClass.
-     *
-     * Observable proof:
-     *  - "2024-01-01" → allOf type:object runs on raw string → fails → AllOfException.
-     *  - DateTime directly → pre-transform guard fires → allOf skipped → passes.
-     *  - stdClass → allOf type:object passes (is_object=true) but property-level instanceof
-     *    check rejects it → InvalidInstanceOfException.
-     *  - stdClass with collectErrors=true → error collected, no immediate throw.
+     * This schema is rejected at generation time with a dead-filter SchemaException. If the
+     * intent is to accept only already-converted DateTime objects, the filter should be
+     * removed entirely; if the intent is to accept raw date strings too, the allOf type
+     * constraint must not exclude the filter's accepted types.
      */
-    public function testObjectOutputTypeAllOfBranchTypeCheckRunsOnRawInput(): void
+    public function testObjectOutputTypeConstraintMakingFilterDeadThrowsSchemaException(): void
     {
-        $className = $this->generateClassFromFile(
-            'FilterCompositionAllOfObjectBranchOutput.json',
-            (new GeneratorConfiguration())->setCollectErrors(true)->setImmutable(false),
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/Filter dateTime on property filteredProperty.*can never be executed'
+                . '.*allOf type constraints \(object\) exclude/',
         );
 
-        // String raw input: allOf {type:object} runs on the string → fails.
-        // Branch 0 ({type:object}) rejects the string → succeeded=0; nested message identifies the type mismatch.
-        try {
-            new $className(['filteredProperty' => '2024-01-01']);
-            $this->fail('Expected AllOfException for "2024-01-01"');
-        } catch (ErrorRegistryException $exception) {
-            $errors = $exception->getErrors();
-            $this->assertCount(1, $errors);
-            $this->assertContainsOnlyInstancesOf(AllOfException::class, $errors);
-            $this->assertStringContainsString(
-                <<<ERROR
-                Invalid value for filteredProperty declined by composition constraint.
-                  Requires to match all composition elements but matched 0 elements.
-                  - Composition element #1: Failed
-                    * Invalid type for filteredProperty. Requires object, got string
-                ERROR,
-                $errors[0]->getMessage(),
-            );
-            $this->assertSame(0, $errors[0]->getSucceededCompositionElements());
-        }
-    }
-
-    public function testObjectOutputTypeAllOfBranchAcceptsDirectObjectInput(): void
-    {
-        $className = $this->generateClassFromFile(
-            'FilterCompositionAllOfObjectBranchOutput.json',
-            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
-        );
-
-        // Already-transformed DateTime → pre-transform guard fires → allOf skipped → passes.
-        $dateTime = new DateTime('2024-06-01');
-        $object = new $className(['filteredProperty' => $dateTime]);
-        $this->assertSame($dateTime, $object->getFilteredProperty());
-    }
-
-    public function testObjectOutputTypeAllOfBranchRejectsForeignObject(): void
-    {
-        $className = $this->generateClassFromFile(
-            'FilterCompositionAllOfObjectBranchOutput.json',
-            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
-        );
-
-        // stdClass: allOf type:object passes (is_object=true), but the property-level
-        // extended instanceof check narrows acceptance to DateTime only.
-        $this->expectException(InvalidInstanceOfException::class);
-        $this->expectExceptionMessage('Requires DateTime, got stdClass');
-        new $className(['filteredProperty' => new \stdClass()]);
-    }
-
-    public function testObjectOutputTypeAllOfBranchCollectsErrorForForeignObject(): void
-    {
-        $className = $this->generateClassFromFile(
-            'FilterCompositionAllOfObjectBranchOutput.json',
-            (new GeneratorConfiguration())->setCollectErrors(true)->setImmutable(false),
-        );
-
-        // stdClass with collectErrors=true: InvalidInstanceOfException is added to the
-        // error registry rather than thrown immediately.
-        $exception = null;
-        try {
-            new $className(['filteredProperty' => new \stdClass()]);
-        } catch (ErrorRegistryException $registryException) {
-            $exception = $registryException;
-        }
-
-        $this->assertNotNull($exception);
-        $errors = $exception->getErrors();
-        $this->assertCount(1, $errors);
-        $this->assertInstanceOf(InvalidInstanceOfException::class, $errors[0]);
-        $this->assertStringContainsString('Requires DateTime, got stdClass', $errors[0]->getMessage());
-        $this->assertSame('DateTime', $errors[0]->getExpectedClass());
+        $this->generateClassFromFile('FilterCompositionAllOfObjectBranchOutput.json');
     }
 
     public static function convertStringToInt(string $value): int
