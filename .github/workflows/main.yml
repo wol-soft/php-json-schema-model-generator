@@ -31,16 +31,21 @@ jobs:
       - name: Install dependencies
         run: composer update --no-interaction
 
-      # Run tests WITHOUT coverage on non-coverage matrix jobs
+      # Run tests WITHOUT coverage on non-coverage matrix jobs.
+      # Full draft coverage is enabled on master and scheduled runs.
       - name: Execute tests
         if: ${{ !matrix.coverage }}
+        env:
+          PHPUNIT_FULL_DRAFT_COVERAGE: ${{ (github.ref == 'refs/heads/master' || github.event_name == 'schedule' || github.event_name == 'pull_request') && '1' || '' }}
         run: ./vendor/bin/phpunit --testdox
 
-      # Run tests WITH Clover coverage for the coverage job
+      # Run tests WITH Clover coverage for the coverage job.
+      # Full draft coverage is enabled on master, PRs, and scheduled runs.
       - name: Execute tests with coverage (Clover)
         if: ${{ matrix.coverage }}
         env:
           XDEBUG_MODE: coverage
+          PHPUNIT_FULL_DRAFT_COVERAGE: ${{ (github.ref == 'refs/heads/master' || github.event_name == 'schedule' || github.event_name == 'pull_request') && '1' || '' }}
         run: ./vendor/bin/phpunit --coverage-clover=build/logs/clover.xml --testdox
 
       - name: Upload coverage to Qlty

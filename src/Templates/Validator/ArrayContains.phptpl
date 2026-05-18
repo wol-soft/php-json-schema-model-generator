@@ -1,6 +1,6 @@
-is_array($value) && (function (&$items){% if countMatches %} use (&$countMatches){% endif %} {
+is_array($value) && (function (&$items){% if countMatches %} use (&$containsMatches){% endif %} {
     if (empty($items)) {
-        return true;
+        return {% if allowNoMatch %}false{% else %}true{% endif %};
     }
 
     {% if generatorConfiguration.collectErrors() %}
@@ -28,7 +28,7 @@ is_array($value) && (function (&$items){% if countMatches %} use (&$countMatches
             {% endif %}
 
             {% if countMatches %}
-                $countMatches++;
+                $containsMatches++;
             {% else %}
                 // one matched item is enough to pass the contains check
                 return false;
@@ -43,7 +43,7 @@ is_array($value) && (function (&$items){% if countMatches %} use (&$countMatches
     {% endif %}
 
     return {% if countMatches %}
-            {% if allowNoMatch %}false{% else %}$countMatches === 0{% endif %}
+            {% if allowNoMatch %}false{% else %}$containsMatches === 0{% endif %}
         {% else %}
             true
         {% endif %};

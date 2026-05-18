@@ -32,5 +32,9 @@
             "PHPModelGenerator\\Tests\\": "tests",
             "ManualSchema\\": "tests/manual/result"
         }
+    },
+    "scripts": {
+        "test": "./vendor/bin/phpunit --no-coverage --testdox",
+        "test-full-draft-coverage": "PHPUNIT_FULL_DRAFT_COVERAGE=1 ./vendor/bin/phpunit --no-coverage --testdox"
     }
 }

@@ -19,6 +19,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Tests\Support\DraftRunContext;
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
@@ -68,11 +69,10 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
             $failedResultDir = FAILED_CLASSES_PATH . preg_replace('/[^a-z0-9]+/i', '-', $this->name());
             $dir = sys_get_temp_dir() . '/PHPModelGeneratorTest';
 
-            foreach (
-                new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS))
-                as
-                $item
-            ) {
+            $failedDirIterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+            );
+            foreach ($failedDirIterator as $item) {
                 $file = (string) $item;
                 $nestedDir = dirname(str_replace($dir, '', $file));
 
@@ -179,17 +179,22 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         bool $implicitNull = true,
         string $schemaProviderClass = RecursiveDirectoryProvider::class,
     ): string {
-        $generatorConfiguration = ($generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false))
-            ->setImplicitNull($implicitNull)
-            ->setOutputEnabled(false);
+        $generatorConfiguration = clone (
+            $generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false)
+        );
+        $generatorConfiguration->setImplicitNull($implicitNull)->setOutputEnabled(false);
+
+        $draft = DraftRunContext::getDraftForDataName(static::class, $this->name(), (string) $this->dataName());
+        if ($draft !== null) {
+            $generatorConfiguration->setDraft($draft->createDraftInstance());
+        }
 
         $baseDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'PHPModelGeneratorTest';
 
-        foreach (
-            new RecursiveIteratorIterator(new RecursiveDirectoryIterator($baseDir, FilesystemIterator::SKIP_DOTS))
-            as
-            $item
-        ) {
+        $baseDirIterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($baseDir, FilesystemIterator::SKIP_DOTS),
+        );
+        foreach ($baseDirIterator as $item) {
             unlink((string) $item);
         }
 
@@ -237,7 +242,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
             case OpenAPIv3Provider::class:
                 $schemaProvider = new OpenAPIv3Provider($mainFile);
                 break;
-            default: throw new Exception("Schema provider $schemaProviderClass not supported");
+            default:
+                throw new Exception("Schema provider $schemaProviderClass not supported");
         }
 
         $generator = new ModelGenerator($generatorConfiguration);

@@ -4,6 +4,9 @@
     <directory>tests</directory>
     <exclude>tests/manual</exclude>
   </testsuite>
+  <extensions>
+    <bootstrap class="PHPModelGenerator\Tests\Support\DraftExpansionExtension"/>
+  </extensions>
   <source>
     <include>
       <directory>src</directory>

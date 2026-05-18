@@ -301,6 +301,26 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         ];
     }
 
+    public function testMinPropertiesExceptionExposesCount(): void
+    {
+        $this->addPostProcessor(true);
+
+        $className = $this->generateClassFromFile(
+            'AdditionalProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className(['property1' => '  Hello  ', 'property2' => 'World']);
+
+        try {
+            $object->removeAdditionalProperty('property1');
+            $this->fail('Expected MinPropertiesException was not thrown');
+        } catch (MinPropertiesException $exception) {
+            $this->assertSame(2, $exception->getMinProperties());
+            $this->assertSame(1, $exception->getCount());
+        }
+    }
+
     public function testSetterSchemaHooksAreResolvedInSetAdditionalProperties(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {

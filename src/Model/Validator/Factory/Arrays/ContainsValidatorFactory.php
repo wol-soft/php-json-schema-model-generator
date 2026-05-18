@@ -50,14 +50,14 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
             (array_key_exists('minContains', $json) || array_key_exists('maxContains', $json));
 
         $property->addValidator(
-            new class(
+            new class (
                 $property,
                 DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayContains.phptpl',
                 [
                     'property' => $nestedProperty,
                     'schema' => $schema,
                     'countMatches' => $countMatches,
-                    'allowNoMatch' => $json['minContains'] ?? 1 === 0,
+                    'allowNoMatch' => ($json['minContains'] ?? 1) === 0,
                     'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
                     'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 ],
@@ -81,7 +81,7 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
                 throw new SchemaException(
                     sprintf(
                         "Invalid minContains %s for property '%s' in file %s",
-                        str_replace("\n", '', var_export($json[$this->key], true)),
+                        str_replace("\n", '', var_export($json['minContains'], true)),
                         $property->getName(),
                         $propertySchema->getFile(),
                     ),
@@ -91,7 +91,7 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
             $property->addValidator(
                 new PropertyValidator(
                     $property,
-                    "\$containsMatches < {$json['minContains']}",
+                    "is_array(\$value) && \$containsMatches < {$json['minContains']}",
                     MinContainsException::class,
                     [$json['minContains'], '&$containsMatches'],
                 ),
@@ -102,8 +102,8 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
             if (!is_int($json['maxContains']) || $json['maxContains'] < 1) {
                 throw new SchemaException(
                     sprintf(
-                        "Invalid minContains %s for property '%s' in file %s",
-                        str_replace("\n", '', var_export($json[$this->key], true)),
+                        "Invalid maxContains %s for property '%s' in file %s",
+                        str_replace("\n", '', var_export($json['maxContains'], true)),
                         $property->getName(),
                         $propertySchema->getFile(),
                     ),
@@ -113,7 +113,7 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
             $property->addValidator(
                 new PropertyValidator(
                     $property,
-                    "\$containsMatches > {$json['maxContains']}",
+                    "is_array(\$value) && \$containsMatches > {$json['maxContains']}",
                     MaxContainsException::class,
                     [$json['maxContains'], '&$containsMatches'],
                 ),

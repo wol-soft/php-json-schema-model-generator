@@ -216,6 +216,9 @@ Rules:
 
 - Create the directory and at least a stub `implementation-plan.md` (or `analysis.md`) before
   writing any code, so the plan is committed alongside the first code change.
+- Every implementation plan must include a **status overview table** near the top that lists every
+  phase, its one-line description, and its current status (`Not done`, `In progress`, `Done`,
+  or `Abandoned`). Update the table as phases complete or are abandoned.
 - Every implementation plan must include a dedicated documentation update step. Before finalising
   the plan, audit `docs/source/` (RST), `README.md`, and any other user-facing docs for content
   that would be affected by the change, and add a plan phase that updates those docs. Do not skip
