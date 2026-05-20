@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Filter;
 
+use DateTime;
 use RuntimeException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -16,8 +17,9 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
  * the runtime type matches), full-overlap (filter always runs), mixed type hints on callables
  * (empty accepted types, no runtime guard generated), untyped properties, union type hints on
  * callables, bypass formulas for transforming filters on multi-type properties, union return types,
- * null consumed by a filter, and reflection-level rejections (no parameter type hint, void/never
- * return types, missing return type on a transforming filter).
+ * null consumed by a filter, reflection-level rejections (no parameter type hint, void/never
+ * return types, missing return type on a transforming filter), and filters applied directly to
+ * object-typed properties with nested schemas.
  */
 class FilterTypeCompatibilityTest extends AbstractFilterTestCase
 {
@@ -105,6 +107,18 @@ class FilterTypeCompatibilityTest extends AbstractFilterTestCase
     public static function nullableStringToIntFilter(?string $value): int
     {
         return (int) $value;
+    }
+
+    /** Accepts any object and returns DateTime. Used by the nested-schema filter compatibility test. */
+    public static function filterObjectToDateTime(object $value): DateTime
+    {
+        return $value instanceof DateTime ? $value : new DateTime();
+    }
+
+    /** Serializer for filterObjectToDateTime. */
+    public static function serializeObjectToDateTime(DateTime $value): string
+    {
+        return $value->format(DATE_ATOM);
     }
 
     /** Void return type — used by the void-return-type InvalidFilterException test. */
@@ -604,5 +618,41 @@ class FilterTypeCompatibilityTest extends AbstractFilterTestCase
         // Null input: null is accepted by the filter (not a bypass), filter transforms to 0.
         $object = new $className(['filteredProperty' => null]);
         $this->assertSame(0, $object->getFilteredProperty());
+    }
+
+    // -------------------------------------------------------------------------
+    // FilterValidator::runCompatibilityCheck — nested-schema property path
+    // -------------------------------------------------------------------------
+
+    /**
+     * When a filter is applied to an object-typed property that has a nested schema,
+     * runCompatibilityCheck takes the $nestedSchema !== null branch, derives typeNames as
+     * ['object'] and isNullable as false, and verifies overlap with the filter's accepted types.
+     * A filter accepting 'object' has full overlap; generation succeeds and the filter transforms
+     * the instantiated inner object to a DateTime.
+     *
+     * Array input is first passed through the ObjectInstantiationDecorator (array → inner class
+     * instance), then the transforming filter receives the inner class object and converts it to
+     * DateTime. There is no bypass for nested-schema properties because the type check for the
+     * generated inner class is not wrapped with a skip-check.
+     */
+    public function testFilterOnObjectTypedPropertyWithNestedSchema(): void
+    {
+        $configuration = (new GeneratorConfiguration())
+            ->addFilter($this->getCustomTransformingFilter(
+                [self::class, 'serializeObjectToDateTime'],
+                [self::class, 'filterObjectToDateTime'],
+                'objectToDateTime',
+            ));
+
+        $className = $this->generateClassFromFile(
+            'ObjectPropertyWithNestedSchemaAndFilter.json',
+            $configuration,
+        );
+
+        // Array input: ObjectInstantiationDecorator constructs the inner class from the array,
+        // then filterObjectToDateTime receives the inner class instance and returns DateTime.
+        $object = new $className(['filteredProperty' => ['name' => 'Alice']]);
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
     }
 }
