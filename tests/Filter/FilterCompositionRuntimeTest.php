@@ -11,6 +11,7 @@ use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Exception\ComposedValue\NotException;
 use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Filter\InvalidFilterValueException;
 use PHPModelGenerator\Exception\String\FormatException;
 use PHPModelGenerator\Exception\Number\MinimumException;
 use PHPModelGenerator\Exception\String\PatternException;
@@ -1152,5 +1153,40 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
         $dateTime = new DateTime('2024-06-01');
         $object = new $className(['filteredProperty' => $dateTime]);
         $this->assertSame($dateTime, $object->getFilteredProperty());
+    }
+
+    // -------------------------------------------------------------------------
+    // addExtendedInstanceOfCheckForObjectBranches: early return for non-empty branches
+    // -------------------------------------------------------------------------
+
+    /**
+     * When a transforming filter (dateTime, returning non-primitive DateTime) is combined with
+     * anyOf branches that are all non-object-typed (type: string, minLength: 1), no branch loses
+     * its InstanceOfValidator. addExtendedInstanceOfCheckForObjectBranches finds no empty object
+     * branch and returns early without adding a property-level instanceof check.
+     *
+     * The anyOf branches are both input-space (string-space), so they run PRE-transform; a valid
+     * string passes and is converted to DateTime. An already-transformed DateTime bypasses the
+     * pre-transform validators and the filter entirely. An unparseable string passes the anyOf
+     * (via the type: string branch) but fails the filter, throwing InvalidFilterValueException.
+     */
+    public function testNoExtendedInstanceOfCheckWhenAllObjectBranchesAreNonEmpty(): void
+    {
+        $className = $this->generateClassFromFile(
+            'FilterCompositionDateTimeWithNonEmptyObjectBranch.json',
+        );
+
+        // String input satisfies both anyOf branches and is transformed to DateTime.
+        $object = new $className(['filteredProperty' => '2024-01-01']);
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+
+        // Already-transformed DateTime bypasses the filter entirely.
+        $dateTime = new DateTime('2024-01-01');
+        $object = new $className(['filteredProperty' => $dateTime]);
+        $this->assertSame($dateTime, $object->getFilteredProperty());
+
+        // A string that is not a valid datetime passes the anyOf but fails the filter.
+        $this->expectException(InvalidFilterValueException::class);
+        new $className(['filteredProperty' => 'Hello']);
     }
 }

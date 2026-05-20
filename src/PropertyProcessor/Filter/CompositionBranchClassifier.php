@@ -154,12 +154,7 @@ class CompositionBranchClassifier
     private function classifyNestedComposition(string $keyword, mixed $value): TypeSpace
     {
         if ($keyword === 'not') {
-            return !is_array($value) ? TypeSpace::Empty : $this->classify($value);
-        }
-
-        // allOf, anyOf, oneOf: value must be an array of branch schemas.
-        if (!is_array($value)) {
-            return TypeSpace::Empty;
+            return $this->classify($value);
         }
 
         $nonEmpty = array_values(array_filter(

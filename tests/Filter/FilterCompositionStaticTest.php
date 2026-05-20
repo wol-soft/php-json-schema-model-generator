@@ -95,6 +95,23 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
                 'FilterCompositionRootIfConstrainsFilteredSubproperty.json',
                 '/Composition if.*constrains filtered subproperty filteredProperty.*output-type-space/',
             ],
+            // JSON Schema silently ignores then/else without a matching if, but the checker
+            // still parses them and must reject output-type-space constraints.
+            'root-level then constrains filtered subproperty with output-type constraint' => [
+                'FilterCompositionRootThenConstrainsFilteredSubproperty.json',
+                '/Composition then.*constrains filtered subproperty filteredProperty.*output-type-space/',
+            ],
+            'root-level else constrains filtered subproperty with output-type constraint' => [
+                'FilterCompositionRootElseConstrainsFilteredSubproperty.json',
+                '/Composition else.*constrains filtered subproperty filteredProperty.*output-type-space/',
+            ],
+            // Filter inside an if sub-schema within an allOf branch: the SINGLE_COMPOSITION_KEYWORDS
+            // loop in branchContainsFilter must descend into if and detect the filter keyword.
+            'filter inside if sub-schema within allOf branch' => [
+                'FilterCompositionFilterInNestedIfBranch.json',
+                '/A filter keyword inside a allOf composition branch is not supported'
+                    . ' for property filteredProperty.*branch #0/',
+            ],
             // Filter inside a not branch: same $value-reset issue as for array composition keywords.
             'filter inside not branch' => [
                 'FilterCompositionFilterInNotBranch.json',
@@ -176,6 +193,10 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
             // (minLength). This is accepted because input-space constraints target the raw value.
             'root-level allOf: input-space constraint on filtered subproperty' =>
                 ['FilterCompositionRootInputSpaceConstrainsFilteredSubproperty.json'],
+            // Root-level not with an input-space keyword (minLength) is accepted. minLength targets
+            // the raw string input before transformation — no output-type-space conflict.
+            'root-level not: input-space constraint on filtered subproperty' =>
+                ['FilterCompositionRootNotInputSpaceConstrainsFilteredSubproperty.json'],
             // A root-level allOf branch introduces an inherited-object property that itself
             // declares a filter. The filter is on a nested property, not on the composition
             // branch directly, so no filter-in-branch rejection fires.
