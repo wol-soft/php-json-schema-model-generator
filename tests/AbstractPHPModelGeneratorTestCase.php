@@ -45,12 +45,18 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
     private array $generatedFiles = [];
 
+    protected string $lastGeneratedNamespacePrefix = '';
+
     /**
      * Set up an empty directory for the tests
      */
     public function setUp(): void
     {
         parent::setUp();
+
+        if (DraftRunContext::shouldSkipMethod(static::class, $this->name())) {
+            $this->markTestSkipped('Not applicable for the requested JSON Schema draft.');
+        }
 
         (new ModelGenerator())->generateModelDirectory(sys_get_temp_dir() . '/PHPModelGeneratorTest');
         @mkdir(sys_get_temp_dir() . '/PHPModelGeneratorTest/Models');
@@ -272,6 +278,21 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
      */
     protected function generateDirectory(string $directory, GeneratorConfiguration $configuration): array
     {
+        $configuration = clone $configuration;
+
+        $draft = DraftRunContext::getDraftForDataName(static::class, $this->name(), (string) $this->dataName());
+        if ($draft !== null) {
+            $configuration->setDraft($draft->createDraftInstance());
+            $draftSuffix = preg_replace('/[^a-zA-Z0-9]/', '', $draft->label());
+            $baseNamespace = $configuration->getNamespacePrefix();
+            $newNamespace = $baseNamespace !== ''
+                ? $baseNamespace . '_' . $draftSuffix
+                : $draftSuffix;
+            $configuration->setNamespacePrefix($newNamespace);
+        }
+
+        $this->lastGeneratedNamespacePrefix = $configuration->getNamespacePrefix();
+
         $generator = new ModelGenerator($configuration);
         if (is_callable($this->modifyModelGenerator)) {
             ($this->modifyModelGenerator)($generator);

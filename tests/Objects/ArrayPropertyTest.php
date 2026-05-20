@@ -12,6 +12,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -19,6 +20,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  *
  * @package PHPModelGenerator\Tests\Objects
  */
+#[ApplicableDrafts]
 class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
@@ -593,55 +595,6 @@ Invalid items in array property:
     * Invalid type for item of array property. Requires [string, int], got array
 ERROR
                 ],
-            ],
-        );
-    }
-
-    #[DataProvider('validArrayContainsDataProvider')]
-    public function testValidValuesForArrayContains(GeneratorConfiguration $configuration, array $propertyValue): void
-    {
-        $className = $this->generateClassFromFile('ArrayPropertyContains.json', $configuration);
-
-        $object = new $className(['property' => $propertyValue]);
-        $this->assertSame($propertyValue, $object->getProperty());
-    }
-
-    public static function validArrayContainsDataProvider(): array
-    {
-        return self::combineDataProvider(
-            self::validationMethodDataProvider(),
-            [
-                'empty string' => [[3, '', true]],
-                'lowercase string' => [[3, 'abc', true]],
-                'uppercase string' => [[3, 'AB', true]],
-                'mixed string' => [[3, 'AvBd', true]],
-                'mixed string with other strings' => [[' ', '123', 'AvBd', 'm-M']],
-            ],
-        );
-    }
-
-    #[DataProvider('invalidArrayContainsDataProvider')]
-    public function testInvalidValuesForArrayContainsTrowsAnException(
-        GeneratorConfiguration $configuration,
-        array $propertyValue,
-    ): void {
-        $this->expectValidationError($configuration, 'No item in array property matches contains constraint');
-
-        $className = $this->generateClassFromFile('ArrayPropertyContains.json', $configuration);
-
-        new $className(['property' => $propertyValue]);
-    }
-
-    public static function invalidArrayContainsDataProvider(): array
-    {
-        return self::combineDataProvider(
-            self::validationMethodDataProvider(),
-            [
-                'Empty array' => [[]],
-                'numeric array' => [[1, 2.3]],
-                'boolean array' => [[true, false]],
-                'nested array' => [[['', 'Hallo'], [0, 2]]],
-                'string array with invalid pattern' => [[' ', '09', 'h-H']],
             ],
         );
     }

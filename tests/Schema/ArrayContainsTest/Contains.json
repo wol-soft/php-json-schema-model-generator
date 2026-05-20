@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "array",
+      "contains": {
+        "type": "string",
+        "pattern": "^[a-zA-Z]*$"
+      }
+    }
+  }
+}

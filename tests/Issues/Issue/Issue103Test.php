@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 
 /**
  * Serialization must use original JSON Schema property names as output keys, not the
@@ -13,6 +14,7 @@ use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
  *
  * @see https://github.com/wol-soft/php-json-schema-model-generator/issues/103
  */
+#[ApplicableDrafts]
 class Issue103Test extends AbstractIssueTestCase
 {
     private function serializationConfig(bool $implicitNull = false): GeneratorConfiguration

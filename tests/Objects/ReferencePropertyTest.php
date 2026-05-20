@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\WithoutErrorHandler;
 
 /**
@@ -20,6 +21,7 @@ use PHPUnit\Framework\Attributes\WithoutErrorHandler;
  *
  * @package PHPModelGenerator\Tests\Objects
  */
+#[ApplicableDrafts]
 class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     protected const EXTERNAL_JSON_DIRECTORIES = ['../ReferencePropertyTest_external'];
@@ -536,8 +538,9 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T1OutOfBaseDirRef';
         $this->generateDirectory('OutOfBaseDirFragmentRefMultipleReferrers', $this->directoryConfig($namespace));
 
-        $schemaAClass = "\\{$namespace}\\SchemaA";
-        $schemaBClass = "\\{$namespace}\\SchemaB";
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $schemaAClass = "\\{$namespacePrefix}\\SchemaA";
+        $schemaBClass = "\\{$namespacePrefix}\\SchemaB";
 
         $objectA = new $schemaAClass(['person' => ['name' => 'Alice', 'age' => 30]]);
         $objectB = new $schemaBClass(['person' => ['name' => 'Bob', 'age' => 25]]);
@@ -564,9 +567,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T2SharedInBaseDirRef';
         $this->generateDirectory('MultipleReferrersSharedInBaseDirFile', $this->directoryConfig($namespace));
 
-        $schemaAClass = "\\{$namespace}\\SchemaA";
-        $schemaBClass = "\\{$namespace}\\SchemaB";
-        $personClass  = "\\{$namespace}\\Person";
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $schemaAClass = "\\{$namespacePrefix}\\SchemaA";
+        $schemaBClass = "\\{$namespacePrefix}\\SchemaB";
+        $personClass  = "\\{$namespacePrefix}\\Person";
 
         $objectA = new $schemaAClass(['person' => ['name' => 'Alice']]);
         $objectB = new $schemaBClass(['person' => ['name' => 'Bob']]);
@@ -592,8 +596,9 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T3TopLevelAndFragment';
         $this->generateDirectory('TopLevelAndFragmentRef', $this->directoryConfig($namespace));
 
-        $employeeClass = "\\{$namespace}\\Employee";
-        $personClass   = "\\{$namespace}\\PersonWithHistory";
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $employeeClass = "\\{$namespacePrefix}\\Employee";
+        $personClass   = "\\{$namespacePrefix}\\PersonWithHistory";
 
         $employee = new $employeeClass([
             'profile' => ['name' => 'Alice', 'age' => 30],
@@ -620,7 +625,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T5BaseDirBaseRef';
         $this->generateDirectory('BaseDirBaseRef', $this->directoryConfig($namespace));
 
-        $locationClass = "\\{$namespace}\\Location";
+        $locationClass = "\\{$this->lastGeneratedNamespacePrefix}\\Location";
 
         $location = new $locationClass(['street' => '42 Elm St', 'city' => 'Shelbyville']);
 
@@ -637,7 +642,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T5BaseDirBaseRefRequired';
         $this->generateDirectory('BaseDirBaseRef', $this->directoryConfig($namespace));
 
-        $locationClass = "\\{$namespace}\\Location";
+        $locationClass = "\\{$this->lastGeneratedNamespacePrefix}\\Location";
         new $locationClass(['city' => 'Shelbyville']);
     }
 
@@ -651,7 +656,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T6AllOfRef';
         $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
 
-        $allOfClass = "\\{$namespace}\\AllOfRef";
+        $allOfClass = "\\{$this->lastGeneratedNamespacePrefix}\\AllOfRef";
         $object = new $allOfClass(['label' => 'urgent']);
 
         // allOf with $ref Tag.json: label property must be merged in and required
@@ -666,7 +671,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T6AllOfRefValidation';
         $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
 
-        $allOfClass = "\\{$namespace}\\AllOfRef";
+        $allOfClass = "\\{$this->lastGeneratedNamespacePrefix}\\AllOfRef";
         new $allOfClass([]);
     }
 
@@ -675,8 +680,9 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T6AnyOfRef';
         $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
 
-        $anyOfClass = "\\{$namespace}\\AnyOfRef";
-        $tagClass   = "\\{$namespace}\\Tag";
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $anyOfClass = "\\{$namespacePrefix}\\AnyOfRef";
+        $tagClass   = "\\{$namespacePrefix}\\Tag";
 
         $object = new $anyOfClass(['tag' => ['label' => 'feature']]);
 
@@ -689,8 +695,9 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T6OneOfRef';
         $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
 
-        $oneOfClass = "\\{$namespace}\\OneOfRef";
-        $tagClass   = "\\{$namespace}\\Tag";
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $oneOfClass = "\\{$namespacePrefix}\\OneOfRef";
+        $tagClass   = "\\{$namespacePrefix}\\Tag";
 
         $object = new $oneOfClass(['tag' => ['label' => 'bugfix']]);
 

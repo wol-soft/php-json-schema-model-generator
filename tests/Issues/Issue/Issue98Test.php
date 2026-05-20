@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -23,6 +24,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * non-root property) and appends the `_Merged_` class name as a type-hint decorator,
  * overriding the correct annotation.
  */
+#[ApplicableDrafts]
 class Issue98Test extends AbstractIssueTestCase
 {
     // -------------------------------------------------------------------------

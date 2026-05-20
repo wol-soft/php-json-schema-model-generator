@@ -10,6 +10,7 @@ use PHPUnit\Metadata\DataProviderClosure as DataProviderClosureMetadata;
 use PHPUnit\Metadata\Metadata;
 use PHPUnit\Metadata\MetadataCollection;
 use PHPUnit\Metadata\Parser\Parser;
+use RuntimeException;
 
 /**
  * Wraps PHPUnit's default metadata parser and intercepts forMethod() for test classes that carry
@@ -20,11 +21,20 @@ use PHPUnit\Metadata\Parser\Parser;
  *
  * Quick mode (default): one draft per test — the latest applicable draft.
  * Full mode (PHPUNIT_FULL_DRAFT_COVERAGE=1): all drafts in the declared range.
+ * Specific draft mode (PHPUNIT_DRAFT=<hint>): one draft per test — the specified draft if applicable,
+ *   otherwise the test is registered for skipping and its original metadata is returned unchanged.
+ *
+ * The hint for PHPUNIT_DRAFT is matched case-insensitively against each draft's label after stripping
+ * non-alphanumeric characters, so "2019", "201909", "Draft2019" all resolve to Draft 2019-09.
  */
 final class ApplicableDraftsMetadataParser implements Parser
 {
     /** @var array<string, MetadataCollection> */
     private array $methodCache = [];
+
+    /** Cached result of resolving PHPUNIT_DRAFT — false means "not set", null means "set but invalid". */
+    private static ?JsonSchemaDraft $resolvedRequestedDraft = null;
+    private static bool $requestedDraftResolved = false;
 
     public function __construct(private readonly Parser $delegate)
     {
@@ -53,8 +63,18 @@ final class ApplicableDraftsMetadataParser implements Parser
             return $this->methodCache[$cacheKey] = $original;
         }
 
-        $fullMode = getenv('PHPUNIT_FULL_DRAFT_COVERAGE') === '1';
-        $drafts   = $fullMode ? $attribute->draftsInRange() : [$attribute->latestApplicable()];
+        $requestedDraft = self::resolveRequestedDraft();
+
+        if ($requestedDraft !== null) {
+            if (!$attribute->isApplicable($requestedDraft)) {
+                DraftRunContext::registerSkipForMethod($className, $methodName);
+                return $this->methodCache[$cacheKey] = $original;
+            }
+            $drafts = [$requestedDraft];
+        } else {
+            $fullMode = getenv('PHPUNIT_FULL_DRAFT_COVERAGE') === '1';
+            $drafts   = $fullMode ? $attribute->draftsInRange() : [$attribute->latestApplicable()];
+        }
 
         $hasDataProvider = $original->isDataProvider()->isNotEmpty()
             || $original->isDataProviderClosure()->isNotEmpty();
@@ -175,5 +195,41 @@ final class ApplicableDraftsMetadataParser implements Parser
             $otherMetadata,
             [Metadata::dataProviderClosure($closure, false)],
         ));
+    }
+
+    /**
+     * Parses PHPUNIT_DRAFT env var and returns the matching JsonSchemaDraft, or null if unset.
+     * Throws RuntimeException when the env var is set but matches no known draft.
+     */
+    private static function resolveRequestedDraft(): ?JsonSchemaDraft
+    {
+        if (self::$requestedDraftResolved) {
+            return self::$resolvedRequestedDraft;
+        }
+
+        self::$requestedDraftResolved = true;
+
+        $hint = getenv('PHPUNIT_DRAFT');
+        if ($hint === false || $hint === '') {
+            return self::$resolvedRequestedDraft = null;
+        }
+
+        $normalizedHint = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $hint));
+
+        foreach (JsonSchemaDraft::cases() as $draft) {
+            $normalizedLabel = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $draft->label()));
+            if (str_contains($normalizedLabel, $normalizedHint)) {
+                return self::$resolvedRequestedDraft = $draft;
+            }
+        }
+
+        $validHints = implode(', ', array_map(
+            fn(JsonSchemaDraft $draft): string => $draft->label(),
+            JsonSchemaDraft::cases(),
+        ));
+
+        throw new RuntimeException(
+            sprintf('PHPUNIT_DRAFT="%s" does not match any known draft. Valid hints: %s.', $hint, $validHints),
+        );
     }
 }

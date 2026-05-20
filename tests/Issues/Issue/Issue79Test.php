@@ -7,8 +7,10 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[ApplicableDrafts]
 class Issue79Test extends AbstractIssueTestCase
 {
     public function testCombinedReferenceAndObjectDefinition(): void

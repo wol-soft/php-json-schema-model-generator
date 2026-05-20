@@ -17,6 +17,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -24,6 +25,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  *
  * @package PHPModelGenerator\Tests\Basic
  */
+#[ApplicableDrafts]
 class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
@@ -117,7 +119,6 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
         $object->setProperty('Hello');
 
         $this->assertSame('Hello', $object->getProperty());
-
     }
 
     public function testReadOnlyPropertyDoesntGenerateSetter(): void
@@ -278,7 +279,8 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidStringPropertyValueProvider(): array
     {
         return self::combineDataProvider(
-            self::validationMethodDataProvider(), [
+            self::validationMethodDataProvider(),
+            [
                 'Too long string' => [
                     'HelloMyOldFriend',
                     [
@@ -351,13 +353,12 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
             (new GeneratorConfiguration())->setNamespacePrefix('Application')->setOutputEnabled(false),
         );
 
-        $mainClassFQCN = '\\Application\\MainClass';
-        $mainObject = new $mainClassFQCN(['property' => 'Hello']);
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $mainObject = new ("\\{$namespacePrefix}\\MainClass")(['property' => 'Hello']);
 
         $this->assertSame('Hello', $mainObject->getProperty());
 
-        $subClassFQCN = '\\Application\\SubFolder\\SubClass';
-        $subObject = new $subClassFQCN(['property' => 3]);
+        $subObject = new ("\\{$namespacePrefix}\\SubFolder\\SubClass")(['property' => 3]);
 
         $this->assertSame(3, $subObject->getProperty());
     }

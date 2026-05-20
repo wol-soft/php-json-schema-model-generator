@@ -6,7 +6,6 @@ namespace PHPModelGenerator\Tests\Draft;
 
 use Exception;
 use PHPModelGenerator\Draft\Draft_07;
-use PHPModelGenerator\Draft\Draft_2019_09;
 use PHPModelGenerator\Exception\Arrays\ContainsException;
 use PHPModelGenerator\Exception\Arrays\MaxContainsException;
 use PHPModelGenerator\Exception\Arrays\MinContainsException;
@@ -19,7 +18,8 @@ use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
- * Tests for the minContains / maxContains array constraints introduced in Draft 2019-09.
+ * Tests for the "contains" array constraint and the minContains / maxContains extensions
+ * introduced in Draft 2019-09.
  *
  * Draft 07 supports the plain "contains" keyword (at least one match required) but ignores
  * minContains / maxContains. Draft 2019-09 and 2020-12 honour those constraints and use
@@ -27,6 +27,59 @@ use PHPUnit\Framework\Attributes\DataProvider;
  */
 class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
 {
+    // --- Basic contains (all drafts) ---
+
+    #[ApplicableDrafts]
+    #[DataProvider('validArrayContainsDataProvider')]
+    public function testValidValuesForArrayContains(GeneratorConfiguration $configuration, array $propertyValue): void
+    {
+        $className = $this->generateClassFromFile('Contains.json', $configuration);
+
+        $object = new $className(['property' => $propertyValue]);
+        $this->assertSame($propertyValue, $object->getProperty());
+    }
+
+    public static function validArrayContainsDataProvider(): array
+    {
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
+            [
+                'empty string' => [[3, '', true]],
+                'lowercase string' => [[3, 'abc', true]],
+                'uppercase string' => [[3, 'AB', true]],
+                'mixed string' => [[3, 'AvBd', true]],
+                'mixed string with other strings' => [[' ', '123', 'AvBd', 'm-M']],
+            ],
+        );
+    }
+
+    #[ApplicableDrafts]
+    #[DataProvider('invalidArrayContainsDataProvider')]
+    public function testInvalidValuesForArrayContainsThrowsAnException(
+        GeneratorConfiguration $configuration,
+        array $propertyValue,
+    ): void {
+        $this->expectValidationError($configuration, 'No item in array property matches contains constraint');
+
+        $className = $this->generateClassFromFile('Contains.json', $configuration);
+
+        new $className(['property' => $propertyValue]);
+    }
+
+    public static function invalidArrayContainsDataProvider(): array
+    {
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
+            [
+                'Empty array' => [[]],
+                'numeric array' => [[1, 2.3]],
+                'boolean array' => [[true, false]],
+                'nested array' => [[['', 'Hallo'], [0, 2]]],
+                'string array with invalid pattern' => [[' ', '09', 'h-H']],
+            ],
+        );
+    }
+
     // --- minContains ---
 
     /**
@@ -240,9 +293,10 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
 
     // --- Schema-level validation: invalid minContains / maxContains values ---
 
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('invalidMinContainsValueDataProvider')]
     public function testInvalidMinContainsValueThrowsSchemaException(
-        mixed $minContains,
+        string $minContainsValue,
         string $expectedValueInMessage,
     ): void {
         $this->expectException(SchemaException::class);
@@ -250,34 +304,23 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
             "/Invalid minContains $expectedValueInMessage for property 'list'/",
         );
 
-        $this->generateClass(
-            json_encode([
-                'type' => 'object',
-                'properties' => [
-                    'list' => [
-                        'type' => 'array',
-                        'contains' => ['type' => 'string'],
-                        'minContains' => $minContains,
-                    ],
-                ],
-            ]),
-            (new GeneratorConfiguration())->setDraft(new Draft_2019_09()),
-        );
+        $this->generateClassFromFileTemplate('InvalidMinContains.json', [$minContainsValue], null, false);
     }
 
     public static function invalidMinContainsValueDataProvider(): array
     {
         return [
-            'negative integer' => [-1, '-1'],
-            'float'            => [1.5, '1\.5'],
-            'string'           => ['2', "'2'"],
-            'boolean'          => [true, 'true'],
+            'negative integer' => ['-1', '-1'],
+            'float'            => ['1.5', '1\.5'],
+            'string'           => ['"2"', "'2'"],
+            'boolean'          => ['true', 'true'],
         ];
     }
 
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
     #[DataProvider('invalidMaxContainsValueDataProvider')]
     public function testInvalidMaxContainsValueThrowsSchemaException(
-        mixed $maxContains,
+        string $maxContainsValue,
         string $expectedValueInMessage,
     ): void {
         $this->expectException(SchemaException::class);
@@ -285,50 +328,26 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
             "/Invalid maxContains $expectedValueInMessage for property 'list'/",
         );
 
-        $this->generateClass(
-            json_encode([
-                'type' => 'object',
-                'properties' => [
-                    'list' => [
-                        'type' => 'array',
-                        'contains' => ['type' => 'string'],
-                        'maxContains' => $maxContains,
-                    ],
-                ],
-            ]),
-            (new GeneratorConfiguration())->setDraft(new Draft_2019_09()),
-        );
+        $this->generateClassFromFileTemplate('InvalidMaxContains.json', [$maxContainsValue], null, false);
     }
 
     public static function invalidMaxContainsValueDataProvider(): array
     {
         return [
-            'zero'             => [0, '0'],
-            'negative integer' => [-1, '-1'],
-            'float'            => [2.5, '2\.5'],
-            'string'           => ['3', "'3'"],
-            'boolean'          => [false, 'false'],
+            'zero'             => ['0', '0'],
+            'negative integer' => ['-1', '-1'],
+            'float'            => ['2.5', '2\.5'],
+            'string'           => ['"3"', "'3'"],
+            'boolean'          => ['false', 'false'],
         ];
     }
 
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
     public function testMinContainsGreaterThanMaxContainsThrowsSchemaException(): void
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches('/minContains \(3\) must not be larger than maxContains \(2\)/');
 
-        $this->generateClass(
-            json_encode([
-                'type' => 'object',
-                'properties' => [
-                    'list' => [
-                        'type' => 'array',
-                        'contains' => ['type' => 'string'],
-                        'minContains' => 3,
-                        'maxContains' => 2,
-                    ],
-                ],
-            ]),
-            (new GeneratorConfiguration())->setDraft(new Draft_2019_09()),
-        );
+        $this->generateClassFromFile('MinContainsExceedsMaxContains.json');
     }
 }

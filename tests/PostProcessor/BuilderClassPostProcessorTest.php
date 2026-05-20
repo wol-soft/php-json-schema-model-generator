@@ -13,8 +13,10 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionUnionType;
 use SplFileInfo;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[ApplicableDrafts]
 class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
     public function setUp(): void
@@ -175,7 +177,8 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertCount(3, $files);
         $this->assertGeneratedBuilders(3);
 
-        $builderClassName = 'MyApp\Namespace\NestedObjectBuilder';
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $builderClassName = "{$namespacePrefix}\\NestedObjectBuilder";
         $builderObject = new $builderClassName();
 
         $expectedTypeHint = "Address|AddressBuilder|array|null";
@@ -194,7 +197,7 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(160, $object->getAddress()->getBuilding()->getSize());
 
         // test generate nested object from nested builder
-        $addressBuilderClassName = 'MyApp\Namespace\Dependencies\AddressBuilder';
+        $addressBuilderClassName = "{$namespacePrefix}\\Dependencies\\AddressBuilder";
         $addressBuilderObject = new $addressBuilderClassName();
         $this->assertSame('string|null', $this->getParameterTypeAnnotation($addressBuilderObject, 'setStreet'));
         $this->assertSame('int|null', $this->getParameterTypeAnnotation($addressBuilderObject, 'setNumber'));
@@ -203,7 +206,7 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('int|null', $this->getReturnTypeAnnotation($addressBuilderObject, 'getNumber'));
         $this->assertSame('Address_Building|Address_BuildingBuilder|array|null', $this->getReturnTypeAnnotation($addressBuilderObject, 'getBuilding'));
 
-        $buildingBuilderClassName = 'MyApp\Namespace\Dependencies\Address_BuildingBuilder';
+        $buildingBuilderClassName = "{$namespacePrefix}\\Dependencies\\Address_BuildingBuilder";
         $buildingBuilderObject = new $buildingBuilderClassName();
         $this->assertSame('string|null', $this->getParameterTypeAnnotation($buildingBuilderObject, 'setType'));
         $this->assertSame('int|null', $this->getParameterTypeAnnotation($buildingBuilderObject, 'setSize'));
@@ -225,8 +228,8 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(160, $object->getAddress()->getBuilding()->getSize());
 
         // test add validated object
-        $addressObjectClassName =  'MyApp\Namespace\Dependencies\Address';
-        $buildingObjectClassName =  'MyApp\Namespace\Dependencies\Address_Building';
+        $addressObjectClassName = "{$namespacePrefix}\\Dependencies\\Address";
+        $buildingObjectClassName = "{$namespacePrefix}\\Dependencies\\Address_Building";
         $addressArray['building'] = new $buildingObjectClassName($addressArray['building']);
         $addressObject = new $addressObjectClassName($addressArray);
         $builderObject->setAddress($addressObject);

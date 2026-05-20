@@ -9,10 +9,12 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 
 /**
  * Tests that a property defined in root `properties` is not widened by anyOf/oneOf branches.
  */
+#[ApplicableDrafts]
 class BasePropertyPrecedenceTest extends AbstractPHPModelGeneratorTestCase
 {
     /**

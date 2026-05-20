@@ -55,4 +55,9 @@ final class ApplicableDrafts
         $inRange = $this->draftsInRange();
         return end($inRange);
     }
+
+    public function isApplicable(JsonSchemaDraft $draft): bool
+    {
+        return in_array($draft, $this->draftsInRange(), true);
+    }
 }

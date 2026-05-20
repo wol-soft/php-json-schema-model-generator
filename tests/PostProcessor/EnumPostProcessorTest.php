@@ -14,11 +14,14 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Support\DraftRunContext;
 use ReflectionEnum;
 use TypeError;
 use UnitEnum;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[ApplicableDrafts]
 class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testStringOnlyEnum(): void
@@ -181,14 +184,9 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
     public function testUnmappedEnumIsSkippedWithEnabledSkipOption(): void
     {
-        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
-            $generator->addPostProcessor(
-                new EnumPostProcessor(
-                    join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
-                    'Enum',
-                    true,
-                )
-            );
+        $this->modifyModelGenerator = function (ModelGenerator $generator): void {
+            [$enumDir, $enumNamespace] = $this->draftAwareEnumConfig();
+            $generator->addPostProcessor(new EnumPostProcessor($enumDir, $enumNamespace, true));
         };
 
         $className = $this->generateClassFromFileTemplate('EnumProperty.json', ['[0, 1, 2]'], null, false);
@@ -547,15 +545,11 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
     public function testEnumForBuilderClass(): void
     {
-        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+        $this->modifyModelGenerator = function (ModelGenerator $generator): void {
+            [$enumDir, $enumNamespace] = $this->draftAwareEnumConfig();
             $generator
                 ->addPostProcessor(new BuilderClassPostProcessor())
-                ->addPostProcessor(
-                    new EnumPostProcessor(
-                        join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
-                        'Enum',
-                    )
-                );
+                ->addPostProcessor(new EnumPostProcessor($enumDir, $enumNamespace));
         };
 
         $className = $this->generateClassFromFileTemplate('EnumProperty.json', ['["hans", "dieter"]'], escape: false);
@@ -615,21 +609,28 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
+    private function draftAwareEnumConfig(): array
+    {
+        $draft = DraftRunContext::getDraftForDataName(static::class, $this->name(), (string) $this->dataName());
+        $suffix = $draft !== null ? '_' . preg_replace('/[^a-zA-Z0-9]/', '', $draft->label()) : '';
+
+        return [
+            join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum' . $suffix]),
+            'Enum' . $suffix,
+        ];
+    }
+
     private function addPostProcessor(): void
     {
-        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
-            $generator->addPostProcessor(
-                new EnumPostProcessor(
-                    join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
-                    'Enum',
-                )
-            );
+        $this->modifyModelGenerator = function (ModelGenerator $generator): void {
+            [$enumDir, $enumNamespace] = $this->draftAwareEnumConfig();
+            $generator->addPostProcessor(new EnumPostProcessor($enumDir, $enumNamespace));
         };
     }
 
     private function assertGeneratedEnums(int $expectedGeneratedEnums): void
     {
-        $dir = sys_get_temp_dir() . '/PHPModelGeneratorTest/Enum';
+        [$dir] = $this->draftAwareEnumConfig();
         $files = array_diff(scandir($dir), ['.', '..']);
 
         $this->assertCount($expectedGeneratedEnums, $files);
