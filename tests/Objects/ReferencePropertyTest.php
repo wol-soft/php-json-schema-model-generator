@@ -778,4 +778,25 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             ],
         ];
     }
+
+    /**
+     * When a property uses $ref to point to a definition that carries $comment and examples
+     * annotations, the PropertyProxy delegates getComment() and getExamples() to the
+     * underlying property. The template calls both methods on every rendered property, so
+     * generation successfully produces a class and the proxy delegation is exercised.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testRefPropertyWithCommentAndExamplesAnnotationsGeneratesSuccessfully(): void
+    {
+        $className = $this->generateClassFromFile('AnnotatedDefinitionRef.json');
+
+        $object = new $className([]);
+        $this->assertNull($object->getLabel());
+
+        $object = new $className(['label' => 'hello']);
+        $this->assertSame('hello', $object->getLabel());
+    }
 }

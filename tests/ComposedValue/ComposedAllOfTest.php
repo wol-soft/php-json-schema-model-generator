@@ -551,7 +551,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
      * During SchemaProcessor::transferComposedPropertiesToSchema the base property's validator
      * list contains both a TypeCheckValidator (from TypeCheckModifier) and a MinProperties
      * validator — neither of which is an AbstractComposedPropertyValidator — so both are skipped
-     * via the `continue` guard (line 472) before the allOf composition validator is processed.
+     * before the allOf composition validator is processed.
      */
     public function testObjectLevelAllOfWithAdditionalBaseValidatorTransfersProperties(): void
     {
@@ -669,5 +669,34 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['property' => 42]);
         $this->assertSame(42, $object->getProperty());
+    }
+
+    /**
+     * When two allOf branches both declare nullable types whose non-null names have an
+     * empty intersection (e.g. string|null AND integer|null), the property's effective
+     * non-null type set is empty. Both branches allow null, so no SchemaException is
+     * thrown. transferAllOfType returns early — the property carries no non-null type
+     * hint and accepts only null.
+     */
+    public function testAllOfNullableTypesWithEmptyNonNullIntersectionReturnsEarlyWithoutType(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AllOfNullableIntersectsToNullOnly.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // No non-null type was imposed; the getter and setter carry no concrete type hint.
+        $this->assertSame('mixed', $this->getReturnType($className, 'getProperty')->getName());
+        $this->assertSame('mixed', $this->getParameterType($className, 'setProperty')->getName());
+
+        // Null is accepted via constructor and via setter.
+        $object = new $className([]);
+        $this->assertNull($object->getProperty());
+
+        $object = new $className(['property' => null]);
+        $this->assertNull($object->getProperty());
+
+        $object->setProperty(null);
+        $this->assertNull($object->getProperty());
     }
 }

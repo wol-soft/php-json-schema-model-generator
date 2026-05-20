@@ -362,10 +362,63 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/Property 'property' has a type that conflicts with all if\/then\/else composition branches/",
+            "/Property 'property' has an if\/then\/else composition branch with a type incompatible/",
         );
 
         $this->generateClassFromFile('PropertyLevelIfThenElseConflictingTypes.json');
+    }
+
+    /**
+     * When a then or else branch declares {type: null}, its non-null type intersection with a
+     * non-null parent (e.g. string) is empty — no value can be both a string and null. The
+     * conflict is detectable at generation time, so SchemaException is thrown immediately.
+     */
+    public function testIfThenElseNullTypedBranchConflictsWithNonNullParentThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/Property 'property' has an if\/then\/else composition branch with a type incompatible/",
+        );
+
+        $this->generateClassFromFile('IfThenElseNullTypedBranch.json');
+    }
+
+    /**
+     * A property-level if/then/else where the parent declares type:string, then declares
+     * {type: integer}, and else declares {type: string}. The then branch has an empty
+     * intersection with the parent type — no string value can be an integer. This demonstrates
+     * that the conflict detector is not null-specific: any incompatible type triggers the error.
+     */
+    public function testIfThenElseDeadThenBranchWithNonNullTypeConflictThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/Property 'property' has an if\/then\/else composition branch with a type incompatible/",
+        );
+
+        $this->generateClassFromFile('IfThenElseDeadThenBranchNonNull.json');
+    }
+
+    /**
+     * A property-level if/then/else where the parent declares type:["string","null"], then
+     * declares {type: null}, and else declares {type: string}. The then branch declares null,
+     * and null IS in the parent's type set — the intersection is non-empty, so this schema is
+     * valid and generation succeeds without throwing.
+     */
+    public function testIfThenElseNullableParentWithNullTypedBranchGeneratesSuccessfully(): void
+    {
+        $className = $this->generateClassFromFile(
+            'IfThenElseNullableParentNullTypedBranch.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // null is a valid value for the property (else branch: {type: string} accepts non-null,
+        // but the parent type permits null; if condition fires only on string values)
+        $object = new $className([]);
+        $this->assertNull($object->getProperty());
+
+        $object = new $className(['property' => null]);
+        $this->assertNull($object->getProperty());
     }
 
     /**

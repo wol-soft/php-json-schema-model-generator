@@ -189,8 +189,14 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
     ): void {
         $className = $this->generateClassFromFile($schema);
 
-        $this->assertMatchesRegularExpression($annotationPattern, $this->getPropertyTypeAnnotation($className, 'property'));
-        $this->assertMatchesRegularExpression($annotationPattern, $this->getReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertMatchesRegularExpression(
+            $annotationPattern,
+            $this->getPropertyTypeAnnotation($className, 'property'),
+        );
+        $this->assertMatchesRegularExpression(
+            $annotationPattern,
+            $this->getReturnTypeAnnotation($className, 'getProperty'),
+        );
 
         $this->assertCount($generatedClasses, $this->getGeneratedFiles());
     }
@@ -650,5 +656,32 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame('mixed', $this->getReturnType($className, 'getProperty')->getName());
         $this->assertSame('mixed', $this->getParameterType($className, 'setProperty')->getName());
+    }
+
+    /**
+     * When the anyOf composition contains only explicit null-type branches ({type: null}),
+     * there are no typed (non-null) branches to build a union from. transferAnyOfOneOfType
+     * returns early — the property carries no non-null type hint and accepts only null.
+     */
+    public function testAnyOfWithOnlyExplicitNullBranchReturnsEarlyWithoutType(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AnyOfOnlyExplicitNullBranch.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // No non-null type was imposed; the getter and setter carry no concrete type hint.
+        $this->assertSame('mixed', $this->getReturnType($className, 'getProperty')->getName());
+        $this->assertSame('mixed', $this->getParameterType($className, 'setProperty')->getName());
+
+        // Null is accepted via constructor and via setter.
+        $object = new $className([]);
+        $this->assertNull($object->getProperty());
+
+        $object = new $className(['property' => null]);
+        $this->assertNull($object->getProperty());
+
+        $object->setProperty(null);
+        $this->assertNull($object->getProperty());
     }
 }
