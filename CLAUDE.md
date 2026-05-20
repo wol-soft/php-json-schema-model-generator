@@ -1,5 +1,26 @@
 # CLAUDE.md
 
+## Learning from reviews
+
+After completing a task that involved responding to code review feedback, scan the reviewer's
+corrections and confirmations for patterns not already captured in memory or in this file. For
+each non-obvious pattern found, write or update a `feedback` memory file in the project memory
+directory and add a pointer to `MEMORY.md`.
+
+What qualifies as worth saving:
+- Any correction the reviewer had to make that I should have caught myself.
+- Any expectation that surprised me or that I applied incorrectly.
+- Any confirmation that a non-obvious approach was right (so it is not silently reversed later).
+
+What does not qualify:
+- One-off fixes specific to a single schema or class.
+- Anything already stated verbatim in this file.
+- Trivially obvious mistakes with no generalizable lesson.
+
+Do this at the end of the session, not during — so it does not interrupt implementation work.
+
+---
+
 ## Clarification policy
 
 Before starting any non-trivial task — one that has more than one degree of freedom, including
@@ -325,6 +346,12 @@ meaning.
 - ✅ `// Static rejection guarantees anyOf/oneOf have uniform spaces`
 - ❌ `* Covers FilterValidator::runCompatibilityCheck lines 130–158`
 - ✅ `* Validates the zero-overlap rejection path in FilterValidator`
+- ❌ `* exercises FilterProcessor line 429 (else branch of classifyValidatorAdjustments)`
+- ✅ `* exercises the else branch of classifyValidatorAdjustments`
+
+This rule applies equally to DocBlocks in test files: do not reference specific line numbers of
+the code under test. Line numbers shift whenever the file is edited, making such references
+misleading immediately after refactoring. Describe *what the code does or why* instead.
 
 Describe *what the code does or why* — not where it came from in a planning document.
 

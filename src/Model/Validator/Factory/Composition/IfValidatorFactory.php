@@ -232,43 +232,57 @@ class IfValidatorFactory
         CompositionPropertyDecorator $thenProperty,
         CompositionPropertyDecorator $elseProperty,
     ): void {
-        $parentNames = array_filter(
-            $originalParentType->getNames(),
-            static fn(string $typeName): bool => $typeName !== 'null',
-        );
+        // isNullable() encodes the null part of a multi-type (e.g. ["string","null"]) separately
+        // from getNames() — it is not present as a name string. Append 'null' so that a
+        // null-typed branch is not incorrectly flagged as conflicting with a nullable parent.
+        $parentNames = $originalParentType->isNullable()
+            ? [...$originalParentType->getNames(), 'null']
+            : $originalParentType->getNames();
 
-        if (empty($parentNames)) {
-            return;
-        }
+        $thenTypes = $this->getBranchTypeNames($thenProperty);
+        $elseTypes = $this->getBranchTypeNames($elseProperty);
 
-        $thenType = $thenProperty->getType();
-        $elseType = $elseProperty->getType();
+        // A null return means the branch is truly untyped (no type keyword) — it accepts
+        // any value and cannot conflict with the parent type.
+        $thenConflicts = $thenTypes !== null
+            && empty(TypeIntersection::compute($parentNames, $thenTypes));
+        $elseConflicts = $elseTypes !== null
+            && empty(TypeIntersection::compute($parentNames, $elseTypes));
 
-        if ($thenType === null || $elseType === null) {
-            // At least one branch is untyped — it accepts any value, so no total conflict.
-            return;
-        }
-
-        $thenNonNull = array_filter(
-            $thenType->getNames(),
-            static fn(string $typeName): bool => $typeName !== 'null',
-        );
-        $elseNonNull = array_filter(
-            $elseType->getNames(),
-            static fn(string $typeName): bool => $typeName !== 'null',
-        );
-
-        $thenConflicts = empty(TypeIntersection::compute(array_values($parentNames), array_values($thenNonNull)));
-        $elseConflicts = empty(TypeIntersection::compute(array_values($parentNames), array_values($elseNonNull)));
-
-        if ($thenConflicts && $elseConflicts) {
+        if ($thenConflicts || $elseConflicts) {
             throw new SchemaException(sprintf(
-                "Property '%s' has a type that conflicts with all if/then/else composition branches"
-                    . ' (file %s). No value can satisfy both the property type and the applicable'
-                    . ' branch constraint, making this schema unsatisfiable.',
+                "Property '%s' has an if/then/else composition branch with a type incompatible"
+                    . " with the property's declared type (file %s)."
+                    . ' No value can satisfy both constraints.',
                 $property->getName(),
                 $property->getJsonSchema()->getFile(),
             ));
         }
+    }
+
+    /**
+     * Returns the full set of type names for a composition branch, or null when the branch
+     * is truly untyped (no type keyword — accepts any value).
+     *
+     * NullModifier sets getType() to PHP null but adds a TypeHintDecorator containing 'null',
+     * so we distinguish null-typed branches (effective types: ['null']) from truly untyped
+     * branches (getType() also null, but no 'null' in the type hint).
+     *
+     * @return string[]|null null when the branch has no type constraint
+     */
+    private function getBranchTypeNames(CompositionPropertyDecorator $branch): ?array
+    {
+        $type = $branch->getType();
+
+        if ($type !== null) {
+            return $type->getNames();
+        }
+
+        // NullModifier-processed branch: getType() is PHP null but typeHint contains 'null'.
+        if (str_contains($branch->getTypeHint(), 'null')) {
+            return ['null'];
+        }
+
+        return null;
     }
 }

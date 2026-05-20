@@ -125,6 +125,13 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
                 '/A filter keyword inside a allOf composition branch is not supported'
                     . ' for property filteredProperty.*branch #0/',
             ],
+            // Filter inside a not sub-schema within an allOf branch: the recursive scan for
+            // SINGLE_COMPOSITION_KEYWORDS descends into not and finds the filter keyword.
+            'filter inside not sub-schema within allOf branch' => [
+                'FilterCompositionFilterInNestedNotBranch.json',
+                '/A filter keyword inside a allOf composition branch is not supported'
+                    . ' for property filteredProperty.*branch #0/',
+            ],
             // anyOf branch spanning both input and output type-spaces is ambiguous.
             'anyOf with single Mixed branch' => [
                 'FilterCompositionAnyOfMixedBranch.json',
@@ -149,17 +156,41 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
     public static function acceptedCompositionProvider(): array
     {
         return [
+            // All allOf branches constrain only the input type-space (e.g. minLength, pattern).
+            // These run pre-transform and do not conflict with the filter boundary.
             'allOf with input-only branches'                       => ['FilterCompositionAllOfInputOnly.json'],
+            // All anyOf branches constrain only the input type-space.
             'anyOf with input-only branches'                       => ['FilterCompositionAnyOfInputOnly.json'],
+            // All oneOf branches constrain only the input type-space.
             'oneOf with input-only branches'                       => ['FilterCompositionOneOfInputOnly.json'],
+            // All if/then/else sub-schemas constrain only the input type-space.
             'if/then/else input-only branches'                     => ['FilterCompositionIfThenElseInputOnly.json'],
+            // A conditional with only if+then (no else) where both sub-schemas are input-space.
             'if/then only (no else) input-only branches'           => ['FilterCompositionIfThenOnlyInputSpace.json'],
+            // A conditional with only if+else (no then) where both sub-schemas are input-space.
             'if/else only (no then) input-only branches'           => ['FilterCompositionIfElseOnlyInputSpace.json'],
+            // An allOf branch that is an empty object ({}) has no keywords and classifies as
+            // TypeSpace::Empty, which does not conflict with either type-space boundary.
             'allOf with empty {} branch'                           => ['FilterCompositionAllOfEmptyBranch.json'],
+            // A root-level allOf constrains the filtered sub-property with an input-space keyword
+            // (minLength). This is accepted because input-space constraints target the raw value.
             'root-level allOf: input-space constraint on filtered subproperty' =>
                 ['FilterCompositionRootInputSpaceConstrainsFilteredSubproperty.json'],
+            // A root-level allOf branch introduces an inherited-object property that itself
+            // declares a filter. The filter is on a nested property, not on the composition
+            // branch directly, so no filter-in-branch rejection fires.
             'root-level allOf branch: filter in inherited-object branch property' =>
                 ['FilterCompositionRootBranchWithFilterInProperty.json'],
+            // anyOf branch typed as object via the array form (["object"]) is correctly
+            // identified as object-typed. Its properties are not scanned for filter keywords,
+            // so the inner trim filter does not trigger a filter-in-branch rejection.
+            'anyOf with object branch using array-form type with inner filter in properties' =>
+                ['FilterCompositionObjectBranchArrayTypeForm.json'],
+            // A branch that itself contains a nested allOf with all output-space constraints
+            // classifies the branch as TypeSpace::Output. Both branches here are output-space
+            // (object-typed, post-dateTime-filter), so the anyOf is accepted without error.
+            'anyOf with nested all-output allOf branch (output-space composition)' =>
+                ['FilterCompositionNestedAllOfOutputSpace.json'],
         ];
     }
 
@@ -188,6 +219,32 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
         // can pass both the allOf validation and reach the filter.
         $this->generateClassFromFile(
             'FilterCompositionAllOfDeadFilter.json',
+            (new GeneratorConfiguration())
+                ->addFilter($this->getCustomTransformingFilter(
+                    [self::class, 'serializeIntToString'],
+                    [self::class, 'convertStringToInt'],
+                    'stringToInt',
+                )),
+        );
+    }
+
+    /**
+     * When multiple allOf branches all declare type constraints, the effective input type
+     * is the intersection across all branch type sets. The foreach in
+     * detectDeadFilterViaAllOfConstraints runs for every branch after the first. Two
+     * integer branches intersect to integer, which the string-accepting stringToInt filter
+     * cannot handle — dead-filter SchemaException is thrown.
+     */
+    public function testDeadFilterViaMultiBranchAllOfTypeConstraintThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/Filter stringToInt on property filteredProperty.*can never be executed'
+                . '.*allOf type constraints \(int\) exclude all input types accepted by the filter \(string\)/',
+        );
+
+        $this->generateClassFromFile(
+            'FilterCompositionAllOfDeadFilterMultiBranch.json',
             (new GeneratorConfiguration())
                 ->addFilter($this->getCustomTransformingFilter(
                     [self::class, 'serializeIntToString'],

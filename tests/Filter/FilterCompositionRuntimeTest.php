@@ -16,6 +16,7 @@ use PHPModelGenerator\Exception\Number\MinimumException;
 use PHPModelGenerator\Exception\String\PatternException;
 use PHPModelGenerator\Format\FormatValidatorFromRegEx;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use stdClass;
 
 /**
  * Tests for runtime ordering of composition validators around a transforming filter.
@@ -43,6 +44,30 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
     public static function serializeMixedToDateTime(DateTime $value): string
     {
         return $value->format(DATE_ATOM);
+    }
+
+    /** Accepts an object and returns DateTime. Used for the empty-object-branch allOf coverage test. */
+    public static function filterObjectToDateTime(object $value): DateTime
+    {
+        return $value instanceof DateTime ? $value : new DateTime();
+    }
+
+    /** Serializer for filterObjectToDateTime. */
+    public static function serializeObjectToDateTime(DateTime $value): string
+    {
+        return $value->format(DATE_ATOM);
+    }
+
+    /** Accepts a string and returns mixed. Used to exercise the empty-returnTypeNames code path. */
+    public static function filterStringToMixed(string $value): mixed
+    {
+        return $value;
+    }
+
+    /** Serializer for filterStringToMixed. */
+    public static function serializeMixedToString(mixed $value): string
+    {
+        return (string) $value;
     }
 
     // -------------------------------------------------------------------------
@@ -1010,6 +1035,98 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
         $dateTime = new DateTime('2024-06-01');
         $object = new $className(['filteredProperty' => $dateTime]);
         $this->assertSame($dateTime, $object->getFilteredProperty());
+    }
+
+    // -------------------------------------------------------------------------
+    // Empty object branch: addExtendedInstanceOfCheckForObjectBranches positive path
+    // -------------------------------------------------------------------------
+
+    /**
+     * When a transforming filter returns an object type (DateTime) and an allOf branch is
+     * an empty object schema ({type: object} with no declared properties), the strict instanceof
+     * check is removed from the composition branch and a property-level PropertyValidator is
+     * added instead. The pre-transform allOf is wrapped in a FilterPreTransformGuardValidator
+     * so that already-transformed DateTime values skip the object-type check; the guard is
+     * unwrapped to scan inner branches and detect the empty object schema.
+     */
+    public function testExtendedInstanceOfCheckAddedForEmptyObjectBranchInAllOf(): void
+    {
+        $configuration = (new GeneratorConfiguration())
+            ->setCollectErrors(false)
+            ->setImmutable(false)
+            ->addFilter($this->getCustomTransformingFilter(
+                [self::class, 'serializeObjectToDateTime'],
+                [self::class, 'filterObjectToDateTime'],
+                'objectToDateTime',
+            ));
+
+        $className = $this->generateClassFromFile(
+            'FilterCompositionDateTimeWithEmptyObjectBranch.json',
+            $configuration,
+        );
+
+        // Already-transformed DateTime: pre-transform allOf guard skips the allOf check;
+        // filter pass-through also skips; property-level instanceof check passes.
+        $dateTime = new DateTime('2024-01-01');
+        $object = new $className(['filteredProperty' => $dateTime]);
+        $this->assertSame($dateTime, $object->getFilteredProperty());
+
+        // Non-DateTime object: allOf({type:object}) passes pre-transform, filter converts to
+        // DateTime. The property-level instanceof check confirms the stored value is a DateTime.
+        $object = new $className(['filteredProperty' => new stdClass()]);
+        $this->assertInstanceOf(DateTime::class, $object->getFilteredProperty());
+
+        // Non-object input (string): fails the pre-transform allOf {type:object} constraint.
+        try {
+            new $className(['filteredProperty' => 'not-an-object']);
+            $this->fail('Expected AllOfException for non-object input');
+        } catch (AllOfException $allOfException) {
+            $this->assertStringContainsString('filteredProperty', $allOfException->getMessage());
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Mixed-return transforming filter: input-space composition moved without guard
+    // -------------------------------------------------------------------------
+
+    /**
+     * When the transforming filter has a mixed return type (returnTypeNames = []), input-space
+     * composition validators are moved to pre-filter priority directly — without wrapping in a
+     * FilterPreTransformGuardValidator — because there is no return type to build a skip
+     * condition from.
+     *
+     * Observable proof: minLength:1 runs PRE-filter. An empty string fails the anyOf check
+     * before the filter is ever invoked.
+     */
+    public function testMixedReturnTransformingFilterMovesInputSpaceCompositionWithoutGuard(): void
+    {
+        $configuration = (new GeneratorConfiguration())
+            ->setCollectErrors(false)
+            ->setImmutable(false)
+            ->addFilter($this->getCustomTransformingFilter(
+                [self::class, 'serializeMixedToString'],
+                [self::class, 'filterStringToMixed'],
+                'stringToMixed',
+            ));
+
+        $className = $this->generateClassFromFile(
+            'FilterCompositionMixedReturnWithInputSpaceComposition.json',
+            $configuration,
+        );
+
+        // Non-empty string: anyOf (minLength:1) passes pre-filter, then filter runs.
+        $object = new $className(['filteredProperty' => 'hello']);
+        $this->assertSame('hello', $object->getFilteredProperty());
+
+        // Empty string: anyOf (minLength:1) fires pre-filter and rejects it.
+        // If the guard were absent, the filter would run first and minLength would never
+        // be evaluated against the raw input.
+        try {
+            new $className(['filteredProperty' => '']);
+            $this->fail('Expected AnyOfException for empty string');
+        } catch (AnyOfException $anyOfException) {
+            $this->assertStringContainsString('filteredProperty', $anyOfException->getMessage());
+        }
     }
 
     // -------------------------------------------------------------------------

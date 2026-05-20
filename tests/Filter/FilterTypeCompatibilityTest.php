@@ -95,6 +95,18 @@ class FilterTypeCompatibilityTest extends AbstractFilterTestCase
         return $value;
     }
 
+    /** Accepts mixed, returns int. Used by the mixed-input applyOutputType branch test. */
+    public static function mixedInputToIntFilter(mixed $value): int
+    {
+        return (int) $value;
+    }
+
+    /** Accepts nullable string, returns int. Used by the null-accepted applyOutputType branch test. */
+    public static function nullableStringToIntFilter(?string $value): int
+    {
+        return (int) $value;
+    }
+
     /** Void return type — used by the void-return-type InvalidFilterException test. */
     public static function filterWithVoidReturnType(string $value): void
     {
@@ -528,5 +540,69 @@ class FilterTypeCompatibilityTest extends AbstractFilterTestCase
                 ),
             ),
         );
+    }
+
+    /**
+     * When the transforming filter callable has a mixed parameter (acceptedTypes = []),
+     * the bypass type list is empty: a mixed-input filter consumes all input types and
+     * nothing is passed through unchanged. The getter returns only the filter output type
+     * (int), with no bypass union.
+     */
+    public function testTransformingFilterWithMixedInputProducesEmptyBypassTypes(): void
+    {
+        $className = $this->generateClassFromFile(
+            'StringPropertyMixedInputTransformingFilter.json',
+            (new GeneratorConfiguration())
+                ->setCollectErrors(false)
+                ->setImmutable(false)
+                ->addFilter($this->getCustomTransformingFilter(
+                    [self::class, 'serializeIntToString'],
+                    [self::class, 'mixedInputToIntFilter'],
+                    'mixedToInt',
+                )),
+        );
+
+        // No bypass: the getter returns only the filter's output type (int).
+        $this->assertEqualsCanonicalizing(['int'], $this->getReturnTypeNames($className, 'getFilteredProperty'));
+
+        // String input: filter transforms to int.
+        $object = new $className(['filteredProperty' => '42']);
+        $this->assertSame(42, $object->getFilteredProperty());
+
+        // Setter: string is still transformed to int (no int-bypass because accepted types = mixed).
+        $object->setFilteredProperty('7');
+        $this->assertSame(7, $object->getFilteredProperty());
+    }
+
+    /**
+     * When the transforming filter callable accepts nullable string (?string), null is in
+     * the accepted types, so bypassNullable is false — null is not a bypass type because
+     * the filter handles it. The getter returns only the filter output type (int), and
+     * null input is transformed by the filter rather than passed through unchanged.
+     */
+    public function testTransformingFilterWithNullableInputConsumesNullWithoutBypass(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NullableStringPropertyNullableStringTransformingFilter.json',
+            (new GeneratorConfiguration())
+                ->setCollectErrors(false)
+                ->setImmutable(false)
+                ->addFilter($this->getCustomTransformingFilter(
+                    [self::class, 'serializeIntToString'],
+                    [self::class, 'nullableStringToIntFilter'],
+                    'nullableStringToInt',
+                )),
+        );
+
+        // No null bypass: the getter returns only the filter's output type (int), not int|null.
+        $this->assertEqualsCanonicalizing(['int'], $this->getReturnTypeNames($className, 'getFilteredProperty'));
+
+        // String input: filter transforms to int.
+        $object = new $className(['filteredProperty' => '7']);
+        $this->assertSame(7, $object->getFilteredProperty());
+
+        // Null input: null is accepted by the filter (not a bypass), filter transforms to 0.
+        $object = new $className(['filteredProperty' => null]);
+        $this->assertSame(0, $object->getFilteredProperty());
     }
 }
