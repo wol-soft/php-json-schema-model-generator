@@ -8,8 +8,14 @@ use PHPModelGenerator\Draft\AutoDetectionDraft;
 use PHPModelGenerator\Draft\Draft_07;
 use PHPModelGenerator\Draft\Element\Type;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator\Factory\SimplePropertyValidatorFactory;
+use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class DraftTest extends TestCase
@@ -74,6 +80,69 @@ class DraftTest extends TestCase
         $this->expectException(SchemaException::class);
 
         (new Draft_07())->getDefinition()->build()->getCoveredTypes('nonexistent');
+    }
+
+    // --- Draft::getTypesForKeyword ---
+
+    /** @return array<string, array{string, string[]}> */
+    public static function keywordToExpectedTypesProvider(): array
+    {
+        return [
+            // one representative per type-space so the registry wiring is exercised
+            'string keyword (minLength)'     => ['minLength', ['string']],
+            'numeric keyword (minimum)'      => ['minimum', ['integer', 'number']],
+            'array keyword (minItems)'       => ['minItems', ['array']],
+            'object keyword (minProperties)' => ['minProperties', ['object']],
+            'any keyword (enum)'             => ['enum', ['any']],
+            'any keyword (allOf)'            => ['allOf', ['any']],
+            'unknown keyword'                => ['nonexistentKeyword', []],
+            'metadata keyword ($schema)'     => ['$schema', []],
+        ];
+    }
+
+    /**
+     * @param string[] $expectedTypes
+     */
+    #[DataProvider('keywordToExpectedTypesProvider')]
+    public function testGetTypesForKeywordReturnsRegisteredTypes(
+        string $keyword,
+        array $expectedTypes,
+    ): void {
+        $types = (new Draft_07())->getDefinition()->build()->getTypesForKeyword($keyword);
+
+        foreach ($expectedTypes as $expected) {
+            $this->assertContains($expected, $types);
+        }
+
+        $this->assertCount(count($expectedTypes), $types);
+    }
+
+    public function testGetTypesForKeywordReflectsCustomRegistration(): void
+    {
+        $customFactory = new class extends SimplePropertyValidatorFactory {
+            protected function isValueValid(mixed $value): bool
+            {
+                return is_int($value) && $value >= 0;
+            }
+
+            protected function getValidator(
+                PropertyInterface $property,
+                mixed $value,
+            ): PropertyValidatorInterface {
+                return new PropertyValidator(
+                    $property,
+                    "is_string(\$value) && mb_strlen(\$value) < $value",
+                    MinLengthException::class,
+                    [$value],
+                );
+            }
+        };
+
+        $builder = (new Draft_07())->getDefinition();
+        $builder->getType('string')->addValidator('customMin', $customFactory);
+        $draft = $builder->build();
+
+        $this->assertSame(['string'], $draft->getTypesForKeyword('customMin'));
     }
 
     // --- AutoDetectionDraft ---

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace PHPModelGenerator\Tests\Basic;
+namespace PHPModelGenerator\Tests\Filter;
 
 /**
  * Filter callable whose filter() declares a '?static' return type.
  *
- * Used by FilterTest::testTransformingFilterWithStaticReturnType to verify that
- * FilterReflection resolves 'static' to the declaring class FQCN, the same as
- * 'self' for a concrete callable that is not overridden in a subclass.
+ * Used by TransformingFilterTest to verify that FilterReflection resolves 'static'
+ * to the declaring class FQCN, the same as 'self' for a concrete callable that is
+ * not overridden in a subclass.
  */
 class StaticReturningFilterCallable
 {

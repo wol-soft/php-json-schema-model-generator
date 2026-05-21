@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": "string",
+      "filter": %s
+    }
+  }
+}

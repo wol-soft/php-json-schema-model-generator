@@ -15,7 +15,7 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 abstract class ExtractedMethodValidator extends PropertyTemplateValidator
 {
-    private readonly string $extractedMethodName;
+    protected string $extractedMethodName;
 
     public function __construct(
         private readonly GeneratorConfiguration $generatorConfiguration,
