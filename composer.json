@@ -10,11 +10,19 @@
             "email": "enno.woortmann@web.de"
         }
     ],
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../php-json-schema-model-generator-production",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
     "require": {
-        "wol-soft/php-json-schema-model-generator-production": "dev-master",
+        "wol-soft/php-json-schema-model-generator-production": "dev-v3ready",
         "wol-soft/php-micro-template": "^1.10.2",
-
-        "php": ">=8.4",
+        "php": "^8.3",
         "ext-mbstring": "*"
     },
     "require-dev": {
