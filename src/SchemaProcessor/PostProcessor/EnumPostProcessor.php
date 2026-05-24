@@ -19,6 +19,7 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\Utils\ArrayHash;
@@ -113,9 +114,13 @@ class EnumPostProcessor extends PostProcessor
                 $property->setDefaultValue("$name::$caseName", true);
             }
 
-            // remove the enum validator as the validation is performed by the PHP enum
+            // remove the enum validator as the validation is performed by the PHP enum;
+            // also remove any type-check validators (e.g. is_string from "type": "string") since
+            // the enum filter performs the conversion and the UnitEnum guard covers the type safety
             $property->filterValidators(
-                static fn(Validator $validator): bool => !is_a($validator->getValidator(), EnumValidator::class),
+                static fn(Validator $validator): bool =>
+                    !is_a($validator->getValidator(), EnumValidator::class)
+                    && !($validator->getValidator() instanceof TypeCheckInterface),
             );
 
             // if an enum value is provided the transforming filter will add a value pass through. As the filter doesn't
