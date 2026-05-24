@@ -74,6 +74,16 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
 
 .. note::
 
+    ``allOf`` branches can be the boolean literals ``true`` or ``false``.
+
+    - ``true`` branch — treated as an empty schema; any value satisfies it and it adds no constraint.
+    - ``false`` branch — makes the whole composition unsatisfiable; any provided value raises an
+      ``AllOfException`` at runtime (the false branch is represented as an always-failing composition
+      element). The generator also emits a warning at generation time. Absent optional properties
+      are still allowed.
+
+.. note::
+
     When a property is defined in multiple ``allOf`` branches with conflicting types (e.g. one branch
     requires ``string`` and another requires ``integer``), the generator will throw a ``SchemaException``
     at generation time. ``allOf`` requires all constraints to hold simultaneously, so conflicting types

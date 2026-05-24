@@ -215,19 +215,19 @@ Markdown files.
 Rules:
 
 - Create the directory and at least a stub `implementation-plan.md` (or `analysis.md`) before
-  writing any code, so the plan is committed alongside the first code change.
+  writing any code. The plan is working context for the current session, not a git artefact.
 - Every implementation plan must include a dedicated documentation update step. Before finalising
   the plan, audit `docs/source/` (RST), `README.md`, and any other user-facing docs for content
   that would be affected by the change, and add a plan phase that updates those docs. Do not skip
   this even if the doc changes appear minor.
-- Commit the plan files together with related code changes so the reasoning is always traceable in
-  git history.
+- **Never add planning documents to git — not even on feature branches.** Files under
+  `.claude/issues/` and `.claude/topics/` are working notes for Claude's use only. Never stage or
+  commit them. If they appear in `git status`, run `git restore --staged <file>` immediately.
 - Update the plan file(s) as the work progresses — record decisions made, phases completed, and
   any pivots in approach.
-- Once a topic is **ready to merge**, delete the entire `.claude/issues/<number>/` or
-  `.claude/topics/<slug>/` directory and commit that deletion as the final commit on the branch,
-  **before** merging to `master`. The tracking files are working notes and must never land on
-  `master`.
+- Once a topic is **complete**, delete the entire `.claude/issues/<number>/` or
+  `.claude/topics/<slug>/` directory. These files must never land on `master` — delete before
+  merging.
 
 Example layout for issue #110:
 
@@ -290,6 +290,17 @@ only the specific case, redesign until the solution is general.
 Every identified edge case must have a corresponding test. During planning, enumerate all edge
 cases explicitly (in the implementation plan). Before marking work done, verify that each
 enumerated edge case is covered by at least one test.
+
+#### Exception message assertions
+
+Always assert the **complete** exception message, not just a substring. Construct the expected
+message in full using the same inputs the code under test uses. Use regex (via
+`expectExceptionMessageMatches` or `assertMatchesRegularExpression`) only for genuinely dynamic
+parts that cannot be predicted upfront (e.g. file paths, uniqid suffixes).
+
+Never use multiple `assertStringContainsString` calls on the same exception message when the full
+message can be constructed. A single `assertSame($expectedMessage, $exception->getMessage())` is
+both stronger and self-documenting.
 
 For pull requests, check the qlty.sh coverage report by constructing the URL from the current PR
 number:

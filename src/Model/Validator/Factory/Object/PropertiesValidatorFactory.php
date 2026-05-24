@@ -54,6 +54,16 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
                     );
                 }
 
+                if (isset($json['dependencies'][$propertyName])) {
+                    throw new SchemaException(
+                        sprintf(
+                            "Property '%s' is denied (schema false) but also has dependencies defined in file %s",
+                            $propertyName,
+                            $propertySchema->getFile(),
+                        ),
+                    );
+                }
+
                 $schema->addBaseValidator(
                     new PropertyValidator(
                         new Property($propertyName, null, $propertySchema->withJson([])),
@@ -66,22 +76,33 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
 
             $required = in_array($propertyName, $json['required'] ?? [], true);
             $dependencies = $json['dependencies'][$propertyName] ?? null;
+
+            if ($propertyStructure === true) {
+                $nestedPropertySchema = $propertySchema->withJson([]);
+            } else {
+                $nestedPropertySchema = $propertySchema
+                    ->navigate("$this->key/" . JsonSchema::encodePointer($propertyName))
+                    ->withJson(
+                        $dependencies !== null
+                            ? $propertyStructure + ['_dependencies' => $dependencies]
+                            : $propertyStructure,
+                    );
+            }
+
             $nestedProperty = $propertyFactory->create(
                 $schemaProcessor,
                 $schema,
                 (string) $propertyName,
-                $propertySchema->navigate("$this->key/" . JsonSchema::encodePointer($propertyName))->withJson(
-                    $dependencies !== null
-                        ? $propertyStructure + ['_dependencies' => $dependencies]
-                        : $propertyStructure,
-                ),
+                $nestedPropertySchema,
                 $required,
             );
 
             if ($dependencies !== null) {
                 $this->addDependencyValidator(
                     $nestedProperty,
-                    $schema->getJsonSchema()->navigate("dependencies/" . JsonSchema::encodePointer($propertyName)),
+                    $schema->getJsonSchema()->navigate(
+                        'dependencies/' . JsonSchema::encodePointer((string) $propertyName),
+                    ),
                     $schemaProcessor,
                     $schema,
                 );

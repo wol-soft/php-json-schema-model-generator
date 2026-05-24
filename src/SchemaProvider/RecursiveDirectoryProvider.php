@@ -55,8 +55,18 @@ class RecursiveDirectoryProvider implements SchemaProviderInterface
         foreach ($schemaFiles as $file) {
             $jsonSchema = file_get_contents($file);
 
-            if (!$jsonSchema || !($decodedJsonSchema = json_decode($jsonSchema, true))) {
+            if (!$jsonSchema) {
                 throw new SchemaException("Invalid JSON-Schema file $file");
+            }
+
+            $decodedJsonSchema = json_decode($jsonSchema, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new SchemaException("Invalid JSON-Schema file $file");
+            }
+
+            if (!is_array($decodedJsonSchema)) {
+                continue;
             }
 
             yield new JsonSchema($file, $decodedJsonSchema);

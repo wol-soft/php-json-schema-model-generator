@@ -5,21 +5,18 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator\Factory\Arrays;
 
 use PHPModelGenerator\Exception\Arrays\ContainsException;
-use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
+use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
 class ContainsValidatorFactory extends AbstractValidatorFactory
 {
-    /**
-     * @throws SchemaException
-     */
     public function modify(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
@@ -30,6 +27,30 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
 
         if (!isset($json[$this->key])) {
             return;
+        }
+
+        if (is_bool($json[$this->key])) {
+            if ($json[$this->key] === false) {
+                if ($schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
+                    // @codeCoverageIgnoreStart
+                    echo "Warning: contains: false for property '{$property->getName()}'"
+                        . " can never be satisfied; any array will fail\n";
+                    // @codeCoverageIgnoreEnd
+                }
+
+                $property->addValidator(
+                    new PropertyValidator(
+                        $property,
+                        'is_array($value)',
+                        ContainsException::class,
+                    )
+                );
+                return;
+            }
+
+            $propertySchema = $propertySchema->withJson(
+                array_merge($json, [$this->key => []]),
+            );
         }
 
         $nestedProperty = (new PropertyFactory())

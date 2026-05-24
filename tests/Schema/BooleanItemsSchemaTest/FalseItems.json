@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": false
+    }
+  }
+}
