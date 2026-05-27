@@ -290,10 +290,14 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * After all composition branches resolve, attempt to widen the parent property's type
      * to cover all branch types. Skips for branches with nested schemas.
      *
+     * Also callable from outside the factory (e.g. EnumPostProcessor) after a post
+     * processor has mutated branch types and needs the parent's native type recomputed
+     * from the updated branches.
+     *
      * @param bool $isAllOf Whether allOf semantics apply (affects nullable detection).
      * @param CompositionPropertyDecorator[] $compositionProperties
      */
-    protected function transferPropertyType(
+    public static function transferPropertyType(
         PropertyInterface $property,
         array $compositionProperties,
         bool $isAllOf,

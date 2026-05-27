@@ -62,7 +62,7 @@ class OneOfValidatorFactory
             $compositionProperty->onResolve(
                 function () use (&$resolvedCompositions, $property, $compositionProperties): void {
                     if (++$resolvedCompositions === count($compositionProperties)) {
-                        $this->transferPropertyType($property, $compositionProperties, false);
+                        self::transferPropertyType($property, $compositionProperties, false);
                     }
                 },
             );

@@ -71,7 +71,7 @@ class AnyOfValidatorFactory
                     $schema,
                 ): void {
                     if (++$resolvedCompositions === count($compositionProperties)) {
-                        $this->transferPropertyType($property, $compositionProperties, false);
+                        self::transferPropertyType($property, $compositionProperties, false);
 
                         $mergedProperty = !($property instanceof BaseProperty)
                             ? $schemaProcessor->createMergedProperty(

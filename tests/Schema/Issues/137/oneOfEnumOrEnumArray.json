@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "status_filter": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/MediaBuyStatus"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MediaBuyStatus"
+          },
+          "minItems": 1
+        }
+      ],
+      "description": "Filter by status. Can be a single status or array of statuses"
+    }
+  },
+  "definitions": {
+    "MediaBuyStatus": {
+      "type": "string",
+      "enum": [
+        "pending_creatives",
+        "pending_start",
+        "active",
+        "paused",
+        "completed",
+        "rejected",
+        "canceled"
+      ]
+    }
+  }
+}
