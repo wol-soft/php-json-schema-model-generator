@@ -12,11 +12,10 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
-use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
+use PHPModelGenerator\Utils\TypeCheck;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\RenderHelper;
-use PHPModelGenerator\Utils\TypeCheck;
 use ReflectionException;
 
 /**
@@ -26,7 +25,9 @@ use ReflectionException;
  * fully resolved (composition branches have been merged) before the output type formula is
  * evaluated.
  *
- * This post-processor is the sole owner of extendTypeCheckValidatorToAllowTransformedValue:
+ * This post-processor calls TypeCheck::extendTypeCheckValidatorToAllowTransformedValue for
+ * filters applied during schema processing. EnumPostProcessor calls the same method directly
+ * for filters it adds after this post-processor has already run.
  * FilterProcessor does NOT call it because the TypeCheckValidator may not yet exist at
  * filter-processing time (composition case where the type comes from a sibling allOf branch).
  *
@@ -95,10 +96,10 @@ class TransformingFilterOutputTypePostProcessor extends PostProcessor
             return;
         }
 
-        // Sole owner of type-check extension: replace TypeCheckValidator with
-        // PassThroughTypeCheckValidator that also accepts transformed types.
+        // Replace TypeCheckValidator with PassThroughTypeCheckValidator that also accepts
+        // transformed types, so already-transformed values bypass the scalar type check.
         if (!empty($returnTypeNames)) {
-            (new FilterProcessor())->extendTypeCheckValidatorToAllowTransformedValue($property, $returnTypeNames);
+            TypeCheck::extendTypeCheckValidatorToAllowTransformedValue($property, $returnTypeNames);
         }
 
         // Compute output type using the bypass formula.

@@ -88,7 +88,12 @@ Transforming filter
 
     You may keep it simple and skip this for your first tries and only experiment with non-transforming filters like the trim filter
 
-Filters may change the type of the property. For example the builtin filter **dateTime** creates a DateTime object. Consequently further type-related validations like pattern checks for the string property won't be performed. If you use a transforming filter which transforms the value into another accepted type (eg. your property accepts ['string', 'integer'] and your transforming filter transforms provided strings into integers) the additional provided validators for integers (like minimum or maximum checks) will be executed (only if your property accepts integer values; if the property only accepts strings and the transforming filter converts them to integer values integer validators won't be added to the property). Additionally enum validations will not be executed if an already transformed value is provided.
+Filters may change the type of the property. For example the builtin filter **dateTime** creates a DateTime object. When a transforming filter is present, the generator automatically classifies all validators on the property into two groups based on which type-space they target:
+
+- **Input-space validators** (e.g. ``pattern``, ``minLength`` for a string property) run *before* the filter, against the raw input value.
+- **Output-space validators** (e.g. ``minimum``, ``maximum`` for an integer returned by a string-to-int filter) run *after* the filter, against the transformed value.
+
+This classification is derived from the Draft type registry and applies to both schema validators and composition branches (see `Composition with transforming filters`_ below). For multi-type properties (e.g. ``['string', 'integer']``) with a transforming filter, validators that target only the string type run pre-transform and validators that target only the integer type run post-transform. Additionally enum validations will not be executed if an already transformed value is provided.
 
 As the required check is executed before the filter a filter may transform a required value into a null value. Be aware when writing custom filters which transform values to not break your validation rules by adding filters to a property.
 
@@ -99,6 +104,69 @@ If you write a custom transforming filter you must define the return type of you
 The return type of the transforming filter will be used to define the type of the property inside the generated model (in the example one section above given above the method **getCreated** will return a DateTime object). Additionally the generated model also accepts the transformed type as input type. So **setCreated** will accept a string and a DateTime object. If an already transformed value is provided the filter which transforms the value will **not** be executed. Also all filters which are defined before the transformation will **not** be executed (eg. a trim filter before a dateTime filter will not be executed if a DateTime object is provided).
 
 If you use a filter on a property which accepts multiple types (e.g. ``['string', 'null']`` or ``['string', 'integer']``), the filter only needs to overlap with **at least one** of those types. Values whose type is not accepted by the filter are silently skipped at runtime. Only if the filter's accepted types have *no overlap at all* with the property's types is a ``SchemaException`` raised at generation time.
+
+Composition with transforming filters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Composition keywords (``allOf``, ``anyOf``, ``oneOf``, ``if``/``then``/``else``, ``not``) may be combined with a transforming filter on the same property. Each branch is automatically classified at generation time as targeting the **input type-space** or the **output type-space** of the filter:
+
+- **Input-space branches** are evaluated *before* the filter, against the raw input value.
+- **Output-space branches** are evaluated *after* the filter, against the transformed value.
+
+A branch that spans both type-spaces raises a ``SchemaException`` at generation time because it cannot be placed correctly in either phase of the pipeline. The following additional constraints are also enforced:
+
+- A filter keyword inside any composition branch always raises a ``SchemaException``, regardless of whether the property itself carries a filter. The composition engine resets the value to the original input after each branch evaluation, which would silently discard any transformation applied inside the branch.
+- ``anyOf`` / ``oneOf``: all branches must share a single type-space; cross-space branches raise a ``SchemaException``.
+- ``not``: the inner schema must target a single type-space.
+- ``if`` / ``then`` / ``else``: all three sub-schemas must share the same type-space.
+
+**Example — input-space allOf** (validates the raw string before the dateTime filter runs):
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "scheduledAt": {
+                "type": "string",
+                "filter": "dateTime",
+                "allOf": [
+                    {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    }
+                ]
+            }
+        }
+    }
+
+The ``pattern`` constraint fires against the raw string *before* the ``dateTime`` filter transforms it to a ``DateTime`` object. Passing ``"hello"`` raises an ``AllOfException`` because the pattern fails. Passing ``"2024-01-01"`` passes the pattern and is then converted to a ``DateTime``. Passing an already-constructed ``DateTime`` object bypasses the pre-transform pipeline entirely and is accepted as-is.
+
+**Example — output-space allOf** (validates the integer *after* a string-to-int filter):
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "quantity": {
+                "type": ["string", "integer"],
+                "filter": "stringToInt",
+                "allOf": [
+                    {
+                        "minimum": 0,
+                        "maximum": 100
+                    }
+                ]
+            }
+        }
+    }
+
+The property accepts both raw strings (transformed by the filter) and already-converted integers (which bypass the filter). The ``minimum`` and ``maximum`` constraints are output-space and fire against the final integer *after* the filter has run. Passing ``"50"`` is transformed to ``50`` and passes both constraints. Passing ``"200"`` is transformed to ``200`` and fails ``maximum``. Passing the already-transformed integer ``50`` directly skips the filter and is still validated by the output-space allOf.
+
+.. hint::
+
+    The ``type`` keyword inside a composition branch always validates against the **raw input value** (before the filter runs). For a ``stringToInt`` filter, a branch like ``{"type": "integer", "minimum": 0}`` mixes an input-space constraint (``type``) with an output-space constraint (``minimum``), which raises a ``SchemaException`` at generation time. Declare the type at the **property level** instead.
 
 Exceptions from filter
 ----------------------

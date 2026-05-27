@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "status_filter": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/MediaBuyStatus"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MediaBuyStatus"
+          },
+          "minItems": 1
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "MediaBuyStatus": {
+      "type": "string",
+      "enum": [
+        "active",
+        "paused",
+        "completed"
+      ]
+    }
+  }
+}

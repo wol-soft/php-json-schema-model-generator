@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "filter": "dateTime",
+      "if": {
+        "type": "string"
+      },
+      "then": {
+        "minLength": 5
+      },
+      "else": {
+        "type": "integer"
+      }
+    }
+  }
+}

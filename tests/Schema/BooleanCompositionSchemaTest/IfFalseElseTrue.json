@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "value": {
+      "if": false,
+      "else": true
+    }
+  }
+}

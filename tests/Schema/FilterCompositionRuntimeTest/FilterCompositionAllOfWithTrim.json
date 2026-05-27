@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": "string",
+      "filter": "trim",
+      "allOf": [
+        {
+          "minLength": 5
+        }
+      ]
+    }
+  }
+}

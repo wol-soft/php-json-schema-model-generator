@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "value": {
+      "type": [
+        "string",
+        "integer"
+      ],
+      "filter": "stringToInt",
+      "pattern": "^\\d+$",
+      "minimum": 0
+    }
+  }
+}

@@ -14,4 +14,9 @@ abstract class AbstractValidatorFactory implements ModifierInterface
     {
         $this->key = $key;
     }
+
+    public function getKey(): ?string
+    {
+        return isset($this->key) ? $this->key : null;
+    }
 }

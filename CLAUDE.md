@@ -1,5 +1,26 @@
 # CLAUDE.md
 
+## Learning from reviews
+
+After completing a task that involved responding to code review feedback, scan the reviewer's
+corrections and confirmations for patterns not already captured in memory or in this file. For
+each non-obvious pattern found, write or update a `feedback` memory file in the project memory
+directory and add a pointer to `MEMORY.md`.
+
+What qualifies as worth saving:
+- Any correction the reviewer had to make that I should have caught myself.
+- Any expectation that surprised me or that I applied incorrectly.
+- Any confirmation that a non-obvious approach was right (so it is not silently reversed later).
+
+What does not qualify:
+- One-off fixes specific to a single schema or class.
+- Anything already stated verbatim in this file.
+- Trivially obvious mistakes with no generalizable lesson.
+
+Do this at the end of the session, not during — so it does not interrupt implementation work.
+
+---
+
 ## Clarification policy
 
 Before starting any non-trivial task — one that has more than one degree of freedom, including
@@ -189,6 +210,9 @@ a wrapper class here.
 After finishing an implementation task, always stage all relevant changed files for commit using
 `git add`. Do not wait for the user to ask — stage immediately when the work is done.
 
+Never add `.claude/` files (issues, topics, memory, etc.) to git unless the user explicitly asks.
+These are working notes for the session and must not appear in commits.
+
 ### Reading files
 
 Always use the dedicated `Read` tool to read file contents. Never use `sed`, `head`, `tail`, `cat`, or `awk` to read or extract portions of files. The `Read` tool supports `offset` and `limit` parameters for reading partial files when needed.
@@ -215,15 +239,24 @@ Markdown files.
 Rules:
 
 - Create the directory and at least a stub `implementation-plan.md` (or `analysis.md`) before
-  writing any code, so the plan is committed alongside the first code change.
+  writing any code. The plan is working context for the current session, not a git artefact.
 - Every implementation plan must include a dedicated documentation update step. Before finalising
   the plan, audit `docs/source/` (RST), `README.md`, and any other user-facing docs for content
   that would be affected by the change, and add a plan phase that updates those docs. Do not skip
   this even if the doc changes appear minor.
-- Commit the plan files together with related code changes so the reasoning is always traceable in
-  git history.
+- **Never add planning documents to git — not even on feature branches.** Files under
+  `.claude/issues/` and `.claude/topics/` are working notes for Claude's use only. Never stage or
+  commit them. If they appear in `git status`, run `git restore --staged <file>` immediately.
 - Update the plan file(s) as the work progresses — record decisions made, phases completed, and
   any pivots in approach.
+- **Record every non-obvious design decision as it is made**: state the option chosen, every
+  alternative that was considered and rejected, and the reasoning that ruled each alternative out.
+  A rejected alternative that is not recorded can be silently re-introduced in a later session
+  when context is compressed. The record must be specific enough that a cold reader can reconstruct
+  *why* the chosen approach is correct — not just *what* it is. Example: "Classifying `type`
+  against `$outputTypes` was considered and rejected: a branch `{type: integer}` under a
+  `stringToInt` filter must validate the raw input, so routing it through output-type matching
+  would allow string `'50'` to pass a `type: integer` check post-transform."
 - Once a topic is **ready to merge**, delete the entire `.claude/issues/<number>/` or
   `.claude/topics/<slug>/` directory and commit that deletion as the final commit on the branch,
   **before** merging to `master`. The tracking files are working notes and must never land on
@@ -285,11 +318,75 @@ that works for one specific schema shape but breaks or ignores others is not acc
 implementing, ask: "Does this solution handle the general case, or only the example at hand?" If
 only the specific case, redesign until the solution is general.
 
+#### Never narrow test scope to evade failures
+
+When a test exposes a real bug, fix the bug — do not simplify, remove, or replace the test with
+one that avoids the failing scenario. A failing test is evidence of a defect; discarding it hides
+the defect rather than resolving it.
+
+This applies in both directions:
+- Never swap a schema or assertion for a simpler variant just because the original triggers an
+  error in the implementation. The original schema is the spec; make the implementation handle it.
+- Never stub out, skip, or weaken assertions to make a test green. If the assertion is wrong,
+  fix the assertion with an explicit justification; if the implementation is wrong, fix the
+  implementation.
+
+When the straightforward test case surfaces a deeper issue (object instantiation, type conflict,
+priority ordering, etc.), that is precisely the issue that needs solving. Open it as a tracked
+topic if it cannot be addressed immediately, but keep the test in place and marked as expected to
+fail (`@expectedExceptionMessage`, `$this->expectException(...)`) until the fix lands.
+
+#### No implementation-plan references in code
+
+Do not embed references to implementation-plan phases, issue numbers, or source-code line numbers
+in comments, docblocks, filenames, or any other artifact that lands in the repository. These
+references decay immediately (phases complete, line numbers shift) and add noise without adding
+meaning.
+
+- ❌ `// Phase 2 guarantees anyOf/oneOf have uniform spaces`
+- ✅ `// Static rejection guarantees anyOf/oneOf have uniform spaces`
+- ❌ `* Covers FilterValidator::runCompatibilityCheck lines 130–158`
+- ✅ `* Validates the zero-overlap rejection path in FilterValidator`
+- ❌ `* exercises FilterProcessor line 429 (else branch of classifyValidatorAdjustments)`
+- ✅ `* exercises the else branch of classifyValidatorAdjustments`
+
+This rule applies equally to DocBlocks in test files: do not reference specific line numbers of
+the code under test. Line numbers shift whenever the file is edited, making such references
+misleading immediately after refactoring. Describe *what the code does or why* instead.
+
+Describe *what the code does or why* — not where it came from in a planning document.
+
+#### Name the rejected alternative in non-obvious comments
+
+When a decision is non-obvious — especially one where a "natural correction" would silently
+re-introduce a wrong approach — the comment must name the rejected alternative and explain why it
+fails, not just assert the chosen approach.
+
+- ❌ `// type keyword is always classified as Input`
+- ✅ `// Always Input — do NOT classify against outputTypes. A branch {type: integer} under a
+  //   stringToInt filter must validate the raw input; treating it as Output would allow string
+  //   '50' to pass a type: integer check post-transform.`
+
+The same decision must also be covered by a test whose name encodes the specific scenario, so
+that any regression surfaces immediately as a named, self-explaining failure rather than a
+cryptic assertion error.
+
 #### Test coverage
 
 Every identified edge case must have a corresponding test. During planning, enumerate all edge
 cases explicitly (in the implementation plan). Before marking work done, verify that each
 enumerated edge case is covered by at least one test.
+
+#### Exception message assertions
+
+Always assert the **complete** exception message, not just a substring. Construct the expected
+message in full using the same inputs the code under test uses. Use regex (via
+`expectExceptionMessageMatches` or `assertMatchesRegularExpression`) only for genuinely dynamic
+parts that cannot be predicted upfront (e.g. file paths, uniqid suffixes).
+
+Never use multiple `assertStringContainsString` calls on the same exception message when the full
+message can be constructed. A single `assertSame($expectedMessage, $exception->getMessage())` is
+both stronger and self-documenting.
 
 For pull requests, check the qlty.sh coverage report by constructing the URL from the current PR
 number:
@@ -299,6 +396,14 @@ https://qlty.sh/gh/wol-soft/projects/php-json-schema-model-generator/pull/<PR_NU
 ```
 
 Review the coverage report and address any uncovered lines in changed or new code.
+
+### Docblock content
+
+Write docblocks only when they add information beyond what the code already expresses.
+
+- **Omit** class-level `@package` tags and `Class ClassName` lines — the namespace declaration and class keyword already carry that information.
+- **Omit** method docblocks whose prose just restates the method name (e.g. `/** Returns the foo. */` above `getFoo(): Foo`). Write a docblock only when it explains *why* something is done, a non-obvious contract, or a type constraint that native PHP cannot express (e.g. `@return SomeClass[]`).
+- **Do not copy-paste** identical `@param` descriptions across multiple methods. Each docblock should describe what is specific to that method's use of the parameter.
 
 ### Union type style
 

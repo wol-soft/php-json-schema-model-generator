@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator\Factory\Composition;
 
 use PHPModelGenerator\Exception\ComposedValue\OneOfException;
-use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
@@ -18,9 +17,6 @@ class OneOfValidatorFactory
     extends AbstractCompositionValidatorFactory
     implements ComposedPropertiesValidatorFactoryInterface
 {
-    /**
-     * @throws SchemaException
-     */
     public function modify(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
@@ -31,8 +27,18 @@ class OneOfValidatorFactory
             return;
         }
 
+        $branches = $propertySchema->getJson()[$this->key];
+        if (!empty($branches) && array_filter($branches, static fn($branch) => $branch !== false) === []) {
+            $this->warnIfAlwaysFalse(
+                $schemaProcessor,
+                $property,
+                'all oneOf branches are false; no value can satisfy the schema',
+            );
+        }
+
         $this->warnIfEmpty($schemaProcessor, $property, $propertySchema);
         $propertySchema = $this->inheritPropertyType($propertySchema);
+        $this->checkForFilterInBranches($property, $propertySchema);
 
         $onlyForDefinedValues = !($property instanceof BaseProperty)
             && (!$property->isRequired()
@@ -57,7 +63,7 @@ class OneOfValidatorFactory
             $compositionProperty->onResolve(
                 function () use (&$resolvedCompositions, $property, $compositionProperties): void {
                     if (++$resolvedCompositions === count($compositionProperties)) {
-                        $this->transferPropertyType($property, $compositionProperties, false);
+                        self::transferPropertyType($property, $compositionProperties, false);
                     }
                 },
             );
