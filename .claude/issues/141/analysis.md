@@ -28,13 +28,36 @@ This is safe because:
 - `_getModifiedValues` accesses `$originalModelData[$key]` (array access). When the original value was a scalar, `getNestedSchema()` returns null for the composition property, so `$propertyAccessors` is empty and the method would return `[]` anyway.
 - For normal object properties (the existing working case), `$value` starts as an array, so `is_array($originalModelData)` is true and behavior is unchanged.
 
+## Fix 1: _getModifiedValues TypeError (ComposedItem.phptpl)
+
+Added `&& is_array($originalModelData)` to the guard on line 91 of `ComposedItem.phptpl`:
+
+```php
+if (is_object($value) && is_array($originalModelData)) {
+```
+
+## Fix 2: Getter return type missing enum class (EnumPostProcessor)
+
+Added `propagateEnumTypeToParent()` method and calls in `processNestedEnumProperties()`.
+After a composed property (inside allOf/oneOf/anyOf or array items) gains an enum output
+type from `processPropertyEnum`, the new method propagates the enum class names to the
+parent property's output type via `$parentProperty->setType(..., false)`.
+
+This ensures `getType(true)` (used for PHP return type declarations of getters and setters)
+includes the enum class name alongside the original scalar type. Previously, only docblock
+annotations were updated via `CompositionTypeHintDecorator`, but the PHP type declaration
+still declared the original scalar type — causing a TypeError when calling the getter.
+
 ## Files Changed
 
 - `src/Templates/Validator/ComposedItem.phptpl` — Added `&& is_array($originalModelData)` guard
+- `src/SchemaProcessor/PostProcessor/EnumPostProcessor.php` — Added `propagateEnumTypeToParent()`,
+  called from `processNestedEnumProperties()` for both composed properties and array item properties
 - `tests/Schema/Issues/141/allOfWithRefEnum.json` — Test schema with allOf + $ref to string enum
-- `tests/Issues/Issue/Issue141Test.php` — Test that construction with valid value doesn't throw TypeError
+- `tests/Issues/Issue/Issue141Test.php` — Consolidates all EnumPostProcessor assertions (construction,
+  getter, null, invalid) in one test method to avoid enum class redeclaration
 
 ## Verification
 
-- 2432 tests, 6094 assertions — all passing
+- 2430 tests, 6095 assertions — all passing
 - PHPCS clean

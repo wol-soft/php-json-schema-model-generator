@@ -206,6 +206,8 @@ class EnumPostProcessor extends PostProcessor
                 foreach ($validatorInstance->getComposedProperties() as $composedProperty) {
                     $this->processPropertyEnum($composedProperty, $schema, $generatorConfiguration);
                     $this->processNestedEnumProperties($composedProperty, $schema, $generatorConfiguration);
+
+                    $this->propagateEnumTypeToParent($property, $composedProperty);
                 }
             }
 
@@ -213,8 +215,56 @@ class EnumPostProcessor extends PostProcessor
                 $nestedProperty = $validatorInstance->getNestedProperty();
                 $this->processPropertyEnum($nestedProperty, $schema, $generatorConfiguration);
                 $this->processNestedEnumProperties($nestedProperty, $schema, $generatorConfiguration);
+
+                $this->propagateEnumTypeToParent($property, $nestedProperty);
             }
         }
+    }
+
+    /**
+     * If a composed property (inside allOf/oneOf/anyOf or array items) gained an enum output type
+     * from processPropertyEnum, propagate that to the parent property so the PHP type declaration
+     * (getter return type, setter parameter type) includes the enum class name.
+     */
+    private function propagateEnumTypeToParent(
+        PropertyInterface $parentProperty,
+        PropertyInterface $composedProperty,
+    ): void {
+        $composedOutputType = $composedProperty->getType(true);
+        $composedInputType = $composedProperty->getType(false);
+
+        if (
+            $composedOutputType === null
+            || $composedInputType === null
+            || $composedOutputType->getNames() === $composedInputType->getNames()
+        ) {
+            return;
+        }
+
+        $parentInputType = $parentProperty->getType(false);
+        $parentOutputType = $parentProperty->getType(true);
+
+        $mergedNames = $parentInputType !== null ? $parentInputType->getNames() : [];
+
+        foreach ($composedOutputType->getNames() as $name) {
+            if (!in_array($name, $mergedNames, true)) {
+                $mergedNames[] = $name;
+            }
+        }
+
+        if ($parentOutputType !== null) {
+            foreach ($parentOutputType->getNames() as $name) {
+                if (!in_array($name, $mergedNames, true)) {
+                    $mergedNames[] = $name;
+                }
+            }
+        }
+
+        $parentProperty->setType(
+            $parentProperty->getType(false),
+            new PropertyType($mergedNames, !$parentProperty->isRequired()),
+            false,
+        );
     }
 
     /**

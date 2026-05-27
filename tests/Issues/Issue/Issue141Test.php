@@ -11,21 +11,19 @@ use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
 
 /**
  * Issue #141: When a property uses allOf with a $ref to a string enum definition, the EnumPostProcessor's
- * Enum::filter transforms the input string to a UnitEnum object. The composed property validator's
- * _getModifiedValues_* helper is then called with $originalModelData still being the original string
- * (set before the filter runs), but the helper expects array. This causes a TypeError.
+ * Enum::filter transforms the input string to a UnitEnum object.
  *
- * The fix adds `&& is_array($originalModelData)` to the guard in ComposedItem.phptpl so that
- * _getModifiedValues is only called when the original data was an array (i.e., a nested object),
- * not when a filter transformed a scalar to an object (e.g., string enum to UnitEnum).
+ * Two bugs were fixed:
+ * 1. The composed property validator's _getModifiedValues_* helper was called with $originalModelData
+ *    still being the original string (set before the filter runs), but the helper expects array. Fixed
+ *    by adding `&& is_array($originalModelData)` to the guard in ComposedItem.phptpl.
+ * 2. The getter's PHP return type was not updated to include the enum class name, causing a TypeError
+ *    when calling the getter. Fixed by propagating the enum output type from composed properties to
+ *    the parent property in EnumPostProcessor::processNestedEnumProperties.
  */
 class Issue141Test extends AbstractIssueTestCase
 {
-    /**
-     * Construction with a valid enum string value must not throw TypeError when
-     * EnumPostProcessor transforms the string to a UnitEnum object via Enum::filter.
-     */
-    public function testValidEnumValueTriggersNoTypeError(): void
+    private function enableEnumPostProcessor(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {
             $modelGenerator->addPostProcessor(new EnumPostProcessor(
@@ -34,33 +32,34 @@ class Issue141Test extends AbstractIssueTestCase
                 true,
             ));
         };
+    }
+
+    /**
+     * Construction, getter, null, and invalid-value rejection must all work without
+     * TypeError when EnumPostProcessor is active. All assertions share one generated
+     * class because generating multiple times with the same EnumPostProcessor would
+     * cause a fatal error (PHP cannot redeclare the enum class).
+     */
+    public function testEnumPostProcessorWorkflow(): void
+    {
+        $this->enableEnumPostProcessor();
 
         $className = $this->generateClassFromFile('allOfWithRefEnum.json');
 
+        // Construction must not throw TypeError when Enum filter transforms string to enum object
         $object = new $className(['goal_type' => 'clicks']);
         $this->assertNotNull($object);
-    }
 
-    /**
-     * An invalid enum value must be rejected with a ValidationException.
-     */
-    public function testInvalidEnumValueIsRejected(): void
-    {
-        $this->expectException(ValidationException::class);
+        // Calling the getter must not throw TypeError — the return type must include the enum class
+        $value = $object->getGoalType();
+        $this->assertNotNull($value);
 
-        $className = $this->generateClassFromFile('allOfWithRefEnum.json');
-
-        new $className(['goal_type' => 'nonexistent']);
-    }
-
-    /**
-     * Absent or explicit null must be accepted (optional property).
-     */
-    public function testNullIsAccepted(): void
-    {
-        $className = $this->generateClassFromFile('allOfWithRefEnum.json');
-
+        // Null must be accepted (optional property)
         $this->assertNull((new $className([]))->getGoalType());
         $this->assertNull((new $className(['goal_type' => null]))->getGoalType());
+
+        // Invalid value must be rejected
+        $this->expectException(ValidationException::class);
+        new $className(['goal_type' => 'nonexistent']);
     }
 }
