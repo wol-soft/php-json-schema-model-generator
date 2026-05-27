@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Filter;
 
+use PHPModelGenerator\Draft\Draft_07;
+use PHPModelGenerator\Draft\DraftFactoryInterface;
+use PHPModelGenerator\Draft\DraftInterface;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -155,6 +159,13 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
                 '/Composition anyOf under property filteredProperty'
                     . '.*branch #0 spans both input and output type-spaces/',
             ],
+            // A non-object-typed allOf branch has a properties map containing a nested filter keyword.
+            // branchContainsFilter scans properties of non-object branches and detects the inner filter.
+            'filter in properties of non-object-typed allOf branch' => [
+                'FilterCompositionFilterInNonObjectBranchProperty.json',
+                '/A filter keyword inside a allOf composition branch is not supported'
+                    . ' for property filteredProperty.*branch #0/',
+            ],
         ];
     }
 
@@ -212,6 +223,30 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
             // (object-typed, post-dateTime-filter), so the anyOf is accepted without error.
             'anyOf with nested all-output allOf branch (output-space composition)' =>
                 ['FilterCompositionNestedAllOfOutputSpace.json'],
+            // A root-level allOf branch that does not reference filteredProperty at all is skipped
+            // by checkTransformingFilterRootCompositionConflicts (no properties[filteredProperty]).
+            'root-level allOf branch without filteredProperty is skipped' =>
+                ['FilterCompositionRootAllOfBranchMissingProperty.json'],
+            // A root-level allOf branch where filteredProperty is constrained by schema false (a boolean
+            // schema) instead of an object schema. Boolean schemas carry no type-space keywords, so the
+            // checker skips the branch without throwing.
+            'root-level allOf branch with boolean false constraint on filtered subproperty' =>
+                ['FilterCompositionRootAllOfBooleanConstraint.json'],
+            // Root-level if schema where filteredProperty is constrained by schema false (a boolean schema).
+            // Same reasoning as for allOf: boolean schemas carry no type-space keywords; checker skips.
+            'root-level if with boolean false constraint on filtered subproperty' =>
+                ['FilterCompositionRootIfBooleanConstraint.json'],
+            // allOf branch sets the parent type to string via synchronous transferPropertyType.
+            // if/then/else branches have no type keyword so getBranchTypeNames returns null —
+            // they cannot conflict with the parent type and the schema is accepted without error.
+            'allOf-derived parent type with if\/then\/else untyped branches' =>
+                ['FilterCompositionAllOfThenElseUntypedBranches.json'],
+            // allOf with {type:integer} and {type:number}: TypeIntersection treats int as a subtype
+            // of float so the intersection is non-empty (no contradiction), but array_intersect of
+            // the raw PHP type names ['int'] and ['float'] is empty, causing detectDeadFilterViaAllOfConstraints
+            // to return early without throwing (effective types empty means no dead-filter conclusion).
+            'allOf with integer and number branches alongside dateTime filter' =>
+                ['FilterCompositionAllOfIntegerNumberBranches.json'],
         ];
     }
 
@@ -315,5 +350,47 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
         );
 
         $this->generateClassFromFile('FilterCompositionAllOfObjectBranchOutput.json');
+    }
+
+    /**
+     * When GeneratorConfiguration::getDraft() returns a DraftFactoryInterface, FilterProcessor
+     * calls getDraftForSchema() to obtain the Draft for the property's schema instead of using
+     * the DraftInterface directly. Generation must succeed with a factory-provided draft.
+     */
+    public function testTransformingFilterWithDraftFactoryGeneratesSuccessfully(): void
+    {
+        $draftFactory = new class implements DraftFactoryInterface {
+            public function getDraftForSchema(JsonSchema $jsonSchema): DraftInterface
+            {
+                return new Draft_07();
+            }
+        };
+
+        $this->generateClassFromFile(
+            'FilterCompositionAllOfInputOnly.json',
+            (new GeneratorConfiguration())->setDraft($draftFactory),
+        );
+        $this->addToAssertionCount(1);
+    }
+
+    /**
+     * A filter whose callable returns float causes expandNumericTypes to add 'int' to the
+     * expanded output type set so that integer-subtype numeric keywords (minimum, maximum, …)
+     * classify correctly as output-space. The anyOf branch {minimum: 0} is output-space and
+     * uniform, so generation succeeds without error.
+     */
+    public function testFloatReturningFilterWithNumericOutputSpaceCompositionGeneratesSuccessfully(): void
+    {
+        $this->generateClassFromFile(
+            'FilterCompositionAnyOfMinimumOutputSpace.json',
+            (new GeneratorConfiguration())->addFilter(
+                $this->getCustomTransformingFilter(
+                    [self::class, 'serializeFloatToString'],
+                    [self::class, 'convertStringToFloat'],
+                    'stringToFloat',
+                ),
+            ),
+        );
+        $this->addToAssertionCount(1);
     }
 }

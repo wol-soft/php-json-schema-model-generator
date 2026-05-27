@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
 use Exception;
+use LogicException;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Exception\InvalidFilterException;
@@ -28,7 +29,6 @@ use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\OneOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\FormatValidator;
-use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\PassThroughTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -257,18 +257,11 @@ class FilterProcessor
                     continue;
                 }
 
-                $instanceOfRemoved = true;
-                foreach ($compositionProperty->getValidators() as $compositionValidator) {
-                    if (is_a($compositionValidator->getValidator(), InstanceOfValidator::class)) {
-                        $instanceOfRemoved = false;
-                        break;
-                    }
-                }
-
-                if ($instanceOfRemoved) {
-                    $hasEmptyObjectBranch = true;
-                    break 2;
-                }
+                // The ObjectModifier removes InstanceOfValidator synchronously during
+                // nested-schema wiring, before this method runs, so empty-property nested
+                // schemas always have their instanceof check removed at this point.
+                $hasEmptyObjectBranch = true;
+                break 2;
             }
         }
 
@@ -344,7 +337,6 @@ class FilterProcessor
             $mixedAllOf,
             $filterPriority,
             $skipCheck,
-            $returnTypeNames,
             $generatorConfiguration,
         );
     }
@@ -437,12 +429,6 @@ class FilterProcessor
             }
 
             $sourceKey = $validatorContainer->getSourceKey();
-            if ($sourceKey === null) {
-                // No source key: validator was not produced by a Draft AbstractValidatorFactory
-                // (e.g. PassThroughTypeCheckValidator). Leave at its current position.
-                continue;
-            }
-
             $typeSpace = $classifier->classifySchemaKey($sourceKey);
 
             if ($typeSpace === TypeSpace::Output) {
@@ -487,21 +473,19 @@ class FilterProcessor
     }
 
     /**
-     * Replace each mixed-space allOf validator with a pre-filter input-subset (wrapped in a guard
-     * when return types are known) and a post-filter output-subset at the original priority.
+     * Replace each mixed-space allOf validator with a pre-filter input-subset (wrapped in a
+     * pass-through guard) and a post-filter output-subset at the original priority.
      *
      * @param list<array{
      *     container: Validator, validator: ComposedPropertyValidator,
      *     inputIndices: int[], outputIndices: int[]
      * }> $mixedAllOf
-     * @param string[] $returnTypeNames
      */
     private function splitMixedSpaceAllOf(
         PropertyInterface $property,
         array $mixedAllOf,
         int $filterPriority,
         string $skipCheck,
-        array $returnTypeNames,
         GeneratorConfiguration $generatorConfiguration,
     ): void {
         foreach (
@@ -516,21 +500,18 @@ class FilterProcessor
                 static fn(Validator $container): bool => $container !== $originalContainer,
             );
 
-            // Input-space subset runs before the filter; wrap in a guard when return types are known.
+            // Input-space subset runs before the filter, wrapped in a pass-through guard so that
+            // already-transformed values bypass the pre-transform check.
             $preTransformValidator = $originalValidator->createSubsetValidator($inputIndices, '_pre_filter');
-            if (!empty($returnTypeNames)) {
-                $property->addValidator(
-                    new FilterPreTransformGuardValidator(
-                        $generatorConfiguration,
-                        $property,
-                        $preTransformValidator,
-                        $skipCheck,
-                    ),
-                    $filterPriority - 1,
-                );
-            } else {
-                $property->addValidator($preTransformValidator, $filterPriority - 1);
-            }
+            $property->addValidator(
+                new FilterPreTransformGuardValidator(
+                    $generatorConfiguration,
+                    $property,
+                    $preTransformValidator,
+                    $skipCheck,
+                ),
+                $filterPriority - 1,
+            );
 
             // Output-space subset runs at the original validator's priority so its position
             // relative to other post-transform validators is preserved.
@@ -609,36 +590,26 @@ class FilterProcessor
 
         if (isset($keywordMap[$processorClass])) {
             $keyword = $keywordMap[$processorClass];
-            if (!isset($originalPropertyJson[$keyword]) || !is_array($originalPropertyJson[$keyword])) {
-                return null;
-            }
             return array_values($originalPropertyJson[$keyword]);
         }
 
         if ($processorClass === NotValidatorFactory::class) {
-            if (!isset($originalPropertyJson['not']) || !is_array($originalPropertyJson['not'])) {
-                return null;
-            }
             // NotValidatorFactory wraps the single 'not' schema in an array; index 0 maps to it.
             return [$originalPropertyJson['not']];
         }
 
-        if ($processorClass === IfValidatorFactory::class) {
-            // ConditionalPropertyValidator::getComposedProperties() returns the then and else
-            // composition properties only — the if condition branch is stored separately in
-            // getConditionBranches() and is not iterated in classifyComposedValidatorBranches().
-            // Reproduce the then/else order from the original JSON so index 0 maps to then
-            // and index 1 maps to else, matching the order of getComposedProperties().
-            $result = [];
-            foreach (['then', 'else'] as $keyword) {
-                if (isset($originalPropertyJson[$keyword]) && is_array($originalPropertyJson[$keyword])) {
-                    $result[] = $originalPropertyJson[$keyword];
-                }
+        // ConditionalPropertyValidator::getComposedProperties() returns the then and else
+        // composition properties only — the if condition branch is stored separately in
+        // getConditionBranches() and is not iterated in classifyComposedValidatorBranches().
+        // Reproduce the then/else order from the original JSON so index 0 maps to then
+        // and index 1 maps to else, matching the order of getComposedProperties().
+        $result = [];
+        foreach (['then', 'else'] as $keyword) {
+            if (isset($originalPropertyJson[$keyword]) && is_array($originalPropertyJson[$keyword])) {
+                $result[] = $originalPropertyJson[$keyword];
             }
-            return !empty($result) ? $result : null;
         }
-
-        return null;
+        return !empty($result) ? $result : null;
     }
 
     /**

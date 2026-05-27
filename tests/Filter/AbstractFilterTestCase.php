@@ -128,4 +128,16 @@ abstract class AbstractFilterTestCase extends AbstractPHPModelGeneratorTestCase
     {
         return (string) $value;
     }
+
+    /** Casts a string to float. Used by composition-static tests for float-return-type filter coverage. */
+    public static function convertStringToFloat(string $value): float
+    {
+        return (float) $value;
+    }
+
+    /** Casts a float to string. Used by composition-static tests for float-return-type filter coverage. */
+    public static function serializeFloatToString(float $value): string
+    {
+        return (string) $value;
+    }
 }

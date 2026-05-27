@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "filter": "dateTime",
+      "allOf": [
+        {
+          "type": "string"
+        }
+      ],
+      "if": {
+        "minLength": 5
+      },
+      "then": {
+        "minLength": 3
+      },
+      "else": {
+        "minLength": 1
+      }
+    }
+  }
+}

@@ -141,10 +141,6 @@ class CompositionCompatibilityChecker
         }
 
         foreach ($branches as $index => $branch) {
-            if (!is_array($branch)) {
-                continue;
-            }
-
             if ($this->classifier->classify($branch) === TypeSpace::Mixed) {
                 throw new SchemaException(sprintf(
                     'Composition allOf under property %s in file %s cannot be resolved:'
@@ -174,10 +170,6 @@ class CompositionCompatibilityChecker
         $firstOutputIndex = null;
 
         foreach ($branches as $index => $branch) {
-            if (!is_array($branch)) {
-                continue;
-            }
-
             $space = $this->classifier->classify($branch);
 
             if ($space === TypeSpace::Mixed) {
