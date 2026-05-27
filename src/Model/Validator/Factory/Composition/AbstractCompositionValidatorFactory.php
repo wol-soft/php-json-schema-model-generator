@@ -382,12 +382,15 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * type is the union. An untyped branch accepts every value, making the composition satisfied
      * by any input; the property's type hint is removed (remains mixed) in that case.
      *
+     * Also callable from outside the factory (e.g. EnumPostProcessor) after a post processor has
+     * mutated branch types and needs the parent's native type recomputed from the updated branches.
+     *
      * @param bool $isAllOf true for allOf, false for anyOf/oneOf.
      * @param CompositionPropertyDecorator[] $compositionProperties
      *
      * @throws SchemaException when allOf branches declare contradictory types.
      */
-    protected function transferPropertyType(
+    public static function transferPropertyType(
         PropertyInterface $property,
         array $compositionProperties,
         bool $isAllOf,
@@ -425,11 +428,11 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             ) !== [];
 
         if ($isAllOf) {
-            $this->transferAllOfType($property, $compositionProperties, $hasBranchWithOptionalProperty);
+            self::transferAllOfType($property, $compositionProperties, $hasBranchWithOptionalProperty);
             return;
         }
 
-        $this->transferAnyOfOneOfType($property, $compositionProperties, $hasBranchWithOptionalProperty);
+        self::transferAnyOfOneOfType($property, $compositionProperties, $hasBranchWithOptionalProperty);
     }
 
     /**
@@ -444,7 +447,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      *
      * @throws SchemaException
      */
-    private function transferAllOfType(
+    private static function transferAllOfType(
         PropertyInterface $property,
         array $compositionProperties,
         bool $hasBranchWithOptionalProperty,
@@ -517,7 +520,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      *
      * @param CompositionPropertyDecorator[] $compositionProperties
      */
-    private function transferAnyOfOneOfType(
+    private static function transferAnyOfOneOfType(
         PropertyInterface $property,
         array $compositionProperties,
         bool $hasBranchWithOptionalProperty,

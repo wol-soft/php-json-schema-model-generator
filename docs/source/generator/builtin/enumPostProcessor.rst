@@ -88,3 +88,45 @@ If an enum which requires a mapping is found but no mapping is provided a **Sche
 .. note::
 
     By enabling the *$skipNonMappedEnums* option of the **EnumPostProcessor** you can skip enums which require a mapping but don't provide a mapping. Those enums will provide the default `enum <../../complexTypes/enum.html>`__ behaviour.
+
+Enums inside compositions
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Enum schemas are also discovered inside composition keywords (**oneOf**, **anyOf**, **allOf**, **if** / **then** / **else**) and inside array **items** schemas, including nested compositions. The generated enum class is added to the parent property's PHP type hint so the setter accepts the enum instance directly.
+
+Consider a property that accepts either a single status or a list of statuses:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "status_filter": {
+                "oneOf": [
+                    { "$ref": "#/definitions/Status" },
+                    {
+                        "type": "array",
+                        "items": { "$ref": "#/definitions/Status" }
+                    }
+                ]
+            }
+        },
+        "definitions": {
+            "Status": {
+                "type": "string",
+                "title": "Status",
+                "enum": ["active", "paused", "completed"]
+            }
+        }
+    }
+
+The generated setter exposes the enum class in both the PHPDoc and the native type hint:
+
+.. code-block:: php
+
+    /**
+     * @param string|Status|string[]|Status[]|null $statusFilter
+     */
+    public function setStatusFilter(string|Status|array|null $statusFilter): static;
+
+Branches under **not** are intentionally skipped — a value that fails an inner schema is not itself enum-typed and contributes no useful type information.
