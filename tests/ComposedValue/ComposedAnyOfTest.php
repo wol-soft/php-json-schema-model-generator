@@ -35,10 +35,11 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
     public function testValueProvidedForEmptyOptionalAnyOfIsInvalid(string|int|array $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage(<<<ERROR
-Invalid value for property declined by composition constraint.
-  Requires to match at least one composition element.
-ERROR,
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for property declined by composition constraint.
+              Requires to match at least one composition element.
+            ERROR,
         );
 
         $className = $this->generateClassFromFile('EmptyAnyOf.json');
@@ -188,8 +189,14 @@ ERROR,
     ): void {
         $className = $this->generateClassFromFile($schema);
 
-        $this->assertMatchesRegularExpression($annotationPattern, $this->getPropertyTypeAnnotation($className, 'property'));
-        $this->assertMatchesRegularExpression($annotationPattern, $this->getReturnTypeAnnotation($className, 'getProperty'));
+        $this->assertMatchesRegularExpression(
+            $annotationPattern,
+            $this->getPropertyTypeAnnotation($className, 'property'),
+        );
+        $this->assertMatchesRegularExpression(
+            $annotationPattern,
+            $this->getReturnTypeAnnotation($className, 'getProperty'),
+        );
 
         $this->assertCount($generatedClasses, $this->getGeneratedFiles());
     }
@@ -617,21 +624,64 @@ ERROR,
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match at least one composition element.
-  - Composition element #1: Failed
-    * Invalid type for stringProperty. Requires string, got NULL
-  - Composition element #2: Failed
-    * Invalid type for integerProperty. Requires int, got NULL
-ERROR
+                declined by composition constraint.
+                  Requires to match at least one composition element.
+                  - Composition element #1: Failed
+                    * Invalid type for stringProperty. Requires string, got NULL
+                  - Composition element #2: Failed
+                    * Invalid type for integerProperty. Requires int, got NULL
+                ERROR,
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match at least one composition element.
-ERROR
+                declined by composition constraint.
+                  Requires to match at least one composition element.
+                ERROR,
             ],
         ];
+    }
+
+    /**
+     * A property-level anyOf where one branch has no type keyword accepts every value,
+     * making the anyOf always satisfiable. The property has no effective type restriction
+     * and must carry no type hint (mixed).
+     */
+    public function testPropertyLevelAnyOfWithUntypedBranchProducesMixedType(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelAnyOfUntypedBranch.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $this->assertSame('mixed', $this->getReturnType($className, 'getProperty')->getName());
+        $this->assertSame('mixed', $this->getParameterType($className, 'setProperty')->getName());
+    }
+
+    /**
+     * When the anyOf composition contains only explicit null-type branches ({type: null}),
+     * there are no typed (non-null) branches to build a union from. transferAnyOfOneOfType
+     * returns early — the property carries no non-null type hint and accepts only null.
+     */
+    public function testAnyOfWithOnlyExplicitNullBranchReturnsEarlyWithoutType(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AnyOfOnlyExplicitNullBranch.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // No non-null type was imposed; the getter and setter carry no concrete type hint.
+        $this->assertSame('mixed', $this->getReturnType($className, 'getProperty')->getName());
+        $this->assertSame('mixed', $this->getParameterType($className, 'setProperty')->getName());
+
+        // Null is accepted via constructor and via setter.
+        $object = new $className([]);
+        $this->assertNull($object->getProperty());
+
+        $object = new $className(['property' => null]);
+        $this->assertNull($object->getProperty());
+
+        $object->setProperty(null);
+        $this->assertNull($object->getProperty());
     }
 }

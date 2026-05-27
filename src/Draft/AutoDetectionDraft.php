@@ -15,7 +15,7 @@ class AutoDetectionDraft implements DraftFactoryInterface
     {
         // Only Draft_07 is currently supported; all schemas (including unrecognised
         // or absent $schema keywords) fall back to it. Additional drafts will be
-        // detected here in later phases (e.g. draft-04, draft 2020-12).
+        // detected here when additional drafts are added (e.g. draft-04, draft 2020-12).
         return $this->draftInstances[Draft_07::class] ??= new Draft_07();
     }
 }

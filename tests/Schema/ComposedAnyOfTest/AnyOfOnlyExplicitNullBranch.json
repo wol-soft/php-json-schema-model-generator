@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "anyOf": [
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

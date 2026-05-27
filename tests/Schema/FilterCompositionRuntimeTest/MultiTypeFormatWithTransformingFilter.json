@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "value": {
+      "type": [
+        "string",
+        "integer"
+      ],
+      "format": "onlyNumbers",
+      "filter": "stringToInt",
+      "minimum": 0
+    }
+  }
+}

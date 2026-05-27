@@ -36,7 +36,9 @@
       "WebFetch(domain:datatracker.ietf.org)",
       "Bash(for f:*)",
       "Bash(do)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(rm /tmp/phpunit-output.txt)",
+      "Bash(grep -E \"FAIL|ERROR|WARN|Tests:\" /tmp/phpunit-output.txt; rm /tmp/phpunit-output.txt)"
     ]
   }
 }

@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": [
+        "string",
+        "integer"
+      ],
+      "filter": "stringToInt",
+      "oneOf": [
+        {
+          "minimum": 0,
+          "maximum": 10
+        },
+        {
+          "minimum": 20,
+          "maximum": 30
+        }
+      ]
+    }
+  }
+}

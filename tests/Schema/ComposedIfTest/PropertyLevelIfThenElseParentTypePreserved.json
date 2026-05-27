@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "integer",
+      "if": {
+        "minimum": 0
+      },
+      "then": {
+        "multipleOf": 2
+      },
+      "else": {
+        "maximum": -1
+      }
+    }
+  }
+}

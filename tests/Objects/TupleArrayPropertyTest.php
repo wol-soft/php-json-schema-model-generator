@@ -124,72 +124,72 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 'not all elements invalid type' => [
                     [400, ''],
                     <<<ERROR
-Invalid tuple item in array property:
-  - invalid tuple #2
-    * Invalid value for tuple item #1 of array property declined by enum constraint
-ERROR
+                    Invalid tuple item in array property:
+                      - invalid tuple #2
+                        * Invalid value for tuple item #1 of array property declined by enum constraint
+                    ERROR,
                 ],
                 'invalid type' => [
                     ['400', 'Avenue', ['name' => 'Hans', 'age' => 42]],
                     <<<ERROR
-Invalid tuple item in array property:
-  - invalid tuple #1
-    * Invalid type for tuple item #0 of array property. Requires int, got string
-ERROR
+                    Invalid tuple item in array property:
+                      - invalid tuple #1
+                        * Invalid type for tuple item #0 of array property. Requires int, got string
+                    ERROR,
                 ],
                 'Too small number' => [
                     [2, 'Boulevard', ['name' => 'Hans', 'age' => 42]],
                     <<<ERROR
-Invalid tuple item in array property:
-  - invalid tuple #1
-    * Value for tuple item #0 of array property must not be smaller than 3
-ERROR
+                    Invalid tuple item in array property:
+                      - invalid tuple #1
+                        * Value for tuple item #0 of array property must not be smaller than 3
+                    ERROR
 
                 ],
                 'invalid enum value' => [
                     [400, 'Way', ['name' => 'Hans', 'age' => 42]],
                     <<<ERROR
-Invalid tuple item in array property:
-  - invalid tuple #2
-    * Invalid value for tuple item #1 of array property declined by enum constraint
-ERROR
+                    Invalid tuple item in array property:
+                      - invalid tuple #2
+                        * Invalid value for tuple item #1 of array property declined by enum constraint
+                    ERROR
 
                 ],
                 'Missing required field in nested object' => [
                     [400, 'Street', ['age' => 42]],
                     <<<ERROR
-Invalid tuple item in array property:
-  - invalid tuple #3
-    * Missing required value for name
-ERROR
+                    Invalid tuple item in array property:
+                      - invalid tuple #3
+                        * Missing required value for name
+                    ERROR,
                 ],
                 'Invalid type in nested object' => [
                     [400, 'Street', ['name' => 'Hans', 'age' => true]],
                     <<<ERROR
-Invalid tuple item in array property:
-  - invalid tuple #3
-    * Invalid type for age. Requires int, got boolean
-ERROR
+                    Invalid tuple item in array property:
+                      - invalid tuple #3
+                        * Invalid type for age. Requires int, got boolean
+                    ERROR,
                 ],
                 'Invalid order' => [
                     [['name' => 'Hans', 'age' => 42], 'Street', 400],
                     <<<ERROR
-Invalid tuple item in array property:
-  - invalid tuple #1
-    * Invalid type for tuple item #0 of array property. Requires int, got array
-  - invalid tuple #3
-    * Invalid type for tuple item #2 of array property. Requires object, got integer
-ERROR
+                    Invalid tuple item in array property:
+                      - invalid tuple #1
+                        * Invalid type for tuple item #0 of array property. Requires int, got array
+                      - invalid tuple #3
+                        * Invalid type for tuple item #2 of array property. Requires object, got integer
+                    ERROR,
                 ],
                 'null values' => [
                     [null, null, ['name' => 'Hans', 'age' => 42]],
                     <<<ERROR
-Invalid tuple item in array property:
-  - invalid tuple #1
-    * Invalid type for tuple item #0 of array property. Requires int, got NULL
-  - invalid tuple #2
-    * Invalid type for tuple item #1 of array property. Requires string, got NULL
-ERROR
+                    Invalid tuple item in array property:
+                      - invalid tuple #1
+                        * Invalid type for tuple item #0 of array property. Requires int, got NULL
+                      - invalid tuple #2
+                        * Invalid type for tuple item #1 of array property. Requires string, got NULL
+                    ERROR,
                 ],
             ],
         );
@@ -240,10 +240,10 @@ ERROR
     public static function invalidAdditionalItemsDataProvider(): array
     {
         $exception = <<<ERROR
-Tuple array property contains invalid additional items.
-  - invalid additional item '2'
-    * %s
-ERROR;
+        Tuple array property contains invalid additional items.
+          - invalid additional item '2'
+            * %s
+        ERROR;
 
         return self::combineDataProvider(
             self::validationMethodDataProvider(),
@@ -275,14 +275,14 @@ ERROR;
                 'Multiple violations' => [
                     [3, 'Avenue', 0, 'asx', null, 'ADC', false],
                     <<<ERROR
-Tuple array property contains invalid additional items.
-  - invalid additional item '2'
-    * Invalid type for additional item. Requires string, got integer
-  - invalid additional item '4'
-    * Invalid type for additional item. Requires string, got NULL
-  - invalid additional item '6'
-    * Invalid type for additional item. Requires string, got boolean
-ERROR
+                    Tuple array property contains invalid additional items.
+                      - invalid additional item '2'
+                        * Invalid type for additional item. Requires string, got integer
+                      - invalid additional item '4'
+                        * Invalid type for additional item. Requires string, got NULL
+                      - invalid additional item '6'
+                        * Invalid type for additional item. Requires string, got boolean
+                    ERROR,
                 ],
             ],
         );
@@ -345,10 +345,10 @@ ERROR
     public static function invalidObjectAdditionalItemsDataProvider(): array
     {
         $exception = <<<ERROR
-Tuple array property contains invalid additional items.
-  - invalid additional item '2'
-    * %s
-ERROR;
+        Tuple array property contains invalid additional items.
+          - invalid additional item '2'
+            * %s
+        ERROR;
 
         return self::combineDataProvider(
             self::validationMethodDataProvider(),
@@ -382,12 +382,12 @@ ERROR;
                         ['name' => 'Jens', 'age' => false]
                     ],
                     <<<ERROR
-Tuple array property contains invalid additional items.
-  - invalid additional item '2'
-    * Invalid type for name. Requires string, got integer
-  - invalid additional item '4'
-    * Invalid type for age. Requires int, got boolean
-ERROR
+                    Tuple array property contains invalid additional items.
+                      - invalid additional item '2'
+                        * Invalid type for name. Requires string, got integer
+                      - invalid additional item '4'
+                        * Invalid type for age. Requires int, got boolean
+                    ERROR,
                 ],
             ],
         );

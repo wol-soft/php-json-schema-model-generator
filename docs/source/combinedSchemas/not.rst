@@ -45,3 +45,11 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Not
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+
+.. note::
+
+    The ``not`` schema can be the boolean literal ``true`` or ``false``.
+
+    - ``not: false`` — negation of the impossible schema; always valid. No validator is generated.
+    - ``not: true`` — negation of the always-valid schema; always invalid. Providing any value
+      raises a ``NotException`` at runtime. The generator also emits a warning at generation time.

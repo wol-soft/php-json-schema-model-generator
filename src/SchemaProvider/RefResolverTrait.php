@@ -18,8 +18,14 @@ trait RefResolverTrait
             throw new SchemaException("Reference to non existing JSON-Schema file $ref");
         }
 
-        if (!($decodedJsonSchema = json_decode($jsonSchema, true))) {
+        $decodedJsonSchema = json_decode($jsonSchema, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
             throw new SchemaException("Invalid JSON-Schema file $jsonSchemaFilePath");
+        }
+
+        if (!is_array($decodedJsonSchema)) {
+            throw new SchemaException("Referenced JSON-Schema file $jsonSchemaFilePath must contain a JSON object");
         }
 
         return new JsonSchema($jsonSchemaFilePath, $decodedJsonSchema);
