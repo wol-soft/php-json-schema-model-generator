@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "filter": "dateTime"
+    }
+  },
+  "else": {
+    "properties": {
+      "filteredProperty": {
+        "minProperties": 1
+      }
+    }
+  }
+}

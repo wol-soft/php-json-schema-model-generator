@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "filter": "trim",
+      "if": {
+        "filter": "trim"
+      },
+      "then": {
+        "minLength": 5
+      },
+      "else": {
+        "maxLength": 10
+      }
+    }
+  }
+}

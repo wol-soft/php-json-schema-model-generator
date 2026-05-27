@@ -146,10 +146,10 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidTypedAdditionalPropertiesDataProvider(): array
     {
         $exception = <<<ERROR
-contains invalid additional properties.
-  - invalid additional property 'additional1'
-    * %s
-ERROR;
+        contains invalid additional properties.
+          - invalid additional property 'additional1'
+            * %s
+        ERROR;
 
         return self::combineDataProvider(
             self::validationMethodDataProvider(),
@@ -257,10 +257,10 @@ ERROR;
     public static function invalidAdditionalPropertiesObjectsDataProvider(): array
     {
         $exception = <<<ERROR
-contains invalid additional properties.
-  - invalid additional property 'additional1'
-    * %s
-ERROR;
+        contains invalid additional properties.
+          - invalid additional property 'additional1'
+            * %s
+        ERROR;
 
         return self::combineDataProvider(
             self::validationMethodDataProvider(),
@@ -296,12 +296,12 @@ ERROR;
                 'Multiple violations' => [
                     ['additional1' => ['name' => 12], 'additional2' => ['name' => 'AB', 'age' => '12']],
                     <<<ERROR
-contains invalid additional properties.
-  - invalid additional property 'additional1'
-    * Invalid type for name. Requires string, got integer
-  - invalid additional property 'additional2'
-    * Invalid type for age. Requires int, got string
-ERROR
+                    contains invalid additional properties.
+                      - invalid additional property 'additional1'
+                        * Invalid type for name. Requires string, got integer
+                      - invalid additional property 'additional2'
+                        * Invalid type for age. Requires int, got string
+                    ERROR,
                 ],
             ],
         );

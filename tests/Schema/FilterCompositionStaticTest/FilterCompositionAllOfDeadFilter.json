@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "filter": "stringToInt",
+      "allOf": [
+        {
+          "type": "integer"
+        }
+      ]
+    }
+  }
+}

@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeCheck;
+use PHPModelGenerator\Utils\TypeConverter;
 use ReflectionException;
 
 /**
@@ -123,6 +124,15 @@ class FilterValidator extends PropertyTemplateValidator
      * execute under any circumstances. Partial overlap is fine: the runtime typeCheck guard in the
      * generated code already skips the filter for non-matching value types.
      *
+     * Type source: only an explicit 'type' key in the schema JSON is used for the check,
+     * not $property->getType() — the resolved type may be widened by composition modifiers
+     * (allOf, anyOf, oneOf) via deferred transferPropertyType callbacks, making it unreliable
+     * at FilterValidator construction time. When no direct 'type' is declared, the effective
+     * input type space would require full composition branch analysis to determine; the
+     * filter's runtime type guard handles non-matching types, so the static check is skipped.
+     * Skipping when there is no direct type declaration is order-independent and avoids
+     * false-positive incompatibility errors regardless of which modifier ran first.
+     *
      * @param string[] $acceptedTypes Pre-computed accepted types of the filter.
      *
      * @throws SchemaException
@@ -133,14 +143,37 @@ class FilterValidator extends PropertyTemplateValidator
             return;
         }
 
-        if ($property->getType() === null && $property->getNestedSchema() === null) {
-            return;
-        }
+        if ($property->getNestedSchema() !== null) {
+            $typeNames  = ['object'];
+            $isNullable = false;
+        } else {
+            // Prefer the schema-declared type for the overlap check rather than $property->getType():
+            // composition modifiers widen the resolved type with branch types via deferred
+            // transferPropertyType callbacks — reading getType() here may return a wider type than
+            // the schema-declared input type, producing false-positive compatibility results.
+            $schemaJson  = $property->getJsonSchema()->getJson();
+            $schemaType  = $schemaJson['type'] ?? null;
 
-        $typeNames = $property->getNestedSchema() !== null
-            ? ['object']
-            : $property->getType()->getNames();
-        $isNullable = $property->getType()?->isNullable() ?? false;
+            if (is_string($schemaType) && $schemaType !== 'any') {
+                // Single-string schema type: derive the PHP type name directly from the declaration.
+                $typeNames  = [TypeConverter::jsonSchemaToPHP($schemaType)];
+                $isNullable = $property->getType()?->isNullable() ?? false;
+            } elseif ($property->getType() === null || $schemaType === null) {
+                // No direct type declaration in the schema JSON: the property is either
+                // unconstrained (any value is valid input) or its effective input type is
+                // determined by composition branch constraints. Analysing composition branches
+                // to derive the effective type is out of scope for this check — the filter's
+                // runtime type guard handles non-matching types at execution time.
+                // Exception: allOf branches with 'type' keywords narrow the set of values
+                // that can legally reach the filter. When the intersection of those type sets
+                // has no overlap with the filter's accepted types, the filter is unreachable.
+                $this->detectDeadFilterViaAllOfConstraints($acceptedTypes, $property, $schemaJson);
+                return;
+            } else {
+                $typeNames  = $property->getType()->getNames();
+                $isNullable = $property->getType()->isNullable() ?? false;
+            }
+        }
 
         $hasOverlap = !empty(array_intersect($typeNames, $acceptedTypes))
             || ($isNullable && in_array('null', $acceptedTypes, true));
@@ -235,5 +268,81 @@ class FilterValidator extends PropertyTemplateValidator
     public function getFilterOptions(): array
     {
         return $this->filterOptions;
+    }
+
+    /**
+     * Detect a dead filter caused by allOf type constraints that fully exclude the filter's
+     * accepted input types.
+     *
+     * When allOf branches narrow the effective input type to a set that has no overlap with
+     * the filter's accepted types, the filter can never fire under any valid input — it is
+     * unreachable regardless of the runtime value.
+     *
+     * Only allOf branches that declare a 'type' keyword contribute to the narrowed type set;
+     * branches without 'type' impose no type constraint and are ignored. The effective type
+     * is the intersection of all contributing branch type sets (allOf requires every branch
+     * to pass, so only values matching all declared types can reach the filter).
+     *
+     * When the intersection is empty (contradictory branch types), the check is skipped —
+     * composition validation reports the contradiction independently.
+     *
+     * @param string[]             $acceptedTypes PHP type names accepted by the filter.
+     * @param array<string, mixed> $schemaJson    Raw JSON of the property's schema.
+     *
+     * @throws SchemaException
+     */
+    private function detectDeadFilterViaAllOfConstraints(
+        array $acceptedTypes,
+        PropertyInterface $property,
+        array $schemaJson,
+    ): void {
+        $allOfBranches = $schemaJson['allOf'] ?? null;
+        if (!is_array($allOfBranches) || empty($allOfBranches)) {
+            return;
+        }
+
+        // Collect PHP type names from branches that declare a 'type' keyword.
+        $constraintSets = [];
+        foreach ($allOfBranches as $branch) {
+            if (!is_array($branch) || !array_key_exists('type', $branch)) {
+                continue;
+            }
+
+            $branchTypes = is_array($branch['type']) ? $branch['type'] : [$branch['type']];
+            $constraintSets[] = array_values(array_map(
+                static fn(string $typeName): string => TypeConverter::jsonSchemaToPHP($typeName),
+                $branchTypes,
+            ));
+        }
+
+        if (empty($constraintSets)) {
+            return; // No type constraints in any allOf branch; cannot determine effective type.
+        }
+
+        // Effective type = intersection of all constrained type sets (allOf: all must pass).
+        $effectiveTypes = array_shift($constraintSets);
+        foreach ($constraintSets as $typeSet) {
+            $effectiveTypes = array_values(array_intersect($effectiveTypes, $typeSet));
+        }
+
+        if (empty($effectiveTypes)) {
+            // Contradictory constraints produce an empty effective type set; the schema is
+            // already invalid — let composition validation report the contradiction.
+            return;
+        }
+
+        if (!empty(array_intersect($effectiveTypes, $acceptedTypes))) {
+            return; // Overlap exists; the filter can fire for at least some valid values.
+        }
+
+        throw new SchemaException(sprintf(
+            'Filter %s on property %s in file %s can never be executed:'
+                . ' allOf type constraints (%s) exclude all input types accepted by the filter (%s)',
+            $this->filter->getToken(),
+            $property->getName(),
+            $property->getJsonSchema()->getFile(),
+            implode('|', $effectiveTypes),
+            implode('|', $acceptedTypes),
+        ));
     }
 }

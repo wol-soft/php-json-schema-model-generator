@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator\Factory\Composition;
 
 use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -14,12 +15,15 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
+use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
+use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\TypeIntersection;
 
 abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFactory
 {
@@ -68,6 +72,63 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     {
         return !($property instanceof BaseProperty)
             && ($propertySchema->getJson()['type'] ?? '') === 'object';
+    }
+
+    /**
+     * Check the (post-type-inheritance) composition branches for filter keywords.
+     *
+     * Must be called AFTER inheritPropertyType() in each modify() method. A branch that
+     * inherits "object" from the parent is genuinely object-typed: PropertyFactory routes
+     * it through processSchema, producing a nested class whose properties are processed
+     * independently and are not subject to ComposedItem $value reset. branchContainsFilter()
+     * correctly skips the properties scan for such branches.
+     *
+     * For "not", the value is a single branch schema (not an array); all other keywords
+     * use an array of branches.
+     *
+     * TODO: filters inside composition branches cannot be correctly applied
+     * (ComposedItem.phptpl resets $value to $originalModelData after each branch).
+     * Proper per-branch filter chaining is deferred to a follow-up topic.
+     *
+     * @throws SchemaException
+     */
+    protected function checkForFilterInBranches(
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): void {
+        $json = $propertySchema->getJson();
+
+        if ($this->key === 'not') {
+            $branch = $json['not'] ?? null;
+            if (
+                is_array($branch)
+                && CompositionCompatibilityChecker::branchContainsFilter($branch)
+            ) {
+                throw new SchemaException(sprintf(
+                    'A filter keyword inside a not composition branch is not supported'
+                        . ' for property %s in file %s.',
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile(),
+                ));
+            }
+            return;
+        }
+
+        foreach ($json[$this->key] ?? [] as $index => $compositionElement) {
+            if (
+                is_array($compositionElement)
+                && CompositionCompatibilityChecker::branchContainsFilter($compositionElement)
+            ) {
+                throw new SchemaException(sprintf(
+                    'A filter keyword inside a %s composition branch is not supported'
+                        . ' for property %s in file %s (branch #%d).',
+                    $this->key,
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile(),
+                    $index,
+                ));
+            }
+        }
     }
 
     /**
@@ -128,10 +189,31 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             );
 
             $compositionProperty->onResolve(function () use ($compositionProperty, $property, $merged): void {
+                $nestedSchema = $compositionProperty->getNestedSchema();
+
                 $compositionProperty->filterValidators(
-                    static fn(Validator $validator): bool =>
-                        !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                        !is_a($validator->getValidator(), ComposedPropertyValidator::class),
+                    static function (Validator $validator) use ($nestedSchema): bool {
+                        if (is_a($validator->getValidator(), RequiredPropertyValidator::class)) {
+                            return false;
+                        }
+                        if (is_a($validator->getValidator(), ComposedPropertyValidator::class)) {
+                            return false;
+                        }
+                        // An empty object schema ({type: object} with no declared properties)
+                        // must accept any PHP object in composition context. The generated
+                        // placeholder class carries no semantic constraints, so the strict
+                        // instanceof check against it would incorrectly reject valid objects
+                        // (e.g. a DateTime produced by a transforming filter) that are perfectly
+                        // acceptable under the schema's actual semantics.
+                        if (
+                            is_a($validator->getValidator(), InstanceOfValidator::class)
+                            && $nestedSchema !== null
+                            && empty($nestedSchema->getProperties())
+                        ) {
+                            return false;
+                        }
+                        return true;
+                    },
                 );
 
                 if (!($merged && $compositionProperty->getNestedSchema())) {
@@ -287,11 +369,23 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     }
 
     /**
-     * After all composition branches resolve, attempt to widen the parent property's type
-     * to cover all branch types. Skips for branches with nested schemas.
+     * After all composition branches resolve, derive the parent property's type from the
+     * branch types and apply it. Skips when any branch has a nested schema (object merging
+     * is handled elsewhere).
      *
-     * @param bool $isAllOf Whether allOf semantics apply (affects nullable detection).
+     * allOf: intersect all typed branch types — only values satisfying every branch simultaneously
+     * are valid, so the PHP type is the intersection. Branches with no declared type impose no
+     * constraint and are excluded from the intersection. An empty intersection (contradictory
+     * branch types) throws SchemaException because no value can ever be valid.
+     *
+     * anyOf / oneOf: union of all typed branch types — at least one branch must pass, so the PHP
+     * type is the union. An untyped branch accepts every value, making the composition satisfied
+     * by any input; the property's type hint is removed (remains mixed) in that case.
+     *
+     * @param bool $isAllOf true for allOf, false for anyOf/oneOf.
      * @param CompositionPropertyDecorator[] $compositionProperties
+     *
+     * @throws SchemaException when allOf branches declare contradictory types.
      */
     protected function transferPropertyType(
         PropertyInterface $property,
@@ -317,16 +411,6 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             return;
         }
 
-        $allNames = array_merge(...array_map(
-            static fn(CompositionPropertyDecorator $p): array =>
-                $p->getType() ? $p->getType()->getNames() : [],
-            $activeBranches,
-        ));
-
-        $hasBranchWithNoType = array_filter(
-            $activeBranches,
-            static fn(CompositionPropertyDecorator $p): bool => $p->getType() === null,
-        ) !== [];
 
         $hasBranchWithRequiredProperty = array_filter(
             $activeBranches,
@@ -340,18 +424,147 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 static fn(CompositionPropertyDecorator $p): bool => !$p->isRequired(),
             ) !== [];
 
-        $hasNull = in_array('null', $allNames, true);
+        if ($isAllOf) {
+            $this->transferAllOfType($property, $compositionProperties, $hasBranchWithOptionalProperty);
+            return;
+        }
+
+        $this->transferAnyOfOneOfType($property, $compositionProperties, $hasBranchWithOptionalProperty);
+    }
+
+    /**
+     * Derive and apply the parent property's type using allOf intersection semantics.
+     *
+     * Only typed branches (those that declare a type keyword) constrain the intersection.
+     * Untyped branches impose no type restriction and are excluded. Null is valid only when
+     * ALL typed branches allow it. An empty non-null intersection (contradictory types) throws
+     * SchemaException — no value can satisfy all branch type constraints simultaneously.
+     *
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     *
+     * @throws SchemaException
+     */
+    private function transferAllOfType(
+        PropertyInterface $property,
+        array $compositionProperties,
+        bool $hasBranchWithOptionalProperty,
+    ): void {
+        $constrainingBranches = array_values(array_filter(
+            $compositionProperties,
+            static fn(CompositionPropertyDecorator $p): bool => $p->getType() !== null,
+        ));
+
+        if (empty($constrainingBranches)) {
+            // No typed branches — no type constraint to apply.
+            return;
+        }
+
+        // Intersection of non-null type names across all typed branches.
+        // TypeIntersection::compute handles int ⊂ float (integer is a subtype of number in JSON Schema).
+        $nonNullSets = array_map(
+            static fn(CompositionPropertyDecorator $p): array => array_values(array_filter(
+                $p->getType()->getNames(),
+                static fn(string $typeName): bool => $typeName !== 'null',
+            )),
+            $constrainingBranches,
+        );
+        $nonNullNames = array_shift($nonNullSets);
+        foreach ($nonNullSets as $typeSet) {
+            $nonNullNames = TypeIntersection::compute($nonNullNames, $typeSet);
+        }
+
+        // Null is valid in allOf only when ALL typed branches allow it.
+        $allBranchesAllowNull = count(array_filter(
+            $constrainingBranches,
+            static fn(CompositionPropertyDecorator $p): bool =>
+                in_array('null', $p->getType()->getNames(), true)
+                || $p->getType()->isNullable() === true,
+        )) === count($constrainingBranches);
+
+        if (empty($nonNullNames) && !$allBranchesAllowNull) {
+            throw new SchemaException(sprintf(
+                "Property '%s' is defined with conflicting types in allOf composition branches"
+                    . ' (file %s). allOf requires all constraints to hold simultaneously,'
+                    . ' making this schema unsatisfiable.',
+                $property->getName(),
+                $property->getJsonSchema()->getFile(),
+            ));
+        }
+
+        if (empty($nonNullNames)) {
+            // Only null survives the intersection; the null-processor path handles pure-null types.
+            return;
+        }
+
+        $nullable = ($allBranchesAllowNull || $hasBranchWithOptionalProperty) ? true : null;
+        $property->setType(new PropertyType($nonNullNames, $nullable));
+    }
+
+    /**
+     * Derive and apply the parent property's type using anyOf/oneOf union semantics.
+     *
+     * Branches are partitioned into three categories:
+     * - Typed (getType() !== null): contribute their names to the union.
+     * - Explicit null-type ({type:null}): getType() is null but typeHint contains 'null';
+     *   contributes nullable=true to the result.
+     * - Truly untyped ({}): getType() is null and typeHint does not contain 'null'; the branch
+     *   accepts every value, so the composition is always satisfiable and no type hint applies.
+     *
+     * A truly untyped branch causes early return without setting a type (property remains mixed),
+     * matching the behaviour of PropertyMerger::mergeNullableBranch for object-level compositions.
+     * An explicit null-type branch ({type:null}) is NOT treated as untyped — it adds nullable=true
+     * to the typed union rather than removing the type hint.
+     *
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     */
+    private function transferAnyOfOneOfType(
+        PropertyInterface $property,
+        array $compositionProperties,
+        bool $hasBranchWithOptionalProperty,
+    ): void {
+        $hasExplicitNullBranch = false;
+
+        foreach ($compositionProperties as $compositionProperty) {
+            if ($compositionProperty->getType() !== null) {
+                continue;
+            }
+
+            if (str_contains($compositionProperty->getTypeHint(), 'null')) {
+                // Explicit null-type branch ({type: null}): contributes nullable=true.
+                $hasExplicitNullBranch = true;
+            } else {
+                // Truly untyped branch ({}): any value is valid, so the composition is
+                // always satisfiable — no type hint is appropriate for this property.
+                return;
+            }
+        }
+
+        $typedBranches = array_values(array_filter(
+            $compositionProperties,
+            static fn(CompositionPropertyDecorator $p): bool => $p->getType() !== null,
+        ));
+
+        if (empty($typedBranches)) {
+            // Only explicit null branches; no scalar type to build a union from.
+            return;
+        }
+
+        $allNames = array_merge(...array_map(
+            static fn(CompositionPropertyDecorator $p): array => $p->getType()->getNames(),
+            $typedBranches,
+        ));
+
+        $hasNull = $hasExplicitNullBranch || in_array('null', $allNames, true);
         $nonNullNames = array_values(array_filter(
             array_unique($allNames),
-            fn(string $t): bool => $t !== 'null',
+            static fn(string $typeName): bool => $typeName !== 'null',
         ));
 
         if (!$nonNullNames) {
             return;
         }
 
-        $nullable = ($hasNull || $hasBranchWithNoType || $hasBranchWithOptionalProperty) ? true : null;
-
+        $nullable = ($hasNull || $hasBranchWithOptionalProperty) ? true : null;
         $property->setType(new PropertyType($nonNullNames, $nullable));
     }
 }

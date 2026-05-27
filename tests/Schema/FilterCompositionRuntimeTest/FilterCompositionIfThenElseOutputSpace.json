@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": [
+        "string",
+        "integer"
+      ],
+      "filter": "stringToInt",
+      "if": {
+        "minimum": 0
+      },
+      "then": {
+        "maximum": 100
+      },
+      "else": {
+        "minimum": -100
+      }
+    }
+  }
+}

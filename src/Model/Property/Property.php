@@ -197,8 +197,11 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
-    public function addValidator(PropertyValidatorInterface $validator, int $priority = 99): PropertyInterface
-    {
+    public function addValidator(
+        PropertyValidatorInterface $validator,
+        int $priority = 99,
+        ?string $sourceKey = null,
+    ): PropertyInterface {
         if (!$validator->isResolved()) {
             $this->isResolved = false;
 
@@ -211,7 +214,12 @@ class Property extends AbstractProperty
             });
         }
 
-        $this->validators[] = new Validator($validator, $priority);
+        $wrapper = new Validator($validator, $priority);
+        if ($sourceKey !== null) {
+            $wrapper->setSourceKey($sourceKey);
+        }
+
+        $this->validators[] = $wrapper;
 
         return $this;
     }

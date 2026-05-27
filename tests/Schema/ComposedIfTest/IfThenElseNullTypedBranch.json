@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "string",
+      "if": {
+        "minLength": 5
+      },
+      "then": {
+        "type": "null"
+      },
+      "else": {
+        "type": "string"
+      }
+    }
+  }
+}

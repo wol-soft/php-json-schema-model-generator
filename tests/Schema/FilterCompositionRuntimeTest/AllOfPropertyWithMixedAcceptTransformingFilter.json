@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "filter": "mixedAcceptDateTimeFilter",
+      "allOf": [
+        {
+          "type": "string"
+        }
+      ]
+    }
+  }
+}

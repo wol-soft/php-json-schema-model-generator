@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "filter": "dateTime"
+    }
+  },
+  "if": {
+    "properties": {
+      "filteredProperty": false
+    }
+  },
+  "then": {
+    "properties": {
+      "otherProperty": {
+        "type": "string"
+      }
+    }
+  }
+}

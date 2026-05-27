@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "maximum": 150
+        }
+      ]
+    }
+  }
+}
