@@ -25,6 +25,8 @@ class CompositionPropertyDecorator extends PropertyProxy
      */
     protected $affectedObjectProperties = [];
 
+    private bool $alwaysTrueBranch = false;
+
     /**
      * CompositionPropertyDecorator constructor.
      *
@@ -58,6 +60,16 @@ class CompositionPropertyDecorator extends PropertyProxy
     public function getAffectedObjectProperties(): array
     {
         return $this->affectedObjectProperties;
+    }
+
+    public function markAsAlwaysTrueBranch(): void
+    {
+        $this->alwaysTrueBranch = true;
+    }
+
+    public function isAlwaysTrueBranch(): bool
+    {
+        return $this->alwaysTrueBranch;
     }
 
     /**

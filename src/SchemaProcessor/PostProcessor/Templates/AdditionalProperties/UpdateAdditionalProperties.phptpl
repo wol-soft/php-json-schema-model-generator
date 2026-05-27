@@ -8,7 +8,7 @@
             }
         {% endif %}
 
-        $this->additionalProperties[$propertyKey] = $value[$propertyKey];
+        $this->_additionalProperties[$propertyKey] = $value[$propertyKey];
     }
 
     return false;

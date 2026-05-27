@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator\Factory\Composition;
 
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
-use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
@@ -18,9 +17,6 @@ class AllOfValidatorFactory
     extends AbstractCompositionValidatorFactory
     implements ComposedPropertiesValidatorFactoryInterface
 {
-    /**
-     * @throws SchemaException
-     */
     public function modify(
         SchemaProcessor $schemaProcessor,
         Schema $schema,
@@ -29,6 +25,14 @@ class AllOfValidatorFactory
     ): void {
         if (!isset($propertySchema->getJson()[$this->key]) || $this->shouldSkip($property, $propertySchema)) {
             return;
+        }
+
+        if (in_array(false, $propertySchema->getJson()[$this->key], true)) {
+            $this->warnIfAlwaysFalse(
+                $schemaProcessor,
+                $property,
+                'allOf contains a false branch which can never be satisfied',
+            );
         }
 
         $this->warnIfEmpty($schemaProcessor, $property, $propertySchema);

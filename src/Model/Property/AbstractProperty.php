@@ -49,11 +49,11 @@ abstract class AbstractProperty implements PropertyInterface
      */
     public function getAttribute(bool $variableName = false): string
     {
-        if (!$this->isInternal() && $variableName && preg_match('/^\d/', $this->attribute) === 1) {
-            return 'numeric_property_' . $this->attribute;
-        }
+        $attribute = !$this->isInternal() && $variableName && preg_match('/^\d/', $this->attribute) === 1
+            ? 'numeric_property_' . $this->attribute
+            : $this->attribute;
 
-        return $this->attribute;
+        return ($this->isInternal() ? '_' : '') . $attribute;
     }
 
     /**

@@ -146,7 +146,7 @@ class PatternPropertiesPostProcessor extends PostProcessor
 
                     foreach ($matchingProperties as $matchingProperty) {
                         $code .= sprintf(
-                            '$this->patternProperties["%s"]["%s"] = &$this->%s;' . PHP_EOL,
+                            '$this->_patternProperties["%s"]["%s"] = &$this->%s;' . PHP_EOL,
                             $hash,
                             $matchingProperty->getName(),
                             $matchingProperty->getAttribute(true),

@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "anything": true,
+    "other": {
+      "type": "string"
+    }
+  },
+  "dependencies": {
+    "anything": [
+      "other"
+    ]
+  }
+}
