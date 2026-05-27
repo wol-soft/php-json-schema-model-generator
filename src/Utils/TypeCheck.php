@@ -4,8 +4,15 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Utils;
 
+use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
+use PHPModelGenerator\Model\Validator\PassThroughTypeCheckValidator;
+use PHPModelGenerator\Model\Validator\TypeCheckValidator;
+
 /**
- * Utility for building runtime type-check expressions in generated PHP code.
+ * Utility for building runtime type-check expressions in generated PHP code,
+ * and for upgrading TypeCheckValidator instances to PassThroughTypeCheckValidator.
  *
  * Converts PHP type names to expressions like is_string($value) for primitives
  * or $value instanceof ClassName for classes.
@@ -68,5 +75,49 @@ class TypeCheck
         }
 
         return '!(' . implode(' || ', $checks) . ')';
+    }
+
+    /**
+     * Replace the property's TypeCheckValidator / MultiTypeCheckValidator with a
+     * PassThroughTypeCheckValidator that also allows the given pass-through type names.
+     *
+     * This ensures that an already-transformed value (e.g. an enum instance produced by a
+     * transforming filter) bypasses the original scalar type check while non-conforming values
+     * are still rejected.
+     *
+     * When called a second time the TypeCheckValidator has already been replaced by a
+     * PassThroughTypeCheckValidator, which does not match the filter predicate, so the call
+     * is silently skipped.
+     *
+     * @param string[] $passThroughTypeNames Simple PHP type names of the transformed output
+     *                                       (e.g. ['DateTime'] or ['MyEnum'])
+     */
+    public static function extendTypeCheckValidatorToAllowTransformedValue(
+        PropertyInterface $property,
+        array $passThroughTypeNames,
+    ): void {
+        $typeCheckValidator = null;
+
+        $property->filterValidators(static function (Validator $validator) use (&$typeCheckValidator): bool {
+            if (
+                is_a($validator->getValidator(), TypeCheckValidator::class) ||
+                is_a($validator->getValidator(), MultiTypeCheckValidator::class)
+            ) {
+                $typeCheckValidator = $validator->getValidator();
+                return false;
+            }
+
+            return true;
+        });
+
+        if (
+            $typeCheckValidator instanceof TypeCheckValidator
+            || $typeCheckValidator instanceof MultiTypeCheckValidator
+        ) {
+            $property->addValidator(
+                new PassThroughTypeCheckValidator($passThroughTypeNames, $property, $typeCheckValidator),
+                2,
+            );
+        }
     }
 }
