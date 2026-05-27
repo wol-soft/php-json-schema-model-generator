@@ -17,10 +17,7 @@ use PHPModelGenerator\Model\Validator\AbstractPropertyValidator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\FormatValidator;
-use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
-use PHPModelGenerator\Model\Validator\PassThroughTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\Model\Validator\TypeCheckValidator;
 use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeCheck;
@@ -179,7 +176,7 @@ class FilterProcessor
      * @throws ReflectionException
      * @throws SchemaException
      */
-    public function applyOutputType(
+    private function applyOutputType(
         PropertyInterface $property,
         TransformingFilterInterface $filter,
         array $returnTypeNames,
@@ -231,52 +228,13 @@ class FilterProcessor
     }
 
     /**
-     * Replace the property's TypeCheckValidator / MultiTypeCheckValidator with a
-     * PassThroughTypeCheckValidator that also allows the given pass-through type names.
-     *
-     * When called a second time, the TypeCheckValidator has already been replaced by a
-     * PassThroughTypeCheckValidator, which does not match the filter predicate, so the call
-     * is silently skipped.
-     *
-     * @param string[] $passThroughTypeNames
-     */
-    public function extendTypeCheckValidatorToAllowTransformedValue(
-        PropertyInterface $property,
-        array $passThroughTypeNames,
-    ): void {
-        $typeCheckValidator = null;
-
-        $property->filterValidators(static function (Validator $validator) use (&$typeCheckValidator): bool {
-            if (
-                is_a($validator->getValidator(), TypeCheckValidator::class) ||
-                is_a($validator->getValidator(), MultiTypeCheckValidator::class)
-            ) {
-                $typeCheckValidator = $validator->getValidator();
-                return false;
-            }
-
-            return true;
-        });
-
-        if (
-            $typeCheckValidator instanceof TypeCheckValidator
-            || $typeCheckValidator instanceof MultiTypeCheckValidator
-        ) {
-            $property->addValidator(
-                new PassThroughTypeCheckValidator($passThroughTypeNames, $property, $typeCheckValidator),
-                2,
-            );
-        }
-    }
-
-    /**
      * Apply a pass-through check to each FilterValidator and EnumValidator already associated
      * with the given property so that pre-transform filters and enum checks are skipped when
      * an already-transformed value is provided.
      *
      * @param string[] $returnTypeNames Non-null return type names of the transforming filter.
      */
-    public function addTransformedValuePassThrough(
+    private function addTransformedValuePassThrough(
         PropertyInterface $property,
         TransformingFilterInterface $filter,
         array $returnTypeNames,

@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "string",
+      "enum": [
+        "foo",
+        "bar",
+        1234
+      ]
+    }
+  }
+}

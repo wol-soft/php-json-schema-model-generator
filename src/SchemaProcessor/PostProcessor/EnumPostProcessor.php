@@ -19,11 +19,11 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\Utils\ArrayHash;
 use PHPModelGenerator\Utils\NormalizedName;
+use PHPModelGenerator\Utils\TypeCheck;
 
 /**
  * Generates a PHP enum for enums from JSON schemas which are automatically mapped for properties holding the enum
@@ -63,14 +63,20 @@ class EnumPostProcessor extends PostProcessor
         foreach ($schema->getProperties() as $property) {
             $json = $property->getJsonSchema()->getJson();
 
-            if (!isset($json['enum']) || !$this->validateEnum($property)) {
+            if (!isset($json['enum'])) {
+                continue;
+            }
+
+            // Filter incompatible values before validation so that e.g. a string-typed enum
+            // with a stray integer value is still valid (and the integer is removed with a warning).
+            $values = $this->filterValuesByDeclaredType($json, $property);
+
+            if (!$this->validateEnum($property, $values)) {
                 continue;
             }
 
             $this->checkForExistingTransformingFilter($property);
-
-            $values = $json['enum'];
-            $enumSignature = ArrayHash::hash($json, ['enum', 'enum-map', 'title', '$id']);
+            $enumSignature = ArrayHash::hash($json, ['enum', 'enum-map', 'title', '$id', 'type']);
             $enumName = $json['title']
                 ?? basename($json['$id'] ?? $schema->getClassName() . ucfirst($property->getName()));
 
@@ -114,13 +120,15 @@ class EnumPostProcessor extends PostProcessor
                 $property->setDefaultValue("$name::$caseName", true);
             }
 
-            // remove the enum validator as the validation is performed by the PHP enum;
-            // also remove any type-check validators (e.g. is_string from "type": "string") since
-            // the enum filter performs the conversion and the UnitEnum guard covers the type safety
+            // TransformingFilterOutputTypePostProcessor runs before user post-processors and
+            // therefore never sees the FilterValidator added above. Call the extension directly
+            // so that any TypeCheckValidator added by a "type" keyword is wrapped into a
+            // PassThroughTypeCheckValidator that accepts already-transformed enum instances.
+            TypeCheck::extendTypeCheckValidatorToAllowTransformedValue($property, [$name]);
+
+            // remove the enum validator as the validation is performed by the PHP enum
             $property->filterValidators(
-                static fn(Validator $validator): bool =>
-                    !is_a($validator->getValidator(), EnumValidator::class)
-                    && !($validator->getValidator() instanceof TypeCheckInterface),
+                static fn(Validator $validator): bool => !is_a($validator->getValidator(), EnumValidator::class),
             );
 
             // if an enum value is provided the transforming filter will add a value pass through. As the filter doesn't
@@ -175,7 +183,7 @@ class EnumPostProcessor extends PostProcessor
     /**
      * @throws SchemaException
      */
-    private function validateEnum(PropertyInterface $property): bool
+    private function validateEnum(PropertyInterface $property, array $values): bool
     {
         $throw = function (string $message) use ($property): void {
             throw new SchemaException(
@@ -189,7 +197,7 @@ class EnumPostProcessor extends PostProcessor
 
         $json = $property->getJsonSchema()->getJson();
 
-        $types = $this->getArrayTypes($json['enum']);
+        $types = $this->getArrayTypes($values);
 
         // the enum must contain either only string values or provide a value map to resolve the values
         if ($types !== ['string'] && !isset($json['enum-map'])) {
@@ -201,25 +209,95 @@ class EnumPostProcessor extends PostProcessor
         }
 
         if (isset($json['enum-map'])) {
-            asort($json['enum']);
-            if (is_array($json['enum-map'])) {
-                asort($json['enum-map']);
+            $sortedValues = $values;
+            asort($sortedValues);
+            $enumMap = $json['enum-map'];
+            if (is_array($enumMap)) {
+                asort($enumMap);
             }
 
             if (
-                !is_array($json['enum-map'])
-                || $this->getArrayTypes(array_keys($json['enum-map'])) !== ['string']
+                !is_array($enumMap)
+                || $this->getArrayTypes(array_keys($enumMap)) !== ['string']
                 || count(array_uintersect(
-                    $json['enum-map'],
-                    $json['enum'],
+                    $enumMap,
+                    $sortedValues,
                     fn($a, $b): int => $a === $b ? 0 : 1,
-                )) !== count($json['enum'])
+                )) !== count($sortedValues)
             ) {
                 $throw('invalid enum map %s in file %s');
             }
         }
 
         return true;
+    }
+
+    /**
+     * Return the enum values restricted to those compatible with the declared "type" keyword.
+     * Removes values that can never satisfy the type constraint and emits a warning for each
+     * removed value so the developer is aware at generation time.
+     */
+    private function filterValuesByDeclaredType(array $json, PropertyInterface $property): array
+    {
+        $values = $json['enum'];
+
+        if (!isset($json['type'])) {
+            return $values;
+        }
+
+        $declaredTypes = is_array($json['type']) ? $json['type'] : [$json['type']];
+
+        // Map JSON Schema type names to PHP gettype() return values
+        $phpTypeMap = [
+            'string'  => ['string'],
+            'integer' => ['integer'],
+            'number'  => ['integer', 'double'],
+            'boolean' => ['boolean'],
+            'null'    => ['NULL'],
+            'array'   => ['array'],
+            'object'  => ['object'],
+        ];
+
+        $allowedPhpTypes = [];
+        foreach ($declaredTypes as $declaredType) {
+            if (isset($phpTypeMap[$declaredType])) {
+                $allowedPhpTypes = array_merge($allowedPhpTypes, $phpTypeMap[$declaredType]);
+            }
+        }
+
+        if (empty($allowedPhpTypes)) {
+            return $values;
+        }
+
+        $compatibleValues = [];
+        $removedValues    = [];
+
+        foreach ($values as $value) {
+            if (in_array(gettype($value), $allowedPhpTypes, true)) {
+                $compatibleValues[] = $value;
+            } else {
+                $removedValues[] = $value;
+            }
+        }
+
+        if (!empty($removedValues)) {
+            $typeLabel   = implode('|', $declaredTypes);
+            $removedList = implode(', ', array_map(
+                static fn($value): string => var_export($value, true),
+                $removedValues,
+            ));
+
+            echo sprintf(
+                "Warning: enum property '%s' in file %s declares type '%s' but contains incompatible values: %s."
+                    . " These values have been removed from the generated enum.\n",
+                $property->getName(),
+                $property->getJsonSchema()->getFile(),
+                $typeLabel,
+                $removedList,
+            );
+        }
+
+        return $compatibleValues;
     }
 
     private function getArrayTypes(array $array): array
