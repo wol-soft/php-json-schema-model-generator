@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "If the submitted value contains unresolved template tokens (e.g., {{product_name}}), validation against allowed_values MUST be deferred until interpolation is complete."
+    }
+  },
+  "required": ["name"]
+}

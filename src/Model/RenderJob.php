@@ -113,9 +113,11 @@ class RenderJob
         );
 
         try {
-            $class = (new Render(__DIR__ . '/../Templates/'))->renderTemplate(
-                'Model.phptpl',
-                [
+            $class = (new Render(__DIR__ . '/../Templates/'))
+                ->onResolveError(fn(string $expression): string => '{{' . $expression . '}}')
+                ->renderTemplate(
+                    'Model.phptpl',
+                    [
                     'namespace'                         => $namespace,
                     'use'                               => $this->getUseForSchema($generatorConfiguration, $namespace),
                     'schema'                            => $this->schema,
@@ -128,8 +130,8 @@ class RenderJob
                         $this->schema->getBaseValidators(),
                         static fn($validator): bool => !is_a($validator, AbstractComposedPropertyValidator::class),
                     ),
-                ],
-            );
+                    ],
+                );
         } catch (PHPMicroTemplateException $exception) {
             // @codeCoverageIgnoreStart
             throw new RenderException(
