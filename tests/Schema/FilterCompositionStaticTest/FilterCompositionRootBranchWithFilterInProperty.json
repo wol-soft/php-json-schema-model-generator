@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": "string",
+      "filter": "dateTime"
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "filteredProperty": {
+          "filter": "trim"
+        }
+      }
+    }
+  ]
+}

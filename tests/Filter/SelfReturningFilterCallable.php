@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace PHPModelGenerator\Tests\Basic;
+namespace PHPModelGenerator\Tests\Filter;
 
 /**
  * Filter callable whose filter() declares a '?self' return type.
  *
- * Used by FilterTest::testTransformingFilterWithSelfReturnType to verify that
- * FilterReflection resolves 'self' to the declaring class FQCN before embedding
- * it in generated type hints and pass-through guards.
+ * Used by TransformingFilterTest to verify that FilterReflection resolves 'self'
+ * to the declaring class FQCN before embedding it in generated type hints and
+ * pass-through guards.
  */
 class SelfReturningFilterCallable
 {

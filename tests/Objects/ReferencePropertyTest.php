@@ -755,27 +755,48 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             'Invalid value for both persons' => [
                 ['personA' => 10, 'personB' => false],
                 <<<ERROR
-Invalid type for personA. Requires object, got integer
-Invalid type for personB. Requires object, got boolean
-ERROR
+                Invalid type for personA. Requires object, got integer
+                Invalid type for personB. Requires object, got boolean
+                ERROR,
             ],
             'Invalid names for personB' => [
                 ['personA' => ['name' => 'A'], 'personB' => ['name' => 10]],
                 <<<ERROR
-Invalid nested object for property personA:
-  - Value for name must not be shorter than 3
-Invalid nested object for property personB:
-  - Invalid type for name. Requires string, got integer
-ERROR
+                Invalid nested object for property personA:
+                  - Value for name must not be shorter than 3
+                Invalid nested object for property personB:
+                  - Invalid type for name. Requires string, got integer
+                ERROR,
             ],
             'Combined top level validation error and nested error' => [
                 ['personA' => ['name' => 'A'], 'personB' => 10],
                 <<<ERROR
-Invalid nested object for property personA:
-  - Value for name must not be shorter than 3
-Invalid type for personB. Requires object, got integer
-ERROR
+                Invalid nested object for property personA:
+                  - Value for name must not be shorter than 3
+                Invalid type for personB. Requires object, got integer
+                ERROR,
             ],
         ];
+    }
+
+    /**
+     * When a property uses $ref to point to a definition that carries $comment and examples
+     * annotations, the PropertyProxy delegates getComment() and getExamples() to the
+     * underlying property. The template calls both methods on every rendered property, so
+     * generation successfully produces a class and the proxy delegation is exercised.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testRefPropertyWithCommentAndExamplesAnnotationsGeneratesSuccessfully(): void
+    {
+        $className = $this->generateClassFromFile('AnnotatedDefinitionRef.json');
+
+        $object = new $className([]);
+        $this->assertNull($object->getLabel());
+
+        $object = new $className(['label' => 'hello']);
+        $this->assertSame('hello', $object->getLabel());
     }
 }

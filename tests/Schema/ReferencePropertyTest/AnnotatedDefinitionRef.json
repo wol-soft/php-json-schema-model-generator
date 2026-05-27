@@ -1,0 +1,17 @@
+{
+  "definitions": {
+    "annotatedString": {
+      "type": "string",
+      "$comment": "This is a note about the annotated string definition",
+      "examples": [
+        "example value"
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "label": {
+      "$ref": "#/definitions/annotatedString"
+    }
+  }
+}

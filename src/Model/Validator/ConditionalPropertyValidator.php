@@ -53,6 +53,9 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
         return $this->conditionBranches;
     }
 
+    /**
+     * Initialize variables required by the conditional validator.
+     */
     public function getValidatorSetUp(): string
     {
         return '$ifException = $thenException = $elseException = null;';

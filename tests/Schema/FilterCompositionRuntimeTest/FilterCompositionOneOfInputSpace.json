@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": "string",
+      "filter": "dateTime",
+      "oneOf": [
+        {
+          "minLength": 5
+        },
+        {
+          "maxLength": 3
+        }
+      ]
+    }
+  }
+}

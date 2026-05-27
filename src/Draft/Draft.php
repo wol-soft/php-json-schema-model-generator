@@ -30,6 +30,25 @@ final class Draft
     }
 
     /**
+     * Returns the JSON Schema type names (e.g. 'string', 'integer', 'object') whose registered
+     * modifiers or validator-factories carry the given schema keyword.
+     *
+     * @return string[]
+     */
+    public function getTypesForKeyword(string $keyword): array
+    {
+        $typeNames = [];
+
+        foreach ($this->types as $typeName => $type) {
+            if (array_key_exists($keyword, $type->getModifiers())) {
+                $typeNames[] = $typeName;
+            }
+        }
+
+        return $typeNames;
+    }
+
+    /**
      * Returns the Type entries whose modifiers apply to a property of the given type(s).
      * The special type 'any' always applies to every property; passing 'any' returns all types.
      *

@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "filter": "dateTime",
+      "oneOf": [
+        {
+          "minLength": 1
+        },
+        {
+          "minProperties": 1
+        }
+      ]
+    }
+  }
+}

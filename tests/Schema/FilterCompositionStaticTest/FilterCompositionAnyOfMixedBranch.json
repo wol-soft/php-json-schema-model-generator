@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "filter": "dateTime",
+      "anyOf": [
+        {
+          "minLength": 5,
+          "minProperties": 1
+        }
+      ]
+    }
+  }
+}

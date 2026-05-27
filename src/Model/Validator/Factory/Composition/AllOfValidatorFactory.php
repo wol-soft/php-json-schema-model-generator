@@ -37,6 +37,7 @@ class AllOfValidatorFactory
 
         $this->warnIfEmpty($schemaProcessor, $property, $propertySchema);
         $propertySchema = $this->inheritPropertyType($propertySchema);
+        $this->checkForFilterInBranches($property, $propertySchema);
 
         $wrappedSchema = $propertySchema->withJson([
             'type' => $this->key,

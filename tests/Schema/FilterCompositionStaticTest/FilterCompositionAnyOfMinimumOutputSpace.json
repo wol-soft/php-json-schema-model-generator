@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "filter": "stringToFloat",
+      "anyOf": [
+        {
+          "minimum": 0
+        }
+      ]
+    }
+  }
+}
