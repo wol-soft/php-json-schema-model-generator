@@ -245,6 +245,24 @@ class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * if: false, else: true — condition never matches so then never applies; else always applies
+     * but true imposes no constraint. The whole if/then/else imposes no constraint on the property.
+     */
+    public function testIfFalseElseTrueImposesNoConstraint(): void
+    {
+        $className = $this->generateClassFromFile('IfFalseElseTrue.json');
+
+        $object = new $className(['value' => 'hello']);
+        $this->assertSame('hello', $object->getValue());
+
+        $object2 = new $className(['value' => 42]);
+        $this->assertSame(42, $object2->getValue());
+
+        $object3 = new $className([]);
+        $this->assertNull($object3->getValue());
+    }
+
+    /**
      * if: false with a then but no else — condition never matches so then never applies.
      * The whole if/then/else imposes no constraint on the property.
      */

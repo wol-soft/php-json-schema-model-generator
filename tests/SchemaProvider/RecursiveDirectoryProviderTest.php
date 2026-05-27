@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\SchemaProvider;
 
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
@@ -27,6 +28,48 @@ class RecursiveDirectoryProviderTest extends TestCase
     {
         $this->removeDirectory($this->schemaDir);
         $this->removeDirectory($this->outputDir);
+    }
+
+    /**
+     * A file whose content is empty (zero bytes) cannot be parsed and must throw a SchemaException
+     * rather than silently skipping or producing garbled output.
+     */
+    public function testEmptyJsonFileThrowsSchemaException(): void
+    {
+        file_put_contents($this->schemaDir . '/empty.json', '');
+
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file .+empty\.json$/');
+
+        (new ModelGenerator(
+            (new GeneratorConfiguration())->setOutputEnabled(false),
+        ))->generateModels(
+            new RecursiveDirectoryProvider($this->schemaDir),
+            $this->outputDir,
+        );
+    }
+
+    /**
+     * A $ref pointing to a file whose JSON is valid but decodes to a non-array value must cause
+     * getRef() to throw SchemaException. The referenced file cannot be used as a schema.
+     *
+     * Tested via a direct getRef() call so the exception is not wrapped by PropertyFactory.
+     */
+    public function testGetRefToNonObjectJsonThrowsSchemaException(): void
+    {
+        $refFilename = 'non_object_ref.json';
+        file_put_contents($this->schemaDir . '/' . $refFilename, '42');
+
+        $provider = new RecursiveDirectoryProvider($this->schemaDir);
+        // Use a normalised current-file path so dirname() produces a backslash-only path
+        // and the candidate path remains resolvable on all platforms.
+        $currentFile = realpath($this->schemaDir) . DIRECTORY_SEPARATOR . 'dummy.json';
+
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^Referenced JSON-Schema file .+ must contain a JSON object$/',
+        );
+        $provider->getRef($currentFile, null, $refFilename);
     }
 
     /**
