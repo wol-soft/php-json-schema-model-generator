@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "title": "Issue141Test",
+  "properties": {
+    "goal_type": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/GoalType"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "GoalType": {
+      "type": "string",
+      "enum": [
+        "clicks",
+        "impressions",
+        "conversions"
+      ]
+    }
+  }
+}

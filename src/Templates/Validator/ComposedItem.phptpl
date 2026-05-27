@@ -88,7 +88,7 @@
                     $proposedValue = $proposedValue ?? $value;
                 {% endif %}
 
-                if (is_object($value)) {
+                if (is_object($value) && is_array($originalModelData)) {
                     $modifiedValues = array_merge($modifiedValues, $this->{{ modifiedValuesMethod }}($originalModelData, $value));
                 }
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
