@@ -69,6 +69,11 @@ class ArrayItemValidator extends ExtractedMethodValidator
         );
     }
 
+    public function getNestedProperty(): PropertyInterface
+    {
+        return $this->nestedProperty;
+    }
+
     /**
      * @inheritDoc
      */

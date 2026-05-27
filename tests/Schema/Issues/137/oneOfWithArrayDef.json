@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "title": "Issue137Test",
+  "properties": {
+    "status_filter": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/MediaBuyStatus"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MediaBuyStatus"
+          },
+          "minItems": 1
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "MediaBuyStatus": {
+      "type": "string",
+      "enum": [
+        "pending_creatives",
+        "pending_start",
+        "active",
+        "paused",
+        "ended",
+        "archived"
+      ]
+    }
+  }
+}

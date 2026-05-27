@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "title": "OneOfWithoutTypeTest",
+  "properties": {
+    "item": {
+      "oneOf": [
+        {
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": ["name"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "id": {
+              "type": "integer"
+            }
+          },
+          "required": ["id"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

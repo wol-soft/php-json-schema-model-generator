@@ -111,27 +111,50 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
     /**
      * Inherit a parent-level type into composition branches that declare no type.
+     *
+     * When the parent has no explicit type, branches that use object-like keywords
+     * (properties, required, additionalProperties) are inferred as type: object.
+     * This ensures each branch generates its own nested class/validation scope,
+     * matching the pre-refactoring AnyProcessor behavior.
      */
     protected function inheritPropertyType(JsonSchema $propertySchema): JsonSchema
     {
         $json = $propertySchema->getJson();
 
-        if (!isset($json['type'])) {
-            return $propertySchema;
-        }
+        $parentHasType = isset($json['type']);
+
+        $hasObjectKeywords = function (array $element): bool {
+            if (isset($element['type'])) {
+                return false;
+            }
+
+            return isset($element['properties'])
+                || isset($element['required'])
+                || isset($element['additionalProperties']);
+        };
 
         switch ($this->key) {
             case 'not':
-                if (!isset($json[$this->key]['type'])) {
-                    $json[$this->key]['type'] = $json['type'];
+                if (isset($json[$this->key]) && !isset($json[$this->key]['type'])) {
+                    if ($parentHasType) {
+                        $json[$this->key]['type'] = $json['type'];
+                    } elseif ($hasObjectKeywords($json[$this->key])) {
+                        $json[$this->key]['type'] = 'object';
+                    }
                 }
                 break;
             case 'if':
                 return $this->inheritIfPropertyType($propertySchema->withJson($json));
             default:
                 foreach ($json[$this->key] as &$composedElement) {
-                    if (!isset($composedElement['type'])) {
+                    if (isset($composedElement['type'])) {
+                        continue;
+                    }
+
+                    if ($parentHasType) {
                         $composedElement['type'] = $json['type'];
+                    } elseif ($hasObjectKeywords($composedElement)) {
+                        $composedElement['type'] = 'object';
                     }
                 }
         }

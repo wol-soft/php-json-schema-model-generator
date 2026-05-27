@@ -1,0 +1,40 @@
+{
+  "type": "object",
+  "title": "Issue133Test",
+  "properties": {
+    "oneOfWithMetricIdConflict": {
+      "oneOf": [
+        {
+          "properties": {
+            "metric_id": {
+              "type": "string",
+              "enum": ["impressions", "spend", "clicks", "ctr"]
+            },
+            "scope": {
+              "type": "string",
+              "enum": ["vendor"]
+            }
+          },
+          "required": ["metric_id", "scope"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "metric_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "scope": {
+              "type": "string",
+              "enum": ["standard"]
+            }
+          },
+          "required": ["metric_id", "scope"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}
