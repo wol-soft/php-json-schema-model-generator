@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator\Factory\Composition;
 
-use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
+use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
@@ -22,6 +23,21 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFactory
 {
+    /**
+     * Emit a generation-time warning for always-unsatisfiable composition schemas.
+     */
+    protected function warnIfAlwaysFalse(
+        SchemaProcessor $schemaProcessor,
+        PropertyInterface $property,
+        string $reason,
+    ): void {
+        if ($schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
+            // @codeCoverageIgnoreStart
+            echo "Warning: always-unsatisfiable schema for property '{$property->getName()}': $reason\n";
+            // @codeCoverageIgnoreEnd
+        }
+    }
+
     /**
      * Emit a warning when the composition array for the current keyword is empty.
      */
@@ -77,6 +93,26 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         $property->addTypeHintDecorator(new ClearTypeHintDecorator());
 
         foreach ($json[$this->key] as $index => $compositionElement) {
+            if ($compositionElement === false) {
+                $compositionProperties[] = $this->createAlwaysFalseBranchProperty(
+                    $schemaProcessor,
+                    $schema,
+                    $property,
+                    $propertySchema->getJson()['propertySchema'],
+                );
+                continue;
+            }
+
+            if ($compositionElement === true) {
+                $compositionProperties[] = $this->createAlwaysTrueBranchProperty(
+                    $schemaProcessor,
+                    $schema,
+                    $property,
+                    $propertySchema->getJson()['propertySchema'],
+                );
+                continue;
+            }
+
             $compositionSchema = $propertySchema->getJson()['propertySchema']->navigate("$this->key/$index");
 
             $compositionProperty = new CompositionPropertyDecorator(
@@ -110,6 +146,97 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     }
 
     /**
+     * Create a composition branch for a boolean `false` schema element.
+     *
+     * The branch always fails when the property key is present in $modelData, so absent optional
+     * properties are not denied. Used for false branches in allOf/anyOf/oneOf compositions.
+     */
+    protected function createAlwaysFalseBranchProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $parentSchema,
+    ): CompositionPropertyDecorator {
+        $propertyFactory = new PropertyFactory();
+        $branchSchema = $parentSchema->withJson([]);
+
+        $branchProperty = new CompositionPropertyDecorator(
+            $property->getName(),
+            $branchSchema,
+            $propertyFactory->create(
+                $schemaProcessor,
+                $schema,
+                $property->getName(),
+                $branchSchema,
+                $property->isRequired(),
+            ),
+        );
+
+        $presenceCheck = "array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
+
+        $branchProperty->onResolve(
+            function () use ($branchProperty, $presenceCheck): void {
+                $branchProperty->filterValidators(
+                    static fn(Validator $validator): bool =>
+                        !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
+                        !is_a($validator->getValidator(), ComposedPropertyValidator::class),
+                );
+                $branchProperty->addValidator(
+                    new PropertyValidator(
+                        $branchProperty,
+                        $presenceCheck,
+                        DeniedPropertyException::class,
+                    ),
+                );
+            },
+        );
+
+        return $branchProperty;
+    }
+
+    /**
+     * Create a composition branch for a boolean `true` schema element.
+     *
+     * The branch always succeeds (no validators) and is marked as an always-true branch so that
+     * type inference excludes it from type narrowing. Used for true branches in allOf/anyOf/oneOf.
+     */
+    protected function createAlwaysTrueBranchProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $parentSchema,
+    ): CompositionPropertyDecorator {
+        $propertyFactory = new PropertyFactory();
+        $branchSchema = $parentSchema->withJson([]);
+
+        $branchProperty = new CompositionPropertyDecorator(
+            $property->getName(),
+            $branchSchema,
+            $propertyFactory->create(
+                $schemaProcessor,
+                $schema,
+                $property->getName(),
+                $branchSchema,
+                $property->isRequired(),
+            ),
+        );
+
+        $branchProperty->markAsAlwaysTrueBranch();
+
+        $branchProperty->onResolve(function () use ($branchProperty): void {
+            $branchProperty->filterValidators(
+                static fn(Validator $validator): bool =>
+                    !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
+                    !is_a($validator->getValidator(), ComposedPropertyValidator::class),
+            );
+            // No validator added — true schema always succeeds.
+            // No type hint decorator — true schema contributes no type constraint.
+        });
+
+        return $branchProperty;
+    }
+
+    /**
      * Inherit a parent-level type into composition branches that declare no type.
      */
     protected function inheritPropertyType(JsonSchema $propertySchema): JsonSchema
@@ -130,7 +257,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 return $this->inheritIfPropertyType($propertySchema->withJson($json));
             default:
                 foreach ($json[$this->key] as &$composedElement) {
-                    if (!isset($composedElement['type'])) {
+                    if (!is_bool($composedElement) && !isset($composedElement['type'])) {
                         $composedElement['type'] = $json['type'];
                     }
                 }
@@ -147,7 +274,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         $json = $propertySchema->getJson();
 
         foreach (['if', 'then', 'else'] as $keyword) {
-            if (!isset($json[$keyword])) {
+            if (!isset($json[$keyword]) || is_bool($json[$keyword])) {
                 continue;
             }
 
@@ -177,26 +304,39 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             }
         }
 
+        // For anyOf/oneOf: a true branch always satisfies the composition for any value,
+        // so the property type cannot be narrowed — leave it untyped.
+        // For allOf: exclude true branches from type computation; they contribute no constraint.
+        $activeBranches = array_values(array_filter(
+            $compositionProperties,
+            static fn(CompositionPropertyDecorator $compositionProperty): bool =>
+                !$compositionProperty->isAlwaysTrueBranch(),
+        ));
+
+        if (!$isAllOf && count($activeBranches) < count($compositionProperties)) {
+            return;
+        }
+
         $allNames = array_merge(...array_map(
             static fn(CompositionPropertyDecorator $p): array =>
                 $p->getType() ? $p->getType()->getNames() : [],
-            $compositionProperties,
+            $activeBranches,
         ));
 
         $hasBranchWithNoType = array_filter(
-            $compositionProperties,
+            $activeBranches,
             static fn(CompositionPropertyDecorator $p): bool => $p->getType() === null,
         ) !== [];
 
         $hasBranchWithRequiredProperty = array_filter(
-            $compositionProperties,
+            $activeBranches,
             static fn(CompositionPropertyDecorator $p): bool => $p->isRequired(),
         ) !== [];
 
         $hasBranchWithOptionalProperty = $isAllOf
             ? !$hasBranchWithRequiredProperty
             : array_filter(
-                $compositionProperties,
+                $activeBranches,
                 static fn(CompositionPropertyDecorator $p): bool => !$p->isRequired(),
             ) !== [];
 

@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "value": {
+      "allOf": [
+        true,
+        true
+      ]
+    }
+  }
+}

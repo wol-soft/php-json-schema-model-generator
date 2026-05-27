@@ -22,10 +22,19 @@ class SingleFileProvider implements SchemaProviderInterface
     {
         $this->sourceFile = realpath($this->sourceFile) ?: $this->sourceFile;
         $jsonSchemaContent = @file_get_contents($this->sourceFile);
-        $decoded = $jsonSchemaContent !== false ? json_decode($jsonSchemaContent, true) : null;
 
-        if (!$decoded) {
+        if ($jsonSchemaContent === false) {
             throw new SchemaException("Invalid JSON-Schema file {$this->sourceFile}");
+        }
+
+        $decoded = json_decode($jsonSchemaContent, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new SchemaException("Invalid JSON-Schema file {$this->sourceFile}");
+        }
+
+        if (!is_array($decoded)) {
+            throw new SchemaException("JSON-Schema file {$this->sourceFile} must contain a JSON object");
         }
 
         $this->schema = $decoded;

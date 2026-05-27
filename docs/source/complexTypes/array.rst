@@ -143,6 +143,13 @@ The *getMembers* function of the class *Family* is type hinted with *@returns Me
 
     Arrays with item validation don't accept elements which contain `null`. If your array needs to accept `null` entries you have to add null to the type of your items explicitly (eg. "type": ["object", "null"]).
 
+The ``items`` keyword also accepts the boolean literals ``true`` and ``false``.
+
+``items: true`` — any array element is accepted; equivalent to not specifying ``items``.
+
+``items: false`` — the array must be empty. Providing a non-empty array throws a ``MaxItemsException``
+(Array X must not contain more than 0 items).
+
 Tuples
 ------
 
@@ -306,6 +313,14 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\ContainsEx
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+
+The ``contains`` keyword also accepts the boolean literals ``true`` and ``false``.
+
+``contains: true`` — the array must contain at least one element (since ``true`` validates everything,
+any element satisfies the constraint).
+
+``contains: false`` — no element could ever satisfy the constraint; any array value raises a
+``ContainsException`` at runtime. The generator also emits a warning at generation time.
 
 Size validation
 ---------------

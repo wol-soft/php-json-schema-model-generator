@@ -9,6 +9,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProvider\SingleFileProvider;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Class SingleFileProviderTest
@@ -58,23 +59,50 @@ class SingleFileProviderTest extends AbstractPHPModelGeneratorTestCase
      * Construction fails with a SchemaException for a non-existing file and for a file
      * containing invalid JSON — both represent an unusable schema source.
      */
-    public function testInvalidSourceThrowsSchemaException(): void
+    #[DataProvider('invalidSourceDataProvider')]
+    public function testInvalidSourceThrowsSchemaException(string $filePath): void
     {
-        // Non-existing file
-        try {
-            new SingleFileProvider('/non/existing/path.json');
-            $this->fail('Expected SchemaException for non-existing file');
-        } catch (SchemaException $schemaException) {
-            $this->assertMatchesRegularExpression('/^Invalid JSON-Schema file/', $schemaException->getMessage());
-        }
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file/');
+        new SingleFileProvider($filePath);
+    }
 
-        // File containing invalid JSON
+    public static function invalidSourceDataProvider(): array
+    {
+        return [
+            'non-existing file' => ['/non/existing/path.json'],
+            'invalid JSON file' => [__DIR__ . '/../Schema/SingleFileProviderTest/InvalidJSON.json'],
+        ];
+    }
+
+    /**
+     * A file whose JSON decodes to a non-object value (boolean, number, etc.) throws
+     * SchemaException — SingleFileProvider was given an explicit path and must report the problem.
+     */
+    #[DataProvider('nonObjectJsonDataProvider')]
+    public function testNonObjectSchemaThrowsSchemaException(string $jsonContent): void
+    {
+        $tempFile = sys_get_temp_dir() . '/phpModelGenTest_' . uniqid() . '.json';
+        file_put_contents($tempFile, $jsonContent);
+
         try {
-            new SingleFileProvider($this->getSchemaFilePath('InvalidJSON.json'));
-            $this->fail('Expected SchemaException for invalid JSON file');
-        } catch (SchemaException $schemaException) {
-            $this->assertMatchesRegularExpression('/^Invalid JSON-Schema file/', $schemaException->getMessage());
+            $this->expectException(SchemaException::class);
+            $this->expectExceptionMessageMatches('/must contain a JSON object/');
+            new SingleFileProvider($tempFile);
+        } finally {
+            @unlink($tempFile);
         }
+    }
+
+    public static function nonObjectJsonDataProvider(): array
+    {
+        return [
+            'boolean true'  => ['true'],
+            'boolean false' => ['false'],
+            'integer'       => ['42'],
+            'string'        => ['"hello"'],
+            'null'          => ['null'],
+        ];
     }
 
     /**

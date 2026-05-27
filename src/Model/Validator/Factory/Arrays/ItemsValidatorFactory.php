@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator\Factory\Arrays;
 
 use PHPModelGenerator\Exception\Arrays\AdditionalTupleItemsException;
+use PHPModelGenerator\Exception\Arrays\MaxItemsException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
@@ -34,6 +35,21 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         }
 
         $itemsSchema = $json[$this->key];
+
+        if (is_bool($itemsSchema)) {
+            if ($itemsSchema === false) {
+                $property->addValidator(
+                    new PropertyValidator(
+                        $property,
+                        'count($value) > 0',
+                        MaxItemsException::class,
+                        [0],
+                    ),
+                );
+            }
+
+            return;
+        }
 
         // tuple validation: items is a sequential array
         if (
