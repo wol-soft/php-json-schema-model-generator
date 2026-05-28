@@ -50,6 +50,8 @@ class Schema
      *                                    before adding properties to the model
      */
     protected $baseValidators = [];
+    /** @var PropertyValidatorInterface[] Validators that run after all composition validators */
+    private array $postCompositionValidators = [];
     /** @var string[] */
     protected $usedClasses = [];
     /** @var SchemaNamespaceTransferDecorator[] */
@@ -239,6 +241,21 @@ class Schema
         $this->baseValidators[] = $baseValidator;
 
         return $this;
+    }
+
+    public function addPostCompositionValidator(PropertyValidatorInterface $postCompositionValidator): self
+    {
+        $this->postCompositionValidators[] = $postCompositionValidator;
+
+        return $this;
+    }
+
+    /**
+     * @return PropertyValidatorInterface[]
+     */
+    public function getPostCompositionValidators(): array
+    {
+        return $this->postCompositionValidators;
     }
 
     public function getSchemaDictionary(): SchemaDefinitionDictionary

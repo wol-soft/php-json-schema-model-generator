@@ -62,7 +62,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
 
         {{ schemaHookResolver.resolveConstructorBeforeValidationHook() }}
 
-        {% if schema.getBaseValidators() %}
+        {% if schema.getBaseValidators() or schema.getPostCompositionValidators() %}
             $this->executeBaseValidators($rawModelDataInput);
         {% endif %}
 
@@ -83,7 +83,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
         {{ schemaHookResolver.resolveConstructorAfterValidationHook() }}
     }
 
-    {% if schema.getBaseValidators() %}
+    {% if schema.getBaseValidators() or schema.getPostCompositionValidators() %}
         protected function executeBaseValidators(array &$modelData): void
         {
             $value = &$modelData;
@@ -94,6 +94,10 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
 
             {% foreach schema.getCompositionValidatorKeys() as compositionValidatorKey %}
                 $this->validateComposition_{{ compositionValidatorKey }}($modelData);
+            {% endforeach %}
+
+            {% foreach schema.getPostCompositionValidators() as validator %}
+                {{ viewHelper.renderValidator(validator, schema) }}
             {% endforeach %}
         }
     {% endif %}

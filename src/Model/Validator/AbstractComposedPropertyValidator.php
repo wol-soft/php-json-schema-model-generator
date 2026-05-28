@@ -18,6 +18,8 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     /** @var CompositionPropertyDecorator[] */
     protected $composedProperties;
 
+    private bool $trackEvaluation = false;
+
     public function getCompositionProcessor(): string
     {
         return $this->compositionProcessor;
@@ -29,5 +31,19 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     public function getComposedProperties(): array
     {
         return $this->composedProperties;
+    }
+
+    /**
+     * When true, this validator's rendered output will emit the _compositionEvaluations
+     * cache field and per-branch slot writes needed for unevaluatedProperties tracking.
+     */
+    public function setTrackEvaluation(bool $trackEvaluation): void
+    {
+        $this->trackEvaluation = $trackEvaluation;
+    }
+
+    public function isTrackEvaluation(): bool
+    {
+        return $this->trackEvaluation;
     }
 }
