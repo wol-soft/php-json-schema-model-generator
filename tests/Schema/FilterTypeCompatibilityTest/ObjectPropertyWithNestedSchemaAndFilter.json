@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "filter": "objectToDateTime"
+    }
+  }
+}

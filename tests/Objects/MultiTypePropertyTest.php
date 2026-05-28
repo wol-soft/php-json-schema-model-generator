@@ -166,10 +166,10 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
             'Array with invalid items' => [
                 ['Hello', 123],
                 <<<ERROR
-Invalid items in array property:
-  - invalid item #1
-    * Invalid type for item of array property. Requires string, got integer
-ERROR
+                Invalid items in array property:
+                  - invalid item #1
+                    * Invalid type for item of array property. Requires string, got integer
+                ERROR,
             ]
         ];
     }
@@ -228,16 +228,16 @@ ERROR
             'invalid type' => [
                 ['name' => 42],
                 <<<ERROR
-Invalid nested object for property property:
-  - Invalid type for name. Requires string, got integer
-ERROR
+                Invalid nested object for property property:
+                  - Invalid type for name. Requires string, got integer
+                ERROR,
             ],
             'invalid additional property' => [
                 ['name' => 'Hans', 'age' => 42],
                 <<<ERROR
-Invalid nested object for property property:
-  - Provided JSON for MultiTypePropertyTest_\w+ contains not allowed additional properties \[age\]
-ERROR
+                Invalid nested object for property property:
+                  - Provided JSON for MultiTypePropertyTest_\w+ contains not allowed additional properties \[age\]
+                ERROR,
             ],
         ];
     }
@@ -287,10 +287,10 @@ ERROR
                 ['Test1', 1],
                 InvalidItemException::class,
                 <<<ERROR
-Invalid items in array property:
-  - invalid item #1
-    * Invalid type for item of array property. Requires [string, array], got integer
-ERROR
+                Invalid items in array property:
+                  - invalid item #1
+                    * Invalid type for item of array property. Requires [string, array], got integer
+                ERROR,
             ],
             'invalid array length' => [
                 [],
@@ -301,21 +301,21 @@ ERROR
                 ['Test1', [3, 'Test3']],
                 InvalidItemException::class,
                 <<<ERROR
-Invalid items in array property:
-  - invalid item #1
-    * Invalid items in array property:
-      - invalid item #0
-        * Invalid type for item of array property. Requires [string, array], got integer
-ERROR
+                Invalid items in array property:
+                  - invalid item #1
+                    * Invalid items in array property:
+                      - invalid item #0
+                        * Invalid type for item of array property. Requires [string, array], got integer
+                ERROR,
             ],
             'invalid array length in nested array' => [
                 ['Test1', []],
                 InvalidItemException::class,
                 <<<ERROR
-Invalid items in array property:
-  - invalid item #1
-    * Array item of array property must not contain less than 2 items
-ERROR
+                Invalid items in array property:
+                  - invalid item #1
+                    * Array item of array property must not contain less than 2 items
+                ERROR,
             ],
         ];
     }

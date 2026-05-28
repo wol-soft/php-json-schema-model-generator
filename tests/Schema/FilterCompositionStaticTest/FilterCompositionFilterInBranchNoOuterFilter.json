@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": "string",
+      "allOf": [
+        {
+          "filter": "trim"
+        }
+      ]
+    }
+  }
+}

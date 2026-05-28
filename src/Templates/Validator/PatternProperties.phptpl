@@ -1,9 +1,9 @@
 (function () use ($properties, &$invalidProperties, $modelData) {
     {% if generatorConfiguration.collectErrors() %}
-        $originalErrorRegistry = $this->errorRegistry;
+        $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
 
-    $rollbackValues = $this->patternProperties;
+    $rollbackValues = $this->_patternProperties;
 
     foreach ($properties as $propertyKey => $value) {
         $propertyKey = (string) $propertyKey;
@@ -13,7 +13,7 @@
             }
 
             {% if generatorConfiguration.collectErrors() %}
-                $this->errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+                $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
             {% endif %}
 
             {{ viewHelper.resolvePropertyDecorator(validationProperty) }}
@@ -23,13 +23,13 @@
             {% endforeach %}
 
             {% if generatorConfiguration.collectErrors() %}
-                if ($this->errorRegistry->getErrors()) {
-                    $invalidProperties[$propertyKey] = $this->errorRegistry->getErrors();
+                if ($this->_errorRegistry->getErrors()) {
+                    $invalidProperties[$propertyKey] = $this->_errorRegistry->getErrors();
                 }
             {% endif %}
 
-            if (!isset($this->patternPropertiesMap[$propertyKey])) {
-                $this->patternProperties['{{ patternHash }}'][$propertyKey] = $value;
+            if (!isset($this->_patternPropertiesMap[$propertyKey])) {
+                $this->_patternProperties['{{ patternHash }}'][$propertyKey] = $value;
             }
         } catch (\Exception $e) {
             // collect all errors concerning invalid pattern properties
@@ -40,11 +40,11 @@
     }
 
     {% if generatorConfiguration.collectErrors() %}
-        $this->errorRegistry = $originalErrorRegistry;
+        $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
     if (!empty($invalidProperties)) {
-        $this->patternProperties = $rollbackValues;
+        $this->_patternProperties = $rollbackValues;
     }
 
     return !empty($invalidProperties);

@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Draft;
 
 use PHPModelGenerator\Draft\Element\Type;
 use PHPModelGenerator\Draft\Modifier\DefaultArrayToEmptyArrayModifier;
+use PHPModelGenerator\Draft\Modifier\MediaStringModifier;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\IfValidatorFactory;
@@ -63,7 +64,8 @@ class Draft_07 implements DraftInterface
                 ->addValidator('pattern', new PatternPropertyValidatorFactory())
                 ->addValidator('minLength', new MinLengthPropertyValidatorFactory())
                 ->addValidator('maxLength', new MaxLengthValidatorFactory())
-                ->addValidator('format', new FormatValidatorFactory()))
+                ->addValidator('format', new FormatValidatorFactory())
+                ->addModifier(new MediaStringModifier()))
             ->addType((new Type('integer'))
                 ->addValidator('minimum', new MinimumValidatorFactory('is_int'))
                 ->addValidator('maximum', new MaximumValidatorFactory('is_int'))
@@ -82,12 +84,12 @@ class Draft_07 implements DraftInterface
                 ->addModifier(new NullModifier()))
             ->addType((new Type('any', false))
                 ->addValidator('enum', new EnumValidatorFactory())
-                ->addValidator('filter', new FilterValidatorFactory())
                 ->addValidator('allOf', new AllOfValidatorFactory())
                 ->addValidator('anyOf', new AnyOfValidatorFactory())
                 ->addValidator('oneOf', new OneOfValidatorFactory())
                 ->addValidator('not', new NotValidatorFactory())
                 ->addValidator('if', new IfValidatorFactory())
+                ->addValidator('filter', new FilterValidatorFactory())
                 ->addModifier(new DefaultValueModifier())
                 ->addModifier(new ConstModifier()));
     }

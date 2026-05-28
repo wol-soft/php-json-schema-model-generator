@@ -34,10 +34,11 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
     public function testValueProvidedForEmptyOptionalOneOfIsInvalid(string|int|array $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage(<<<ERROR
-Invalid value for property declined by composition constraint.
-  Requires to match one composition element but matched 0 elements.
-ERROR,
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for property declined by composition constraint.
+              Requires to match one composition element but matched 0 elements.
+            ERROR,
         );
 
         $className = $this->generateClassFromFile('EmptyOneOf.json');
@@ -109,9 +110,9 @@ ERROR,
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessageMatches(
             <<<ERROR
-/^Invalid value for (.*?) declined by composition constraint.
-  Requires to match one composition element but matched $matchedElements elements.$/
-ERROR,
+            /^Invalid value for (.*?) declined by composition constraint.
+              Requires to match one composition element but matched $matchedElements elements.$/
+            ERROR,
         );
 
         $className = $this->generateClassFromFile($schema);
@@ -525,32 +526,30 @@ ERROR,
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match one composition element but matched 2 elements.
-  - Composition element #1: Valid
-  - Composition element #2: Valid
-ERROR
-                ,
+                declined by composition constraint.
+                  Requires to match one composition element but matched 2 elements.
+                  - Composition element #1: Valid
+                  - Composition element #2: Valid
+                ERROR,
                 <<<ERROR
-declined by composition constraint.
-  Requires to match one composition element but matched 0 elements.
-  - Composition element #1: Failed
-    * Invalid type for stringProperty. Requires string, got NULL
-  - Composition element #2: Failed
-    * Invalid type for integerProperty. Requires int, got NULL
-ERROR
+                declined by composition constraint.
+                  Requires to match one composition element but matched 0 elements.
+                  - Composition element #1: Failed
+                    * Invalid type for stringProperty. Requires string, got NULL
+                  - Composition element #2: Failed
+                    * Invalid type for integerProperty. Requires int, got NULL
+                ERROR,
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match one composition element but matched 2 elements.
-ERROR
-                ,
+                declined by composition constraint.
+                  Requires to match one composition element but matched 2 elements.
+                ERROR,
                 <<<ERROR
-declined by composition constraint.
-  Requires to match one composition element but matched 0 elements.
-ERROR
+                declined by composition constraint.
+                  Requires to match one composition element but matched 0 elements.
+                ERROR,
             ],
         ];
     }

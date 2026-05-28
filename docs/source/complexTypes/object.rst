@@ -165,7 +165,35 @@ Possible exceptions:
 
     Properties defined in the `required` array but not defined in the `properties` will be added to the interface of the generated class.
 
-    A schema defining only the required property `example` consequently will provide the methods `getExample(): mixed` and `setExample(mixed $value): static`.
+Boolean property schemas
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+A property schema can be the boolean literal ``true`` or ``false`` instead of a JSON object schema.
+
+``true`` — the property accepts any value without restriction. A getter is generated with return type ``mixed``.
+
+``false`` — the property is explicitly forbidden. Providing it throws a ``DeniedPropertyException``. Listing a forbidden property in ``required`` is a schema error detected at generation time.
+
+.. code-block:: json
+
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "anything": true,
+        "forbidden": false
+      }
+    }
+
+Generated interface:
+
+.. code-block:: php
+
+    public function getName(): ?string;
+    public function getAnything(): mixed;
+    // No getter is generated for 'forbidden'; providing it throws DeniedPropertyException
 
 Size
 ----
@@ -580,3 +608,20 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidPat
 
     This also applies to properties transferred from composition branches (``anyOf``,
     ``oneOf``, ``allOf``, ``if``/``then``/``else``).
+
+A pattern schema can also be the boolean literal ``true`` or ``false``.
+
+``true`` — properties matching the pattern are accepted without restriction (useful when combining
+with ``additionalProperties: false`` to be explicit about intent).
+
+``false`` — properties matching the pattern are forbidden. Providing any such property throws a
+``DeniedPropertyException``.
+
+.. code-block:: json
+
+    {
+      "type": "object",
+      "patternProperties": {
+        "^internal_.*": false
+      }
+    }

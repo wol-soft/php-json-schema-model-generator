@@ -30,10 +30,11 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
     public function testEmptyNotIsInvalid(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage(<<<ERROR
-Invalid value for property declined by composition constraint.
-  Requires to match none composition element but matched 1 elements.
-ERROR,
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for property declined by composition constraint.
+              Requires to match none composition element but matched 1 elements.
+            ERROR,
         );
 
         $className = $this->generateClassFromFile('EmptyNot.json');
@@ -367,18 +368,17 @@ ERROR,
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-Invalid value for property declined by composition constraint.
-  Requires to match none composition element but matched 1 elements.
-  - Composition element #1: Valid
-ERROR
-                ,
+                Invalid value for property declined by composition constraint.
+                  Requires to match none composition element but matched 1 elements.
+                  - Composition element #1: Valid
+                ERROR,
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-Invalid value for property declined by composition constraint.
-  Requires to match none composition element but matched 1 elements.
-ERROR
+                Invalid value for property declined by composition constraint.
+                  Requires to match none composition element but matched 1 elements.
+                ERROR,
             ],
         ];
     }

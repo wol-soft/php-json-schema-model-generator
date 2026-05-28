@@ -38,6 +38,30 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
             return;
         }
 
+        if (is_bool($json[$this->key])) {
+            if ($json[$this->key] === false) {
+                if ($schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
+                    // @codeCoverageIgnoreStart
+                    echo "Warning: contains: false for property '{$property->getName()}'"
+                        . " can never be satisfied; any array will fail\n";
+                    // @codeCoverageIgnoreEnd
+                }
+
+                $property->addValidator(
+                    new PropertyValidator(
+                        $property,
+                        'is_array($value)',
+                        ContainsException::class,
+                    )
+                );
+                return;
+            }
+
+            $propertySchema = $propertySchema->withJson(
+                array_merge($json, [$this->key => []]),
+            );
+        }
+
         $nestedProperty = (new PropertyFactory())
             ->create(
                 $schemaProcessor,

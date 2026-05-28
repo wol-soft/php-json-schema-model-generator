@@ -183,19 +183,19 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
                     'a0',
                     'Hello',
                     <<<ERROR
-Provided JSON for PatternPropertiesAccessorPostProcessorTest.* contains invalid pattern properties.
-  - invalid property 'a0' matching pattern '\^a'
-    \* Invalid type for pattern property. Requires int, got string
-ERROR
+                    Provided JSON for PatternPropertiesAccessorPostProcessorTest.* contains invalid pattern properties.
+                      - invalid property 'a0' matching pattern '\^a'
+                        \* Invalid type for pattern property. Requires int, got string
+                    ERROR,
                 ],
                 'invalid type for string properties' => [
                     'b0',
                     100,
                     <<<ERROR
-Provided JSON for PatternPropertiesAccessorPostProcessorTest.* contains invalid pattern properties.
-  - invalid property 'b0' matching pattern '\^b'
-    \* Invalid type for pattern property. Requires string, got int
-ERROR
+                    Provided JSON for PatternPropertiesAccessorPostProcessorTest.* contains invalid pattern properties.
+                      - invalid property 'b0' matching pattern '\^b'
+                        \* Invalid type for pattern property. Requires string, got int
+                    ERROR,
                 ],
             ],
         );
@@ -385,20 +385,20 @@ ERROR
                 'alpha',
                 15,
                 <<<ERROR
-Provided JSON for PatternPropertiesAccessorPostProcessorTest.* contains invalid pattern properties.
-  - invalid property 'alpha' matching pattern '\^a'
-    \* Value for pattern property must be a multiple of 10
-ERROR
+                Provided JSON for PatternPropertiesAccessorPostProcessorTest.* contains invalid pattern properties.
+                  - invalid property 'alpha' matching pattern '\^a'
+                    \* Value for pattern property must be a multiple of 10
+                ERROR,
             ],
             'Value declined by property and pattern property constraint' => [
                 'alpha',
                 5,
                 <<<ERROR
-Provided JSON for PatternPropertiesAccessorPostProcessorTest.* contains invalid pattern properties.
-  - invalid property 'alpha' matching pattern '\^a'
-    \* Value for pattern property must be a multiple of 10
-Value for alpha must not be smaller than 10
-ERROR
+                Provided JSON for PatternPropertiesAccessorPostProcessorTest.* contains invalid pattern properties.
+                  - invalid property 'alpha' matching pattern '\^a'
+                    \* Value for pattern property must be a multiple of 10
+                Value for alpha must not be smaller than 10
+                ERROR,
             ],
         ];
     }

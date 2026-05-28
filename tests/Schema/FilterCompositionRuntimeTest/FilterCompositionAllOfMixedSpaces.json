@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": [
+        "string",
+        "integer"
+      ],
+      "filter": "stringToInt",
+      "allOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "minimum": 0
+        }
+      ]
+    }
+  }
+}

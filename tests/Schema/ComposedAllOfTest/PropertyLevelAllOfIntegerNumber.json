@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "allOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        }
+      ]
+    }
+  }
+}

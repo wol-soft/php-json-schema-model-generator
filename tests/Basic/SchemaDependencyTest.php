@@ -65,23 +65,23 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
                 'required attribute not provided 1' => [
                     ['credit_card' => 12345],
                     <<<ERROR
-Invalid schema which is dependant on credit_card:
-  - Missing required value for date_of_birth
-ERROR
+                    Invalid schema which is dependant on credit_card:
+                      - Missing required value for date_of_birth
+                    ERROR,
                 ],
                 'required attribute not provided 2' => [
                     ['credit_card' => 12345, 'billing_address' => '555 Debitors Lane'],
                     <<<ERROR
-Invalid schema which is dependant on credit_card:
-  - Missing required value for date_of_birth
-ERROR
+                    Invalid schema which is dependant on credit_card:
+                      - Missing required value for date_of_birth
+                    ERROR,
                 ],
                 'invalid data type' => [
                     ['credit_card' => 12345, 'date_of_birth' => false],
                     <<<ERROR
-Invalid schema which is dependant on credit_card:
-  - Invalid type for date_of_birth. Requires string, got boolean
-ERROR
+                    Invalid schema which is dependant on credit_card:
+                      - Invalid type for date_of_birth. Requires string, got boolean
+                    ERROR,
                 ],
             ],
         );
@@ -134,23 +134,23 @@ ERROR
                 'required attribute not provided 1' => [
                     ['credit_card' => 12345],
                     <<<ERROR
-Invalid schema which is dependant on credit_card:
-  - Missing required value for name
-ERROR
+                    Invalid schema which is dependant on credit_card:
+                      - Missing required value for name
+                    ERROR,
                 ],
                 'required attribute not provided 2' => [
                     ['credit_card' => 12345, 'age' => 42],
                     <<<ERROR
-Invalid schema which is dependant on credit_card:
-  - Missing required value for name
-ERROR
+                    Invalid schema which is dependant on credit_card:
+                      - Missing required value for name
+                    ERROR,
                 ],
                 'invalid data type' => [
                     ['credit_card' => 12345, 'name' => false],
                     <<<ERROR
-Invalid schema which is dependant on credit_card:
-  - Invalid type for name. Requires string, got boolean
-ERROR
+                    Invalid schema which is dependant on credit_card:
+                      - Invalid type for name. Requires string, got boolean
+                    ERROR,
                 ],
             ],
         );
@@ -203,41 +203,39 @@ ERROR
             'required attribute not provided 1' => [
                 ['credit_card' => 12345],
                 <<<ERROR
-Invalid schema which is dependant on credit_card:
-  - Invalid value for SchemaDependencyTest_\w+_credit_card_Dependency declined by composition constraint.
-      Requires to match all composition elements but matched 0 elements.
-      - Composition element #1: Failed
-        \* Missing required value for name
-        \* Invalid type for name. Requires string, got NULL
-      - Composition element #2: Failed
-        \* Missing required value for age
-        \* Invalid type for age. Requires int, got NULL
-ERROR
+                Invalid schema which is dependant on credit_card:
+                  - Invalid value for SchemaDependencyTest_\w+_credit_card_Dependency declined by composition constraint.
+                      Requires to match all composition elements but matched 0 elements.
+                      - Composition element #1: Failed
+                        \* Missing required value for name
+                        \* Invalid type for name. Requires string, got NULL
+                      - Composition element #2: Failed
+                        \* Missing required value for age
+                        \* Invalid type for age. Requires int, got NULL
+                ERROR,
             ],
             'required attribute not provided 2' => [
                 ['credit_card' => 12345, 'age' => 42],
                 <<<ERROR
-Invalid schema which is dependant on credit_card:
-  - Invalid value for SchemaDependencyTest_\w+_credit_card_Dependency declined by composition constraint.
-      Requires to match all composition elements but matched 1 elements.
-      - Composition element #1: Failed
-        \* Missing required value for name
-        \* Invalid type for name. Requires string, got NULL
-      - Composition element #2: Valid
-ERROR
-    ,
+                Invalid schema which is dependant on credit_card:
+                  - Invalid value for SchemaDependencyTest_\w+_credit_card_Dependency declined by composition constraint.
+                      Requires to match all composition elements but matched 1 elements.
+                      - Composition element #1: Failed
+                        \* Missing required value for name
+                        \* Invalid type for name. Requires string, got NULL
+                      - Composition element #2: Valid
+                ERROR,
             ],
             'invalid data type'                 => [
                 ['credit_card' => 12345, 'name' => false, 'age' => 42],
                 <<<ERROR
-Invalid schema which is dependant on credit_card:
-  - Invalid value for SchemaDependencyTest_\w+_credit_card_Dependency declined by composition constraint.
-      Requires to match all composition elements but matched 1 elements.
-      - Composition element #1: Failed
-        \* Invalid type for name. Requires string, got boolean
-      - Composition element #2: Valid
-ERROR
-    ,
+                Invalid schema which is dependant on credit_card:
+                  - Invalid value for SchemaDependencyTest_\w+_credit_card_Dependency declined by composition constraint.
+                      Requires to match all composition elements but matched 1 elements.
+                      - Composition element #1: Failed
+                        \* Invalid type for name. Requires string, got boolean
+                      - Composition element #2: Valid
+                ERROR,
             ],
         ];
     }
@@ -307,23 +305,23 @@ ERROR
             'required attribute not provided 1' => [
                 ['credit_card' => 12345],
                 <<<ERROR
-Invalid schema which is dependant on credit_card:
-  - Missing required value for billing_address
-  - Invalid type for billing_address. Requires string, got NULL
-  - Missing required value for owner
-  - Invalid type for owner. Requires object, got NULL
-ERROR
+                Invalid schema which is dependant on credit_card:
+                  - Missing required value for billing_address
+                  - Invalid type for billing_address. Requires string, got NULL
+                  - Missing required value for owner
+                  - Invalid type for owner. Requires object, got NULL
+                ERROR,
             ],
             'required attribute not provided 2' => [
                 ['credit_card' => 12345, 'owner' => ['age' => 42]],
                 <<<ERROR
-Invalid schema which is dependant on credit_card:
-  - Missing required value for billing_address
-  - Invalid type for billing_address. Requires string, got NULL
-  - Invalid nested object for property owner:
-      - Missing required value for name
-      - Invalid type for name. Requires string, got NULL
-ERROR
+                Invalid schema which is dependant on credit_card:
+                  - Missing required value for billing_address
+                  - Invalid type for billing_address. Requires string, got NULL
+                  - Invalid nested object for property owner:
+                      - Missing required value for name
+                      - Invalid type for name. Requires string, got NULL
+                ERROR,
             ],
             'invalid data type' => [
                 [
@@ -335,10 +333,10 @@ ERROR
                     'billing_address' => '555 Debitors Lane',
                 ],
                 <<<ERROR
-Invalid schema which is dependant on credit_card:
-  - Invalid nested object for property owner:
-      - Invalid type for name. Requires string, got boolean
-ERROR
+                Invalid schema which is dependant on credit_card:
+                  - Invalid nested object for property owner:
+                      - Invalid type for name. Requires string, got boolean
+                ERROR,
             ],
         ];
     }

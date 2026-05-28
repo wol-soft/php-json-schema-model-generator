@@ -162,6 +162,24 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
     public function setAge(?int $age): static;
     public function getAge(): ?int;
 
+.. note::
+
+    Any of the three branches (``if``, ``then``, ``else``) can be the boolean literal ``true`` or
+    ``false``. The generator resolves these statically at generation time:
+
+    - ``if: false`` — condition never matches; ``else`` (if present) is applied unconditionally,
+      ``then`` is ignored.
+    - ``if: true`` — condition always matches; ``then`` (if present) is applied unconditionally,
+      ``else`` is ignored.
+    - ``if: false, else: false`` or ``if: true, then: false`` — the composition is always
+      unsatisfiable; providing any value raises a ``ConditionalException`` at runtime. The generator
+      also emits a warning at generation time.
+    - ``then: false`` / ``else: false`` (with a real schema for ``if``) — when the relevant
+      branch is entered, the value would always be invalid; the generator throws a
+      ``SchemaException`` at generation time.
+    - ``then: true`` / ``else: true`` — when the relevant branch is entered, any value is
+      accepted; treated as absent (no additional constraint).
+
 .. hint::
 
     The union-widening and nullability rules for ``if``/``then``/``else`` follow the same logic as

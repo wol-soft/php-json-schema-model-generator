@@ -123,7 +123,7 @@ class Issue116Test extends AbstractIssueTestCase
 
         // The doc comment on the additionalProperties property inside the Metrics class must
         // reference the canonical ForecastRange, not the nested duplicate
-        $additionalPropertiesAnnotation = $this->getPropertyTypeAnnotation($metricsClassName, 'additionalProperties');
+        $additionalPropertiesAnnotation = $this->getPropertyTypeAnnotation($metricsClassName, '_additionalProperties');
 
         // The annotation uses the short class name (imports handle the FQCN); check for it.
         $shortRangeClass = substr($rangeClass, strrpos($rangeClass, '\\') + 1);

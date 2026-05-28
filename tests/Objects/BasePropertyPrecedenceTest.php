@@ -333,7 +333,7 @@ class BasePropertyPrecedenceTest extends AbstractPHPModelGeneratorTestCase
      * Root `age: [integer, string, null]` (required, nullable=true), allOf branch `age: [integer, string]`
      * (required in branch, nullable=null). Intersection of effective sets = [integer, string] (no null),
      * but existing.isNullable()===true → explicit nullable is preserved → result is int|string|null.
-     * This covers the explicit-nullable preservation path (lines 245–246) in applyAllOfIntersection.
+     * This covers the explicit-nullable preservation path in applyAllOfIntersection.
      *
      * @throws FileSystemException
      * @throws RenderException

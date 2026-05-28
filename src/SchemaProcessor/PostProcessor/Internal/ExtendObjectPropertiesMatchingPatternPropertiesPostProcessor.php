@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
+use PHPModelGenerator\Model\Validator\ForbiddenPatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
@@ -26,6 +27,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
      */
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
+        $this->checkForbiddenPatternConflicts($schema);
         $this->applyPatternPropertiesTypeIntersection($schema, $generatorConfiguration);
         $this->transferPatternPropertiesFilterToProperty($schema, $generatorConfiguration);
 
@@ -60,7 +62,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                     // TODO: validators
                     return sprintf(
                         '
-                            $modelData = array_merge($this->rawModelDataInput, ["%s" => $value]);
+                            $modelData = array_merge($this->_rawModelDataInput, ["%s" => $value]);
                             $this->executeBaseValidators($modelData);
                         ',
                         $property->getName(),
@@ -68,6 +70,53 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                 }
             },
         );
+    }
+
+    /**
+     * Detect contradictions between declared properties and boolean-false patternProperties patterns.
+     *
+     * If a property is declared in `properties` AND its name matches a pattern whose schema is
+     * `false`, the schema is unsatisfiable: the property can never be provided without being
+     * denied. Throw SchemaException at generation time so the developer sees the problem immediately.
+     *
+     * @throws SchemaException
+     */
+    private function checkForbiddenPatternConflicts(Schema $schema): void
+    {
+        $forbiddenValidators = array_filter(
+            $schema->getBaseValidators(),
+            static fn(PropertyValidatorInterface $validator): bool =>
+                $validator instanceof ForbiddenPatternPropertiesValidator,
+        );
+
+        if (empty($forbiddenValidators)) {
+            return;
+        }
+
+        foreach ($schema->getProperties() as $property) {
+            if ($property->isInternal()) {
+                continue;
+            }
+
+            /** @var ForbiddenPatternPropertiesValidator $forbiddenValidator */
+            foreach ($forbiddenValidators as $forbiddenValidator) {
+                $escapedPattern = addcslashes($forbiddenValidator->getPattern(), '/');
+
+                if (!preg_match("/$escapedPattern/", $property->getName())) {
+                    continue;
+                }
+
+                throw new SchemaException(
+                    sprintf(
+                        "Property '%s' is declared in properties but forbidden by patternProperties"
+                            . " pattern '%s' in file %s",
+                        $property->getName(),
+                        $forbiddenValidator->getPattern(),
+                        $property->getJsonSchema()->getFile(),
+                    ),
+                );
+            }
+        }
     }
 
     /**
