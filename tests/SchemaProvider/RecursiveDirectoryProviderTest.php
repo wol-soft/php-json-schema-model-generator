@@ -17,8 +17,8 @@ class RecursiveDirectoryProviderTest extends TestCase
 
     public function setUp(): void
     {
-        $this->schemaDir = sys_get_temp_dir() . '/PHPModelGeneratorTest/RecursiveDirectoryProviderTest/schemas';
-        $this->outputDir = sys_get_temp_dir() . '/PHPModelGeneratorTest/RecursiveDirectoryProviderTest/output';
+        $this->schemaDir = TEST_BASE_DIR . '/RecursiveDirectoryProviderTest/schemas';
+        $this->outputDir = TEST_BASE_DIR . '/RecursiveDirectoryProviderTest/output';
 
         @mkdir($this->schemaDir, 0777, true);
         @mkdir($this->outputDir, 0777, true);
