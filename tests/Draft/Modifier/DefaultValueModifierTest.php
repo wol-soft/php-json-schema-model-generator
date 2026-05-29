@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class DefaultValueModifierTest extends TestCase
@@ -117,5 +118,78 @@ class DefaultValueModifierTest extends TestCase
         $this->modifier()->modify($this->schemaProcessor, $this->schema, $property, $jsonSchema);
 
         $this->assertSame("'anything'", $property->getDefaultValue());
+    }
+
+    public static function scalarCompositionBranchPointerProvider(): array
+    {
+        return [
+            // allOf/anyOf/oneOf: scalar branch schema at the branch index level
+            'oneOf branch'  => ['/oneOf/0'],
+            'anyOf branch'  => ['/anyOf/1'],
+            'allOf branch'  => ['/allOf/0'],
+            // if/then/else: named branch keyword
+            'then branch'   => ['/then'],
+            'else branch'   => ['/else'],
+            'if branch'     => ['/if'],
+            // Composition nested under a root property (not a false positive)
+            'oneOf inside root object property' => ['/properties/outer/oneOf/2'],
+        ];
+    }
+
+    #[DataProvider('scalarCompositionBranchPointerProvider')]
+    public function testScalarBranchDefaultEmitsWarningAndDropsDefault(string $pointer): void
+    {
+        $jsonSchema = new JsonSchema('test.json', ['type' => 'boolean', 'default' => true], $pointer);
+        $property = new Property('flag', new PropertyType('boolean'), $jsonSchema);
+
+        ob_start();
+        $this->modifier()->modify($this->schemaProcessor, $this->schema, $property, $jsonSchema);
+        $output = ob_get_clean();
+
+        $this->assertSame(
+            "Warning: property 'flag' declares a default value inside a composition branch"
+                . " in file 'test.json'. Scalar branch defaults are unreachable and will be ignored.\n",
+            $output,
+        );
+        $this->assertNull($property->getDefaultValue(), 'Default must not be applied for scalar branch schemas.');
+    }
+
+    public function testNamedPropertyInsideObjectBranchIsNotWarnedAbout(): void
+    {
+        // A named property inside an object-typed branch (pointer ends in /properties/<name>)
+        // is handled by the per-branch runtime mechanism, not warned about here.
+        $jsonSchema = new JsonSchema(
+            'test.json',
+            ['type' => 'boolean', 'default' => true],
+            '/oneOf/1/properties/sandbox',
+        );
+        $property = new Property('sandbox', new PropertyType('boolean'), $jsonSchema);
+
+        ob_start();
+        $this->modifier()->modify($this->schemaProcessor, $this->schema, $property, $jsonSchema);
+        $output = ob_get_clean();
+
+        $this->assertSame('', $output, 'No warning for named properties inside object branches.');
+        $this->assertSame('true', $property->getDefaultValue(), 'Default must apply for object-branch properties.');
+    }
+
+    public function testScalarBranchDefaultIsDroppedSilentlyWhenOutputDisabled(): void
+    {
+        $silentProcessor = new SchemaProcessor(
+            new RecursiveDirectoryProvider(__DIR__),
+            '',
+            (new GeneratorConfiguration())->setOutputEnabled(false),
+            new RenderQueue(),
+        );
+
+        $jsonSchema = new JsonSchema('test.json', ['type' => 'string', 'default' => 'hello'], '/oneOf/0');
+        $property = new Property('name', new PropertyType('string'), $jsonSchema);
+
+        ob_start();
+        $this->modifier()->modify($silentProcessor, $this->schema, $property, $jsonSchema);
+        $output = ob_get_clean();
+
+        $this->assertSame('', $output, 'No output must be emitted when output is disabled.');
+        $this->assertNull($property->getDefaultValue(), 'Default must still be dropped even when output is disabled.');
     }
 }
