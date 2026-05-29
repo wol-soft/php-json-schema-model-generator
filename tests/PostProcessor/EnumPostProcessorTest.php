@@ -184,7 +184,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
             $generator->addPostProcessor(
                 new EnumPostProcessor(
-                    join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
+                    TEST_BASE_DIR . DIRECTORY_SEPARATOR . 'Enum',
                     'Enum',
                     true,
                 )
@@ -552,7 +552,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
                 ->addPostProcessor(new BuilderClassPostProcessor())
                 ->addPostProcessor(
                     new EnumPostProcessor(
-                        join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
+                        TEST_BASE_DIR . DIRECTORY_SEPARATOR . 'Enum',
                         'Enum',
                     )
                 );
@@ -620,7 +620,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
             $generator->addPostProcessor(
                 new EnumPostProcessor(
-                    join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
+                    TEST_BASE_DIR . DIRECTORY_SEPARATOR . 'Enum',
                     'Enum',
                 )
             );
@@ -629,7 +629,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
     private function assertGeneratedEnums(int $expectedGeneratedEnums): void
     {
-        $dir = sys_get_temp_dir() . '/PHPModelGeneratorTest/Enum';
+        $dir = TEST_BASE_DIR . '/Enum';
         $files = array_diff(scandir($dir), ['.', '..']);
 
         $this->assertCount($expectedGeneratedEnums, $files);

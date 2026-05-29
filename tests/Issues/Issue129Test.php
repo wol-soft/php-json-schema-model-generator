@@ -26,7 +26,7 @@ class Issue129Test extends AbstractPHPModelGeneratorTestCase
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
             $generator->addPostProcessor(
                 new EnumPostProcessor(
-                    join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum']),
+                    TEST_BASE_DIR . DIRECTORY_SEPARATOR . 'Enum',
                     'Enum',
                 )
             );
