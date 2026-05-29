@@ -55,7 +55,19 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 
         $this->templateValues['hasModifiedValuesMethod'] = $hasNestedSchemaWithProperties;
 
+        $allBranchDefaultAttributeMap = [];
         if ($hasNestedSchemaWithProperties) {
+            foreach ($this->composedProperties as $compositionProperty) {
+                if (!$compositionProperty->getNestedSchema()) {
+                    continue;
+                }
+                foreach ($compositionProperty->getNestedSchema()->getProperties() as $branchProperty) {
+                    if ($branchProperty->getDefaultValue() !== null) {
+                        $allBranchDefaultAttributeMap[$branchProperty->getName()] = $branchProperty->getAttribute();
+                    }
+                }
+            }
+
             $this->scope->addMethod(
                 $this->modifiedValuesMethod,
                 new class ($this->composedProperties, $this->modifiedValuesMethod) implements MethodInterface {
@@ -67,9 +79,9 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 
                     public function getCode(): string
                     {
-                        $defaultValueMap = [];
+                        $componentDefaultValueMap = [];
                         $propertyAccessors = [];
-                        foreach ($this->compositionProperties as $compositionProperty) {
+                        foreach ($this->compositionProperties as $branchIndex => $compositionProperty) {
                             if (!$compositionProperty->getNestedSchema()) {
                                 continue;
                             }
@@ -78,19 +90,24 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
                                 $propertyAccessors[$property->getName()] = 'get' . ucfirst($property->getAttribute());
 
                                 if ($property->getDefaultValue() !== null) {
-                                    $defaultValueMap[] = $property->getName();
+                                    $componentDefaultValueMap[$branchIndex][] = $property->getName();
                                 }
                             }
                         }
 
                         return sprintf(
                             '
-                            private function %s(array $originalModelData, object $nestedCompositionObject): array {
+                            private function %s(
+                                array $originalModelData,
+                                object $nestedCompositionObject,
+                                int $componentIndex
+                            ): array {
                                 $modifiedValues = [];
-                                $defaultValueMap = %s;
+                                $componentDefaultValueMap = %s;
+                                $branchDefaultProps = $componentDefaultValueMap[$componentIndex] ?? [];
 
                                 foreach (%s as $key => $accessor) {
-                                    if ((isset($originalModelData[$key]) || in_array($key, $defaultValueMap))
+                                    if ((isset($originalModelData[$key]) || in_array($key, $branchDefaultProps))
                                         && method_exists($nestedCompositionObject, $accessor)
                                         && ($modifiedValue = $nestedCompositionObject->$accessor())
                                             !== ($originalModelData[$key] ?? !$modifiedValue)
@@ -102,13 +119,15 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
                                 return $modifiedValues;
                             }',
                             $this->modifiedValuesMethod,
-                            var_export($defaultValueMap, true),
+                            var_export($componentDefaultValueMap, true),
                             var_export($propertyAccessors, true),
                         );
                     }
                 },
             );
         }
+
+        $this->templateValues['allBranchDefaultAttributeMap'] = var_export($allBranchDefaultAttributeMap, true);
 
         return parent::getCheck();
     }

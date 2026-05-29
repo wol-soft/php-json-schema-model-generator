@@ -21,6 +21,7 @@ use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\ComposedPropertiesValidatorFactoryInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\DefaultArrayToEmptyArrayDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
@@ -579,7 +580,10 @@ class SchemaProcessor
 
         $transferredProperty = (clone $property)
             ->filterValidators(static fn(Validator $v): bool =>
-                is_a($v->getValidator(), PropertyTemplateValidator::class));
+                is_a($v->getValidator(), PropertyTemplateValidator::class))
+            ->setDefaultValue(null)
+            ->filterDecorators(static fn($decorator): bool =>
+                !($decorator instanceof DefaultArrayToEmptyArrayDecorator));
 
         if (!is_a($compositionProcessor, AllOfValidatorFactory::class, true)) {
             $transferredProperty->setRequired(false);
