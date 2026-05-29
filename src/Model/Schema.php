@@ -141,6 +141,11 @@ class Schema
         return $this;
     }
 
+    public function getProperty(string $name): ?PropertyInterface
+    {
+        return $this->properties[$name] ?? null;
+    }
+
     /**
      * @return PropertyInterface[]
      */
