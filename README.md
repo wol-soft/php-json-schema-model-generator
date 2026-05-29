@@ -168,7 +168,7 @@ The library is tested via [PHPUnit](https://phpunit.de/).
 
 After installing the dependencies of the library via `composer update` you can execute the tests with `./vendor/bin/phpunit` (Linux) or `vendor\bin\phpunit.bat` (Windows). The test names are optimized for the usage of the `--testdox` output. Most tests are atomic integration tests which will set up a JSON-Schema file and generate a class from the schema and test the behaviour of the generated class afterwards.
 
-During the execution the tests will create a directory PHPModelGeneratorTest in tmp where JSON-Schema files and PHP classes will be written to.
+During the execution the tests will create a session-unique directory `PHPModelGeneratorTest_<id>` in tmp where JSON-Schema files and PHP classes will be written to. The directory is removed automatically when the test process exits, so concurrent test sessions do not interfere with each other.
 
 If a test which creates a PHP class from a JSON-Schema fails the JSON-Schema and the generated class(es) will be dumped to the directory `./failed-classes`
 

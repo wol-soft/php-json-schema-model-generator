@@ -73,7 +73,7 @@ composer update
 ./vendor/bin/phpunit --testdox
 ```
 
-Tests write generated PHP classes to `sys_get_temp_dir()/PHPModelGeneratorTest/Models/` and dump failed classes to `./failed-classes/` (auto-cleaned on bootstrap).
+Tests write generated PHP classes to a session-unique directory `sys_get_temp_dir()/PHPModelGeneratorTest_<id>/Models/` (defined as `MODEL_TEMP_PATH`; the base is `TEST_BASE_DIR`) and dump failed classes to `./failed-classes/` (auto-cleaned on bootstrap). The session directory is cleaned up automatically via a shutdown function when the PHP process exits.
 
 ### Running the full test suite
 

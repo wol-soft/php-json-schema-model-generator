@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "definitions": {
+    "collectionList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "collection_list": {
+      "$ref": "#/definitions/collectionList"
+    },
+    "collection_list_exclude": {
+      "$ref": "#/definitions/collectionList"
+    }
+  }
+}

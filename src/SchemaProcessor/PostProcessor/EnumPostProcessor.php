@@ -16,7 +16,12 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\ArrayItemValidator;
 use PHPModelGenerator\Model\Validator\EnumValidator;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AbstractCompositionValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\ModelGenerator;
@@ -35,6 +40,7 @@ class EnumPostProcessor extends PostProcessor
     private readonly string $namespace;
     private readonly Render $renderer;
     private readonly string $targetDirectory;
+    private readonly string $enumFilterToken;
 
     /**
      * @param string $targetDirectory  The directory where to put the generated PHP enums
@@ -54,6 +60,7 @@ class EnumPostProcessor extends PostProcessor
         $this->renderer = new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);
         $this->namespace = trim($namespace, '\\');
         $this->targetDirectory = $targetDirectory;
+        $this->enumFilterToken = (new EnumFilter())->getToken();
     }
 
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
@@ -61,95 +68,175 @@ class EnumPostProcessor extends PostProcessor
         $generatorConfiguration->addFilter(new EnumFilter());
 
         foreach ($schema->getProperties() as $property) {
-            $json = $property->getJsonSchema()->getJson();
+            $this->processProperty($property, $schema, $generatorConfiguration);
+        }
+    }
 
-            if (!isset($json['enum'])) {
-                continue;
-            }
+    /**
+     * Convert enum sub-schemas to generated PHP enum classes on this property, then recurse
+     * into its composition branches and array items. After branch recursion the parent
+     * property's native type is recomputed so the enum class propagates into the type union.
+     *
+     * @throws SchemaException
+     */
+    private function processProperty(
+        PropertyInterface $property,
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
+        $json = $property->getJsonSchema()->getJson();
 
+        // Branches and array items may share underlying Property instances via $ref deduplication.
+        // If the EnumFilter is already attached, the conversion was performed on this property
+        // already; skip re-conversion but still recurse so deeper sub-schemas are reached.
+        if (isset($json['enum']) && !$this->hasEnumFilterAlreadyApplied($property)) {
             // Filter incompatible values before validation so that e.g. a string-typed enum
             // with a stray integer value is still valid (and the integer is removed with a warning).
             $values = $this->filterValuesByDeclaredType($json, $property);
 
-            if (!$this->validateEnum($property, $values)) {
+            if ($this->validateEnum($property, $values)) {
+                $this->convertEnumProperty($property, $schema, $generatorConfiguration, $json, $values);
+            }
+        }
+
+        foreach ($property->getValidators() as $wrapped) {
+            $validator = $wrapped->getValidator();
+
+            if ($validator instanceof AbstractComposedPropertyValidator) {
+                // `not` branches are excluded by design — a value that fails the inner
+                // schema is not itself enum-typed and contributes no useful type hint.
+                if ($validator->getCompositionProcessor() === NotValidatorFactory::class) {
+                    continue;
+                }
+
+                foreach ($validator->getComposedProperties() as $branch) {
+                    $this->processProperty($branch, $schema, $generatorConfiguration);
+                }
+
+                AbstractCompositionValidatorFactory::transferPropertyType(
+                    $property,
+                    $validator->getComposedProperties(),
+                    $validator->getCompositionProcessor() === AllOfValidatorFactory::class,
+                );
+
                 continue;
             }
 
-            $this->checkForExistingTransformingFilter($property);
-            $enumSignature = ArrayHash::hash($json, ['enum', 'enum-map', 'title', '$id', 'type']);
-            $enumName = $json['title']
-                ?? basename($json['$id'] ?? $schema->getClassName() . ucfirst($property->getName()));
-
-            if (!isset($this->generatedEnums[$enumSignature])) {
-                $this->generatedEnums[$enumSignature] = [
-                    'name' => $enumName,
-                    'fqcn' => $this->renderEnum(
-                        $generatorConfiguration,
-                        $schema->getJsonSchema(),
-                        $enumName,
-                        $values,
-                        $json['enum-map'] ?? null,
-                    ),
-                ];
-            } else {
-                if ($generatorConfiguration->isOutputEnabled()) {
-                    // @codeCoverageIgnoreStart
-                    echo "Duplicated signature $enumSignature for enum $enumName." .
-                        " Redirecting to {$this->generatedEnums[$enumSignature]['name']}\n";
-                    // @codeCoverageIgnoreEnd
-                }
+            if ($validator instanceof ArrayItemValidator) {
+                $this->processProperty($validator->getNestedProperty(), $schema, $generatorConfiguration);
             }
-
-            $fqcn = $this->generatedEnums[$enumSignature]['fqcn'];
-            $name = substr((string) $fqcn, strrpos((string) $fqcn, "\\") + 1);
-
-            $inputType = $property->getType();
-
-            (new FilterProcessor())->process(
-                $property,
-                ['filter' => (new EnumFilter())->getToken(), 'fqcn' => $fqcn],
-                $generatorConfiguration,
-                $schema,
-            );
-
-            $schema->addUsedClass($fqcn);
-            $property->setType($inputType, new PropertyType($name, !$property->isRequired()), true);
-
-            if ($property->getDefaultValue()) {
-                $caseName = $this->getCaseName($json['enum-map'] ?? null, $json['default'], $property->getJsonSchema());
-                $property->setDefaultValue("$name::$caseName", true);
-            }
-
-            // TransformingFilterOutputTypePostProcessor runs before user post-processors and
-            // therefore never sees the FilterValidator added above. Call the extension directly
-            // so that any TypeCheckValidator added by a "type" keyword is wrapped into a
-            // PassThroughTypeCheckValidator that accepts already-transformed enum instances.
-            TypeCheck::extendTypeCheckValidatorToAllowTransformedValue($property, [$name]);
-
-            // remove the enum validator as the validation is performed by the PHP enum
-            $property->filterValidators(
-                static fn(Validator $validator): bool => !is_a($validator->getValidator(), EnumValidator::class),
-            );
-
-            // if an enum value is provided the transforming filter will add a value pass through. As the filter doesn't
-            // know the exact enum type the pass through allows every UnitEnum instance. Consequently add a validator to
-            // avoid wrong enums by validating against the generated enum
-            $schema->addUsedClass($fqcn);
-            $property->addValidator(
-                new class ($property, $name) extends PropertyValidator {
-                    public function __construct(PropertyInterface $property, string $enumName)
-                    {
-                        parent::__construct(
-                            $property,
-                            sprintf('$value instanceof UnitEnum && !($value instanceof %s)', $enumName),
-                            InvalidTypeException::class,
-                            [$enumName],
-                        );
-                    }
-                },
-                0,
-            );
         }
+    }
+
+    /**
+     * Apply the enum-class conversion to a single property whose JSON schema declares an enum.
+     *
+     * @param array $values Enum values after filterValuesByDeclaredType has removed
+     *                      type-incompatible entries.
+     */
+    private function convertEnumProperty(
+        PropertyInterface $property,
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+        array $json,
+        array $values,
+    ): void {
+        $this->checkForExistingTransformingFilter($property);
+
+        $enumSignature = ArrayHash::hash($json, ['enum', 'enum-map', 'title', '$id', 'type']);
+        $enumName = $json['title']
+            ?? basename($json['$id'] ?? $schema->getClassName() . ucfirst($property->getName()));
+
+        if (!isset($this->generatedEnums[$enumSignature])) {
+            $this->generatedEnums[$enumSignature] = [
+                'name' => $enumName,
+                'fqcn' => $this->renderEnum(
+                    $generatorConfiguration,
+                    $schema->getJsonSchema(),
+                    $enumName,
+                    $values,
+                    $json['enum-map'] ?? null,
+                ),
+            ];
+        } else {
+            if ($generatorConfiguration->isOutputEnabled()) {
+                // @codeCoverageIgnoreStart
+                echo "Duplicated signature $enumSignature for enum $enumName." .
+                    " Redirecting to {$this->generatedEnums[$enumSignature]['name']}\n";
+                // @codeCoverageIgnoreEnd
+            }
+        }
+
+        $fqcn = $this->generatedEnums[$enumSignature]['fqcn'];
+        $name = substr((string) $fqcn, strrpos((string) $fqcn, "\\") + 1);
+
+        $inputType = $property->getType();
+
+        (new FilterProcessor())->process(
+            $property,
+            ['filter' => (new EnumFilter())->getToken(), 'fqcn' => $fqcn],
+            $generatorConfiguration,
+            $schema,
+        );
+
+        $schema->addUsedClass($fqcn);
+        $property->setType($inputType, new PropertyType($name, !$property->isRequired()), true);
+
+        if ($property->getDefaultValue()) {
+            $caseName = $this->getCaseName($json['enum-map'] ?? null, $json['default'], $property->getJsonSchema());
+            $property->setDefaultValue("$name::$caseName", true);
+        }
+
+        // TransformingFilterOutputTypePostProcessor runs before user post-processors and
+        // therefore never sees the FilterValidator added above. Call the extension directly
+        // so that any TypeCheckValidator added by a "type" keyword is wrapped into a
+        // PassThroughTypeCheckValidator that accepts already-transformed enum instances.
+        TypeCheck::extendTypeCheckValidatorToAllowTransformedValue($property, [$name]);
+
+        // remove the enum validator as the validation is performed by the PHP enum
+        $property->filterValidators(
+            static fn(Validator $validator): bool => !is_a($validator->getValidator(), EnumValidator::class),
+        );
+
+        // if an enum value is provided the transforming filter will add a value pass through. As the filter doesn't
+        // know the exact enum type the pass through allows every UnitEnum instance. Consequently add a validator to
+        // avoid wrong enums by validating against the generated enum
+        $schema->addUsedClass($fqcn);
+        $property->addValidator(
+            new class ($property, $name) extends PropertyValidator {
+                public function __construct(PropertyInterface $property, string $enumName)
+                {
+                    parent::__construct(
+                        $property,
+                        sprintf('$value instanceof UnitEnum && !($value instanceof %s)', $enumName),
+                        InvalidTypeException::class,
+                        [$enumName],
+                    );
+                }
+            },
+            0,
+        );
+    }
+
+    /**
+     * Returns true when the EnumFilter is already attached to the property (e.g. because the
+     * property was reached previously through another composition branch sharing the same
+     * underlying $ref-resolved Property instance).
+     */
+    private function hasEnumFilterAlreadyApplied(PropertyInterface $property): bool
+    {
+        foreach ($property->getValidators() as $wrapped) {
+            $validator = $wrapped->getValidator();
+
+            if (
+                $validator instanceof FilterValidator
+                && $validator->getFilter()->getToken() === $this->enumFilterToken
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

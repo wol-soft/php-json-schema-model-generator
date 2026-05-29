@@ -290,15 +290,13 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
     private function assertGeneratedBuilders(int $expectedGeneratedBuilders): void
     {
-        $dir = sys_get_temp_dir() . '/PHPModelGeneratorTest/Models';
-
-        $it = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator(MODEL_TEMP_PATH, FilesystemIterator::SKIP_DOTS)
         );
 
         $files = [];
         /** @var SplFileInfo $file */
-        foreach ($it as $file) {
+        foreach ($iterator as $file) {
             if ($file->isFile() && str_ends_with($file->getFilename(), 'Builder.php')) {
                 $files[] = $file->getPathname();
             }

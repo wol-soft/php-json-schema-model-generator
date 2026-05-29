@@ -615,7 +615,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $suffix = $draft !== null ? '_' . preg_replace('/[^a-zA-Z0-9]/', '', $draft->label()) : '';
 
         return [
-            join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), 'PHPModelGeneratorTest', 'Enum' . $suffix]),
+            TEST_BASE_DIR . DIRECTORY_SEPARATOR . 'Enum' . $suffix,
             'Enum' . $suffix,
         ];
     }
