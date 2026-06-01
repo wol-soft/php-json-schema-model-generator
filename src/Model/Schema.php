@@ -66,6 +66,9 @@ class Schema
     /** @var array<string, true> */
     private array $rootRegisteredPropertyNames = [];
 
+    /** @var string[] Maps normalized attribute → raw property name; used to detect property-vs-property collisions */
+    private array $attributeIndex = [];
+
     private PropertyMerger $propertyMerger;
 
     /**
@@ -185,6 +188,22 @@ class Schema
     public function addProperty(PropertyInterface $property, ?string $compositionProcessor = null): self
     {
         if (!isset($this->properties[$property->getName()])) {
+            $attribute = $property->getAttribute();
+
+            $existingRawName = $this->attributeIndex[$attribute] ?? null;
+            if ($existingRawName !== null && $existingRawName !== $property->getName()) {
+                throw new SchemaException(
+                    sprintf(
+                        "Property names '%s' and '%s' both normalize to attribute '%s' in file %s",
+                        $existingRawName,
+                        $property->getName(),
+                        $attribute,
+                        $this->jsonSchema->getFile(),
+                    ),
+                );
+            }
+
+            $this->attributeIndex[$attribute] = $property->getName();
             $this->properties[$property->getName()] = $property;
 
             if ($compositionProcessor === null) {

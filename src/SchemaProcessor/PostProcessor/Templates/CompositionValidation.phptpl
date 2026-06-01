@@ -5,7 +5,7 @@
  *
  * {% if not generatorConfiguration.collectErrors() %}@throws ValidationException{% endif %}
  */
-private function validateComposition_{{ index }}(array &$modifiedModelData): void
+private function _validateComposition_{{ index }}(array &$modifiedModelData): void
 {
     $validatorIndex = {{ index }};
     $value = $modelData = array_merge($this->_rawModelDataInput, $modifiedModelData);

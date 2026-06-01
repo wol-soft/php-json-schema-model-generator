@@ -61,11 +61,11 @@ class Issue103Test extends AbstractIssueTestCase
         $exceptResult = $object->toArray(['productId']);
         $this->assertArrayHasKey('product_id', $exceptResult);
 
-        // Custom serializer: method serializeProductId is called; result lands under 'product_id'
+        // Custom serializer: method _serializeProductId is called; result lands under 'product_id'
         $subclassName = 'CustomSerializer103_' . md5($className);
         if (!class_exists($subclassName)) {
             eval("class $subclassName extends $className {
-                protected function serializeProductId() {
+                protected function _serializeProductId() {
                     return strtoupper(\$this->productId);
                 }
             }");

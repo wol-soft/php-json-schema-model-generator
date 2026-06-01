@@ -25,7 +25,7 @@ public function populate(array $modelData): self
     }
 
     {% if schema.getBaseValidators() %}
-        $this->executeBaseValidators($modelData);
+        $this->_executeBaseValidators($modelData);
     {% endif %}
 
     {% foreach schema.getProperties() as property %}
@@ -36,7 +36,7 @@ public function populate(array $modelData): self
                 {{ schemaHookResolver.resolveSetterBeforeValidationHook(property, true) }}
 
                 $rollbackValues['{{ property.getAttribute(true) }}'] = $this->{{ property.getAttribute(true) }};
-                $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
+                $this->_process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
             }
         {% endif %}
     {% endforeach %}
