@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "properties": {
+    "shared": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "shared": {
+          "type": "string",
+          "maxLength": 10
+        }
+      }
+    },
+    {
+      "properties": {
+        "shared": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    }
+  ]
+}

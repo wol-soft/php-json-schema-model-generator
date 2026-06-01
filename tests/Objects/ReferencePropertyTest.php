@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use ReflectionClass;
 use stdClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\WithoutErrorHandler;
@@ -777,6 +780,34 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
                 ERROR,
             ],
         ];
+    }
+
+    /**
+     * When two properties share a $ref to the same definition, the second property is resolved
+     * as a PropertyProxy. The SchemaName attribute must reflect the proxy's own property name,
+     * not the name from the underlying shared definition (which belongs to the first property).
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testProxiedPropertyHasOwnSchemaNameAttribute(): void
+    {
+        $configuration = (new GeneratorConfiguration())
+            ->setEnabledAttributes(PhpAttribute::SCHEMA_NAME);
+
+        $className = $this->generateClassFromFile('multiplePropertiesIdenticalReference.json', $configuration);
+        $rc = new ReflectionClass($className);
+
+        foreach (['personA', 'personB'] as $propertyName) {
+            $attributes = $rc->getProperty($propertyName)->getAttributes(SchemaName::class);
+            $this->assertCount(1, $attributes, "Expected one SchemaName attribute on $propertyName");
+            $this->assertSame(
+                $propertyName,
+                $attributes[0]->getArguments()[0],
+                "SchemaName for $propertyName should be '$propertyName'",
+            );
+        }
     }
 
     /**
