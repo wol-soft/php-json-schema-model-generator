@@ -63,6 +63,9 @@ class Schema
     /** @var callable[] */
     private array $onAllPropertiesResolvedCallbacks = [];
 
+    /** @var array<string, true> */
+    private array $rootRegisteredPropertyNames = [];
+
     private PropertyMerger $propertyMerger;
 
     /**
@@ -185,7 +188,7 @@ class Schema
             $this->properties[$property->getName()] = $property;
 
             if ($compositionProcessor === null) {
-                $this->propertyMerger->markRootRegistered($property->getName());
+                $this->rootRegisteredPropertyNames[$property->getName()] = true;
             }
 
             $property->onResolve(function (): void {
@@ -205,9 +208,20 @@ class Schema
             $this->properties[$property->getName()],
             $property,
             is_a($compositionProcessor, AllOfValidatorFactory::class, true),
+            $this->isRootRegistered($property->getName()),
         );
 
         return $this;
+    }
+
+    public function isRootRegistered(string $name): bool
+    {
+        return isset($this->rootRegisteredPropertyNames[$name]);
+    }
+
+    public function getProperty(string $name): ?PropertyInterface
+    {
+        return $this->properties[$name] ?? null;
     }
 
     /**

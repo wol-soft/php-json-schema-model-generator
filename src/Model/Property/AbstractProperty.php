@@ -39,6 +39,16 @@ abstract class AbstractProperty implements PropertyInterface
     /**
      * @inheritdoc
      */
+    public function setJsonSchema(JsonSchema $jsonSchema): static
+    {
+        $this->jsonSchema = $jsonSchema;
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function getName(): string
     {
         return $this->name;
