@@ -85,8 +85,8 @@ class CompositionPropertyDecorator extends PropertyProxy
     /**
      * Returns the property names declared in this branch's `properties` keyword.
      *
-     * Used by composition templates to compute the evaluated property set for a successful
-     * inline branch: each declared property name present in the model is credited as evaluated.
+     * Used by the composition post processor to harvest names that must invalidate the
+     * setter-side validation cache when those properties change.
      *
      * @return string[]
      */
@@ -96,23 +96,26 @@ class CompositionPropertyDecorator extends PropertyProxy
     }
 
     /**
-     * Returns base64-encoded patternProperties patterns declared in this branch's JSON schema.
-     *
-     * The patterns are base64-encoded so they can be safely embedded as PHP string literals
-     * in templates without escaping concerns. Templates decode them with base64_decode() before
-     * calling preg_match().
-     *
-     * @return string[]
+     * Returns the declared property names as a PHP array literal ready for direct template
+     * embedding. var_export emits a syntactically-valid PHP literal regardless of which
+     * characters the names contain (quotes, backslashes, multibyte sequences).
      */
-    public function getBranchPatternPropertyPatterns(): array
+    public function getBranchDeclaredPropertyNamesPhpLiteral(): string
     {
-        $patterns = [];
+        return var_export($this->getBranchDeclaredPropertyNames(), true);
+    }
 
-        foreach (array_keys($this->jsonSchema->getJson()['patternProperties'] ?? []) as $pattern) {
-            $patterns[] = base64_encode($pattern);
-        }
-
-        return $patterns;
+    /**
+     * Returns the patternProperties regexes as a PHP array literal ready for direct template
+     * embedding. var_export handles all string escaping so generated code does not need to
+     * round-trip patterns through base64 at runtime.
+     */
+    public function getBranchPatternPropertyPatternsPhpLiteral(): string
+    {
+        return var_export(
+            array_keys($this->jsonSchema->getJson()['patternProperties'] ?? []),
+            true,
+        );
     }
 
     /**

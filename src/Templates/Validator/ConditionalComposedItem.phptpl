@@ -56,8 +56,8 @@
                 {% else %}
                     $this->_compositionEvaluations[$validatorIndex][0] = $this->collectEvaluatedProperties(
                         $modelData,
-                        [{% foreach ifProperty.getBranchDeclaredPropertyNames() as propName %}'{{ propName }}', {% endforeach %}],
-                        [{% foreach ifProperty.getBranchPatternPropertyPatterns() as encodedPattern %}'{{ encodedPattern }}', {% endforeach %}],
+                        {{ ifProperty.getBranchDeclaredPropertyNamesPhpLiteral() }},
+                        {{ ifProperty.getBranchPatternPropertyPatternsPhpLiteral() }},
                     );
                 {% endif %}
             {% endif %}
@@ -110,8 +110,8 @@
                         {% else %}
                             $this->_compositionEvaluations[$validatorIndex][1] = $this->collectEvaluatedProperties(
                                 $modelData,
-                                [{% foreach thenProperty.getBranchDeclaredPropertyNames() as propName %}'{{ propName }}', {% endforeach %}],
-                                [{% foreach thenProperty.getBranchPatternPropertyPatterns() as encodedPattern %}'{{ encodedPattern }}', {% endforeach %}],
+                                {{ thenProperty.getBranchDeclaredPropertyNamesPhpLiteral() }},
+                                {{ thenProperty.getBranchPatternPropertyPatternsPhpLiteral() }},
                             );
                         {% endif %}
                     {% endif %}
@@ -168,8 +168,8 @@
                         {% else %}
                             $this->_compositionEvaluations[$validatorIndex][2] = $this->collectEvaluatedProperties(
                                 $modelData,
-                                [{% foreach elseProperty.getBranchDeclaredPropertyNames() as propName %}'{{ propName }}', {% endforeach %}],
-                                [{% foreach elseProperty.getBranchPatternPropertyPatterns() as encodedPattern %}'{{ encodedPattern }}', {% endforeach %}],
+                                {{ elseProperty.getBranchDeclaredPropertyNamesPhpLiteral() }},
+                                {{ elseProperty.getBranchPatternPropertyPatternsPhpLiteral() }},
                             );
                         {% endif %}
                     {% endif %}

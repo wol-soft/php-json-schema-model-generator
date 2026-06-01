@@ -31,6 +31,10 @@
             $preNotBranchEvaluations = $this->_compositionEvaluations ?? [];
         {% endif %}
 
+        {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+            $shouldTrack = true;
+        {% endif %}
+
         try {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
                 // check if the state of the validator is already known.
@@ -46,6 +50,13 @@
                         ]
                     )
                 ) {
+                    {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+                        // Cache hit: validators are not re-run, so $value still holds the
+                        // pre-validator array rather than a nested-schema object. Skip the
+                        // tracking write to preserve the slot value from the previous run.
+                        $shouldTrack = false;
+                    {% endif %}
+
                     {% if generatorConfiguration.collectErrors() %}
                         $compositionErrorCollection[] = $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex];
                     {% endif %}
@@ -112,19 +123,21 @@
             {% endif %}
 
             {% if compositionValidator.hasEvaluationTrackingEnabled() %}
-                {% if compositionProperty.branchHasNonFalseAdditionalProperties() %}
-                    $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = true;
-                {% else %}
-                    {% if compositionProperty.getNestedSchema() %}
-                        $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = is_object($value) ? $value : null;
+                if ($shouldTrack) {
+                    {% if compositionProperty.branchHasNonFalseAdditionalProperties() %}
+                        $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = true;
                     {% else %}
-                        $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = $this->collectEvaluatedProperties(
-                            $modelData,
-                            [{% foreach compositionProperty.getBranchDeclaredPropertyNames() as propName %}'{{ propName }}', {% endforeach %}],
-                            [{% foreach compositionProperty.getBranchPatternPropertyPatterns() as encodedPattern %}'{{ encodedPattern }}', {% endforeach %}],
-                        );
+                        {% if compositionProperty.getNestedSchema() %}
+                            $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = is_object($value) ? $value : null;
+                        {% else %}
+                            $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = $this->collectEvaluatedProperties(
+                                $modelData,
+                                {{ compositionProperty.getBranchDeclaredPropertyNamesPhpLiteral() }},
+                                {{ compositionProperty.getBranchPatternPropertyPatternsPhpLiteral() }},
+                            );
+                        {% endif %}
                     {% endif %}
-                {% endif %}
+                }
             {% endif %}
         } catch (\Exception $e) {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
