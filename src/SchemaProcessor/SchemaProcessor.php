@@ -29,6 +29,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorat
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
+use PHPModelGenerator\Utils\PropertyAttributeSynthesizer;
 
 /**
  * Class SchemaProcessor
@@ -39,6 +40,8 @@ class SchemaProcessor
 {
     protected string $currentClassPath;
     protected string $currentClassName;
+
+    private PropertyAttributeSynthesizer $propertyAttributeSynthesizer;
 
     /** @var Schema[] Collect processed schemas to avoid duplicated classes */
     protected array $processedSchema = [];
@@ -70,7 +73,9 @@ class SchemaProcessor
         protected string $destination,
         protected GeneratorConfiguration $generatorConfiguration,
         protected RenderQueue $renderQueue,
-    ) {}
+    ) {
+        $this->propertyAttributeSynthesizer = new PropertyAttributeSynthesizer($generatorConfiguration);
+    }
 
     /**
      * Process a given json schema file
@@ -578,6 +583,12 @@ class SchemaProcessor
                                 }
 
                                 $this->checkCrossBranchDefaultConflicts($validator, $property);
+
+                                $this->propertyAttributeSynthesizer->synthesiseForValidator(
+                                    $validator,
+                                    $schema,
+                                    $seenBranchPropertyNames,
+                                );
                             }
                         },
                     );
@@ -625,6 +636,8 @@ class SchemaProcessor
                 $transferredProperty->setType(null, null, reset: true);
             }
         }
+
+        $transferredProperty->setJsonSchema($transferredProperty->getJsonSchema()->withJson([]));
 
         return $transferredProperty;
     }

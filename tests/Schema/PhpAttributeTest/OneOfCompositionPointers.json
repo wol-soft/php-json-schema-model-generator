@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "oneOf": [
+    {
+      "properties": {
+        "shared": {
+          "type": "string"
+        },
+        "branch0Only": {
+          "type": "integer"
+        }
+      }
+    },
+    {
+      "properties": {
+        "shared": {
+          "type": "string"
+        },
+        "branch1Only": {
+          "type": "integer"
+        }
+      }
+    }
+  ]
+}

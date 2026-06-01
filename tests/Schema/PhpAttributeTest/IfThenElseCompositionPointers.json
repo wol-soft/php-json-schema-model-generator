@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "if": {
+    "properties": {
+      "mode": {
+        "type": "string",
+        "const": "active"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "shared": {
+        "type": "string"
+      },
+      "thenOnly": {
+        "type": "integer"
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "shared": {
+        "type": "string"
+      },
+      "elseOnly": {
+        "type": "integer"
+      }
+    }
+  }
+}

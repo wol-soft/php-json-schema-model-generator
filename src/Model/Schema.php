@@ -63,6 +63,12 @@ class Schema
     /** @var callable[] */
     private array $onAllPropertiesResolvedCallbacks = [];
 
+    /** @var array<string, true> */
+    private array $rootRegisteredPropertyNames = [];
+
+    /** @var string[] Maps normalized attribute → raw property name; used to detect property-vs-property collisions */
+    private array $attributeIndex = [];
+
     private PropertyMerger $propertyMerger;
 
     /**
@@ -187,10 +193,26 @@ class Schema
     public function addProperty(PropertyInterface $property, ?string $compositionProcessor = null): self
     {
         if (!isset($this->properties[$property->getName()])) {
+            $attribute = $property->getAttribute();
+
+            $existingRawName = $this->attributeIndex[$attribute] ?? null;
+            if ($existingRawName !== null && $existingRawName !== $property->getName()) {
+                throw new SchemaException(
+                    sprintf(
+                        "Property names '%s' and '%s' both normalize to attribute '%s' in file %s",
+                        $existingRawName,
+                        $property->getName(),
+                        $attribute,
+                        $this->jsonSchema->getFile(),
+                    ),
+                );
+            }
+
+            $this->attributeIndex[$attribute] = $property->getName();
             $this->properties[$property->getName()] = $property;
 
             if ($compositionProcessor === null) {
-                $this->propertyMerger->markRootRegistered($property->getName());
+                $this->rootRegisteredPropertyNames[$property->getName()] = true;
             }
 
             $property->onResolve(function (): void {
@@ -210,9 +232,20 @@ class Schema
             $this->properties[$property->getName()],
             $property,
             is_a($compositionProcessor, AllOfValidatorFactory::class, true),
+            $this->isRootRegistered($property->getName()),
         );
 
         return $this;
+    }
+
+    public function isRootRegistered(string $name): bool
+    {
+        return isset($this->rootRegisteredPropertyNames[$name]);
+    }
+
+    public function getProperty(string $name): ?PropertyInterface
+    {
+        return $this->properties[$name] ?? null;
     }
 
     /**

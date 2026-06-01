@@ -1,0 +1,40 @@
+{
+  "type": "object",
+  "if": {
+    "properties": {
+      "mode": {
+        "type": "string",
+        "const": "strict"
+      }
+    },
+    "required": [
+      "mode"
+    ]
+  },
+  "then": {
+    "properties": {
+      "mode": {
+        "type": "string",
+        "const": "strict"
+      },
+      "value": {
+        "type": "string",
+        "minLength": 4
+      }
+    },
+    "required": [
+      "value"
+    ]
+  },
+  "else": {
+    "properties": {
+      "mode": {
+        "type": "string"
+      },
+      "value": {
+        "type": "string",
+        "maxLength": 32
+      }
+    }
+  }
+}

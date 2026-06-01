@@ -102,3 +102,34 @@ This schema will generate three classes as no merged property is created. The ma
     public function setName(string $name): static
     public function getAge(): ?int
     public function setAge(int $age): static
+
+Branch-constraint isolation
+---------------------------
+
+When the same property name appears in multiple composition branches with different constraints
+(e.g. one ``oneOf`` branch requires an ``enum`` value while another allows a free-form string),
+the outer merged class does **not** inherit branch-specific constraints from any individual
+branch. Validation constraints such as ``enum``, ``minLength``, or ``pattern`` remain scoped to
+their respective branch and are enforced only when that branch is being validated.
+
+This means that the ``EnumPostProcessor`` and similar post-processors will correctly operate on
+the branch-level property — not on the outer merged property — so the generated merged class
+setter accepts the full union of allowed values from all branches rather than being narrowed to
+the constraints of a single branch.
+
+Attributes for shared properties
+---------------------------------
+
+When ``JSON_POINTER`` or ``JSON_SCHEMA`` attributes are enabled (see
+`Attributes <../gettingStarted.html#attributes>`__), properties that appear in more than one
+composition branch receive synthesised attributes:
+
+- **JSON_POINTER**: one ``#[JsonPointer]`` attribute is emitted per branch that defines the
+  property. When the property is also declared in the root ``properties`` block, the root
+  pointer is prepended.
+
+- **JSON_SCHEMA**: a single ``#[JsonSchema]`` attribute is emitted whose value is a synthesised
+  JSON object containing the composition keyword (``allOf``, ``anyOf``, ``oneOf``, or
+  ``if``/``then``/``else`` sub-objects) with only those branch sub-schemas that involve this
+  property. Root-level constraints are merged into the top-level object when the property is
+  also root-registered.
