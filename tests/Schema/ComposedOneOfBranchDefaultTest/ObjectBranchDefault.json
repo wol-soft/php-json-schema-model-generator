@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["A"]
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": ["kind"],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["B"]
+        },
+        "sandbox": {
+          "type": "boolean",
+          "default": true
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": ["kind"],
+      "additionalProperties": false
+    }
+  ]
+}
