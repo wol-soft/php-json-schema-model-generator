@@ -81,4 +81,53 @@ class CompositionPropertyDecorator extends PropertyProxy
     {
         return $this->jsonSchema;
     }
+
+    /**
+     * Returns the property names declared in this branch's `properties` keyword.
+     *
+     * Used by composition templates to compute the evaluated property set for a successful
+     * inline branch: each declared property name present in the model is credited as evaluated.
+     *
+     * @return string[]
+     */
+    public function getBranchDeclaredPropertyNames(): array
+    {
+        return array_keys($this->jsonSchema->getJson()['properties'] ?? []);
+    }
+
+    /**
+     * Returns base64-encoded patternProperties patterns declared in this branch's JSON schema.
+     *
+     * The patterns are base64-encoded so they can be safely embedded as PHP string literals
+     * in templates without escaping concerns. Templates decode them with base64_decode() before
+     * calling preg_match().
+     *
+     * @return string[]
+     */
+    public function getBranchPatternPropertyPatterns(): array
+    {
+        $patterns = [];
+
+        foreach (array_keys($this->jsonSchema->getJson()['patternProperties'] ?? []) as $pattern) {
+            $patterns[] = base64_encode($pattern);
+        }
+
+        return $patterns;
+    }
+
+    /**
+     * Returns true if this branch's JSON schema explicitly declares an `additionalProperties`
+     * value that is not `false` (i.e., `true` or a schema object).
+     *
+     * Absent `additionalProperties` returns false: omitting the keyword does not contribute
+     * annotation results that unevaluatedProperties checks. When this method returns true,
+     * a successful branch is treated as evaluating every model key.
+     */
+    public function branchHasNonFalseAdditionalProperties(): bool
+    {
+        $branchJson = $this->jsonSchema->getJson();
+
+        return isset($branchJson['additionalProperties'])
+            && $branchJson['additionalProperties'] !== false;
+    }
 }

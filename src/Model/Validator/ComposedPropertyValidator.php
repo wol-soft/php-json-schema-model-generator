@@ -51,6 +51,8 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getCheck(): string
     {
+        $this->templateValues['compositionValidator'] = $this;
+
         $hasNestedSchemaWithProperties = $this->hasNestedSchemaWithProperties();
 
         $this->templateValues['hasModifiedValuesMethod'] = $hasNestedSchemaWithProperties;

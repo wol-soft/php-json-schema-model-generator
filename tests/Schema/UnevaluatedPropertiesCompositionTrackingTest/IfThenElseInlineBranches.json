@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "A"
+      }
+    },
+    "required": [
+      "kind"
+    ]
+  },
+  "then": {
+    "properties": {
+      "valueA": {
+        "type": "string"
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "valueB": {
+        "type": "integer"
+      }
+    }
+  },
+  "unevaluatedProperties": false
+}

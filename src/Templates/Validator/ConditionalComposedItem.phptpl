@@ -5,12 +5,19 @@
     &$modelData,
     &$ifException,
     &$thenException,
-    &$elseException
+    &$elseException,
+    &$validatorIndex
 ) {
     $originalModelData = $value;
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+    {% endif %}
+
+    {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+        {% if ifProperty.getNestedSchema() %}
+            $capturedIfInstance = null;
+        {% endif %}
     {% endif %}
 
     try {
@@ -25,10 +32,37 @@
                 throw $this->_errorRegistry;
             }
         {% endif %}
+
+        {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+            {% if ifProperty.getNestedSchema() %}
+                $capturedIfInstance = is_object($value) ? $value : null;
+            {% endif %}
+        {% endif %}
     } catch (\Exception $e) {
         $ifException = $e;
     }
+
     $value = $originalModelData;
+
+    {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+        if ($ifException) {
+            $this->_compositionEvaluations[$validatorIndex][0] = null;
+        } else {
+            {% if ifProperty.branchHasNonFalseAdditionalProperties() %}
+                $this->_compositionEvaluations[$validatorIndex][0] = true;
+            {% else %}
+                {% if ifProperty.getNestedSchema() %}
+                    $this->_compositionEvaluations[$validatorIndex][0] = $capturedIfInstance;
+                {% else %}
+                    $this->_compositionEvaluations[$validatorIndex][0] = $this->collectEvaluatedProperties(
+                        $modelData,
+                        [{% foreach ifProperty.getBranchDeclaredPropertyNames() as propName %}'{{ propName }}', {% endforeach %}],
+                        [{% foreach ifProperty.getBranchPatternPropertyPatterns() as encodedPattern %}'{{ encodedPattern }}', {% endforeach %}],
+                    );
+                {% endif %}
+            {% endif %}
+        }
+    {% endif %}
 
     {% if generatorConfiguration.collectErrors() %}
         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
@@ -36,6 +70,12 @@
 
     if (!$ifException) {
         {% if thenProperty %}
+            {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+                {% if thenProperty.getNestedSchema() %}
+                    $capturedThenInstance = null;
+                {% endif %}
+            {% endif %}
+
             try {
                 {{ viewHelper.resolvePropertyDecorator(thenProperty) }}
 
@@ -48,12 +88,52 @@
                         throw $this->_errorRegistry;
                     }
                 {% endif %}
+
+                {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+                    {% if thenProperty.getNestedSchema() %}
+                        $capturedThenInstance = is_object($value) ? $value : null;
+                    {% endif %}
+                {% endif %}
             } catch (\Exception $e) {
                 $thenException = $e;
             }
+
+            {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+                if ($thenException) {
+                    $this->_compositionEvaluations[$validatorIndex][1] = null;
+                } else {
+                    {% if thenProperty.branchHasNonFalseAdditionalProperties() %}
+                        $this->_compositionEvaluations[$validatorIndex][1] = true;
+                    {% else %}
+                        {% if thenProperty.getNestedSchema() %}
+                            $this->_compositionEvaluations[$validatorIndex][1] = $capturedThenInstance;
+                        {% else %}
+                            $this->_compositionEvaluations[$validatorIndex][1] = $this->collectEvaluatedProperties(
+                                $modelData,
+                                [{% foreach thenProperty.getBranchDeclaredPropertyNames() as propName %}'{{ propName }}', {% endforeach %}],
+                                [{% foreach thenProperty.getBranchPatternPropertyPatterns() as encodedPattern %}'{{ encodedPattern }}', {% endforeach %}],
+                            );
+                        {% endif %}
+                    {% endif %}
+                }
+            {% endif %}
+        {% else %}
+            {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+                $this->_compositionEvaluations[$validatorIndex][1] = null;
+            {% endif %}
+        {% endif %}
+
+        {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+            $this->_compositionEvaluations[$validatorIndex][2] = null;
         {% endif %}
     } else {
         {% if elseProperty %}
+            {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+                {% if elseProperty.getNestedSchema() %}
+                    $capturedElseInstance = null;
+                {% endif %}
+            {% endif %}
+
             try {
                 {{ viewHelper.resolvePropertyDecorator(elseProperty) }}
 
@@ -66,9 +146,43 @@
                         throw $this->_errorRegistry;
                     }
                 {% endif %}
+
+                {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+                    {% if elseProperty.getNestedSchema() %}
+                        $capturedElseInstance = is_object($value) ? $value : null;
+                    {% endif %}
+                {% endif %}
             } catch (\Exception $e) {
                 $elseException = $e;
             }
+
+            {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+                if ($elseException) {
+                    $this->_compositionEvaluations[$validatorIndex][2] = null;
+                } else {
+                    {% if elseProperty.branchHasNonFalseAdditionalProperties() %}
+                        $this->_compositionEvaluations[$validatorIndex][2] = true;
+                    {% else %}
+                        {% if elseProperty.getNestedSchema() %}
+                            $this->_compositionEvaluations[$validatorIndex][2] = $capturedElseInstance;
+                        {% else %}
+                            $this->_compositionEvaluations[$validatorIndex][2] = $this->collectEvaluatedProperties(
+                                $modelData,
+                                [{% foreach elseProperty.getBranchDeclaredPropertyNames() as propName %}'{{ propName }}', {% endforeach %}],
+                                [{% foreach elseProperty.getBranchPatternPropertyPatterns() as encodedPattern %}'{{ encodedPattern }}', {% endforeach %}],
+                            );
+                        {% endif %}
+                    {% endif %}
+                }
+            {% endif %}
+        {% else %}
+            {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+                $this->_compositionEvaluations[$validatorIndex][2] = null;
+            {% endif %}
+        {% endif %}
+
+        {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+            $this->_compositionEvaluations[$validatorIndex][1] = null;
         {% endif %}
     }
 

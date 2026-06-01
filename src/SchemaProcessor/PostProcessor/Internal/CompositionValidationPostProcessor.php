@@ -64,6 +64,16 @@ class CompositionValidationPostProcessor extends PostProcessor
 
             foreach ($validator->getComposedProperties() as $composedProperty) {
                 if ($composedProperty->getNestedSchema() === null) {
+                    // Harvest inline branch declared property names so setter-side revalidation
+                    // fires when those properties change. Without this, updating a property that
+                    // only an inline branch's `properties` declares would leave _compositionEvaluations
+                    // stale.
+                    foreach ($composedProperty->getBranchDeclaredPropertyNames() as $propertyName) {
+                        if (!isset($validatorPropertyMap[$propertyName])) {
+                            $validatorPropertyMap[$propertyName] = [];
+                        }
+                        $validatorPropertyMap[$propertyName][] = $validatorIndex;
+                    }
                     continue;
                 }
 

@@ -41,6 +41,8 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
         $this->compositionProcessor = IfValidatorFactory::class;
         $this->composedProperties = $composedProperties;
         $this->conditionBranches = $conditionBranches;
+
+        $this->templateValues['compositionValidator'] = $this;
     }
 
     /**

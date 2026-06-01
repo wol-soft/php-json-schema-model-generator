@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
+use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 
 /**
  * Class AbstractComposedPropertyValidator
@@ -18,7 +19,7 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     /** @var CompositionPropertyDecorator[] */
     protected $composedProperties;
 
-    private bool $trackEvaluation = false;
+    private bool $evaluationTrackingEnabled = false;
 
     public function getCompositionProcessor(): string
     {
@@ -37,13 +38,24 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
      * When true, this validator's rendered output will emit the _compositionEvaluations
      * cache field and per-branch slot writes needed for unevaluatedProperties tracking.
      */
-    public function setTrackEvaluation(bool $trackEvaluation): void
+    public function enableEvaluationTracking(): void
     {
-        $this->trackEvaluation = $trackEvaluation;
+        $this->evaluationTrackingEnabled = true;
     }
 
-    public function isTrackEvaluation(): bool
+    public function hasEvaluationTrackingEnabled(): bool
     {
-        return $this->trackEvaluation;
+        return $this->evaluationTrackingEnabled;
+    }
+
+    /**
+     * Returns true when this validator implements `not` composition semantics.
+     *
+     * When true, composition templates unconditionally roll back _compositionEvaluations
+     * after the not-branch runs so that any annotations it wrote cannot leak to the parent.
+     */
+    public function isNotComposition(): bool
+    {
+        return $this->compositionProcessor === NotValidatorFactory::class;
     }
 }

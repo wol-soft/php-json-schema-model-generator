@@ -349,6 +349,10 @@ meaning.
 - ✅ `* Validates the zero-overlap rejection path in FilterValidator`
 - ❌ `* exercises FilterProcessor line 429 (else branch of classifyValidatorAdjustments)`
 - ✅ `* exercises the else branch of classifyValidatorAdjustments`
+- ❌ `// Decision 0.3: Also harvest inline branch property names`
+- ❌ `// Decision 0.6 unconditional rollback`
+- ❌ `// Phase 3's UnevaluatedPropertiesValidator can query...`
+- ❌ `// not with inline branch — Decision 0.6: slot permanently success=false`
 
 This rule applies equally to DocBlocks in test files: do not reference specific line numbers of
 the code under test. Line numbers shift whenever the file is edited, making such references

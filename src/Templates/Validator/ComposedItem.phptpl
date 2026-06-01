@@ -18,11 +18,19 @@
         $originalPropertyValidationState = $this->_propertyValidationState ?? [];
     {% endif %}
 
+    {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+        $originalCompositionEvaluations = $this->_compositionEvaluations ?? [];
+    {% endif %}
+
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
 
     {% foreach compositionProperties as compositionProperty %}
+        {% if compositionValidator.isNotComposition() and compositionValidator.hasEvaluationTrackingEnabled() %}
+            $preNotBranchEvaluations = $this->_compositionEvaluations ?? [];
+        {% endif %}
+
         try {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
                 // check if the state of the validator is already known.
@@ -53,46 +61,47 @@
                 } else {
             {% endif %}
 
-                {% if generatorConfiguration.collectErrors() %}
-                    // collect errors for each composition element
-                    $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-                {% endif %}
+            {% if generatorConfiguration.collectErrors() %}
+                // collect errors for each composition element
+                $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            {% endif %}
 
-                {% if not postPropose %}
-                    $proposedValue = $proposedValue ?? $value;
-                {% endif %}
+            {% if not postPropose %}
+                $proposedValue = $proposedValue ?? $value;
+            {% endif %}
 
-                {{ viewHelper.resolvePropertyDecorator(compositionProperty) }}
+            {{ viewHelper.resolvePropertyDecorator(compositionProperty) }}
 
-                {% foreach compositionProperty.getOrderedValidators() as validator %}
-                    {{ viewHelper.renderValidator(validator, schema) }}
-                {% endforeach %}
+            {% foreach compositionProperty.getOrderedValidators() as validator %}
+                {{ viewHelper.renderValidator(validator, schema) }}
+            {% endforeach %}
 
-                {% if generatorConfiguration.collectErrors() %}
-                    $compositionErrorCollection[] = $this->_errorRegistry;
+            {% if generatorConfiguration.collectErrors() %}
+                $compositionErrorCollection[] = $this->_errorRegistry;
 
-                    {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-                        if (isset($validatorIndex)) {
-                            $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = $this->_errorRegistry;
-                        }
-                    {% endif %}
-
-                    // an error inside the composed validation occurred. Throw an exception to count the validity of the
-                    // composition item
-                    if ($this->_errorRegistry->getErrors()) {
-                        throw new \Exception();
+                {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
+                    if (isset($validatorIndex)) {
+                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = $this->_errorRegistry;
                     }
                 {% endif %}
 
-                {% if postPropose %}
-                    $proposedValue = $proposedValue ?? $value;
-                {% endif %}
+                // an error inside the composed validation occurred. Throw an exception to count the validity of the
+                // composition item
+                if ($this->_errorRegistry->getErrors()) {
+                    throw new \Exception();
+                }
+            {% endif %}
 
-                {% if hasModifiedValuesMethod %}
-                    if (is_object($value)) {
-                        $modifiedValues = array_merge($modifiedValues, $this->{{ modifiedValuesMethod }}($originalModelData, $value));
-                    }
-                {% endif %}
+            {% if postPropose %}
+                $proposedValue = $proposedValue ?? $value;
+            {% endif %}
+
+            {% if hasModifiedValuesMethod %}
+                if (is_object($value)) {
+                    $modifiedValues = array_merge($modifiedValues, $this->{{ modifiedValuesMethod }}($originalModelData, $value));
+                }
+            {% endif %}
+
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
                 {% if not generatorConfiguration.collectErrors() %}
                     if (isset($validatorIndex)) {
@@ -100,6 +109,22 @@
                     }
                 {% endif %}
             }
+            {% endif %}
+
+            {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+                {% if compositionProperty.branchHasNonFalseAdditionalProperties() %}
+                    $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = true;
+                {% else %}
+                    {% if compositionProperty.getNestedSchema() %}
+                        $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = is_object($value) ? $value : null;
+                    {% else %}
+                        $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = $this->collectEvaluatedProperties(
+                            $modelData,
+                            [{% foreach compositionProperty.getBranchDeclaredPropertyNames() as propName %}'{{ propName }}', {% endforeach %}],
+                            [{% foreach compositionProperty.getBranchPatternPropertyPatterns() as encodedPattern %}'{{ encodedPattern }}', {% endforeach %}],
+                        );
+                    {% endif %}
+                {% endif %}
             {% endif %}
         } catch (\Exception $e) {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
@@ -110,8 +135,19 @@
                 }
             {% endif %}
 
+            {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+                $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = null;
+            {% endif %}
+
             $succeededCompositionElements--;
         }
+
+        {% if compositionValidator.isNotComposition() and compositionValidator.hasEvaluationTrackingEnabled() %}
+            // Restore composition evaluations so any annotations written by the not-branch body
+            // (including by nested UnevaluatedPropertiesValidators) cannot leak to the parent schema.
+            $this->_compositionEvaluations = $preNotBranchEvaluations;
+            $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = null;
+        {% endif %}
 
         $value = $originalModelData;
         $validatorComponentIndex++;
@@ -140,6 +176,12 @@
     {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
         if ($result) {
             $this->_propertyValidationState = $originalPropertyValidationState;
+        }
+    {% endif %}
+
+    {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+        if ($result) {
+            $this->_compositionEvaluations = $originalCompositionEvaluations;
         }
     {% endif %}
 
