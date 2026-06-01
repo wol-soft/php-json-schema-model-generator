@@ -63,7 +63,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                     return sprintf(
                         '
                             $modelData = array_merge($this->_rawModelDataInput, ["%s" => $value]);
-                            $this->executeBaseValidators($modelData);
+                            $this->_executeBaseValidators($modelData);
                         ',
                         $property->getName(),
                     );

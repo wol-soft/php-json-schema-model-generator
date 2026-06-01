@@ -1,7 +1,7 @@
 /**
  * serialize all pattern properties for the pattern key {{ key }}
  */
-protected function serialize{{ viewHelper.ucfirst(key) }}(): array
+protected function _serialize{{ viewHelper.ucfirst(key) }}(): array
 {
     $serialized = [];
     foreach ($this->_patternProperties['{{ key }}'] as $propertyKey => $value) {

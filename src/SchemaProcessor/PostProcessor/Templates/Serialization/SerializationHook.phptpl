@@ -1,5 +1,5 @@
 {% if schemaHookResolver.resolveSerializationHook() %}
-    protected function resolveSerializationHook(array $data, int $depth, array $except): array
+    protected function _resolveSerializationHook(array $data, int $depth, array $except): array
     {
         {{ schemaHookResolver.resolveSerializationHook() }}
 

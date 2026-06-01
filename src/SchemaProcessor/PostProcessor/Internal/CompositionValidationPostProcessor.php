@@ -115,7 +115,7 @@ class CompositionValidationPostProcessor extends PostProcessor
             $compositionValidator->setScope($schema);
 
             $schema->addMethod(
-                "validateComposition_$validatorIndex",
+                "_validateComposition_$validatorIndex",
                 new RenderedMethod(
                     $schema,
                     $generatorConfiguration,
@@ -147,7 +147,7 @@ class CompositionValidationPostProcessor extends PostProcessor
                     "\n",
                     array_map(
                         static fn(int $validatorIndex): string =>
-                            sprintf('$this->validateComposition_%s($modelData);', $validatorIndex),
+                            sprintf('$this->_validateComposition_%s($modelData);', $validatorIndex),
                         array_unique($this->validatorPropertyMap[$property->getName()] ?? []),
                     )
                 );

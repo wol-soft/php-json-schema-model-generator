@@ -1,4 +1,4 @@
-protected function serializeAdditionalProperties(int $depth, array $except): array
+protected function _serializeAdditionalProperties(int $depth, array $except): array
 {
     {% if serializerClass %}
         $serializedValues = [];
@@ -7,7 +7,7 @@ protected function serializeAdditionalProperties(int $depth, array $except): arr
         }
     {% endif %}
 
-    return $this->getSerializedValue(
+    return $this->_getSerializedValue(
         {% if serializerClass %}$serializedValues{% else %}$this->_additionalProperties{% endif %},
         $depth,
         $except
