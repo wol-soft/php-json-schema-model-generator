@@ -1,0 +1,55 @@
+{
+  "type": "object",
+  "properties": {
+    "committed_metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "oneOf": [
+          {
+            "properties": {
+              "scope": {
+                "type": "string",
+                "const": "standard"
+              },
+              "metric_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              }
+            },
+            "required": [
+              "scope",
+              "metric_id"
+            ]
+          },
+          {
+            "properties": {
+              "scope": {
+                "type": "string",
+                "const": "vendor"
+              },
+              "metric_id": {
+                "enum": [
+                  "impressions",
+                  "spend",
+                  "clicks",
+                  "ctr"
+                ]
+              }
+            },
+            "required": [
+              "scope",
+              "metric_id"
+            ]
+          }
+        ]
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "committed_metrics"
+  ]
+}

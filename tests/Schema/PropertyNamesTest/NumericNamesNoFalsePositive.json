@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "1st": {
+      "type": "string"
+    },
+    "1st-thing": {
+      "type": "string"
+    }
+  }
+}

@@ -169,6 +169,10 @@ interface PropertyInterface extends ResolvableInterface
      */
     public function getJsonSchema(): JsonSchema;
 
+    public function setJsonSchema(JsonSchema $jsonSchema): static;
+
+    public function filterAttributes(callable $filter): static;
+
     public function addAttribute(
         PhpAttribute $attribute,
         ?GeneratorConfiguration $generatorConfiguration = null,

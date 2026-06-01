@@ -128,7 +128,7 @@ class SerializationPostProcessor extends PostProcessor
     private function addSerializationHookMethod(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
         $schema->addMethod(
-            'resolveSerializationHook',
+            '_resolveSerializationHook',
             new RenderedMethod(
                 $schema,
                 $generatorConfiguration,
@@ -152,7 +152,7 @@ class SerializationPostProcessor extends PostProcessor
         }
 
         $schema->addMethod(
-            'serializePatternProperties',
+            '_serializePatternProperties',
             new RenderedMethod($schema, $generatorConfiguration, 'Serialization/PatternPropertiesSerializer.phptpl'),
         );
 
@@ -160,7 +160,7 @@ class SerializationPostProcessor extends PostProcessor
             new class () implements SerializationHookInterface {
                 public function getCode(): string
                 {
-                    return '$data += $this->serializePatternProperties($depth, $except);';
+                    return '$data += $this->_serializePatternProperties($depth, $except);';
                 }
             },
         );
@@ -198,7 +198,7 @@ class SerializationPostProcessor extends PostProcessor
         }
 
         $schema->addMethod(
-            'serializeAdditionalProperties',
+            '_serializeAdditionalProperties',
             new RenderedMethod(
                 $schema,
                 $generatorConfiguration,
@@ -217,7 +217,7 @@ class SerializationPostProcessor extends PostProcessor
             new class () implements SerializationHookInterface {
                 public function getCode(): string
                 {
-                    return '$data = array_merge($this->serializeAdditionalProperties($depth, $except), $data);';
+                    return '$data = array_merge($this->_serializeAdditionalProperties($depth, $except), $data);';
                 }
             },
         );
