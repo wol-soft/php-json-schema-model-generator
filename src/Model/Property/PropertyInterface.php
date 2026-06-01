@@ -180,6 +180,13 @@ interface PropertyInterface extends ResolvableInterface
     ): static;
 
     /**
+     * Replace the JsonPointer attribute with one carrying the given pointer value.
+     * Used by processReference to set the reference site's pointer on a resolved property
+     * rather than the definition's pointer.
+     */
+    public function overrideJsonPointer(PhpAttribute $attribute): static;
+
+    /**
      * @return PhpAttribute[]
      */
     public function getAttributes(): array;
