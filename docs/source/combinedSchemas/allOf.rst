@@ -98,3 +98,13 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
     **any** branch, the generator promotes that property to non-nullable in the generated class. All
     ``allOf`` branches must hold simultaneously, so any branch's ``required`` constraint is effectively
     global. See `Cross-typed compositions <crossTypedComposition.html>`__ for the full promotion rules.
+
+.. note::
+
+    Properties in object-level ``allOf`` branches may carry a ``"default"`` value. Because all
+    branches apply simultaneously, defaults from every branch are combined. When multiple branches
+    define a default for the same property, those defaults must agree; the generator throws a
+    ``SchemaException`` at generation time if they differ.
+
+    See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
+    explanation.

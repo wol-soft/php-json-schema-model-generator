@@ -20,7 +20,10 @@ use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\ComposedPropertiesValidatorFactoryInterface;
+use PHPModelGenerator\Model\Validator\Factory\Composition\OneOfValidatorFactory;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\DefaultArrayToEmptyArrayDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
@@ -506,8 +509,9 @@ class SchemaProcessor
             $resolvedPropertiesCallbacks = 0;
             $seenBranchPropertyNames = [];
 
-            foreach ($validator->getComposedProperties() as $composedProperty) {
+            foreach ($validator->getComposedProperties() as $branchIndex => $composedProperty) {
                 $composedProperty->onResolve(function () use (
+                    $branchIndex,
                     $composedProperty,
                     $property,
                     $validator,
@@ -531,7 +535,9 @@ class SchemaProcessor
 
                     $composedProperty->getNestedSchema()->onAllPropertiesResolved(
                         function () use (
+                            $branchIndex,
                             $composedProperty,
+                            $property,
                             $validator,
                             $isBranchForValidator,
                             $totalBranches,
@@ -539,7 +545,22 @@ class SchemaProcessor
                             &$resolvedPropertiesCallbacks,
                             &$seenBranchPropertyNames,
                         ): void {
+                            $branchLabel = $this->getCompositionBranchLabel(
+                                $validator,
+                                $composedProperty,
+                                $branchIndex,
+                            );
+
                             foreach ($composedProperty->getNestedSchema()->getProperties() as $branchProperty) {
+                                if ($branchLabel !== null) {
+                                    $this->checkRootBranchDefaultConflict(
+                                        $branchProperty,
+                                        $branchLabel,
+                                        $validator,
+                                        $schema,
+                                    );
+                                }
+
                                 $schema->addProperty(
                                     $this->cloneTransferredProperty(
                                         $branchProperty,
@@ -560,6 +581,8 @@ class SchemaProcessor
                                         $totalBranches,
                                     );
                                 }
+
+                                $this->checkCrossBranchDefaultConflicts($validator, $property);
 
                                 $this->propertyAttributeSynthesizer->synthesiseForValidator(
                                     $validator,
@@ -590,7 +613,10 @@ class SchemaProcessor
 
         $transferredProperty = (clone $property)
             ->filterValidators(static fn(Validator $v): bool =>
-                is_a($v->getValidator(), PropertyTemplateValidator::class));
+                is_a($v->getValidator(), PropertyTemplateValidator::class))
+            ->setDefaultValue(null)
+            ->filterDecorators(static fn($decorator): bool =>
+                !($decorator instanceof DefaultArrayToEmptyArrayDecorator));
 
         if (!is_a($compositionProcessor, AllOfValidatorFactory::class, true)) {
             $transferredProperty->setRequired(false);
@@ -661,6 +687,200 @@ class SchemaProcessor
         }
 
         return false;
+    }
+
+    /**
+     * Throws a SchemaException when a branch property carries a non-null default that differs
+     * from a root-registered property of the same name in the parent schema.
+     *
+     * After the branch-default fix, all transferred branch properties have their default cleared
+     * to null before being added to the parent schema. Only root-level properties therefore carry
+     * a non-null default. This invariant makes `getDefaultValue() !== null` a reliable proxy for
+     * "this property was added at the root level with a meaningful default."
+     *
+     * Does NOT classify against output-space defaults — only the raw branch default (before
+     * transfer clears it) is compared to the existing root default.
+     *
+     * @param string $branchLabel Human-readable branch identifier for the error message
+     *                            (e.g. 'allOf/0', 'then', 'else').
+     */
+    private function checkRootBranchDefaultConflict(
+        PropertyInterface $branchProperty,
+        string $branchLabel,
+        AbstractComposedPropertyValidator $validator,
+        Schema $schema,
+    ): void {
+        $branchDefault = $branchProperty->getDefaultValue();
+
+        if ($branchDefault !== null) {
+            $existingDefault = $schema->getProperty($branchProperty->getName())?->getDefaultValue();
+
+            if ($existingDefault !== null && $existingDefault !== $branchDefault) {
+                throw new SchemaException(
+                    sprintf(
+                        "Conflicting default values for property '%s' under %s composition in file %s:"
+                            . " root=%s, %s=%s.",
+                        $branchProperty->getName(),
+                        $this->getCompositionKeyword($validator),
+                        $branchProperty->getJsonSchema()->getFile(),
+                        $existingDefault,
+                        $branchLabel,
+                        $branchDefault,
+                    )
+                );
+            }
+        }
+
+        // Check patternProperties defaults declared on the outer schema. Any pattern that matches
+        // the branch property name either agrees with the branch default (fine) or conflicts with
+        // it (SchemaException). When the branch property has no explicit default, the first
+        // matching pattern default is propagated to it; subsequent patterns must agree.
+        $patternProperties = $schema->getJsonSchema()->getJson()['patternProperties'] ?? [];
+        $effectiveBranchDefault = $branchDefault;
+
+        foreach ($patternProperties as $pattern => $patternSchema) {
+            if (!isset($patternSchema['default'])) {
+                continue;
+            }
+
+            if (!preg_match('/' . addcslashes($pattern, '/') . '/', $branchProperty->getName())) {
+                continue;
+            }
+
+            $patternDefault = var_export($patternSchema['default'], true);
+
+            if ($effectiveBranchDefault !== null && $effectiveBranchDefault !== $patternDefault) {
+                throw new SchemaException(
+                    sprintf(
+                        "Conflicting default values for property '%s' under %s composition in file %s:"
+                            . " pattern '%s'=%s, %s=%s.",
+                        $branchProperty->getName(),
+                        $this->getCompositionKeyword($validator),
+                        $branchProperty->getJsonSchema()->getFile(),
+                        $pattern,
+                        $patternDefault,
+                        $branchLabel,
+                        $effectiveBranchDefault,
+                    )
+                );
+            }
+
+            if ($effectiveBranchDefault === null) {
+                $branchProperty->setDefaultValue($patternSchema['default']);
+                $effectiveBranchDefault = $patternDefault;
+            }
+        }
+    }
+
+    /**
+     * Returns a human-readable label for the given branch suitable for use in conflict error
+     * messages, or null when the branch should be excluded from conflict checks.
+     *
+     * For if/then/else compositions the 'if' branch is purely a condition check and carries no
+     * applied defaults, so it returns null. The 'then' and 'else' branches return their keyword.
+     * For allOf / anyOf / oneOf the label is '<keyword>/<branchIndex>'.
+     */
+    private function getCompositionBranchLabel(
+        AbstractComposedPropertyValidator $validator,
+        CompositionPropertyDecorator $composedProperty,
+        int $branchIndex,
+    ): ?string {
+        if (!($validator instanceof ConditionalPropertyValidator)) {
+            return $this->getCompositionKeyword($validator) . '/' . $branchIndex;
+        }
+
+        $conditionBranches = $validator->getConditionBranches();
+        $conditionIndex = array_search($composedProperty, $conditionBranches, true);
+
+        if ($conditionIndex === false) {
+            // This is the 'if' branch — it applies no defaults, so skip it.
+            return null;
+        }
+
+        // Use object identity rather than the filtered-array index. When only an else branch
+        // is present (no then), it occupies index 0 in conditionBranches after array_values,
+        // so an index-based check would incorrectly return 'then' for the else branch.
+        return $composedProperty === $validator->getThenBranch() ? 'then' : 'else';
+    }
+
+    /**
+     * Checks all composition branches for properties with conflicting non-null default values.
+     * Only meaningful for allOf and anyOf, where multiple branches can match simultaneously —
+     * for oneOf and if/then/else at most one branch matches, so per-branch defaults cannot
+     * conflict at runtime and this check is skipped.
+     */
+    private function checkCrossBranchDefaultConflicts(
+        AbstractComposedPropertyValidator $validator,
+        PropertyInterface $compositionProperty,
+    ): void {
+        // Only allOf and anyOf can have multiple simultaneously-matching branches.
+        // For oneOf and if/then/else exactly one branch matches, so different per-branch
+        // defaults are not a conflict.
+        if (
+            !is_a($validator->getCompositionProcessor(), AllOfValidatorFactory::class, true)
+            && !is_a($validator->getCompositionProcessor(), AnyOfValidatorFactory::class, true)
+        ) {
+            return;
+        }
+
+        $keyword = $this->getCompositionKeyword($validator);
+
+        /** @var array<string, array<int, mixed>> $defaultsByProperty Property name → [branchIndex => default] */
+        $defaultsByProperty = [];
+
+        foreach ($validator->getComposedProperties() as $branchIndex => $composedBranch) {
+            $nestedSchema = $composedBranch->getNestedSchema();
+            if ($nestedSchema === null) {
+                continue;
+            }
+
+            foreach ($nestedSchema->getProperties() as $branchProperty) {
+                $branchDefault = $branchProperty->getDefaultValue();
+                if ($branchDefault !== null) {
+                    $defaultsByProperty[$branchProperty->getName()][$branchIndex] = $branchDefault;
+                }
+            }
+        }
+
+        foreach ($defaultsByProperty as $propertyName => $defaultsByBranch) {
+            $firstDefault = reset($defaultsByBranch);
+            $hasConflict = false;
+            foreach ($defaultsByBranch as $branchDefault) {
+                if ($branchDefault !== $firstDefault) {
+                    $hasConflict = true;
+                    break;
+                }
+            }
+
+            if (!$hasConflict) {
+                continue;
+            }
+
+            $sites = [];
+            foreach ($defaultsByBranch as $branchIndex => $branchDefault) {
+                $sites[] = sprintf('%s/%d=%s', $keyword, $branchIndex, $branchDefault);
+            }
+
+            throw new SchemaException(
+                sprintf(
+                    "Conflicting default values for property '%s' under %s composition in file %s: %s.",
+                    $propertyName,
+                    $keyword,
+                    $compositionProperty->getJsonSchema()->getFile(),
+                    implode(', ', $sites),
+                )
+            );
+        }
+    }
+
+    private function getCompositionKeyword(AbstractComposedPropertyValidator $validator): string
+    {
+        return match (true) {
+            is_a($validator->getCompositionProcessor(), AllOfValidatorFactory::class, true) => 'allOf',
+            is_a($validator->getCompositionProcessor(), AnyOfValidatorFactory::class, true) => 'anyOf',
+            is_a($validator->getCompositionProcessor(), OneOfValidatorFactory::class, true) => 'oneOf',
+            default                                                                          => 'if/then/else',
+        };
     }
 
     private function getTargetFileName(string $classPath, string $className): string

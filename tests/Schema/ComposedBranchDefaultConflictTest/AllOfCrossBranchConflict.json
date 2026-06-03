@@ -1,0 +1,22 @@
+{
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "timeout": {
+          "type": "integer",
+          "default": 30
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "timeout": {
+          "type": "integer",
+          "default": 60
+        }
+      }
+    }
+  ]
+}

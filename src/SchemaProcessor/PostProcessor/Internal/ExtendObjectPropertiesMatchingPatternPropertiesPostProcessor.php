@@ -29,6 +29,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
     {
         $this->checkForbiddenPatternConflicts($schema);
         $this->applyPatternPropertiesTypeIntersection($schema, $generatorConfiguration);
+        $this->applyPatternPropertiesDefaults($schema);
         $this->transferPatternPropertiesFilterToProperty($schema, $generatorConfiguration);
 
         $schema->addSchemaHook(
@@ -115,6 +116,101 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                         $property->getJsonSchema()->getFile(),
                     ),
                 );
+            }
+        }
+    }
+
+    /**
+     * For every root-declared property (present in the schema's top-level "properties" key) whose
+     * name matches a patternProperties pattern that declares a "default", propagate that default
+     * to the property when it has none, or verify agreement when it already has one.
+     *
+     * Branch-exclusive properties (transferred from composition branches via cloneTransferredProperty
+     * and therefore absent from the root "properties" key) are excluded here; their pattern defaults
+     * are applied earlier by checkRootBranchDefaultConflict so that the branch-default mechanism
+     * applies them conditionally rather than unconditionally.
+     *
+     * Conflicts detected:
+     *   - Two or more patterns match the same root property with different defaults.
+     *   - A pattern default disagrees with an already-declared root property default.
+     *
+     * @throws SchemaException
+     */
+    private function applyPatternPropertiesDefaults(Schema $schema): void
+    {
+        $json = $schema->getJsonSchema()->getJson();
+
+        if (!isset($json['patternProperties'])) {
+            return;
+        }
+
+        // Only apply to properties explicitly declared in the root "properties" block.
+        // Composition-transferred properties are handled by checkRootBranchDefaultConflict.
+        $rootPropertyNames = array_keys($json['properties'] ?? []);
+
+        foreach ($schema->getProperties() as $property) {
+            if ($property->isInternal() || !in_array($property->getName(), $rootPropertyNames, true)) {
+                continue;
+            }
+
+            // Collect the PHP-representation default from every matching pattern.
+            $matchingPatternDefaults = [];
+
+            foreach ($json['patternProperties'] as $pattern => $patternSchema) {
+                if (!isset($patternSchema['default'])) {
+                    continue;
+                }
+
+                if (!preg_match('/' . addcslashes($pattern, '/') . '/', $property->getName())) {
+                    continue;
+                }
+
+                $matchingPatternDefaults[$pattern] = var_export($patternSchema['default'], true);
+            }
+
+            if (empty($matchingPatternDefaults)) {
+                continue;
+            }
+
+            $uniqueDefaults = array_unique(array_values($matchingPatternDefaults));
+
+            if (count($uniqueDefaults) > 1) {
+                throw new SchemaException(
+                    sprintf(
+                        "Conflicting default values for property '%s' from multiple"
+                            . " patternProperties patterns in file %s: %s.",
+                        $property->getName(),
+                        $schema->getJsonSchema()->getFile(),
+                        implode(', ', array_map(
+                            static fn(string $patternKey, string $defaultRepr): string =>
+                                "'" . $patternKey . "'=" . var_export($defaultRepr, true),
+                            array_keys($matchingPatternDefaults),
+                            array_values($matchingPatternDefaults),
+                        )),
+                    )
+                );
+            }
+
+            $agreedPatternDefault = reset($uniqueDefaults);
+            $existingDefault = $property->getDefaultValue();
+
+            if ($existingDefault !== null && $existingDefault !== $agreedPatternDefault) {
+                throw new SchemaException(
+                    sprintf(
+                        "Conflicting default values for property '%s' from patternProperties"
+                            . " in file %s: root=%s, pattern '%s'=%s.",
+                        $property->getName(),
+                        $schema->getJsonSchema()->getFile(),
+                        var_export($existingDefault, true),
+                        array_key_first($matchingPatternDefaults),
+                        var_export($agreedPatternDefault, true),
+                    )
+                );
+            }
+
+            if ($existingDefault === null) {
+                $firstPatternRaw = $json['patternProperties'][array_key_first($matchingPatternDefaults)]['default'];
+                $property->setDefaultValue($firstPatternRaw);
             }
         }
     }

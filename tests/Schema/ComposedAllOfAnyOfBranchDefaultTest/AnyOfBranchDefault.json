@@ -1,0 +1,22 @@
+{
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "timeout": {
+          "type": "integer",
+          "default": 30
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "retries": {
+          "type": "integer",
+          "default": 3
+        }
+      }
+    }
+  ]
+}

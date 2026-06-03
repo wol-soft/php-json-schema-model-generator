@@ -98,3 +98,17 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\One
     Exactly one branch applies at runtime; because all branches guarantee the property's presence,
     the getter can safely be non-nullable. See `Cross-typed compositions <crossTypedComposition.html>`__
     for the full promotion rules.
+
+.. note::
+
+    Properties in object-level ``oneOf`` branches may carry a ``"default"`` value. The generator
+    applies the branch default only when that branch is the active one — determined at construction
+    time by which branch the provided data satisfies. A user-supplied value always overrides the
+    branch default. Branch defaults are **not** included in ``getRawModelDataInput()``.
+
+    When two ``oneOf`` branches define a default for the same property, or when a branch default
+    conflicts with a root ``properties`` default or a ``patternProperties`` default, the generator
+    throws a ``SchemaException`` at generation time.
+
+    See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
+    explanation and examples.

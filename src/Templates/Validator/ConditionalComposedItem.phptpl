@@ -76,5 +76,33 @@
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
+    {% if hasModifiedValuesMethod %}
+        $modifiedValues = [];
+        {% if thenProperty %}
+            if (!$ifException && !$thenException && is_object($value)) {
+                $modifiedValues = $this->{{ modifiedValuesMethod }}($originalModelData, $value, {{ thenComponentIndex }});
+            }
+        {% endif %}
+        {% if elseProperty %}
+            if ($ifException !== null && !$elseException && is_object($value)) {
+                $modifiedValues = $this->{{ modifiedValuesMethod }}($originalModelData, $value, {{ elseComponentIndex }});
+            }
+        {% endif %}
+        // Apply branch defaults only when the outcome is definitive: a branch succeeded, or the
+        // if-condition failed (meaning no then-branch applies and $elseException captures the else
+        // result or null when no else exists). Do NOT run when the if-condition matched but the
+        // then-branch content validation failed — in that case the branch condition is still active
+        // and previously applied defaults must be preserved rather than reset to null.
+        if ((!$ifException && !$thenException) || ($ifException !== null && !$elseException)) {
+            foreach ({{ allBranchDefaultAttributeMap }} as $branchDefaultKey => $branchDefaultAttr) {
+                if (!array_key_exists($branchDefaultKey, $originalModelData)) {
+                    $this->$branchDefaultAttr = array_key_exists($branchDefaultKey, $modifiedValues)
+                        ? $modifiedValues[$branchDefaultKey]
+                        : null;
+                }
+            }
+        }
+    {% endif %}
+
     return $thenException || $elseException;
 })($value)
