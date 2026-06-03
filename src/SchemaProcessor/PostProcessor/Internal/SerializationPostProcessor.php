@@ -44,11 +44,9 @@ class SerializationPostProcessor extends PostProcessor
         $this->addSkipNotProvidedPropertiesMap($schema, $generatorConfiguration);
         $this->addWriteOnlyExclusion($schema, $generatorConfiguration);
 
-        $this->addPatternPropertiesSerialization($schema, $generatorConfiguration);
-
         $json = $schema->getJsonSchema()->getJson();
         if (isset($json['additionalProperties']) && $json['additionalProperties'] !== false) {
-            $this->addAdditionalPropertiesSerialization($schema, $generatorConfiguration);
+            $this->addAdditionalPropertiesTransformingFilterSerializer($schema, $generatorConfiguration);
         }
     }
 
@@ -71,7 +69,7 @@ class SerializationPostProcessor extends PostProcessor
                     [$serializerClass, $serializerMethod] = $validator->getFilter()->getSerializer();
 
                     $schema->addMethod(
-                        "serialize{$property->getAttribute()}",
+                        "_serialize{$property->getAttribute()}",
                         new RenderedMethod(
                             $schema,
                             $generatorConfiguration,
@@ -103,7 +101,7 @@ class SerializationPostProcessor extends PostProcessor
                         [$serializerClass, $serializerMethod] = $filterValidator->getFilter()->getSerializer();
 
                         $schema->addMethod(
-                            "serialize{$validator->getKey()}",
+                            "_serialize{$validator->getKey()}",
                             new RenderedMethod(
                                 $schema,
                                 $generatorConfiguration,
@@ -141,36 +139,13 @@ class SerializationPostProcessor extends PostProcessor
     }
 
     /**
-     * Adds code to merge serialized pattern properties into the serialization result
+     * When additional properties have a transforming filter, override _serializeAdditionalProperties on the model
+     * so that the filter's deserializer runs before values are serialized.
+     *
+     * For the generic case (no transforming filter), SerializableTrait._serializeAdditionalProperties handles
+     * serialization directly — no model-side override is needed.
      */
-    private function addPatternPropertiesSerialization(
-        Schema $schema,
-        GeneratorConfiguration $generatorConfiguration,
-    ): void {
-        if (!isset($schema->getJsonSchema()->getJson()['patternProperties'])) {
-            return;
-        }
-
-        $schema->addMethod(
-            '_serializePatternProperties',
-            new RenderedMethod($schema, $generatorConfiguration, 'Serialization/PatternPropertiesSerializer.phptpl'),
-        );
-
-        $schema->addSchemaHook(
-            new class () implements SerializationHookInterface {
-                public function getCode(): string
-                {
-                    return '$data += $this->_serializePatternProperties($depth, $except);';
-                }
-            },
-        );
-    }
-
-    /**
-     * Adds a custom serialization function to the schema to merge all additional properties into the serialization
-     * result on serializations
-     */
-    public function addAdditionalPropertiesSerialization(
+    public function addAdditionalPropertiesTransformingFilterSerializer(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
     ): void {
@@ -182,6 +157,8 @@ class SerializationPostProcessor extends PostProcessor
         }
 
         $transformingFilterValidator = null;
+        $serializerClass = null;
+        $serializerMethod = null;
 
         if ($validationProperty) {
             foreach ($validationProperty->getValidators() as $validator) {
@@ -197,6 +174,12 @@ class SerializationPostProcessor extends PostProcessor
             }
         }
 
+        // Only generate the model-side override when a transforming filter is present.
+        // The trait's default _serializeAdditionalProperties handles the generic case.
+        if (!$transformingFilterValidator) {
+            return;
+        }
+
         $schema->addMethod(
             '_serializeAdditionalProperties',
             new RenderedMethod(
@@ -204,22 +187,11 @@ class SerializationPostProcessor extends PostProcessor
                 $generatorConfiguration,
                 'Serialization/AdditionalPropertiesSerializer.phptpl',
                 [
-                    'serializerClass' => $serializerClass ?? null,
-                    'serializerMethod' => $serializerMethod ?? null,
-                    'serializerOptions' => $transformingFilterValidator
-                        ? var_export($transformingFilterValidator->getFilterOptions(), true)
-                        : [],
+                    'serializerClass' => $serializerClass,
+                    'serializerMethod' => $serializerMethod,
+                    'serializerOptions' => var_export($transformingFilterValidator->getFilterOptions(), true),
                 ],
             )
-        );
-
-        $schema->addSchemaHook(
-            new class () implements SerializationHookInterface {
-                public function getCode(): string
-                {
-                    return '$data = array_merge($this->_serializeAdditionalProperties($depth, $except), $data);';
-                }
-            },
         );
     }
 

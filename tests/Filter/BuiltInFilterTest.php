@@ -31,7 +31,7 @@ class BuiltInFilterTest extends AbstractFilterTestCase
 
         $this->assertSame($object->getProperty(), $expected);
         // make sure the raw input isn't affected by the filter
-        $this->assertSame($input, $object->getRawModelDataInput());
+        $this->assertSame($input, $object->meta()->rawInput());
     }
 
     #[DataProvider('validTrimDataFormatProvider')]

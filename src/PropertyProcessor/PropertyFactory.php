@@ -343,12 +343,20 @@ class PropertyFactory
                     }
                 }
 
-                return $definition->resolveReference(
+                $property = $definition->resolveReference(
                     $propertyName,
                     implode('/', $path),
                     $required,
                     $propertySchema->getJson()['_dependencies'] ?? null,
                 );
+
+                // Use the reference site's pointer (where $ref appears in the schema) rather
+                // than the definition's pointer. This is always meaningful and consistent with
+                // how inline properties work — both show WHERE IN THE SCHEMA the property is
+                // defined, not where the resolved type lives.
+                $property->overrideJsonPointer(new PhpAttribute(JsonPointer::class, [$propertySchema->getPointer()]));
+
+                return $property;
             }
         } catch (Exception $exception) {
             throw new SchemaException(

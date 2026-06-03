@@ -1,0 +1,12 @@
+{
+  "$id": "#Node",
+  "type": "object",
+  "properties": {
+    "child": {
+      "$ref": "#Node"
+    },
+    "label": {
+      "type": "string"
+    }
+  }
+}

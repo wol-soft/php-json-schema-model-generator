@@ -65,7 +65,7 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFile('TypedPatternProperty.json');
         $object = new $className(['S_valid' => $propertyValue]);
 
-        $this->assertSame(['S_valid' => $propertyValue], $object->getRawModelDataInput());
+        $this->assertSame(['S_valid' => $propertyValue], $object->meta()->rawInput());
     }
 
     public static function validTypedPatternPropertyDataProvider(): array
@@ -96,7 +96,7 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFileTemplate('PatternProperty.json', ['a/(b|c)']);
         $object = new $className(['a/b' => 'Hello']);
 
-        $this->assertSame(['a/b' => 'Hello'], $object->getRawModelDataInput());
+        $this->assertSame(['a/b' => 'Hello'], $object->meta()->rawInput());
     }
 
     public function testNumericPatternProperties(): void
@@ -114,7 +114,7 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className([10 => 'Hello', '12' => 'World']);
 
         $this->assertSame(['10' => 'Hello', '12' => 'World'], $object->toArray());
-        $this->assertSame(['10' => 'Hello', '12' => 'World'], $object->getPatternProperties('^[0-9]+$'));
+        $this->assertSame(['10' => 'Hello', '12' => 'World'], $object->patternProperties()->get('^[0-9]+$'));
     }
 
     public function testDeclaredPropertyTypeIsNarrowedByPatternConstraint(): void
@@ -215,7 +215,7 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
             'person_bob' => ['name' => 'Bob'],
         ]);
 
-        $instances = $object->getPatternProperties('^person_');
+        $instances = $object->patternProperties()->get('^person_');
         $this->assertCount(2, $instances);
 
         $alice = $instances['person_alice'];

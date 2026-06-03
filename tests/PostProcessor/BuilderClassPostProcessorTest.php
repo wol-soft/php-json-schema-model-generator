@@ -49,7 +49,7 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame('Albert', $builderObject->getName());
         $this->assertSame(65, $builderObject->getAge());
-        $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => 65], $builderObject->getRawModelDataInput());
+        $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => 65], $builderObject->meta()->rawInput());
 
         $this->assertSame('string', $this->getParameterTypeAnnotation($builderObject, 'setName'));
         $this->assertSame('int', $this->getParameterTypeAnnotation($builderObject, 'setAge'));
@@ -69,7 +69,7 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstanceOf($className, $validatedObject);
         $this->assertSame('Albert', $validatedObject->getName());
         $this->assertSame(65, $validatedObject->getAge());
-        $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => 65], $validatedObject->getRawModelDataInput());
+        $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => 65], $validatedObject->meta()->rawInput());
         $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => 65], $validatedObject->toArray());
     }
 
@@ -189,7 +189,7 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $addressArray = ['street' => 'Test street', 'number' => 10, 'building' => ['type' => 'private', 'size' => 160]];
         $builderObject->setAddress($addressArray);
         $this->assertSame($addressArray, $builderObject->getAddress());
-        $this->assertSame(['address' => $addressArray], $builderObject->getRawModelDataInput());
+        $this->assertSame(['address' => $addressArray], $builderObject->meta()->rawInput());
         $object = $builderObject->validate();
         $this->assertSame('Test street', $object->getAddress()->getStreet());
         $this->assertSame(10, $object->getAddress()->getNumber());
@@ -216,9 +216,9 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $buildingBuilderObject->setType('private')->setSize(160);
 
         $addressBuilderObject->setStreet('Test street')->setNumber(10)->setBuilding($buildingBuilderObject);
-        $this->assertSame($addressArray['building'], $addressBuilderObject->getBuilding()->getRawModelDataInput());
-        $this->assertSame($addressArray['street'], $addressBuilderObject->getRawModelDataInput()['street']);
-        $this->assertSame($addressArray['number'], $addressBuilderObject->getRawModelDataInput()['number']);
+        $this->assertSame($addressArray['building'], $addressBuilderObject->getBuilding()->meta()->rawInput());
+        $this->assertSame($addressArray['street'], $addressBuilderObject->meta()->rawInput()['street']);
+        $this->assertSame($addressArray['number'], $addressBuilderObject->meta()->rawInput()['number']);
         $builderObject->setAddress($addressBuilderObject);
         $this->assertSame($addressBuilderObject, $builderObject->getAddress());
         $object = $builderObject->validate();

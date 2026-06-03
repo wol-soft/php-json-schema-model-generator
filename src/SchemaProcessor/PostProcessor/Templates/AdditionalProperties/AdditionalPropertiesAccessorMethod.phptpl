@@ -1,0 +1,10 @@
+public function additionalProperties(): {{ accessorType }}
+{
+    return $this->_additionalPropertiesAccessor ??= new {{ accessorType }}(
+        $this->_additionalProperties,
+        {% if not immutable %}
+        $this->_setAdditionalProperty(...),
+        $this->_removeAdditionalProperty(...),
+        {% endif %}
+    );
+}

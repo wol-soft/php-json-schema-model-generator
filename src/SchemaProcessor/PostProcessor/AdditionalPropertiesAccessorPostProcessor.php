@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
+use PHPModelGenerator\Accessor\AdditionalPropertiesAccessor;
+use PHPModelGenerator\Accessor\ImmutableAdditionalPropertiesAccessor;
+use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\Object\RegularPropertyAsAdditionalPropertyException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -14,33 +17,25 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
-use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\AdditionalPropertiesPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\SerializationPostProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
+use ReflectionClass;
 
-/**
- * Class AdditionalPropertiesAccessorPostProcessor
- *
- * @package PHPModelGenerator\SchemaProcessor\PostProcessor
- */
 class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
 {
+    use CompanionGeneratorTrait;
+
     /**
-     * AdditionalPropertiesAccessorPostProcessor constructor.
-     *
-     * @param bool $addForModelsWithoutAdditionalPropertiesDefinition By default, the additional properties accessor
-     * methods will be added only to schemas defining additionalProperties constraints as these models expect additional
-     * properties. If set to true the accessor methods will be generated for models which don't define
-     * additionalProperties constraints.
+     * @param bool $addForModelsWithoutAdditionalPropertiesDefinition By default, the accessor is added only to schemas
+     *             that declare an additionalProperties constraint. Set to true to also add it to schemas that don't.
      */
     public function __construct(private readonly bool $addForModelsWithoutAdditionalPropertiesDefinition = false)
     {}
 
     /**
-     * Add methods to handle additional properties to the provided schema
+     * Add the additionalProperties() accessor method to the provided schema.
      *
      * @throws SchemaException
      */
@@ -63,7 +58,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             }
         }
 
-        // check if basic code must be added
+        // When the flag is set and no additionalProperties is defined in the schema, ensure the infrastructure exists.
         if ($this->addForModelsWithoutAdditionalPropertiesDefinition && !isset($json['additionalProperties'])) {
             (new AdditionalPropertiesPostProcessor())->addAdditionalPropertiesCollectionProperty($schema);
         }
@@ -72,46 +67,111 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             $this->addForModelsWithoutAdditionalPropertiesDefinition &&
             !isset($json['additionalProperties'])
         ) {
-            (new SerializationPostProcessor())->addAdditionalPropertiesSerialization($schema, $generatorConfiguration);
+            (new SerializationPostProcessor())->addAdditionalPropertiesTransformingFilterSerializer(
+                $schema,
+                $generatorConfiguration,
+            );
         }
 
-        $this->addGetAdditionalPropertiesMethod($schema, $generatorConfiguration, $validationProperty);
-        $this->addGetAdditionalPropertyMethod($schema, $generatorConfiguration, $validationProperty);
+        $hasCompanion = $validationProperty && $validationProperty->getType();
+        $isImmutable = $generatorConfiguration->isImmutable();
 
-        if (!$generatorConfiguration->isImmutable()) {
+        $schema->addProperty(
+            (new Property(
+                'additionalPropertiesAccessor',
+                null,
+                $schema->getJsonSchema(),
+                'Cached accessor instance for additional properties',
+            ))
+                ->setDefaultValue('null', true)
+                ->setInternal(true),
+        );
+
+        $this->addAccessorMethod($schema, $generatorConfiguration, $hasCompanion);
+
+        if (!$isImmutable) {
             $this->addSetAdditionalPropertyMethod($schema, $generatorConfiguration, $validationProperty);
             $this->addRemoveAdditionalPropertyMethod($schema, $generatorConfiguration);
+        }
+
+        if ($hasCompanion) {
+            $this->pendingCompanions[] = [
+                'schema' => $schema,
+                'generatorConfiguration' => $generatorConfiguration,
+                'validationProperty' => $validationProperty,
+            ];
         }
     }
 
     /**
-     * Adds a method to add or update an additional property
+     * @throws FileSystemException
      */
+    protected function renderCompanionFromEntry(array $entry): void
+    {
+        $this->renderCompanionClass($entry['schema'], $entry['generatorConfiguration'], $entry['validationProperty']);
+    }
+
+    private function addAccessorMethod(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+        bool $hasCompanion,
+    ): void {
+        $isImmutable = $generatorConfiguration->isImmutable();
+
+        if (!$hasCompanion) {
+            $schema->addUsedClass($isImmutable
+                ? ImmutableAdditionalPropertiesAccessor::class
+                : AdditionalPropertiesAccessor::class);
+        }
+
+        $accessorType = $hasCompanion
+            ? $schema->getClassName() . 'AdditionalProperties'
+            : (new ReflectionClass($isImmutable
+                ? ImmutableAdditionalPropertiesAccessor::class
+                : AdditionalPropertiesAccessor::class))->getShortName();
+
+        $schema->addMethod(
+            'additionalProperties',
+            new RenderedMethod(
+                $schema,
+                $generatorConfiguration,
+                'AdditionalProperties/AdditionalPropertiesAccessorMethod.phptpl',
+                [
+                    'accessorType' => $accessorType,
+                    'immutable' => $isImmutable,
+                ],
+            )
+        );
+    }
+
     private function addSetAdditionalPropertyMethod(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
         ?PropertyInterface $validationProperty,
     ): void {
-        $objectProperties = RenderHelper::varExportArray(
-            array_map(
-                static fn(PropertyInterface $property): string => $property->getName(),
-                array_filter(
-                    $schema->getProperties(),
-                    static fn(PropertyInterface $property): bool => !$property->isInternal(),
-                )
-            ),
+        $objectProperties = array_map(
+            static fn(PropertyInterface $property): string => $property->getName(),
+            array_filter(
+                $schema->getProperties(),
+                static fn(PropertyInterface $property): bool => !$property->isInternal(),
+            )
         );
 
-        $schema->addUsedClass(RegularPropertyAsAdditionalPropertyException::class);
+        $hasObjectProperties = $objectProperties !== [];
+        if ($hasObjectProperties) {
+            $schema->addUsedClass(RegularPropertyAsAdditionalPropertyException::class);
+        }
+
         $schema->addMethod(
-            'setAdditionalProperty',
+            '_setAdditionalProperty',
             new RenderedMethod(
                 $schema,
                 $generatorConfiguration,
                 'AdditionalProperties/SetAdditionalProperty.phptpl',
                 [
                     'validationProperty' => $validationProperty,
-                    'objectProperties' => $objectProperties,
+                    'hasObjectProperties' => $hasObjectProperties,
+                    'objectProperties' => RenderHelper::varExportArray($objectProperties),
                     'schemaHookResolver' => new SchemaHookResolver($schema),
                 ],
             )
@@ -119,8 +179,6 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
     }
 
     /**
-     * Adds a method to remove an additional property from the object via property key
-     *
      * @throws SchemaException
      */
     private function addRemoveAdditionalPropertyMethod(
@@ -142,7 +200,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         }
 
         $schema->addMethod(
-            'removeAdditionalProperty',
+            '_removeAdditionalProperty',
             new RenderedMethod(
                 $schema,
                 $generatorConfiguration,
@@ -153,68 +211,61 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
     }
 
     /**
-     * Adds a method to get a single additional property via property key
+     * Render and write the typed companion class for the given schema.
+     *
+     * @throws FileSystemException
      */
-    private function addGetAdditionalPropertyMethod(
+    private function renderCompanionClass(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
-        ?PropertyInterface $validationProperty,
+        PropertyInterface $validationProperty,
     ): void {
-        // return type of the additional property must always be nullable as a non existent key can be requested
-        if ($validationProperty && $validationProperty->getType()) {
-            $validationProperty = (clone $validationProperty)->setType(
-                $validationProperty->getType(),
-                new PropertyType($validationProperty->getType(true)->getNames(), true),
-            );
-        }
+        $renderHelper = new RenderHelper($generatorConfiguration);
+        $isImmutable = $generatorConfiguration->isImmutable();
+        $companionClassName = $schema->getClassName() . 'AdditionalProperties';
 
-        $schema->addMethod(
-            'getAdditionalProperty',
-            new RenderedMethod(
-                $schema,
-                $generatorConfiguration,
-                'AdditionalProperties/GetAdditionalProperty.phptpl',
-                [
-                    'validationProperty' => $validationProperty
-                        // type hint always with null as a non existent property may be requested (casually covered by
-                        // the nullable type, except for multi type properties)
-                        ? (clone $validationProperty)->addTypeHintDecorator(new TypeHintDecorator(['null']))
-                        : null
-                ],
-            )
+        $namespace = $this->resolveCompanionNamespace($schema, $generatorConfiguration);
+
+        // Nullable clone for get() — the property might not exist, so null is always possible.
+        $nullableProperty = (clone $validationProperty)->setType(
+            $validationProperty->getType(),
+            new PropertyType($validationProperty->getType(true)->getNames(), true),
+        );
+
+        $use = RenderHelper::filterClassImports(
+            $isImmutable ? [] : ['Closure'],
+            $namespace,
+        );
+
+        $this->writeAndRequireCompanionFile(
+            $schema,
+            $companionClassName,
+            $namespace,
+            join(DIRECTORY_SEPARATOR, ['Companion', 'AdditionalPropertiesCompanion.phptpl']),
+            [
+                'namespace' => $namespace,
+                'use' => $use,
+                'companionClassName' => $companionClassName,
+                'immutable' => $isImmutable,
+                'getReturnType' => $renderHelper->getTypeHintAnnotation($nullableProperty, true),
+                'getNullablePhpType' => $renderHelper->getType($nullableProperty, true),
+                'getAllReturnAnnotation' => $this->buildGetAllReturnAnnotation(
+                    $renderHelper->getTypeHintAnnotation($validationProperty, true),
+                ),
+                'setParameterType' => $renderHelper->getType($validationProperty),
+                'setParameterAnnotation' => $renderHelper->getTypeHintAnnotation($validationProperty),
+            ],
         );
     }
 
-    private function addGetAdditionalPropertiesMethod(
-        Schema $schema,
-        GeneratorConfiguration $generatorConfiguration,
-        ?PropertyInterface $validationProperty,
-    ): void {
-        $validationProperty = $validationProperty
-            // type hint always without null as the getter always returns an array
-            ? (clone $validationProperty)
-                ->setRequired(true)
-                ->addTypeHintDecorator(new ArrayTypeHintDecorator($validationProperty))
-            : null;
-
-        if ($validationProperty && $validationProperty->getType(true)) {
-            $validationProperty->setType(
-                $validationProperty->getType(),
-                new PropertyType($validationProperty->getType(true)->getNames(), false),
-            );
+    private function buildGetAllReturnAnnotation(string $typeAnnotation): string
+    {
+        // Wrap union types in parentheses so that e.g. 'DateTime|null' becomes '(DateTime|null)[]',
+        // not 'DateTime[]|null[]' — the latter means "an array of nulls" to static analysers.
+        if (str_contains($typeAnnotation, '|')) {
+            return '(' . $typeAnnotation . ')[]';
         }
 
-        $schema->addMethod(
-            'getAdditionalProperties',
-            new RenderedMethod(
-                $schema,
-                $generatorConfiguration,
-                'AdditionalProperties/GetAdditionalProperties.phptpl',
-                [
-                    'validationProperty' => $validationProperty,
-
-                ],
-            )
-        );
+        return $typeAnnotation . '[]';
     }
 }

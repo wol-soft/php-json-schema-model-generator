@@ -27,7 +27,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['property' => null]);
         $this->assertNull($object->getProperty());
-        $this->assertSame(['property' => null], $object->getRawModelDataInput());
+        $this->assertSame(['property' => null], $object->meta()->rawInput());
     }
 
     #[DataProvider('validEmptyOneOfDataProvider')]

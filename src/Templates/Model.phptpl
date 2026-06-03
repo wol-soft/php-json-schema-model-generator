@@ -12,6 +12,7 @@ declare(strict_types = 1);
 {% foreach use as import %}
     use {{ import }};
 {% endforeach %}
+use PHPModelGenerator\Accessor\Meta;
 
 /**
  * Class {{ schema.getClassName() }}
@@ -38,13 +39,16 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
         {% if property.isInternal() %}private{% else %}protected{% endif %} ${{ property.getAttribute(true) }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
     #[Internal]
-    /** @var array */
-    protected $_rawModelDataInput = [];
+    /** @var array<string, mixed> */
+    protected array $_rawModelDataInput = [];
+    #[Internal]
+    /** @var Meta|null */
+    private ?Meta $_metaAccessor = null;
 
     {% if generatorConfiguration.collectErrors() %}
         #[Internal]
         /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} Collect all validation errors */
-        protected $_errorRegistry;
+        protected {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $_errorRegistry;
     {% endif %}
 
     /**
@@ -102,14 +106,9 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
         }
     {% endif %}
 
-    /**
-     * Get the raw input used to set up the model
-     *
-     * @return array
-     */
-    public function getRawModelDataInput(): array
+    public function meta(): Meta
     {
-        return $this->_rawModelDataInput;
+        return $this->_metaAccessor ??= new Meta($this->_rawModelDataInput);
     }
 
     {% foreach schema.getProperties() as property %}
