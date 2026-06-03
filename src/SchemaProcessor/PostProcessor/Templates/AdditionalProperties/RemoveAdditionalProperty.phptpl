@@ -1,25 +1,21 @@
 /**
- * Removes an additional property from the object. Returns true if the property has been removed,
- * false if the requested additional property doesn't exist
- *
- * @param string $property The property key of the additional property
- *
- * @return bool
- *
  * {% if minPropertyValidator %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
  */
-public function removeAdditionalProperty(string $property): bool
+private function _removeAdditionalProperty(string $key): bool
 {
+    $inAdditionalProperties = array_key_exists($key, $this->_additionalProperties);
+
+    $inPatternProperties = false;
     if (isset($this->_patternProperties)) {
         foreach ($this->_patternProperties as $patternHash => $_) {
-            if (isset($this->_patternProperties[$patternHash][$property])) {
-                unset($this->_patternProperties[$patternHash][$property]);
-                unset($this->_rawModelDataInput[$property]);
+            if (isset($this->_patternProperties[$patternHash][$key])) {
+                $inPatternProperties = true;
+                break;
             }
         }
     }
 
-    if (!array_key_exists($property, $this->_additionalProperties)) {
+    if (!$inAdditionalProperties && !$inPatternProperties) {
         return false;
     }
 
@@ -39,8 +35,17 @@ public function removeAdditionalProperty(string $property): bool
         {% endif %}
     {% endif %}
 
-    unset($this->_rawModelDataInput[$property]);
-    unset($this->_additionalProperties[$property]);
+    if ($inPatternProperties) {
+        foreach ($this->_patternProperties as $patternHash => $_) {
+            unset($this->_patternProperties[$patternHash][$key]);
+        }
+    }
+
+    unset($this->_rawModelDataInput[$key]);
+
+    if ($inAdditionalProperties) {
+        unset($this->_additionalProperties[$key]);
+    }
 
     return true;
 }

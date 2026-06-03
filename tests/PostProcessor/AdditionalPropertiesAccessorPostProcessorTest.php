@@ -22,11 +22,6 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class AdditionalPropertiesAccessorPostProcessorTest
- *
- * @package PHPModelGenerator\Tests\PostProcessor
- */
 class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
     protected function addPostProcessor(bool $addForModelsWithoutAdditionalPropertiesDefinition): void
@@ -50,10 +45,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $object = new $className();
 
-        $this->assertFalse(is_callable([$object, 'getAdditionalProperties']));
-        $this->assertFalse(is_callable([$object, 'getAdditionalProperty']));
-        $this->assertFalse(is_callable([$object, 'setAdditionalProperty']));
-        $this->assertFalse(is_callable([$object, 'removeAdditionalProperty']));
+        $this->assertFalse(is_callable([$object, 'additionalProperties']));
     }
 
     #[DataProvider('additionalPropertiesAccessorPostProcessorConfigurationDataProvider')]
@@ -69,10 +61,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $object = new $className();
 
-        $this->assertFalse(is_callable([$object, 'getAdditionalProperties']));
-        $this->assertFalse(is_callable([$object, 'getAdditionalProperty']));
-        $this->assertFalse(is_callable([$object, 'setAdditionalProperty']));
-        $this->assertFalse(is_callable([$object, 'removeAdditionalProperty']));
+        $this->assertFalse(is_callable([$object, 'additionalProperties']));
     }
 
     #[DataProvider('additionalPropertiesAccessorPostProcessorConfigurationDataProvider')]
@@ -87,23 +76,17 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
 
         $this->assertSame(
             $addForModelsWithoutAdditionalPropertiesDefinition,
-            is_callable([$object, 'getAdditionalProperties']),
+            is_callable([$object, 'additionalProperties']),
         );
-        $this->assertSame(
-            $addForModelsWithoutAdditionalPropertiesDefinition,
-            is_callable([$object, 'getAdditionalProperty']),
-        );
-        $this->assertFalse(is_callable([$object, 'setAdditionalProperty']));
-        $this->assertFalse(is_callable([$object, 'removeAdditionalProperty']));
 
         if ($addForModelsWithoutAdditionalPropertiesDefinition) {
-            $this->assertSame('array', $this->getReturnTypeAnnotation($object, 'getAdditionalProperties'));
-            $returnType = $this->getReturnType($object, 'getAdditionalProperties');
+            $accessor = $object->additionalProperties();
+            // No companion for untyped additional properties — check native PHP return types directly
+            $returnType = $this->getReturnType($accessor, 'getAll');
             $this->assertSame('array', $returnType->getName());
             $this->assertFalse($returnType->allowsNull());
 
-            $this->assertSame('mixed', $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'));
-            $this->assertSame('mixed', $this->getReturnType($object, 'getAdditionalProperty')->getName());
+            $this->assertSame('mixed', $this->getReturnType($accessor, 'get')->getName());
         }
     }
 
@@ -116,23 +99,23 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         );
 
         $object = new $className(['property1' => 100]);
+        $accessor = $object->additionalProperties();
 
-        $this->assertSame('mixed', $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1));
-        $this->assertSame('mixed', $this->getParameterType($object, 'setAdditionalProperty', 1)->getName());
-        $this->assertSame('mixed', $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'));
+        $this->assertTrue(is_callable([$accessor, 'set']));
+        $this->assertTrue(is_callable([$accessor, 'remove']));
 
-        $this->assertSame(100, $object->getAdditionalProperty('property1'));
-        $this->assertEqualsCanonicalizing(['property1' => 100], $object->getAdditionalProperties());
+        $this->assertSame(100, $accessor->get('property1'));
+        $this->assertEqualsCanonicalizing(['property1' => 100], $accessor->getAll());
 
-        $object->setAdditionalProperty('property2', 200);
-        $this->assertEqualsCanonicalizing(['property1' => 100, 'property2' => 200], $object->getAdditionalProperties());
+        $accessor->set('property2', 200);
+        $this->assertEqualsCanonicalizing(['property1' => 100, 'property2' => 200], $accessor->getAll());
 
-        $object->setAdditionalProperty('property1', 10);
-        $this->assertEqualsCanonicalizing(['property1' => 10, 'property2' => 200], $object->getAdditionalProperties());
+        $accessor->set('property1', 10);
+        $this->assertEqualsCanonicalizing(['property1' => 10, 'property2' => 200], $accessor->getAll());
 
-        $object->removeAdditionalProperty('property1');
-        $this->assertEqualsCanonicalizing(['property2' => 200], $object->getAdditionalProperties());
-        $this->assertNull($object->getAdditionalProperty('property1'));
+        $accessor->remove('property1');
+        $this->assertEqualsCanonicalizing(['property2' => 200], $accessor->getAll());
+        $this->assertNull($accessor->get('property1'));
     }
 
     #[DataProvider('additionalPropertiesAccessorPostProcessorConfigurationDataProvider')]
@@ -148,19 +131,21 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         );
 
         $object = new $className(['property1' => 'Hello', 'property2' => 'World']);
+        $accessor = $object->additionalProperties();
 
-        $this->assertTrue(is_callable([$object, 'getAdditionalProperties']));
-        $this->assertTrue(is_callable([$object, 'getAdditionalProperty']));
-        $this->assertFalse(is_callable([$object, 'setAdditionalProperty']));
-        $this->assertFalse(is_callable([$object, 'removeAdditionalProperty']));
+        $this->assertTrue(is_callable([$object, 'additionalProperties']));
+
+        // immutable model — no set/remove on the accessor
+        $this->assertFalse(is_callable([$accessor, 'set']));
+        $this->assertFalse(is_callable([$accessor, 'remove']));
 
         $this->assertEqualsCanonicalizing(
             ['property1' => 'Hello', 'property2' => 'World'],
-             $object->getAdditionalProperties(),
-         );
-        $this->assertSame('Hello', $object->getAdditionalProperty('property1'));
-        $this->assertSame('World', $object->getAdditionalProperty('property2'));
-        $this->assertNull($object->getAdditionalProperty('property3'));
+            $accessor->getAll(),
+        );
+        $this->assertSame('Hello', $accessor->get('property1'));
+        $this->assertSame('World', $accessor->get('property2'));
+        $this->assertNull($accessor->get('property3'));
     }
 
     public static function additionalPropertiesAccessorPostProcessorConfigurationDataProvider(): array
@@ -171,7 +156,8 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         ];
     }
 
-    public function testAdditionalPropertiesModifiersAreGeneratedForMutableObjects(): void {
+    public function testAdditionalPropertiesModifiersAreGeneratedForMutableObjects(): void
+    {
         $this->addPostProcessor(true);
 
         $className = $this->generateClassFromFile(
@@ -180,63 +166,63 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         );
 
         $object = new $className(['property1' => '  Hello  ', 'property2' => 'World']);
+        $accessor = $object->additionalProperties();
 
-        $this->assertTrue(is_callable([$object, 'getAdditionalProperties']));
-        $this->assertTrue(is_callable([$object, 'getAdditionalProperty']));
-        $this->assertTrue(is_callable([$object, 'setAdditionalProperty']));
-        $this->assertTrue(is_callable([$object, 'removeAdditionalProperty']));
+        $this->assertTrue(is_callable([$object, 'additionalProperties']));
+        $this->assertTrue(is_callable([$accessor, 'set']));
+        $this->assertTrue(is_callable([$accessor, 'remove']));
 
         // test adding a new additional property
-        $object->setAdditionalProperty('property3', '  Good night  ');
+        $accessor->set('property3', '  Good night  ');
         $this->assertEqualsCanonicalizing(
             ['property1' => 'Hello', 'property2' => 'World', 'property3' => 'Good night'],
-            $object->getAdditionalProperties(),
+            $accessor->getAll(),
         );
         $this->assertEqualsCanonicalizing(
             ['property1' => '  Hello  ', 'property2' => 'World', 'property3' => '  Good night  '],
-            $object->getRawModelDataInput(),
+            $object->meta()->rawInput(),
         );
-        $this->assertSame('Good night', $object->getAdditionalProperty('property3'));
+        $this->assertSame('Good night', $accessor->get('property3'));
 
         // test removing an additional property
-        $this->assertTrue($object->removeAdditionalProperty('property2'));
-        $this->assertFalse($object->removeAdditionalProperty('property2'));
+        $this->assertTrue($accessor->remove('property2'));
+        $this->assertFalse($accessor->remove('property2'));
         $this->assertEqualsCanonicalizing(
             ['property1' => 'Hello', 'property3' => 'Good night'],
-            $object->getAdditionalProperties(),
+            $accessor->getAll(),
         );
         $this->assertEqualsCanonicalizing(
             ['property1' => '  Hello  ', 'property3' => '  Good night  '],
-            $object->getRawModelDataInput(),
+            $object->meta()->rawInput(),
         );
 
         // test update an existing additional property
-        $object->setAdditionalProperty('property3', '  !Good night!  ');
+        $accessor->set('property3', '  !Good night!  ');
         $this->assertEqualsCanonicalizing(
             ['property1' => 'Hello', 'property3' => '!Good night!'],
-            $object->getAdditionalProperties(),
+            $accessor->getAll(),
         );
         $this->assertEqualsCanonicalizing(
             ['property1' => '  Hello  ', 'property3' => '  !Good night!  '],
-            $object->getRawModelDataInput(),
+            $object->meta()->rawInput(),
         );
-        $this->assertSame('!Good night!', $object->getAdditionalProperty('property3'));
+        $this->assertSame('!Good night!', $accessor->get('property3'));
 
-        // test typing
-        $this->assertSame('string[]', $this->getReturnTypeAnnotation($object, 'getAdditionalProperties'));
-        $returnType = $this->getReturnType($object, 'getAdditionalProperties');
+        // test typing on the companion class methods
+        $this->assertSame('string[]', $this->getReturnTypeAnnotation($accessor, 'getAll'));
+        $returnType = $this->getReturnType($accessor, 'getAll');
         $this->assertSame('array', $returnType->getName());
         $this->assertFalse($returnType->allowsNull());
 
-        $this->assertSame('string|null', $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'));
-        $returnType = $this->getReturnType($object, 'getAdditionalProperty');
+        $this->assertSame('string|null', $this->getReturnTypeAnnotation($accessor, 'get'));
+        $returnType = $this->getReturnType($accessor, 'get');
         $this->assertSame('string', $returnType->getName());
         $this->assertTrue($returnType->allowsNull());
 
-        $this->assertSame('string', $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1));
-        $parameterType = $this->getParameterType($object, 'setAdditionalProperty', 1);
-        $this->assertSame('string', $parameterType->getName());
-        $this->assertFalse($parameterType->allowsNull());
+        $this->assertSame('string', $this->getParameterTypeAnnotation($accessor, 'set', 1));
+        $paramType = $this->getParameterType($accessor, 'set', 1);
+        $this->assertSame('string', $paramType->getName());
+        $this->assertFalse($paramType->allowsNull());
     }
 
     #[DataProvider('invalidAdditionalPropertyDataProvider')]
@@ -257,11 +243,12 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         );
 
         $object = new $className(['property1' => '  Hello  ', 'property2' => 'World']);
+        $accessor = $object->additionalProperties();
 
         foreach ($items as $property => $value) {
             $action === 'remove'
-                ? $object->removeAdditionalProperty($value)
-                : $object->setAdditionalProperty($property, $value);
+                ? $accessor->remove($value)
+                : $accessor->set($property, $value);
         }
     }
 
@@ -301,6 +288,26 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         ];
     }
 
+    public function testMinPropertiesIsEnforcedWhenRemovingAPatternPropertyKey(): void
+    {
+        $this->addPostProcessor(true);
+
+        $className = $this->generateClassFromFile(
+            'PatternPropertiesWithMinProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        // 'a1' matches the ^a pattern, 'extra' is a plain additional property; total = 2 = minProperties.
+        $object = new $className(['a1' => 'hello', 'extra' => 'world']);
+        $accessor = $object->additionalProperties();
+
+        // Removing the pattern-property key 'a1' would drop the count below minProperties=2 — must throw.
+        $this->expectException(MinPropertiesException::class);
+        $this->expectExceptionMessage('must not contain less than 2 properties');
+
+        $accessor->remove('a1');
+    }
+
     public function testSetterSchemaHooksAreResolvedInSetAdditionalProperties(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {
@@ -325,12 +332,13 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         );
 
         $object = new $className(['property1' => 'Hello', 'property2' => 'World']);
-        $object->setAdditionalProperty('property1', 'Hello');
-        $this->assertSame('Hello', $object->getAdditionalProperty('property1'));
+        $accessor = $object->additionalProperties();
+        $accessor->set('property1', 'Hello');
+        $this->assertSame('Hello', $accessor->get('property1'));
 
         $this->expectException(Exception::class);
         $this->expectExceptionMessage('SetterBeforeValidationHook');
-        $object->setAdditionalProperty('property1', 'Goodbye');
+        $accessor->set('property1', 'Goodbye');
     }
 
     #[DataProvider('implicitNullDataProvider')]
@@ -346,12 +354,14 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         );
 
         $object = new $className(['name' => 'Late autumn', 'start' => '2020-10-10']);
-        $this->assertInstanceOf(DateTime::class, $object->getAdditionalProperty('start'));
-        $this->assertInstanceOf(DateTime::class, $object->getAdditionalProperties()['start']);
+        $accessor = $object->additionalProperties();
 
-        $object->setAdditionalProperty('end', '2020-12-12');
-        $this->assertInstanceOf(DateTime::class, $object->getAdditionalProperty('end'));
-        $this->assertInstanceOf(DateTime::class, $object->getAdditionalProperties()['end']);
+        $this->assertInstanceOf(DateTime::class, $accessor->get('start'));
+        $this->assertInstanceOf(DateTime::class, $accessor->getAll()['start']);
+
+        $accessor->set('end', '2020-12-12');
+        $this->assertInstanceOf(DateTime::class, $accessor->get('end'));
+        $this->assertInstanceOf(DateTime::class, $accessor->getAll()['end']);
 
         $this->assertEqualsCanonicalizing(
             ['name' => 'Late autumn', 'start' => '20201010', 'end' => '20201212'],
@@ -359,28 +369,27 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         );
 
         // test adding a transformed value
-        $object->setAdditionalProperty('now', new DateTime());
-        $this->assertInstanceOf(DateTime::class, $object->getAdditionalProperty('now'));
+        $accessor->set('now', new DateTime());
+        $this->assertInstanceOf(DateTime::class, $accessor->get('now'));
 
-        // test typing
-        $this->assertSame('DateTime[]', $this->getReturnTypeAnnotation($object, 'getAdditionalProperties'));
-        $returnType = $this->getReturnType($object, 'getAdditionalProperties');
+        // test typing on the companion class methods
+        $this->assertSame('(DateTime|null)[]', $this->getReturnTypeAnnotation($accessor, 'getAll'));
+        $returnType = $this->getReturnType($accessor, 'getAll');
         $this->assertSame('array', $returnType->getName());
         $this->assertFalse($returnType->allowsNull());
 
-        $this->assertSame('DateTime|null', $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'));
-        $returnType = $this->getReturnType($object, 'getAdditionalProperty');
+        $this->assertSame('DateTime|null', $this->getReturnTypeAnnotation($accessor, 'get'));
+        $returnType = $this->getReturnType($accessor, 'get');
         $this->assertSame('DateTime', $returnType->getName());
         $this->assertTrue($returnType->allowsNull());
 
         $this->assertSame(
             'string|DateTime|null',
-            $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1),
+            $this->getParameterTypeAnnotation($accessor, 'set', 1),
         );
-
         $this->assertEqualsCanonicalizing(
             ['string', 'DateTime', 'null'],
-            $this->getParameterTypeNames($object, 'setAdditionalProperty', 1),
+            $this->getParameterTypeNames($accessor, 'set', 1),
         );
     }
 
@@ -454,41 +463,43 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         );
 
         $object = new $className(['property1' => 'Hello', 'property2' => null]);
-        $this->assertSame('Hello', $object->getAdditionalProperty('property1'));
-        $this->assertNull($object->getAdditionalProperty('property2'));
+        $accessor = $object->additionalProperties();
 
-        $object->setAdditionalProperty('property1', null);
-        $this->assertNull($object->getAdditionalProperty('property1'));
-        $object->setAdditionalProperty('property1', 5);
-        $this->assertSame(5, $object->getAdditionalProperty('property1'));
-        $object->setAdditionalProperty('property1', 'Goodbye');
-        $this->assertSame('Goodbye', $object->getAdditionalProperty('property1'));
+        $this->assertSame('Hello', $accessor->get('property1'));
+        $this->assertNull($accessor->get('property2'));
 
-        // test typing
+        $accessor->set('property1', null);
+        $this->assertNull($accessor->get('property1'));
+        $accessor->set('property1', 5);
+        $this->assertSame(5, $accessor->get('property1'));
+        $accessor->set('property1', 'Goodbye');
+        $this->assertSame('Goodbye', $accessor->get('property1'));
+
+        // test typing on the companion class methods
         $this->assertSame(
-            'string[]|int[]|null[]',
-            $this->getReturnTypeAnnotation($object, 'getAdditionalProperties'),
+            '(string|int|null)[]',
+            $this->getReturnTypeAnnotation($accessor, 'getAll'),
         );
-        $returnType = $this->getReturnType($object, 'getAdditionalProperties');
+        $returnType = $this->getReturnType($accessor, 'getAll');
         $this->assertSame('array', $returnType->getName());
         $this->assertFalse($returnType->allowsNull());
 
         $this->assertSame(
             'string|int|null',
-            $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'),
+            $this->getReturnTypeAnnotation($accessor, 'get'),
         );
         $this->assertEqualsCanonicalizing(
             ['string', 'int', 'null'],
-            $this->getReturnTypeNames($object, 'getAdditionalProperty'),
+            $this->getReturnTypeNames($accessor, 'get'),
         );
 
         $this->assertSame(
             'string|int|null',
-            $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1),
+            $this->getParameterTypeAnnotation($accessor, 'set', 1),
         );
         $this->assertEqualsCanonicalizing(
             ['string', 'int', 'null'],
-            $this->getParameterTypeNames($object, 'setAdditionalProperty', 1),
+            $this->getParameterTypeNames($accessor, 'set', 1),
         );
     }
 
@@ -502,39 +513,41 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         );
 
         $object = new $className(['property1' => 'Hello', 'property2' => 12345]);
-        $this->assertSame('Hello', $object->getAdditionalProperty('property1'));
-        $this->assertSame(12345, $object->getAdditionalProperty('property2'));
+        $accessor = $object->additionalProperties();
 
-        $object->setAdditionalProperty('property1', 5);
-        $this->assertSame(5, $object->getAdditionalProperty('property1'));
-        $object->setAdditionalProperty('property1', 'Goodbye');
-        $this->assertSame('Goodbye', $object->getAdditionalProperty('property1'));
+        $this->assertSame('Hello', $accessor->get('property1'));
+        $this->assertSame(12345, $accessor->get('property2'));
 
-        // test typing
+        $accessor->set('property1', 5);
+        $this->assertSame(5, $accessor->get('property1'));
+        $accessor->set('property1', 'Goodbye');
+        $this->assertSame('Goodbye', $accessor->get('property1'));
+
+        // test typing on the companion class methods
         $this->assertSame(
-            'string[]|int[]',
-            $this->getReturnTypeAnnotation($object, 'getAdditionalProperties'),
+            '(string|int)[]',
+            $this->getReturnTypeAnnotation($accessor, 'getAll'),
         );
-        $returnType = $this->getReturnType($object, 'getAdditionalProperties');
+        $returnType = $this->getReturnType($accessor, 'getAll');
         $this->assertSame('array', $returnType->getName());
         $this->assertFalse($returnType->allowsNull());
 
         $this->assertSame(
             'string|int|null',
-            $this->getReturnTypeAnnotation($object, 'getAdditionalProperty'),
+            $this->getReturnTypeAnnotation($accessor, 'get'),
         );
         $this->assertEqualsCanonicalizing(
             ['string', 'int', 'null'],
-            $this->getReturnTypeNames($object, 'getAdditionalProperty'),
+            $this->getReturnTypeNames($accessor, 'get'),
         );
 
         $this->assertSame(
             'string|int',
-            $this->getParameterTypeAnnotation($object, 'setAdditionalProperty', 1),
+            $this->getParameterTypeAnnotation($accessor, 'set', 1),
         );
         $this->assertEqualsCanonicalizing(
             ['string', 'int'],
-            $this->getParameterTypeNames($object, 'setAdditionalProperty', 1),
+            $this->getParameterTypeNames($accessor, 'set', 1),
         );
     }
 }

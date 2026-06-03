@@ -20,11 +20,6 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class PatternPropertiesAccessorPostProcessorTest
- *
- * @package PHPModelGenerator\Tests\PostProcessor
- */
 class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
     protected function addPostProcessors(PostProcessor ...$postProcessors): void
@@ -43,7 +38,7 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
 
         $object = new $className();
 
-        $this->assertFalse(is_callable([$object, 'getPatternProperties']));
+        $this->assertFalse(is_callable([$object, 'patternProperties']));
     }
 
     public function testDuplicatePatternPropertiesAccessKeyThrowsAnException(): void
@@ -65,12 +60,12 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
         // test accessing the pattern properties via a defined key
         $this->assertEqualsCanonicalizing(
             ['alpha' => null, 'a1' => 0, 'a2' => 10],
-            $object->getPatternProperties('Numerics'),
+            $object->patternProperties()->get('Numerics'),
         );
         // test accessing the pattern properties via the RegEx
         $this->assertEqualsCanonicalizing(
             ['beta' => null, 'b1' => 'Hello', 'b2' => 'World'],
-            $object->getPatternProperties('^b'),
+            $object->patternProperties()->get('^b'),
         );
     }
 
@@ -84,7 +79,7 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
 
         $object = new $className();
 
-        $object->getPatternProperties($key);
+        $object->patternProperties()->get($key);
     }
 
     public static function invalidPatternPropertyKeysDataProvider(): array
@@ -110,30 +105,32 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
         );
 
         $object = new $className(['a0' => 100]);
+        $patternAccessor = $object->patternProperties();
+        $additionalAccessor = $object->additionalProperties();
 
-        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $object->getPatternProperties('Numerics'));
-        $this->assertEqualsCanonicalizing(['beta' => null], $object->getPatternProperties('^b'));
-        $this->assertSame([], $object->getAdditionalProperties());
+        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $patternAccessor->get('Numerics'));
+        $this->assertEqualsCanonicalizing(['beta' => null], $patternAccessor->get('^b'));
+        $this->assertSame([], $additionalAccessor->getAll());
 
-        $object->setAdditionalProperty('b0', 'Hello');
-        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $object->getPatternProperties('Numerics'));
-        $this->assertEqualsCanonicalizing(['beta' => null, 'b0' => 'Hello'], $object->getPatternProperties('^b'));
-        $this->assertSame([], $object->getAdditionalProperties());
+        $additionalAccessor->set('b0', 'Hello');
+        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $patternAccessor->get('Numerics'));
+        $this->assertEqualsCanonicalizing(['beta' => null, 'b0' => 'Hello'], $patternAccessor->get('^b'));
+        $this->assertSame([], $additionalAccessor->getAll());
 
-        $object->setAdditionalProperty('c0', false);
-        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $object->getPatternProperties('Numerics'));
-        $this->assertSame(['beta' => null, 'b0' => 'Hello'], $object->getPatternProperties('^b'));
-        $this->assertSame(['c0' => false], $object->getAdditionalProperties());
+        $additionalAccessor->set('c0', false);
+        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $patternAccessor->get('Numerics'));
+        $this->assertSame(['beta' => null, 'b0' => 'Hello'], $patternAccessor->get('^b'));
+        $this->assertSame(['c0' => false], $additionalAccessor->getAll());
 
-        $object->setAdditionalProperty('a0', 10);
-        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 10], $object->getPatternProperties('Numerics'));
-        $this->assertEqualsCanonicalizing(['beta' => null, 'b0' => 'Hello'], $object->getPatternProperties('^b'));
-        $this->assertSame(['c0' => false], $object->getAdditionalProperties());
+        $additionalAccessor->set('a0', 10);
+        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 10], $patternAccessor->get('Numerics'));
+        $this->assertEqualsCanonicalizing(['beta' => null, 'b0' => 'Hello'], $patternAccessor->get('^b'));
+        $this->assertSame(['c0' => false], $additionalAccessor->getAll());
 
-        $object->removeAdditionalProperty('a0');
-        $this->assertEqualsCanonicalizing(['alpha' => null], $object->getPatternProperties('Numerics'));
-        $this->assertEqualsCanonicalizing(['beta' => null, 'b0' => 'Hello'], $object->getPatternProperties('^b'));
-        $this->assertSame(['c0' => false], $object->getAdditionalProperties());
+        $additionalAccessor->remove('a0');
+        $this->assertEqualsCanonicalizing(['alpha' => null], $patternAccessor->get('Numerics'));
+        $this->assertEqualsCanonicalizing(['beta' => null, 'b0' => 'Hello'], $patternAccessor->get('^b'));
+        $this->assertSame(['c0' => false], $additionalAccessor->getAll());
     }
 
     #[DataProvider('invalidPatternPropertiesDataProvider')]
@@ -153,7 +150,7 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
         $object = new $className(['a0' => 100, 'b0' => 'Hello']);
 
         try {
-            $object->setAdditionalProperty($property, $value);
+            $object->additionalProperties()->set($property, $value);
             $this->fail('Expected exception not thrown');
         } catch (Exception $exception) {
             if ($configuration->collectErrors()) {
@@ -165,11 +162,12 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
             $this->assertMatchesRegularExpression("/$exceptionMessage/", $exception->getMessage());
         }
 
-        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $object->getPatternProperties('Numerics'));
-        $this->assertSame('Hello', $object->getPatternProperties('^b')['b0']);
+        $patternAccessor = $object->patternProperties();
+        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $patternAccessor->get('Numerics'));
+        $this->assertSame('Hello', $patternAccessor->get('^b')['b0']);
 
-        $this->assertSame([], $object->getAdditionalProperties());
-        $this->assertEqualsCanonicalizing(['a0' => 100, 'b0' => 'Hello'], $object->getRawModelDataInput());
+        $this->assertSame([], $object->additionalProperties()->getAll());
+        $this->assertEqualsCanonicalizing(['a0' => 100, 'b0' => 'Hello'], $object->meta()->rawInput());
     }
 
     public static function invalidPatternPropertiesDataProvider(): array
@@ -214,18 +212,19 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
 
         $object = new $className(['a0' => 100]);
         $this->assertNull($object->getAlpha());
-        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $object->getPatternProperties('Numerics'));
-        $this->assertEqualsCanonicalizing(['beta' => null], $object->getPatternProperties('^b'));
-        $this->assertSame([], $object->getAdditionalProperties());
+        $patternAccessor = $object->patternProperties();
+        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $patternAccessor->get('Numerics'));
+        $this->assertEqualsCanonicalizing(['beta' => null], $patternAccessor->get('^b'));
+        $this->assertSame([], $object->additionalProperties()->getAll());
         $this->assertEqualsCanonicalizing(['a0' => 100, 'alpha' => null, 'beta' => null], $object->toArray());
 
         $object->populate(['a1' => 0, 'a2' => 10, 'b1' => 'Hello', 'c1' => 'World']);
         $this->assertEqualsCanonicalizing(
             ['alpha' => null, 'a0' => 100, 'a1' => 0, 'a2' => 10],
-            $object->getPatternProperties('Numerics'),
+            $object->patternProperties()->get('Numerics'),
         );
-        $this->assertEqualsCanonicalizing(['beta' => null, 'b1' => 'Hello'], $object->getPatternProperties('^b'));
-        $this->assertSame(['c1' => 'World'], $object->getAdditionalProperties());
+        $this->assertEqualsCanonicalizing(['beta' => null, 'b1' => 'Hello'], $object->patternProperties()->get('^b'));
+        $this->assertSame(['c1' => 'World'], $object->additionalProperties()->getAll());
         $this->assertEqualsCanonicalizing(
             ['c1' => 'World', 'alpha' => null, 'a0' => 100, 'a1' => 0, 'a2' => 10, 'beta' => null, 'b1' => 'Hello'],
             $object->toArray(),
@@ -235,13 +234,13 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
         $this->assertSame(100, $object->getAlpha());
         $this->assertEqualsCanonicalizing(
             ['alpha' => 100, 'a0' => 100, 'a1' => -10, 'a2' => 10],
-            $object->getPatternProperties('Numerics'),
+            $object->patternProperties()->get('Numerics'),
         );
         $this->assertEqualsCanonicalizing(
             ['beta' => null, 'b1' => 'Hello', 'b2' => 'World'],
-            $object->getPatternProperties('^b'),
+            $object->patternProperties()->get('^b'),
         );
-        $this->assertSame(['c1' => 'World'], $object->getAdditionalProperties());
+        $this->assertSame(['c1' => 'World'], $object->additionalProperties()->getAll());
 
         $state = [
             'a0' => 100,
@@ -306,9 +305,10 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
             $this->assertMatchesRegularExpression("/$exceptionMessage/", $exception->getMessage());
         }
 
-        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $object->getPatternProperties('Numerics'));
-        $this->assertEqualsCanonicalizing(['beta' => null, 'b0' => 'Hello'], $object->getPatternProperties('^b'));
-        $this->assertEqualsCanonicalizing(['a0' => 100, 'b0' => 'Hello'], $object->getRawModelDataInput());
+        $patternAccessor = $object->patternProperties();
+        $this->assertEqualsCanonicalizing(['alpha' => null, 'a0' => 100], $patternAccessor->get('Numerics'));
+        $this->assertEqualsCanonicalizing(['beta' => null, 'b0' => 'Hello'], $patternAccessor->get('^b'));
+        $this->assertEqualsCanonicalizing(['a0' => 100, 'b0' => 'Hello'], $object->meta()->rawInput());
     }
 
     public function testModifyingPatternPropertiesViaSetter(): void
@@ -323,17 +323,17 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
         $object = new $className(['a0' => 100]);
 
         $object->setAlpha(20);
-        $this->assertEqualsCanonicalizing(['alpha' => 20, 'a0' => 100], $object->getPatternProperties('Numerics'));
-        $this->assertEqualsCanonicalizing(['alpha' => 20, 'a0' => 100], $object->getRawModelDataInput());
-        $this->assertSame(['beta' => null], $object->getPatternProperties('^b'));
+        $this->assertEqualsCanonicalizing(['alpha' => 20, 'a0' => 100], $object->patternProperties()->get('Numerics'));
+        $this->assertEqualsCanonicalizing(['alpha' => 20, 'a0' => 100], $object->meta()->rawInput());
+        $this->assertSame(['beta' => null], $object->patternProperties()->get('^b'));
 
         $object->setBeta('abcde');
-        $this->assertEqualsCanonicalizing(['alpha' => 20, 'a0' => 100], $object->getPatternProperties('Numerics'));
+        $this->assertEqualsCanonicalizing(['alpha' => 20, 'a0' => 100], $object->patternProperties()->get('Numerics'));
         $this->assertEqualsCanonicalizing(
             ['alpha' => 20, 'a0' => 100, 'beta' => 'abcde'],
-            $object->getRawModelDataInput(),
+            $object->meta()->rawInput(),
         );
-        $this->assertSame(['beta' => 'abcde'], $object->getPatternProperties('^b'));
+        $this->assertSame(['beta' => 'abcde'], $object->patternProperties()->get('^b'));
 
         $this->assertSame(20, $object->getAlpha());
         $this->assertSame('abcde', $object->getBeta());
@@ -363,9 +363,9 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
             $this->assertMatchesRegularExpression("/$exceptionMessage/", $exception->getMessage());
         }
 
-        $this->assertSame(['alpha' => 20], $object->getPatternProperties('Numerics'));
-        $this->assertSame(['beta' => 'abcde'], $object->getPatternProperties('^b'));
-        $this->assertEqualsCanonicalizing(['alpha' => 20, 'beta' => 'abcde'], $object->getRawModelDataInput());
+        $this->assertSame(['alpha' => 20], $object->patternProperties()->get('Numerics'));
+        $this->assertSame(['beta' => 'abcde'], $object->patternProperties()->get('^b'));
+        $this->assertEqualsCanonicalizing(['alpha' => 20, 'beta' => 'abcde'], $object->meta()->rawInput());
 
         $this->assertSame(20, $object->getAlpha());
         $this->assertSame('abcde', $object->getBeta());
@@ -416,10 +416,10 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
         $data = ['alpha' => '01.01.1970', 'a0' => '31.12.2020', 'b' => '11.11.2011'];
         $object = new $className($data);
         $this->assertInstanceOf(DateTime::class, $object->getAlpha());
-        $this->assertInstanceOf(DateTime::class, $object->getPatternProperties('^a')['a0']);
+        $this->assertInstanceOf(DateTime::class, $object->patternProperties()->get('^a')['a0']);
 
         $this->assertSame('01.01.1970', $object->getAlpha()->format('d.m.Y'));
-        $this->assertSame('11.11.2011', $object->getAdditionalProperty('b'));
+        $this->assertSame('11.11.2011', $object->additionalProperties()->get('b'));
 
         // test correct serialization
         $this->assertEqualsCanonicalizing($data, $object->toArray());
@@ -437,8 +437,10 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
             $this->getParameterTypeNames($object, 'setAlpha'),
         );
 
-        $this->assertSame('DateTime[]|null[]', $this->getReturnTypeAnnotation($object, 'getPatternProperties'));
-        $returnType = $this->getReturnType($object, 'getPatternProperties');
+        // test typing on pattern properties accessor
+        $patternAccessor = $object->patternProperties();
+        $this->assertSame('(DateTime|null)[]', $this->getReturnTypeAnnotation($patternAccessor, 'get'));
+        $returnType = $this->getReturnType($patternAccessor, 'get');
         $this->assertSame('array', $returnType->getName());
         $this->assertFalse($returnType->allowsNull());
     }

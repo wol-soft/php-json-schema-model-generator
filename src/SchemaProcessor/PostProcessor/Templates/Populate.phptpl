@@ -43,31 +43,50 @@ public function populate(array $modelData): self
 
     {% if generatorConfiguration.collectErrors() %}
         if (count($this->_errorRegistry->getErrors())) {
-            foreach ($rollbackValues as $property => $value) {
-                $this->{$property} = $value;
-            }
-
+            $this->_rollbackPopulate($rollbackValues);
             throw $this->_errorRegistry;
         }
     {% else %}
         } catch (ValidationException $exception) {
-            foreach ($rollbackValues as $property => $value) {
-                $this->{$property} = $value;
-            }
-
+            $this->_rollbackPopulate($rollbackValues);
             throw $exception;
         }
     {% endif %}
 
     $this->_rawModelDataInput = array_merge($this->_rawModelDataInput, $modelData);
 
+    // Invalidate cached accessor instances so the next call reflects the updated model state.
+    foreach (['_additionalPropertiesAccessor', '_patternPropertiesAccessor'] as $_accessorProperty) {
+        if (property_exists($this, $_accessorProperty)) {
+            $this->{$_accessorProperty} = null;
+        }
+    }
+
     {% foreach schema.getProperties() as property %}
         {% if not property.isInternal() and schemaHookResolver.resolveSetterAfterValidationHook(property) %}
-            if (array_key_exists('{{ property.getName() }}', $rollbackValues)) {
+            if (array_key_exists('{{ property.getAttribute(true) }}', $rollbackValues)) {
                 {{ schemaHookResolver.resolveSetterAfterValidationHook(property, true) }}
             }
         {% endif %}
     {% endforeach %}
 
     return $this;
+}
+
+private function _rollbackPopulate(array $rollbackValues): void
+{
+    foreach ($rollbackValues as $property => $value) {
+        if (is_array($value) && isset($this->{$property}) && is_array($this->{$property})) {
+            // Restore array-typed properties in-place so that by-reference bindings
+            // held by accessor instances remain valid after a failed populate.
+            foreach (array_keys($this->{$property}) as $key) {
+                unset($this->{$property}[$key]);
+            }
+            foreach ($value as $k => $v) {
+                $this->{$property}[$k] = $v;
+            }
+        } else {
+            $this->{$property} = $value;
+        }
+    }
 }

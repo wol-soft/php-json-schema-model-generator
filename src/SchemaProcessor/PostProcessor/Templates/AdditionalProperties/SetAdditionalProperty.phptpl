@@ -1,24 +1,19 @@
 /**
- * Adds or overwrites an additional property on the object
- *
- * @param string $property The property key of the additional property
- * @param {% if validationProperty %}{{ viewHelper.getTypeHintAnnotation(validationProperty) }}{% else %}mixed{% endif %} $value The new value of the additional property
- *
- * @return self
- *
- * {% if schema.getBaseValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
- * @throws RegularPropertyAsAdditionalPropertyException
+ * {% if hasObjectProperties %}@throws RegularPropertyAsAdditionalPropertyException
+ * {% endif %}{% if schema.getBaseValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
  */
-public function setAdditionalProperty(
-    string $property,
+private function _setAdditionalProperty(
+    string $key,
     {% if validationProperty %}{{ viewHelper.getType(validationProperty) }}{% else %}mixed{% endif %} $value
-): self {
-    if (in_array($property, {{ objectProperties }})) {
-        throw new RegularPropertyAsAdditionalPropertyException($value, $property, self::class);
-    }
+): void {
+    {% if hasObjectProperties %}
+        if (in_array($key, {{ objectProperties }})) {
+            throw new RegularPropertyAsAdditionalPropertyException($value, $key, self::class);
+        }
+    {% endif %}
 
-    if (isset($this->_additionalProperties[$property]) && $this->_additionalProperties[$property] === $value) {
-        return $this;
+    if (isset($this->_additionalProperties[$key]) && $this->_additionalProperties[$key] === $value) {
+        return;
     }
 
     {% if validationProperty %}{{ schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) }}{% endif %}
@@ -28,7 +23,7 @@ public function setAdditionalProperty(
             $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
 
-        $addedProperty = [$property => $value];
+        $addedProperty = [$key => $value];
         $this->_executeBaseValidators($addedProperty);
 
         {% if generatorConfiguration.collectErrors() %}
@@ -37,12 +32,11 @@ public function setAdditionalProperty(
             }
         {% endif %}
     {% else %}
-        $this->_additionalProperties[$property] = $value;
+        // No base validators means no pattern properties either — value goes directly to _additionalProperties.
+        $this->_additionalProperties[$key] = $value;
     {% endif %}
 
-    $this->_rawModelDataInput[$property] = $value;
+    $this->_rawModelDataInput[$key] = $value;
 
     {% if validationProperty %}{{ schemaHookResolver.resolveSetterAfterValidationHook(validationProperty) }}{% endif %}
-
-    return $this;
 }
