@@ -34,19 +34,19 @@ class ComposedOneOfBranchDefaultTest extends AbstractPHPModelGeneratorTestCase
         $branchA = new $className(['kind' => 'A']);
         $this->assertNull($branchA->getSandbox());
         // Branch default was not applied; sandbox is absent from raw input.
-        $this->assertSame(['kind' => 'A'], $branchA->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A'], $branchA->meta()->rawInput());
 
         // Branch 1 matches: sandbox default true is applied.
         $branchB = new $className(['kind' => 'B']);
         $this->assertTrue($branchB->getSandbox());
         // Default came from the branch, not the user; sandbox is absent from raw input.
-        $this->assertSame(['kind' => 'B'], $branchB->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B'], $branchB->meta()->rawInput());
 
         // Branch 1 matches, sandbox explicitly supplied: user value is preserved.
         $branchBExplicit = new $className(['kind' => 'B', 'sandbox' => false]);
         $this->assertFalse($branchBExplicit->getSandbox());
         // User supplied sandbox; it must appear in raw input.
-        $this->assertSame(['kind' => 'B', 'sandbox' => false], $branchBExplicit->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B', 'sandbox' => false], $branchBExplicit->meta()->rawInput());
     }
 
     /**
@@ -64,12 +64,12 @@ class ComposedOneOfBranchDefaultTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['kind' => 'A']);
         $this->assertNull($object->getSandbox());
-        $this->assertSame(['kind' => 'A'], $object->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A'], $object->meta()->rawInput());
 
         $object->setKind('B');
         $this->assertTrue($object->getSandbox());
         // The setter only writes 'kind' into raw; the branch default for sandbox is not raw input.
-        $this->assertSame(['kind' => 'B'], $object->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B'], $object->meta()->rawInput());
     }
 
     /**
@@ -88,12 +88,12 @@ class ComposedOneOfBranchDefaultTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['kind' => 'B', 'sandbox' => false]);
         $this->assertFalse($object->getSandbox());
-        $this->assertSame(['kind' => 'B', 'sandbox' => false], $object->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B', 'sandbox' => false], $object->meta()->rawInput());
 
         $object->setNote('hello');
         $this->assertFalse($object->getSandbox());
         // After setting an unrelated property, the user-supplied sandbox is still in raw input.
-        $this->assertSame(['kind' => 'B', 'sandbox' => false, 'note' => 'hello'], $object->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B', 'sandbox' => false, 'note' => 'hello'], $object->meta()->rawInput());
     }
 
     /**
@@ -113,12 +113,12 @@ class ComposedOneOfBranchDefaultTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className(['kind' => 'B']);
         $this->assertTrue($object->getSandbox());
         // sandbox came from the branch default; it must not be present in raw input.
-        $this->assertSame(['kind' => 'B'], $object->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B'], $object->meta()->rawInput());
 
         $object->setKind('A');
         $this->assertNull($object->getSandbox());
         // After the branch flip, sandbox is still absent from raw input.
-        $this->assertSame(['kind' => 'A'], $object->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A'], $object->meta()->rawInput());
     }
 
     /**
@@ -142,14 +142,14 @@ class ComposedOneOfBranchDefaultTest extends AbstractPHPModelGeneratorTestCase
         // User explicitly supplies sandbox=false (overriding the branch-1 default of true).
         $object = new $className(['kind' => 'B', 'sandbox' => false]);
         $this->assertFalse($object->getSandbox());
-        $this->assertSame(['kind' => 'B', 'sandbox' => false], $object->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B', 'sandbox' => false], $object->meta()->rawInput());
 
         // Switch to branch 0: sandbox is not a branch-0 default, but was user-supplied,
         // so it remains in _rawModelDataInput and must NOT be reset to null.
         $object->setKind('A');
         $this->assertFalse($object->getSandbox());
         // The user-supplied sandbox survives the branch flip and remains in raw input.
-        $this->assertSame(['kind' => 'A', 'sandbox' => false], $object->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A', 'sandbox' => false], $object->meta()->rawInput());
     }
 
     /**
@@ -171,18 +171,18 @@ class ComposedOneOfBranchDefaultTest extends AbstractPHPModelGeneratorTestCase
         $branchA = new $className(['kind' => 'A']);
         $this->assertSame(10, $branchA->getTimeout());
         // Timeout came from the branch default; absent from raw input.
-        $this->assertSame(['kind' => 'A'], $branchA->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A'], $branchA->meta()->rawInput());
 
         // Branch B matches (kind=B): timeout=60.
         $branchB = new $className(['kind' => 'B']);
         $this->assertSame(60, $branchB->getTimeout());
         // Timeout came from the branch default; absent from raw input.
-        $this->assertSame(['kind' => 'B'], $branchB->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B'], $branchB->meta()->rawInput());
 
         // User-supplied value overrides the branch default in both cases.
         $branchAOverride = new $className(['kind' => 'A', 'timeout' => 99]);
         $this->assertSame(99, $branchAOverride->getTimeout());
-        $this->assertSame(['kind' => 'A', 'timeout' => 99], $branchAOverride->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A', 'timeout' => 99], $branchAOverride->meta()->rawInput());
     }
 
     /**
@@ -205,15 +205,15 @@ class ComposedOneOfBranchDefaultTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['kind' => 'A']);
         $this->assertNull($object->getSandbox());
-        $this->assertSame(['kind' => 'A'], $object->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A'], $object->meta()->rawInput());
 
         $object->populate(['kind' => 'B']);
         $this->assertTrue($object->getSandbox());
         // populate() merges its input into raw; sandbox came from the branch default, not from populate().
-        $this->assertSame(['kind' => 'B'], $object->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B'], $object->meta()->rawInput());
 
         $object->populate(['kind' => 'A']);
         $this->assertNull($object->getSandbox());
-        $this->assertSame(['kind' => 'A'], $object->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A'], $object->meta()->rawInput());
     }
 }

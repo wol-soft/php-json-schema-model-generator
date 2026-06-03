@@ -41,24 +41,24 @@ class ComposedIfThenElseBranchDefaultTest extends AbstractPHPModelGeneratorTestC
         $this->assertSame('default-a', $branchThen->getValue());
         $this->assertNull($branchThen->getTimeout());
         // value came from the then-branch default; absent from raw input.
-        $this->assertSame(['kind' => 'A'], $branchThen->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A'], $branchThen->meta()->rawInput());
 
         // kind=B → if condition does not match → else branch → timeout=60, value=null.
         $branchElse = new $className(['kind' => 'B']);
         $this->assertNull($branchElse->getValue());
         $this->assertSame(60, $branchElse->getTimeout());
         // timeout came from the else-branch default; absent from raw input.
-        $this->assertSame(['kind' => 'B'], $branchElse->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B'], $branchElse->meta()->rawInput());
 
         // User-supplied value overrides the then-branch default.
         $thenUserOverride = new $className(['kind' => 'A', 'value' => 'custom']);
         $this->assertSame('custom', $thenUserOverride->getValue());
-        $this->assertSame(['kind' => 'A', 'value' => 'custom'], $thenUserOverride->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A', 'value' => 'custom'], $thenUserOverride->meta()->rawInput());
 
         // User-supplied value overrides the else-branch default.
         $elseUserOverride = new $className(['kind' => 'B', 'timeout' => 5]);
         $this->assertSame(5, $elseUserOverride->getTimeout());
-        $this->assertSame(['kind' => 'B', 'timeout' => 5], $elseUserOverride->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B', 'timeout' => 5], $elseUserOverride->meta()->rawInput());
     }
 
     /**
@@ -79,13 +79,13 @@ class ComposedIfThenElseBranchDefaultTest extends AbstractPHPModelGeneratorTestC
         $branchThen = new $className(['kind' => 'A']);
         $this->assertSame(10, $branchThen->getTimeout());
         // timeout came from the then-branch default; absent from raw input.
-        $this->assertSame(['kind' => 'A'], $branchThen->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A'], $branchThen->meta()->rawInput());
 
         // if condition does not match (kind=B) → else branch → timeout=60.
         $branchElse = new $className(['kind' => 'B']);
         $this->assertSame(60, $branchElse->getTimeout());
         // timeout came from the else-branch default; absent from raw input.
-        $this->assertSame(['kind' => 'B'], $branchElse->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B'], $branchElse->meta()->rawInput());
     }
 
     /**

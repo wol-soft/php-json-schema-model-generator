@@ -44,18 +44,18 @@ class ComposedPatternPropertyBranchDefaultTest extends AbstractPHPModelGenerator
         // Branch 0 matches (kind=A): retry_count has no default in branch 0 — must be null.
         $branchA = new $className(['kind' => 'A']);
         $this->assertNull($branchA->getRetryCount());
-        $this->assertSame(['kind' => 'A'], $branchA->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A'], $branchA->meta()->rawInput());
 
         // Branch 1 matches (kind=B): branch default 3 applies.
         $branchB = new $className(['kind' => 'B']);
         $this->assertSame(3, $branchB->getRetryCount());
         // Default came from the branch; absent from raw input.
-        $this->assertSame(['kind' => 'B'], $branchB->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B'], $branchB->meta()->rawInput());
 
         // User-supplied value overrides the branch default.
         $branchBExplicit = new $className(['kind' => 'B', 'retry_count' => 5]);
         $this->assertSame(5, $branchBExplicit->getRetryCount());
-        $this->assertSame(['kind' => 'B', 'retry_count' => 5], $branchBExplicit->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B', 'retry_count' => 5], $branchBExplicit->meta()->rawInput());
     }
 
     /**
@@ -96,25 +96,25 @@ class ComposedPatternPropertyBranchDefaultTest extends AbstractPHPModelGenerator
         // Branch 0 matches (kind=A): no retry_count in this branch — must be null.
         $branchA = new $className(['kind' => 'A']);
         $this->assertNull($branchA->getRetryCount());
-        $this->assertSame(['kind' => 'A'], $branchA->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A'], $branchA->meta()->rawInput());
 
         // Branch 1 matches (kind=B): pattern default 3 is propagated to the branch property.
         $branchB = new $className(['kind' => 'B']);
         $this->assertSame(3, $branchB->getRetryCount());
         // Default came from the pattern (via branch propagation); absent from raw input.
-        $this->assertSame(['kind' => 'B'], $branchB->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B'], $branchB->meta()->rawInput());
 
         // User-supplied value overrides the propagated pattern default.
         $branchBExplicit = new $className(['kind' => 'B', 'retry_count' => 7]);
         $this->assertSame(7, $branchBExplicit->getRetryCount());
-        $this->assertSame(['kind' => 'B', 'retry_count' => 7], $branchBExplicit->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B', 'retry_count' => 7], $branchBExplicit->meta()->rawInput());
 
         // Switching branches removes the pattern-propagated default (no default in branch 0).
         $object = new $className(['kind' => 'B']);
         $this->assertSame(3, $object->getRetryCount());
         $object->setKind('A');
         $this->assertNull($object->getRetryCount());
-        $this->assertSame(['kind' => 'A'], $object->getRawModelDataInput());
+        $this->assertSame(['kind' => 'A'], $object->meta()->rawInput());
     }
 
     /**
@@ -133,12 +133,12 @@ class ComposedPatternPropertyBranchDefaultTest extends AbstractPHPModelGenerator
         // No user input: pattern default 3 applied to root property.
         $noInput = new $className([]);
         $this->assertSame(3, $noInput->getRetryCount());
-        $this->assertSame([], $noInput->getRawModelDataInput());
+        $this->assertSame([], $noInput->meta()->rawInput());
 
         // User-supplied value overrides the pattern-propagated root default.
         $withValue = new $className(['retry_count' => 7]);
         $this->assertSame(7, $withValue->getRetryCount());
-        $this->assertSame(['retry_count' => 7], $withValue->getRawModelDataInput());
+        $this->assertSame(['retry_count' => 7], $withValue->meta()->rawInput());
     }
 
     /**
@@ -189,7 +189,7 @@ class ComposedPatternPropertyBranchDefaultTest extends AbstractPHPModelGenerator
         // Branch 1 (kind=B): branch default 3 applies (same as the pattern default — they agree).
         $branchB = new $className(['kind' => 'B']);
         $this->assertSame(3, $branchB->getRetryCount());
-        $this->assertSame(['kind' => 'B'], $branchB->getRawModelDataInput());
+        $this->assertSame(['kind' => 'B'], $branchB->meta()->rawInput());
 
         // Branch 0 (kind=A): retry_count not in branch 0 — null.
         $branchA = new $className(['kind' => 'A']);

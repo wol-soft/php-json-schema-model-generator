@@ -35,20 +35,20 @@ class ComposedAllOfAnyOfBranchDefaultTest extends AbstractPHPModelGeneratorTestC
         $this->assertSame(30, $noInput->getTimeout());
         $this->assertSame(3, $noInput->getRetries());
         // Both values came from branch defaults; neither is present in raw input.
-        $this->assertSame([], $noInput->getRawModelDataInput());
+        $this->assertSame([], $noInput->meta()->rawInput());
 
         // Both values user-supplied: defaults are bypassed.
         $bothSupplied = new $className(['timeout' => 100, 'retries' => 5]);
         $this->assertSame(100, $bothSupplied->getTimeout());
         $this->assertSame(5, $bothSupplied->getRetries());
-        $this->assertSame(['timeout' => 100, 'retries' => 5], $bothSupplied->getRawModelDataInput());
+        $this->assertSame(['timeout' => 100, 'retries' => 5], $bothSupplied->meta()->rawInput());
 
         // Only one value user-supplied: the other still gets its branch default.
         $partialInput = new $className(['timeout' => 100]);
         $this->assertSame(100, $partialInput->getTimeout());
         $this->assertSame(3, $partialInput->getRetries());
         // retries came from the branch default; only the user-supplied timeout is in raw input.
-        $this->assertSame(['timeout' => 100], $partialInput->getRawModelDataInput());
+        $this->assertSame(['timeout' => 100], $partialInput->meta()->rawInput());
     }
 
     /**
@@ -68,20 +68,20 @@ class ComposedAllOfAnyOfBranchDefaultTest extends AbstractPHPModelGeneratorTestC
         $this->assertSame(30, $noInput->getTimeout());
         $this->assertSame(3, $noInput->getRetries());
         // Both values came from branch defaults; neither is present in raw input.
-        $this->assertSame([], $noInput->getRawModelDataInput());
+        $this->assertSame([], $noInput->meta()->rawInput());
 
         // Both values user-supplied: defaults are bypassed.
         $bothSupplied = new $className(['timeout' => 100, 'retries' => 5]);
         $this->assertSame(100, $bothSupplied->getTimeout());
         $this->assertSame(5, $bothSupplied->getRetries());
-        $this->assertSame(['timeout' => 100, 'retries' => 5], $bothSupplied->getRawModelDataInput());
+        $this->assertSame(['timeout' => 100, 'retries' => 5], $bothSupplied->meta()->rawInput());
 
         // Only one value user-supplied: the other still gets its branch default.
         $partialInput = new $className(['retries' => 5]);
         $this->assertSame(30, $partialInput->getTimeout());
         $this->assertSame(5, $partialInput->getRetries());
         // timeout came from the branch default; only the user-supplied retries is in raw input.
-        $this->assertSame(['retries' => 5], $partialInput->getRawModelDataInput());
+        $this->assertSame(['retries' => 5], $partialInput->meta()->rawInput());
     }
 
     /**
@@ -111,11 +111,11 @@ class ComposedAllOfAnyOfBranchDefaultTest extends AbstractPHPModelGeneratorTestC
         $object = new $className([]);
         $this->assertSame(30, $object->getTimeout());
         // The agreed default came from branches, not the user; absent from raw input.
-        $this->assertSame([], $object->getRawModelDataInput());
+        $this->assertSame([], $object->meta()->rawInput());
 
         // User-supplied value must override the agreed default.
         $withUserValue = new $className(['timeout' => 99]);
         $this->assertSame(99, $withUserValue->getTimeout());
-        $this->assertSame(['timeout' => 99], $withUserValue->getRawModelDataInput());
+        $this->assertSame(['timeout' => 99], $withUserValue->meta()->rawInput());
     }
 }
