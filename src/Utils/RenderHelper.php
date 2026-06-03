@@ -187,6 +187,23 @@ if ({$validator->getCheck()}) {
         return preg_replace('(\d+\s=>)', '', var_export($values, true));
     }
 
+    /**
+     * Returns a PHP array literal whose values are each raw $patterns entry wrapped with `/`
+     * delimiters and with any embedded `/` characters escaped so they cannot terminate the
+     * delimiter early. The result is ready for direct `preg_match` use at runtime.
+     *
+     * @param string[] $rawPatterns Raw patternProperties regexes from a JSON Schema.
+     */
+    public static function varExportPcrePatterns(array $rawPatterns): string
+    {
+        return self::varExportArray(
+            array_map(
+                static fn(string $rawPattern): string => '/' . addcslashes($rawPattern, '/') . '/',
+                $rawPatterns,
+            ),
+        );
+    }
+
     public static function filterClassImports(array $imports, string $namespace): array
     {
         // filter out non-compound uses and uses which link to the current namespace

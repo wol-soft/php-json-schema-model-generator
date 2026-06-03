@@ -101,7 +101,7 @@ class AdditionalPropertiesPostProcessor extends PostProcessor
                         ),
                         [
                             'patternProperties' => $patternProperties
-                                ? RenderHelper::varExportArray($patternProperties)
+                                ? RenderHelper::varExportPcrePatterns($patternProperties)
                                 : null,
                             'additionalProperties' => RenderHelper::varExportArray(
                                 array_keys($schema->getJsonSchema()->getJson()['properties'] ?? []),

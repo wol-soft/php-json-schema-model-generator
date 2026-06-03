@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class CompositionPropertyDecorator
@@ -107,14 +108,13 @@ class CompositionPropertyDecorator extends PropertyProxy
 
     /**
      * Returns the patternProperties regexes as a PHP array literal ready for direct template
-     * embedding. var_export handles all string escaping so generated code does not need to
-     * round-trip patterns through base64 at runtime.
+     * embedding. Each pattern is wrapped with `/` delimiters and any embedded `/` is escaped so
+     * the result can be passed straight to `preg_match`.
      */
     public function getBranchPatternPropertyPatternsPhpLiteral(): string
     {
-        return var_export(
+        return RenderHelper::varExportPcrePatterns(
             array_keys($this->jsonSchema->getJson()['patternProperties'] ?? []),
-            true,
         );
     }
 

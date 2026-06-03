@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": {
+    "type": "string"
+  },
+  "unevaluatedProperties": false
+}

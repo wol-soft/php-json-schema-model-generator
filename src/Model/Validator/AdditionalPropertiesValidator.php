@@ -67,7 +67,9 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
                 'additionalProperties' => RenderHelper::varExportArray(
                     array_keys($propertiesStructure->getJson()[static::PROPERTIES_KEY] ?? []),
                 ),
-                'patternProperties' => $patternProperties ? RenderHelper::varExportArray($patternProperties) : null,
+                'patternProperties' => $patternProperties
+                    ? RenderHelper::varExportPcrePatterns($patternProperties)
+                    : null,
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
                 // by default don't collect additional property data

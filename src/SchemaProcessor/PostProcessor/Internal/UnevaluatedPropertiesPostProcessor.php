@@ -34,18 +34,21 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             return;
         }
 
-        foreach ($schema->getBaseValidators() as $baseValidator) {
-            if ($baseValidator instanceof AbstractComposedPropertyValidator) {
-                $baseValidator->enableEvaluationTracking();
-            }
-        }
+        // The nested branch schemas may already be queued — adding the method here, before any
+        // render() runs, ensures every branch class carries getEvaluatedProperties() regardless
+        // of whether the outer or inner schema was processed first. RenderQueue::execute runs
+        // process() over every job before render() begins.
+        $this->addGetEvaluatedPropertiesToNestedBranchSchemas($schema);
 
-        if (empty($schema->getCompositionValidatorKeys())) {
-            return;
-        }
-
+        // The trait carries collectUnevaluatedKeys(), which every generated unevaluatedProperties
+        // validator calls regardless of whether the schema also has composition validators. It
+        // must therefore be attached on every activation-triggering schema, not only on ones that
+        // declare allOf/anyOf/oneOf/if-then-else.
         $schema->addTrait(CompositionEvaluationTrait::class);
 
+        // The cache field is only written when there are composition validators, but the trait
+        // reads $this->_compositionEvaluations even on no-composition schemas. Always declare the
+        // property so the read never touches an undefined property (deprecated in PHP 8.2+).
         $schema->addProperty(
             (new Property(
                 'compositionEvaluations',
@@ -56,7 +59,11 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 ->setDefaultValue([]),
         );
 
-        $this->addGetEvaluatedPropertiesToNestedBranchSchemas($schema);
+        foreach ($schema->getBaseValidators() as $baseValidator) {
+            if ($baseValidator instanceof AbstractComposedPropertyValidator) {
+                $baseValidator->enableEvaluationTracking();
+            }
+        }
     }
 
     /**
