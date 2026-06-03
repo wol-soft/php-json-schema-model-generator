@@ -6,7 +6,7 @@ PopulatePostProcessor
     $generator = new ModelGenerator();
     $generator->addPostProcessor(new PopulatePostProcessor());
 
-The **PopulatePostProcessor** adds a populate method to your generated model. The populate method accepts an array which might contain any subset of the model's properties. All properties present in the provided array will be validated according to the validation rules from the JSON-Schema. If all values are valid the properties will be updated otherwise an exception will be thrown (if error collection is enabled an exception containing all violations, otherwise on the first occurring error, compare `collecting errors <../../gettingStarted.html#collect-errors-vs-early-return>`__). Also basic model constraints like `minProperties`, `maxProperties` or `propertyNames` will be validated as the provided array may add additional properties to the model. If the model is updated also the values which can be fetched via `getRawModelDataInput` will be updated.
+The **PopulatePostProcessor** adds a populate method to your generated model. The populate method accepts an array which might contain any subset of the model's properties. All properties present in the provided array will be validated according to the validation rules from the JSON-Schema. If all values are valid the properties will be updated otherwise an exception will be thrown (if error collection is enabled an exception containing all violations, otherwise on the first occurring error, compare `collecting errors <../../gettingStarted.html#collect-errors-vs-early-return>`__). Also basic model constraints like `minProperties`, `maxProperties` or `propertyNames` will be validated as the provided array may add additional properties to the model. If the model is updated also the values which can be fetched via `meta()->rawInput()` will be updated.
 
 .. code-block:: json
 
@@ -24,8 +24,6 @@ Generated interface with the **PopulatePostProcessor**:
 
 .. code-block:: php
 
-    public function getRawModelDataInput(): array;
-
     public function setExample(string $example): static;
     public function getExample(): ?string;
 
@@ -37,17 +35,17 @@ Now let's have a look at the behaviour of the generated model:
 
     // initialize the model with a valid value
     $example = new Example(['value' => 'Hello World']);
-    $example->getRawModelDataInput(); // returns ['value' => 'Hello World']
+    $example->meta()->rawInput(); // returns ['value' => 'Hello World']
 
     // add an additional property to the model.
     // if additional property constraints are defined in your JSON-Schema
     // each additional property will be validated against the defined constraints.
     $example->populate(['additionalValue' => 12]);
-    $example->getRawModelDataInput(); // returns ['value' => 'Hello World', 'additionalValue' => 12]
+    $example->meta()->rawInput(); // returns ['value' => 'Hello World', 'additionalValue' => 12]
 
     // update an existing property with a valid value
     $example->populate(['value' => 'Good night!']);
-    $example->getRawModelDataInput(); // returns ['value' => 'Good night!', 'additionalValue' => 12]
+    $example->meta()->rawInput(); // returns ['value' => 'Good night!', 'additionalValue' => 12]
 
     // update an existing property with an invalid value which will throw an exception
     try {
@@ -56,7 +54,7 @@ Now let's have a look at the behaviour of the generated model:
         // perform error handling
     }
     // if the update of the model fails no values will be updated
-    $example->getRawModelDataInput(); // returns ['value' => 'Good night!', 'additionalValue' => 12]
+    $example->meta()->rawInput(); // returns ['value' => 'Good night!', 'additionalValue' => 12]
 
 .. warning::
 

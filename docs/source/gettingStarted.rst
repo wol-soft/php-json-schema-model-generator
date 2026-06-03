@@ -81,9 +81,6 @@ After generating a class with this JSON-Schema our class with the name `Person` 
     // the constructor takes an array with data which is validated and applied to the model
     public function __construct(array $modelData);
 
-    // the method getRawModelDataInput always delivers the raw input which was provided on instantiation
-    public function getRawModelDataInput(): array;
-
     // getters to fetch the validated properties. Age is nullable as it's not required
     public function getName(): string;
     public function getAge(): ?int;
@@ -91,6 +88,9 @@ After generating a class with this JSON-Schema our class with the name `Person` 
     // setters to change the values of the model after instantiation
     public function setName(string $name): Person;
     public function setAge(?int $age): Person;
+
+    // meta()->rawInput() always delivers the raw input which was provided on instantiation
+    public function meta(): Meta;
 
 Now let's have a look at the behaviour of the generated model:
 
@@ -112,13 +112,13 @@ Now let's have a look at the behaviour of the generated model:
     $person = new Person(['name' => 'Albert']);
     $person->getName(); // returns 'Albert'
     $person->getAge(); // returns NULL
-    $person->getRawModelDataInput(); // returns ['name' => 'Albert']
+    $person->meta()->rawInput(); // returns ['name' => 'Albert']
 
     // If setters are generated the setters also perform validations.
     // Exception: 'Value for age must not be smaller than 0'
     $person->setAge(-10);
 
-Each generated class will implement the interface **PHPModelGenerator\\Interfaces\\JSONModelInterface** implemented in the php-json-schema-model-generator-production repository and thus provide the method *getRawModelDataInput*.
+Each generated class will implement the interface **PHPModelGenerator\\Interfaces\\JSONModelInterface** implemented in the php-json-schema-model-generator-production repository and thus provide the method *meta()* which exposes ``rawInput()`` for access to the original data provided on instantiation.
 
 Configuring the generator
 -------------------------
@@ -147,7 +147,7 @@ Immutable classes
 
     setImmutable(bool $immutable);
 
-If set to true the generated model classes will be delivered without setter methods for the object properties. By default the classes are generated without setter methods. Each setter will validate the provided value and throw either a specific exception or a collection exception depending on the `error collection configuration <#collect-errors-vs-early-return>`__. If all validations pass the internal value will be updated as well as the value which will be returned when `getRawModelDataInput` is called.
+If set to true the generated model classes will be delivered without setter methods for the object properties. By default the classes are generated without setter methods. Each setter will validate the provided value and throw either a specific exception or a collection exception depending on the `error collection configuration <#collect-errors-vs-early-return>`__. If all validations pass the internal value will be updated as well as the value which will be returned when `meta()->rawInput()` is called.
 
 .. code-block:: php
 

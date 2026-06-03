@@ -104,8 +104,8 @@ After generating a class with this JSON-Schema our class with the name `Person` 
 // the constructor takes an array with data which is validated and applied to the model
 public function __construct(array $modelData);
 
-// the method getRawModelDataInput always delivers the raw input which was provided on instantiation
-public function getRawModelDataInput(): array;
+// meta()->rawInput() always delivers the raw input which was provided on instantiation
+public function meta(): Meta;
 
 // getters to fetch the validated properties. Age is nullable as it's not required
 public function getName(): string;
@@ -134,7 +134,7 @@ $person = new Person(['name' => 'Albert', 'age' => -1]);
 $person = new Person(['name' => 'Albert']);
 $person->getName(); // returns 'Albert'
 $person->getAge(); // returns NULL
-$person->getRawModelDataInput(); // returns ['name' => 'Albert']
+$person->meta()->rawInput(); // returns ['name' => 'Albert']
 
 // If setters are generated the setters also perform validations.
 // Exception: 'Value for age must not be smaller than 0'
