@@ -320,6 +320,9 @@ The following attributes are available:
    * - JSON_POINTER
      - Classes & Properties
      - Adds a JSON Pointer with the path in the source Schema. This attribute can't be disabled.
+       For properties that appear in multiple composition branches (e.g. ``oneOf``, ``allOf``),
+       one ``#[JsonPointer]`` attribute is emitted per defining branch, plus one for the
+       root-level definition when the property is also declared in the top-level ``properties`` block.
      - Yes
    * - SCHEMA_NAME
      - Properties
@@ -331,7 +334,11 @@ The following attributes are available:
      - No
    * - JSON_SCHEMA
      - Classes & Properties
-     - Provides the full JSON Schema used to generate the class or the property
+     - Provides the full JSON Schema used to generate the class or the property.
+       For properties transferred from composition branches, the attribute value is
+       *synthesised*: it contains the composition keyword (e.g. ``oneOf``) with only the
+       branch-level sub-schemas that define this property, merged with any root-level
+       constraints when the property is also declared in the top-level ``properties`` block.
      - No
    * - REQUIRED
      - Properties

@@ -11,12 +11,20 @@ trait AttributesTrait
     /** @var PhpAttribute[] */
     private array $phpAttributes = [];
 
+    public function filterAttributes(callable $filter): static
+    {
+        $this->phpAttributes = array_values(array_filter($this->phpAttributes, $filter));
+
+        return $this;
+    }
+
     public function addAttribute(
         PhpAttribute $attribute,
         ?GeneratorConfiguration $generatorConfiguration = null,
         ?int $enablementFlag = null,
     ): static {
-        if ($generatorConfiguration
+        if (
+            $generatorConfiguration
             && $enablementFlag
             && ($generatorConfiguration->getEnabledAttributes() & $enablementFlag) === 0
         ) {

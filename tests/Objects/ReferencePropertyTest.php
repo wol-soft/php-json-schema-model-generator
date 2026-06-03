@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use ReflectionClass;
 use stdClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\WithoutErrorHandler;
@@ -96,13 +99,17 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className(['person' => $input]);
         $this->assertTrue(('is_' . $typeCheck)($object->getPerson()));
 
+        // The outer property always carries the pointer to where $ref appears in the schema,
+        // regardless of where the definition lives (inline, path-ref, or external file).
+        $this->assertPropertyHasJsonPointer($object, 'person', '/properties/person');
+
         if ($object->getPerson() !== null) {
             $this->assertSame($input['name'] ?? null, ($object->getPerson()->getName()));
             $this->assertSame($input['age'] ?? null, ($object->getPerson()->getAge()));
             $this->assertSame($input, ($object->getPerson()->meta()->rawInput()));
 
-            // External standalone file references resolve at the root of that file (pointer ''),
-            // whereas path/id references into definitions resolve at '/definitions/person'.
+            // The nested class pointer reflects WHERE THE DEFINITION IS in the schema:
+            // at the external file root ('') or at '/definitions/person' for internal refs.
             $person = $object->getPerson();
             if (str_ends_with($reference, 'person.json')) {
                 $this->assertClassHasJsonPointer($person, '');
@@ -190,6 +197,9 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['year' => $input]);
         $this->assertSame($input, $object->getYear());
+
+        // The $ref property's JsonPointer always reflects the reference site, not the definition.
+        $this->assertPropertyHasJsonPointer($object, 'year', '/properties/year');
     }
 
     public static function intReferenceProvider(): array
@@ -727,6 +737,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame('Hannes', $object->getPersonA()->getName());
         $this->assertSame('Susi', $object->getPersonB()->getName());
+
+        // Each property sharing the same $ref definition must have its own reference site pointer.
+        // The proxy mechanism must not leak one property's pointer into the other.
+        $this->assertPropertyHasJsonPointer($object, 'personA', '/properties/personA');
+        $this->assertPropertyHasJsonPointer($object, 'personB', '/properties/personB');
     }
 
     #[DataProvider('invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider')]
@@ -780,6 +795,34 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * When two properties share a $ref to the same definition, the second property is resolved
+     * as a PropertyProxy. The SchemaName attribute must reflect the proxy's own property name,
+     * not the name from the underlying shared definition (which belongs to the first property).
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testProxiedPropertyHasOwnSchemaNameAttribute(): void
+    {
+        $configuration = (new GeneratorConfiguration())
+            ->setEnabledAttributes(PhpAttribute::SCHEMA_NAME);
+
+        $className = $this->generateClassFromFile('multiplePropertiesIdenticalReference.json', $configuration);
+        $rc = new ReflectionClass($className);
+
+        foreach (['personA', 'personB'] as $propertyName) {
+            $attributes = $rc->getProperty($propertyName)->getAttributes(SchemaName::class);
+            $this->assertCount(1, $attributes, "Expected one SchemaName attribute on $propertyName");
+            $this->assertSame(
+                $propertyName,
+                $attributes[0]->getArguments()[0],
+                "SchemaName for $propertyName should be '$propertyName'",
+            );
+        }
+    }
+
+    /**
      * When a property uses $ref to point to a definition that carries $comment and examples
      * annotations, the PropertyProxy delegates getComment() and getExamples() to the
      * underlying property. The template calls both methods on every rendered property, so
@@ -798,5 +841,23 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['label' => 'hello']);
         $this->assertSame('hello', $object->getLabel());
+    }
+
+    /**
+     * When the root schema carries an $id and a property uses $ref to that $id, the
+     * resolved definition's pointer is '' (the document root). The property's JsonPointer
+     * must still be the reference site pointer, not the empty string.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testRootIdRefPropertyJsonPointerIsReferencePointer(): void
+    {
+        $className = $this->generateClassFromFile('RootIdSelfRef.json');
+
+        $object = new $className([]);
+        $this->assertPropertyHasJsonPointer($object, 'label', '/properties/label');
+        $this->assertPropertyHasJsonPointer($object, 'child', '/properties/child');
     }
 }

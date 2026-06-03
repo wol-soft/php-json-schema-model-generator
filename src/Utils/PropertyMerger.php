@@ -24,9 +24,6 @@ use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntToFloatCastDecorat
  */
 class PropertyMerger
 {
-    /** @var array<string, true> Property names registered from the root (compositionProcessor=null) */
-    private array $rootRegisteredProperties = [];
-
     /** @var array<string, int> Number of branches that conflicted with the root type, keyed by property name */
     private array $rootConflictCounts = [];
 
@@ -34,18 +31,14 @@ class PropertyMerger
     {}
 
     /**
-     * Record a property name as having been registered from the root (compositionProcessor=null).
-     */
-    public function markRootRegistered(string $propertyName): void
-    {
-        $this->rootRegisteredProperties[$propertyName] = true;
-    }
-
-    /**
      * Merge $incoming into the $existing slot already registered on the schema.
      *
      * $isAllOf must be true when the merge originates from an allOf composition, false for anyOf,
      * oneOf, if/then/else, or any non-composition context (null compositionProcessor in Schema).
+     *
+     * $isRootRegistered must be true when the property was first registered from the root
+     * (compositionProcessor === null in Schema::addProperty), which gives the root definition
+     * precedence over anyOf/oneOf branch definitions.
      *
      * Returns early (no-op) when:
      * - Either property has a nested schema (object merging is handled elsewhere)
@@ -57,12 +50,13 @@ class PropertyMerger
         PropertyInterface $existing,
         PropertyInterface $incoming,
         bool $isAllOf,
+        bool $isRootRegistered = false,
     ): void {
         // Nested-object merging is owned by the merged-property system; don't interfere.
         if (
             $existing->getNestedSchema() !== null
             || $incoming->getNestedSchema() !== null
-            || $this->guardRootPrecedence($existing, $incoming, $isAllOf)
+            || $this->guardRootPrecedence($existing, $incoming, $isAllOf, $isRootRegistered)
         ) {
             return;
         }
@@ -113,8 +107,9 @@ class PropertyMerger
         PropertyInterface $existing,
         PropertyInterface $incoming,
         bool $isAllOf,
+        bool $isRootRegistered,
     ): bool {
-        if (!isset($this->rootRegisteredProperties[$incoming->getName()]) || $isAllOf) {
+        if (!$isRootRegistered || $isAllOf) {
             return false;
         }
 
