@@ -18,7 +18,7 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
     protected string $extractedMethodName;
 
     public function __construct(
-        private readonly GeneratorConfiguration $generatorConfiguration,
+        protected readonly GeneratorConfiguration $generatorConfiguration,
         PropertyInterface $property,
         string $template,
         array $templateValues,

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
-use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
@@ -17,8 +16,6 @@ use PHPModelGenerator\Model\Validator;
  */
 class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 {
-    private string $modifiedValuesMethod;
-
     public function __construct(
         GeneratorConfiguration $generatorConfiguration,
         PropertyInterface $property,
@@ -27,7 +24,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         string $exceptionClass,
         array $validatorVariables,
     ) {
-        $this->modifiedValuesMethod = '_getModifiedValues_' . substr(md5(spl_object_hash($this)), 0, 5);
+        $this->initModifiedValuesMethod();
         $this->isResolved = true;
 
         parent::__construct(
@@ -51,101 +48,9 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getCheck(): string
     {
-        $hasNestedSchemaWithProperties = $this->hasNestedSchemaWithProperties();
-
-        $this->templateValues['hasModifiedValuesMethod'] = $hasNestedSchemaWithProperties;
-
-        $allBranchDefaultAttributeMap = [];
-        if ($hasNestedSchemaWithProperties) {
-            foreach ($this->composedProperties as $compositionProperty) {
-                if (!$compositionProperty->getNestedSchema()) {
-                    continue;
-                }
-                foreach ($compositionProperty->getNestedSchema()->getProperties() as $branchProperty) {
-                    if ($branchProperty->getDefaultValue() !== null) {
-                        $allBranchDefaultAttributeMap[$branchProperty->getName()] = $branchProperty->getAttribute();
-                    }
-                }
-            }
-
-            $this->scope->addMethod(
-                $this->modifiedValuesMethod,
-                new class ($this->composedProperties, $this->modifiedValuesMethod) implements MethodInterface {
-                    public function __construct(
-                        /** @var CompositionPropertyDecorator[] $compositionProperties */
-                        private readonly array $compositionProperties,
-                        private readonly string $modifiedValuesMethod
-                    ) {}
-
-                    public function getCode(): string
-                    {
-                        $componentDefaultValueMap = [];
-                        $propertyAccessors = [];
-                        foreach ($this->compositionProperties as $branchIndex => $compositionProperty) {
-                            if (!$compositionProperty->getNestedSchema()) {
-                                continue;
-                            }
-
-                            foreach ($compositionProperty->getNestedSchema()->getProperties() as $property) {
-                                $propertyAccessors[$property->getName()] = 'get' . ucfirst($property->getAttribute());
-
-                                if ($property->getDefaultValue() !== null) {
-                                    $componentDefaultValueMap[$branchIndex][] = $property->getName();
-                                }
-                            }
-                        }
-
-                        return sprintf(
-                            '
-                            private function %s(
-                                array $originalModelData,
-                                object $nestedCompositionObject,
-                                int $componentIndex
-                            ): array {
-                                $modifiedValues = [];
-                                $componentDefaultValueMap = %s;
-                                $branchDefaultProps = $componentDefaultValueMap[$componentIndex] ?? [];
-
-                                foreach (%s as $key => $accessor) {
-                                    if ((isset($originalModelData[$key]) || in_array($key, $branchDefaultProps))
-                                        && method_exists($nestedCompositionObject, $accessor)
-                                        && ($modifiedValue = $nestedCompositionObject->$accessor())
-                                            !== ($originalModelData[$key] ?? !$modifiedValue)
-                                    ) {
-                                        $modifiedValues[$key] = $modifiedValue;
-                                    }
-                                }
-
-                                return $modifiedValues;
-                            }',
-                            $this->modifiedValuesMethod,
-                            var_export($componentDefaultValueMap, true),
-                            var_export($propertyAccessors, true),
-                        );
-                    }
-                },
-            );
-        }
-
-        $this->templateValues['allBranchDefaultAttributeMap'] = var_export($allBranchDefaultAttributeMap, true);
+        $this->setupBranchDefaultHelpers();
 
         return parent::getCheck();
-    }
-
-    /**
-     * Returns true when at least one composition branch has a nested schema with declared
-     * properties, meaning the modified-values helper method may produce non-empty results.
-     */
-    private function hasNestedSchemaWithProperties(): bool
-    {
-        foreach ($this->composedProperties as $compositionProperty) {
-            $nestedSchema = $compositionProperty->getNestedSchema();
-            if ($nestedSchema !== null && !empty($nestedSchema->getProperties())) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

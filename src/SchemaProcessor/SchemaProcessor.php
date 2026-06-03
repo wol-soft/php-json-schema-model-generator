@@ -711,27 +711,65 @@ class SchemaProcessor
         Schema $schema,
     ): void {
         $branchDefault = $branchProperty->getDefaultValue();
-        if ($branchDefault === null) {
-            return;
+
+        if ($branchDefault !== null) {
+            $existingDefault = $schema->getProperty($branchProperty->getName())?->getDefaultValue();
+
+            if ($existingDefault !== null && $existingDefault !== $branchDefault) {
+                throw new SchemaException(
+                    sprintf(
+                        "Conflicting default values for property '%s' under %s composition in file %s:"
+                            . " root=%s, %s=%s.",
+                        $branchProperty->getName(),
+                        $this->getCompositionKeyword($validator),
+                        $branchProperty->getJsonSchema()->getFile(),
+                        $existingDefault,
+                        $branchLabel,
+                        $branchDefault,
+                    )
+                );
+            }
         }
 
-        $existingDefault = $schema->getProperty($branchProperty->getName())?->getDefaultValue();
-        if ($existingDefault === null || $existingDefault === $branchDefault) {
-            return;
-        }
+        // Check patternProperties defaults declared on the outer schema. Any pattern that matches
+        // the branch property name either agrees with the branch default (fine) or conflicts with
+        // it (SchemaException). When the branch property has no explicit default, the first
+        // matching pattern default is propagated to it; subsequent patterns must agree.
+        $patternProperties = $schema->getJsonSchema()->getJson()['patternProperties'] ?? [];
+        $effectiveBranchDefault = $branchDefault;
 
-        throw new SchemaException(
-            sprintf(
-                "Conflicting default values for property '%s' under %s composition in file %s:"
-                    . " root=%s, %s=%s.",
-                $branchProperty->getName(),
-                $this->getCompositionKeyword($validator),
-                $branchProperty->getJsonSchema()->getFile(),
-                var_export($existingDefault, true),
-                $branchLabel,
-                var_export($branchDefault, true),
-            )
-        );
+        foreach ($patternProperties as $pattern => $patternSchema) {
+            if (!isset($patternSchema['default'])) {
+                continue;
+            }
+
+            if (!preg_match('/' . addcslashes($pattern, '/') . '/', $branchProperty->getName())) {
+                continue;
+            }
+
+            $patternDefault = var_export($patternSchema['default'], true);
+
+            if ($effectiveBranchDefault !== null && $effectiveBranchDefault !== $patternDefault) {
+                throw new SchemaException(
+                    sprintf(
+                        "Conflicting default values for property '%s' under %s composition in file %s:"
+                            . " pattern '%s'=%s, %s=%s.",
+                        $branchProperty->getName(),
+                        $this->getCompositionKeyword($validator),
+                        $branchProperty->getJsonSchema()->getFile(),
+                        $pattern,
+                        $patternDefault,
+                        $branchLabel,
+                        $effectiveBranchDefault,
+                    )
+                );
+            }
+
+            if ($effectiveBranchDefault === null) {
+                $branchProperty->setDefaultValue($patternSchema['default']);
+                $effectiveBranchDefault = $patternDefault;
+            }
+        }
     }
 
     /**
@@ -759,7 +797,10 @@ class SchemaProcessor
             return null;
         }
 
-        return $conditionIndex === 0 ? 'then' : 'else';
+        // Use object identity rather than the filtered-array index. When only an else branch
+        // is present (no then), it occupies index 0 in conditionBranches after array_values,
+        // so an index-based check would incorrectly return 'then' for the else branch.
+        return $composedProperty === $validator->getThenBranch() ? 'then' : 'else';
     }
 
     /**
@@ -817,7 +858,7 @@ class SchemaProcessor
 
             $sites = [];
             foreach ($defaultsByBranch as $branchIndex => $branchDefault) {
-                $sites[] = sprintf('%s/%d=%s', $keyword, $branchIndex, var_export($branchDefault, true));
+                $sites[] = sprintf('%s/%d=%s', $keyword, $branchIndex, $branchDefault);
             }
 
             throw new SchemaException(

@@ -147,11 +147,6 @@ class Schema
         return $this;
     }
 
-    public function getProperty(string $name): ?PropertyInterface
-    {
-        return $this->properties[$name] ?? null;
-    }
-
     /**
      * @return PropertyInterface[]
      */
@@ -167,9 +162,11 @@ class Schema
             return false;
         };
 
-        // order the properties to make sure properties with a SchemaDependencyValidator are validated at the beginning
-        // of the validation process for correct exception order of the messages
-        usort(
+        // Order the properties to make sure properties with a SchemaDependencyValidator are validated at the beginning
+        // of the validation process for correct exception order of the messages.
+        // uasort preserves the string keys (property names) that getProperty() relies on;
+        // usort would reindex to 0,1,2,... and break all subsequent name-based lookups.
+        uasort(
             $this->properties,
             static function (
                 PropertyInterface $property,

@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["A", "B"]
+    }
+  },
+  "required": ["kind"],
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "A"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "value": {
+        "type": "string",
+        "default": "default-a"
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "timeout": {
+        "type": "integer",
+        "default": 60
+      }
+    }
+  }
+}

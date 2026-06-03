@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "timeout": {
+      "type": "integer",
+      "default": 30
+    }
+  },
+  "if": {
+    "properties": {
+      "mode": {
+        "const": "strict"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "timeout": {
+        "type": "integer",
+        "default": 60
+      }
+    }
+  }
+}
