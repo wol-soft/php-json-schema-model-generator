@@ -106,7 +106,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         if ($object->getPerson() !== null) {
             $this->assertSame($input['name'] ?? null, ($object->getPerson()->getName()));
             $this->assertSame($input['age'] ?? null, ($object->getPerson()->getAge()));
-            $this->assertSame($input, ($object->getPerson()->getRawModelDataInput()));
+            $this->assertSame($input, ($object->getPerson()->meta()->rawInput()));
 
             // The nested class pointer reflects WHERE THE DEFINITION IS in the schema:
             // at the external file root ('') or at '/definitions/person' for internal refs.
@@ -518,7 +518,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame($input['name'] ?? null, ($object->getName()));
         $this->assertSame($input['age'] ?? null, ($object->getAge()));
-        $this->assertSame($input, ($object->getRawModelDataInput()));
+        $this->assertSame($input, ($object->meta()->rawInput()));
     }
 
     public static function validBaseReferenceObjectInputProvider(): array

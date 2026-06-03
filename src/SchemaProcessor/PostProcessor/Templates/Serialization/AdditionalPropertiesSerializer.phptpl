@@ -1,15 +1,9 @@
-protected function _serializeAdditionalProperties(int $depth, array $except): array
+protected function _serializeAdditionalProperties(int $depth, array $except, bool $emptyObjectsAsStdClass): array
 {
-    {% if serializerClass %}
-        $serializedValues = [];
-        foreach ($this->_additionalProperties as $key => $value) {
-            $serializedValues[$key] = \{{ serializerClass }}::{{ serializerMethod }}($value, {{ serializerOptions }});
-        }
-    {% endif %}
+    $serializedValues = [];
+    foreach ($this->_additionalProperties as $key => $value) {
+        $serializedValues[$key] = \{{ serializerClass }}::{{ serializerMethod }}($value, {{ serializerOptions }});
+    }
 
-    return $this->_getSerializedValue(
-        {% if serializerClass %}$serializedValues{% else %}$this->_additionalProperties{% endif %},
-        $depth,
-        $except
-    );
+    return (array) $this->_getSerializedValue($serializedValues, $depth, $except, $emptyObjectsAsStdClass);
 }

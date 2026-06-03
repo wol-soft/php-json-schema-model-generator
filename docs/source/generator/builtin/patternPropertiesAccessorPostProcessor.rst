@@ -36,24 +36,30 @@ Generated interface with the **PatternPropertiesAccessorPostProcessor**:
 
 .. code-block:: php
 
-    public function getRawModelDataInput(): array;
-
     public function setExample(float $example): static;
     public function getExample(): float;
 
-    public function getPatternProperties(string $key): array;
+    public function patternProperties(): PatternPropertiesAccessor;
 
-The added method **getPatternProperties** can be used to fetch a list of all properties matching the given pattern. As *$key* you have to provide the pattern you want to fetch. Alternatively you can define a key in your schema and use the key to fetch the properties.
+The ``patternProperties()`` method returns an accessor object with the following interface:
 
 .. code-block:: php
 
-    $myObject = new Example('a1' => 'Hello', 'b1' => 100);
+    public function get(string $key): array;
+
+**get**: Returns all properties matching the given pattern as a key-value array. As *$key* provide the pattern you want to fetch. Alternatively you can define a key in your schema and use that key to fetch the properties.
+
+When at least one pattern type is not the bare mixed/untyped case, a typed companion class ``{ModelName}PatternProperties`` is generated that narrows the return annotation of ``get()``.
+
+.. code-block:: php
+
+    $myObject = new Example(['a1' => 'Hello', 'b1' => 100]);
 
     // fetches all properties matching the pattern '^a', consequently will return ['a1' => 'Hello']
-    $myObject->getPatternProperties('^a');
+    $myObject->patternProperties()->get('^a');
 
     // fetches all properties matching the pattern '^b' (which has a defined key), consequently will return ['b1' => 100]
-    $myObject->getPatternProperties('numbers');
+    $myObject->patternProperties()->get('numbers');
 
 .. note::
 

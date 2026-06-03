@@ -195,7 +195,7 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
 
         // An empty object does not satisfy the `not` branch (required 'name' is absent), so it is valid.
         $object = new $className([]);
-        $this->assertSame([], $object->getRawModelDataInput());
+        $this->assertSame([], $object->meta()->rawInput());
 
         // Providing the required 'name' property satisfies the `not` branch → validation fails.
         $this->expectValidationError($configuration, 'declined by composition constraint');

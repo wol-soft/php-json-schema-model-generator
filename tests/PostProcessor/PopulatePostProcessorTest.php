@@ -47,14 +47,14 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         // test an empty populate call doesn't change the internal behaviour
         $object->populate([]);
-        $this->assertSame(['name' => 'Albert'], $object->getRawModelDataInput());
+        $this->assertSame(['name' => 'Albert'], $object->meta()->rawInput());
         $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => null], $object->toArray());
 
         // test adding an additional property to the model
         $object->populate(['birthdate' => '10.10.1990']);
         $this->assertEqualsCanonicalizing(
             ['name' => 'Albert', 'birthdate' => '10.10.1990'],
-            $object->getRawModelDataInput(),
+            $object->meta()->rawInput(),
         );
         $this->assertEqualsCanonicalizing(
             ['name' => 'Albert', 'age' => null, 'birthdate' => '10.10.1990'],
@@ -65,7 +65,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $object->populate(['age' => 30]);
         $this->assertEqualsCanonicalizing(
             ['name' => 'Albert', 'birthdate' => '10.10.1990', 'age' => 30],
-            $object->getRawModelDataInput(),
+            $object->meta()->rawInput(),
         );
         $this->assertEqualsCanonicalizing(
             ['name' => 'Albert', 'age' => 30, 'birthdate' => '10.10.1990'],
@@ -76,7 +76,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $object->populate(['age' => 26, 'name' => 'Harry']);
         $this->assertEqualsCanonicalizing(
             ['name' => 'Harry', 'birthdate' => '10.10.1990', 'age' => 26],
-            $object->getRawModelDataInput(),
+            $object->meta()->rawInput(),
         );
         $this->assertEqualsCanonicalizing(
             ['name' => 'Harry', 'age' => 26, 'birthdate' => '10.10.1990'],
@@ -146,7 +146,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('No exception thrown');
         } catch (Exception $exception) {
             // test if the internal state hasn't been changed
-            $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => 30], $object->getRawModelDataInput());
+            $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => 30], $object->meta()->rawInput());
             $this->assertEqualsCanonicalizing(['name' => 'Albert', 'age' => 30], $object->toArray());
 
             throw $exception;

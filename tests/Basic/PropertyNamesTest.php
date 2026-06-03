@@ -28,10 +28,10 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
             '#' => 4,
         ]);
 
-        $this->assertSame(1, $object->getRawModelDataInput()['myProperty1']);
-        $this->assertSame(2, $object->getRawModelDataInput()['1278371']);
-        $this->assertSame(3, $object->getRawModelDataInput()['__strange - NAMES ()']);
-        $this->assertSame(4, $object->getRawModelDataInput()['#']);
+        $this->assertSame(1, $object->meta()->rawInput()['myProperty1']);
+        $this->assertSame(2, $object->meta()->rawInput()['1278371']);
+        $this->assertSame(3, $object->meta()->rawInput()['__strange - NAMES ()']);
+        $this->assertSame(4, $object->meta()->rawInput()['#']);
     }
 
     #[DataProvider('validPropertyNamesDataProvider')]
@@ -50,7 +50,7 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className($properties);
 
         foreach ($properties as $propertyName => $value) {
-            $this->assertSame($value, $object->getRawModelDataInput()[$propertyName]);
+            $this->assertSame($value, $object->meta()->rawInput()[$propertyName]);
         }
     }
 

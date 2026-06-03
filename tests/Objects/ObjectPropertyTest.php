@@ -115,7 +115,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
         if ($object->getProperty() !== null) {
             $this->assertSame($input['name'], ($object->getProperty()->getName()));
             $this->assertSame($input['age'] ?? null, ($object->getProperty()->getAge()));
-            $this->assertSame($input, ($object->getProperty()->getRawModelDataInput()));
+            $this->assertSame($input, ($object->getProperty()->meta()->rawInput()));
         }
     }
 
