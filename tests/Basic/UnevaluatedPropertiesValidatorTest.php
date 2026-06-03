@@ -21,7 +21,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
 {
     /**
      * Accepted input — the generated class must construct and round-trip the input through
-     * `getRawModelDataInput()` unchanged. One data row per scenario.
+     * `meta()->rawInput()` unchanged. One data row per scenario.
      *
      * @return array<string, array{0: string, 1: array<string, mixed>}>
      */
@@ -80,7 +80,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         $className = $this->generateClassFromFile($schemaFile);
         $instance = new $className($input);
 
-        $this->assertSame($input, $instance->getRawModelDataInput());
+        $this->assertSame($input, $instance->meta()->rawInput());
     }
 
     /**
@@ -179,7 +179,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
 
         $this->assertSame(
             ['name' => 'Alice', 'extra' => 'value'],
-            $instance->getRawModelDataInput(),
+            $instance->meta()->rawInput(),
         );
     }
 }

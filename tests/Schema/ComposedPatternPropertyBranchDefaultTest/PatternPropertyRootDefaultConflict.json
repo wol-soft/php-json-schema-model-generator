@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "retry_count": {
+      "type": "integer",
+      "default": 10
+    }
+  },
+  "patternProperties": {
+    "^retry_": {
+      "type": "integer",
+      "default": 3
+    }
+  }
+}

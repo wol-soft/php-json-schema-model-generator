@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["A", "other"]
+    },
+    "value": {
+      "type": "string",
+      "default": "root-default"
+    }
+  },
+  "required": ["kind"],
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "A"
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "value": {
+        "type": "string",
+        "default": "else-default"
+      }
+    }
+  }
+}

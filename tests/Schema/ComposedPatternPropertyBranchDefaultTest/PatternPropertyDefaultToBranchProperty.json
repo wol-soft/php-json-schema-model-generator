@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "patternProperties": {
+    "^retry_": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 3
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["A"]
+        }
+      },
+      "required": ["kind"]
+    },
+    {
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["B"]
+        },
+        "retry_count": {
+          "type": "integer"
+        }
+      },
+      "required": ["kind"]
+    }
+  ]
+}

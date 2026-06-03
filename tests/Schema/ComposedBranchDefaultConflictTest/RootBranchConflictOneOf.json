@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "properties": {
+    "timeout": {
+      "type": "integer",
+      "default": 30
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["A"]
+        }
+      },
+      "required": ["kind"]
+    },
+    {
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["B"]
+        },
+        "timeout": {
+          "type": "integer",
+          "default": 60
+        }
+      },
+      "required": ["kind"]
+    }
+  ]
+}

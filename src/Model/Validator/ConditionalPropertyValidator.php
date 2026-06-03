@@ -31,13 +31,14 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
         array $conditionBranches,
         array $validatorVariables,
     ) {
+        $this->initModifiedValuesMethod();
         $this->isResolved = true;
 
         parent::__construct(
             $generatorConfiguration,
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ConditionalComposedItem.phptpl',
-            $validatorVariables,
+            array_merge($validatorVariables, ['modifiedValuesMethod' => $this->modifiedValuesMethod]),
             ConditionalException::class,
             ['&$ifException', '&$thenException', '&$elseException'],
         );
@@ -88,6 +89,31 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
     public function getElseBranch(): ?CompositionPropertyDecorator
     {
         return $this->elseBranch;
+    }
+
+    /**
+     * Registers the branch-default helper method and sets the per-branch default map
+     * and the then/else component indices as template variables so that
+     * ConditionalComposedItem.phptpl can apply branch defaults at runtime.
+     */
+    public function getCheck(): string
+    {
+        $this->setupBranchDefaultHelpers();
+
+        $thenProperty = $this->templateValues['thenProperty'] ?? null;
+        $elseProperty = $this->templateValues['elseProperty'] ?? null;
+
+        // Determine which index in $composedProperties corresponds to the then and else branches.
+        // The if-branch is always at index 0; then is at 1 when present, else follows.
+        $this->templateValues['thenComponentIndex'] = $thenProperty !== null
+            ? (int) array_search($thenProperty, $this->composedProperties, true)
+            : -1;
+
+        $this->templateValues['elseComponentIndex'] = $elseProperty !== null
+            ? (int) array_search($elseProperty, $this->composedProperties, true)
+            : -1;
+
+        return parent::getCheck();
     }
 
     /**

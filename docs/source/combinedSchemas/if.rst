@@ -194,3 +194,18 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
     property's presence. If there is no ``else`` block, the property is never promoted — the schema
     is silent when the condition fails, so the property may be absent. See
     `Cross-typed compositions <crossTypedComposition.html>`__ for the full promotion rules.
+
+.. note::
+
+    Properties in object-level ``then`` or ``else`` branches may carry a ``"default"`` value. The
+    generator applies the branch default only when the relevant branch is active — the ``then``
+    default applies when the ``if`` condition is satisfied, and the ``else`` default applies when it
+    is not. A user-supplied value always overrides the branch default. Branch defaults are **not**
+    included in ``getRawModelDataInput()``.
+
+    When a ``then`` or ``else`` branch default conflicts with a root ``properties`` default or a
+    ``patternProperties`` default for the same property, the generator throws a ``SchemaException``
+    at generation time.
+
+    See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
+    explanation.
