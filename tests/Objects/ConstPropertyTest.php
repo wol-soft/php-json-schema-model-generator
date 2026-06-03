@@ -359,7 +359,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className($value);
 
-        $this->assertSame($value, $object->getRawModelDataInput());
+        $this->assertSame($value, $object->meta()->rawInput());
     }
 
     public static function validConstAdditionalPropertiesDataProvider(): array
@@ -398,7 +398,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className($value);
 
-        $this->assertSame($value, $object->getRawModelDataInput());
+        $this->assertSame($value, $object->meta()->rawInput());
     }
 
     public static function validConstPatternPropertiesDataProvider(): array

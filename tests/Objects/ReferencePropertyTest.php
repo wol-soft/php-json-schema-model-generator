@@ -99,7 +99,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         if ($object->getPerson() !== null) {
             $this->assertSame($input['name'] ?? null, ($object->getPerson()->getName()));
             $this->assertSame($input['age'] ?? null, ($object->getPerson()->getAge()));
-            $this->assertSame($input, ($object->getPerson()->getRawModelDataInput()));
+            $this->assertSame($input, ($object->getPerson()->meta()->rawInput()));
 
             // External standalone file references resolve at the root of that file (pointer ''),
             // whereas path/id references into definitions resolve at '/definitions/person'.
@@ -508,7 +508,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame($input['name'] ?? null, ($object->getName()));
         $this->assertSame($input['age'] ?? null, ($object->getAge()));
-        $this->assertSame($input, ($object->getRawModelDataInput()));
+        $this->assertSame($input, ($object->meta()->rawInput()));
     }
 
     public static function validBaseReferenceObjectInputProvider(): array

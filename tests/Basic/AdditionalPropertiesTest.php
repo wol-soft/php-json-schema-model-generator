@@ -114,7 +114,7 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertEquals($propertyValue['id'] ?? null, $object->getId());
         foreach ($propertyValue as $key => $value) {
-            $this->assertSame($value, $object->getRawModelDataInput()[$key]);
+            $this->assertSame($value, $object->meta()->rawInput()[$key]);
         }
     }
 
@@ -209,12 +209,12 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertEquals($propertyValue['id'] ?? null, $object->getId());
         foreach ($propertyValue as $key => $value) {
-            $this->assertSame($value, $object->getRawModelDataInput()[$key]);
+            $this->assertSame($value, $object->meta()->rawInput()[$key]);
         }
 
         // Verify JSON pointer for additional property object instances when present
-        $additionalInstance = $object->getAdditionalProperty('additional1')
-            ?? $object->getAdditionalProperty('additional2')
+        $additionalInstance = $object->additionalProperties()->get('additional1')
+            ?? $object->additionalProperties()->get('additional2')
             ?? null;
         if ($additionalInstance instanceof JSONModelInterface) {
             $this->assertClassHasJsonPointer($additionalInstance, '/additionalProperties');
