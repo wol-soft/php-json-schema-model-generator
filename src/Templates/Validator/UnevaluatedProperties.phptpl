@@ -2,6 +2,9 @@
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
+    {% if collectUnevaluatedProperties %}
+        $rollbackValues = $this->_unevaluatedProperties;
+    {% endif %}
 
     $unevaluatedKeys = $this->collectUnevaluatedKeys(
         $modelData,
@@ -29,6 +32,10 @@
                     $invalidProperties[$propertyKey] = $this->_errorRegistry->getErrors();
                 }
             {% endif %}
+
+            {% if collectUnevaluatedProperties %}
+                $this->_unevaluatedProperties[$propertyKey] = $value;
+            {% endif %}
         } catch (\Exception $e) {
             isset($invalidProperties[$propertyKey])
                 ? $invalidProperties[$propertyKey][] = $e
@@ -38,6 +45,12 @@
 
     {% if generatorConfiguration.collectErrors() %}
         $this->_errorRegistry = $originalErrorRegistry;
+    {% endif %}
+
+    {% if collectUnevaluatedProperties %}
+        if (!empty($invalidProperties)) {
+            $this->_unevaluatedProperties = $rollbackValues;
+        }
     {% endif %}
 
     return !empty($invalidProperties);

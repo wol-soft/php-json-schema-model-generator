@@ -65,6 +65,7 @@ class AdditionalPropertiesPostProcessor extends PostProcessor
         }
 
         $schema->addProperty($additionalPropertiesCollectionProperty);
+        $schema->addRollbackProperty('_additionalProperties');
 
         $json = $schema->getJsonSchema()->getJson();
         if (!isset($json['additionalProperties']) || $json['additionalProperties'] === true) {

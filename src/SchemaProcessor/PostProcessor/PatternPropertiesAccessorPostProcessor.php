@@ -53,6 +53,7 @@ class PatternPropertiesAccessorPostProcessor extends PostProcessor
                 ->setDefaultValue('null', true)
                 ->setInternal(true),
         );
+        $schema->addAccessorCacheProperty('_patternPropertiesAccessor');
 
         $this->addAccessorMethod($schema, $generatorConfiguration, $hasCompanion);
 

@@ -11,10 +11,12 @@
 public function populate(array $modelData): self
 {
     // Reset accessor caches so any call after this populate reflects the final model state,
-    // whether populate succeeds or rolls back.
-    foreach (['_additionalPropertiesAccessor', '_patternPropertiesAccessor'] as $_accessorProperty) {
-        if (property_exists($this, $_accessorProperty)) {
-            $this->{$_accessorProperty} = null;
+    // whether populate succeeds or rolls back. The list is owned by Schema and populated by
+    // each accessor post processor that emits a cached accessor instance — see
+    // Schema::addAccessorCacheProperty().
+    foreach ({{ viewHelper.varExportArray(schema.getAccessorCacheProperties()) }} as $accessorCacheField) {
+        if (property_exists($this, $accessorCacheField)) {
+            $this->{$accessorCacheField} = null;
         }
     }
 
@@ -26,7 +28,9 @@ public function populate(array $modelData): self
         try {
     {% endif %}
 
-    foreach (['_additionalProperties', '_patternProperties'] as $property) {
+    // Each internal post processor that owns a backing collection field registers it here so
+    // its pre-populate value is restored on rollback — see Schema::addRollbackProperty().
+    foreach ({{ viewHelper.varExportArray(schema.getRollbackProperties()) }} as $property) {
         if (isset($this->{$property})) {
             $rollbackValues[$property] = $this->{$property};
         }

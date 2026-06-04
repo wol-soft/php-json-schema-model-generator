@@ -25,6 +25,7 @@ class UnevaluatedPropertiesValidator extends AbstractUnevaluatedPropertiesValida
     protected const PROPERTY_NAME = 'unevaluated property';
 
     private readonly PropertyInterface $validationProperty;
+    private bool $collectUnevaluatedProperties = false;
 
     /**
      * @throws SchemaException
@@ -58,6 +59,8 @@ class UnevaluatedPropertiesValidator extends AbstractUnevaluatedPropertiesValida
                 'validationProperty' => $this->validationProperty,
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
+                // by default the unevaluated keys validate but are not collected on the model
+                'collectUnevaluatedProperties' => &$this->collectUnevaluatedProperties,
             ],
             $propertyName,
         );
@@ -71,6 +74,16 @@ class UnevaluatedPropertiesValidator extends AbstractUnevaluatedPropertiesValida
         $this->removeRequiredPropertyValidator($this->validationProperty);
 
         return parent::getCheck();
+    }
+
+    public function setCollectUnevaluatedProperties(bool $collectUnevaluatedProperties): void
+    {
+        $this->collectUnevaluatedProperties = $collectUnevaluatedProperties;
+    }
+
+    public function getValidationProperty(): PropertyInterface
+    {
+        return $this->validationProperty;
     }
 
     /**

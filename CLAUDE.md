@@ -356,13 +356,29 @@ fail (`@expectedExceptionMessage`, `$this->expectException(...)`) until the fix 
 
 #### No implementation-plan references in code
 
-Do not embed references to implementation-plan phases, issue numbers, or source-code line numbers
-in comments, docblocks, filenames, or any other artifact that lands in the repository. These
-references decay immediately (phases complete, line numbers shift) and add noise without adding
-meaning.
+Do not embed references to implementation-plan phases, section numbers, decision identifiers,
+issue numbers, or source-code line numbers in comments, docblocks, filenames, test fixture
+descriptions, or any other artifact that lands in the repository. These references decay
+immediately (plans get restructured, phases complete, sections renumber, line numbers shift)
+and add noise without adding meaning to a reader who does not have the plan open in another
+tab.
 
+**Patterns that violate the rule** — anything in this category must be rewritten:
+- `Phase N`, `Phase N's`, `phase N landed`
+- `decision N.N`, `Decision N.N`, `per decision N.N`
+- `§N.N`, `§N.N.N`, `section N.N`, `§N.N's matrix`
+- `Per §N.N`, `Follows §N.N`, `the §N.N test list`
+- Issue numbers (`#123`) used as a stand-in for an explanation
+- Specific line numbers in the codebase (`lines 130-158`, `line 429`)
+- References to documents under `.claude/` from anywhere outside `.claude/`
+
+**Examples:**
 - ❌ `// Phase 2 guarantees anyOf/oneOf have uniform spaces`
 - ✅ `// Static rejection guarantees anyOf/oneOf have uniform spaces`
+- ❌ `* Emission policy follows the §3.5.2.1 / decision 0.10 matrix`
+- ✅ `* Emission policy: emit when the keyword's reach is non-empty (additionalProperties absent or true)`
+- ❌ `// Dead-code rows from §4.1: additionalProperties: false or {schema}`
+- ✅ `// additionalProperties: false / {schema} leave the unevaluated bucket permanently empty`
 - ❌ `* Covers FilterValidator::runCompatibilityCheck lines 130–158`
 - ✅ `* Validates the zero-overlap rejection path in FilterValidator`
 - ❌ `* exercises FilterProcessor line 429 (else branch of classifyValidatorAdjustments)`
@@ -372,9 +388,14 @@ meaning.
 - ❌ `// Phase 3's UnevaluatedPropertiesValidator can query...`
 - ❌ `// not with inline branch — Decision 0.6: slot permanently success=false`
 
-This rule applies equally to DocBlocks in test files: do not reference specific line numbers of
-the code under test. Line numbers shift whenever the file is edited, making such references
-misleading immediately after refactoring. Describe *what the code does or why* instead.
+This rule applies equally to DocBlocks in test files: do not reference specific line numbers
+of the code under test, decision identifiers from the plan, or section numbers anywhere in the
+plan. Line numbers shift whenever the file is edited, and section/decision numbers decay
+whenever the plan is restructured. Describe *what the code does or why* instead.
+
+**Recovery procedure when this rule is violated:** before staging a change, grep the diff for
+`Phase `, `decision `, `§`, and `#` followed by a number. Rewrite every match found in source
+or test files to a self-contained explanation of the rule or behaviour.
 
 Describe *what the code does or why* — not where it came from in a planning document.
 

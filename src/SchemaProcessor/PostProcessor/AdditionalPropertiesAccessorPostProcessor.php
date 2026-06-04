@@ -86,6 +86,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                 ->setDefaultValue('null', true)
                 ->setInternal(true),
         );
+        $schema->addAccessorCacheProperty('_additionalPropertiesAccessor');
 
         $this->addAccessorMethod($schema, $generatorConfiguration, $hasCompanion);
 

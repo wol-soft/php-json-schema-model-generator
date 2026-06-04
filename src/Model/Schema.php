@@ -71,6 +71,20 @@ class Schema
     /** @var string[] Maps normalized attribute → raw property name; used to detect property-vs-property collisions */
     private array $attributeIndex = [];
 
+    /**
+     * @var array<string, true> Internal model fields whose pre-populate value must be restored
+     *                          if populate() rolls back. Post processors register their backing
+     *                          collection fields here; Populate.phptpl iterates the list.
+     */
+    private array $rollbackProperties = [];
+
+    /**
+     * @var array<string, true> Internal accessor-cache fields that must be cleared before
+     *                          populate() runs so a stale cached accessor instance isn't reused
+     *                          after the underlying storage changes.
+     */
+    private array $accessorCacheProperties = [];
+
     private PropertyMerger $propertyMerger;
 
     /**
@@ -407,6 +421,44 @@ class Schema
     public function isInitialClass(): bool
     {
         return $this->initialClass;
+    }
+
+    /**
+     * Register an internal model field whose pre-populate value must be restored on rollback.
+     * Idempotent — registering the same field twice is a no-op. Order of registration is
+     * preserved by returning array_keys; the order is the order rollback is iterated.
+     */
+    public function addRollbackProperty(string $internalPropertyName): self
+    {
+        $this->rollbackProperties[$internalPropertyName] = true;
+
+        return $this;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getRollbackProperties(): array
+    {
+        return array_keys($this->rollbackProperties);
+    }
+
+    /**
+     * Register an internal accessor-cache field that must be reset before populate() runs.
+     */
+    public function addAccessorCacheProperty(string $internalPropertyName): self
+    {
+        $this->accessorCacheProperties[$internalPropertyName] = true;
+
+        return $this;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getAccessorCacheProperties(): array
+    {
+        return array_keys($this->accessorCacheProperties);
     }
 
     public function getPropertyMerger(): PropertyMerger

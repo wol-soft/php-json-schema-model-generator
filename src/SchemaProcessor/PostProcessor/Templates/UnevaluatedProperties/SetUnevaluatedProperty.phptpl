@@ -1,0 +1,50 @@
+/**
+ * {% if hasObjectProperties or hasPatternProperties %}@throws RegularPropertyAsUnevaluatedPropertyException
+ * {% endif %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
+ */
+private function _setUnevaluatedProperty(
+    string $key,
+    {% if validationProperty %}{{ viewHelper.getType(validationProperty) }}{% else %}mixed{% endif %} $value
+): void {
+    {% if hasObjectProperties %}
+        if (in_array($key, {{ objectProperties }})) {
+            throw new RegularPropertyAsUnevaluatedPropertyException($value, $key, self::class);
+        }
+    {% endif %}
+
+    {% if hasPatternProperties %}
+        foreach ({{ patternProperties }} as $pattern) {
+            if (preg_match($pattern, $key)) {
+                throw new RegularPropertyAsUnevaluatedPropertyException($value, $key, self::class);
+            }
+        }
+    {% endif %}
+
+    if (isset($this->_unevaluatedProperties[$key]) && $this->_unevaluatedProperties[$key] === $value) {
+        return;
+    }
+
+    {% if validationProperty %}{{ schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) }}{% endif %}
+
+    // _executeBaseValidators runs the unevaluatedProperties validator against the candidate
+    // pair, which writes the value into $this->_unevaluatedProperties on success. In
+    // collect-errors mode each call needs an isolated error registry — without resetting it,
+    // a previous setter that failed and was caught by the caller would leave stale errors that
+    // make every subsequent setter throw spuriously when its own validation actually succeeded.
+    {% if generatorConfiguration.collectErrors() %}
+        $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+    {% endif %}
+
+    $addedProperty = [$key => $value];
+    $this->_executeBaseValidators($addedProperty);
+
+    {% if generatorConfiguration.collectErrors() %}
+        if (count($this->_errorRegistry->getErrors())) {
+            throw $this->_errorRegistry;
+        }
+    {% endif %}
+
+    $this->_rawModelDataInput[$key] = $value;
+
+    {% if validationProperty %}{{ schemaHookResolver.resolveSetterAfterValidationHook(validationProperty) }}{% endif %}
+}
