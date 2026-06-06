@@ -24,6 +24,14 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInte
  */
 class PropertyProxy extends AbstractProperty
 {
+    // AttributesTrait provides local attribute storage so each proxy instance
+    // has its own SchemaName/JsonPointer/etc. independent of the shared underlying
+    // property. NOTE: isInternal() still delegates to getProperty() (the underlying),
+    // while getAttributes() returns the proxy's local list. This split is intentional:
+    // isInternal() controls visible-vs-hidden at the schema level (consistent across
+    // all proxies of the same $def), while getAttributes() reflects per-proxy metadata.
+    use AttributesTrait;
+
     private ?JsonSchema $overrideJsonSchema = null;
 
     /**
