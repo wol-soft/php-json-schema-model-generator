@@ -9,6 +9,11 @@ use PHPModelGenerator\Filter\TransformingFilterInterface;
 
 class ImmutableMediaStringFilter implements TransformingFilterInterface
 {
+    public function getAcceptedTypes(): array
+    {
+        return ['string'];
+    }
+
     public function getToken(): string
     {
         return 'immutableMediaString';

@@ -9,6 +9,11 @@ use PHPModelGenerator\Filter\TransformingFilterInterface;
 
 class EnumFilter implements TransformingFilterInterface
 {
+    public function getAcceptedTypes(): array
+    {
+        return ['string', 'int'];
+    }
+
     public function getToken(): string
     {
         return 'php_model_generator_enum';
