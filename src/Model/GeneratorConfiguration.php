@@ -381,9 +381,7 @@ class GeneratorConfiguration
         $this
             ->addFilter(new DateTimeFilter())
             ->addFilter(new NotEmptyFilter())
-            ->addFilter(new TrimFilter())
-            ->addFilter(new MediaStringFilter())
-            ->addFilter(new ImmutableMediaStringFilter());
+            ->addFilter(new TrimFilter());
     }
 
     public function getEnabledAttributes(): int
