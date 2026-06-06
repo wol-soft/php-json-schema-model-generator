@@ -173,7 +173,6 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
     public static function unmappedEnumThrowsAnExceptionDataProvider(): array
     {
         return [
-            'int enum'                         => ['[0, 1, 2]'],
             'mixed enum with string values'    => ['["dieter", 1, "hans"]'],
             'mixed enum without string values' => ['[0, 1, false, true]'],
         ];
@@ -191,7 +190,8 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
             );
         };
 
-        $className = $this->generateClassFromFileTemplate('EnumProperty.json', ['[0, 1, 2]'], null, false);
+        // Mixed enums (string + int) have no mapping and should be skipped
+        $className = $this->generateClassFromFileTemplate('EnumProperty.json', ['["dieter", 1, "hans"]'], null, false);
 
         $this->assertGeneratedEnums(0);
 

@@ -178,10 +178,16 @@ class SchemaProcessor
         $json = $jsonSchema->getJson();
         $json['type'] = 'base';
 
+        // Use a fixed short name as the BaseProperty name to prevent exponential
+        // class name compounding at each nesting level. The BaseProperty is an internal
+        // processing anchor — it is never rendered as a class property — so a fixed
+        // short name is safe. Without this, composition branches and array items inherit
+        // the full class name as their property name, which each nesting level re-embeds
+        // into the next class name, overflowing filesystem path limits.
         (new PropertyFactory())->create(
             $this,
             $schema,
-            $className,
+            'base',
             $jsonSchema->withJson($json),
         );
 

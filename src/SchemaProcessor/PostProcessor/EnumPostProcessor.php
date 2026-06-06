@@ -315,8 +315,13 @@ class EnumPostProcessor extends PostProcessor
 
         $types = $this->getArrayTypes($json['enum']);
 
-        // the enum must contain either only string values or provide a value map to resolve the values
-        if ($types !== ['string'] && !isset($json['enum-map'])) {
+        // the enum must contain either only string values, only integer values,
+        // or provide a value map to resolve the values
+        if (
+            $types !== ['string']
+            && $types !== ['integer']
+            && !isset($json['enum-map'])
+        ) {
             if ($this->skipNonMappedEnums) {
                 return false;
             }
@@ -417,7 +422,7 @@ class EnumPostProcessor extends PostProcessor
 
     private function getCaseName(?array $map, mixed $value, JsonSchema $jsonSchema): string
     {
-        $caseName = ucfirst(NormalizedName::from($map ? array_search($value, $map, true) : $value, $jsonSchema));
+        $caseName = ucfirst(NormalizedName::from((string) ($map ? array_search($value, $map, true) : $value), $jsonSchema));
 
         if (preg_match('/^\d/', $caseName) === 1) {
             return "_$caseName";
