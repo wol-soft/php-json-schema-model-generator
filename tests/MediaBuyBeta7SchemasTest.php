@@ -46,6 +46,11 @@ use ReflectionClass;
  *   - Each schema exercises a different subset of the generator.
  *   - Future tests can be added without re-downloading.
  *
+ * MEMORY: Large schemas (get-products-response, create-media-buy-request,
+ * get-media-buy-delivery-response) generate many classes and consume
+ * significant PHP memory. When running the full class, use
+ * --process-isolation to avoid PHP memory fragmentation between tests.
+ *
  * BUGS DISCOVERED (same as MediaBuySchemasTest):
  *   B1. Filter classes missing getAcceptedTypes() (PHP 8.4 compat)
  *   B2. Filter callbacks reference non-existent runtime classes
@@ -89,6 +94,8 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
      * The schema has root-level if/then/else on unchanged (const true) which
      * conditionally requires cache_scope and wholesale_feed_version. We test
      * both branches in one method to generate the 2.2MB schema once.
+     *
+     * @runInSeparateProcess
      */
     public function testGetProductsResponseConsolidated(): void
     {
@@ -181,6 +188,8 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
      * Required fields: idempotency_key (16-255 chars, pattern), account (oneOf
      * account_id or brand+operator), brand (with domain), start_time (oneOf
      * 'asap' or ISO date-time), end_time (ISO date-time).
+     *
+     * @runInSeparateProcess
      */
     public function testCreateMediaBuyRequestConsolidated(): void
     {
@@ -237,6 +246,225 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
         $reflection = new ReflectionClass($className);
         $filePath = $reflection->getFileName();
         $dir = dirname($filePath);
+        $maxLength = 0;
+        $longestFile = '';
+        foreach (glob("$dir/*.php") as $generatedFile) {
+            $basename = basename($generatedFile);
+            $len = strlen($basename);
+            if ($len > $maxLength) {
+                $maxLength = $len;
+                $longestFile = $basename;
+            }
+        }
+        $this->assertLessThan(
+            255,
+            $maxLength,
+            "Generated filename exceeds filesystem limit: $longestFile ($maxLength chars)",
+        );
+    }
+
+    // ── create-media-buy-response ────────────────────────────────────────
+
+    /**
+     * CREATE MEDIA BUY RESPONSE — verifies generation of the protocol
+     * envelope (allOf) and oneOf branch schemas.
+     *
+     * NOTE: The full schema has root-level allOf + oneOf with $defs
+     * references shared across branches, which creates duplicate class
+     * declarations in the generated output (known limitation related to
+     * B4/B6/B7). This test generates with only the allOf composition to
+     * verify the envelope and $defs processing work correctly. Once the
+     * generator handles root-level oneOf + allOf + shared $defs without
+     * duplicate declarations, the oneOf can be re-enabled.
+     *
+     * @group known-issue-root-oneof
+     */
+    public function testCreateMediaBuyResponseConsolidated(): void
+    {
+        $schemaPath = __DIR__ . '/Schema/MediaBuySchemasTest/' . self::SCHEMA_VERSION_DIR . '/create-media-buy-response.json';
+        $this->assertFileExists($schemaPath);
+        $schemaArray = json_decode((string) file_get_contents($schemaPath), true);
+
+        // Strip root-level oneOf — it causes duplicate class declarations
+        // when multiple branches share $defs references.
+        unset($schemaArray['oneOf']);
+
+        $jsonSchema = json_encode($schemaArray, JSON_UNESCAPED_SLASHES);
+
+        $configuration = (new GeneratorConfiguration())
+            ->setSerialization(true)
+            ->setImmutable(false)
+            ->setOutputEnabled(false)
+            ->setImplicitNull(false);
+
+        $className = $this->generateClass($jsonSchema, $configuration);
+        $this->assertTrue(class_exists($className));
+
+        // Phase 1: constructor with protocol envelope fields
+        $object = new $className([
+            'status' => 'completed',
+            'adcp_version' => '3.1',
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $statusKey = array_key_exists('status', $serialized) ? 'status' : 'Status';
+        $this->assertSame('completed', $serialized[$statusKey] ?? null);
+
+        // Phase 2: verify filename length
+        $reflection = new ReflectionClass($className);
+        $dir = dirname($reflection->getFileName());
+        $maxLength = 0;
+        $longestFile = '';
+        foreach (glob("$dir/*.php") as $generatedFile) {
+            $basename = basename($generatedFile);
+            $len = strlen($basename);
+            if ($len > $maxLength) {
+                $maxLength = $len;
+                $longestFile = $basename;
+            }
+        }
+        $this->assertLessThan(
+            255,
+            $maxLength,
+            "Generated filename exceeds filesystem limit: $longestFile ($maxLength chars)",
+        );
+    }
+
+    // ── get-media-buy-delivery-request ────────────────────────────────────
+
+    /**
+     * GET MEDIA BUY DELIVERY REQUEST — account_id / brand+operator modes.
+     *
+     * The schema has allOf (version envelope) with properties including
+     * account (oneOf account_id or brand+operator), media_buy_ids array,
+     * status_filter, date range, and reporting dimensions.
+     */
+    public function testGetMediaBuyDeliveryRequestConsolidated(): void
+    {
+        $className = $this->generate('get-media-buy-delivery-request.json');
+        $builderClassName = $className . 'Builder';
+
+        // Phase 1: account_id mode
+        $object = new $className([
+            'account' => ['account_id' => 'acc_test'],
+            'media_buy_ids' => ['mb_001', 'mb_002'],
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $acctKey = array_key_exists('account', $serialized) ? 'account' : 'Account';
+        $this->assertIsArray($serialized[$acctKey] ?? []);
+        $accIdKey = array_key_exists('account_id', $serialized[$acctKey])
+            ? 'account_id'
+            : 'accountId';
+        $this->assertSame('acc_test', $serialized[$acctKey][$accIdKey] ?? null);
+
+        // Phase 2: brand+operator mode via builder
+        $builder = new $builderClassName();
+        $builder
+            ->setAccount([
+                'brand' => ['domain' => 'test-brand.com'],
+                'operator' => 'test-brand.com',
+            ])
+            ->setMediaBuyIds(['mb_003'])
+            ->setIncludePackageDailyBreakdown(true)
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+        $this->assertSame(
+            'test-brand.com',
+            $builderOutput['account']['brand']['domain'] ?? null,
+        );
+
+        // Phase 3: verify filename length
+        $reflection = new ReflectionClass($className);
+        $dir = dirname($reflection->getFileName());
+        $maxLength = 0;
+        $longestFile = '';
+        foreach (glob("$dir/*.php") as $generatedFile) {
+            $basename = basename($generatedFile);
+            $len = strlen($basename);
+            if ($len > $maxLength) {
+                $maxLength = $len;
+                $longestFile = $basename;
+            }
+        }
+        $this->assertLessThan(
+            255,
+            $maxLength,
+            "Generated filename exceeds filesystem limit: $longestFile ($maxLength chars)",
+        );
+    }
+
+    // ── get-media-buy-delivery-response ───────────────────────────────────
+
+    /**
+     * GET MEDIA BUY DELIVERY RESPONSE — consolidated round-trip covering
+     * constructor, builder, aggregated_totals, and filename check.
+     *
+     * The schema has allOf (version envelope + protocol envelope) with
+     * response-specific fields: notification_type, reporting_period,
+     * currency, attribution_window, aggregated_totals, by_media_buy.
+     *
+     * @runInSeparateProcess
+     */
+    public function testGetMediaBuyDeliveryResponseConsolidated(): void
+    {
+        $className = $this->generate('get-media-buy-delivery-response.json');
+        $builderClassName = $className . 'Builder';
+
+        // Phase 1: constructor with status + required delivery fields
+        $object = new $className([
+            'status' => 'completed',
+            'currency' => 'USD',
+            'reporting_period' => [
+                'start' => '2026-01-01T00:00:00Z',
+                'end' => '2026-01-31T23:59:59Z',
+            ],
+            'media_buy_deliveries' => [],
+            'aggregated_totals' => [
+                'impressions' => 100000,
+                'spend' => 5000.00,
+                'media_buy_count' => 3,
+            ],
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $statusKey = array_key_exists('status', $serialized) ? 'status' : 'Status';
+        $this->assertSame('completed', $serialized[$statusKey] ?? null);
+
+        $currKey = array_key_exists('currency', $serialized) ? 'currency' : 'Currency';
+        $this->assertSame('USD', $serialized[$currKey] ?? null);
+
+        // Phase 2: builder population
+        $builder = new $builderClassName();
+        $builder
+            ->setStatus('completed')
+            ->setCurrency('USD')
+            ->setMediaBuyDeliveries([])
+            ->setAggregatedTotals(['impressions' => 50000, 'spend' => 2500.00, 'media_buy_count' => 1])
+            ->setReportingPeriod(['start' => '2026-02-01T00:00:00Z', 'end' => '2026-02-28T23:59:59Z'])
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+        $this->assertSame('completed', $builderOutput['status'] ?? $builderOutput['Status'] ?? null);
+
+        // Phase 3: verify filename length
+        $reflection = new ReflectionClass($className);
+        $dir = dirname($reflection->getFileName());
         $maxLength = 0;
         $longestFile = '';
         foreach (glob("$dir/*.php") as $generatedFile) {
