@@ -8,6 +8,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
+use ReflectionClass;
 
 /**
  * Extensive test harness for AdCP 3.1.0-beta.7 bundled media-buy schemas.
@@ -16,7 +17,6 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
  * the AdCP protocol repository.
  *
  * Schemas stored in:  tests/Schema/MediaBuySchemasTest/v3.1.0-beta.7/
- * (overriding getSchemaFilePath to include the version subdirectory)
  *
  * SCHEMA CATALOG (25 files, all kept for future extensibility):
  *
@@ -33,35 +33,25 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
  *     sync-audiences-{request,response}.json     — Sync audience segments
  *     sync-catalogs-{request,response}.json      — Sync product catalogs
  *     sync-event-sources-{request,response}.json — Sync event sources
- *
  *   Standalone:
  *     package-request.json                       — Package request schema
  *
  * WHY KEEP ALL 25:
- *   - They are real-world, production-grade bundled JSON Schemas with
- *     all $ref resolved inline — the most demanding test input possible.
- *   - They exercise every major JSON Schema feature: allOf composition,
- *     oneOf/anyOf discriminators, deeply nested objects, $defs enums,
- *     format validators (uri, date-time, email, ipv6, etc.), pattern
- *     constraints, min/max, additionalProperties, const, and more.
- *   - Large schemas (up to 3.6MB) stress-test the generator's memory
- *     and recursion limits.
- *   - Having the full protocol surface means we can regression-test
- *     against the canonical AdCP specification at a specific version
- *     pin (3.1.0-beta.7).
- *   - The 25 files cover the full media-buy domain: CRUD, creative
- *     management, delivery measurement, catalog sync, audience sync,
- *     event tracking, and performance feedback. Each schema exercises
- *     a different subset of the generator's capabilities.
- *   - Future tests can be added for any of these schemas without
- *     re-downloading.
+ *   - Real-world, production-grade bundled JSON Schemas with all $ref
+ *     resolved inline — the most demanding test input possible.
+ *   - Exercise every major JSON Schema feature: allOf, oneOf/anyOf,
+ *     $defs enums, format validators, pattern, min/max, const, etc.
+ *   - Large schemas (up to 3.6MB) stress-test memory and recursion.
+ *   - Full protocol surface for regression testing at version 3.1.0-beta.7.
+ *   - Each schema exercises a different subset of the generator.
+ *   - Future tests can be added without re-downloading.
  *
  * BUGS DISCOVERED (same as MediaBuySchemasTest):
  *   B1. Filter classes missing getAcceptedTypes() (PHP 8.4 compat)
  *   B2. Filter callbacks reference non-existent runtime classes
  *   B3. Format validator null-safety: validate(?string) not validate(string)
  *   B4. Merge class oneOf validation uses camelCase property names
- *   B5. Class name explosion for deeply nested objects
+ *   B5. (Fixed) Class name explosion for deeply nested objects
  *   B6. Required child properties override parent oneOf composition
  *   B7. Root-level oneOf unsupported by builder pattern
  *   B8. toArray() uses camelCase, constructor expects snake_case
@@ -93,22 +83,19 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
     // ── get-products-response ────────────────────────────────────────────
 
     /**
-     * GET PRODUCTS RESPONSE — full round-trip via constructor + builder.
+     * GET PRODUCTS RESPONSE — consolidated round-trip covering constructor,
+     * builder, unchanged wholesale path, and errors array.
      *
-     * Phase 1: constructor with minimal data + toArray
-     * Phase 2: builder population + validate + toArray
-     *
-     * NOTE: The schema has root-level if/then/else on unchanged: if unchanged
-     * is const true, wholesale_feed_version and cache_scope are required and
-     * products must be absent. Otherwise (else), cache_scope is required.
-     * This test uses the else path: products=[], cache_scope set.
+     * The schema has root-level if/then/else on unchanged (const true) which
+     * conditionally requires cache_scope and wholesale_feed_version. We test
+     * both branches in one method to generate the 2.2MB schema once.
      */
-    public function testGetProductsResponseRoundTrip(): void
+    public function testGetProductsResponseConsolidated(): void
     {
         $className = $this->generate('get-products-response.json');
         $builderClassName = $className . 'Builder';
 
-        // Phase 1: constructor with minimal valid data
+        // Phase 1: constructor with standard response (else branch)
         $object = new $className([
             'status' => 'completed',
             'products' => [],
@@ -120,6 +107,12 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
 
         $statusKey = array_key_exists('status', $serialized) ? 'status' : 'Status';
         $this->assertSame('completed', $serialized[$statusKey] ?? null);
+
+        $cacheKey = array_key_exists('cache_scope', $serialized) ? 'cache_scope' : 'cacheScope';
+        $this->assertSame('account', $serialized[$cacheKey] ?? null);
+
+        $this->assertArrayHasKey($statusKey, $serialized);
+        $this->assertArrayHasKey($cacheKey, $serialized);
 
         // Phase 2: builder population
         $builder = new $builderClassName();
@@ -135,32 +128,18 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
         $builderOutput = $model->toArray();
         $this->assertIsArray($builderOutput);
         $this->assertSame('completed', $builderOutput['status'] ?? $builderOutput['Status'] ?? null);
-    }
 
-    /**
-     * GET PRODUCTS RESPONSE — wholesale unchanged path.
-     */
-    public function testGetProductsResponseUnchangedPath(): void
-    {
-        $className = $this->generate('get-products-response.json');
-
-        $object = new $className([
+        // Phase 3: wholesale unchanged path (if branch)
+        $unchanged = new $className([
             'status' => 'completed',
             'unchanged' => true,
             'wholesale_feed_version' => 'v3',
             'cache_scope' => 'public',
         ]);
-        $this->assertInstanceOf($className, $object);
-    }
+        $this->assertInstanceOf($className, $unchanged);
 
-    /**
-     * GET PRODUCTS RESPONSE — constructor with errors array.
-     */
-    public function testGetProductsResponseWithErrors(): void
-    {
-        $className = $this->generate('get-products-response.json');
-
-        $object = new $className([
+        // Phase 4: constructor with errors array
+        $withErrors = new $className([
             'status' => 'completed',
             'products' => [],
             'cache_scope' => 'account',
@@ -171,30 +150,46 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
                 ],
             ],
         ]);
-        $this->assertInstanceOf($className, $object);
+        $this->assertInstanceOf($className, $withErrors);
+
+        // Phase 5: verify all generated filenames stay under 255 chars
+        $reflection = new ReflectionClass($className);
+        $filePath = $reflection->getFileName();
+        $dir = dirname($filePath);
+        $maxLength = 0;
+        $longestFile = '';
+        foreach (glob("$dir/*.php") as $generatedFile) {
+            $basename = basename($generatedFile);
+            $len = strlen($basename);
+            if ($len > $maxLength) {
+                $maxLength = $len;
+                $longestFile = $basename;
+            }
+        }
+        $this->assertLessThan(
+            255,
+            $maxLength,
+            "Generated filename exceeds filesystem limit: $longestFile ($maxLength chars)",
+        );
     }
 
     // ── create-media-buy-request ─────────────────────────────────────────
 
     /**
-     * CREATE MEDIA BUY REQUEST — manual mode via constructor + builder.
+     * CREATE MEDIA BUY REQUEST — manual mode + proposal mode consolidated.
      *
-     * Required fields: idempotency_key, account (oneOf account_id or brand+operator),
-     * brand (with domain), start_time (oneOf 'asap' or ISO date-time), end_time (date-time).
-     *
-     * Phase 1: constructor with required fields + empty packages
-     * Phase 2: builder population + validate + toArray
+     * Required fields: idempotency_key (16-255 chars, pattern), account (oneOf
+     * account_id or brand+operator), brand (with domain), start_time (oneOf
+     * 'asap' or ISO date-time), end_time (ISO date-time).
      */
-    public function testCreateMediaBuyRequestRoundTrip(): void
+    public function testCreateMediaBuyRequestConsolidated(): void
     {
         $className = $this->generate('create-media-buy-request.json');
         $builderClassName = $className . 'Builder';
 
-        // Phase 1: constructor with required fields + minimal packages
-        // NOTE: idempotency_key must be 16-255 chars matching ^[A-Za-z0-9_.:-]{16,255}$
-        //       packages must have minItems: 1
+        // Phase 1: constructor with required fields only (manual mode)
         $object = new $className([
-            'idempotency_key' => 'test-key-001-abcdef',  // 16 chars
+            'idempotency_key' => 'test-createmb-001-abcdefgh',  // 24+ chars, matches pattern
             'account' => ['account_id' => 'acc_test'],
             'brand' => ['domain' => 'test-brand.com'],
             'start_time' => 'asap',
@@ -204,10 +199,13 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
         $serialized = $object->toArray();
         $this->assertIsArray($serialized);
 
+        $idKey = array_key_exists('idempotency_key', $serialized) ? 'idempotency_key' : 'idempotencyKey';
+        $this->assertSame('test-createmb-001-abcdefgh', $serialized[$idKey] ?? null);
+
         // Phase 2: builder population
         $builder = new $builderClassName();
         $builder
-            ->setIdempotencyKey('builder-test-key-abc1234')  // 16+ chars for builder too
+            ->setIdempotencyKey('builder-createmb-key-001-xyz')  // 28 chars, matches pattern
             ->setAccount(['account_id' => 'acc_builder'])
             ->setBrand(['domain' => 'builder-brand.com'])
             ->setStartTime('asap')
@@ -219,17 +217,10 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
 
         $builderOutput = $model->toArray();
         $this->assertIsArray($builderOutput);
-    }
 
-    /**
-     * CREATE MEDIA BUY REQUEST — proposal mode via constructor.
-     */
-    public function testCreateMediaBuyRequestProposalMode(): void
-    {
-        $className = $this->generate('create-media-buy-request.json');
-
-        $object = new $className([
-            'idempotency_key' => 'proposal-key-001',
+        // Phase 3: proposal mode via constructor
+        $proposal = new $className([
+            'idempotency_key' => 'proposal-createmb-key-001-abc',  // 29 chars
             'account' => ['account_id' => 'acc_test'],
             'brand' => ['domain' => 'test-brand.com'],
             'start_time' => 'asap',
@@ -240,14 +231,89 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
                 'currency' => 'USD',
             ],
         ]);
-        $this->assertInstanceOf($className, $object);
+        $this->assertInstanceOf($className, $proposal);
+
+        // Phase 4: verify no generated filename exceeds filesystem limit
+        $reflection = new ReflectionClass($className);
+        $filePath = $reflection->getFileName();
+        $dir = dirname($filePath);
+        $maxLength = 0;
+        $longestFile = '';
+        foreach (glob("$dir/*.php") as $generatedFile) {
+            $basename = basename($generatedFile);
+            $len = strlen($basename);
+            if ($len > $maxLength) {
+                $maxLength = $len;
+                $longestFile = $basename;
+            }
+        }
+        $this->assertLessThan(
+            255,
+            $maxLength,
+            "Generated filename exceeds filesystem limit: $longestFile ($maxLength chars)",
+        );
+    }
+
+    // ── deep nesting regression (B5) ──────────────────────────────────────
+
+    /**
+     * Targeted regression test for B5: deeply nested schemas must not
+     * produce filenames that overflow the 255-char filesystem limit.
+     *
+     * Creates a schema with 15 levels of nested objects, each containing
+     * both allOf composition and a nested property, which previously
+     * caused exponential class name compounding.
+     */
+    public function testDeepNestingNoFilenameOverflow(): void
+    {
+        $nested = ['type' => 'object', 'properties' => ['leaf' => ['type' => 'string']]];
+        for ($i = 0; $i < 15; $i++) {
+            $nested = [
+                'type' => 'object',
+                'allOf' => [
+                    ['type' => 'object', 'properties' => ['inner' => $nested]],
+                ],
+                'properties' => [
+                    'value' => ['type' => 'string'],
+                ],
+            ];
+        }
+        $schema = json_encode([
+            'title' => 'DeepNestingTest',
+            'type' => 'object',
+            'properties' => ['nested' => $nested],
+        ]);
+
+        $className = $this->generateClass(
+            $schema,
+            (new GeneratorConfiguration())
+                ->setSerialization(true)
+                ->setImmutable(false)
+                ->setOutputEnabled(false)
+                ->setImplicitNull(false),
+        );
+
+        $reflection = new ReflectionClass($className);
+        $dir = dirname($reflection->getFileName());
+        $maxLength = 0;
+        $longestFile = '';
+        foreach (glob("$dir/*.php") as $generatedFile) {
+            $basename = basename($generatedFile);
+            $len = strlen($basename);
+            if ($len > $maxLength) {
+                $maxLength = $len;
+                $longestFile = $basename;
+            }
+        }
+        $this->assertLessThan(
+            255,
+            $maxLength,
+            "Deeply nested schema produced an overlong filename: $longestFile ($maxLength chars)",
+        );
     }
 
     // ── generation helpers ───────────────────────────────────────────────
 
-    /**
-     * Generate a model from a beta.7 schema file.
-     */
     private function generate(string $schemaFile): string
     {
         $schemaPath = __DIR__ . '/Schema/MediaBuySchemasTest/' . self::SCHEMA_VERSION_DIR . '/' . $schemaFile;
