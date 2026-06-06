@@ -21,6 +21,7 @@ use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyProxy;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
@@ -342,12 +343,51 @@ class PropertyFactory
                     }
                 }
 
-                return $definition->resolveReference(
+                $property = $definition->resolveReference(
                     $propertyName,
                     implode('/', $path),
                     $required,
                     $propertySchema->getJson()['_dependencies'] ?? null,
                 );
+
+                // Proxy properties inherit the underlying property's type/validators but need
+                // their own per-instance attributes (SchemaName, JsonPointer) specific to this
+                // usage. The underlying property's attributes were set by its own buildProperty()
+                // call with a different property name, which would give this proxy the wrong
+                // SchemaName if shared.
+                if ($property instanceof PropertyProxy) {
+                    $configuration = $schemaProcessor->getGeneratorConfiguration();
+                    $json = $propertySchema->getJson();
+                    $property
+                        ->addAttribute(
+                            new PhpAttribute(JsonPointer::class, [$propertySchema->getPointer()]),
+                            $configuration,
+                            PhpAttribute::JSON_POINTER,
+                        )
+                        ->addAttribute(
+                            new PhpAttribute(SchemaName::class, [$propertyName]),
+                            $configuration,
+                            PhpAttribute::SCHEMA_NAME,
+                        )
+                        ->addAttribute(
+                            new PhpAttribute(
+                                JsonSchemaAttribute::class,
+                                [empty($json) ? '{}' : json_encode($json)],
+                            ),
+                            $configuration,
+                            PhpAttribute::JSON_SCHEMA,
+                        );
+
+                    if ($required) {
+                        $property->addAttribute(
+                            new PhpAttribute(Required::class),
+                            $configuration,
+                            PhpAttribute::REQUIRED,
+                        );
+                    }
+                }
+
+                return $property;
             }
         } catch (Exception $exception) {
             throw new SchemaException(

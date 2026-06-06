@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Property;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Attributes\AttributesTrait;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
@@ -21,6 +22,8 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInte
  */
 class PropertyProxy extends AbstractProperty
 {
+    use AttributesTrait;
+
     /**
      * PropertyProxy constructor.
      *
@@ -288,26 +291,5 @@ class PropertyProxy extends AbstractProperty
     public function isInternal(): bool
     {
         return $this->getProperty()->isInternal();
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function addAttribute(
-        PhpAttribute $attribute,
-        ?GeneratorConfiguration $generatorConfiguration = null,
-        ?int $enablementFlag = null,
-    ): static {
-        $this->getProperty()->addAttribute($attribute);
-
-        return $this;
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getAttributes(): array
-    {
-        return $this->getProperty()->getAttributes();
     }
 }

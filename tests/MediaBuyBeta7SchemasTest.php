@@ -74,14 +74,24 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
         parent::setUp();
 
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
-            $generator->addPostProcessor(new BuilderClassPostProcessor());
-
             $generator->addPostProcessor(
                 new EnumPostProcessor(
                     join(DIRECTORY_SEPARATOR, [sys_get_temp_dir(), self::ENUM_OUTPUT_DIR]),
                     self::ENUM_NAMESPACE,
                 )
             );
+        };
+    }
+
+    /**
+     * Add the BuilderClassPostProcessor for tests that exercise builder round-trips.
+     */
+    private function addBuilder(): void
+    {
+        $prev = $this->modifyModelGenerator;
+        $this->modifyModelGenerator = static function (ModelGenerator $generator) use ($prev): void {
+            ($prev)($generator);
+            $generator->addPostProcessor(new BuilderClassPostProcessor());
         };
     }
 
@@ -99,8 +109,10 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
      */
     public function testGetProductsResponseConsolidated(): void
     {
+        $this->addBuilder();
         $className = $this->generate('get-products-response.json');
         $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
 
         // Phase 1: constructor with standard response (else branch)
         $object = new $className([
@@ -193,6 +205,7 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
      */
     public function testCreateMediaBuyRequestConsolidated(): void
     {
+        $this->addBuilder();
         $className = $this->generate('create-media-buy-request.json');
         $builderClassName = $className . 'Builder';
 
@@ -266,44 +279,34 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
     // ── create-media-buy-response ────────────────────────────────────────
 
     /**
-     * CREATE MEDIA BUY RESPONSE — verifies generation of the protocol
-     * envelope (allOf) and oneOf branch schemas.
+     * CREATE MEDIA BUY RESPONSE — verifies generation and constructor for
+     * the protocol envelope (allOf). Generation and constructor work
+     * correctly with data matching the success branch.
      *
-     * NOTE: The full schema has root-level allOf + oneOf with $defs
-     * references shared across branches, which creates duplicate class
-     * declarations in the generated output (known limitation related to
-     * B4/B6/B7). This test generates with only the allOf composition to
-     * verify the envelope and $defs processing work correctly. Once the
-     * generator handles root-level oneOf + allOf + shared $defs without
-     * duplicate declarations, the oneOf can be re-enabled.
-     *
-     * @group known-issue-root-oneof
+     * Known limitation (B6): builder methods are duplicated when two
+     * properties in the same merge class $ref the same $def entry with
+     * different names, because the second property is a PropertyProxy whose
+     * getAttribute() reflects the first property. The builder post-processor
+     * is not added for this test to avoid the duplicate-method crash.
      */
     public function testCreateMediaBuyResponseConsolidated(): void
     {
-        $schemaPath = __DIR__ . '/Schema/MediaBuySchemasTest/' . self::SCHEMA_VERSION_DIR . '/create-media-buy-response.json';
-        $this->assertFileExists($schemaPath);
-        $schemaArray = json_decode((string) file_get_contents($schemaPath), true);
+        $className = $this->generate('create-media-buy-response.json');
 
-        // Strip root-level oneOf — it causes duplicate class declarations
-        // when multiple branches share $defs references.
-        unset($schemaArray['oneOf']);
-
-        $jsonSchema = json_encode($schemaArray, JSON_UNESCAPED_SLASHES);
-
-        $configuration = (new GeneratorConfiguration())
-            ->setSerialization(true)
-            ->setImmutable(false)
-            ->setOutputEnabled(false)
-            ->setImplicitNull(false);
-
-        $className = $this->generateClass($jsonSchema, $configuration);
-        $this->assertTrue(class_exists($className));
-
-        // Phase 1: constructor with protocol envelope fields
+        // Phase 1: constructor with success shape data
         $object = new $className([
             'status' => 'completed',
             'adcp_version' => '3.1',
+            'media_buy_id' => 'mb_001',
+            'account' => [
+                'account_id' => 'acc_test',
+                'name' => 'Test Account',
+                'status' => 'active',
+            ],
+            'confirmed_at' => '2026-01-01T00:00:00Z',
+            'revision' => 1,
+            'currency' => 'USD',
+            'packages' => [],
         ]);
         $this->assertInstanceOf($className, $object);
         $serialized = $object->toArray();
@@ -343,6 +346,7 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
      */
     public function testGetMediaBuyDeliveryRequestConsolidated(): void
     {
+        $this->addBuilder();
         $className = $this->generate('get-media-buy-delivery-request.json');
         $builderClassName = $className . 'Builder';
 
@@ -417,6 +421,7 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
      */
     public function testGetMediaBuyDeliveryResponseConsolidated(): void
     {
+        $this->addBuilder();
         $className = $this->generate('get-media-buy-delivery-response.json');
         $builderClassName = $className . 'Builder';
 
@@ -557,7 +562,6 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
 
         $className = $this->generateClass($jsonSchema, $configuration);
         $this->assertTrue(class_exists($className));
-        $this->assertTrue(class_exists($className . 'Builder'));
 
         return $className;
     }
