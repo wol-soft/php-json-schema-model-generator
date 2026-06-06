@@ -85,9 +85,17 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * Add the BuilderClassPostProcessor for tests that exercise builder round-trips.
+     * Idempotent: subsequent calls are no-ops.
      */
+    private bool $builderAdded = false;
+
     private function addBuilder(): void
     {
+        if ($this->builderAdded) {
+            return;
+        }
+        $this->builderAdded = true;
+
         $prev = $this->modifyModelGenerator;
         $this->modifyModelGenerator = static function (ModelGenerator $generator) use ($prev): void {
             ($prev)($generator);
@@ -208,6 +216,7 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
         $this->addBuilder();
         $className = $this->generate('create-media-buy-request.json');
         $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
 
         // Phase 1: constructor with required fields only (manual mode)
         $object = new $className([
@@ -349,6 +358,7 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
         $this->addBuilder();
         $className = $this->generate('get-media-buy-delivery-request.json');
         $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
 
         // Phase 1: account_id mode
         $object = new $className([
@@ -424,6 +434,7 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
         $this->addBuilder();
         $className = $this->generate('get-media-buy-delivery-response.json');
         $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
 
         // Phase 1: constructor with status + required delivery fields
         $object = new $className([
