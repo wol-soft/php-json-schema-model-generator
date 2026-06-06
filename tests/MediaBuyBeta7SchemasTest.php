@@ -62,6 +62,16 @@ use ReflectionClass;
  *   B8. toArray() uses camelCase, constructor expects snake_case
  *   B9. toArray / resolveSerializationHook calls non-existent
  *       getSerializedValue()
+ *
+ * SCHEMAS TESTED (8 of 25):
+ *   get-products-response          — allOf + if/then/else, 2.2MB
+ *   create-media-buy-request       — allOf + oneOf (account, start_time), 2.0MB
+ *   create-media-buy-response      — allOf (2 branches), 676KB
+ *   get-media-buy-delivery-request  — allOf + oneOf (account), 64KB
+ *   get-media-buy-delivery-response — allOf + response fields, 1.8MB
+ *   update-media-buy-request       — allOf + partial-update PATCH semantics, 3.6MB
+ *   build-creative-response        — allOf (2 branches) + oneOf (4 branches), 3.1MB
+ *   package-request                — allOf + not + targeting_overlay, 1.7MB
  */
 class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -480,6 +490,288 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('completed', $builderOutput['status'] ?? $builderOutput['Status'] ?? null);
 
         // Phase 3: verify filename length
+        $reflection = new ReflectionClass($className);
+        $dir = dirname($reflection->getFileName());
+        $maxLength = 0;
+        $longestFile = '';
+        foreach (glob("$dir/*.php") as $generatedFile) {
+            $basename = basename($generatedFile);
+            $len = strlen($basename);
+            if ($len > $maxLength) {
+                $maxLength = $len;
+                $longestFile = $basename;
+            }
+        }
+        $this->assertLessThan(
+            255,
+            $maxLength,
+            "Generated filename exceeds filesystem limit: $longestFile ($maxLength chars)",
+        );
+    }
+
+    // ── update-media-buy-request ──────────────────────────────────────────
+
+    /**
+     * UPDATE MEDIA BUY REQUEST — partial update with account_id mode,
+     * builder round-trip, and pause/cancel semantics.
+     *
+     * The schema has allOf (version envelope) with update-specific fields:
+     * account (oneOf account_id or brand+operator), media_buy_id, revision,
+     * paused, canceled, packages, new_packages, invoice_recipient, etc.
+     * All fields are optional (PATCH semantics).
+     *
+     * @runInSeparateProcess
+     */
+    public function testUpdateMediaBuyRequestConsolidated(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('update-media-buy-request.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        // Phase 1: constructor with required + account_id mode
+        $object = new $className([
+            'account' => ['account_id' => 'acc_test'],
+            'media_buy_id' => 'mb_001',
+            'idempotency_key' => 'upd-001-abcdefghijklmnop',
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $acctKey = array_key_exists('account', $serialized) ? 'account' : 'Account';
+        $this->assertIsArray($serialized[$acctKey] ?? []);
+        $accIdKey = array_key_exists('account_id', $serialized[$acctKey])
+            ? 'account_id'
+            : 'accountId';
+        $this->assertSame('acc_test', $serialized[$acctKey][$accIdKey] ?? null);
+
+        // Phase 2: builder with brand+operator mode + optional fields
+        $builder = new $builderClassName();
+        $builder
+            ->setAccount([
+                'brand' => ['domain' => 'test-brand.com'],
+                'operator' => 'test-brand.com',
+            ])
+            ->setMediaBuyId('mb_002')
+            ->setIdempotencyKey('upd-builder-002-abcdefghijkl')
+            ->setRevision(2)
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+        $this->assertSame(
+            'test-brand.com',
+            $builderOutput['account']['brand']['domain'] ?? null,
+        );
+
+        // Phase 3: pause/cancel a media buy
+        $canceled = new $className([
+            'account' => ['account_id' => 'acc_test'],
+            'media_buy_id' => 'mb_003',
+            'idempotency_key' => 'cancel-003-abcdefghijklmn',
+            'paused' => false,
+            'canceled' => true,
+            'cancellation_reason' => 'Campaign objectives changed',
+        ]);
+        $this->assertInstanceOf($className, $canceled);
+
+        $canceledArray = $canceled->toArray();
+        $pausedKey = array_key_exists('paused', $canceledArray) ? 'paused' : 'Paused';
+        $canceledKey = array_key_exists('canceled', $canceledArray) ? 'canceled' : 'Canceled';
+        $this->assertFalse($canceledArray[$pausedKey] ?? true);
+        $this->assertTrue($canceledArray[$canceledKey] ?? false);
+
+        // Phase 4: verify filename length
+        $reflection = new ReflectionClass($className);
+        $dir = dirname($reflection->getFileName());
+        $maxLength = 0;
+        $longestFile = '';
+        foreach (glob("$dir/*.php") as $generatedFile) {
+            $basename = basename($generatedFile);
+            $len = strlen($basename);
+            if ($len > $maxLength) {
+                $maxLength = $len;
+                $longestFile = $basename;
+            }
+        }
+        $this->assertLessThan(
+            255,
+            $maxLength,
+            "Generated filename exceeds filesystem limit: $longestFile ($maxLength chars)",
+        );
+    }
+
+    // ── build-creative-response ───────────────────────────────────────────
+
+    /**
+     * BUILD CREATIVE RESPONSE — root-level allOf + oneOf with 4 branches,
+     * builder round-trip on the success branch.
+     *
+     * The schema has allOf (version envelope) combined with oneOf:
+     *   branch 0: creative_manifest (single, canonical format_kind)
+     *   branch 1: creative_manifests (array, multiple)
+     *   branch 2: errors (validation failure)
+     *   branch 3: status + task_id (async task)
+     *
+     * @runInSeparateProcess
+     */
+    public function testBuildCreativeResponseConsolidated(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('build-creative-response.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        // Phase 1: success branch with single creative_manifest (canonical format_kind)
+        // Assets patternProperties accept empty objects via additionalProperties: true
+        $object = new $className([
+            'status' => 'completed',
+            'creative_manifest' => [
+                'format_kind' => 'image',
+                'assets' => [],
+            ],
+        ]);
+        $this->assertInstanceOf($className, $object);
+
+        // Phase 2: builder with multi-creative-manifest branch
+        $builder = new $builderClassName();
+        $builder
+            ->setStatus('completed')
+            ->setCreativeManifests([
+                [
+                    'format_kind' => 'image',
+                    'assets' => [],
+                ],
+                [
+                    'format_kind' => 'html5',
+                    'assets' => [],
+                ],
+            ])
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        // Phase 3: error branch (status "failed" is the correct enum value, not "error")
+        $errorResponse = new $className([
+            'status' => 'failed',
+            'errors' => [
+                ['code' => 'VALIDATION_ERROR', 'message' => 'Invalid format kind'],
+            ],
+        ]);
+        $this->assertInstanceOf($className, $errorResponse);
+
+        // Phase 4: async task branch
+        $taskResponse = new $className([
+            'status' => 'submitted',
+            'task_id' => 'task_001',
+            'message' => 'Build in progress',
+        ]);
+        $this->assertInstanceOf($className, $taskResponse);
+
+        // Phase 5: verify filename length
+        $reflection = new ReflectionClass($className);
+        $dir = dirname($reflection->getFileName());
+        $maxLength = 0;
+        $longestFile = '';
+        foreach (glob("$dir/*.php") as $generatedFile) {
+            $basename = basename($generatedFile);
+            $len = strlen($basename);
+            if ($len > $maxLength) {
+                $maxLength = $len;
+                $longestFile = $basename;
+            }
+        }
+        $this->assertLessThan(
+            255,
+            $maxLength,
+            "Generated filename exceeds filesystem limit: $longestFile ($maxLength chars)",
+        );
+    }
+
+    // ── package-request ───────────────────────────────────────────────────
+
+    /**
+     * PACKAGE REQUEST — allOf + not keyword, builder round-trip with
+     * targeting overlay and creative assignments.
+     *
+     * The schema has allOf (version envelope), a `not` that forbids
+     * `capability_ids`, and rich nested structures: targeting_overlay,
+     * creative_assignments, creatives, optimization_goals, etc.
+     *
+     * @runInSeparateProcess
+     */
+    public function testPackageRequestConsolidated(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('package-request.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        // Phase 1: constructor with required fields
+        $object = new $className([
+            'product_id' => 'prod_001',
+            'budget' => 10000.00,
+            'pricing_option_id' => 'cpm',
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $prodKey = array_key_exists('product_id', $serialized) ? 'product_id' : 'productId';
+        $this->assertSame('prod_001', $serialized[$prodKey] ?? null);
+
+        // Phase 2: builder with targeting overlay and optional fields
+        $builder = new $builderClassName();
+        $builder
+            ->setProductId('prod_002')
+            ->setBudget(25000.00)
+            ->setPricingOptionId('cpm')
+            ->setBidPrice(5.50)
+            ->setImpressions(500000)
+            ->setStartTime('2026-06-01T00:00:00Z')
+            ->setEndTime('2026-12-31T23:59:59Z')
+            ->setPacing('even')
+            ->setFormatIds([['agent_url' => 'https://fmt.example.com', 'id' => 'fmt_001']])
+            ->setTargetingOverlay([
+                'geo_countries' => ['US', 'CA'],
+                'language' => ['en'],
+            ])
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+        $pricingKey = array_key_exists('pricing_option_id', $builderOutput)
+            ? 'pricing_option_id'
+            : 'pricingOptionId';
+        $this->assertSame('cpm', $builderOutput[$pricingKey] ?? null);
+
+        // Phase 3: builder with creative assignments
+        $builder2 = new $builderClassName();
+        $builder2
+            ->setProductId('prod_003')
+            ->setBudget(5000.00)
+            ->setPricingOptionId('cpm')
+            ->setCreativeAssignments([
+                [
+                    'creative_id' => 'cr_001',
+                    'format_id' => ['agent_url' => 'https://fmt.example.com', 'id' => 'fmt_003'],
+                    'format_option_ref' => ['scope' => 'product', 'format_option_id' => 'opt_001'],
+                ],
+            ])
+            ->setAdcpVersion('3.1');
+
+        $model2 = $builder2->validate();
+        $this->assertInstanceOf($className, $model2);
+
+        // Phase 4: verify filename length
         $reflection = new ReflectionClass($className);
         $dir = dirname($reflection->getFileName());
         $maxLength = 0;
