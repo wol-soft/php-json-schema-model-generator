@@ -73,6 +73,7 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
     {
         parent::setUp();
 
+        $this->builderAdded = false;
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
             $generator->addPostProcessor(
                 new EnumPostProcessor(
