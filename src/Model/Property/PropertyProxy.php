@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Attributes\AttributesTrait;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
@@ -24,7 +25,6 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInte
 class PropertyProxy extends AbstractProperty
 {
     private ?JsonSchema $overrideJsonSchema = null;
-    private ?PhpAttribute $overrideJsonPointer = null;
 
     /**
      * PropertyProxy constructor.
@@ -333,70 +333,5 @@ class PropertyProxy extends AbstractProperty
     public function isInternal(): bool
     {
         return $this->getProperty()->isInternal();
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function filterAttributes(callable $filter): static
-    {
-        $this->getProperty()->filterAttributes($filter);
-
-        return $this;
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function addAttribute(
-        PhpAttribute $attribute,
-        ?GeneratorConfiguration $generatorConfiguration = null,
-        ?int $enablementFlag = null,
-    ): static {
-        $this->getProperty()->addAttribute($attribute);
-
-        return $this;
-    }
-
-    /**
-     * Store the pointer attribute locally so this proxy can show a different JsonPointer from
-     * the shared underlying property (each reference site has its own pointer).
-     */
-    public function overrideJsonPointer(PhpAttribute $attribute): static
-    {
-        $this->overrideJsonPointer = $attribute;
-
-        return $this;
-    }
-
-    /**
-     * @inheritdoc
-     *
-     * Replaces the SchemaName attribute from the underlying shared property with one that
-     * carries the proxy's own name. Two proxies sharing the same $ref definition would
-     * otherwise both report the first property's name via the shared underlying attribute.
-     *
-     * When a JsonPointer override is set, all existing JsonPointer attributes (there may be
-     * multiple when the underlying property was synthesised from composition branches) are
-     * removed and replaced with a single attribute pointing to the reference site.
-     */
-    public function getAttributes(): array
-    {
-        $attributes = array_map(
-            fn(PhpAttribute $attribute): PhpAttribute => $attribute->getFqcn() === SchemaName::class
-                ? new PhpAttribute(SchemaName::class, [$this->name])
-                : $attribute,
-            $this->getProperty()->getAttributes(),
-        );
-
-        if ($this->overrideJsonPointer !== null) {
-            $attributes = array_values(array_filter(
-                $attributes,
-                static fn(PhpAttribute $attribute): bool => $attribute->getFqcn() !== JsonPointer::class,
-            ));
-            $attributes[] = $this->overrideJsonPointer;
-        }
-
-        return $attributes;
     }
 }
