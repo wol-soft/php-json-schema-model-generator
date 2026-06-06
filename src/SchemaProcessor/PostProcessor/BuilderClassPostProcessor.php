@@ -20,16 +20,21 @@ use ReflectionClass;
 
 class BuilderClassPostProcessor extends PostProcessor
 {
-    /** @var Schema[] */
+    /** @var array<string, Schema> */
     private array $schemas = [];
     private ?GeneratorConfiguration $generatorConfiguration = null;
     private ?RenderHelper $renderHelper = null;
 
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
-        // collect the schemas and generate builder classes in postProcess hook to make sure the related model class
-        // already has been created
-        $this->schemas[] = $schema;
+        // Collect schemas, deduplicating by target filename to avoid generating builder
+        // classes multiple times for shared schemas (e.g. $defs referenced from multiple
+        // composition branches).
+        $target = $schema->getTargetFileName();
+        if (!isset($this->schemas[$target])) {
+            $this->schemas[$target] = $schema;
+        }
+
         $this->generatorConfiguration ??= $generatorConfiguration;
         $this->renderHelper ??= new RenderHelper($generatorConfiguration);
     }
@@ -45,13 +50,21 @@ class BuilderClassPostProcessor extends PostProcessor
         parent::postProcess();
 
         foreach ($this->schemas as $schema) {
+            // Collect properties, deduplicating by final method name to prevent duplicate
+            // builder methods when two properties share the same SchemaName attribute (e.g.
+            // a PropertyProxy and its underlying property both claim the same name).
             $properties = [];
+            $seenMethods = [];
             foreach ($schema->getProperties() as $property) {
                 if (!$property->isInternal()) {
-                    $properties[] = (clone $property)
-                        ->setReadOnly(false)
-                        ->addTypeHintDecorator(new TypeHintTransferDecorator($property))
-                        ->filterValidators(static fn(Validator $validator): bool => false);
+                    $methodKey = 'get' . ucfirst($property->getAttribute());
+                    if (!isset($seenMethods[$methodKey])) {
+                        $seenMethods[$methodKey] = true;
+                        $properties[] = (clone $property)
+                            ->setReadOnly(false)
+                            ->addTypeHintDecorator(new TypeHintTransferDecorator($property))
+                            ->filterValidators(static fn(Validator $validator): bool => false);
+                    }
                 }
             }
 
@@ -88,7 +101,9 @@ class BuilderClassPostProcessor extends PostProcessor
                 // @codeCoverageIgnoreEnd
             }
 
-            require $filename;
+            if (!class_exists($fqcn, false)) {
+                require $filename;
+            }
 
             if ($this->generatorConfiguration->isOutputEnabled()) {
                 // @codeCoverageIgnoreStart

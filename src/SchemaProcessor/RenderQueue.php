@@ -19,13 +19,19 @@ class RenderQueue
 {
     /** @var RenderJob[] */
     protected $jobs = [];
+    /** @var array<string, true> */
+    protected array $addedTargets = [];
 
     /**
      * @return $this
      */
     public function addRenderJob(RenderJob $renderJob): self
     {
-        $this->jobs[] = $renderJob;
+        $target = $renderJob->getSchema()->getTargetFileName();
+        if (!isset($this->addedTargets[$target])) {
+            $this->addedTargets[$target] = true;
+            $this->jobs[] = $renderJob;
+        }
 
         return $this;
     }

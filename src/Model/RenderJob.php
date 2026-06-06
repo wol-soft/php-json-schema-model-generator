@@ -32,6 +32,11 @@ class RenderJob
         protected Schema $schema,
     ) {}
 
+    public function getSchema(): Schema
+    {
+        return $this->schema;
+    }
+
     /**
      * @param PostProcessor[] $postProcessors
      */
@@ -68,7 +73,9 @@ class RenderJob
             // @codeCoverageIgnoreEnd
         }
 
-        require $this->schema->getTargetFileName();
+        if (!class_exists($this->schema->getClassName(), false)) {
+            require $this->schema->getTargetFileName();
+        }
 
         if ($generatorConfiguration->isOutputEnabled()) {
             echo sprintf(
