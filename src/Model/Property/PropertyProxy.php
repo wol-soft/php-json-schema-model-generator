@@ -7,7 +7,6 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Model\Attributes\AttributesTrait;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
@@ -24,13 +23,13 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInte
  */
 class PropertyProxy extends AbstractProperty
 {
-    // AttributesTrait provides local attribute storage so each proxy instance
-    // has its own SchemaName/JsonPointer/etc. independent of the shared underlying
-    // property. NOTE: isInternal() still delegates to getProperty() (the underlying),
-    // while getAttributes() returns the proxy's local list. This split is intentional:
-    // isInternal() controls visible-vs-hidden at the schema level (consistent across
-    // all proxies of the same $def), while getAttributes() reflects per-proxy metadata.
-    use AttributesTrait;
+    // AttributesTrait (inherited from AbstractProperty) provides local attribute storage
+    // so each proxy instance has its own SchemaName/JsonPointer/etc. independent of the
+    // shared underlying property. NOTE: isInternal() still delegates to getProperty()
+    // (the underlying), while getAttributes() returns the proxy's local list. This split
+    // is intentional: isInternal() controls visible-vs-hidden at the schema level
+    // (consistent across all proxies of the same $def), while getAttributes() reflects
+    // per-proxy metadata.
 
     private ?JsonSchema $overrideJsonSchema = null;
 
