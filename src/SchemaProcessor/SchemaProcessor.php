@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor;
 
+use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\Property;
@@ -586,6 +588,35 @@ class SchemaProcessor
         $transferredProperty = (clone $property)
             ->filterValidators(static fn(Validator $v): bool =>
                 is_a($v->getValidator(), PropertyTemplateValidator::class));
+
+        // When composition-branch properties are transferred to the parent schema, their
+        // JsonPointer must reflect the branch position in the parent schema, not the position
+        // where the branch's nested class was first created (which may differ due to content
+        // signature dedup in generateModel()). Compute the correct pointer from the branch
+        // schema's pointer and the property's SchemaName.
+        // Skip for PropertyProxy instances: their pointer points to the $defs/definition
+        // location, which is already correct and should not be overridden.
+        if (!($property instanceof \PHPModelGenerator\Model\Property\PropertyProxy)) {
+            $branchPointer = $sourceBranch->getBranchSchema()->getPointer();
+            $schemaName = '';
+            foreach ($property->getAttributes() as $attr) {
+                if ($attr->getFqcn() === \PHPModelGenerator\Attributes\SchemaName::class) {
+                    $args = $attr->getArguments();
+                    $schemaName = reset($args);
+                    break;
+                }
+            }
+            if ($branchPointer !== '' && $schemaName !== '') {
+                $correctPointer = $branchPointer . '/properties/' . JsonSchema::encodePointer($schemaName);
+                $transferredProperty
+                    ->removeAttribute(JsonPointer::class)
+                    ->addAttribute(
+                        new PhpAttribute(JsonPointer::class, [$correctPointer]),
+                        $this->generatorConfiguration,
+                        PhpAttribute::JSON_POINTER,
+                    );
+            }
+        }
 
         if (!is_a($compositionProcessor, AllOfValidatorFactory::class, true)) {
             $transferredProperty->setRequired(false);
