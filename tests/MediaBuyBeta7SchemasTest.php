@@ -92,11 +92,6 @@ use ReflectionClass;
  */
 class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
 {
-    public static function setUpBeforeClass(): void
-    {
-        ini_set('memory_limit', '256M');
-    }
-
     private const SCHEMA_VERSION_DIR = 'v3.1.0-beta.7';
     private const ENUM_OUTPUT_DIR = 'PHPModelGeneratorTest/MediaBuyBeta7Enums';
     private const ENUM_NAMESPACE = 'MediaBuyBeta7Enum';

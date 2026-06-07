@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/13.0/phpunit.xsd" colors="true" processIsolation="false" stopOnFailure="false" bootstrap="tests/bootstrap.php">
+  <php>
+    <ini name="memory_limit" value="256M"/>
+  </php>
   <testsuite name="PHPModelGenerator">
     <directory>tests</directory>
     <exclude>tests/manual</exclude>
