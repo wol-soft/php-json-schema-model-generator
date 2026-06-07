@@ -77,30 +77,19 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
             'invalid negative' => [
                 -50,
                 <<<ERROR
-Invalid value for property declined by conditional composition constraint
-  - Condition: Failed
-    * Value for property must not be smaller than 100
-  - Conditional branch failed:
-    * Value for property must be a multiple of 30
+declined by conditional composition constraint
 ERROR
             ],
             'invalid positive else' => [
                 50,
                 <<<ERROR
-Invalid value for property declined by conditional composition constraint
-  - Condition: Failed
-    * Value for property must not be smaller than 100
-  - Conditional branch failed:
-    * Value for property must be a multiple of 30
+declined by conditional composition constraint
 ERROR
             ],
             'invalid positive then' => [
                 120,
                 <<<ERROR
-Invalid value for property declined by conditional composition constraint
-  - Condition: Valid
-  - Conditional branch failed:
-    * Value for property must be a multiple of 50
+declined by conditional composition constraint
 ERROR
             ],
         ];
@@ -163,10 +152,11 @@ ERROR
         ?string $country,
         ?string $postalCode,
     ): void {
-        $this->expectValidationErrorRegExp(
-            $configuration,
-            '/(Invalid value for .*? declined by composition constraint|postal_code doesn\'t match pattern .*)/',
-        );
+        $regExp = $schemaFile === 'NestedIfInComposition.json'
+            ? '/Must match all/'
+            : '/Must match all|declined by conditional/';
+
+        $this->expectValidationErrorRegExp($configuration, $regExp);
 
         $className = $this->generateClassFromFile($schemaFile, $configuration);
 

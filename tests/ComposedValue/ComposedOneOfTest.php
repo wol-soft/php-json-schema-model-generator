@@ -33,8 +33,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(<<<ERROR
-Invalid value for property declined by composition constraint.
-  Requires to match one composition element but matched 0 elements.
+Must match exactly 1 of
 ERROR,
         );
 
@@ -105,12 +104,7 @@ ERROR,
     public function testNotProvidedObjectLevelOneOfThrowsAnException(string $schema, int $matchedElements): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessageMatches(
-            <<<ERROR
-/^Invalid value for (.*?) declined by composition constraint.
-  Requires to match one composition element but matched $matchedElements elements.$/
-ERROR,
-        );
+        $this->expectExceptionMessageMatches('/Must match exactly 1 of/');
 
         $className = $this->generateClassFromFile($schema);
 
@@ -158,7 +152,7 @@ ERROR,
     public function testInvalidProvidedOneOfTypePropertyThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage('Must match exactly 1 of');
 
         $className = $this->generateClassFromFile('OneOfType.json');
 
@@ -202,7 +196,7 @@ ERROR,
     public function testInvalidProvidedRequiredOneOfTypePropertyThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage('Must match exactly 1 of');
 
         $className = $this->generateClassFromFile('OneOfTypeRequired.json');
 
@@ -250,10 +244,10 @@ ERROR,
     public static function invalidExtendedPropertyDataProvider(): array
     {
         return [
-            'int 10' => [10, 'Invalid value for property declined by composition constraint'],
-            'int 13' => [13, 'Invalid value for property declined by composition constraint'],
-            'int 20' => [20, 'Invalid value for property declined by composition constraint'],
-            'float 10.' => [10., 'Invalid value for property declined by composition constraint'],
+            'int 10' => [10, 'Must match exactly 1 of'],
+            'int 13' => [13, 'Must match exactly 1 of'],
+            'int 20' => [20, 'Must match exactly 1 of'],
+            'float 10.' => [10., 'Must match exactly 1 of'],
             'float 9.9' => [9.9, 'Value for property must not be smaller than 10'],
             'int 8' => [8, 'Value for property must not be smaller than 10'],
             'bool' => [true, 'Invalid type for property'],
@@ -316,7 +310,7 @@ ERROR,
         mixed $propertyValue,
     ): void {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage('Must match exactly 1 of');
 
         $className = $this->generateClassFromFile($schema);
 
@@ -347,7 +341,7 @@ ERROR,
     public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage('Must match exactly 1 of');
 
         $className = $this->generateClassFromFile('ReferencedObjectSchema2.json');
 
@@ -523,31 +517,21 @@ ERROR,
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match one composition element but matched 2 elements.
-  - Composition element #1: Valid
-  - Composition element #2: Valid
+Must match exactly 1 of
 ERROR
                 ,
                 <<<ERROR
-declined by composition constraint.
-  Requires to match one composition element but matched 0 elements.
-  - Composition element #1: Failed
-    * Invalid type for stringProperty. Requires string, got NULL
-  - Composition element #2: Failed
-    * Invalid type for integerProperty. Requires int, got NULL
+Must match exactly 1 of
 ERROR
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match one composition element but matched 2 elements.
+Must match exactly 1 of
 ERROR
                 ,
                 <<<ERROR
-declined by composition constraint.
-  Requires to match one composition element but matched 0 elements.
+Must match exactly 1 of
 ERROR
             ],
         ];

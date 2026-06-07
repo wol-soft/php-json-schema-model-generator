@@ -70,6 +70,9 @@ class OneOfValidatorFactory
 
         $availableAmount = count($compositionProperties);
 
+        $json = $propertySchema->getJson();
+        $discriminatorInfo = $this->parseDiscriminator($json, $compositionProperties);
+
         $property->addValidator(
             new ComposedPropertyValidator(
                 $schemaProcessor->getGeneratorConfiguration(),
@@ -87,9 +90,33 @@ class OneOfValidatorFactory
                     'postPropose' => true,
                     'mergedProperty' => null,
                     'onlyForDefinedValues' => $onlyForDefinedValues,
+                    'discriminatorInfo' => $discriminatorInfo,
                 ],
             ),
             100,
         );
+    }
+
+    private function parseDiscriminator(array $json, array $compositionProperties): array
+    {
+        if (!isset($json['discriminator']) || !is_array($json['discriminator'])) {
+            return [];
+        }
+
+        $discriminator = $json['discriminator'];
+        $propertyName = $discriminator['propertyName'] ?? '';
+        $mapping = $discriminator['mapping'] ?? [];
+
+        if ($propertyName === '' || $mapping === []) {
+            return [
+                'propertyName' => $propertyName,
+                'mapping' => [],
+            ];
+        }
+
+        return [
+            'propertyName' => $propertyName,
+            'mapping' => $mapping,
+        ];
     }
 }

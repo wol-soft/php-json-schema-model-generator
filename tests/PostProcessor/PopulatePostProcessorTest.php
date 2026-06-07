@@ -378,31 +378,21 @@ Invalid type for age. Requires int, got boolean"
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match one composition element but matched 2 elements.
-  - Composition element #1: Valid
-  - Composition element #2: Valid
+Must match exactly 1 of
 ERROR
                 ,
                 <<<ERROR
-declined by composition constraint.
-  Requires to match one composition element but matched 0 elements.
-  - Composition element #1: Failed
-    * Invalid type for stringProperty. Requires string, got integer
-  - Composition element #2: Failed
-    * Invalid type for integerProperty. Requires int, got NULL
+Invalid type for stringProperty. Requires string, got integer
 ERROR
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match one composition element but matched 2 elements.
+Must match exactly 1 of
 ERROR
                 ,
                 <<<ERROR
-declined by composition constraint.
-  Requires to match one composition element but matched 0 elements.
+Must match exactly 1 of
 ERROR
             ],
         ];

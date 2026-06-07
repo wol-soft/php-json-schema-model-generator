@@ -147,7 +147,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testNotMatchingOneOfPropertyThrowsAnException(): void
     {
         $this->expectException(OneOfException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage('Must match exactly 1 of');
 
         $className = $this->generateClassFromFile('OneOfConstProperty.json');
 

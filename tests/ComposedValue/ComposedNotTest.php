@@ -29,8 +29,7 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(<<<ERROR
-Invalid value for property declined by composition constraint.
-  Requires to match none composition element but matched 1 elements.
+Must match none of
 ERROR,
         );
 
@@ -101,7 +100,7 @@ ERROR,
         GeneratorConfiguration $configuration,
         string $propertyValue,
     ): void {
-        $this->expectValidationError($configuration, 'Invalid value for property declined by composition constraint');
+        $this->expectValidationError($configuration, 'Must match none of');
 
         $className = $this->generateClassFromFile('NotOfType.json', $configuration);
 
@@ -128,7 +127,7 @@ ERROR,
     #[DataProvider('validationMethodDataProvider')]
     public function testNotProvidedOptionalNotNullPropertyThrowsAnException(GeneratorConfiguration $configuration): void
     {
-        $this->expectValidationError($configuration, 'Invalid value for property declined by composition constraint');
+        $this->expectValidationError($configuration, 'Must match none of');
 
         $className = $this->generateClassFromFile('NotNull.json', $configuration);
 
@@ -144,7 +143,7 @@ ERROR,
     public function testInvalidProvidedOptionalNotNullPropertyThrowsAnException(
         GeneratorConfiguration $configuration,
     ): void {
-        $this->expectValidationError($configuration, 'Invalid value for property declined by composition constraint');
+        $this->expectValidationError($configuration, 'Must match none of');
 
         $className = $this->generateClassFromFile('NotNull.json', $configuration);
 
@@ -197,7 +196,7 @@ ERROR,
         $this->assertSame([], $object->getRawModelDataInput());
 
         // Providing the required 'name' property satisfies the `not` branch → validation fails.
-        $this->expectValidationError($configuration, 'declined by composition constraint');
+        $this->expectValidationError($configuration, 'Must match none of');
         new $className(['name' => 'Alice']);
     }
 
@@ -247,8 +246,8 @@ ERROR,
         return self::combineDataProvider(
             self::validationMethodDataProvider(),
             [
-                '10.' => [10., 'Invalid value for property declined by composition constraint'],
-                '12.' => [12., 'Invalid value for property declined by composition constraint'],
+                '10.' => [10., 'Must match none of'],
+                '12.' => [12., 'Must match none of'],
                 '9.9' => [9.9, 'Value for property must not be smaller than 10'],
                 '9.' => [9, 'Value for property must not be smaller than 10'],
                 '8.' => [8, 'Value for property must not be smaller than 10'],
@@ -320,7 +319,7 @@ ERROR,
     public function testMatchingObjectPropertyWithReferencedSchemaThrowsAnException(
         GeneratorConfiguration $configuration,
     ): void {
-        $this->expectValidationError($configuration, 'Invalid value for person declined by composition constraint');
+        $this->expectValidationError($configuration, 'Must match none of');
 
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json', $configuration);
 
@@ -365,17 +364,14 @@ ERROR,
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-Invalid value for property declined by composition constraint.
-  Requires to match none composition element but matched 1 elements.
-  - Composition element #1: Valid
+Must match none of
 ERROR
                 ,
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-Invalid value for property declined by composition constraint.
-  Requires to match none composition element but matched 1 elements.
+Must match none of
 ERROR
             ],
         ];

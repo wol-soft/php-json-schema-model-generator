@@ -661,7 +661,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testAllOfRefToInBaseDirFileEnforcesTagValidation(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessageMatches('/declined by composition constraint/');
+        $this->expectExceptionMessageMatches('/Must match all/');
 
         $namespace = 'T6AllOfRefValidation';
         $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));

@@ -10,14 +10,10 @@ use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
 
-/**
- * Class ComposedPropertyValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 {
     private string $modifiedValuesMethod;
+    private array $discriminatorInfo;
 
     public function __construct(
         GeneratorConfiguration $generatorConfiguration,
@@ -29,6 +25,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
     ) {
         $this->modifiedValuesMethod = '_getModifiedValues_' . substr(md5(spl_object_hash($this)), 0, 5);
         $this->isResolved = true;
+        $this->discriminatorInfo = $validatorVariables['discriminatorInfo'] ?? [];
 
         parent::__construct(
             $generatorConfiguration,
@@ -36,7 +33,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
             array_merge($validatorVariables, ['modifiedValuesMethod' => $this->modifiedValuesMethod]),
             $exceptionClass,
-            ['&$succeededCompositionElements', '&$compositionErrorCollection'],
+            ['&$succeededCompositionElements', '&$compositionErrorCollection', '&$branchDescriptions', '&$discriminatorInfo'],
         );
 
         $this->compositionProcessor = $compositionProcessor;
@@ -113,10 +110,51 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getValidatorSetUp(): string
     {
+        $descriptions = [];
+        foreach ($this->composedProperties as $prop) {
+            $descriptions[] = $this->describeBranch($prop);
+        }
+
+        $discriminatorCode = $this->discriminatorInfo !== []
+            ? '$discriminatorInfo = ' . var_export($this->discriminatorInfo, true) . ';'
+            : '$discriminatorInfo = [];';
+
         return '
             $succeededCompositionElements = 0;
             $compositionErrorCollection = [];
+            $branchDescriptions = ' . var_export($descriptions, true) . ';
+            ' . $discriminatorCode . '
         ';
+    }
+
+    private function describeBranch(CompositionPropertyDecorator $prop): string
+    {
+        if ($prop->isAlwaysTrueBranch()) {
+            return 'always-true (no constraint)';
+        }
+
+        $parts = [];
+
+        $type = $prop->getType();
+        if ($type !== null) {
+            $typeNames = $type->getNames();
+            if ($typeNames !== []) {
+                $parts[] = 'type: ' . implode(' | ', $typeNames);
+            }
+        }
+
+        $nestedSchema = $prop->getNestedSchema();
+        if ($nestedSchema !== null) {
+            $propNames = array_map(
+                static fn (PropertyInterface $p): string => $p->getName(),
+                $nestedSchema->getProperties(),
+            );
+            if ($propNames !== []) {
+                $parts[] = 'properties: [' . implode(', ', $propNames) . ']';
+            }
+        }
+
+        return implode(', ', $parts);
     }
 
     /**

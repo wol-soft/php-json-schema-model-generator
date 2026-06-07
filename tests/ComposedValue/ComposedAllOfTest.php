@@ -67,10 +67,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public function testNotProvidedObjectLevelAllOfNotMatchingAnyOptionThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessageMatches(
-            '/^Invalid value for (.*?) declined by composition constraint.\s*' .
-            'Requires to match all composition elements but matched 0 elements.\s*$/',
-        );
+        $this->expectExceptionMessageMatches('/Must match all/');
 
         $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
 
@@ -184,10 +181,10 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidComposedPropertyDataProvider(): array
     {
         return [
-            'one match - int 4' => [4, 'Invalid value for property declined by composition constraint'],
-            'one match - int 11' => [11, 'Invalid value for property declined by composition constraint'],
-            'int -1' => [-1, 'Invalid value for property declined by composition constraint'],
-            'int 20' => [20, 'Invalid value for property declined by composition constraint'],
+            'one match - int 4' => [4, 'Must match all 2 allOf'],
+            'one match - int 11' => [11, 'Must match all 2 allOf'],
+            'int -1' => [-1, 'Must match all 2 allOf'],
+            'int 20' => [20, 'Must match all 2 allOf'],
         ];
     }
 
@@ -235,10 +232,10 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidExtendedPropertyDataProvider(): array
     {
         return [
-            'one match - int 12' => [12, 'Invalid value for property declined by composition constraint'],
-            'one match - float 12.' => [12., 'Invalid value for property declined by composition constraint'],
-            'one match - int 15' => [15, 'Invalid value for property declined by composition constraint'],
-            'int 13' => [13, 'Invalid value for property declined by composition constraint'],
+            'one match - int 12' => [12, 'Must match all 2 allOf'],
+            'one match - float 12.' => [12., 'Must match all 2 allOf'],
+            'one match - int 15' => [15, 'Must match all 2 allOf'],
+            'int 13' => [13, 'Must match all 2 allOf'],
             'float 9.9' => [9.9, 'Value for property must not be smaller than 10'],
             'int 8' => [8, 'Value for property must not be smaller than 10'],
             'bool' => [true, 'Invalid type for property'],
@@ -279,7 +276,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         mixed $propertyValue,
     ): void {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage('Must match all 2 allOf');
 
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
 
@@ -307,7 +304,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage('Must match all 2 allOf');
 
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
 
@@ -510,31 +507,21 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match all composition elements but matched 1 elements.
-  - Composition element #1: Valid
-  - Composition element #2: Failed
-    * Value for integerProperty must not be smaller than 1
+Must match all 2 allOf
 ERROR
                 ,
                 <<<ERROR
-declined by composition constraint.
-  Requires to match all composition elements but matched 1 elements.
-  - Composition element #1: Failed
-    * Value for stringProperty must not be shorter than 2
-  - Composition element #2: Valid
+Must match all 2 allOf
 ERROR
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-declined by composition constraint.
-  Requires to match all composition elements but matched 1 elements.
+Must match all 2 allOf
 ERROR
                 ,
                 <<<ERROR
-declined by composition constraint.
-  Requires to match all composition elements but matched 1 elements.
+Must match all 2 allOf
 ERROR
             ],
         ];

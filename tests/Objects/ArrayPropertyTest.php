@@ -795,82 +795,27 @@ ERROR
             [
                 'combined object' => ['ArrayPropertyCombinedObject.json'],
             ],
-            self::combineDataProvider(
-                ['Error Collection' => [new GeneratorConfiguration()]],
-                [
-                    'invalid type bool' => [
-                        [['name' => 'Hannes'], true],
-                        <<<ERROR
-Invalid items in array property:
-  - invalid item #1
-    * Invalid value for item of array property declined by composition constraint.
-      Requires to match all composition elements but matched 0 elements.
-      - Composition element #1: Failed
-        * Invalid type for item of array property. Requires object, got boolean
-      - Composition element #2: Failed
-        * Invalid type for item of array property. Requires object, got boolean
-ERROR
-                    ],
-                    'missing property name' => [
-                        [['name' => 'Hannes'], ['age' => 42]],
-                        <<<ERROR
-Invalid items in array property:
-  - invalid item #1
-    * Invalid value for item of array property declined by composition constraint.
-      Requires to match all composition elements but matched 1 elements.
-      - Composition element #1: Failed
-        * Missing required value for name
-        * Invalid type for name. Requires string, got NULL
-      - Composition element #2: Valid
-ERROR
-                    ],
-                    'invalid type name' => [
-                        [['name' => 'Hannes'], ['name' => false, 'age' => 42]],
-                        <<<ERROR
-Invalid items in array property:
-  - invalid item #1
-    * Invalid value for item of array property declined by composition constraint.
-      Requires to match all composition elements but matched 1 elements.
-      - Composition element #1: Failed
-        * Invalid type for name. Requires string, got boolean
-      - Composition element #2: Valid
-ERROR
-                    ],
-                    'multiple violations' => [
-                        [['name' => false, 'age' => 42], ['name' => 'F', 'age' => 'yes'], 5, []],
-                        <<<ERROR
-Invalid items in array property:
-  - invalid item #0
-    * Invalid value for item of array property declined by composition constraint.
-      Requires to match all composition elements but matched 1 elements.
-      - Composition element #1: Failed
-        * Invalid type for name. Requires string, got boolean
-      - Composition element #2: Valid
-  - invalid item #1
-    * Invalid value for item of array property declined by composition constraint.
-      Requires to match all composition elements but matched 0 elements.
-      - Composition element #1: Failed
-        * Value for name must not be shorter than 2
-      - Composition element #2: Failed
-        * Invalid type for age. Requires int, got string
-  - invalid item #2
-    * Invalid value for item of array property declined by composition constraint.
-      Requires to match all composition elements but matched 0 elements.
-      - Composition element #1: Failed
-        * Invalid type for item of array property. Requires object, got integer
-      - Composition element #2: Failed
-        * Invalid type for item of array property. Requires object, got integer
-  - invalid item #3
-    * Invalid value for item of array property declined by composition constraint.
-      Requires to match all composition elements but matched 1 elements.
-      - Composition element #1: Failed
-        * Missing required value for name
-        * Invalid type for name. Requires string, got NULL
-      - Composition element #2: Valid
-ERROR
-                    ],
-                ],
-            )
+                    self::combineDataProvider(
+                        ['Error Collection' => [new GeneratorConfiguration()]],
+                        [
+                            'invalid type bool' => [
+                                [['name' => 'Hannes'], true],
+                                'Invalid type for item of array property. Requires object, got boolean',
+                            ],
+                            'missing property name' => [
+                                [['name' => 'Hannes'], ['age' => 42]],
+                                'Missing required value for name',
+                            ],
+                            'invalid type name' => [
+                                [['name' => 'Hannes'], ['name' => false, 'age' => 42]],
+                                'Invalid type for name. Requires string, got boolean',
+                            ],
+                            'multiple violations' => [
+                                [['name' => false, 'age' => 42], ['name' => 'F', 'age' => 'yes'], 5, []],
+                                'Invalid type for name. Requires string, got boolean',
+                            ],
+                        ],
+                    )
         );
     }
 
