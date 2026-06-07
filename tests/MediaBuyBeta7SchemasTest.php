@@ -585,7 +585,16 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
         $this->assertFalse($canceledArray[$pausedKey] ?? true);
         $this->assertTrue($canceledArray[$canceledKey] ?? false);
 
-        // Phase 4: verify filename length
+        // Phase 4: verify JsonPointer attributes on composition properties.
+        // adcp_version comes from the root-level allOf branch 0 — its pointer
+        // must reflect that position, not a $defs reference from elsewhere.
+        $this->assertPropertyHasJsonPointer($object, 'adcpVersion', '/allOf/0/properties/adcp_version');
+        $this->assertPropertyHasJsonPointer($object, 'adcpMajorVersion', '/allOf/0/properties/adcp_major_version');
+        // Root-level properties must retain their simple /properties/... pointer.
+        $this->assertPropertyHasJsonPointer($object, 'account', '/properties/account');
+        $this->assertPropertyHasJsonPointer($object, 'mediaBuyId', '/properties/media_buy_id');
+
+        // Phase 5: verify filename length
         $reflection = new ReflectionClass($className);
         $dir = dirname($reflection->getFileName());
         $maxLength = 0;

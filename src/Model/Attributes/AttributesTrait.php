@@ -36,6 +36,16 @@ trait AttributesTrait
         return $this;
     }
 
+    public function removeAttribute(string $attributeClassName): static
+    {
+        $this->phpAttributes = array_values(array_filter(
+            $this->phpAttributes,
+            static fn(PhpAttribute $attribute): bool => $attribute->getFqcn() !== $attributeClassName,
+        ));
+
+        return $this;
+    }
+
     /**
      * @return PhpAttribute[]
      */
