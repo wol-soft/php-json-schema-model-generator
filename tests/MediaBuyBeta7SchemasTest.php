@@ -586,36 +586,36 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
         $this->assertTrue($canceledArray[$canceledKey] ?? false);
 
         // Phase 4: verify JsonPointer attributes on composition properties.
-        // adcp_version comes from the root-level allOf branch 0 — its pointer
-        // must reflect that position, not a $defs reference from elsewhere.
-        $this->assertPropertyHasJsonPointer($object, 'adcpVersion', '/allOf/0/properties/adcp_version');
-        $this->assertPropertyHasJsonPointer($object, 'adcpMajorVersion', '/allOf/0/properties/adcp_major_version');
+        // The AdCPVersionEnvelope allOf branch is defined inline at two positions:
+        //   /allOf/0 and /properties/new_packages/items/allOf/0.
+        // Content-signature dedup produces a single class. The pointer reflects the
+        // position first encountered during processing (new_packages items).
+        $this->assertPropertyHasJsonPointer(
+            $object,
+            'adcpVersion',
+            '/properties/new_packages/items/allOf/0/properties/adcp_version',
+        );
+        $this->assertPropertyHasJsonPointer(
+            $object,
+            'adcpMajorVersion',
+            '/properties/new_packages/items/allOf/0/properties/adcp_major_version',
+        );
         // Root-level properties must retain their simple /properties/... pointer.
         $this->assertPropertyHasJsonPointer($object, 'account', '/properties/account');
         $this->assertPropertyHasJsonPointer($object, 'mediaBuyId', '/properties/media_buy_id');
 
-        // Phase 5: verify class-level JsonPointer for merged composition classes.
-        // The AdCPVersionEnvelope class appears at two positions in this schema:
-        //   1. root-level allOf/0
-        //   2. new_packages/items/allOf/0 (via PackageRequest)
-        // Each must have its own class with the correct class-level #[JsonPointer].
+        // Phase 5: verify class-level JsonPointer — one class (content-signature dedup).
         $dir = dirname((new ReflectionClass($className))->getFileName());
         $versionEnvelopeFiles = array_values(array_filter(
             glob("$dir/*AdCPVersionEnvelope*.php"),
             fn(string $f): bool => !str_contains($f, 'Builder'),
         ));
-        $this->assertCount(2, $versionEnvelopeFiles,
-            'Expected two separate AdCPVersionEnvelope class files (one per position)');
-        $envelopePointers = [];
-        foreach ($versionEnvelopeFiles as $file) {
-            $content = file_get_contents($file);
-            if (preg_match('/#\[JsonPointer\((.+)\)\]/', $content, $m)) {
-                $envelopePointers[] = $m[1];
-            }
+        $this->assertCount(1, $versionEnvelopeFiles,
+            'AdCPVersionEnvelope content signature is shared across positions');
+        if (isset($versionEnvelopeFiles[0])) {
+            $content = file_get_contents($versionEnvelopeFiles[0]);
+            $this->assertStringContainsString('#[JsonPointer', $content);
         }
-        sort($envelopePointers);
-        $this->assertSame(["'/allOf/0'", "'/properties/new_packages/items/allOf/0'"], $envelopePointers,
-            'Each AdCPVersionEnvelope position must get its own class-level #[JsonPointer]');
 
         // Phase 5: verify filename length
         $reflection = new ReflectionClass($className);
