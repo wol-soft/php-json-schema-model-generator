@@ -63,15 +63,32 @@ use ReflectionClass;
  *   B9. toArray / resolveSerializationHook calls non-existent
  *       getSerializedValue()
  *
- * SCHEMAS TESTED (8 of 25):
- *   get-products-response          — allOf + if/then/else, 2.2MB
- *   create-media-buy-request       — allOf + oneOf (account, start_time), 2.0MB
- *   create-media-buy-response      — allOf (2 branches), 676KB
- *   get-media-buy-delivery-request  — allOf + oneOf (account), 64KB
- *   get-media-buy-delivery-response — allOf + response fields, 1.8MB
- *   update-media-buy-request       — allOf + partial-update PATCH semantics, 3.6MB
- *   build-creative-response        — allOf (2 branches) + oneOf (4 branches), 3.1MB
- *   package-request                — allOf + not + targeting_overlay, 1.7MB
+ * SCHEMAS TESTED (25 of 25):
+ *   get-products-response                       — allOf + if/then/else, 2.2MB
+ *   create-media-buy-request                    — allOf + oneOf (account, start_time), 2.0MB
+ *   create-media-buy-response                   — allOf (2 branches), 676KB
+ *   get-media-buy-delivery-request               — allOf + oneOf (account), 64KB
+ *   get-media-buy-delivery-response              — allOf + response fields, 1.8MB
+ *   update-media-buy-request                    — allOf + partial-update PATCH, 3.6MB
+ *   build-creative-response                     — allOf (2 branches) + oneOf (4 branches), 3.1MB
+ *   package-request                             — allOf + not + targeting_overlay, 1.7MB
+ *   get-media-buys-request                      — allOf + oneOf (account), 54KB
+ *   get-media-buys-response                     — allOf + pagination + media_buys, 364KB
+ *   get-products-request                        — allOf + buying_mode enum, 263KB
+ *   build-creative-request                      — allOf + idempotency_key, 1.4MB
+ *   list-creative-formats-request               — allOf + format filters, 21KB
+ *   list-creative-formats-response              — allOf + formats + source, 744KB
+ *   log-event-request                           — allOf + events array, 20KB
+ *   log-event-response                          — allOf + oneOf (2 branches), 57KB
+ *   provide-performance-feedback-request        — allOf + performance_index, 7KB
+ *   provide-performance-feedback-response       — allOf + oneOf (2 branches), 56KB
+ *   sync-audiences-request                      — allOf + audiences + delete_missing, 62KB
+ *   sync-audiences-response                     — allOf + oneOf (3 branches), 99KB
+ *   sync-catalogs-request                       — allOf + catalogs + dry_run, 81KB
+ *   sync-catalogs-response                      — allOf + oneOf (3 branches), 95KB
+ *   sync-event-sources-request                  — allOf + event_sources + delete_missing, 54KB
+ *   sync-event-sources-response                 — allOf + oneOf (2 branches), 84KB
+ *   update-media-buy-response                   — allOf + oneOf (3 branches), 521KB
  */
 class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -313,6 +330,8 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
      * different names, because the second property is a PropertyProxy whose
      * getAttribute() reflects the first property. The builder post-processor
      * is not added for this test to avoid the duplicate-method crash.
+     *
+     * @runInSeparateProcess
      */
     public function testCreateMediaBuyResponseConsolidated(): void
     {
@@ -368,6 +387,8 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
      * The schema has allOf (version envelope) with properties including
      * account (oneOf account_id or brand+operator), media_buy_ids array,
      * status_filter, date range, and reporting dimensions.
+     *
+     * @runInSeparateProcess
      */
     public function testGetMediaBuyDeliveryRequestConsolidated(): void
     {
@@ -828,6 +849,676 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
+    // ── get-media-buys-request ────────────────────────────────────────────
+
+    /**
+     * @runInSeparateProcess
+     */
+    public function testGetMediaBuysRequest(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('get-media-buys-request.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        $object = new $className([
+            'account' => ['account_id' => 'acc_test'],
+            'media_buy_ids' => ['mb_001', 'mb_002'],
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $acctKey = array_key_exists('account', $serialized) ? 'account' : 'Account';
+        $this->assertIsArray($serialized[$acctKey] ?? []);
+        $accIdKey = array_key_exists('account_id', $serialized[$acctKey])
+            ? 'account_id'
+            : 'accountId';
+        $this->assertSame('acc_test', $serialized[$acctKey][$accIdKey] ?? null);
+
+        $builder = new $builderClassName();
+        $builder
+            ->setAccount([
+                'brand' => ['domain' => 'test-brand.com'],
+                'operator' => 'test-brand.com',
+            ])
+            ->setMediaBuyIds(['mb_003'])
+            ->setIncludeSnapshot(true)
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+        $this->assertSame(
+            'test-brand.com',
+            $builderOutput['account']['brand']['domain'] ?? null,
+        );
+
+        $this->assertPropertyHasJsonPointer($object, 'account', '/properties/account');
+        $this->assertPropertyHasJsonPointer($object, 'mediaBuyIds', '/properties/media_buy_ids');
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── get-media-buys-response ───────────────────────────────────────────
+
+    /**
+     * @runInSeparateProcess
+     */
+    public function testGetMediaBuysResponse(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('get-media-buys-response.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        $object = new $className([
+            'status' => 'completed',
+            'media_buys' => [],
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $builder = new $builderClassName();
+        $builder
+            ->setStatus('completed')
+            ->setMediaBuys([])
+            ->setPagination(['has_more' => false])
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+
+        $this->assertPropertyHasJsonPointer($object, 'mediaBuys', '/properties/media_buys');
+        $this->assertPropertyHasJsonPointer($object, 'pagination', '/properties/pagination');
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── get-products-request ──────────────────────────────────────────────
+
+    /**
+     * @runInSeparateProcess
+     */
+    public function testGetProductsRequest(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('get-products-request.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        $object = new $className([
+            'buying_mode' => 'brief',
+            'account' => ['account_id' => 'acc_test'],
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $builder = new $builderClassName();
+        $builder
+            ->setBuyingMode('brief')
+            ->setAccount(['account_id' => 'acc_builder'])
+            ->setBrief('Campaign for summer collection')
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+
+        $bmKey = array_key_exists('buying_mode', $builderOutput) ? 'buying_mode' : 'buyingMode';
+        $this->assertSame('brief', $builderOutput[$bmKey] ?? null);
+
+        $this->assertPropertyHasJsonPointer($object, 'account', '/properties/account');
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── build-creative-request ────────────────────────────────────────────
+
+    /**
+     * @runInSeparateProcess
+     */
+    public function testBuildCreativeRequest(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('build-creative-request.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        $object = new $className([
+            'idempotency_key' => 'test-bc-req-001-key-abcdefghijk',
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $builder = new $builderClassName();
+        $builder
+            ->setIdempotencyKey('builder-bc-req-001-key-abcdefgh')
+            ->setAccount([
+                'brand' => ['domain' => 'test-brand.com'],
+                'operator' => 'test-brand.com',
+            ])
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+
+        $idKey = array_key_exists('idempotency_key', $builderOutput) ? 'idempotency_key' : 'idempotencyKey';
+        $this->assertSame('builder-bc-req-001-key-abcdefgh', $builderOutput[$idKey] ?? null);
+
+        $this->assertPropertyHasJsonPointer($object, 'creativeManifest', '/properties/creative_manifest');
+        $this->assertPropertyHasJsonPointer($object, 'idempotencyKey', '/properties/idempotency_key');
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── list-creative-formats-request ─────────────────────────────────────
+
+    /**
+     * @runInSeparateProcess
+     */
+    public function testListCreativeFormatsRequest(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('list-creative-formats-request.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        $object = new $className([]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $builder = new $builderClassName();
+        $builder
+            ->setFormatIds([
+                ['agent_url' => 'https://creative.adcontextprotocol.org', 'id' => 'display_300x250'],
+            ])
+            ->setAssetTypes(['image', 'video'])
+            ->setMaxWidth(1920)
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+
+        $fmtKey = array_key_exists('format_ids', $builderOutput) ? 'format_ids' : 'formatIds';
+        $this->assertIsArray($builderOutput[$fmtKey] ?? null);
+        $this->assertSame(
+            'https://creative.adcontextprotocol.org',
+            $builderOutput[$fmtKey][0]['agent_url'] ?? null,
+        );
+
+        $this->assertPropertyHasJsonPointer($object, 'formatIds', '/properties/format_ids');
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── list-creative-formats-response ────────────────────────────────────
+
+    /**
+     * @runInSeparateProcess
+     */
+    public function testListCreativeFormatsResponse(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('list-creative-formats-response.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        $object = new $className([
+            'status' => 'completed',
+            'formats' => [],
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $builder = new $builderClassName();
+        $builder
+            ->setStatus('completed')
+            ->setFormats([])
+            ->setSource('publisher')
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+
+        $this->assertPropertyHasJsonPointer($object, 'formats', '/properties/formats');
+        $this->assertPropertyHasJsonPointer($object, 'source', '/properties/source');
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── log-event-request ─────────────────────────────────────────────────
+
+    /**
+     * @runInSeparateProcess
+     */
+    public function testLogEventRequest(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('log-event-request.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        $object = new $className([
+            'idempotency_key' => 'log-001-key-abcdefghijklmn',
+            'event_source_id' => 'evt_src_001',
+            'events' => [
+                ['event_id' => 'evt_001', 'event_type' => 'page_view', 'event_time' => '2026-01-01T00:00:00Z'],
+            ],
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $builder = new $builderClassName();
+        $builder
+            ->setEventSourceId('evt_src_002')
+            ->setIdempotencyKey('log-builder-002-key-abcdefgh')
+            ->setEvents([['event_id' => 'evt_002', 'event_type' => 'search', 'event_time' => '2026-01-02T00:00:00Z']])
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+
+        $this->assertPropertyHasJsonPointer($object, 'eventSourceId', '/properties/event_source_id');
+        $this->assertPropertyHasJsonPointer($object, 'events', '/properties/events');
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── log-event-response ────────────────────────────────────────────────
+
+    /**
+     * LOG EVENT RESPONSE — oneOf at root (2 branches): success and error.
+     * No builder (root-level oneOf unsupported).
+     *
+     * @runInSeparateProcess
+     */
+    public function testLogEventResponse(): void
+    {
+        $className = $this->generate('log-event-response.json');
+
+        $success = new $className([
+            'status' => 'completed',
+            'events_received' => 10,
+            'events_processed' => 10,
+        ]);
+        $this->assertInstanceOf($className, $success);
+        $successArray = $success->toArray();
+        $this->assertIsArray($successArray);
+
+        $error = new $className([
+            'status' => 'completed',
+            'errors' => [['code' => 'ERROR', 'message' => 'Failed']],
+        ]);
+        $this->assertInstanceOf($className, $error);
+        $errorArray = $error->toArray();
+        $this->assertIsArray($errorArray);
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── provide-performance-feedback-request ──────────────────────────────
+
+    /**
+     * @runInSeparateProcess
+     */
+    public function testProvidePerformanceFeedbackRequest(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('provide-performance-feedback-request.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        $object = new $className([
+            'idempotency_key' => 'ppf-001-key-abcdefghijklmn',
+            'media_buy_id' => 'mb_001',
+            'measurement_period' => [
+                'start' => '2026-01-01T00:00:00Z',
+                'end' => '2026-01-31T23:59:59Z',
+            ],
+            'performance_index' => 1.5,
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $builder = new $builderClassName();
+        $builder
+            ->setIdempotencyKey('ppf-builder-002-key-abcdef')
+            ->setMediaBuyId('mb_002')
+            ->setMeasurementPeriod([
+                'start' => '2026-02-01T00:00:00Z',
+                'end' => '2026-02-28T23:59:59Z',
+            ])
+            ->setPerformanceIndex(2.0)
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── provide-performance-feedback-response ─────────────────────────────
+
+    /**
+     * PROVIDE PERFORMANCE FEEDBACK RESPONSE — oneOf at root (2 branches):
+     * success and error. No builder (root-level oneOf unsupported).
+     *
+     * @runInSeparateProcess
+     */
+    public function testProvidePerformanceFeedbackResponse(): void
+    {
+        $className = $this->generate('provide-performance-feedback-response.json');
+
+        $success = new $className([
+            'status' => 'completed',
+            'success' => true,
+        ]);
+        $this->assertInstanceOf($className, $success);
+        $successArray = $success->toArray();
+
+        $error = new $className([
+            'status' => 'completed',
+            'errors' => [['code' => 'ERROR', 'message' => 'Failed']],
+        ]);
+        $this->assertInstanceOf($className, $error);
+        $errorArray = $error->toArray();
+        $this->assertIsArray($errorArray);
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── sync-audiences-request ────────────────────────────────────────────
+
+    /**
+     * @runInSeparateProcess
+     */
+    public function testSyncAudiencesRequest(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('sync-audiences-request.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        $object = new $className([
+            'idempotency_key' => 'sync-aud-001-abcdefghijkl',
+            'account' => ['account_id' => 'acc_test'],
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $builder = new $builderClassName();
+        $builder
+            ->setAccount(['account_id' => 'acc_builder'])
+            ->setAudiences([['audience_id' => 'aud_001']])
+            ->setDeleteMissing(false)
+            ->setIdempotencyKey('sync-aud-builder-001-abcde')
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── sync-audiences-response ───────────────────────────────────────────
+
+    /**
+     * SYNC AUDIENCES RESPONSE — oneOf at root (3 branches): success, error,
+     * and async. No builder (root-level oneOf unsupported).
+     *
+     * @runInSeparateProcess
+     */
+    public function testSyncAudiencesResponse(): void
+    {
+        $className = $this->generate('sync-audiences-response.json');
+
+        $success = new $className([
+            'status' => 'completed',
+            'audiences' => [],
+        ]);
+        $this->assertInstanceOf($className, $success);
+        $successArray = $success->toArray();
+        $this->assertIsArray($successArray);
+
+        $error = new $className([
+            'status' => 'completed',
+            'errors' => [['code' => 'ERROR', 'message' => 'Failed']],
+        ]);
+        $this->assertInstanceOf($className, $error);
+        $errorArray = $error->toArray();
+        $this->assertIsArray($errorArray);
+
+        $async = new $className([
+            'status' => 'submitted',
+            'task_id' => 'task_001',
+            'message' => 'Processing',
+        ]);
+        $this->assertInstanceOf($className, $async);
+        $asyncArray = $async->toArray();
+        $this->assertIsArray($asyncArray);
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── sync-catalogs-request ─────────────────────────────────────────────
+
+    /**
+     * @runInSeparateProcess
+     */
+    public function testSyncCatalogsRequest(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('sync-catalogs-request.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        $object = new $className([
+            'idempotency_key' => 'sync-cat-001-abcdefghijkl',
+            'account' => ['account_id' => 'acc_test'],
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $builder = new $builderClassName();
+        $builder
+            ->setAccount(['account_id' => 'acc_builder'])
+            ->setCatalogs([['type' => 'product']])
+            ->setDryRun(true)
+            ->setIdempotencyKey('sync-cat-builder-001-abcde')
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── sync-catalogs-response ────────────────────────────────────────────
+
+    /**
+     * SYNC CATALOGS RESPONSE — oneOf at root (3 branches): success, error,
+     * and async. No builder (root-level oneOf unsupported).
+     *
+     * @runInSeparateProcess
+     */
+    public function testSyncCatalogsResponse(): void
+    {
+        $className = $this->generate('sync-catalogs-response.json');
+
+        $success = new $className([
+            'status' => 'completed',
+            'catalogs' => [],
+        ]);
+        $this->assertInstanceOf($className, $success);
+        $successArray = $success->toArray();
+        $this->assertIsArray($successArray);
+
+        $error = new $className([
+            'status' => 'completed',
+            'errors' => [['code' => 'ERROR', 'message' => 'Failed']],
+        ]);
+        $this->assertInstanceOf($className, $error);
+        $errorArray = $error->toArray();
+        $this->assertIsArray($errorArray);
+
+        $async = new $className([
+            'status' => 'submitted',
+            'task_id' => 'task_001',
+        ]);
+        $this->assertInstanceOf($className, $async);
+        $asyncArray = $async->toArray();
+        $this->assertIsArray($asyncArray);
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── sync-event-sources-request ────────────────────────────────────────
+
+    /**
+     * @runInSeparateProcess
+     */
+    public function testSyncEventSourcesRequest(): void
+    {
+        $this->addBuilder();
+        $className = $this->generate('sync-event-sources-request.json');
+        $builderClassName = $className . 'Builder';
+        $this->assertTrue(class_exists($builderClassName));
+
+        $object = new $className([
+            'idempotency_key' => 'sync-es-001-abcdefghijklm',
+            'account' => ['account_id' => 'acc_test'],
+        ]);
+        $this->assertInstanceOf($className, $object);
+        $serialized = $object->toArray();
+        $this->assertIsArray($serialized);
+
+        $builder = new $builderClassName();
+        $builder
+            ->setAccount(['account_id' => 'acc_builder'])
+            ->setEventSources([['event_source_id' => 'es_001']])
+            ->setDeleteMissing(false)
+            ->setIdempotencyKey('sync-es-builder-001-abcd')
+            ->setAdcpVersion('3.1');
+
+        $model = $builder->validate();
+        $this->assertInstanceOf($className, $model);
+
+        $builderOutput = $model->toArray();
+        $this->assertIsArray($builderOutput);
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── sync-event-sources-response ───────────────────────────────────────
+
+    /**
+     * SYNC EVENT SOURCES RESPONSE — oneOf at root (2 branches): success
+     * and error. No builder (root-level oneOf unsupported).
+     *
+     * @runInSeparateProcess
+     */
+    public function testSyncEventSourcesResponse(): void
+    {
+        $className = $this->generate('sync-event-sources-response.json');
+
+        $success = new $className([
+            'status' => 'completed',
+            'event_sources' => [],
+        ]);
+        $this->assertInstanceOf($className, $success);
+        $successArray = $success->toArray();
+        $this->assertIsArray($successArray);
+
+        $error = new $className([
+            'status' => 'completed',
+            'errors' => [['code' => 'ERROR', 'message' => 'Failed']],
+        ]);
+        $this->assertInstanceOf($className, $error);
+        $errorArray = $error->toArray();
+        $this->assertIsArray($errorArray);
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
+    // ── update-media-buy-response ─────────────────────────────────────────
+
+    /**
+     * UPDATE MEDIA BUY RESPONSE — oneOf at root (3 branches): success,
+     * error, and async. No builder (root-level oneOf unsupported).
+     *
+     * @runInSeparateProcess
+     */
+    public function testUpdateMediaBuyResponse(): void
+    {
+        $className = $this->generate('update-media-buy-response.json');
+
+        $success = new $className([
+            'status' => 'completed',
+            'media_buy_id' => 'mb_001',
+            'revision' => 1,
+            'media_buy_status' => 'active',
+        ]);
+        $this->assertInstanceOf($className, $success);
+        $successArray = $success->toArray();
+        $this->assertIsArray($successArray);
+
+        $error = new $className([
+            'status' => 'completed',
+            'errors' => [['code' => 'ERROR', 'message' => 'Failed']],
+        ]);
+        $this->assertInstanceOf($className, $error);
+        $errorArray = $error->toArray();
+        $this->assertIsArray($errorArray);
+
+        $async = new $className([
+            'status' => 'submitted',
+            'task_id' => 'task_001',
+        ]);
+        $this->assertInstanceOf($className, $async);
+        $asyncArray = $async->toArray();
+        $this->assertIsArray($asyncArray);
+
+        $this->assertFilenamesWithinLimit($className);
+    }
+
     // ── deep nesting regression (B5) ──────────────────────────────────────
 
     /**
@@ -837,6 +1528,8 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
      * Creates a schema with 15 levels of nested objects, each containing
      * both allOf composition and a nested property, which previously
      * caused exponential class name compounding.
+     *
+     * @runInSeparateProcess
      */
     public function testDeepNestingNoFilenameOverflow(): void
     {
@@ -887,6 +1580,27 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
     }
 
     // ── generation helpers ───────────────────────────────────────────────
+
+    private function assertFilenamesWithinLimit(string $className, int $limit = 255): void
+    {
+        $reflection = new ReflectionClass($className);
+        $dir = dirname($reflection->getFileName());
+        $maxLength = 0;
+        $longestFile = '';
+        foreach (glob("$dir/*.php") as $generatedFile) {
+            $basename = basename($generatedFile);
+            $len = strlen($basename);
+            if ($len > $maxLength) {
+                $maxLength = $len;
+                $longestFile = $basename;
+            }
+        }
+        $this->assertLessThan(
+            $limit,
+            $maxLength,
+            "Generated filename exceeds limit: $longestFile ($maxLength chars)",
+        );
+    }
 
     private function generate(string $schemaFile): string
     {
