@@ -356,16 +356,22 @@ class PropertyFactory
                 // their own per-instance attributes (SchemaName, JsonPointer) specific to this
                 // usage. The underlying property's attributes were set by its own buildProperty()
                 // call with a different property name, which would give this proxy the wrong
-                // SchemaName if shared.
+                // SchemaName if shared. For non-proxy properties (first $ref resolution), also
+                // override the pointer to reflect the reference site rather than the definition.
+                $configuration = $schemaProcessor->getGeneratorConfiguration();
+                $json = $propertySchema->getJson();
+
+                // Replace JsonPointer with the reference site's pointer.
+                $property->removeAttribute(JsonPointer::class);
+                $property
+                    ->addAttribute(
+                        new PhpAttribute(JsonPointer::class, [$propertySchema->getPointer()]),
+                        $configuration,
+                        PhpAttribute::JSON_POINTER,
+                    );
+
                 if ($property instanceof PropertyProxy) {
-                    $configuration = $schemaProcessor->getGeneratorConfiguration();
-                    $json = $propertySchema->getJson();
                     $property
-                        ->addAttribute(
-                            new PhpAttribute(JsonPointer::class, [$propertySchema->getPointer()]),
-                            $configuration,
-                            PhpAttribute::JSON_POINTER,
-                        )
                         ->addAttribute(
                             new PhpAttribute(SchemaName::class, [$propertyName]),
                             $configuration,

@@ -160,12 +160,12 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
             'Too few arguments' => [
                 ['name' => 'Hannes'],
                 ValidationException::class,
-                'Provided object for ObjectPropertyTest_(.*) must not contain less than 2 properties'
+                'Provided object for [^ ]+ must not contain less than 2 properties'
             ],
             'Too many arguments' => [
                 ['name' => 'Hannes', 'age' => 42, 'alive' => true, 'children' => 3],
                 ValidationException::class,
-                'Provided object for ObjectPropertyTest_(.*) must not contain more than 3 properties'
+                'Provided object for [^ ]+ must not contain more than 3 properties'
             ],
         ];
     }

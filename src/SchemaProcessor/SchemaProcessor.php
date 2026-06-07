@@ -145,12 +145,7 @@ class SchemaProcessor
         bool $initialClass,
     ): Schema {
         $schemaSignature = $jsonSchema->getSignature();
-        // Include the pointer in the cache key so that schemas with identical
-        // content at different schema positions (e.g. two inline allOf branches)
-        // are not shared. This ensures each position gets its own class-level
-        // #[JsonPointer] attribute. For $ref targets the pointer is always the
-        // definition location, so sharing is preserved.
-        $cacheKey = $jsonSchema->getPointer() . '|' . $schemaSignature;
+        $cacheKey = $schemaSignature;
 
         if (!$initialClass && isset($this->processedSchema[$cacheKey])) {
             if ($this->generatorConfiguration->isOutputEnabled()) {
