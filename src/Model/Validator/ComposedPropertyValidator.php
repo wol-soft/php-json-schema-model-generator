@@ -133,28 +133,48 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             return 'always-true (no constraint)';
         }
 
-        $parts = [];
-
-        $type = $prop->getType();
-        if ($type !== null) {
-            $typeNames = $type->getNames();
-            if ($typeNames !== []) {
-                $parts[] = 'type: ' . implode(' | ', $typeNames);
-            }
-        }
-
         $nestedSchema = $prop->getNestedSchema();
         if ($nestedSchema !== null) {
             $propNames = array_map(
                 static fn (PropertyInterface $p): string => $p->getName(),
                 $nestedSchema->getProperties(),
             );
-            if ($propNames !== []) {
-                $parts[] = 'properties: [' . implode(', ', $propNames) . ']';
+            return 'properties: [' . ($propNames !== [] ? implode(', ', $propNames) : 'none') . ']';
+        }
+
+        $type = $prop->getType();
+        if ($type !== null) {
+            $typeNames = $type->getNames();
+            if ($typeNames !== []) {
+                $filtered = array_map(
+                    static fn (string $name): string => self::shortTypeName($name),
+                    $typeNames,
+                );
+                return 'type: ' . implode(' | ', $filtered);
             }
         }
 
-        return implode(', ', $parts);
+        return '';
+    }
+
+    private static function shortTypeName(string $name): string
+    {
+        if (in_array(strtolower($name), ['string', 'int', 'integer', 'float', 'number', 'bool', 'boolean', 'array', 'object', 'null', 'mixed'], true)) {
+            return $name;
+        }
+
+        $parts = explode('_', $name);
+        $nonHexParts = array_values(array_filter(
+            $parts,
+            static fn (string $part): bool => !preg_match('/^[0-9a-fA-F]{8,}$/', $part),
+        ));
+
+        if ($nonHexParts === []) {
+            return 'object';
+        }
+
+        $last = end($nonHexParts);
+        return strlen($last) > 30 ? substr($last, 0, 27) . '...' : $last;
     }
 
     /**

@@ -800,19 +800,19 @@ ERROR
                         [
                             'invalid type bool' => [
                                 [['name' => 'Hannes'], true],
-                                'Invalid type for item of array property. Requires object, got boolean',
+                                'Must match all 2 allOf branches, but only 0 matched.',
                             ],
                             'missing property name' => [
                                 [['name' => 'Hannes'], ['age' => 42]],
-                                'Missing required value for name',
+                                'Must match all 2 allOf branches, but only 1 matched.',
                             ],
                             'invalid type name' => [
                                 [['name' => 'Hannes'], ['name' => false, 'age' => 42]],
-                                'Invalid type for name. Requires string, got boolean',
+                                'Must match all 2 allOf branches, but only 1 matched.',
                             ],
                             'multiple violations' => [
                                 [['name' => false, 'age' => 42], ['name' => 'F', 'age' => 'yes'], 5, []],
-                                'Invalid type for name. Requires string, got boolean',
+                                'Must match all 2 allOf',
                             ],
                         ],
                     )
