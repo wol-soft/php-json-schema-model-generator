@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace PHPModelGenerator\SchemaProcessor;
 
 use PHPModelGenerator\Attributes\JsonPointer;
+use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyProxy;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\RenderJob;
 use PHPModelGenerator\Model\Schema;
@@ -143,14 +145,20 @@ class SchemaProcessor
         bool $initialClass,
     ): Schema {
         $schemaSignature = $jsonSchema->getSignature();
+        // Include the pointer in the cache key so that schemas with identical
+        // content at different schema positions (e.g. two inline allOf branches)
+        // are not shared. This ensures each position gets its own class-level
+        // #[JsonPointer] attribute. For $ref targets the pointer is always the
+        // definition location, so sharing is preserved.
+        $cacheKey = $jsonSchema->getPointer() . '|' . $schemaSignature;
 
-        if (!$initialClass && isset($this->processedSchema[$schemaSignature])) {
+        if (!$initialClass && isset($this->processedSchema[$cacheKey])) {
             if ($this->generatorConfiguration->isOutputEnabled()) {
                 echo "Duplicated signature $schemaSignature for class $className." .
-                    " Redirecting to {$this->processedSchema[$schemaSignature]->getClassName()}\n";
+                    " Redirecting to {$this->processedSchema[$cacheKey]->getClassName()}\n";
             }
 
-            return $this->processedSchema[$schemaSignature];
+            return $this->processedSchema[$cacheKey];
         }
 
         // For initial-class calls: if this exact file+content was already processed eagerly via
@@ -162,10 +170,10 @@ class SchemaProcessor
         //   the same spec file — each has a unique signature).
         if (
             $initialClass
-            && isset($this->processedSchema[$schemaSignature])
+            && isset($this->processedSchema[$cacheKey])
             && $this->getProcessedFileSchema($jsonSchema->getFile()) !== null
         ) {
-            return $this->processedSchema[$schemaSignature];
+            return $this->processedSchema[$cacheKey];
         }
 
         $schema = new Schema(
@@ -178,8 +186,8 @@ class SchemaProcessor
             $this->generatorConfiguration,
         );
 
-        // Register by content signature (secondary dedup for content-identical inline schemas).
-        $this->processedSchema[$schemaSignature] = $schema;
+        // Register by content+position (dedup for content-identical schemas at the same position).
+        $this->processedSchema[$cacheKey] = $schema;
         // Register by canonical file path/URL (primary dedup for external $ref resolutions).
         // Registering here — before property processing — ensures that any $ref back to this
         // file encountered while processing the referencing schema finds this canonical schema
@@ -633,11 +641,16 @@ class SchemaProcessor
         // schema's pointer and the property's SchemaName.
         // Skip for PropertyProxy instances: their pointer points to the $defs/definition
         // location, which is already correct and should not be overridden.
-        if (!($property instanceof \PHPModelGenerator\Model\Property\PropertyProxy)) {
+        // NOTE: The pointer is always computed as <branchPointer>/properties/<name>, which
+        // is correct for inline branch properties. For properties originating from a nested
+        // allOf/oneOf within the branch (rather than directly under the branch's properties),
+        // this produces a less-precise pointer that omits the nested composition path. Such
+        // cases are rare in practice and no existing schema test exercises this pattern.
+        if (!($property instanceof PropertyProxy)) {
             $branchPointer = $sourceBranch->getBranchSchema()->getPointer();
             $schemaName = '';
             foreach ($property->getAttributes() as $attr) {
-                if ($attr->getFqcn() === \PHPModelGenerator\Attributes\SchemaName::class) {
+                if ($attr->getFqcn() === SchemaName::class) {
                     $args = $attr->getArguments();
                     $schemaName = reset($args);
                     break;

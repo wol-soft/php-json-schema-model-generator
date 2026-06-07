@@ -594,6 +594,29 @@ class MediaBuyBeta7SchemasTest extends AbstractPHPModelGeneratorTestCase
         $this->assertPropertyHasJsonPointer($object, 'account', '/properties/account');
         $this->assertPropertyHasJsonPointer($object, 'mediaBuyId', '/properties/media_buy_id');
 
+        // Phase 5: verify class-level JsonPointer for merged composition classes.
+        // The AdCPVersionEnvelope class appears at two positions in this schema:
+        //   1. root-level allOf/0
+        //   2. new_packages/items/allOf/0 (via PackageRequest)
+        // Each must have its own class with the correct class-level #[JsonPointer].
+        $dir = dirname((new ReflectionClass($className))->getFileName());
+        $versionEnvelopeFiles = array_values(array_filter(
+            glob("$dir/*AdCPVersionEnvelope*.php"),
+            fn(string $f): bool => !str_contains($f, 'Builder'),
+        ));
+        $this->assertCount(2, $versionEnvelopeFiles,
+            'Expected two separate AdCPVersionEnvelope class files (one per position)');
+        $envelopePointers = [];
+        foreach ($versionEnvelopeFiles as $file) {
+            $content = file_get_contents($file);
+            if (preg_match('/#\[JsonPointer\((.+)\)\]/', $content, $m)) {
+                $envelopePointers[] = $m[1];
+            }
+        }
+        sort($envelopePointers);
+        $this->assertSame(["'/allOf/0'", "'/properties/new_packages/items/allOf/0'"], $envelopePointers,
+            'Each AdCPVersionEnvelope position must get its own class-level #[JsonPointer]');
+
         // Phase 5: verify filename length
         $reflection = new ReflectionClass($className);
         $dir = dirname($reflection->getFileName());
