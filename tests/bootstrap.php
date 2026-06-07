@@ -1,5 +1,7 @@
 <?php
 
+ini_set('memory_limit', '256M');
+
 define('TEST_BASE_DIR', sys_get_temp_dir() . '/PHPModelGeneratorTest_' . uniqid('', true));
 define('FAILED_CLASSES_PATH', __DIR__ . '/../failed-classes/');
 define('MODEL_TEMP_PATH', TEST_BASE_DIR . '/Models');
