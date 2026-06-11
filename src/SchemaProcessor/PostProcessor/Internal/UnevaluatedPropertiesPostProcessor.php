@@ -16,13 +16,27 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Traits\CompositionEvaluationTrait;
 
 /**
- * Detects whether unevaluatedProperties or unevaluatedItems is reachable from a schema
- * and, when it is, activates evaluation tracking on that schema's composition validators.
+ * Detects whether unevaluatedProperties or unevaluatedItems is reachable from a schema and,
+ * when it is, activates evaluation tracking on that schema's composition validators.
  *
  * Activation emits the _compositionEvaluations cache field on the generated class and marks
- * each composition validator with per-branch slot writes.
- * When neither keyword is reachable anywhere in the schema graph, this post processor is a
- * complete no-op and generates no extra code.
+ * each composition validator with per-branch slot writes. When neither keyword is reachable
+ * anywhere in the schema graph, this post processor is a complete no-op.
+ *
+ * Cross-state revalidation under mutation (setter + populate) is *not* handled here. It lives
+ * in Model.phptpl and Populate.phptpl as a direct call to _executePostCompositionValidators
+ * against a candidate state — see the templates for details. The unevaluatedProperties
+ * validator participates in that pass simply by being registered as a post-composition
+ * validator on the schema; this post processor's only responsibility is the activation-side
+ * work that makes the cache available to it.
+ *
+ * Known limitation: when a cross-state check fails in direct-exception mode, composition
+ * validation that ran during the setter's per-property _validate* phase may have updated
+ * _propertyValidationState / _compositionEvaluations with state that was never committed.
+ * The cache may briefly hold "would-be" entries until the next mutation invalidates them.
+ * This is a pre-existing concern with composition revalidation, not specific to the
+ * unevaluatedProperties feature, and self-corrects the next time an affecting property
+ * changes.
  */
 class UnevaluatedPropertiesPostProcessor extends PostProcessor
 {

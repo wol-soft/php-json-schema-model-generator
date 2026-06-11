@@ -53,6 +53,17 @@ public function populate(array $modelData): self
         {% endif %}
     {% endforeach %}
 
+    {% if schema.getPostCompositionValidators() %}
+        // Cross-state validation: the per-property loop above only sees the populate delta, so
+        // violations that depend on the union of pre-existing state plus the delta (notably
+        // unevaluatedProperties claims that flip with a discriminator) need to be checked
+        // against the would-be merged state. The check runs without committing the merge —
+        // the rollback paths below restore property fields if it fails, leaving the original
+        // _rawModelDataInput untouched on failure.
+        $candidateRawModelDataInput = array_merge($this->_rawModelDataInput, $modelData);
+        $this->_executePostCompositionValidators($candidateRawModelDataInput);
+    {% endif %}
+
     {% if generatorConfiguration.collectErrors() %}
         if (count($this->_errorRegistry->getErrors())) {
             foreach ($rollbackValues as $property => $value) {

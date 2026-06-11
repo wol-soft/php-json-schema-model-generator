@@ -26,9 +26,12 @@ private function _setUnevaluatedProperty(
 
     {% if validationProperty %}{{ schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) }}{% endif %}
 
-    // _executeBaseValidators runs the unevaluatedProperties validator against the candidate
-    // pair, which writes the value into $this->_unevaluatedProperties on success. In
-    // collect-errors mode each call needs an isolated error registry — without resetting it,
+    // _executePostCompositionValidators runs the unevaluatedProperties validator against the
+    // candidate pair, which writes the value into $this->_unevaluatedProperties on success.
+    // The schema's base + composition validators don't apply to a single dynamic key (the key
+    // isn't a declared property), so only the post-composition phase needs to run here.
+    //
+    // In collect-errors mode each call needs an isolated error registry — without resetting it,
     // a previous setter that failed and was caught by the caller would leave stale errors that
     // make every subsequent setter throw spuriously when its own validation actually succeeded.
     {% if generatorConfiguration.collectErrors() %}
@@ -36,7 +39,7 @@ private function _setUnevaluatedProperty(
     {% endif %}
 
     $addedProperty = [$key => $value];
-    $this->_executeBaseValidators($addedProperty);
+    $this->_executePostCompositionValidators($addedProperty);
 
     {% if generatorConfiguration.collectErrors() %}
         if (count($this->_errorRegistry->getErrors())) {
