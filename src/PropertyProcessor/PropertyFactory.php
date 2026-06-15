@@ -359,7 +359,6 @@ class PropertyFactory
                 // SchemaName if shared. For non-proxy properties (first $ref resolution), also
                 // override the pointer to reflect the reference site rather than the definition.
                 $configuration = $schemaProcessor->getGeneratorConfiguration();
-                $json = $propertySchema->getJson();
 
                 // Replace JsonPointer with the reference site's pointer.
                 $property->removeAttribute(JsonPointer::class);

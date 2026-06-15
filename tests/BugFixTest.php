@@ -22,17 +22,20 @@ use ReflectionClass;
 class BugFixTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
-     * B4: PropertyProxy inherits attributes (ReadOnly, WriteOnly, Deprecated) from the
-     * underlying $def property via the merge mechanism in PropertyProxy::getAttributes().
+     * B4: PropertyProxy inherits attributes (ReadOnly, Deprecated) from the underlying $def
+     * property via the merge mechanism in PropertyProxy::getAttributes().
+     *
+     * The FIRST $ref to a $def creates a real Property (no proxy). The SECOND $ref to the
+     * same $def creates a PropertyProxy. The proxy's getAttributes() must merge local attrs
+     * (SchemaName, JsonPointer) with the underlying's attrs, inheriting ReadOnly, Deprecated.
      */
     public function testB4PropertyProxyInheritsAttributesFromUnderlyingProperty(): void
     {
         $schema = json_encode([
             'type' => 'object',
             'properties' => [
-                'myRef' => [
-                    '$ref' => '#/$defs/Foo',
-                ],
+                'ref_one' => ['$ref' => '#/$defs/Foo'],
+                'ref_two' => ['$ref' => '#/$defs/Foo'],
             ],
             '$defs' => [
                 'Foo' => [
@@ -44,43 +47,44 @@ class BugFixTest extends AbstractPHPModelGeneratorTestCase
         ]);
 
         $className = $this->generateClass($schema);
-        $object = new $className(['myRef' => 'test']);
+        $object = new $className(['ref_one' => 'a', 'ref_two' => 'b']);
 
         $rc = new ReflectionClass($object);
-        $myRefProperty = $rc->getProperty('myRef');
+        foreach (['refOne', 'refTwo'] as $prop) {
+            $property = $rc->getProperty($prop);
 
-        $readOnlyAttrs = $myRefProperty->getAttributes(ReadOnlyProperty::class);
-        $this->assertCount(1, $readOnlyAttrs,
-            'PropertyProxy must inherit ReadOnly attribute from underlying property');
+            $readOnlyAttrs = $property->getAttributes(ReadOnlyProperty::class);
+            $this->assertCount(1, $readOnlyAttrs,
+                "Property $prop must have ReadOnly attribute");
 
-        $deprecatedAttrs = $myRefProperty->getAttributes(Deprecated::class);
-        $this->assertCount(1, $deprecatedAttrs,
-            'PropertyProxy must inherit Deprecated attribute from underlying property');
+            $deprecatedAttrs = $property->getAttributes(Deprecated::class);
+            $this->assertCount(1, $deprecatedAttrs,
+                "Property $prop must have Deprecated attribute");
+        }
     }
 
     /**
      * B4: PropertyProxy's own SchemaName/JsonPointer override the inherited ones.
+     * Both properties reference the same $def; each must have its own pointer.
      */
     public function testB4PropertyProxyOwnAttributesOverrideUnderlying(): void
     {
         $schema = json_encode([
             'type' => 'object',
             'properties' => [
-                'my_name' => [
-                    '$ref' => '#/$defs/Foo',
-                ],
+                'ref_one' => ['$ref' => '#/$defs/Foo'],
+                'ref_two' => ['$ref' => '#/$defs/Foo'],
             ],
             '$defs' => [
-                'Foo' => [
-                    'type' => 'string',
-                ],
+                'Foo' => ['type' => 'string'],
             ],
         ]);
 
         $className = $this->generateClass($schema);
-        $object = new $className(['my_name' => 'test']);
+        $object = new $className(['ref_one' => 'a', 'ref_two' => 'b']);
 
-        $this->assertPropertyHasJsonPointer($object, 'myName', '/properties/my_name');
+        $this->assertPropertyHasJsonPointer($object, 'refOne', '/properties/ref_one');
+        $this->assertPropertyHasJsonPointer($object, 'refTwo', '/properties/ref_two');
     }
 
     /**
