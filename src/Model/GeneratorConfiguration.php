@@ -382,6 +382,12 @@ class GeneratorConfiguration
             ->addFilter(new DateTimeFilter())
             ->addFilter(new NotEmptyFilter())
             ->addFilter(new TrimFilter())
+            // Register the MediaString and ImmutableMediaString filters (and their production
+            // library callable classes PHPModelGenerator\Filter\MediaString and
+            // PHPModelGenerator\Filter\ImmutableMediaString) which enable the contentMediaType
+            // and contentEncoding schema keywords.  These registrations were previously removed
+            // under the assumption that the production library classes did not exist, but they
+            // do — see packages/php-json-schema-model-generator-production/src/Filter/.
             ->addFilter(new MediaStringFilter())
             ->addFilter(new ImmutableMediaStringFilter());
     }
