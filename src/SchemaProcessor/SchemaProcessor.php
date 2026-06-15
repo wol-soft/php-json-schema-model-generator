@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor;
 
+use PHPModelGenerator\Attributes\JsonPointer;
+use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyProxy;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\RenderJob;
 use PHPModelGenerator\Model\Schema;
@@ -140,7 +144,28 @@ class SchemaProcessor
         SchemaDefinitionDictionary $dictionary,
         bool $initialClass,
     ): Schema {
-        $schemaSignature = $jsonSchema->getSignature();
+        // --- Cache key: content signature + schema position ---
+        //
+        // The cache key MUST produce the same value for the same schema at the same position,
+        // and DIFFERENT values for the same schema content at DIFFERENT positions.
+        //
+        // WHY:  Class-level #[JsonPointer] attributes encode the schema position where the
+        // class was generated.  Two inline schemas with identical type/properties but at
+        // different positions (e.g. /properties/foo and /properties/bar) need SEPARATE
+        // Schema objects so each gets the correct #[JsonPointer].  Without the position
+        // component, they would share one Schema and the second generated class would have
+        // the wrong pointer.
+        //
+        // Why $ref targets still share:  When a $ref is resolved, the JsonSchema's pointer
+        // is always the DEFINITION location (e.g. /$defs/Foo), regardless of where the $ref
+        // appears.  Therefore two $refs to the same $def produce the same cache key and
+        // correctly share one Schema object.  The class-level #[JsonPointer] is correct
+        // because it points to the definition, not the reference site.
+        //
+        // Why signature alone was insufficient:  getSignature() hashes only the JSON content
+        // fields (type, properties, allOf, etc.).  Two identical inline schemas at different
+        // positions yield the same hash — without the pointer they would collide.
+        $schemaSignature = $jsonSchema->getSignature() . '|' . $jsonSchema->getPointer();
 
         if (!$initialClass && isset($this->processedSchema[$schemaSignature])) {
             if ($this->generatorConfiguration->isOutputEnabled()) {
@@ -176,7 +201,7 @@ class SchemaProcessor
             $this->generatorConfiguration,
         );
 
-        // Register by content signature (secondary dedup for content-identical inline schemas).
+        // Register by content+position (dedup for content-identical schemas at the same position).
         $this->processedSchema[$schemaSignature] = $schema;
         // Register by canonical file path/URL (primary dedup for external $ref resolutions).
         // Registering here — before property processing — ensures that any $ref back to this
@@ -186,10 +211,16 @@ class SchemaProcessor
         $json = $jsonSchema->getJson();
         $json['type'] = 'base';
 
+        // Use a fixed short name as the BaseProperty name to prevent exponential
+        // class name compounding at each nesting level. The BaseProperty is an internal
+        // processing anchor — it is never rendered as a class property — so a fixed
+        // short name is safe. Without this, composition branches and array items inherit
+        // the full class name as their property name, which each nesting level re-embeds
+        // into the next class name, overflowing filesystem path limits.
         (new PropertyFactory())->create(
             $this,
             $schema,
-            $className,
+            'base',
             $jsonSchema->withJson($json),
         );
 
@@ -617,6 +648,40 @@ class SchemaProcessor
             ->setDefaultValue(null)
             ->filterDecorators(static fn($decorator): bool =>
                 !($decorator instanceof DefaultArrayToEmptyArrayDecorator));
+
+        // When composition-branch properties are transferred to the parent schema, their
+        // JsonPointer must reflect the branch position in the parent schema, not the position
+        // where the branch's nested class was first created (which may differ due to content
+        // signature dedup in generateModel()). Compute the correct pointer from the branch
+        // schema's pointer and the property's SchemaName.
+        // Skip for PropertyProxy instances: their pointer points to the $defs/definition
+        // location, which is already correct and should not be overridden.
+        // NOTE: The pointer is always computed as <branchPointer>/properties/<name>, which
+        // is correct for inline branch properties. For properties originating from a nested
+        // allOf/oneOf within the branch (rather than directly under the branch's properties),
+        // this produces a less-precise pointer that omits the nested composition path. Such
+        // cases are rare in practice and no existing schema test exercises this pattern.
+        if (!($property instanceof PropertyProxy)) {
+            $branchPointer = $sourceBranch->getBranchSchema()->getPointer();
+            $schemaName = '';
+            foreach ($property->getAttributes() as $attr) {
+                if ($attr->getFqcn() === SchemaName::class) {
+                    $args = $attr->getArguments();
+                    $schemaName = reset($args);
+                    break;
+                }
+            }
+            if ($branchPointer !== '' && $schemaName !== '') {
+                $correctPointer = $branchPointer . '/properties/' . JsonSchema::encodePointer($schemaName);
+                $transferredProperty
+                    ->removeAttribute(JsonPointer::class)
+                    ->addAttribute(
+                        new PhpAttribute(JsonPointer::class, [$correctPointer]),
+                        $this->generatorConfiguration,
+                        PhpAttribute::JSON_POINTER,
+                    );
+            }
+        }
 
         if (!is_a($compositionProcessor, AllOfValidatorFactory::class, true)) {
             $transferredProperty->setRequired(false);
