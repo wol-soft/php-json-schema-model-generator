@@ -305,6 +305,30 @@ class PropertyProxy extends AbstractProperty
 
     /**
      * @inheritdoc
+     *
+     * Returns local attributes (set per-instance on this proxy) merged with the underlying
+     * property's attributes. When an attribute FQCN is present in both, the proxy's local
+     * version wins. This ensures that PostProcessors which add attributes to the underlying
+     * property (e.g. ReadOnly, WriteOnly, Deprecated) are automatically inherited without
+     * requiring explicit per-attribute copying at each proxy creation site.
+     */
+    public function getAttributes(): array
+    {
+        $localFqcns = [];
+        foreach ($this->phpAttributes as $attr) {
+            $localFqcns[$attr->getFqcn()] = true;
+        }
+        $merged = $this->phpAttributes;
+        foreach ($this->getProperty()->getAttributes() as $attr) {
+            if (!isset($localFqcns[$attr->getFqcn()])) {
+                $merged[] = $attr;
+            }
+        }
+        return $merged;
+    }
+
+    /**
+     * @inheritdoc
      */
     public function getJsonSchema(): JsonSchema
     {

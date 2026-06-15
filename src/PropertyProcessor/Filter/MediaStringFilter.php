@@ -9,11 +9,6 @@ use PHPModelGenerator\Filter\TransformingFilterInterface;
 
 class MediaStringFilter implements TransformingFilterInterface
 {
-    public function getAcceptedTypes(): array
-    {
-        return ['string'];
-    }
-
     public function getToken(): string
     {
         return 'mediaString';

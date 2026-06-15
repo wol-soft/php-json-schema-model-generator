@@ -9,7 +9,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 trait AttributesTrait
 {
     /** @var PhpAttribute[] */
-    private array $phpAttributes = [];
+    protected array $phpAttributes = [];
 
     public function filterAttributes(callable $filter): static
     {

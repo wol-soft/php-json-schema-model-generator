@@ -371,28 +371,15 @@ class PropertyFactory
                     );
 
                 if ($property instanceof PropertyProxy) {
-                    $property
-                        ->addAttribute(
-                            new PhpAttribute(SchemaName::class, [$propertyName]),
-                            $configuration,
-                            PhpAttribute::SCHEMA_NAME,
-                        )
-                        ->addAttribute(
-                            new PhpAttribute(
-                                JsonSchemaAttribute::class,
-                                [empty($json) ? '{}' : json_encode($json)],
-                            ),
-                            $configuration,
-                            PhpAttribute::JSON_SCHEMA,
-                        );
-
-                    if ($required) {
-                        $property->addAttribute(
-                            new PhpAttribute(Required::class),
-                            $configuration,
-                            PhpAttribute::REQUIRED,
-                        );
-                    }
+                    // Proxy-specific attributes: SchemaName differs per usage site.
+                    // All other attributes (Required, ReadOnly, WriteOnly, Deprecated, etc.)
+                    // are inherited from the underlying property via PropertyProxy::getAttributes(),
+                    // which merges local attrs (set here) with the underlying property's attrs.
+                    $property->addAttribute(
+                        new PhpAttribute(SchemaName::class, [$propertyName]),
+                        $configuration,
+                        PhpAttribute::SCHEMA_NAME,
+                    );
                 }
 
                 return $property;

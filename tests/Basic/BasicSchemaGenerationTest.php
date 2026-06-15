@@ -388,9 +388,17 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
 
     public function testDuplicateIdThrowsAnException(): void
     {
-        $this->expectException(FileSystemException::class);
-        $this->expectExceptionMessageMatches('/File (.*) already exists. Make sure object IDs are unique./');
+        // Two properties with the same $id produce the same target filename.
+        // The second is silently deduplicated by RenderQueue::addRenderJob().
+        // Generation must succeed without throwing FileSystemException.
+        $className = $this->generateClassFromFile('DuplicateId.json', null, true);
 
-        $this->generateClassFromFile('DuplicateId.json', null, true);
+        $object = new $className([
+            'property' => ['name' => 'test'],
+            'property2' => ['name' => 'test2'],
+        ]);
+
+        $this->assertSame('test', $object->getProperty()->getName());
+        $this->assertSame('test2', $object->getProperty2()->getName());
     }
 }

@@ -144,16 +144,19 @@ class SchemaProcessor
         SchemaDefinitionDictionary $dictionary,
         bool $initialClass,
     ): Schema {
-        $schemaSignature = $jsonSchema->getSignature();
-        $cacheKey = $schemaSignature;
+        // Include the JsonSchema pointer in the cache key so that inline schemas with identical
+        // content at different schema positions produce distinct Schema objects, each with the
+        // correct class-level #[JsonPointer]. For $ref targets the pointer is always the
+        // definition location, so sharing is preserved for the same $def used from multiple sites.
+        $schemaSignature = $jsonSchema->getSignature() . '|' . $jsonSchema->getPointer();
 
-        if (!$initialClass && isset($this->processedSchema[$cacheKey])) {
+        if (!$initialClass && isset($this->processedSchema[$schemaSignature])) {
             if ($this->generatorConfiguration->isOutputEnabled()) {
                 echo "Duplicated signature $schemaSignature for class $className." .
-                    " Redirecting to {$this->processedSchema[$cacheKey]->getClassName()}\n";
+                    " Redirecting to {$this->processedSchema[$schemaSignature]->getClassName()}\n";
             }
 
-            return $this->processedSchema[$cacheKey];
+            return $this->processedSchema[$schemaSignature];
         }
 
         // For initial-class calls: if this exact file+content was already processed eagerly via
@@ -165,10 +168,10 @@ class SchemaProcessor
         //   the same spec file — each has a unique signature).
         if (
             $initialClass
-            && isset($this->processedSchema[$cacheKey])
+            && isset($this->processedSchema[$schemaSignature])
             && $this->getProcessedFileSchema($jsonSchema->getFile()) !== null
         ) {
-            return $this->processedSchema[$cacheKey];
+            return $this->processedSchema[$schemaSignature];
         }
 
         $schema = new Schema(
@@ -182,7 +185,7 @@ class SchemaProcessor
         );
 
         // Register by content+position (dedup for content-identical schemas at the same position).
-        $this->processedSchema[$cacheKey] = $schema;
+        $this->processedSchema[$schemaSignature] = $schema;
         // Register by canonical file path/URL (primary dedup for external $ref resolutions).
         // Registering here — before property processing — ensures that any $ref back to this
         // file encountered while processing the referencing schema finds this canonical schema

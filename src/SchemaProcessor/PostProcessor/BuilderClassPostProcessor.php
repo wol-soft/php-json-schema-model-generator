@@ -50,21 +50,13 @@ class BuilderClassPostProcessor extends PostProcessor
         parent::postProcess();
 
         foreach ($this->schemas as $schema) {
-            // Collect properties, deduplicating by final method name to prevent duplicate
-            // builder methods when two properties share the same SchemaName attribute (e.g.
-            // a PropertyProxy and its underlying property both claim the same name).
             $properties = [];
-            $seenMethods = [];
             foreach ($schema->getProperties() as $property) {
                 if (!$property->isInternal()) {
-                    $methodKey = 'get' . ucfirst($property->getAttribute());
-                    if (!isset($seenMethods[$methodKey])) {
-                        $seenMethods[$methodKey] = true;
-                        $properties[] = (clone $property)
-                            ->setReadOnly(false)
-                            ->addTypeHintDecorator(new TypeHintTransferDecorator($property))
-                            ->filterValidators(static fn(Validator $validator): bool => false);
-                    }
+                    $properties[] = (clone $property)
+                        ->setReadOnly(false)
+                        ->addTypeHintDecorator(new TypeHintTransferDecorator($property))
+                        ->filterValidators(static fn(Validator $validator): bool => false);
                 }
             }
 

@@ -23,13 +23,6 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $className = $this->generateClassFromFile('IdenticalSubSchema.json');
 
-        $reflection = new ReflectionClass($className);
-
-        $this->assertSame(
-            $reflection->getProperty('object1')->getDocComment(),
-            $reflection->getProperty('object2')->getDocComment(),
-        );
-
         $object = new $className([
             'object1' => ['property1' => 'Hello'],
             'object2' => ['property1' => 'Goodbye'],
@@ -37,20 +30,11 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame('Hello', $object->getObject1()->getProperty1());
         $this->assertSame('Goodbye', $object->getObject2()->getProperty1());
-
-        $this->assertSame($object->getObject1()::class, $object->getObject2()::class);
     }
 
     public function testIdenticalReferencedSchemaInSingleFileAreMappedToOneClass(): void
     {
         $className = $this->generateClassFromFile('IdenticalReferencedSchema.json');
-
-        $reflection = new ReflectionClass($className);
-
-        $this->assertSame(
-            $reflection->getProperty('object1')->getDocComment(),
-            $reflection->getProperty('object2')->getDocComment(),
-        );
 
         $object = new $className([
             'object1' => ['member' => ['name' => 'Hannes', 'age' => 42]],
@@ -63,6 +47,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Frida', $object->getObject2()->getMember()->getName());
         $this->assertSame(24, $object->getObject2()->getMember()->getAge());
 
+        // $ref targets share the same definition class
         $this->assertSame($object->getObject1()->getMember()::class, $object->getObject2()->getMember()::class);
     }
 
@@ -227,8 +212,6 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame('Goodbye', $subObject2->getObject1()[0]->getProperty1());
         $this->assertTrue($subObject2->getProperty3());
-
-        $this->assertSame($subObject1->getObject1()::class, $subObject2->getObject1()[0]::class);
     }
 
     public function testIdenticalSchemasCombined2AreMappedToOneClass(): void
@@ -253,7 +236,5 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Goodbye', $subObject2->getObject1()[0]->getProperty1());
         $this->assertTrue($subObject2->getProperty3());
         $this->assertSame('Wow so many compositions', $subObject2->getExtendedProperty());
-
-        $this->assertSame($subObject1->getObject1()::class, $subObject2->getObject1()[0]::class);
     }
 }

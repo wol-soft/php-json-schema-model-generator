@@ -19,14 +19,6 @@ class DateTimeFilter implements TransformingFilterInterface
     /**
      * @inheritDoc
      */
-    public function getAcceptedTypes(): array
-    {
-        return ['string'];
-    }
-
-    /**
-     * @inheritDoc
-     */
     public function getToken(): string
     {
         return 'dateTime';

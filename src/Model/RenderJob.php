@@ -73,9 +73,7 @@ class RenderJob
             // @codeCoverageIgnoreEnd
         }
 
-        if (!class_exists($this->schema->getClassName(), false)) {
-            require $this->schema->getTargetFileName();
-        }
+        require $this->schema->getTargetFileName();
 
         if ($generatorConfiguration->isOutputEnabled()) {
             echo sprintf(
