@@ -51,6 +51,17 @@ class BuilderClassPostProcessor extends PostProcessor
 
         foreach ($this->schemas as $schema) {
             $properties = [];
+
+            // Collect non-internal properties for builder method generation.
+            //
+            // PREVIOUSLY there was a deduplication step here that tracked seen method names
+            // ('get' . ucfirst($property->getAttribute())) to skip duplicates.  This was
+            // removed because upstream commit 4c1b06e added property-vs-property attribute
+            // collision detection to Schema::addProperty().  If two raw property names
+            // normalize to the same PHP attribute (e.g. 'foo-bar' and 'fooBar'), the
+            // collision is now caught at schema processing time with a SchemaException,
+            // before the builder stage ever runs.  Skipping duplicates here would silently
+            // hide the collision — the hard exception is the correct user-facing signal.
             foreach ($schema->getProperties() as $property) {
                 if (!$property->isInternal()) {
                     $properties[] = (clone $property)

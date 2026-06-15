@@ -73,6 +73,19 @@ class RenderJob
             // @codeCoverageIgnoreEnd
         }
 
+        // Load the generated class so it is available for the current process.
+        //
+        // WHY NO class_exists GUARD:  RenderQueue::addRenderJob() deduplicates by target
+        // filename, ensuring each file is registered exactly once.  Therefore render()
+        // is called exactly once per file and require will never encounter an already-loaded
+        // class.  The file_exists() check above is the safety net for genuine duplicates
+        // (same filename from different schemas, e.g. duplicate $id values).
+        //
+        // Previously there was a `class_exists($this->schema->getClassName(), false)` guard
+        // here, which masked root-cause dedup failures.  If a duplicate render somehow
+        // reaches this point, the file_exists() check throws a clear error — the
+        // class_exists guard would have silently skipped the second render, potentially
+        // serving stale generated code.
         require $this->schema->getTargetFileName();
 
         if ($generatorConfiguration->isOutputEnabled()) {

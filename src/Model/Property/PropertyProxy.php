@@ -306,11 +306,34 @@ class PropertyProxy extends AbstractProperty
     /**
      * @inheritdoc
      *
-     * Returns local attributes (set per-instance on this proxy) merged with the underlying
-     * property's attributes. When an attribute FQCN is present in both, the proxy's local
-     * version wins. This ensures that PostProcessors which add attributes to the underlying
-     * property (e.g. ReadOnly, WriteOnly, Deprecated) are automatically inherited without
-     * requiring explicit per-attribute copying at each proxy creation site.
+     * Returns local proxy attributes merged with the underlying property's attributes.
+     * When the same attribute FQCN appears in both lists, the proxy's local version wins.
+     *
+     * WHY THIS IS NEEDED: PostProcessors may add attributes (ReadOnly, WriteOnly, Deprecated)
+     * to the underlying Property after the proxy is created. Without a merge, the proxy would
+     * never see those attributes and the rendered class would be missing them.
+     *
+     * WHY A GENERIC MERGE IS BETTER THAN EXPLICIT PER-ATTRIBUTE COPYING:
+     *   - Previously processReference() enumerated SchemaName, JsonSchema, JsonPointer, and
+     *     Required for explicit overwrite on the proxy. But ReadOnly, WriteOnly, and Deprecated
+     *     were missed, and any future attribute type would also need an explicit entry here.
+     *   - The generic merge covers ALL attribute types without enumeration, so PostProcessors
+     *     can add arbitrary attributes to the underlying and they "just work" on the proxy.
+     *
+     * WHY LOCAL WINS: SchemaName and JsonPointer MUST be per-instance (the proxy's name and
+     * schema position differ from the underlying), so they are set explicitly on the proxy
+     * by processReference() and must override the inherited values. All other attributes
+     * (Required, ReadOnly, WriteOnly, Deprecated, etc.) are inherited from the underlying
+     * unless they were explicitly set on the proxy (which never happens today, but if a future
+     * code path does, the explicit value takes precedence).
+     *
+     * WHY THE UNDERLYING CANNOT BE NULL: The proxy is registered as unresolved during
+     * resolveReference() and resolved asynchronously before property processing completes.
+     * By the time getAttributes() is called (during template rendering, long after resolution),
+     * the underlying property is guaranteed to exist. If the key were missing from the
+     * ResolvedDefinitionsCollection, offsetGet would return null and the non-nullable return
+     * type of getProperty() would throw a TypeError, which is a correct hard failure for an
+     * impossible state.
      */
     public function getAttributes(): array
     {

@@ -8,7 +8,14 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 
 trait AttributesTrait
 {
-    /** @var PhpAttribute[] */
+    /**
+     * @var PhpAttribute[]
+     *
+     * Protected visibility (not private) so that PropertyProxy::getAttributes() can
+     * read the local attribute list and merge it with the underlying property's attrs.
+     * No other subclass directly accesses this property; all mutations go through the
+     * trait methods (addAttribute, removeAttribute, filterAttributes).
+     */
     protected array $phpAttributes = [];
 
     public function filterAttributes(callable $filter): static

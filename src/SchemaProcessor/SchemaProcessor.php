@@ -144,10 +144,27 @@ class SchemaProcessor
         SchemaDefinitionDictionary $dictionary,
         bool $initialClass,
     ): Schema {
-        // Include the JsonSchema pointer in the cache key so that inline schemas with identical
-        // content at different schema positions produce distinct Schema objects, each with the
-        // correct class-level #[JsonPointer]. For $ref targets the pointer is always the
-        // definition location, so sharing is preserved for the same $def used from multiple sites.
+        // --- Cache key: content signature + schema position ---
+        //
+        // The cache key MUST produce the same value for the same schema at the same position,
+        // and DIFFERENT values for the same schema content at DIFFERENT positions.
+        //
+        // WHY:  Class-level #[JsonPointer] attributes encode the schema position where the
+        // class was generated.  Two inline schemas with identical type/properties but at
+        // different positions (e.g. /properties/foo and /properties/bar) need SEPARATE
+        // Schema objects so each gets the correct #[JsonPointer].  Without the position
+        // component, they would share one Schema and the second generated class would have
+        // the wrong pointer.
+        //
+        // Why $ref targets still share:  When a $ref is resolved, the JsonSchema's pointer
+        // is always the DEFINITION location (e.g. /$defs/Foo), regardless of where the $ref
+        // appears.  Therefore two $refs to the same $def produce the same cache key and
+        // correctly share one Schema object.  The class-level #[JsonPointer] is correct
+        // because it points to the definition, not the reference site.
+        //
+        // Why signature alone was insufficient:  getSignature() hashes only the JSON content
+        // fields (type, properties, allOf, etc.).  Two identical inline schemas at different
+        // positions yield the same hash — without the pointer they would collide.
         $schemaSignature = $jsonSchema->getSignature() . '|' . $jsonSchema->getPointer();
 
         if (!$initialClass && isset($this->processedSchema[$schemaSignature])) {

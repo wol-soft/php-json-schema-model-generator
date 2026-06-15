@@ -352,15 +352,20 @@ class PropertyFactory
                 );
 
 
-                // Proxy properties inherit the underlying property's type/validators but need
-                // their own per-instance attributes (SchemaName, JsonPointer) specific to this
-                // usage. The underlying property's attributes were set by its own buildProperty()
-                // call with a different property name, which would give this proxy the wrong
-                // SchemaName if shared. For non-proxy properties (first $ref resolution), also
-                // override the pointer to reflect the reference site rather than the definition.
+                // --- JsonPointer override for ALL $ref properties ---
+                //
+                // Every $ref-result property must have its JsonPointer attribute set to the
+                // reference site's pointer, not the definition site's pointer.  This applies
+                // to both first-resolution Properties and subsequent PropertyProxy instances.
+                //
+                // First-resolution Property:  buildProperty() already added a JsonPointer
+                //   pointing to the DEFINITION site (e.g. "/$defs/Foo").  We replace it with
+                //   the REFERENCE site pointer (e.g. "/properties/myField") so that generated
+                //   code shows where the $ref was actually used.
+                //
+                // PropertyProxy:  has no JsonPointer yet (the proxy was just created without
+                //   calling buildProperty()).  We add the reference-site pointer directly.
                 $configuration = $schemaProcessor->getGeneratorConfiguration();
-
-                // Replace JsonPointer with the reference site's pointer.
                 $property->removeAttribute(JsonPointer::class);
                 $property
                     ->addAttribute(
@@ -370,10 +375,33 @@ class PropertyFactory
                     );
 
                 if ($property instanceof PropertyProxy) {
-                    // Proxy-specific attributes: SchemaName differs per usage site.
-                    // All other attributes (Required, ReadOnly, WriteOnly, Deprecated, etc.)
-                    // are inherited from the underlying property via PropertyProxy::getAttributes(),
-                    // which merges local attrs (set here) with the underlying property's attrs.
+                    // --- SchemaName is always per-instance on proxies ---
+                    //
+                    // The underlying Property was created for a different $ref at a different
+                    // position, so its SchemaName attribute holds the wrong name.  We must
+                    // set it explicitly on the proxy.
+                    //
+                    // WHY NOT ALSO SET Required / ReadOnly / WriteOnly / Deprecated HERE:
+                    // PropertyProxy::getAttributes() merges the proxy's local attributes with
+                    // the underlying property's attributes.  The underlying already has the
+                    // correct values for these (set by buildProperty() and any PostProcessors).
+                    // By NOT explicitly setting them on the proxy, we let the merge inherit
+                    // them automatically — including any attributes that PostProcessors may
+                    // add to the underlying AFTER the proxy is created.
+                    //
+                    // This is a critical design point: a generic merge is strictly better
+                    // than enumerating attribute types because:
+                    //   1. It cannot miss an attribute type (e.g. ReadOnly was missed before).
+                    //   2. PostProcessors run after processReference() returns; the merge
+                    //      picks up any attributes they add to the underlying property.
+                    //   3. New attribute types added in the future require no changes here.
+                    //
+                    // Edge case: what if two $refs to the same $def have DIFFERENT required
+                    // status?  ResolveReference() includes $required in its cache key, so
+                    // different requiredness → different underlying Property objects.  No
+                    // proxy is created for the second one — it gets its own real Property.
+                    // Therefore the Required attribute inherited via the merge is always
+                    // correct for the proxy's requiredness.
                     $property->addAttribute(
                         new PhpAttribute(SchemaName::class, [$propertyName]),
                         $configuration,
