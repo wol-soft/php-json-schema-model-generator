@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\InvalidUnevaluatedPropertiesException;
+use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
@@ -181,5 +184,164 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             ['name' => 'Alice', 'extra' => 'value'],
             $instance->meta()->rawInput(),
         );
+    }
+
+    /**
+     * Required and unevaluated both fire when a required property is missing AND an undeclared
+     * extra is present. Two passes on the same generated schema:
+     *
+     *   - Direct-exception mode: the constructor runs _executeBaseValidators() →
+     *     _executePostCompositionValidators() → per-property processing in that order. The
+     *     unevaluated check lives in the post-composition phase and surfaces first because the
+     *     required check is part of per-property processing, which runs last. Documents the
+     *     actual surfacing order so a future refactor that moves required earlier surfaces as
+     *     a deliberate change instead of a silent regression.
+     *
+     *   - Collect-errors mode: both errors accumulate in the registry. Asserts each
+     *     exception's class identity and its full message so the registry's contents are
+     *     pinned to the spec-relevant identifiers.
+     */
+    public function testRequiredAndUnevaluatedBothFireWhenBothAreViolated(): void
+    {
+        // Direct-exception mode.
+        $directClassName = $this->generateClassFromFile('RequiredPropertyFailsFirst.json');
+
+        try {
+            new $directClassName(['extra' => 'value']);
+            $this->fail('Expected the unevaluated check to surface in direct-exception mode');
+        } catch (UnevaluatedPropertiesException $exception) {
+            $this->assertMatchesRegularExpression(
+                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[extra\]$/',
+                $exception->getMessage(),
+            );
+            $this->assertSame(['extra'], $exception->getUnevaluatedProperties());
+        }
+
+        // Collect-errors mode — both errors must land in the registry.
+        $collectClassName = $this->generateClassFromFile(
+            'RequiredPropertyFailsFirst.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        try {
+            new $collectClassName(['extra' => 'value']);
+            $this->fail('Expected the error registry to throw in collect-errors mode');
+        } catch (ErrorRegistryException $registry) {
+            $errors = $registry->getErrors();
+
+            $requiredErrors = array_values(array_filter(
+                $errors,
+                static fn(\Throwable $error): bool => $error instanceof RequiredValueException,
+            ));
+            $unevaluatedErrors = array_values(array_filter(
+                $errors,
+                static fn(\Throwable $error): bool => $error instanceof UnevaluatedPropertiesException,
+            ));
+
+            $this->assertCount(1, $requiredErrors, 'expected one RequiredValueException');
+            $this->assertSame('Missing required value for name', $requiredErrors[0]->getMessage());
+
+            $this->assertCount(1, $unevaluatedErrors, 'expected one UnevaluatedPropertiesException');
+            $this->assertMatchesRegularExpression(
+                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[extra\]$/',
+                $unevaluatedErrors[0]->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * The JSON Schema spec defines `default` as annotation-only: the keyword does not modify
+     * the instance during validation. Generators that materialise the default into a PHP field
+     * after validation must keep validation operating on the JSON instance view — otherwise a
+     * declared-but-absent property with a default would erroneously appear as evaluated to an
+     * enclosing `unevaluatedProperties` keyword, and worse, leak into `meta()->rawInput()` as
+     * a key the caller never supplied.
+     *
+     * Two assertions on one generated class: construction with the property absent succeeds and
+     * `meta()->rawInput()` reflects only what the caller passed in; the property getter
+     * returns the default value so the PHP field side of the contract is also intact.
+     */
+    public function testDefaultValueIsNotPartOfEvaluatedSet(): void
+    {
+        $className = $this->generateClassFromFile('DefaultsNotEvaluated.json');
+        $instance = new $className(['name' => 'Alice']);
+
+        // The instance view used by validation never includes `timeout`, so
+        // unevaluatedProperties: false accepts the construction.
+        $this->assertSame(['name' => 'Alice'], $instance->meta()->rawInput());
+
+        // The PHP property side still surfaces the materialised default — the spec only forbids
+        // the default from entering the JSON instance view, not the language-level field.
+        $this->assertSame(30, $instance->getTimeout());
+    }
+
+    /**
+     * Empty `allOf: []` is spec-legal — the schema's existing
+     * `AbstractCompositionValidatorFactory::warnIfEmpty()` mechanism emits a warning at code-
+     * generation time when output is enabled, but the schema still compiles and runs. With no
+     * composition branches to contribute evaluated keys, the outer unevaluatedProperties:
+     * false sees only the local `properties` declarations.
+     *
+     * Two scenarios on the same generated class:
+     *   - declared key accepted on its own — assertion on `meta()->rawInput()`;
+     *   - any extra key rejected because the empty composition cannot claim it for the
+     *     accumulator — assertions on the exception message and the offending key list.
+     */
+    public function testEmptyAllOfStillEnforcesUnevaluatedAtOuterLevel(): void
+    {
+        $className = $this->generateClassFromFile('EmptyAllOf.json');
+
+        $accepted = new $className(['name' => 'Alice']);
+        $this->assertSame(['name' => 'Alice'], $accepted->meta()->rawInput());
+
+        try {
+            new $className(['name' => 'Alice', 'extra' => 'value']);
+            $this->fail('Empty allOf must not rescue extras from unevaluatedProperties: false');
+        } catch (UnevaluatedPropertiesException $exception) {
+            $this->assertMatchesRegularExpression(
+                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[extra\]$/',
+                $exception->getMessage(),
+            );
+            $this->assertSame(['extra'], $exception->getUnevaluatedProperties());
+        }
+    }
+
+    /**
+     * A composition branch that declares its own `additionalProperties: {schema}` contributes
+     * the keys it validated against that schema to the outer accumulator. Two assertions on the
+     * same generated class:
+     *   - `{kind: "X", extra: 1}` exercises the success path: branch 0's additionalProperties
+     *     validates `extra` against `type: integer` and credits `extra` to its evaluated set;
+     *     the outer unevaluatedProperties: false sees `extra` as evaluated and accepts.
+     *   - `{kind: "X", extra: "bar"}` exercises the failure path: branch 0's additionalProperties
+     *     rejects `extra`'s value, so branch 0 records `success: false` and contributes no
+     *     evaluated keys. Branch 1 still succeeds (no constraint on extras at all means it makes
+     *     no claim either) so anyOf passes — but the outer accumulator no longer credits `extra`
+     *     and unevaluatedProperties: false rejects.
+     *
+     * The failure surface here is the outer unevaluated check, not the branch-internal
+     * additionalProperties — that internal failure is silently swallowed by the branch's
+     * try/catch, which is exactly the behaviour the per-key validity signal preserves.
+     */
+    public function testBranchLevelAdditionalPropertiesFeedsEvaluatedSetThroughComposition(): void
+    {
+        $className = $this->generateClassFromFile('BranchLevelAdditionalProperties.json');
+
+        $accepted = new $className(['kind' => 'X', 'extra' => 1]);
+        $this->assertSame(['kind' => 'X', 'extra' => 1], $accepted->meta()->rawInput());
+
+        try {
+            new $className(['kind' => 'X', 'extra' => 'bar']);
+            $this->fail(
+                'Branch-level additionalProperties value failure must orphan the key so the '
+                . 'outer unevaluated check fires',
+            );
+        } catch (UnevaluatedPropertiesException $exception) {
+            $this->assertMatchesRegularExpression(
+                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[extra\]$/',
+                $exception->getMessage(),
+            );
+            $this->assertSame(['extra'], $exception->getUnevaluatedProperties());
+        }
     }
 }

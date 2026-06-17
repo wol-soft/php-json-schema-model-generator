@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "timeout": {
+      "type": "integer",
+      "default": 30
+    }
+  },
+  "unevaluatedProperties": false
+}

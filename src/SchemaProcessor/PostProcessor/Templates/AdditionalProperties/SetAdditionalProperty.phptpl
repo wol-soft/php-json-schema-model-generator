@@ -1,6 +1,6 @@
 /**
  * {% if hasObjectProperties %}@throws RegularPropertyAsAdditionalPropertyException
- * {% endif %}{% if schema.getBaseValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+ * {% endif %}{% if schema.getBaseValidators() or schema.getPostCompositionValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
  */
 private function _setAdditionalProperty(
     string $key,
@@ -18,21 +18,44 @@ private function _setAdditionalProperty(
 
     {% if validationProperty %}{{ schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) }}{% endif %}
 
-    {% if schema.getBaseValidators() %}
+    {% if schema.getBaseValidators() or schema.getPostCompositionValidators() %}
+        // Snapshot the _additionalProperties bucket so any base-validator write or post-
+        // composition rejection can be unwound.
+        $rollbackAdditionalProperties = $this->_additionalProperties;
+
         {% if generatorConfiguration.collectErrors() %}
             $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        {% else %}
+            try {
         {% endif %}
 
-        $addedProperty = [$key => $value];
-        $this->_executeBaseValidators($addedProperty);
+            {% if schema.getBaseValidators() %}
+                $addedProperty = [$key => $value];
+                $this->_executeBaseValidators($addedProperty);
+            {% else %}
+                $this->_additionalProperties[$key] = $value;
+            {% endif %}
+
+            {% if schema.getPostCompositionValidators() %}
+                // Cross-state revalidation: feed the candidate raw input view to the post-
+                // composition phase so unevaluatedProperties sees the would-be state.
+                $candidateRawModelDataInput = $this->_rawModelDataInput;
+                $candidateRawModelDataInput[$key] = $value;
+                $this->_executePostCompositionValidators($candidateRawModelDataInput);
+            {% endif %}
 
         {% if generatorConfiguration.collectErrors() %}
             if (count($this->_errorRegistry->getErrors())) {
+                $this->_additionalProperties = $rollbackAdditionalProperties;
                 throw $this->_errorRegistry;
+            }
+        {% else %}
+            } catch (\Throwable $rejection) {
+                $this->_additionalProperties = $rollbackAdditionalProperties;
+                throw $rejection;
             }
         {% endif %}
     {% else %}
-        // No base validators means no pattern properties either — value goes directly to _additionalProperties.
         $this->_additionalProperties[$key] = $value;
     {% endif %}
 

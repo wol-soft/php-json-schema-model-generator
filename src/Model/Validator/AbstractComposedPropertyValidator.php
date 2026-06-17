@@ -114,6 +114,13 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
             }
 
             foreach ($compositionProperty->getNestedSchema()->getProperties() as $branchProperty) {
+                // Internal properties (post-processor collection buckets, accumulator caches)
+                // have no getter and the parent never declares the field — propagating them
+                // would emit a dynamic-property write on the parent.
+                if ($branchProperty->isInternal()) {
+                    continue;
+                }
+
                 $propertyAccessors[$branchProperty->getName()] = 'get' . ucfirst($branchProperty->getAttribute());
 
                 if ($branchProperty->getDefaultValue() === null) {

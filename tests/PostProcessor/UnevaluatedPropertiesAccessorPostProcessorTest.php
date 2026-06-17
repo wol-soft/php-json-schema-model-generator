@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\PostProcessor;
 
-use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\RegularPropertyAsUnevaluatedPropertyException;
+use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PatternPropertiesAccessorPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\UnevaluatedPropertiesAccessorPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
@@ -381,6 +384,354 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         $this->assertEqualsCanonicalizing(
             ['name' => 'Alice', 'extra' => 'hello'],
             $object->toArray(),
+        );
+    }
+
+    /**
+     * Schema without `additionalProperties` + outer `unevaluatedProperties: false`. The user
+     * opts the additionalProperties accessor in via `addForModelsWithoutAdditionalPropertiesDefinition`
+     * and tries to `$model->additionalProperties()->set(...)` a key no sibling claims. The
+     * shim's cross-state revalidation runs the post-composition phase against a candidate
+     * raw input view; the enclosing unevaluatedProperties: false rejects the new key, and
+     * `_additionalProperties` rolls back to its pre-call state.
+     */
+    public function testAdditionalAccessorSetIsRejectedWhenUnevaluatedFalseOrphansTheKey(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(
+                new AdditionalPropertiesAccessorPostProcessor(
+                    addForModelsWithoutAdditionalPropertiesDefinition: true,
+                ),
+            );
+            $generator->addPostProcessor(new UnevaluatedPropertiesAccessorPostProcessor());
+        };
+
+        $className = $this->generateClassFromFile(
+            'NoAdditionalUnevaluatedFalse.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        // Construction with an orphan key must already be rejected by unevaluatedProperties:
+        // false — the accessor's set() path mirrors this rejection at runtime, so the two
+        // entry points (constructor and accessor) report the same orphan via the same
+        // exception class.
+        try {
+            new $className(['name' => 'Alice', 'foo' => 'orphan']);
+            $this->fail('Expected construction to reject the orphan key');
+        } catch (UnevaluatedPropertiesException $constructorException) {
+            $this->assertMatchesRegularExpression(
+                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[foo\]$/',
+                $constructorException->getMessage(),
+            );
+            $this->assertSame(['foo'], $constructorException->getUnevaluatedProperties());
+        }
+
+        $object = new $className(['name' => 'Alice']);
+
+        $this->assertTrue(method_exists($object, 'additionalProperties'));
+        // unevaluatedProperties: false → no accessor (nothing to expose; pure assertion).
+        $this->assertFalse(method_exists($object, 'unevaluatedProperties'));
+
+        $additionalAccessor = $object->additionalProperties();
+
+        try {
+            $additionalAccessor->set('foo', 'orphan');
+            $this->fail('Expected unevaluatedProperties: false to reject the orphan key');
+        } catch (UnevaluatedPropertiesException $setterException) {
+            $this->assertMatchesRegularExpression(
+                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[foo\]$/',
+                $setterException->getMessage(),
+            );
+            $this->assertSame(['foo'], $setterException->getUnevaluatedProperties());
+        }
+
+        // Rollback discipline: neither the additional-properties bucket nor the raw input
+        // records the failed set.
+        $this->assertSame([], $additionalAccessor->getAll());
+        $this->assertSame(['name' => 'Alice'], $object->meta()->rawInput());
+    }
+
+    /**
+     * `additionalProperties: true` + sibling `unevaluatedProperties: {type: integer}` is a
+     * dead-code cell in the §4.1 matrix: additionalProperties claims every extra at runtime,
+     * so the unevaluated validator and accessor are both suppressed at codegen. The user can
+     * therefore call `$model->additionalProperties()->set(...)` with a value of any type —
+     * the unevaluated schema's `type: integer` constraint never runs, and a string value
+     * lands unobserved.
+     *
+     * The factory also emits a generation-time warning via the standard `echo` channel so the
+     * developer gets a hint that the unevaluatedProperties keyword cannot affect validation at
+     * this schema level. The assertion below pins both the warning text and the offending
+     * class name.
+     */
+    public function testAdditionalAccessorSetUnderSuppressedUnevaluatedIsPermitted(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new AdditionalPropertiesAccessorPostProcessor());
+            $generator->addPostProcessor(new UnevaluatedPropertiesAccessorPostProcessor());
+        };
+
+        $this->expectOutputRegex(
+            '/Warning: unevaluatedProperties on \S+ is dead code — sibling additionalProperties '
+            . 'already claims every extra key/',
+        );
+
+        $className = $this->generateClassFromFile(
+            'AdditionalTrueWithUnevaluatedSchema.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setOutputEnabled(true),
+        );
+
+        $object = new $className(['name' => 'Alice']);
+
+        // No unevaluated accessor — the dead-cell suppression applied at codegen.
+        $this->assertFalse(method_exists($object, 'unevaluatedProperties'));
+
+        // additionalProperties.set() lands a string even though the suppressed
+        // unevaluatedProperties: {type: integer} would have rejected it.
+        $object->additionalProperties()->set('foo', 'hello');
+        $this->assertSame('hello', $object->additionalProperties()->get('foo'));
+        $this->assertSame(['name' => 'Alice', 'foo' => 'hello'], $object->meta()->rawInput());
+    }
+
+    /**
+     * Pattern-matched keys land in `_patternProperties`; truly-unevaluated keys land in
+     * `_unevaluatedProperties`. The two buckets are non-overlapping by construction — the
+     * pattern keyword runs before the unevaluated check and the unevaluated rebuild credits
+     * pattern-matched keys as already-evaluated.
+     *
+     * The shim's runtime guard rejects keys matching a local `patternProperties` pattern when
+     * the user tries to route them through `unevaluatedProperties()->set()` — they belong to a
+     * different contract (the pattern's type schema) and must go through the pattern accessor.
+     */
+    public function testPatternAndUnevaluatedAccessorsExposeNonOverlappingBuckets(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PatternPropertiesAccessorPostProcessor());
+            $generator->addPostProcessor(new UnevaluatedPropertiesAccessorPostProcessor());
+        };
+
+        $className = $this->generateClassFromFile(
+            'PatternAndUnevaluatedCoexist.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $object = new $className(['name' => 'Alice', 'x_foo' => 'pattern-value', 'count' => 42]);
+
+        // pattern-matching key landed in _patternProperties, not in _unevaluatedProperties.
+        // The pattern accessor's `get()` returns the full key→value map for the pattern.
+        $patternAccessor = $object->patternProperties();
+        $this->assertSame(['x_foo' => 'pattern-value'], $patternAccessor->get('^x_'));
+
+        // non-matching key landed in _unevaluatedProperties only.
+        $unevaluatedAccessor = $object->unevaluatedProperties();
+        $this->assertSame(['count' => 42], $unevaluatedAccessor->getAll());
+        $this->assertNull($unevaluatedAccessor->get('x_foo'));
+
+        // Attempting to route a pattern-matching key through the unevaluated accessor is rejected
+        // by the shim guard.
+        $this->expectException(RegularPropertyAsUnevaluatedPropertyException::class);
+        $unevaluatedAccessor->set('x_bar', 99);
+    }
+
+    /**
+     * `remove()` walks both the backing _unevaluatedProperties array and the raw model data so
+     * a subsequent `getAll()` reports the post-removal state and `meta()->rawInput()` no longer
+     * carries the removed key. A second `remove()` on the same key is a no-op and returns
+     * false.
+     */
+    public function testRemoveDeletesKeyFromBackingFieldAndRawInput(): void
+    {
+        $this->addPostProcessor();
+        $className = $this->generateClassFromFile(
+            'TypedExtras.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $object = new $className(['name' => 'Alice', 'count' => 5, 'limit' => 7]);
+        $accessor = $object->unevaluatedProperties();
+
+        $this->assertTrue($accessor->remove('count'));
+
+        // The removed key is gone from both views; the surviving key is intact.
+        $this->assertSame(['limit' => 7], $accessor->getAll());
+        $this->assertNull($accessor->get('count'));
+        $this->assertSame(['name' => 'Alice', 'limit' => 7], $object->meta()->rawInput());
+
+        // Second removal of the same key is a no-op.
+        $this->assertFalse($accessor->remove('count'));
+        $this->assertSame(['limit' => 7], $accessor->getAll());
+    }
+
+    /**
+     * A key claimed via the unevaluated accessor stays in `_unevaluatedProperties` even after
+     * a later mutation makes a composition branch claim the same key. The accumulator-rebuild
+     * model treats the bucket as a write-once view from the accessor's perspective: keys move
+     * in via `set()` and `remove()`, never via background reshuffles when an enclosing branch
+     * starts/stops covering them.
+     *
+     * The shim guard rejects keys statically declared inside any composition branch's
+     * `properties` or `patternProperties`, so the sibling cover in this test comes via a
+     * branch's `additionalProperties: {type: integer}` — a *dynamic* claim that the guard
+     * cannot anticipate at codegen.
+     *
+     * Sequence on the same generated class:
+     *   - construct `{kind: "X"}` → branch 0 succeeds, no extras, _unevaluatedProperties empty
+     *   - accessor.set('foo', 5) → routes through the shim (guard only sees `kind` in
+     *     composition branches, never `foo`); foo lands in _unevaluatedProperties
+     *   - setKind('Y') → branch 0 fails, branch 1 succeeds and its additionalProperties claims
+     *     `foo` for the accumulator; the unevaluated validator's foreach finds no leftover
+     *     keys to validate and therefore does not touch _unevaluatedProperties
+     *   - assert: `foo` is still in _unevaluatedProperties, exposed by getAll()
+     *
+     * Documents the corner the plan calls out: claimed-via-unevaluated values are not
+     * retroactively reshuffled when a later mutation changes which sibling covers them.
+     */
+    public function testClaimedViaUnevaluatedKeyPersistsAfterSiblingLaterCovers(): void
+    {
+        $this->addPostProcessor();
+        $className = $this->generateClassFromFile(
+            'KindDiscriminatorTypedExtras.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className(['kind' => 'X']);
+        $accessor = $object->unevaluatedProperties();
+
+        $accessor->set('foo', 5);
+        $this->assertSame(['foo' => 5], $accessor->getAll());
+
+        // Flip the discriminator: branch 1 now succeeds (kind=Y + foo:5 satisfies its required
+        // list) and its `properties` declaration credits `foo` to the accumulator. The
+        // unevaluated validator finds no leftover keys.
+        $object->setKind('Y');
+
+        // Still surfaced via the unevaluated accessor — the key is not silently moved into a
+        // sibling-managed bucket on revalidation.
+        $this->assertSame(['foo' => 5], $accessor->getAll());
+        $this->assertSame(5, $accessor->get('foo'));
+        $this->assertSame(['kind' => 'Y', 'foo' => 5], $object->meta()->rawInput());
+    }
+
+    /**
+     * Collect-errors mode for `_setAdditionalProperty`: the shim shares a single
+     * `_errorRegistry` across the base-validator and post-composition phases and throws once
+     * at the end, so errors from both phases land in the same registry. A patternProperties
+     * type failure (base phase) combined with an unevaluatedProperties orphan (post-composition
+     * phase) must both surface.
+     *
+     * Schema: `properties: {name}` + `patternProperties: {"^x_": {"type": "integer"}}` +
+     * `unevaluatedProperties: false`; additional accessor enabled via
+     * `addForModelsWithoutAdditionalPropertiesDefinition`.
+     *
+     * Setting `x_foo` to a string:
+     *   - base phase: pattern matches, value fails `type: integer` → InvalidPatternPropertiesException
+     *     in the registry. PatternProperties.phptpl rolls `_patternProperties` back so the
+     *     storage no longer records `x_foo` for this call's value.
+     *   - post-composition phase: collectUnevaluatedKeys correlates the pattern claim against
+     *     `_patternProperties` to honour per-key validity (decision 0.5); the rolled-back
+     *     storage means `x_foo` is *not* credited as evaluated, and unevaluatedProperties: false
+     *     rejects → UnevaluatedPropertiesException in the registry.
+     *
+     * Both exceptions are then surfaced through a single ErrorRegistryException.
+     */
+    public function testSetCollectsPatternAndUnevaluatedErrorsTogether(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(
+                new AdditionalPropertiesAccessorPostProcessor(
+                    addForModelsWithoutAdditionalPropertiesDefinition: true,
+                ),
+            );
+        };
+
+        $className = $this->generateClassFromFile(
+            'PatternWithUnevaluatedFalse.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(true),
+        );
+
+        $object = new $className(['name' => 'Alice', 'x_foo' => 5]);
+        $additionalAccessor = $object->additionalProperties();
+
+        try {
+            $additionalAccessor->set('x_foo', 'bad-string');
+            $this->fail('Expected ErrorRegistryException with pattern + unevaluated errors');
+        } catch (ErrorRegistryException $registry) {
+            $this->assertSame(
+                <<<MSG
+                Provided JSON for {$className} contains invalid pattern properties.
+                  - invalid property 'x_foo' matching pattern '^x_'
+                    * Invalid type for pattern property. Requires int, got string
+                Provided JSON for {$className} contains not allowed unevaluated properties [x_foo]
+                MSG,
+                $registry->getMessage(),
+            );
+        }
+
+        // Rollback discipline: _patternProperties restored to the pre-call value;
+        // _rawModelDataInput unchanged.
+        $this->assertSame(['name' => 'Alice', 'x_foo' => 5], $object->meta()->rawInput());
+    }
+
+    /**
+     * Collect-errors mode for `_removeAdditionalProperty`: the shim's `minPropertyValidator`
+     * inline check, the composition revalidation (so `_compositionEvaluations` reflects the
+     * post-removal state), and the post-composition revalidation share a single
+     * `_errorRegistry` and a single throw at the end. Removing a key can flip a composition
+     * branch and orphan a key that the previous branch had claimed; without composition
+     * revalidation the cache stays stale and the unevaluated check misses the orphan.
+     *
+     * Schema: `properties: {kind}` + `patternProperties: {"^p_": {"type": "integer"}}` +
+     * `minProperties: 3` + an anyOf where branch 0 requires `p_foo` and claims `q_marker` and
+     * branch 1 succeeds whenever `kind` is `"X"` and claims nothing. With construction
+     * `{kind: "X", p_foo: 1, q_marker: 7}`, both anyOf branches succeed and `q_marker` is
+     * credited by branch 0's declared-property list; the model is valid.
+     *
+     * Removing `p_foo`:
+     *   - minPropertyValidator: candidate count drops to 2 < 3 → MinPropertiesException.
+     *   - composition revalidation on candidate: branch 0 fails (missing p_foo); branch 1
+     *     still succeeds (kind=X); anyOf as a whole still passes — but `q_marker` is no
+     *     longer in any successful branch's claimed set.
+     *   - post-composition unevaluatedProperties: false: `q_marker` is now an orphan →
+     *     UnevaluatedPropertiesException.
+     *
+     * Both errors land in the registry. On the throw, the model state is rolled back so the
+     * caller still sees the pre-removal raw input and the pre-removal pattern-bucket.
+     */
+    public function testRemoveCollectsMinPropertyAndUnevaluatedErrorsTogether(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(
+                new AdditionalPropertiesAccessorPostProcessor(
+                    addForModelsWithoutAdditionalPropertiesDefinition: true,
+                ),
+            );
+        };
+
+        $className = $this->generateClassFromFile(
+            'BranchFlipOnRemove.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(true),
+        );
+
+        $object = new $className(['kind' => 'X', 'p_foo' => 1, 'q_marker' => 7]);
+        $additionalAccessor = $object->additionalProperties();
+
+        try {
+            $additionalAccessor->remove('p_foo');
+            $this->fail('Expected ErrorRegistryException with min-property + unevaluated errors');
+        } catch (ErrorRegistryException $registry) {
+            $this->assertSame(
+                <<<MSG
+                Provided object for {$className} must not contain less than 3 properties, 2 properties provided
+                Provided JSON for {$className} contains not allowed unevaluated properties [q_marker]
+                MSG,
+                $registry->getMessage(),
+            );
+        }
+
+        // The rejected removal must roll the model state back to its pre-call values.
+        $this->assertSame(
+            ['kind' => 'X', 'p_foo' => 1, 'q_marker' => 7],
+            $object->meta()->rawInput(),
         );
     }
 

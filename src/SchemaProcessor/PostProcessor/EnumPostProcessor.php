@@ -92,7 +92,7 @@ class EnumPostProcessor extends PostProcessor
         if (isset($json['enum']) && !$this->hasEnumFilterAlreadyApplied($property)) {
             // Filter incompatible values before validation so that e.g. a string-typed enum
             // with a stray integer value is still valid (and the integer is removed with a warning).
-            $values = $this->filterValuesByDeclaredType($json, $property);
+            $values = $this->filterValuesByDeclaredType($json, $property, $generatorConfiguration);
 
             if ($this->validateEnum($property, $values)) {
                 $this->convertEnumProperty($property, $schema, $generatorConfiguration, $json, $values);
@@ -324,8 +324,11 @@ class EnumPostProcessor extends PostProcessor
      * Removes values that can never satisfy the type constraint and emits a warning for each
      * removed value so the developer is aware at generation time.
      */
-    private function filterValuesByDeclaredType(array $json, PropertyInterface $property): array
-    {
+    private function filterValuesByDeclaredType(
+        array $json,
+        PropertyInterface $property,
+        GeneratorConfiguration $generatorConfiguration,
+    ): array {
         $values = $json['enum'];
 
         if (!isset($json['type'])) {
@@ -367,7 +370,7 @@ class EnumPostProcessor extends PostProcessor
             }
         }
 
-        if (!empty($removedValues)) {
+        if (!empty($removedValues) && $generatorConfiguration->isOutputEnabled()) {
             $typeLabel   = implode('|', $declaredTypes);
             $removedList = implode(', ', array_map(
                 static fn($value): string => var_export($value, true),

@@ -431,6 +431,19 @@ Never use multiple `assertStringContainsString` calls on the same exception mess
 message can be constructed. A single `assertSame($expectedMessage, $exception->getMessage())` is
 both stronger and self-documenting.
 
+When the expected exception message spans multiple lines (e.g. an `ErrorRegistryException`
+joining several sub-errors with `"\n"`, or any nested-exception format that embeds newlines),
+**always write the expected value as a heredoc**, never as a `sprintf` call with `\n` escapes
+or as concatenated `.` string fragments. Heredoc preserves the literal layout of the message
+exactly as it will appear at runtime, so the test source reads as the message and a diff
+against the actual output is line-by-line. Use the variable-interpolating `<<<MSG ... MSG;`
+form when the message embeds dynamic class names or other runtime values; use the literal
+`<<<'MSG' ... MSG;` form only when no interpolation is needed.
+
+Inline the heredoc directly into the `assertSame` call rather than assigning it to a local
+variable first — the assertion reads as a single self-contained statement that places the
+expected message next to the actual one, which is what a reader is comparing.
+
 For pull requests, check the qlty.sh coverage report by constructing the URL from the current PR
 number:
 

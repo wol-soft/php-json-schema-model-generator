@@ -36,8 +36,17 @@ class UnevaluatedPropertiesValidatorFactory extends AbstractValidatorFactory
         // claimed by `properties`/`patternProperties` is already evaluated by it. Composition
         // contributions cannot retract that — `additionalProperties` only succeeds when every
         // matched key passes — so the unevaluated set is guaranteed empty and the validator
-        // would be a no-op. Skip emission entirely.
+        // would be a no-op. Skip emission entirely and warn the developer that the keyword
+        // is dead code at this schema level.
         if (isset($json['additionalProperties']) && $json['additionalProperties'] !== false) {
+            if ($schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
+                echo sprintf(
+                    "Warning: unevaluatedProperties on %s is dead code — sibling additionalProperties"
+                        . " already claims every extra key\n",
+                    $schema->getClassName(),
+                );
+            }
+
             return;
         }
 

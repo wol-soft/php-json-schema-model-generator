@@ -1,5 +1,5 @@
 /**
- * {% if minPropertyValidator %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+ * {% if minPropertyValidator or schema.getCompositionValidatorKeys() or schema.getPostCompositionValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
  */
 private function _removeAdditionalProperty(string $key): bool
 {
@@ -19,20 +19,70 @@ private function _removeAdditionalProperty(string $key): bool
         return false;
     }
 
-    {% if minPropertyValidator %}
-        {% if generatorConfiguration.collectErrors() %}
-            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+    {% if minPropertyValidator or schema.getCompositionValidatorKeys() or schema.getPostCompositionValidators() %}
+        // Snapshot every field a rejected removal must restore. Composition validators merge
+        // against _rawModelDataInput when they run, so the post-remove view has to live there
+        // — passing a candidate parameter alone gets re-merged.
+        $originalRawModelDataInput = $this->_rawModelDataInput;
+
+        {% if schema.getCompositionValidatorKeys() %}
+            $originalCompositionEvaluations = $this->_compositionEvaluations ?? [];
+            $originalPropertyValidationState = $this->_propertyValidationState ?? [];
         {% endif %}
 
-        if ({{ minPropertyValidator.getCheck() }}) {
-            {{ viewHelper.validationError(minPropertyValidator) }}
-        }
+        {% if generatorConfiguration.collectErrors() %}
+            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        {% else %}
+            try {
+        {% endif %}
+
+        {% if minPropertyValidator %}
+            // minPropertyValidator's check expression compensates for the imminent removal
+            // (`count($this->_rawModelDataInput) - 1`), so it must run BEFORE the unset.
+            if ({{ minPropertyValidator.getCheck() }}) {
+                {{ viewHelper.validationError(minPropertyValidator) }}
+            }
+        {% endif %}
+
+        unset($this->_rawModelDataInput[$key]);
+
+        {% if schema.getCompositionValidatorKeys() %}
+            // Cross-state composition revalidation: removing a key may flip a branch
+            // (e.g. one whose required/minProperties/etc. depended on the key). Without
+            // this the cached _compositionEvaluations stay tied to the pre-removal
+            // state and the post-composition unevaluated check would miss orphans.
+            {% foreach schema.getCompositionValidatorKeys() as compositionValidatorKey %}
+                $this->_validateComposition_{{ compositionValidatorKey }}($this->_rawModelDataInput);
+            {% endforeach %}
+        {% endif %}
+
+        {% if schema.getPostCompositionValidators() %}
+            $this->_executePostCompositionValidators($this->_rawModelDataInput);
+        {% endif %}
 
         {% if generatorConfiguration.collectErrors() %}
             if (count($this->_errorRegistry->getErrors())) {
+                $this->_rawModelDataInput = $originalRawModelDataInput;
+                {% if schema.getCompositionValidatorKeys() %}
+                    $this->_compositionEvaluations = $originalCompositionEvaluations;
+                    $this->_propertyValidationState = $originalPropertyValidationState;
+                {% endif %}
+
                 throw $this->_errorRegistry;
             }
+        {% else %}
+            } catch (\Throwable $rejection) {
+                $this->_rawModelDataInput = $originalRawModelDataInput;
+                {% if schema.getCompositionValidatorKeys() %}
+                    $this->_compositionEvaluations = $originalCompositionEvaluations;
+                    $this->_propertyValidationState = $originalPropertyValidationState;
+                {% endif %}
+
+                throw $rejection;
+            }
         {% endif %}
+    {% else %}
+        unset($this->_rawModelDataInput[$key]);
     {% endif %}
 
     if ($inPatternProperties) {
@@ -40,8 +90,6 @@ private function _removeAdditionalProperty(string $key): bool
             unset($this->_patternProperties[$patternHash][$key]);
         }
     }
-
-    unset($this->_rawModelDataInput[$key]);
 
     if ($inAdditionalProperties) {
         unset($this->_additionalProperties[$key]);
