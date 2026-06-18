@@ -3,8 +3,9 @@
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
     {% if collectUnevaluatedProperties %}
-        $rollbackValues = $this->_unevaluatedProperties;
+        $rollbackUnevaluatedProperties = $this->_unevaluatedProperties;
     {% endif %}
+    $rollbackEvaluatedPropertyKeys = $this->_evaluatedPropertyKeys;
 
     $unevaluatedKeys = $this->collectUnevaluatedKeys(
         $modelData,
@@ -30,8 +31,14 @@
             {% if generatorConfiguration.collectErrors() %}
                 if ($this->_errorRegistry->getErrors()) {
                     $invalidProperties[$propertyKey] = $this->_errorRegistry->getErrors();
+
+                    continue;
                 }
             {% endif %}
+
+            // The key validated against the unevaluatedProperties subschema — record it so an
+            // enclosing schema's unevaluatedProperties accumulator can credit it.
+            $this->_evaluatedPropertyKeys[$propertyKey] = true;
 
             {% if collectUnevaluatedProperties %}
                 $this->_unevaluatedProperties[$propertyKey] = $value;
@@ -47,11 +54,12 @@
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
-    {% if collectUnevaluatedProperties %}
-        if (!empty($invalidProperties)) {
-            $this->_unevaluatedProperties = $rollbackValues;
-        }
-    {% endif %}
+    if (!empty($invalidProperties)) {
+        {% if collectUnevaluatedProperties %}
+            $this->_unevaluatedProperties = $rollbackUnevaluatedProperties;
+        {% endif %}
+        $this->_evaluatedPropertyKeys = $rollbackEvaluatedPropertyKeys;
+    }
 
     return !empty($invalidProperties);
 })()

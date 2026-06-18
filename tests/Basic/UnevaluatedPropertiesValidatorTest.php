@@ -307,6 +307,71 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
+     * A composition branch that declares its own `unevaluatedProperties: {schema}` records
+     * the keys it evaluates against that schema. Those records must propagate to an
+     * outer `unevaluatedProperties: false` so the outer treats them as already evaluated.
+     *
+     * Two scenarios on the same generated class (collect-errors mode so the registry
+     * surfaces both the inner failure cause and the outer-level orphans in one message):
+     *   - `{foo: "hi", bar: 5}` exercises the success path. The branch's `properties`
+     *     declares `foo`. The branch's `unevaluatedProperties: {integer}` validates `bar`
+     *     (5 is integer). The outer `unevaluatedProperties: false` sees both keys evaluated
+     *     through the branch's contribution and accepts.
+     *   - `{foo: "hi", bar: "not-int"}` exercises the inner-rejection path. The branch's
+     *     `unevaluatedProperties: {integer}` rejects `bar` ("not-int" fails the integer
+     *     check); the allOf composition therefore matches zero elements; and the outer's
+     *     `unevaluatedProperties: false` then sees both `foo` and `bar` as orphans because
+     *     no successful branch claimed them. All three pieces appear in the registry's
+     *     aggregated message.
+     */
+    public function testNestedUnevaluatedInBranchPropagatesClaimsToOuter(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedUnevaluatedInBranchPropagatesClaims.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        $accepted = new $className(['foo' => 'hi', 'bar' => 5]);
+        $this->assertSame(['foo' => 'hi', 'bar' => 5], $accepted->meta()->rawInput());
+
+        // The branch is rendered as a nested class alongside the outer. Locate it by
+        // pattern-matching the file list so the assertion below can spell the full message.
+        $generationDir = dirname((new \ReflectionClass($className))->getFileName());
+        $nestedFiles = array_values(array_filter(
+            glob($generationDir . DIRECTORY_SEPARATOR . '*.php'),
+            static fn(string $path): bool => str_contains(basename($path), $className . '_'),
+        ));
+        $nestedClassName = str_replace('.php', '', basename($nestedFiles[0]));
+
+        try {
+            new $className(['foo' => 'hi', 'bar' => 'not-int']);
+            $this->fail('Inner unevaluatedProperties: {integer} must reject the non-integer extra');
+        } catch (ErrorRegistryException $registry) {
+            // The registry surfaces the inner cause AND a separate outer-level orphan report
+            // for [foo, bar]. Both lines are correct under JSON Schema 2019-09's applicator
+            // rules: a composition branch that fails as a whole contributes no annotations,
+            // so even foo — whose individual value passed the branch's properties.foo
+            // validator — is treated as unevaluated at the outer level because the branch's
+            // claim never propagated. The two messages are complementary: the composition
+            // block reports why the branch failed, and the trailing line reports what the
+            // outer's unevaluatedProperties: false saw once it ran with no successful
+            // branches.
+            $this->assertSame(
+                <<<MSG
+                Invalid value for {$className} declined by composition constraint.
+                  Requires to match all composition elements but matched 0 elements.
+                  - Composition element #1: Failed
+                    * Provided JSON for {$nestedClassName} contains invalid unevaluated properties.
+                      - invalid unevaluated property 'bar'
+                        * Invalid type for unevaluated property. Requires int, got string
+                Provided JSON for {$className} contains not allowed unevaluated properties [foo, bar]
+                MSG,
+                $registry->getMessage(),
+            );
+        }
+    }
+
+    /**
      * A composition branch that declares its own `additionalProperties: {schema}` contributes
      * the keys it validated against that schema to the outer accumulator. Two assertions on the
      * same generated class:

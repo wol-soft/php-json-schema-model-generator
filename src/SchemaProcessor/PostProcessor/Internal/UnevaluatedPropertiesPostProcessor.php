@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Traits\CompositionEvaluationTrait;
 
@@ -48,8 +49,14 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             return;
         }
 
+        // A schema with a non-false `unevaluatedProperties` validator tracks each key the
+        // validator successfully evaluates in `_evaluatedPropertyKeys`. That field is read
+        // by `_getEvaluatedProperties()` on nested branch classes so an enclosing
+        // `unevaluatedProperties` sees those keys as evaluated.
+        $this->addEvaluatedPropertyKeysField($schema);
+
         // The nested branch schemas may already be queued — adding the method here, before any
-        // render() runs, ensures every branch class carries getEvaluatedProperties() regardless
+        // render() runs, ensures every branch class carries _getEvaluatedProperties() regardless
         // of whether the outer or inner schema was processed first. RenderQueue::execute runs
         // process() over every job before render() begins.
         $this->addGetEvaluatedPropertiesToNestedBranchSchemas($schema);
@@ -81,9 +88,39 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
     }
 
     /**
-     * For each composition branch that produces a nested object class, adds a
-     * getEvaluatedProperties() method so the unevaluatedProperties validator can query
-     * which properties the nested class evaluated.
+     * Adds the `_evaluatedPropertyKeys` collection field to a schema that carries the
+     * schema-form `UnevaluatedPropertiesValidator`. Nested branch schemas reach this code
+     * through their own `process()` call (RenderQueue calls each job's processors), so no
+     * recursion across branches is required here.
+     */
+    private function addEvaluatedPropertyKeysField(Schema $schema): void
+    {
+        foreach ($schema->getPostCompositionValidators() as $postCompositionValidator) {
+            if ($postCompositionValidator instanceof UnevaluatedPropertiesValidator) {
+                $schema->addProperty(
+                    (new Property(
+                        'evaluatedPropertyKeys',
+                        new PropertyType('array'),
+                        new JsonSchema(__FILE__, []),
+                    ))
+                        ->setInternal(true)
+                        ->setDefaultValue([]),
+                );
+
+                return;
+            }
+        }
+    }
+
+    /**
+     * For each composition branch that produces a nested object class, adds an internal
+     * `_getEvaluatedProperties()` method the enclosing schema's unevaluatedProperties
+     * validator queries to learn which keys the nested class evaluated.
+     *
+     * The method name uses an underscore prefix so it cannot collide with a user-declared
+     * schema property called `evaluatedProperties` (whose generated getter would be
+     * `getEvaluatedProperties()` without the underscore) and so its internal-only role is
+     * visible at the call site.
      */
     private function addGetEvaluatedPropertiesToNestedBranchSchemas(Schema $schema): void
     {
@@ -95,12 +132,12 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             foreach ($baseValidator->getComposedProperties() as $composedProperty) {
                 $nestedSchema = $composedProperty->getNestedSchema();
 
-                if ($nestedSchema === null || $nestedSchema->hasMethod('getEvaluatedProperties')) {
+                if ($nestedSchema === null || $nestedSchema->hasMethod('_getEvaluatedProperties')) {
                     continue;
                 }
 
                 $nestedSchema->addMethod(
-                    'getEvaluatedProperties',
+                    '_getEvaluatedProperties',
                     $this->buildGetEvaluatedPropertiesMethod($nestedSchema),
                 );
             }
@@ -108,10 +145,10 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
     }
 
     /**
-     * Builds a MethodInterface that emits getEvaluatedProperties() for the given nested schema.
-     *
-     * The method returns all declared property names (from the nested schema's `properties`
-     * keyword) that are present in the instance's raw model data at the time of the call.
+     * Builds a MethodInterface that emits `_getEvaluatedProperties()` for the given nested
+     * schema. The method returns the union of declared property names present in the
+     * instance's raw model data and the keys recorded in `_evaluatedPropertyKeys` (populated
+     * by the nested schema's own unevaluatedProperties validator).
      */
     private function buildGetEvaluatedPropertiesMethod(Schema $nestedSchema): MethodInterface
     {
@@ -132,11 +169,19 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
                 return sprintf(
                     '
-                    public function getEvaluatedProperties(): array
+                    #[Internal]
+                    public function _getEvaluatedProperties(): array
                     {
                         $evaluated = [];
                         foreach (%s as $propName) {
                             if (array_key_exists($propName, $this->_rawModelDataInput)) {
+                                $evaluated[$propName] = true;
+                            }
+                        }
+                        // Keys evaluated by this schema\'s own unevaluatedProperties: {schema}
+                        // validator are tracked so an enclosing schema can see them.
+                        if (property_exists($this, "_evaluatedPropertyKeys")) {
+                            foreach ($this->_evaluatedPropertyKeys as $propName => $_) {
                                 $evaluated[$propName] = true;
                             }
                         }
