@@ -391,6 +391,65 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
+    public static function recursivePathRefSchemaProvider(): array
+    {
+        return [
+            // definitions keyword (Draft-07): self-ref via path only, no $id anchor
+            'definitions keyword' => ['RecursivePathDefinitionsRef.json'],
+            // $defs keyword (Draft 2019-09): self-ref via path only, no $id anchor
+            '$defs keyword' => ['RecursivePathDefsRef.json'],
+        ];
+    }
+
+    /**
+     * A definition that refers to itself by path (no $id anchor) must be generated correctly.
+     * This covers both the definitions (Draft-07) and $defs (Draft 2019-09) container keywords.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[DataProvider('recursivePathRefSchemaProvider')]
+    public function testRecursivePathRefGeneratesAndWorksCorrectly(string $schemaFile): void
+    {
+        $className = $this->generateClassFromFile($schemaFile);
+
+        // No root provided — optional property is null
+        $object = new $className([]);
+        $this->assertNull($object->getRoot());
+
+        // Flat usage: root present, no child
+        $object = new $className(['root' => ['value' => 'hello']]);
+        $this->assertSame('hello', $object->getRoot()->getValue());
+        $this->assertNull($object->getRoot()->getChild());
+
+        // Nested usage: one level of recursion
+        $object = new $className([
+            'root' => [
+                'value'  => 'parent',
+                'child'  => ['value' => 'child'],
+            ],
+        ]);
+        $this->assertSame('parent', $object->getRoot()->getValue());
+        $this->assertSame('child', $object->getRoot()->getChild()->getValue());
+        $this->assertNull($object->getRoot()->getChild()->getChild());
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[DataProvider('recursivePathRefSchemaProvider')]
+    public function testRecursivePathRefWithInvalidTypeThrowsException(string $schemaFile): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Invalid type for root. Requires object, got integer');
+
+        $className = $this->generateClassFromFile($schemaFile);
+        new $className(['root' => 42]);
+    }
+
     /**
      * @throws FileSystemException
      * @throws RenderException

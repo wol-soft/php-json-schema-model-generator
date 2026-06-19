@@ -1,0 +1,21 @@
+{
+  "definitions": {
+    "node": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "child": {
+          "$ref": "#/definitions/node"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "root": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}
