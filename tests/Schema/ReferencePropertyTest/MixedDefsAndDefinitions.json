@@ -1,0 +1,31 @@
+{
+  "definitions": {
+    "legacyPerson": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "modernPerson": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "contact": {
+      "$ref": "#/definitions/legacyPerson"
+    },
+    "user": {
+      "$ref": "#/$defs/modernPerson"
+    }
+  }
+}
