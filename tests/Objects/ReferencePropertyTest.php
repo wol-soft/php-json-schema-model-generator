@@ -450,6 +450,181 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         new $className(['root' => 42]);
     }
 
+    // =========================================================================
+    // $defs keyword parity (Draft 2019-09)
+    // =========================================================================
+
+    public static function defsObjectReferenceProvider(): array
+    {
+        return [
+            // Internal path ref via $defs container
+            '$defs internal path ref' => ['#/$defs/person'],
+            // External $defs-only library file: no top-level type:object, so it becomes an
+            // ExternalSchema; the path ref navigates into its $defs section
+            '$defs external path ref (defs-only library)' => [
+                '../ReferencePropertyTest_external/defsLibrary.json#/$defs/person',
+            ],
+        ];
+    }
+
+    /**
+     * A property whose $ref targets a $defs entry (internal or external) must behave identically
+     * to one targeting a definitions entry: null when not provided, correct values when provided,
+     * and JsonPointer attributes reflecting /$defs/... path conventions.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[DataProvider('defsObjectReferenceProvider')]
+    public function testDefsObjectRefPropertyBehavesCorrectly(string $reference): void
+    {
+        $className = $this->generateClassFromFileTemplate('DefsObjectReference.json', [$reference]);
+
+        // Not provided — optional property is null
+        $object = new $className([]);
+        $this->assertNull($object->getPerson());
+
+        // Valid: full object with all properties
+        $object = new $className(['person' => ['name' => 'Alice', 'age' => 30]]);
+        $this->assertSame('Alice', $object->getPerson()->getName());
+        $this->assertSame(30, $object->getPerson()->getAge());
+        $this->assertSame(['name' => 'Alice', 'age' => 30], $object->getPerson()->meta()->rawInput());
+
+        // Ref site pointer is always /properties/person regardless of where the definition lives
+        $this->assertPropertyHasJsonPointer($object, 'person', '/properties/person');
+        // Class pointer reflects /$defs/... for both internal and external $defs refs
+        $this->assertClassHasJsonPointer($object->getPerson(), '/$defs/person');
+        $this->assertPropertyHasJsonPointer($object->getPerson(), 'name', '/$defs/person/properties/name');
+    }
+
+    /**
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[DataProvider('defsObjectReferenceProvider')]
+    public function testDefsObjectRefInvalidTypeThrowsException(string $reference): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Invalid type for person. Requires object, got integer');
+
+        $className = $this->generateClassFromFileTemplate('DefsObjectReference.json', [$reference]);
+        new $className(['person' => 42]);
+    }
+
+    public static function defsRecursiveExternalReferenceProvider(): array
+    {
+        return [
+            // Direct-id recursion: $ref uses the $id anchor (#personDirect)
+            '$defs external path ref to direct recursion' => [
+                '../ReferencePropertyTest_external/defsRecursiveLibrary.json#/$defs/personDirect',
+            ],
+            '$defs external id ref to direct recursion' => [
+                '../ReferencePropertyTest_external/defsRecursiveLibrary.json#personDirect',
+            ],
+            // Path recursion: $ref uses the /$defs/personPath path; $id anchor also present
+            '$defs external path ref to path recursion' => [
+                '../ReferencePropertyTest_external/defsRecursiveLibrary.json#/$defs/personPath',
+            ],
+            '$defs external id ref to path recursion' => [
+                '../ReferencePropertyTest_external/defsRecursiveLibrary.json#personPath',
+            ],
+        ];
+    }
+
+    /**
+     * Recursive definitions under $defs with $id anchors must behave identically to equivalent
+     * recursive definitions under the definitions keyword.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[DataProvider('defsRecursiveExternalReferenceProvider')]
+    public function testDefsExternalRecursiveRefWithIdAnchorBehavesCorrectly(string $reference): void
+    {
+        $className = $this->generateClassFromFileTemplate('RecursiveObjectReference.json', [$reference, $reference]);
+
+        // No children provided
+        $object = new $className(['person' => ['name' => 'Alice']]);
+        $this->assertSame('Alice', $object->getPerson()->getName());
+        $this->assertEmpty($object->getPerson()->getChildren());
+
+        // One level of recursion
+        $object = new $className([
+            'person' => [
+                'name' => 'Alice',
+                'children' => [
+                    ['name' => 'Bob', 'children' => []],
+                    ['name' => 'Carol'],
+                ],
+            ],
+        ]);
+        $this->assertSame('Alice', $object->getPerson()->getName());
+        $this->assertCount(2, $object->getPerson()->getChildren());
+        $this->assertSame('Bob', $object->getPerson()->getChildren()[0]->getName());
+        $this->assertSame('Carol', $object->getPerson()->getChildren()[1]->getName());
+    }
+
+    public static function defsBaseReferenceProvider(): array
+    {
+        return [
+            // Path ref into $defs
+            '$defs internal path ref' => ['#/$defs/person'],
+            // Id ref: $id anchor inside $defs is registered the same way as one inside definitions
+            '$defs internal id ref' => ['#person'],
+        ];
+    }
+
+    /**
+     * A root-level $ref targeting a $defs entry must merge the referenced object's properties
+     * into the generated class, identical to a definitions-based base reference.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[DataProvider('defsBaseReferenceProvider')]
+    public function testDefsBaseReferenceGeneratesCorrectly(string $reference): void
+    {
+        $className = $this->generateClassFromFileTemplate('DefsBaseReference.json', [$reference]);
+
+        $object = new $className(['name' => 'Alice', 'age' => 30]);
+        $this->assertSame('Alice', $object->getName());
+        $this->assertSame(30, $object->getAge());
+        $this->assertSame(['name' => 'Alice', 'age' => 30], $object->meta()->rawInput());
+    }
+
+    /**
+     * A schema containing both definitions (Draft-07) and $defs (Draft 2019-09) must resolve
+     * refs from each container independently. Properties from definitions carry /definitions/...
+     * pointers; properties from $defs carry /$defs/... pointers.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testMixedDefsAndDefinitionsGeneratesCorrectly(): void
+    {
+        $className = $this->generateClassFromFile('MixedDefsAndDefinitions.json');
+
+        $object = new $className([
+            'contact' => ['name' => 'Alice'],
+            'user'    => ['email' => 'alice@example.com'],
+        ]);
+
+        $this->assertSame('Alice', $object->getContact()->getName());
+        $this->assertSame('alice@example.com', $object->getUser()->getEmail());
+
+        // Ref site pointers reflect where each $ref appears in the root schema
+        $this->assertPropertyHasJsonPointer($object, 'contact', '/properties/contact');
+        $this->assertPropertyHasJsonPointer($object, 'user', '/properties/user');
+        // Definition pointers reflect which container keyword was used
+        $this->assertClassHasJsonPointer($object->getContact(), '/definitions/legacyPerson');
+        $this->assertClassHasJsonPointer($object->getUser(), '/$defs/modernPerson');
+    }
+
     /**
      * @throws FileSystemException
      * @throws RenderException
