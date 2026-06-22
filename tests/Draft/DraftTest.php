@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Draft;
 
 use PHPModelGenerator\Draft\AutoDetectionDraft;
 use PHPModelGenerator\Draft\Draft_07;
+use PHPModelGenerator\Draft\Draft_2019_09;
 use PHPModelGenerator\Draft\Element\Type;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\String\MinLengthException;
@@ -168,6 +169,51 @@ class DraftTest extends TestCase
         $jsonSchema = new JsonSchema('test.json', ['$schema' => 'https://example.com/custom-schema']);
 
         $this->assertInstanceOf(Draft_07::class, (new AutoDetectionDraft())->getDraftForSchema($jsonSchema));
+    }
+
+    /** @return array<string, array{string}> */
+    public static function draft201909SchemaUriProvider(): array
+    {
+        return [
+            'https without trailing hash' => ['https://json-schema.org/draft/2019-09/schema'],
+            'https with trailing hash'    => ['https://json-schema.org/draft/2019-09/schema#'],
+            'http without trailing hash'  => ['http://json-schema.org/draft/2019-09/schema'],
+            'http with trailing hash'     => ['http://json-schema.org/draft/2019-09/schema#'],
+        ];
+    }
+
+    #[DataProvider('draft201909SchemaUriProvider')]
+    public function testAutoDetectionReturnsDraft201909ForDraft201909SchemaKeyword(string $schemaUri): void
+    {
+        $jsonSchema = new JsonSchema('test.json', ['$schema' => $schemaUri]);
+
+        $this->assertInstanceOf(Draft_2019_09::class, (new AutoDetectionDraft())->getDraftForSchema($jsonSchema));
+    }
+
+    public function testAutoDetectionReusesCachedDraft07Instance(): void
+    {
+        $autoDetectionDraft = new AutoDetectionDraft();
+
+        $firstSchema = new JsonSchema('first.json', ['$schema' => 'http://json-schema.org/draft-07/schema#']);
+        $secondSchema = new JsonSchema('second.json', ['type' => 'object']);
+
+        $this->assertSame(
+            $autoDetectionDraft->getDraftForSchema($firstSchema),
+            $autoDetectionDraft->getDraftForSchema($secondSchema),
+        );
+    }
+
+    public function testAutoDetectionReusesCachedDraft201909Instance(): void
+    {
+        $autoDetectionDraft = new AutoDetectionDraft();
+
+        $firstSchema = new JsonSchema('first.json', ['$schema' => 'https://json-schema.org/draft/2019-09/schema']);
+        $secondSchema = new JsonSchema('second.json', ['$schema' => 'https://json-schema.org/draft/2019-09/schema#']);
+
+        $this->assertSame(
+            $autoDetectionDraft->getDraftForSchema($firstSchema),
+            $autoDetectionDraft->getDraftForSchema($secondSchema),
+        );
     }
 
     // --- GeneratorConfiguration ---
