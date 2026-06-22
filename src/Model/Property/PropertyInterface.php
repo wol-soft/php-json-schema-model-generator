@@ -169,11 +169,22 @@ interface PropertyInterface extends ResolvableInterface
      */
     public function getJsonSchema(): JsonSchema;
 
+    public function setJsonSchema(JsonSchema $jsonSchema): static;
+
+    public function filterAttributes(callable $filter): static;
+
     public function addAttribute(
         PhpAttribute $attribute,
         ?GeneratorConfiguration $generatorConfiguration = null,
         ?int $enablementFlag = null,
     ): static;
+
+    /**
+     * Replace the JsonPointer attribute with one carrying the given pointer value.
+     * Used by processReference to set the reference site's pointer on a resolved property
+     * rather than the definition's pointer.
+     */
+    public function overrideJsonPointer(PhpAttribute $attribute): static;
 
     /**
      * @return PhpAttribute[]

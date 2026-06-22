@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "A"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "timeout": {
+        "type": "integer",
+        "default": 10
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "timeout": {
+        "type": "integer",
+        "default": 60
+      }
+    }
+  }
+}

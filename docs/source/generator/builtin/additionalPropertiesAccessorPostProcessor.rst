@@ -34,27 +34,34 @@ Generated interface with the **AdditionalPropertiesAccessorPostProcessor**:
 
 .. code-block:: php
 
-    public function getRawModelDataInput(): array;
-
     public function setExample(float $example): static;
     public function getExample(): float;
 
-    public function getAdditionalProperties(): array;
-    public function getAdditionalProperty(string $property): ?string;
-    public function setAdditionalProperty(string $property, string $value): static;
-    public function removeAdditionalProperty(string $property): bool;
+    public function meta(): Meta;
+    public function additionalProperties(): AdditionalPropertiesAccessor;
+
+The ``additionalProperties()`` method returns an accessor object with the following interface:
+
+.. code-block:: php
+
+    public function getAll(): array;
+    public function get(string $key): mixed;
+    public function set(string $key, mixed $value): void;
+    public function remove(string $key): bool;
 
 .. note::
 
-    The methods **setAdditionalProperty** and **removeAdditionalProperty** are only added if the `immutable setting <../../gettingStarted.html#immutable-classes>`__ is set to false.
+    The methods **set** and **remove** on the accessor are only available if the `immutable setting <../../gettingStarted.html#immutable-classes>`__ is set to false.
 
-**getAdditionalProperties**: This method returns all additional properties which are currently part of the model as key-value pairs where the key is the property name and the value the current value stored in the model. All other properties which are part of the object (in this case the property *example*) will not be included. In opposite to the *getRawModelDataInput* the values provided via this method are the processed values. This means if the schema provides an object-schema for additional properties an array of object instances will be returned. If the additional properties schema contains `filter <../../nonStandardExtensions/filter.html>`__ the filtered (and in case of transforming filter transformed) values will be returned.
+When the ``additionalProperties`` keyword provides a schema that constrains the value type, a typed companion class ``{ModelName}AdditionalProperties`` is generated that narrows the return and parameter types of the accessor methods accordingly.
 
-**getAdditionalProperty**: Returns the current value of a single additional property. If the requested property doesn't exist null will be returned. Returns as well as *getAdditionalProperties* the processed values.
+**getAll**: Returns all additional properties currently part of the model as key-value pairs. Properties defined in the schema (in this case *example*) are not included. Unlike ``meta()->rawInput()``, the values returned here are the processed values — if the schema defines an object schema for additional properties, an array of object instances is returned; if a `filter <../../nonStandardExtensions/filter.html>`__ is applied, the filtered (and for transforming filters, transformed) values are returned.
 
-**setAdditionalProperty**: Adds or updates an additional property. Performs all necessary validations like property names or min and max properties validations. If the additional properties are processed via a transforming filter an already transformed value will be accepted. If a property which is regularly defined in the schema a *RegularPropertyAsAdditionalPropertyException* will be thrown. If the change is valid and performed also the output of *getRawModelDataInput* will be updated.
+**get**: Returns the current value of a single additional property. Returns null if the requested property does not exist. Like ``getAll``, returns the processed value.
 
-**removeAdditionalProperty**: Removes an existing additional property from the model. Returns true if the additional property has been removed, false otherwise (if no additional property with the requested key exists). May throw a *MinPropertiesException* if the change would result in an invalid model state. If the change is valid and performed also the output of *getRawModelDataInput* will be updated.
+**set**: Adds or updates an additional property. Performs all necessary validations including property name constraints and min/max properties limits. If the additional properties are processed via a transforming filter an already transformed value will be accepted. Throws *RegularPropertyAsAdditionalPropertyException* if the key conflicts with a regularly-defined schema property.
+
+**remove**: Removes an existing additional property from the model. Returns true if the property was removed, false if it did not exist. May throw a *MinPropertiesException* if removal would produce an invalid model state.
 
 Serialization
 ~~~~~~~~~~~~~

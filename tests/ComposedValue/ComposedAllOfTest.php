@@ -30,7 +30,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['property' => $propertyValue]);
         $this->assertNull($object->getProperty());
-        $this->assertSame(['property' => $propertyValue], $object->getRawModelDataInput());
+        $this->assertSame(['property' => $propertyValue], $object->meta()->rawInput());
     }
 
     public static function validEmptyAllOfDataProvider(): array

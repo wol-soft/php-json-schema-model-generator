@@ -18,7 +18,7 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
     protected string $extractedMethodName;
 
     public function __construct(
-        private readonly GeneratorConfiguration $generatorConfiguration,
+        protected readonly GeneratorConfiguration $generatorConfiguration,
         PropertyInterface $property,
         string $template,
         array $templateValues,
@@ -26,7 +26,7 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
         array $exceptionParams = [],
     ) {
         $this->extractedMethodName = sprintf(
-            'validate%s_%s_%s',
+            '_validate%s_%s_%s',
             str_replace(' ', '', ucfirst($property->getAttribute())),
             str_replace('Validator', '', substr(strrchr(static::class, '\\'), 1)),
             md5(json_encode($property->getJsonSchema()->getJson())),

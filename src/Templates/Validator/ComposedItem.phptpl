@@ -90,7 +90,7 @@
 
                 {% if hasModifiedValuesMethod %}
                     if (is_object($value)) {
-                        $modifiedValues = array_merge($modifiedValues, $this->{{ modifiedValuesMethod }}($originalModelData, $value));
+                        $modifiedValues = array_merge($modifiedValues, $this->{{ modifiedValuesMethod }}($originalModelData, $value, $validatorComponentIndex));
                     }
                 {% endif %}
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
@@ -128,6 +128,15 @@
             $value = $proposedValue;
         }
     {% else %}
+        {% if hasModifiedValuesMethod %}
+            foreach ({{ allBranchDefaultAttributeMap }} as $branchDefaultKey => $branchDefaultAttr) {
+                if (!array_key_exists($branchDefaultKey, $originalModelData)) {
+                    $this->$branchDefaultAttr = array_key_exists($branchDefaultKey, $modifiedValues)
+                        ? $modifiedValues[$branchDefaultKey]
+                        : null;
+                }
+            }
+        {% endif %}
         $value = $proposedValue;
     {% endif %}
 

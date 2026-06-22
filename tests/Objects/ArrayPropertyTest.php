@@ -622,7 +622,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 continue;
             }
 
-            $this->assertSame($propertyValue[$key], $person->getRawModelDataInput());
+            $this->assertSame($propertyValue[$key], $person->meta()->rawInput());
 
             $this->assertSame($propertyValue[$key]['name'], $person->getName());
             $this->assertSame($propertyValue[$key]['age'] ?? null, $person->getAge());

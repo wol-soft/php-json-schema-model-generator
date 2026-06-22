@@ -70,6 +70,15 @@ class ArrayItemValidator extends ExtractedMethodValidator
     }
 
     /**
+     * The nested property used to validate each array item. Exposed so post processors
+     * (e.g. EnumPostProcessor) can recurse into it.
+     */
+    public function getNestedProperty(): PropertyInterface
+    {
+        return $this->nestedProperty;
+    }
+
+    /**
      * @inheritDoc
      */
     public function getCheck(): string

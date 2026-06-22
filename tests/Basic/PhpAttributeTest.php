@@ -16,7 +16,9 @@ use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
+use ReflectionProperty;
 
 /**
  * Class PhpAttributeTest
@@ -122,5 +124,154 @@ class PhpAttributeTest extends AbstractPHPModelGeneratorTestCase
             '{"type":"string","deprecated":false,"readOnly":true}',
             $propertyAttributes[2]->getArguments()[0],
         );
+    }
+
+    /**
+     * oneOf/allOf: shared property gets two JsonPointer attributes (one per branch);
+     * branch-exclusive properties get exactly one pointer pointing to their defining branch.
+     * Identical branch schemas are deduplicated in the synthesised JsonSchema attribute.
+     */
+    #[DataProvider('compositionKeywordProvider')]
+    public function testCompositionPointersAndJsonSchema(string $keyword, string $schemaFile): void
+    {
+        $configuration = (new GeneratorConfiguration())
+            ->setEnabledAttributes(PhpAttribute::JSON_POINTER | PhpAttribute::JSON_SCHEMA);
+
+        $object = $this->generateClassFromFile($schemaFile, $configuration);
+        $rc     = new ReflectionClass($object);
+
+        // shared: two pointers (one per branch) + deduplicated synthesised schema (both branches
+        // define {type:string}, so the array collapses to a single entry)
+        $sharedPointers = $rc->getProperty('shared')->getAttributes(JsonPointer::class);
+        $this->assertCount(2, $sharedPointers);
+        $this->assertSame("/$keyword/0/properties/shared", $sharedPointers[0]->getArguments()[0]);
+        $this->assertSame("/$keyword/1/properties/shared", $sharedPointers[1]->getArguments()[0]);
+
+        $sharedSchemas = $rc->getProperty('shared')->getAttributes(JsonSchema::class);
+        $this->assertCount(1, $sharedSchemas);
+        $this->assertSame(
+            "{\"$keyword\":[{\"type\":\"string\"}]}",
+            $sharedSchemas[0]->getArguments()[0],
+        );
+
+        // branch0Only: one pointer to branch 0 only
+        $this->assertPropertyHasExactPointers(
+            $rc->getProperty('branch0Only'),
+            ["/$keyword/0/properties/branch0Only"],
+        );
+        $branch0Schemas = $rc->getProperty('branch0Only')->getAttributes(JsonSchema::class);
+        $this->assertCount(1, $branch0Schemas);
+        $this->assertSame("{\"$keyword\":[{\"type\":\"integer\"}]}", $branch0Schemas[0]->getArguments()[0]);
+
+        // branch1Only: one pointer to branch 1 only
+        $this->assertPropertyHasExactPointers(
+            $rc->getProperty('branch1Only'),
+            ["/$keyword/1/properties/branch1Only"],
+        );
+        $branch1Schemas = $rc->getProperty('branch1Only')->getAttributes(JsonSchema::class);
+        $this->assertCount(1, $branch1Schemas);
+        $this->assertSame("{\"$keyword\":[{\"type\":\"integer\"}]}", $branch1Schemas[0]->getArguments()[0]);
+    }
+
+    public static function compositionKeywordProvider(): array
+    {
+        return [
+            'oneOf' => ['oneOf', 'OneOfCompositionPointers.json'],
+            'allOf' => ['allOf', 'AllOfCompositionPointers.json'],
+        ];
+    }
+
+    /**
+     * if/then/else: mode (if-only property) gets the /if/ pointer; shared property gets
+     * then and else pointers; branch-exclusive properties get their respective branch pointer.
+     */
+    public function testIfThenElseCompositionPointersAndJsonSchema(): void
+    {
+        $configuration = (new GeneratorConfiguration())
+            ->setEnabledAttributes(PhpAttribute::JSON_POINTER | PhpAttribute::JSON_SCHEMA);
+
+        $object = $this->generateClassFromFile('IfThenElseCompositionPointers.json', $configuration);
+        $rc     = new ReflectionClass($object);
+
+        // mode: if-branch-only property → single pointer under /if/
+        $this->assertPropertyHasExactPointers(
+            $rc->getProperty('mode'),
+            ['/if/properties/mode'],
+        );
+        $modeSchemas = $rc->getProperty('mode')->getAttributes(JsonSchema::class);
+        $this->assertCount(1, $modeSchemas);
+        $this->assertSame('{"if":{"type":"string","const":"active"}}', $modeSchemas[0]->getArguments()[0]);
+
+        // shared: then + else pointers
+        $sharedPointers = $rc->getProperty('shared')->getAttributes(JsonPointer::class);
+        $this->assertCount(2, $sharedPointers);
+        $this->assertSame('/then/properties/shared', $sharedPointers[0]->getArguments()[0]);
+        $this->assertSame('/else/properties/shared', $sharedPointers[1]->getArguments()[0]);
+
+        $sharedSchemas = $rc->getProperty('shared')->getAttributes(JsonSchema::class);
+        $this->assertCount(1, $sharedSchemas);
+        $this->assertSame(
+            '{"then":{"type":"string"},"else":{"type":"string"}}',
+            $sharedSchemas[0]->getArguments()[0],
+        );
+
+        // thenOnly: pointer under /then/ only
+        $this->assertPropertyHasExactPointers(
+            $rc->getProperty('thenOnly'),
+            ['/then/properties/thenOnly'],
+        );
+        $thenSchemas = $rc->getProperty('thenOnly')->getAttributes(JsonSchema::class);
+        $this->assertCount(1, $thenSchemas);
+        $this->assertSame('{"then":{"type":"integer"}}', $thenSchemas[0]->getArguments()[0]);
+
+        // elseOnly: pointer under /else/ only
+        $this->assertPropertyHasExactPointers(
+            $rc->getProperty('elseOnly'),
+            ['/else/properties/elseOnly'],
+        );
+        $elseSchemas = $rc->getProperty('elseOnly')->getAttributes(JsonSchema::class);
+        $this->assertCount(1, $elseSchemas);
+        $this->assertSame('{"else":{"type":"integer"}}', $elseSchemas[0]->getArguments()[0]);
+    }
+
+    /**
+     * Top-level property combined with oneOf: shared property gets three pointers — root
+     * definition plus one per oneOf branch — and a synthesised schema merging root-level
+     * constraints with the oneOf array.
+     */
+    public function testTopLevelPlusCompositionPointersAndJsonSchema(): void
+    {
+        $configuration = (new GeneratorConfiguration())
+            ->setEnabledAttributes(PhpAttribute::JSON_POINTER | PhpAttribute::JSON_SCHEMA);
+
+        $object = $this->generateClassFromFile('TopLevelPlusCompositionPointers.json', $configuration);
+        $rc     = new ReflectionClass($object);
+
+        // shared: root pointer + two branch pointers
+        $sharedPointers = $rc->getProperty('shared')->getAttributes(JsonPointer::class);
+        $this->assertCount(3, $sharedPointers);
+        $this->assertSame('/properties/shared', $sharedPointers[0]->getArguments()[0]);
+        $this->assertSame('/oneOf/0/properties/shared', $sharedPointers[1]->getArguments()[0]);
+        $this->assertSame('/oneOf/1/properties/shared', $sharedPointers[2]->getArguments()[0]);
+
+        $sharedSchemas = $rc->getProperty('shared')->getAttributes(JsonSchema::class);
+        $this->assertCount(1, $sharedSchemas);
+        $this->assertSame(
+            '{"type":"string","minLength":1,"oneOf":[{"type":"string","maxLength":10},{"type":"string","maxLength":64}]}',
+            $sharedSchemas[0]->getArguments()[0],
+        );
+    }
+
+    /**
+     * @param string[] $expectedPointers
+     */
+    private function assertPropertyHasExactPointers(ReflectionProperty $property, array $expectedPointers): void
+    {
+        $attributes = $property->getAttributes(JsonPointer::class);
+        $this->assertCount(count($expectedPointers), $attributes);
+
+        foreach ($expectedPointers as $index => $expectedPointer) {
+            $this->assertSame($expectedPointer, $attributes[$index]->getArguments()[0]);
+        }
     }
 }

@@ -10,6 +10,14 @@
  */
 public function populate(array $modelData): self
 {
+    // Reset accessor caches so any call after this populate reflects the final model state,
+    // whether populate succeeds or rolls back.
+    foreach (['_additionalPropertiesAccessor', '_patternPropertiesAccessor'] as $_accessorProperty) {
+        if (property_exists($this, $_accessorProperty)) {
+            $this->{$_accessorProperty} = null;
+        }
+    }
+
     $rollbackValues = [];
 
     {% if generatorConfiguration.collectErrors() %}
@@ -25,7 +33,7 @@ public function populate(array $modelData): self
     }
 
     {% if schema.getBaseValidators() %}
-        $this->executeBaseValidators($modelData);
+        $this->_executeBaseValidators($modelData);
     {% endif %}
 
     {% foreach schema.getProperties() as property %}
@@ -36,7 +44,7 @@ public function populate(array $modelData): self
                 {{ schemaHookResolver.resolveSetterBeforeValidationHook(property, true) }}
 
                 $rollbackValues['{{ property.getAttribute(true) }}'] = $this->{{ property.getAttribute(true) }};
-                $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
+                $this->_process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
             }
         {% endif %}
     {% endforeach %}
@@ -63,7 +71,7 @@ public function populate(array $modelData): self
 
     {% foreach schema.getProperties() as property %}
         {% if not property.isInternal() and schemaHookResolver.resolveSetterAfterValidationHook(property) %}
-            if (array_key_exists('{{ property.getName() }}', $rollbackValues)) {
+            if (array_key_exists('{{ property.getAttribute(true) }}', $rollbackValues)) {
                 {{ schemaHookResolver.resolveSetterAfterValidationHook(property, true) }}
             }
         {% endif %}

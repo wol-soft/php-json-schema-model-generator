@@ -58,8 +58,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
             $this->markTestSkipped('Not applicable for the requested JSON Schema draft.');
         }
 
-        (new ModelGenerator())->generateModelDirectory(sys_get_temp_dir() . '/PHPModelGeneratorTest');
-        @mkdir(sys_get_temp_dir() . '/PHPModelGeneratorTest/Models');
+        (new ModelGenerator())->generateModelDirectory(TEST_BASE_DIR);
+        @mkdir(TEST_BASE_DIR . '/Models');
     }
 
     /**
@@ -73,7 +73,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
         if ($this->status()->isFailure() || $this->status()->isError()) {
             $failedResultDir = FAILED_CLASSES_PATH . preg_replace('/[^a-z0-9]+/i', '-', $this->name());
-            $dir = sys_get_temp_dir() . '/PHPModelGeneratorTest';
+            $dir = TEST_BASE_DIR;
 
             $failedDirIterator = new RecursiveIteratorIterator(
                 new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
@@ -102,7 +102,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
      */
     private function copyExternalJSON(): void
     {
-        $baseDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'PHPModelGeneratorTest' . DIRECTORY_SEPARATOR;
+        $baseDir = TEST_BASE_DIR . DIRECTORY_SEPARATOR;
         $copyBaseDir = __DIR__ . "/Schema/{$this->getStaticClassName()}/";
 
         foreach (static::EXTERNAL_JSON_DIRECTORIES as $directory) {
@@ -195,7 +195,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
             $generatorConfiguration->setDraft($draft->createDraftInstance());
         }
 
-        $baseDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'PHPModelGeneratorTest';
+        $baseDir = TEST_BASE_DIR;
 
         $baseDirIterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($baseDir, FilesystemIterator::SKIP_DOTS),

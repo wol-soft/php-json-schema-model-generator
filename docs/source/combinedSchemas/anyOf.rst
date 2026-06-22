@@ -88,3 +88,15 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
     Because at least one branch must apply and all branches guarantee the property's presence, the
     getter can safely be non-nullable. See `Cross-typed compositions <crossTypedComposition.html>`__
     for the full promotion rules.
+
+.. note::
+
+    Properties in object-level ``anyOf`` branches may carry a ``"default"`` value. The generator
+    applies the branch default only when that branch is among the active ones — determined at
+    construction time by which branches the provided data satisfies. When multiple matching branches
+    define a default for the same property, those defaults must agree; the generator throws a
+    ``SchemaException`` at generation time if they differ. Branch defaults are **not** included in
+    ``getRawModelDataInput()``.
+
+    See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
+    explanation.

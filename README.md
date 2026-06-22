@@ -104,8 +104,8 @@ After generating a class with this JSON-Schema our class with the name `Person` 
 // the constructor takes an array with data which is validated and applied to the model
 public function __construct(array $modelData);
 
-// the method getRawModelDataInput always delivers the raw input which was provided on instantiation
-public function getRawModelDataInput(): array;
+// meta()->rawInput() always delivers the raw input which was provided on instantiation
+public function meta(): Meta;
 
 // getters to fetch the validated properties. Age is nullable as it's not required
 public function getName(): string;
@@ -134,7 +134,7 @@ $person = new Person(['name' => 'Albert', 'age' => -1]);
 $person = new Person(['name' => 'Albert']);
 $person->getName(); // returns 'Albert'
 $person->getAge(); // returns NULL
-$person->getRawModelDataInput(); // returns ['name' => 'Albert']
+$person->meta()->rawInput(); // returns ['name' => 'Albert']
 
 // If setters are generated the setters also perform validations.
 // Exception: 'Value for age must not be smaller than 0'
@@ -168,7 +168,7 @@ The library is tested via [PHPUnit](https://phpunit.de/).
 
 After installing the dependencies of the library via `composer update` you can execute the tests with `./vendor/bin/phpunit` (Linux) or `vendor\bin\phpunit.bat` (Windows). The test names are optimized for the usage of the `--testdox` output. Most tests are atomic integration tests which will set up a JSON-Schema file and generate a class from the schema and test the behaviour of the generated class afterwards.
 
-During the execution the tests will create a directory PHPModelGeneratorTest in tmp where JSON-Schema files and PHP classes will be written to.
+During the execution the tests will create a session-unique directory `PHPModelGeneratorTest_<id>` in tmp where JSON-Schema files and PHP classes will be written to. The directory is removed automatically when the test process exits, so concurrent test sessions do not interfere with each other.
 
 If a test which creates a PHP class from a JSON-Schema fails the JSON-Schema and the generated class(es) will be dumped to the directory `./failed-classes`
 

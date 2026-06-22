@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Property;
 
+use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Attributes\AttributesTrait;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Utils\NormalizedName;
@@ -39,6 +41,16 @@ abstract class AbstractProperty implements PropertyInterface
     /**
      * @inheritdoc
      */
+    public function setJsonSchema(JsonSchema $jsonSchema): static
+    {
+        $this->jsonSchema = $jsonSchema;
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function getName(): string
     {
         return $this->name;
@@ -54,6 +66,18 @@ abstract class AbstractProperty implements PropertyInterface
             : $this->attribute;
 
         return ($this->isInternal() ? '_' : '') . $attribute;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function overrideJsonPointer(PhpAttribute $attribute): static
+    {
+        $this->filterAttributes(
+            static fn(PhpAttribute $existing): bool => $existing->getFqcn() !== JsonPointer::class,
+        );
+
+        return $this->addAttribute($attribute);
     }
 
     /**

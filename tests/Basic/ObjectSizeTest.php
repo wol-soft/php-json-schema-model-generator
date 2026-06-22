@@ -23,7 +23,7 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFile('ObjectSize.json');
 
         $object = new $className($propertyValue);
-        $this->assertSame($propertyValue, $object->getRawModelDataInput());
+        $this->assertSame($propertyValue, $object->meta()->rawInput());
     }
 
     public static function validObjectPropertyAmountDataProvider(): array

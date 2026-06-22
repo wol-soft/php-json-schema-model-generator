@@ -1,5 +1,23 @@
 # CLAUDE.md
 
+## Responding to review notes
+
+When working through a list of review notes, critically evaluate each note before acting on it:
+
+- **Is the note correct?** The reviewer may be mistaken about what the code does, or may be
+  operating on a false assumption. If the note is factually wrong, explain why and skip it.
+- **Is the proposed fix better than the current approach?** The reviewer's suggestion is a
+  starting point, not a mandate. If a different solution is clearly superior, propose it.
+- **Is there an even better solution?** Think beyond the note. If the reviewer flags a smell,
+  consider whether the right fix is the one they suggest or a deeper redesign.
+- **Document the reasoning.** For each note, produce a summary of what action was taken and why
+  — including why any note was rejected or handled differently than suggested.
+
+After tackling all notes, provide a summary table: one row per note, action taken, and brief
+reasoning.
+
+---
+
 ## Learning from reviews
 
 After completing a task that involved responding to code review feedback, scan the reviewer's
@@ -73,7 +91,7 @@ composer update
 ./vendor/bin/phpunit --testdox
 ```
 
-Tests write generated PHP classes to `sys_get_temp_dir()/PHPModelGeneratorTest/Models/` and dump failed classes to `./failed-classes/` (auto-cleaned on bootstrap).
+Tests write generated PHP classes to a session-unique directory `sys_get_temp_dir()/PHPModelGeneratorTest_<id>/Models/` (defined as `MODEL_TEMP_PATH`; the base is `TEST_BASE_DIR`) and dump failed classes to `./failed-classes/` (auto-cleaned on bootstrap). The session directory is cleaned up automatically via a shutdown function when the PHP process exits.
 
 ### Running the full test suite
 

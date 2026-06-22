@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "score": {
+      "type": "integer"
+    }
+  },
+  "required": ["kind"],
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "premium"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "discount": {
+        "type": "boolean",
+        "default": true
+      },
+      "score": {
+        "type": "integer",
+        "minimum": 50
+      }
+    }
+  }
+}

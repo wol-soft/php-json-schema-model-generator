@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "properties": {
+    "timeout": {
+      "type": "integer",
+      "default": 30
+    }
+  },
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "timeout": {
+          "type": "integer",
+          "default": 60
+        }
+      }
+    }
+  ]
+}

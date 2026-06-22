@@ -81,9 +81,6 @@ After generating a class with this JSON-Schema our class with the name `Person` 
     // the constructor takes an array with data which is validated and applied to the model
     public function __construct(array $modelData);
 
-    // the method getRawModelDataInput always delivers the raw input which was provided on instantiation
-    public function getRawModelDataInput(): array;
-
     // getters to fetch the validated properties. Age is nullable as it's not required
     public function getName(): string;
     public function getAge(): ?int;
@@ -91,6 +88,9 @@ After generating a class with this JSON-Schema our class with the name `Person` 
     // setters to change the values of the model after instantiation
     public function setName(string $name): Person;
     public function setAge(?int $age): Person;
+
+    // meta()->rawInput() always delivers the raw input which was provided on instantiation
+    public function meta(): Meta;
 
 Now let's have a look at the behaviour of the generated model:
 
@@ -112,13 +112,13 @@ Now let's have a look at the behaviour of the generated model:
     $person = new Person(['name' => 'Albert']);
     $person->getName(); // returns 'Albert'
     $person->getAge(); // returns NULL
-    $person->getRawModelDataInput(); // returns ['name' => 'Albert']
+    $person->meta()->rawInput(); // returns ['name' => 'Albert']
 
     // If setters are generated the setters also perform validations.
     // Exception: 'Value for age must not be smaller than 0'
     $person->setAge(-10);
 
-Each generated class will implement the interface **PHPModelGenerator\\Interfaces\\JSONModelInterface** implemented in the php-json-schema-model-generator-production repository and thus provide the method *getRawModelDataInput*.
+Each generated class will implement the interface **PHPModelGenerator\\Interfaces\\JSONModelInterface** implemented in the php-json-schema-model-generator-production repository and thus provide the method *meta()* which exposes ``rawInput()`` for access to the original data provided on instantiation.
 
 Configuring the generator
 -------------------------
@@ -147,7 +147,7 @@ Immutable classes
 
     setImmutable(bool $immutable);
 
-If set to true the generated model classes will be delivered without setter methods for the object properties. By default the classes are generated without setter methods. Each setter will validate the provided value and throw either a specific exception or a collection exception depending on the `error collection configuration <#collect-errors-vs-early-return>`__. If all validations pass the internal value will be updated as well as the value which will be returned when `getRawModelDataInput` is called.
+If set to true the generated model classes will be delivered without setter methods for the object properties. By default the classes are generated without setter methods. Each setter will validate the provided value and throw either a specific exception or a collection exception depending on the `error collection configuration <#collect-errors-vs-early-return>`__. If all validations pass the internal value will be updated as well as the value which will be returned when `meta()->rawInput()` is called.
 
 .. code-block:: php
 
@@ -320,6 +320,9 @@ The following attributes are available:
    * - JSON_POINTER
      - Classes & Properties
      - Adds a JSON Pointer with the path in the source Schema. This attribute can't be disabled.
+       For properties that appear in multiple composition branches (e.g. ``oneOf``, ``allOf``),
+       one ``#[JsonPointer]`` attribute is emitted per defining branch, plus one for the
+       root-level definition when the property is also declared in the top-level ``properties`` block.
      - Yes
    * - SCHEMA_NAME
      - Properties
@@ -331,7 +334,11 @@ The following attributes are available:
      - No
    * - JSON_SCHEMA
      - Classes & Properties
-     - Provides the full JSON Schema used to generate the class or the property
+     - Provides the full JSON Schema used to generate the class or the property.
+       For properties transferred from composition branches, the attribute value is
+       *synthesised*: it contains the composition keyword (e.g. ``oneOf``) with only the
+       branch-level sub-schemas that define this property, merged with any root-level
+       constraints when the property is also declared in the top-level ``properties`` block.
      - No
    * - REQUIRED
      - Properties

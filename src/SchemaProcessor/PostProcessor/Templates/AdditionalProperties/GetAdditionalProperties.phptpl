@@ -1,9 +1,0 @@
-/**
- * Get additional properties
- *
- * @return {% if validationProperty and viewHelper.getTypeHintAnnotation(validationProperty, true) %}{{ viewHelper.getTypeHintAnnotation(validationProperty, true) }}{% else %}array{% endif %}
- */
-public function getAdditionalProperties(): array
-{
-    return $this->_additionalProperties;
-}

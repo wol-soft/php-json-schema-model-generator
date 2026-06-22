@@ -30,10 +30,10 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
             '#' => 4,
         ]);
 
-        $this->assertSame(1, $object->getRawModelDataInput()['myProperty1']);
-        $this->assertSame(2, $object->getRawModelDataInput()['1278371']);
-        $this->assertSame(3, $object->getRawModelDataInput()['__strange - NAMES ()']);
-        $this->assertSame(4, $object->getRawModelDataInput()['#']);
+        $this->assertSame(1, $object->meta()->rawInput()['myProperty1']);
+        $this->assertSame(2, $object->meta()->rawInput()['1278371']);
+        $this->assertSame(3, $object->meta()->rawInput()['__strange - NAMES ()']);
+        $this->assertSame(4, $object->meta()->rawInput()['#']);
     }
 
     #[DataProvider('validPropertyNamesDataProvider')]
@@ -52,7 +52,7 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className($properties);
 
         foreach ($properties as $propertyName => $value) {
-            $this->assertSame($value, $object->getRawModelDataInput()[$propertyName]);
+            $this->assertSame($value, $object->meta()->rawInput()[$propertyName]);
         }
     }
 
@@ -203,6 +203,63 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
                 ERROR,
             ],
         ];
+    }
+
+    public static function collidingPropertyPairProvider(): array
+    {
+        return [
+            // kebab-case and camelCase normalize to the same attribute
+            'foo-bar and fooBar' => ['KebabAndCamelCase.json', 'foo-bar', 'fooBar', 'fooBar'],
+            // underscore_case and camelCase normalize to the same attribute
+            'foo_bar and fooBar' => ['UnderscoreAndCamelCase.json', 'foo_bar', 'fooBar', 'fooBar'],
+            // dot.notation and camelCase normalize to the same attribute
+            'foo.bar and fooBar' => ['DotAndCamelCase.json', 'foo.bar', 'fooBar', 'fooBar'],
+            // leading underscore is stripped by the normalizer
+            '_foo and foo' => ['LeadingUnderscoreAndPlain.json', '_foo', 'foo', 'foo'],
+            // multiple separators still collapse to the same attribute as a single separator
+            'foo--bar and foo_bar' => ['MultipleSeparators.json', 'foo--bar', 'foo_bar', 'fooBar'],
+        ];
+    }
+
+    #[DataProvider('collidingPropertyPairProvider')]
+    public function testCollidingPropertyNamesThrowSchemaException(
+        string $schemaFile,
+        string $firstRawName,
+        string $secondRawName,
+        string $expectedAttribute,
+    ): void {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            sprintf(
+                "/^Property names '%s' and '%s' both normalize to attribute '%s' in file .+\.json$/",
+                preg_quote($firstRawName, '/'),
+                preg_quote($secondRawName, '/'),
+                preg_quote($expectedAttribute, '/'),
+            ),
+        );
+
+        $this->generateClassFromFile($schemaFile);
+    }
+
+    public function testAllOfCompositionReusingTheSameRawNameDoesNotTriggerCollisionDetection(): void
+    {
+        // The same raw property name arriving via an allOf branch is a merge, not a new insertion —
+        // it must not be treated as a collision.
+        $className = $this->generateClassFromFile('AllOfSameProperty.json');
+        $object = new $className(['name' => 'Alice']);
+
+        $this->assertSame('Alice', $object->getName());
+    }
+
+    public function testNumericPropertyNamesWithDifferentNormalizedFormsDoNotCollide(): void
+    {
+        // '1st' and '1st-thing' both start with a digit but normalize to different attributes
+        // ('1st' vs '1stThing'), so no collision exception must be thrown.
+        $className = $this->generateClassFromFile('NumericNamesNoFalsePositive.json');
+        $object = new $className(['1st' => 'first', '1st-thing' => 'thing']);
+
+        $this->assertSame('first', $object->get1st());
+        $this->assertSame('thing', $object->get1stThing());
     }
 
     public function testInvalidConstPropertyNamesThrowsAnException(): void

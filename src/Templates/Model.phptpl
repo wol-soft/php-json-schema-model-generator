@@ -12,6 +12,7 @@ declare(strict_types = 1);
 {% foreach use as import %}
     use {{ import }};
 {% endforeach %}
+use PHPModelGenerator\Accessor\Meta;
 
 /**
  * Class {{ schema.getClassName() }}
@@ -38,13 +39,16 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
         {% if property.isInternal() %}private{% else %}protected{% endif %} ${{ property.getAttribute(true) }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
     {% endforeach %}
     #[Internal]
-    /** @var array */
-    protected $_rawModelDataInput = [];
+    /** @var array<string, mixed> */
+    protected array $_rawModelDataInput = [];
+    #[Internal]
+    /** @var Meta|null */
+    private ?Meta $_metaAccessor = null;
 
     {% if generatorConfiguration.collectErrors() %}
         #[Internal]
         /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} Collect all validation errors */
-        protected $_errorRegistry;
+        protected {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} $_errorRegistry;
     {% endif %}
 
     /**
@@ -63,12 +67,12 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
         {{ schemaHookResolver.resolveConstructorBeforeValidationHook() }}
 
         {% if schema.getBaseValidators() %}
-            $this->executeBaseValidators($rawModelDataInput);
+            $this->_executeBaseValidators($rawModelDataInput);
         {% endif %}
 
         {% foreach schema.getProperties() as property %}
             {% if not property.isInternal() %}
-                $this->process{{ viewHelper.ucfirst(property.getAttribute()) }}($rawModelDataInput);
+                $this->_process{{ viewHelper.ucfirst(property.getAttribute()) }}($rawModelDataInput);
             {% endif %}
         {% endforeach %}
 
@@ -84,7 +88,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
     }
 
     {% if schema.getBaseValidators() %}
-        protected function executeBaseValidators(array &$modelData): void
+        protected function _executeBaseValidators(array &$modelData): void
         {
             $value = &$modelData;
 
@@ -93,19 +97,14 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
             {% endforeach %}
 
             {% foreach schema.getCompositionValidatorKeys() as compositionValidatorKey %}
-                $this->validateComposition_{{ compositionValidatorKey }}($modelData);
+                $this->_validateComposition_{{ compositionValidatorKey }}($modelData);
             {% endforeach %}
         }
     {% endif %}
 
-    /**
-     * Get the raw input used to set up the model
-     *
-     * @return array
-     */
-    public function getRawModelDataInput(): array
+    public function meta(): Meta
     {
-        return $this->_rawModelDataInput;
+        return $this->_metaAccessor ??= new Meta($this->_rawModelDataInput);
     }
 
     {% foreach schema.getProperties() as property %}
@@ -153,7 +152,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
 
                     {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
 
-                    $value = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
+                    $value = $this->_validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
 
                     {% if generatorConfiguration.collectErrors() %}
                         if ($this->_errorRegistry->getErrors()) {
@@ -177,7 +176,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
              *
              * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
              */
-            protected function process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
+            protected function _process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
             {
                 {% if not generatorConfiguration.isImplicitNullAllowed() and not property.isRequired() %}
                     if (!array_key_exists('{{ property.getName() }}', $modelData) && $this->{{ property.getAttribute(true) }} === null) {
@@ -189,13 +188,13 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
 
                 {{ viewHelper.resolvePropertyDecorator(property, true) }}
 
-                $this->{{ property.getAttribute(true) }} = $this->validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
+                $this->{{ property.getAttribute(true) }} = $this->_validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
             }
 
             /**
              * Execute all validators for the property {{ property.getAttribute() }}
              */
-            protected function validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, array $modelData)
+            protected function _validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, array $modelData)
             {
                 {% foreach property.getOrderedValidators() as validator %}
                     {{ viewHelper.renderValidator(validator, schema) }}

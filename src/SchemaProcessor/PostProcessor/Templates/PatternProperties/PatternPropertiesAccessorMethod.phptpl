@@ -1,0 +1,4 @@
+public function patternProperties(): {{ accessorType }}
+{
+    return $this->_patternPropertiesAccessor ??= new {{ accessorType }}($this->_patternProperties);
+}

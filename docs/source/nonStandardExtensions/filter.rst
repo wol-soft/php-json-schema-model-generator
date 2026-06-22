@@ -221,7 +221,7 @@ Let's have a look how the generated model behaves:
     $person = new Person(['name' => '   Albert ']);
     $person->getName(); // returns 'Albert'
     // the raw model data input is not affected by the filter
-    $person->getRawModelDataInput(); // returns ['name' => '   Albert ']
+    $person->meta()->rawInput(); // returns ['name' => '   Albert ']
 
     // If setters are generated the setters also execute the filter and perform validations.
     // MinLengthException: 'Value for name must not be shorter than 2'
@@ -257,7 +257,7 @@ Let's have a look how the generated model behaves:
     $family = new Family(['members' => [null, null]]]);
     $family->getMembers(); // returns an empty array
     // the raw model data input is not affected by the filter
-    $family->getRawModelDataInput(); // returns ['members' => [null, null]]
+    $family->meta()->rawInput(); // returns ['members' => [null, null]]
 
     $family->setMembers(['Hannes', null]);
     $family->getMembers(); // returns ['Hannes']
@@ -309,7 +309,7 @@ Let's have a look how the generated model behaves:
     $car = new Car(['productionDate' => '2020-10-10']);
     $car->getProductionDate(); // returns a DateTime object
     // the raw model data input is not affected by the filter
-    $car->getRawModelDataInput(); // returns ['productionDate' => '2020-10-10']
+    $car->meta()->rawInput(); // returns ['productionDate' => '2020-10-10']
 
     // Another valid example with an already transformed value
     $car = new Car(['productionDate' => $myDateTimeObject]);

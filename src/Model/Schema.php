@@ -63,6 +63,12 @@ class Schema
     /** @var callable[] */
     private array $onAllPropertiesResolvedCallbacks = [];
 
+    /** @var array<string, true> */
+    private array $rootRegisteredPropertyNames = [];
+
+    /** @var string[] Maps normalized attribute → raw property name; used to detect property-vs-property collisions */
+    private array $attributeIndex = [];
+
     private PropertyMerger $propertyMerger;
 
     /**
@@ -156,9 +162,11 @@ class Schema
             return false;
         };
 
-        // order the properties to make sure properties with a SchemaDependencyValidator are validated at the beginning
-        // of the validation process for correct exception order of the messages
-        usort(
+        // Order the properties to make sure properties with a SchemaDependencyValidator are validated at the beginning
+        // of the validation process for correct exception order of the messages.
+        // uasort preserves the string keys (property names) that getProperty() relies on;
+        // usort would reindex to 0,1,2,... and break all subsequent name-based lookups.
+        uasort(
             $this->properties,
             static function (
                 PropertyInterface $property,
@@ -182,11 +190,40 @@ class Schema
     public function addProperty(PropertyInterface $property, ?string $compositionProcessor = null): self
     {
         if (!isset($this->properties[$property->getName()])) {
+            // Register by name immediately — the name is always held locally on the property
+            // or proxy, independent of whether the proxy's target is resolved yet.
             $this->properties[$property->getName()] = $property;
 
             if ($compositionProcessor === null) {
-                $this->propertyMerger->markRootRegistered($property->getName());
+                $this->rootRegisteredPropertyNames[$property->getName()] = true;
             }
+
+            // getAttribute() → isInternal() delegates to getProperty() on a PropertyProxy, which
+            // returns null while the proxy's target is a dummy placeholder during recursive $ref
+            // resolution. Defer the attribute-collision check until the proxy is resolved — at
+            // that point the underlying property is guaranteed to be populated. For already-resolved
+            // properties (all Property/BaseProperty subclasses call $this->resolve() in their
+            // constructor) the closure is called immediately, preserving the existing behaviour.
+            $registerAttribute = function () use ($property): void {
+                $attribute = $property->getAttribute();
+
+                $existingRawName = $this->attributeIndex[$attribute] ?? null;
+                if ($existingRawName !== null && $existingRawName !== $property->getName()) {
+                    throw new SchemaException(
+                        sprintf(
+                            "Property names '%s' and '%s' both normalize to attribute '%s' in file %s",
+                            $existingRawName,
+                            $property->getName(),
+                            $attribute,
+                            $this->jsonSchema->getFile(),
+                        ),
+                    );
+                }
+
+                $this->attributeIndex[$attribute] = $property->getName();
+            };
+
+            $property->isResolved() ? $registerAttribute() : $property->onResolve($registerAttribute);
 
             $property->onResolve(function (): void {
                 if (++$this->resolvedProperties === count($this->properties)) {
@@ -205,9 +242,20 @@ class Schema
             $this->properties[$property->getName()],
             $property,
             is_a($compositionProcessor, AllOfValidatorFactory::class, true),
+            $this->isRootRegistered($property->getName()),
         );
 
         return $this;
+    }
+
+    public function isRootRegistered(string $name): bool
+    {
+        return isset($this->rootRegisteredPropertyNames[$name]);
+    }
+
+    public function getProperty(string $name): ?PropertyInterface
+    {
+        return $this->properties[$name] ?? null;
     }
 
     /**

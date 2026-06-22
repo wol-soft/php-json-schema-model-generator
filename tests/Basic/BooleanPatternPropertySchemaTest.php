@@ -55,14 +55,14 @@ class BooleanPatternPropertySchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $className = $this->generateClassFromFile('FalsePatternProperty.json');
         $object = new $className(['public_value' => 'hello', 'name' => 'Alice']);
-        $this->assertSame(['public_value' => 'hello', 'name' => 'Alice'], $object->getRawModelDataInput());
+        $this->assertSame(['public_value' => 'hello', 'name' => 'Alice'], $object->meta()->rawInput());
     }
 
     public function testTruePatternPropertyAcceptsMatchingKey(): void
     {
         $className = $this->generateClassFromFile('TruePatternProperty.json');
         $object = new $className(['any_field' => 'whatever', 'name' => 'Bob']);
-        $this->assertSame(['any_field' => 'whatever', 'name' => 'Bob'], $object->getRawModelDataInput());
+        $this->assertSame(['any_field' => 'whatever', 'name' => 'Bob'], $object->meta()->rawInput());
     }
 
     /**

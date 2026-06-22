@@ -12,6 +12,7 @@ declare(strict_types = 1);
 {% foreach use as import %}
     use {{ import }};
 {% endforeach %}
+use PHPModelGenerator\Accessor\Meta;
 
 /**
  * Builder class for {{ class }}
@@ -20,6 +21,8 @@ class {{ class }}Builder implements BuilderInterface
 {
     /** @var array */
     protected $_rawModelDataInput = [];
+    /** @var Meta|null */
+    private $_metaAccessor = null;
 
     {% if generatorConfiguration.collectErrors() %}
         /** @var {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }} */
@@ -35,14 +38,9 @@ class {{ class }}Builder implements BuilderInterface
         {% endif %}
     }
 
-    /**
-     * Get the raw input used to set up the model
-     *
-     * @return array
-     */
-    public function getRawModelDataInput(): array
+    public function meta(): Meta
     {
-        return $this->_rawModelDataInput;
+        return $this->_metaAccessor ??= new Meta($this->_rawModelDataInput);
     }
 
     /**
@@ -54,7 +52,7 @@ class {{ class }}Builder implements BuilderInterface
             $this->_rawModelDataInput,
             function (&$property): void {
                 if ($property instanceof BuilderInterface) {
-                    $property = $property->getRawModelDataInput();
+                    $property = $property->meta()->rawInput();
                 }
             },
         );
