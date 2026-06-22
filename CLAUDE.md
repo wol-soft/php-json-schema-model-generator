@@ -231,6 +231,36 @@ After finishing an implementation task, always stage all relevant changed files 
 Never add `.claude/` files (issues, topics, memory, etc.) to git unless the user explicitly asks.
 These are working notes for the session and must not appear in commits.
 
+**Always review the diff against the repo rules before staging.** Before running `git add`,
+inspect the full diff (`git diff` for unstaged work, plus `git diff --staged` afterwards) and
+verify every change conforms to the rules in this file. In particular, run the recovery procedure
+from the "No implementation-plan references in code" rule: grep the diff for `Stage `, `Phase `,
+`decision `, `§`, and `#` followed by a number, and rewrite every match in source, test, or
+prod-lib code (test data providers, DocBlocks, and inline comments included) before staging.
+This review is *mandatory*, not optional — staging without it lets violations slip into commits.
+
+The same review applies to changes pushed to a coordinated production-library checkout: source
+code in `php-json-schema-model-generator-production` is bound by the same rules as code in this
+repo. Planning artefacts under `.claude/` are the only place plan references may live.
+
+### Pre-existing rule violations in touched files
+
+Whenever you edit, read, or otherwise touch a file as part of any task, sweep it for *all*
+pre-existing violations of the rules in this file — implementation-plan references, single-
+letter variables, leading-backslash class references, missing `use` imports, copy-pasted
+docblocks, PHPCS errors visible in the local run, and anything else CLAUDE.md forbids — and
+fix every one in the same change. Do not leave a known violation sitting just because it
+predates your edit; "broken windows" is exactly how decay accumulates and the rule erodes.
+
+Scope: this is about files you *touch*, not a codebase-wide audit. If you edit a method,
+scan the whole file (not just the surrounding lines) and fix everything visible. If
+fixing the pre-existing violations would balloon the diff into an unrelated refactor,
+flag it (and only then) before proceeding — that is the only escape hatch. Default is:
+clean it up.
+
+The rule applies symmetrically to the production-library checkout when you edit anything
+there.
+
 ### Reading files
 
 Always use the dedicated `Read` tool to read file contents. Never use `sed`, `head`, `tail`, `cat`, or `awk` to read or extract portions of files. The `Read` tool supports `offset` and `limit` parameters for reading partial files when needed.

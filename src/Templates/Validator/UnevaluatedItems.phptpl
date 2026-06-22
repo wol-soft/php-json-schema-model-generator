@@ -1,0 +1,44 @@
+is_array($value) && (function ($items) use (&$invalidItems, $modelData): bool {
+    {% if generatorConfiguration.collectErrors() %}
+        $originalErrorRegistry = $this->_errorRegistry;
+    {% endif %}
+
+    $unevaluatedIndices = $this->collectUnevaluatedIndices(
+        $items,
+        '{{ arrayPropertyName }}',
+        {{ compositionValidatorKeys }},
+    );
+
+    foreach ($unevaluatedIndices as $index) {
+        try {
+            $value = $items[$index];
+
+            {% if generatorConfiguration.collectErrors() %}
+                $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            {% endif %}
+
+            {{ viewHelper.resolvePropertyDecorator(validationProperty) }}
+
+            {% foreach validationProperty.getOrderedValidators() as validator %}
+                {{ viewHelper.renderValidator(validator, schema) }}
+            {% endforeach %}
+
+            {% if generatorConfiguration.collectErrors() %}
+                if ($this->_errorRegistry->getErrors()) {
+                    $invalidItems[$index] = $this->_errorRegistry->getErrors();
+                    continue;
+                }
+            {% endif %}
+        } catch (\Exception $e) {
+            isset($invalidItems[$index])
+                ? $invalidItems[$index][] = $e
+                : $invalidItems[$index] = [$e];
+        }
+    }
+
+    {% if generatorConfiguration.collectErrors() %}
+        $this->_errorRegistry = $originalErrorRegistry;
+    {% endif %}
+
+    return !empty($invalidItems);
+})($value)

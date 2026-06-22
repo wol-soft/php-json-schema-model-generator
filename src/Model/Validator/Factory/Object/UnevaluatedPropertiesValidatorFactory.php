@@ -32,6 +32,19 @@ class UnevaluatedPropertiesValidatorFactory extends AbstractValidatorFactory
             return;
         }
 
+        $unevaluatedProperties = $json[$this->key];
+
+        if (!is_bool($unevaluatedProperties) && !is_array($unevaluatedProperties)) {
+            throw new SchemaException(
+                sprintf(
+                    "Invalid unevaluatedProperties %s for property '%s' in file %s",
+                    str_replace("\n", '', var_export($unevaluatedProperties, true)),
+                    $schema->getClassName(),
+                    $propertySchema->getFile(),
+                ),
+            );
+        }
+
         // When the same schema declares a non-false `additionalProperties`, every key not
         // claimed by `properties`/`patternProperties` is already evaluated by it. Composition
         // contributions cannot retract that — `additionalProperties` only succeeds when every
@@ -50,7 +63,7 @@ class UnevaluatedPropertiesValidatorFactory extends AbstractValidatorFactory
             return;
         }
 
-        if ($json[$this->key] === false) {
+        if ($unevaluatedProperties === false) {
             $schema->addPostCompositionValidator(
                 new NoUnevaluatedPropertiesValidator($schema, $propertySchema),
             );

@@ -242,7 +242,20 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         }
 
         // Check property-level nested schemas (e.g. an object-typed property with its own composition).
+        // Array properties never carry a nested schema — their unevaluatedItems lives in the
+        // property's own JSON, so check that before the getNestedSchema() recursion. Without
+        // this, a schema like {type: object, properties: {tags: {type: array, unevaluatedItems: false}}}
+        // would miss activation entirely.
         foreach ($schema->getProperties() as $schemaProperty) {
+            $propertyJson = $schemaProperty->getJsonSchema()->getJson();
+
+            if (
+                array_key_exists('unevaluatedProperties', $propertyJson)
+                || array_key_exists('unevaluatedItems', $propertyJson)
+            ) {
+                return $seen[$schemaKey] = true;
+            }
+
             $nestedSchema = $schemaProperty->getNestedSchema();
 
             if ($nestedSchema !== null && $this->needsActivation($nestedSchema, $seen)) {
