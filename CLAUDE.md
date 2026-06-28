@@ -271,6 +271,15 @@ Never use single-character variable names. All variables must have meaningful, d
 that convey their purpose. For example, use `$typeName` instead of `$t`, `$validator` instead of
 `$v`, `$property` instead of `$p`.
 
+Never prefix local variables with an underscore. The underscore prefix is reserved for *class
+member* identifiers (instance properties, internal methods like `_validateTags`) where it marks
+the symbol as internal-by-convention. Applying the same prefix to local variables blurs the
+member/local distinction without adding information. Use the plain name instead:
+`$branchContainsMatches`, not `$_branchContainsMatches`. The rule applies symmetrically to
+variables declared inside generated template code that escape into the generated PHP output —
+local variables inside template-emitted closures and IIFEs are still local PHP variables and
+must not carry the underscore prefix.
+
 ### PHP import style
 
 Always add `use` imports for every class referenced in a file, including global PHP classes such as
@@ -383,6 +392,69 @@ When the straightforward test case surfaces a deeper issue (object instantiation
 priority ordering, etc.), that is precisely the issue that needs solving. Open it as a tracked
 topic if it cannot be addressed immediately, but keep the test in place and marked as expected to
 fail (`@expectedExceptionMessage`, `$this->expectException(...)`) until the fix lands.
+
+#### How to handle every bug found during development
+
+This rule generalises the test-evasion rule above to every bug, however it is discovered —
+through a failing test, while reading code, during a debugging session, or as a side-observation
+in an unrelated task.
+
+**Every bug must be acknowledged explicitly the moment it is found.** State, in the user-facing
+response, *exactly* what the bug is — the failure mode, the code path, and a minimal reproducer
+or pointer to one. Do not let bugs surface implicitly as test failures the user has to dig out
+of the log; surface them in prose.
+
+**Write a test that reproduces the bug *before* fixing it.** This applies whether the bug is
+about to be fixed in the same change (path 1 below) or deferred (path 2). The test name encodes
+the specific scenario so a regression surfaces immediately as a named, self-explaining failure
+rather than a cryptic assertion error elsewhere. When deferring, the test is marked failing
+(`$this->expectException(...)` plus an explicit assertion of the *current wrong* behaviour, or
+`#[Test] #[ExpectedFailure]` if the framework supports it) so the gap is visible in CI until
+the fix lands. When fixing in the same change, the test starts red and turns green as the fix
+lands — the diff carries proof that the change actually closes the reported scenario, not just
+that other tests still pass. Sequence: reproduce → confirm red → fix → confirm green. Do not
+skip the "confirm red" step; a test that was always green is no evidence of anything.
+
+**Every acknowledged bug takes one of three paths. Choose explicitly, never silently:**
+
+1. **Fix it in the same change.** Default path. If the bug is reachable from the work in
+   progress and fixing it does not balloon the diff into an unrelated refactor, fix it now and
+   note the fix in the response.
+2. **Defer with a tracked artifact.** Only when the fix is genuinely out of scope (different
+   subsystem, requires user direction on architecture, blocked on external work). Deferral
+   requires *both*:
+   - A tracking entry: a `.claude/topics/<slug>/` plan stub, a `@expectedException` test
+     fixture marked failing, OR an entry in the active plan's post-implementation review list
+     — whichever fits the current workflow.
+   - A surfacing mechanism in the codebase: the failing test, a `throw new \LogicException(...)`
+     at the unreachable site, or a documented assertion. Comments alone are not enough — a
+     comment without an enforcement mechanism rots silently.
+
+   State the deferral and the chosen tracking + surfacing mechanism in the same response that
+   announces the bug.
+3. **Reject it as not-a-bug.** When closer reading reveals the apparent bug is correct behaviour
+   under a constraint you missed. Explain the constraint in the response and update any
+   misleading comment, test, or doc that suggested otherwise.
+
+**Routing around a bug is forbidden.** Removing a test, swapping a fixture for one that does not
+trigger the bug, narrowing a test's assertion to skip the affected output, choosing an
+alternative implementation path purely to avoid touching the buggy subsystem, or deciding "this
+edge case is rare so I'll not test it" — all of these are silent suppression. They are explicitly
+not in the deferral path: deferral requires the bug to remain *visible*, just not yet fixed.
+
+**A bug downstream of your change is still your bug.** When your edit causes a previously-passing
+test to fail, the test is reporting a real defect in your change — even if the test was
+"unrelated" before. Do not dismiss it as "pre-existing brittleness"; the failure path is now in
+scope. Either your change has a bug, or the test was wrong all along and now is the right time
+to fix it (explicitly, with justification). The same applies symmetrically: when you discover an
+existing bug while reading code, the "broken windows" rule from "Pre-existing rule violations in
+touched files" still applies — flag it, then decide between paths 1, 2, and 3.
+
+**Why this matters.** Silent bug suppression is the most insidious form of code rot because each
+individual instance looks like a reasonable scope-management decision. Over a long session the
+cumulative effect is a codebase where everyone knows "you can't go that way" and the deferred
+defects compound. Surfacing every bug — every time, in prose, with a path forward — is the only
+discipline that prevents this.
 
 #### No implementation-plan references in code
 

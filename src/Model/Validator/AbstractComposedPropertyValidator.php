@@ -23,6 +23,8 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
 
     private bool $evaluationTrackingEnabled = false;
 
+    private ?string $slotKey = null;
+
     public function getCompositionProcessor(): string
     {
         return $this->compositionProcessor;
@@ -48,6 +50,26 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     public function hasEvaluationTrackingEnabled(): bool
     {
         return $this->evaluationTrackingEnabled;
+    }
+
+    /**
+     * Identifier under which this validator's per-call result (the union of indices claimed
+     * by successful array-side branches) is cached on the model instance. When set, the
+     * composition template writes the result wholesale to `$this->_compositionAnnotated[$slotKey]`
+     * at end-of-IIFE: `[]` on whole-composition failure, the union otherwise. Null when the
+     * validator is not part of an array-side tracking chain — the template then takes its
+     * pre-existing object-side path against `$this->_compositionEvaluations[$validatorIndex]`
+     * instead.
+     */
+    public function setSlotKey(string $slotKey): void
+    {
+        $this->slotKey = $slotKey;
+        $this->templateValues['slotKey'] = $slotKey;
+    }
+
+    public function getSlotKey(): ?string
+    {
+        return $this->slotKey;
     }
 
     /**

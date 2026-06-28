@@ -1,4 +1,4 @@
-is_array($value) && (function (&$items){% if countMatches %} use (&$containsMatches){% endif %} {
+is_array($value) && (function (&$items){% if countMatches or trackBranchMatches %} use ({% if countMatches %}&$containsMatches{% endif %}{% if countMatches and trackBranchMatches %}, {% endif %}{% if trackBranchMatches %}&$branchContainsMatches{% endif %}){% endif %} {
     if (empty($items)) {
         return {% if allowNoMatch %}false{% else %}true{% endif %};
     }
@@ -7,7 +7,7 @@ is_array($value) && (function (&$items){% if countMatches %} use (&$containsMatc
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
 
-    foreach ($items as &$value) {
+    foreach ($items as $index => &$value) {
         try {
             {% if generatorConfiguration.collectErrors() %}
                 $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
@@ -27,10 +27,15 @@ is_array($value) && (function (&$items){% if countMatches %} use (&$containsMatc
                 $this->_errorRegistry = $originalErrorRegistry;
             {% endif %}
 
+            {% if trackBranchMatches %}
+                $branchContainsMatches[$index] = true;
+            {% endif %}
+
             {% if countMatches %}
                 $containsMatches++;
-            {% else %}
-                // one matched item is enough to pass the contains check
+            {% endif %}
+            {% if not countMatches and not trackBranchMatches %}
+                // one matched item is enough; no need to keep iterating
                 return false;
             {% endif %}
         } catch (\Exception $e) {
@@ -45,6 +50,10 @@ is_array($value) && (function (&$items){% if countMatches %} use (&$containsMatc
     return {% if countMatches %}
             {% if allowNoMatch %}false{% else %}$containsMatches === 0{% endif %}
         {% else %}
-            true
+            {% if trackBranchMatches %}
+                empty($branchContainsMatches)
+            {% else %}
+                true
+            {% endif %}
         {% endif %};
 })($value)

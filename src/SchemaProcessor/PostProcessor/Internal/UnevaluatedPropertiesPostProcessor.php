@@ -6,12 +6,14 @@ namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\MethodInterface;
+use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\ArrayContainsValidator;
 use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Traits\CompositionEvaluationTrait;
@@ -41,6 +43,27 @@ use PHPModelGenerator\Traits\CompositionEvaluationTrait;
  */
 class UnevaluatedPropertiesPostProcessor extends PostProcessor
 {
+    /**
+     * Monotonically increasing counter scoped to a single ($schema, $property) activation
+     * pass. Reset per property at the start of its walk so each property's compositions
+     * receive `<propertyName>_0`, `<propertyName>_1`, ... slot keys. Tracked on the
+     * instance so the recursive activation helpers do not need to thread a by-reference
+     * parameter through every call.
+     */
+    private int $slotKeyCounter = 0;
+
+    /**
+     * Object hashes of composition validators already activated in the current property
+     * walk. Required (not defensive) — a self-referencing schema such as
+     * `{type: array, allOf: [{$ref: "#"}], unevaluatedItems: false}` produces a composition
+     * validator whose composed property's wrapped property carries the same composition
+     * validator instance. Without this short-circuit, `activateArrayComposition()` would
+     * recurse indefinitely.
+     *
+     * @var array<string, true>
+     */
+    private array $activatedCompositions = [];
+
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
         $seen = [];
@@ -80,9 +103,98 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 ->setDefaultValue([]),
         );
 
+        // Transient bridge between property-level array compositions and a sibling
+        // unevaluatedItems validator. Wholesale-overwritten per chain run; never registered
+        // with the rollback registry, never snapshotted across setter calls.
+        $schema->addProperty(
+            (new Property(
+                'compositionAnnotated',
+                new PropertyType('array'),
+                new JsonSchema(__FILE__, []),
+            ))
+                ->setInternal(true)
+                ->setDefaultValue([]),
+        );
+
         foreach ($schema->getBaseValidators() as $baseValidator) {
             if ($baseValidator instanceof AbstractComposedPropertyValidator) {
                 $baseValidator->enableEvaluationTracking();
+            }
+        }
+
+        foreach ($schema->getProperties() as $schemaProperty) {
+            $propertyJson = $schemaProperty->getJsonSchema()->getJson();
+
+            if (!array_key_exists('unevaluatedItems', $propertyJson)) {
+                continue;
+            }
+
+            // The unevaluatedItems factory is registered on the `array` type only, so a
+            // property whose type cannot hold an array never produces an unevaluatedItems
+            // validator at runtime. Activating compositions in that case would write
+            // `_compositionAnnotated` slots that nobody reads — wasted state.
+            $typeNames = $schemaProperty->getType()?->getNames() ?? [];
+            if ($typeNames !== [] && !in_array('array', $typeNames, true)) {
+                continue;
+            }
+
+            $this->slotKeyCounter = 0;
+            $this->activatedCompositions = [];
+
+            foreach ($schemaProperty->getOrderedValidators() as $validator) {
+                if ($validator instanceof AbstractComposedPropertyValidator) {
+                    $this->activateArrayComposition($validator, $schemaProperty);
+                }
+            }
+        }
+    }
+
+    /**
+     * Enable evaluation tracking on a property-level composition validator on an array
+     * property and recurse into its branches. The slot-key counter on the post-processor
+     * instance is shared across the recursion so an outer composition and a nested one
+     * inside one of its branches receive monotonically increasing keys (e.g. `tags_0` for
+     * the outer allOf, `tags_1` for an inner oneOf). Within each branch, any ArrayContains
+     * validator gets its trackBranchMatches flag set so the contains template exports per-
+     * index match results to the surrounding composition body.
+     *
+     * The instance-level `$activatedCompositions` set guards against `$ref`-induced cycles
+     * in the composition graph; activating the same validator twice would double-emit slot
+     * writes and confuse the rebuild.
+     */
+    private function activateArrayComposition(
+        AbstractComposedPropertyValidator $compositionValidator,
+        PropertyInterface $parentProperty,
+    ): void {
+        $compositionHash = spl_object_hash($compositionValidator);
+        if (isset($this->activatedCompositions[$compositionHash])) {
+            return;
+        }
+        $this->activatedCompositions[$compositionHash] = true;
+
+        $compositionValidator->enableEvaluationTracking();
+        $compositionValidator->setSlotKey($parentProperty->getName() . '_' . $this->slotKeyCounter++);
+
+        foreach ($compositionValidator->getComposedProperties() as $composedProperty) {
+            $this->activateValidatorsInBranch($composedProperty, $parentProperty);
+        }
+    }
+
+    private function activateValidatorsInBranch(
+        CompositionPropertyDecorator $composedProperty,
+        PropertyInterface $parentProperty,
+    ): void {
+        // Iterate the wrapped property's validators directly. The decorator's
+        // getOrderedValidators() returns fresh withProperty() clones every call, so a
+        // mutation on those clones would be invisible at render time.
+        foreach ($composedProperty->getWrappedProperty()->getOrderedValidators() as $validator) {
+            if ($validator instanceof AbstractComposedPropertyValidator) {
+                $this->activateArrayComposition($validator, $parentProperty);
+                continue;
+            }
+
+            if ($validator instanceof ArrayContainsValidator) {
+                $validator->setTrackBranchMatches(true);
             }
         }
     }

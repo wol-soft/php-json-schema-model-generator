@@ -84,6 +84,18 @@ class CompositionPropertyDecorator extends PropertyProxy
     }
 
     /**
+     * Return the wrapped property whose validators back this branch. Iterating its
+     * validators directly returns the source validator instances, whereas
+     * `getOrderedValidators()` on the decorator returns fresh `withProperty(...)` clones on
+     * every call. Mutations targeted at clones are invisible at render time; mutations
+     * targeted at the wrapped property's source validators propagate.
+     */
+    public function getWrappedProperty(): PropertyInterface
+    {
+        return $this->definitionsCollection->offsetGet(self::PROPERTY_KEY);
+    }
+
+    /**
      * Returns the property names declared in this branch's `properties` keyword.
      *
      * Used by the composition post processor to harvest names that must invalidate the
@@ -132,5 +144,75 @@ class CompositionPropertyDecorator extends PropertyProxy
 
         return isset($branchJson['additionalProperties'])
             && $branchJson['additionalProperties'] !== false;
+    }
+
+    /**
+     * True when the branch declares `items` as a schema object (not a tuple list, not a
+     * boolean). A schema-form `items` claims every index in the validated array.
+     */
+    public function branchHasItemsSchema(): bool
+    {
+        $items = $this->jsonSchema->getJson()['items'] ?? null;
+
+        return is_array($items) && $items !== [] && !array_is_list($items);
+    }
+
+    /**
+     * Count of items in a tuple-form `items` array. Returns 0 when items is absent, boolean,
+     * or schema-form. The tuple claims indices 0..count-1 when the branch succeeds.
+     */
+    public function getBranchTupleItemsCount(): int
+    {
+        $items = $this->jsonSchema->getJson()['items'] ?? null;
+
+        if (!is_array($items) || $items === [] || !array_is_list($items)) {
+            return 0;
+        }
+
+        return count($items);
+    }
+
+    /**
+     * True when the branch declares `additionalItems` as anything other than `false`. The
+     * `false` value rejects tail indices; any other value (true or schema object) accepts
+     * them and contributes them to the evaluated set.
+     */
+    public function branchHasNonFalseAdditionalItems(): bool
+    {
+        $branchJson = $this->jsonSchema->getJson();
+
+        return array_key_exists('additionalItems', $branchJson)
+            && $branchJson['additionalItems'] !== false;
+    }
+
+    /**
+     * True when the branch declares the `contains` keyword. The actual matched indices are
+     * collected at runtime by the contains validator into a local accumulator; the composition
+     * template unions that accumulator into the branch's evaluated set on success.
+     */
+    public function branchHasContains(): bool
+    {
+        return array_key_exists('contains', $this->jsonSchema->getJson());
+    }
+
+    /**
+     * True when the branch carries at least one array-side applicator (`items`,
+     * `additionalItems`, `contains`) and no object-side applicators (`properties`,
+     * `additionalProperties`, `patternProperties`). Drives whether the composition template
+     * writes the branch's slot into `_compositionAnnotated`.
+     */
+    public function branchIsArrayKind(): bool
+    {
+        $branchJson = $this->jsonSchema->getJson();
+
+        $hasArrayApplicator = array_key_exists('items', $branchJson)
+            || array_key_exists('additionalItems', $branchJson)
+            || array_key_exists('contains', $branchJson);
+
+        $hasObjectApplicator = array_key_exists('properties', $branchJson)
+            || array_key_exists('additionalProperties', $branchJson)
+            || array_key_exists('patternProperties', $branchJson);
+
+        return $hasArrayApplicator && !$hasObjectApplicator;
     }
 }

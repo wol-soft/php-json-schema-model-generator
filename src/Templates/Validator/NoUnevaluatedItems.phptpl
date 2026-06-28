@@ -1,5 +1,5 @@
 is_array($value) && ($unevaluatedItems = $this->collectUnevaluatedIndices(
     $value,
     '{{ arrayPropertyName }}',
-    {{ compositionValidatorKeys }},
+    {{ compositionSlotKeys }},
 ))

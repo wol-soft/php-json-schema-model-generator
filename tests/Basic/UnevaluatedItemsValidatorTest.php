@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\Basic;
 use PHPModelGenerator\Exception\Arrays\InvalidUnevaluatedItemsException;
 use PHPModelGenerator\Exception\Arrays\UniqueItemsException;
 use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -277,5 +278,229 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         );
 
         $this->generateClassFromFile($schemaFile);
+    }
+
+    /**
+     * Composition branches contribute their evaluated indices to a sibling unevaluatedItems
+     * accumulator. The fixture has two tuple-form items branches under allOf: branch 1 covers
+     * index 0, branch 2 covers indices 0-1. When both succeed (string array), the union
+     * covers 0-1 and any tail index is reported as unevaluated.
+     */
+    public function testAllOfBranchesContributeEvaluatedIndices(): void
+    {
+        $className = $this->generateClassFromFile('AllOfTupleBranches.json');
+
+        // Both branches succeed; union covers 0-1; no tail → accept.
+        $accepted = new $className(['tags' => ['alpha', 'beta']]);
+        $this->assertSame(['alpha', 'beta'], $accepted->getTags());
+
+        // Both branches succeed; union covers 0-1; index 2 is unevaluated → reject just index 2.
+        try {
+            new $className(['tags' => ['alpha', 'beta', 'gamma']]);
+            $this->fail('Expected UnevaluatedItemsException for tail index past union');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                'Provided JSON for tags contains not allowed unevaluated items [#2]',
+                $exception->getMessage(),
+            );
+            $this->assertSame([2], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * Regression guard for the chain-orchestration bug where composition failure assigned
+     * `$value = $proposedValue` (null) at IIFE end, causing the downstream
+     * `is_array($value)` gate inside `unevaluatedItems` to short-circuit and silently
+     * suppress its error in collectErrors mode. With the fix, both errors appear: the
+     * composition's AllOfException listing the failing branches and the
+     * UnevaluatedItemsException listing every index as unevaluated (composition contributed
+     * no claims on failure).
+     */
+    public function testCompositionFailurePreservesArrayValueSoUnevaluatedItemsCheckStillFires(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AllOfTupleBranches.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        try {
+            new $className(['tags' => [1, 2]]);
+            $this->fail('Expected ErrorRegistryException combining composition + unevaluated errors');
+        } catch (ErrorRegistryException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+                Invalid value for tags declined by composition constraint.
+                  Requires to match all composition elements but matched 0 elements.
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array tags:
+                      - invalid tuple #1
+                        * Invalid type for tuple item #0 of array tags. Requires string, got integer
+                  - Composition element #2: Failed
+                    * Invalid tuple item in array tags:
+                      - invalid tuple #1
+                        * Invalid type for tuple item #0 of array tags. Requires string, got integer
+                      - invalid tuple #2
+                        * Invalid type for tuple item #1 of array tags. Requires string, got integer
+                Provided JSON for tags contains not allowed unevaluated items [#0, #1]
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * Two properties on the same class — one array with composition + `unevaluatedItems:
+     * false`, one object with composition + `unevaluatedProperties: false` — exercise the
+     * structural separation between `_compositionAnnotated` (array side) and
+     * `_compositionEvaluations` (object side). Each accumulator reads from its own field, so
+     * cross-contamination between the two paths is impossible by construction.
+     */
+    public function testArrayAndObjectPropertyCompositionsCoexistOnTheSameClass(): void
+    {
+        $className = $this->generateClassFromFile('ArrayAndObjectPropertyCompositionsCoexist.json');
+
+        $accepted = new $className([
+            'tags' => ['only'],
+            'meta' => ['kind' => 'X'],
+        ]);
+        $this->assertSame(['only'], $accepted->getTags());
+        $this->assertSame('X', $accepted->getMeta()->getKind());
+    }
+
+    public function testArrayPropertyUnevaluatedItemsRejectsTailIndexWhileObjectPropertyAccepts(): void
+    {
+        $className = $this->generateClassFromFile('ArrayAndObjectPropertyCompositionsCoexist.json');
+
+        $this->expectException(UnevaluatedItemsException::class);
+        $this->expectExceptionMessage('Provided JSON for tags contains not allowed unevaluated items [#1]');
+
+        new $className([
+            'tags' => ['head', 'tail'],
+            'meta' => ['kind' => 'X'],
+        ]);
+    }
+
+    /**
+     * Regression guard for the extracted-method-name collision: two compositions on the
+     * same property previously hashed to the same `_validateTags_ComposedProperty_<hash>`
+     * method (the hash was derived from the property's JSON alone), so the second
+     * registration overwrote the first and both call sites invoked the same body. With
+     * the fix mixing the validator's object hash into the method name, each composition
+     * keeps its own body and writes to its own slot key.
+     */
+    public function testMultipleSiblingCompositionsContributeIndependently(): void
+    {
+        $className = $this->generateClassFromFile('MultipleCompositionsOnProperty.json');
+
+        // allOf branch (tuple-1) + oneOf branch (tuple-2) both succeed on two-string array.
+        // Union {0, 1} covers everything → accept.
+        $accepted = new $className(['tags' => ['a', 'b']]);
+        $this->assertSame(['a', 'b'], $accepted->getTags());
+
+        // Three-element string array: both branches still succeed (tuples allow extras);
+        // union is still {0, 1}; index 2 unevaluated.
+        try {
+            new $className(['tags' => ['a', 'b', 'c']]);
+            $this->fail('Expected UnevaluatedItemsException for tail past widest tuple');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                'Provided JSON for tags contains not allowed unevaluated items [#2]',
+                $exception->getMessage(),
+            );
+            $this->assertSame([2], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * Regression guard for the PropertyProxy clone reset:
+     * `CompositionPropertyDecorator::getOrderedValidators()` returns fresh
+     * `withProperty(...)` clones on every call. A previous fix attempt set
+     * `setTrackBranchMatches(true)` on the clones returned to the post-processor, leaving
+     * the validator instances actually emitted into generated code with the flag still
+     * false; contains-matched indices were silently dropped. With the fix iterating the
+     * wrapped property's source validators via `getWrappedProperty()`, the flag reaches
+     * the rendered instance.
+     *
+     * Three-element array `['a', 5, 'c']`: contains matches index 1 (integer). The branch
+     * claims {1}; sibling unevaluatedItems reports {0, 2} as unevaluated — not {0, 1, 2}.
+     */
+    public function testContainsOnlyBranchClaimsMatchedIndex(): void
+    {
+        $className = $this->generateClassFromFile('ContainsOnlyBranch.json');
+
+        // All-integer array: contains matches every index; nothing left unevaluated.
+        $accepted = new $className(['tags' => [1, 2, 3]]);
+        $this->assertSame([1, 2, 3], $accepted->getTags());
+
+        // Mixed array: contains matches index 1; non-matching indices fail unevaluatedItems.
+        try {
+            new $className(['tags' => ['a', 5, 'c']]);
+            $this->fail('Expected UnevaluatedItemsException for non-matching indices');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                'Provided JSON for tags contains not allowed unevaluated items [#0, #2]',
+                $exception->getMessage(),
+            );
+            $this->assertSame([0, 2], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * Items + contains combined branch — tuple items claims index 0, contains matches its
+     * own indices, and the branch's evaluated set is the union of both. Items covers index 0
+     * (string), contains matches index 1 (integer). Together they cover the whole two-
+     * element array — accept.
+     */
+    public function testItemsPlusContainsBranchUnionsBothClaimSources(): void
+    {
+        $className = $this->generateClassFromFile('ItemsPlusContainsBranch.json');
+
+        // Items claims index 0, contains claims index 1 → union covers everything → accept.
+        $accepted = new $className(['tags' => ['head', 5]]);
+        $this->assertSame(['head', 5], $accepted->getTags());
+
+        // Three-element array: items covers 0, contains covers 1; index 2 is unevaluated.
+        try {
+            new $className(['tags' => ['head', 5, 'tail']]);
+            $this->fail('Expected UnevaluatedItemsException for unclaimed index');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                'Provided JSON for tags contains not allowed unevaluated items [#2]',
+                $exception->getMessage(),
+            );
+            $this->assertSame([2], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * Regression guard for the recursive activation walk in
+     * `UnevaluatedPropertiesPostProcessor::activateArrayComposition()`: a schema like
+     * `{type: array, allOf: [{$ref: "#/definitions/recursive"}], unevaluatedItems: false}`
+     * where the $ref resolves back to the same schema produces a composition validator
+     * whose composed branch's wrapped property carries the same composition validator
+     * instance. Without the cycle break, the walk recurses indefinitely; with it, the walk
+     * short-circuits on the second visit.
+     *
+     * The cycle-break guard was verified by hand: removing it from
+     * `activateArrayComposition()` and running this fixture causes the process to abort
+     * with `Xdebug has detected a possible infinite loop, and aborted your script with a
+     * stack depth of '512' frames`, with the offending frames pointing at the
+     * `activateArrayComposition` / `activateValidatorsInBranch` pair. With the guard
+     * restored, the walk terminates.
+     *
+     * The test is marked incomplete because end-to-end codegen still hits a *second*
+     * infinite recursion in `CompositionTypeHintDecorator::getTypeHint()` on the same
+     * fixture — a pre-existing bug in the type-hint computation path that has no cycle
+     * protection of its own. Fixing that is outside the unevaluatedItems work; the test
+     * will be promoted to a real assertion once the type-hint recursion is closed.
+     */
+    public function testSelfReferencingArrayCompositionDoesNotRecurseIndefinitely(): void
+    {
+        $this->markTestIncomplete(
+            'Activation-walk cycle break is in place and verified by hand. End-to-end '
+            . 'codegen blocked by an unrelated infinite recursion in '
+            . 'CompositionTypeHintDecorator::getTypeHint() on self-referencing schemas '
+            . '(deferred bug; tracked in the implementation plan).',
+        );
     }
 }
