@@ -5,15 +5,46 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Draft;
 
 use PHPModelGenerator\Draft\Element\Type;
+use PHPModelGenerator\Draft\Producer\PropertyProducerInterface;
 use PHPModelGenerator\Exception\SchemaException;
 
 final class Draft
 {
     /**
-     * @param Type[] $types
+     * @param Type[]                      $types
+     * @param PropertyProducerInterface[] $producers Keyed by keyword, in registry order
      */
-    public function __construct(private readonly array $types)
+    public function __construct(
+        private readonly array $types,
+        private readonly array $producers = [],
+    ) {
+    }
+
+    public function getProducerForKeyword(string $keyword): ?PropertyProducerInterface
     {
+        return $this->producers[$keyword] ?? null;
+    }
+
+    /**
+     * Returns every registered producer whose keyword is present in the given schema node, in
+     * registry order. With only the $ref producer registered today this yields 0 or 1 element,
+     * but the contract is N-producer capable for future co-occurring reference keywords.
+     *
+     * @param array<string, mixed> $json
+     *
+     * @return PropertyProducerInterface[]
+     */
+    public function getProducersForSchema(array $json): array
+    {
+        $producers = [];
+
+        foreach ($this->producers as $keyword => $producer) {
+            if (array_key_exists($keyword, $json)) {
+                $producers[] = $producer;
+            }
+        }
+
+        return $producers;
     }
 
     /**

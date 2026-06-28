@@ -11,10 +11,10 @@ use PHPModelGenerator\Attributes\ReadOnlyProperty;
 use PHPModelGenerator\Attributes\Required;
 use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Attributes\WriteOnlyProperty;
-use Exception;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
+use PHPModelGenerator\Draft\Producer\RefResolver;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
 use PHPModelGenerator\Exception\SchemaException;
@@ -29,7 +29,6 @@ use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
-use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\TypeConverter;
@@ -58,21 +57,8 @@ class PropertyFactory
     ): PropertyInterface {
         $json = $propertySchema->getJson();
 
-        // $ref: replace the property entirely via the definition dictionary.
-        // This is a schema-identity primitive — it cannot be a Draft modifier because
-        // ModifierInterface::modify returns void and cannot replace the property object.
         if (isset($json['$ref'])) {
-            if (isset($json['type']) && $json['type'] === 'base') {
-                return $this->processBaseReference(
-                    $schemaProcessor,
-                    $schema,
-                    $propertyName,
-                    $propertySchema,
-                    $required,
-                );
-            }
-
-            return $this->processReference($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
+            return (new RefResolver())->produce($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
         }
 
         $resolvedType = $json['type'] ?? 'any';
@@ -295,109 +281,6 @@ class PropertyFactory
 
         if (isset($json['deprecated']) && $json['deprecated'] === true) {
             $property->addAttribute(new PhpAttribute(Deprecated::class), $configuration, PhpAttribute::DEPRECATED);
-        }
-
-        return $property;
-    }
-
-    /**
-     * Resolve a $ref reference by looking it up in the definition dictionary.
-     *
-     * @throws SchemaException
-     */
-    private function processReference(
-        SchemaProcessor $schemaProcessor,
-        Schema $schema,
-        string $propertyName,
-        JsonSchema $propertySchema,
-        bool $required,
-    ): PropertyInterface {
-        $path       = [];
-        $reference  = $propertySchema->getJson()['$ref'];
-        $dictionary = $schema->getSchemaDictionary();
-
-        try {
-            $definition = $dictionary->getDefinition($reference, $schemaProcessor, $path);
-
-            if ($definition) {
-                $definitionSchema = $definition->getSchema();
-
-                if (
-                    $schema->getClassPath() !== $definitionSchema->getClassPath() ||
-                    $schema->getClassName() !== $definitionSchema->getClassName() ||
-                    (
-                        $schema->getClassName() === 'ExternalSchema' &&
-                        $definitionSchema->getClassName() === 'ExternalSchema'
-                    )
-                ) {
-                    $schema->addNamespaceTransferDecorator(
-                        new SchemaNamespaceTransferDecorator($definitionSchema),
-                    );
-
-                    if ($definitionSchema->getClassName() !== 'ExternalSchema') {
-                        $schema->addUsedClass(join('\\', array_filter([
-                            $schemaProcessor->getGeneratorConfiguration()->getNamespacePrefix(),
-                            $definitionSchema->getClassPath(),
-                            $definitionSchema->getClassName(),
-                        ])));
-                    }
-                }
-
-                $property = $definition->resolveReference(
-                    $propertyName,
-                    implode('/', $path),
-                    $required,
-                    $propertySchema->getJson()['_dependencies'] ?? null,
-                );
-
-                // Use the reference site's pointer (where $ref appears in the schema) rather
-                // than the definition's pointer. This is always meaningful and consistent with
-                // how inline properties work — both show WHERE IN THE SCHEMA the property is
-                // defined, not where the resolved type lives.
-                $property->overrideJsonPointer(new PhpAttribute(JsonPointer::class, [$propertySchema->getPointer()]));
-
-                return $property;
-            }
-        } catch (Exception $exception) {
-            throw new SchemaException(
-                "Unresolved Reference $reference in file {$propertySchema->getFile()}",
-                0,
-                $exception,
-            );
-        }
-
-        throw new SchemaException("Unresolved Reference $reference in file {$propertySchema->getFile()}");
-    }
-
-    /**
-     * Resolve a $ref on a base-level schema: set up definitions, delegate to processReference,
-     * then copy the referenced schema's properties to the parent schema.
-     *
-     * @throws SchemaException
-     */
-    private function processBaseReference(
-        SchemaProcessor $schemaProcessor,
-        Schema $schema,
-        string $propertyName,
-        JsonSchema $propertySchema,
-        bool $required,
-    ): PropertyInterface {
-        $schema->getSchemaDictionary()->setUpDefinitionDictionary($schemaProcessor, $schema);
-
-        $property = $this->processReference($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
-
-        if (!$property->getNestedSchema()) {
-            throw new SchemaException(
-                sprintf(
-                    'A referenced schema on base level must provide an object definition for property %s in file %s',
-                    $propertyName,
-                    $propertySchema->getFile(),
-                )
-            );
-        }
-
-        foreach ($property->getNestedSchema()->getProperties() as $propertiesOfReferencedObject) {
-            $schema->addProperty($propertiesOfReferencedObject);
         }
 
         return $property;
