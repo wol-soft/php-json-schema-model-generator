@@ -20,21 +20,16 @@ use ReflectionClass;
 
 class BuilderClassPostProcessor extends PostProcessor
 {
-    /** @var array<string, Schema> */
+    /** @var Schema[] */
     private array $schemas = [];
     private ?GeneratorConfiguration $generatorConfiguration = null;
     private ?RenderHelper $renderHelper = null;
 
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
-        // Collect schemas, deduplicating by target filename to avoid generating builder
-        // classes multiple times for shared schemas (e.g. $defs referenced from multiple
-        // composition branches).
-        $target = $schema->getTargetFileName();
-        if (!isset($this->schemas[$target])) {
-            $this->schemas[$target] = $schema;
-        }
-
+        // collect the schemas and generate builder classes in postProcess hook to make sure the related model class
+        // already has been created
+        $this->schemas[] = $schema;
         $this->generatorConfiguration ??= $generatorConfiguration;
         $this->renderHelper ??= new RenderHelper($generatorConfiguration);
     }
@@ -51,17 +46,6 @@ class BuilderClassPostProcessor extends PostProcessor
 
         foreach ($this->schemas as $schema) {
             $properties = [];
-
-            // Collect non-internal properties for builder method generation.
-            //
-            // PREVIOUSLY there was a deduplication step here that tracked seen method names
-            // ('get' . ucfirst($property->getAttribute())) to skip duplicates.  This was
-            // removed because upstream commit 4c1b06e added property-vs-property attribute
-            // collision detection to Schema::addProperty().  If two raw property names
-            // normalize to the same PHP attribute (e.g. 'foo-bar' and 'fooBar'), the
-            // collision is now caught at schema processing time with a SchemaException,
-            // before the builder stage ever runs.  Skipping duplicates here would silently
-            // hide the collision — the hard exception is the correct user-facing signal.
             foreach ($schema->getProperties() as $property) {
                 if (!$property->isInternal()) {
                     $properties[] = (clone $property)
@@ -104,9 +88,7 @@ class BuilderClassPostProcessor extends PostProcessor
                 // @codeCoverageIgnoreEnd
             }
 
-            if (!class_exists($fqcn, false)) {
-                require $filename;
-            }
+            require $filename;
 
             if ($this->generatorConfiguration->isOutputEnabled()) {
                 // @codeCoverageIgnoreStart
