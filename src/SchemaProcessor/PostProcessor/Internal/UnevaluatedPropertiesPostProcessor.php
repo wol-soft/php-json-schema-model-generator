@@ -90,9 +90,34 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         // declare allOf/anyOf/oneOf/if-then-else.
         $schema->addTrait(CompositionEvaluationTrait::class);
 
-        // The cache field is only written when there are composition validators, but the trait
-        // reads $this->_compositionEvaluations even on no-composition schemas. Always declare the
-        // property so the read never touches an undefined property (deprecated in PHP 8.2+).
+        $this->activateSchemaLevelTracking($schema);
+        $this->activateArrayPropertyTracking($schema);
+    }
+
+    /**
+     * Enables evaluation tracking on every schema-level composition validator and declares
+     * the `_compositionEvaluations` cache field if any composition was activated.
+     *
+     * Each activated branch writes its success bit and the property names it claimed into
+     * `_compositionEvaluations[$validatorIndex][$componentIndex]`. The unevaluatedProperties
+     * validator reads those slots via the trait's `collectUnevaluatedKeys`. Schemas without
+     * any composition skip the field declaration — the trait's reads use `?? []`, so the
+     * absence is safe.
+     */
+    private function activateSchemaLevelTracking(Schema $schema): void
+    {
+        $activated = false;
+        foreach ($schema->getBaseValidators() as $baseValidator) {
+            if ($baseValidator instanceof AbstractComposedPropertyValidator) {
+                $baseValidator->enableEvaluationTracking();
+                $activated = true;
+            }
+        }
+
+        if (!$activated) {
+            return;
+        }
+
         $schema->addProperty(
             (new Property(
                 'compositionEvaluations',
@@ -102,25 +127,23 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 ->setInternal(true)
                 ->setDefaultValue([]),
         );
+    }
 
-        // Transient bridge between property-level array compositions and a sibling
-        // unevaluatedItems validator. Wholesale-overwritten per chain run; never registered
-        // with the rollback registry, never snapshotted across setter calls.
-        $schema->addProperty(
-            (new Property(
-                'compositionAnnotated',
-                new PropertyType('array'),
-                new JsonSchema(__FILE__, []),
-            ))
-                ->setInternal(true)
-                ->setDefaultValue([]),
-        );
-
-        foreach ($schema->getBaseValidators() as $baseValidator) {
-            if ($baseValidator instanceof AbstractComposedPropertyValidator) {
-                $baseValidator->enableEvaluationTracking();
-            }
-        }
+    /**
+     * Walks array properties carrying `unevaluatedItems`, activates evaluation tracking on
+     * any composition validator attached to such a property, and declares the two transient
+     * array-side fields when their respective write sites are reachable:
+     *   - `_compositionAnnotated` — only when at least one property-level composition was
+     *     activated. The composition template wholesale-overwrites the property's slot at
+     *     the end of every chain run.
+     *   - `_evaluatedItemIndices` — whenever at least one array property carries
+     *     `unevaluatedItems`. The unevaluatedItems template writes a `[propertyName =>
+     *     [index => true]]` entry after each successful per-index validation.
+     */
+    private function activateArrayPropertyTracking(Schema $schema): void
+    {
+        $unevaluatedItemsPresent = false;
+        $compositionActivated = false;
 
         foreach ($schema->getProperties() as $schemaProperty) {
             $propertyJson = $schemaProperty->getJsonSchema()->getJson();
@@ -138,14 +161,49 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 continue;
             }
 
+            $unevaluatedItemsPresent = true;
+
             $this->slotKeyCounter = 0;
             $this->activatedCompositions = [];
 
             foreach ($schemaProperty->getOrderedValidators() as $validator) {
                 if ($validator instanceof AbstractComposedPropertyValidator) {
                     $this->activateArrayComposition($validator, $schemaProperty);
+                    $compositionActivated = true;
                 }
             }
+        }
+
+        if ($compositionActivated) {
+            // Transient bridge between property-level array compositions and a sibling
+            // unevaluatedItems validator. Wholesale-overwritten per chain run; never registered
+            // with the rollback registry, never snapshotted across setter calls.
+            $schema->addProperty(
+                (new Property(
+                    'compositionAnnotated',
+                    new PropertyType('array'),
+                    new JsonSchema(__FILE__, []),
+                ))
+                    ->setInternal(true)
+                    ->setDefaultValue([]),
+            );
+        }
+
+        if ($unevaluatedItemsPresent) {
+            // Per-array-property index map of indices the property's UnevaluatedItems validator
+            // successfully evaluated, shaped as [propertyName => [index => true]]. Inner and outer
+            // UnevaluatedItems validators share the same instance field — there are no nested
+            // array classes to cross. Transient: every chain run overwrites it; never registered
+            // with the rollback registry, never snapshotted across setter calls.
+            $schema->addProperty(
+                (new Property(
+                    'evaluatedItemIndices',
+                    new PropertyType('array'),
+                    new JsonSchema(__FILE__, []),
+                ))
+                    ->setInternal(true)
+                    ->setDefaultValue([]),
+            );
         }
     }
 
