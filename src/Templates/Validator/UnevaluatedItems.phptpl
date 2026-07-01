@@ -2,6 +2,7 @@ is_array($value) && (function ($items) use (&$invalidItems, $modelData): bool {
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
+    $rollbackEvaluatedItemIndices = $this->_evaluatedItemIndices;
 
     $unevaluatedIndices = $this->collectUnevaluatedIndices(
         $items,
@@ -29,6 +30,10 @@ is_array($value) && (function ($items) use (&$invalidItems, $modelData): bool {
                     continue;
                 }
             {% endif %}
+
+            // The index validated against the unevaluatedItems subschema — record it so an
+            // enclosing schema's unevaluatedItems accumulator can credit it.
+            $this->_evaluatedItemIndices['{{ arrayPropertyName }}'][$index] = true;
         } catch (\Exception $e) {
             isset($invalidItems[$index])
                 ? $invalidItems[$index][] = $e
@@ -39,6 +44,10 @@ is_array($value) && (function ($items) use (&$invalidItems, $modelData): bool {
     {% if generatorConfiguration.collectErrors() %}
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
+
+    if (!empty($invalidItems)) {
+        $this->_evaluatedItemIndices = $rollbackEvaluatedItemIndices;
+    }
 
     return !empty($invalidItems);
 })($value)

@@ -503,4 +503,65 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             . '(deferred bug; tracked in the implementation plan).',
         );
     }
+
+    /**
+     * Spec propagation: a nested `unevaluatedItems` schema-form validator inside a
+     * successful `allOf` branch must contribute its claimed indices to the enclosing
+     * `unevaluatedItems` accumulator. The inner validator writes
+     * `_evaluatedItemIndices['tags'][$index] = true` after each successful per-index
+     * validation; the outer reads that map via `collectUnevaluatedIndices()`.
+     *
+     * Without the inner write, the outer `false` form would see every index as
+     * unevaluated and reject a perfectly valid all-string array; with the write, the
+     * outer credits the indices the inner already cleared.
+     */
+    public function testInnerUnevaluatedItemsInAllOfBranchPropagatesIndicesToOuterAccumulator(): void
+    {
+        $className = $this->generateClassFromFile('InnerUnevaluatedItemsInBranch.json');
+
+        // Both indices validate as strings against the inner schema; inner writes
+        // [0, 1] into _evaluatedItemIndices['tags']; outer's false form sees zero
+        // unevaluated indices → accept.
+        $accepted = new $className(['tags' => ['alpha', 'beta']]);
+        $this->assertSame(['alpha', 'beta'], $accepted->getTags());
+    }
+
+    /**
+     * Snapshot/restore guard: when the nested `unevaluatedItems` inside an `allOf`
+     * branch FAILS (any per-index check yields an invalid item), the inner template
+     * must restore `_evaluatedItemIndices` to its pre-IIFE state so no partial writes
+     * leak to the outer accumulator. Under `collectErrors` mode the chain continues
+     * past the failing composition so the outer `false` form runs against the
+     * snapshot-restored state — if the rollback worked, every index appears
+     * unevaluated and is reported in the outer error.
+     *
+     * Without the snapshot/restore, indices 0 and 2 (the successfully-validated
+     * string entries) would leak into `_evaluatedItemIndices['tags']` and the outer
+     * would mistakenly report only index 1 as unevaluated.
+     */
+    public function testInnerUnevaluatedItemsFailureRollsBackPartialWritesUnderCollectErrors(): void
+    {
+        $className = $this->generateClassFromFile(
+            'InnerUnevaluatedItemsInBranch.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        try {
+            new $className(['tags' => ['alpha', 42, 'gamma']]);
+            $this->fail('Expected ErrorRegistryException combining composition + outer unevaluated errors');
+        } catch (ErrorRegistryException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+                Invalid value for tags declined by composition constraint.
+                  Requires to match all composition elements but matched 0 elements.
+                  - Composition element #1: Failed
+                    * Invalid unevaluated items in array tags:
+                      - invalid unevaluated item #1
+                        * Invalid type for unevaluated item. Requires string, got integer
+                Provided JSON for tags contains not allowed unevaluated items [#0, #1, #2]
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+    }
 }
