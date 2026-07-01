@@ -11,10 +11,9 @@ use PHPModelGenerator\Attributes\ReadOnlyProperty;
 use PHPModelGenerator\Attributes\Required;
 use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Attributes\WriteOnlyProperty;
-use PHPModelGenerator\Draft\Draft;
-use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
-use PHPModelGenerator\Draft\Producer\RefResolver;
+use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
+use PHPModelGenerator\Draft\Producer\PropertyProducerInterface;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
 use PHPModelGenerator\Exception\SchemaException;
@@ -40,9 +39,6 @@ use PHPModelGenerator\Utils\TypeConverter;
  */
 class PropertyFactory
 {
-    /** @var Draft[] Keyed by draft class name */
-    private array $draftCache = [];
-
     /**
      * Create a property, applying all applicable Draft modifiers.
      *
@@ -55,10 +51,20 @@ class PropertyFactory
         JsonSchema $propertySchema,
         bool $required = false,
     ): PropertyInterface {
-        $json = $propertySchema->getJson();
+        $json      = $propertySchema->getJson();
+        $producers = $schemaProcessor->getGeneratorConfiguration()
+            ->getBuiltDraft($propertySchema)
+            ->getProducersForSchema($json);
 
-        if (isset($json['$ref'])) {
-            return (new RefResolver())->produce($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
+        if ($producers) {
+            return $this->produceProperty(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema,
+                $required,
+                $producers,
+            );
         }
 
         $resolvedType = $json['type'] ?? 'any';
@@ -94,6 +100,73 @@ class PropertyFactory
                 $required,
             ),
         };
+    }
+
+    /**
+     * Resolve every producer keyword present on the schema (today only $ref) and combine their
+     * output.
+     *
+     * An exclusive producer (Draft-07's $ref) suppresses every other keyword on this schema node
+     * -- both sibling modifiers and any other present producer -- so only its own output is used
+     * and no other producer is even invoked.
+     *
+     * Otherwise, producers are independent: each resolves on its own with no incoming
+     * property. Today only one producer is ever registered per keyword, so $produced always has
+     * exactly one element and no combination is needed; a second co-occurring producer (e.g. a
+     * future $dynamicRef) will need to merge its output here via the allOf path.
+     *
+     * Sibling keywords are not applied here: the produced property may be shared across multiple
+     * reference sites (SchemaDefinition caches by path/required/dependencies and hands out a
+     * PropertyProxy onto the same underlying property for every site after the first), so adding
+     * site-specific sibling validators directly to it would leak them into unrelated sites. Safe
+     * sibling application needs a non-mutating merge and is wired in alongside that merge.
+     *
+     * @param array<string, PropertyProducerInterface> $producers Keyed by keyword
+     *
+     * @throws SchemaException
+     */
+    private function produceProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        bool $required,
+        array $producers,
+    ): PropertyInterface {
+        $exclusiveKeywords = array_keys(array_filter(
+            $producers,
+            static fn(PropertyProducerInterface $producer): bool => $producer instanceof ExclusiveProducer,
+        ));
+
+        if (count($exclusiveKeywords) > 1) {
+            throw new SchemaException(
+                sprintf(
+                    "Mutually exclusive keywords '%s' cannot be combined on property '%s' in file '%s'",
+                    implode("', '", $exclusiveKeywords),
+                    $propertyName,
+                    $propertySchema->getFile(),
+                ),
+            );
+        }
+
+        if ($exclusiveKeywords) {
+            $exclusiveProducer = $producers[$exclusiveKeywords[0]];
+
+            return $exclusiveProducer->produce($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
+        }
+
+        $produced = array_map(
+            static fn(PropertyProducerInterface $producer): PropertyInterface => $producer->produce(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema,
+                $required,
+            ),
+            $producers,
+        );
+
+        return array_values($produced)[0];
     }
 
     /**
@@ -495,7 +568,7 @@ class PropertyFactory
         bool $typeOnly = false,
     ): void {
         $type       = $propertySchema->getJson()['type'] ?? 'any';
-        $builtDraft = $this->resolveBuiltDraft($schemaProcessor, $propertySchema);
+        $builtDraft = $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($propertySchema);
 
         // For untyped properties ('any'), only run the 'any' entry — getCoveredTypes('any')
         // returns all types, which would incorrectly apply type-specific modifiers.
@@ -550,16 +623,5 @@ class PropertyFactory
                 $schema->getJsonSchema()->getFile(),
             )
         );
-    }
-
-    private function resolveBuiltDraft(SchemaProcessor $schemaProcessor, JsonSchema $propertySchema): Draft
-    {
-        $configDraft = $schemaProcessor->getGeneratorConfiguration()->getDraft();
-
-        $draft = $configDraft instanceof DraftFactoryInterface
-            ? $configDraft->getDraftForSchema($propertySchema)
-            : $configDraft;
-
-        return $this->draftCache[$draft::class] ??= $draft->getDefinition()->build();
     }
 }

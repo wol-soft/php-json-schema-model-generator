@@ -26,13 +26,15 @@ final class Draft
     }
 
     /**
-     * Returns every registered producer whose keyword is present in the given schema node, in
-     * registry order. With only the $ref producer registered today this yields 0 or 1 element,
-     * but the contract is N-producer capable for future co-occurring reference keywords.
+     * Returns every registered producer whose keyword is present in the given schema node, keyed
+     * by keyword and in registry order. With only the $ref producer registered today this yields
+     * 0 or 1 element, but the contract is N-producer capable for future co-occurring reference
+     * keywords. Keeping the keyword as the key lets callers name the offending keyword(s) when
+     * reporting a conflict (e.g. multiple mutually exclusive producers present on one node).
      *
      * @param array<string, mixed> $json
      *
-     * @return PropertyProducerInterface[]
+     * @return array<string, PropertyProducerInterface>
      */
     public function getProducersForSchema(array $json): array
     {
@@ -40,7 +42,7 @@ final class Draft
 
         foreach ($this->producers as $keyword => $producer) {
             if (array_key_exists($keyword, $json)) {
-                $producers[] = $producer;
+                $producers[$keyword] = $producer;
             }
         }
 
