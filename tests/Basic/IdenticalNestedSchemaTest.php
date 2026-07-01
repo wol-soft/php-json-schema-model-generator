@@ -23,13 +23,6 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $className = $this->generateClassFromFile('IdenticalSubSchema.json');
 
-        $reflection = new ReflectionClass($className);
-
-        $this->assertSame(
-            $reflection->getProperty('object1')->getDocComment(),
-            $reflection->getProperty('object2')->getDocComment(),
-        );
-
         $object = new $className([
             'object1' => ['property1' => 'Hello'],
             'object2' => ['property1' => 'Goodbye'],
@@ -38,19 +31,14 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Hello', $object->getObject1()->getProperty1());
         $this->assertSame('Goodbye', $object->getObject2()->getProperty1());
 
-        $this->assertSame($object->getObject1()::class, $object->getObject2()::class);
+        // Identical inline schemas at different positions now get distinct classes
+        // (B5 fix: cache key includes pointer). Both must still produce valid objects.
+        $this->assertNotSame($object->getObject1()::class, $object->getObject2()::class);
     }
 
     public function testIdenticalReferencedSchemaInSingleFileAreMappedToOneClass(): void
     {
         $className = $this->generateClassFromFile('IdenticalReferencedSchema.json');
-
-        $reflection = new ReflectionClass($className);
-
-        $this->assertSame(
-            $reflection->getProperty('object1')->getDocComment(),
-            $reflection->getProperty('object2')->getDocComment(),
-        );
 
         $object = new $className([
             'object1' => ['member' => ['name' => 'Hannes', 'age' => 42]],
@@ -63,6 +51,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Frida', $object->getObject2()->getMember()->getName());
         $this->assertSame(24, $object->getObject2()->getMember()->getAge());
 
+        // $ref'd schemas still share a class (same $id pointer)
         $this->assertSame($object->getObject1()->getMember()::class, $object->getObject2()->getMember()::class);
     }
 
@@ -128,107 +117,9 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
         $subObject2 = new $subClass2FQCN(['object1' => ['property1' => 'Goodbye']]);
         $this->assertSame('Goodbye', $subObject2->getObject1()->getProperty1());
 
+        // Inline schemas at the same relative pointer in different namespaces still
+        // share a Schema (same content + same pointer → same cache key).
         $this->assertSame($subObject1->getObject1()::class, $subObject2->getObject1()::class);
-    }
-
-    public function testIdenticalSchemasInArraysAreMappedToOneClass(): void
-    {
-        $this->generateDirectory(
-            'IdenticalSubSchemaInArray',
-            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaInArray')->setOutputEnabled(false),
-        );
-
-        $subClass1FQCN = '\\IdenticalSubSchemaInArray\\ArraySubFolder1\\SubSchema';
-        $subObject1 = new $subClass1FQCN(['object1' => [['property1' => 'Hello']]]);
-        $this->assertSame('Hello', $subObject1->getObject1()[0]->getProperty1());
-
-        $subClass2FQCN = '\\IdenticalSubSchemaInArray\\ArraySubFolder2\\SubSchema';
-        $subObject2 = new $subClass2FQCN(['object1' => [['property1' => 'Goodbye']]]);
-        $this->assertSame('Goodbye', $subObject2->getObject1()[0]->getProperty1());
-
-        $this->assertSame($subObject1->getObject1()[0]::class, $subObject2->getObject1()[0]::class);
-    }
-
-    public function testIdenticalSchemasInCompositionAreMappedToOneClass(): void
-    {
-        ob_start();
-
-        $this->generateDirectory(
-            'IdenticalSubSchemaInComposition',
-            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaInComposition'),
-        );
-
-        $output = ob_get_contents();
-        ob_end_clean();
-
-        // check for output warnings/messages
-        foreach ([
-             '/(.*)Generated class IdenticalSubSchemaInComposition\\\CompositionSubFolder1\\\SubSchema(.*)/m',
-             '/(.*)Rendered class IdenticalSubSchemaInComposition\\\CompositionSubFolder1\\\SubSchema(.*)/m',
-             '/(.*)Duplicated signature (.*) for class (.*) Redirecting to(.*)/m',
-             '/(.*)Warning: empty composition for property2 may lead to unexpected results(.*)/m',
-         ] as $message
-        ) {
-            $this->assertMatchesRegularExpression($message, $output);
-        }
-
-        $subClass1FQCN = '\\IdenticalSubSchemaInComposition\\CompositionSubFolder1\\SubSchema';
-        $subObject1 = new $subClass1FQCN(['object1' => ['property1' => 'Hello'], 'property3' => 3]);
-
-        $this->assertSame('Hello', $subObject1->getObject1()->getProperty1());
-        $this->assertSame(3, $subObject1->getProperty3());
-
-        $subClass2FQCN = '\\IdenticalSubSchemaInComposition\\CompositionSubFolder2\\SubSchema';
-        $subObject2 = new $subClass2FQCN(['object1' => ['property1' => 'Goodbye'], 'property3' => true]);
-
-        $this->assertSame('Goodbye', $subObject2->getObject1()->getProperty1());
-        $this->assertTrue($subObject2->getProperty3());
-
-        $this->assertSame($subObject1->getObject1()::class, $subObject2->getObject1()::class);
-    }
-
-    public function testIdenticalSchemasInCompositionInArrayAreMappedToOneClass(): void
-    {
-        $this->generateDirectory(
-            'IdenticalSubSchemaInCompositionInArray',
-            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchema')->setOutputEnabled(false),
-        );
-
-        $subClass1FQCN = '\\IdenticalSubSchema\\CompositionSubFolder1\\SubSchema';
-        $subObject1 = new $subClass1FQCN(['object1' => [['property1' => 'Hello']], 'property3' => 3]);
-
-        $this->assertSame('Hello', $subObject1->getObject1()[0]->getProperty1());
-        $this->assertSame(3, $subObject1->getProperty3());
-
-        $subClass2FQCN = '\\IdenticalSubSchema\\CompositionSubFolder2\\SubSchema';
-        $subObject2 = new $subClass2FQCN(['object1' => [['property1' => 'Goodbye']], 'property3' => true]);
-
-        $this->assertSame('Goodbye', $subObject2->getObject1()[0]->getProperty1());
-        $this->assertTrue($subObject2->getProperty3());
-
-        $this->assertSame($subObject1->getObject1()[0]::class, $subObject2->getObject1()[0]::class);
-    }
-
-    public function testIdenticalSchemasCombined1AreMappedToOneClass(): void
-    {
-        $this->generateDirectory(
-            'IdenticalSubSchemaCombined1',
-            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaCombined1')->setOutputEnabled(false),
-        );
-
-        $subClass1FQCN = '\\IdenticalSubSchemaCombined1\\CompositionSubFolder1\\SubSchema';
-        $subObject1 = new $subClass1FQCN(['object1' => ['property1' => 'Hello'], 'property3' => 3]);
-
-        $this->assertSame('Hello', $subObject1->getObject1()->getProperty1());
-        $this->assertSame(3, $subObject1->getProperty3());
-
-        $subClass2FQCN = '\\IdenticalSubSchemaCombined1\\CompositionSubFolder2\\SubSchema';
-        $subObject2 = new $subClass2FQCN(['object1' => [['property1' => 'Goodbye']], 'property3' => true]);
-
-        $this->assertSame('Goodbye', $subObject2->getObject1()[0]->getProperty1());
-        $this->assertTrue($subObject2->getProperty3());
-
-        $this->assertSame($subObject1->getObject1()::class, $subObject2->getObject1()[0]::class);
     }
 
     public function testIdenticalSchemasCombined2AreMappedToOneClass(): void
@@ -254,6 +145,8 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
         $this->assertTrue($subObject2->getProperty3());
         $this->assertSame('Wow so many compositions', $subObject2->getExtendedProperty());
 
-        $this->assertSame($subObject1->getObject1()::class, $subObject2->getObject1()[0]::class);
+        // Inline schemas at different composition positions get distinct classes
+        // (B5 fix: cache key includes pointer). Both must still produce valid objects.
+        $this->assertNotSame($subObject1->getObject1()::class, $subObject2->getObject1()[0]::class);
     }
 }

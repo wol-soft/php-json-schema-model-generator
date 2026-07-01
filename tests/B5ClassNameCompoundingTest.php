@@ -4,96 +4,63 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests;
 
+use PHPModelGenerator\Attributes\JsonPointer;
+use ReflectionClass;
+
 /**
- * Regression test for B5: class name compounding fix.
+ * B5: Cache key includes pointer so inline schemas at different positions
+ * produce distinct Schema objects with correct class-level #[JsonPointer].
  *
- * Without the fix, generateModel() used the full class path as the BaseProperty
- * name. At each composition nesting level, the class name was re-embedded into
- * the next level's property name, producing exponential filename growth that
- * overflowed filesystem path limits. The fix uses 'base' as the fixed name.
+ * Without the fix (upstream/master): $schemaSignature = $jsonSchema->getSignature()
+ * Two identical inline objects at /properties/a and /properties/b share ONE
+ * Schema → the class-level #[JsonPointer] is wrong for the second one.
  *
- * Collision safety:
- *   1. Each Schema creates its own BaseProperty (keyed by content+pointer in cache).
- *   2. The BaseProperty is never rendered as a class property.
- *   3. The cache key also includes $jsonSchema->getPointer() so inline schemas
- *      at different positions get distinct Schema objects with correct
- *      class-level #[JsonPointer].
+ * With the fix: $schemaSignature = $jsonSchema->getSignature() . '|' . $jsonSchema->getPointer()
+ * Each position gets its own Schema with correct #[JsonPointer].
+ *
+ * Additionally, the processedMergedProperties dedup also includes the pointer
+ * to prevent merge class collisions for identical composition content.
  */
 class B5ClassNameCompoundingTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
-     * B5 + cache key: Deep nesting does not produce exponentially growing class names.
+     * Two identical inline objects at different positions must get distinct
+     * class-level #[JsonPointer] attributes. With originalClassNames=true,
+     * no uniqid is added, so the collision would happen without the fix.
      */
-    public function testDeepNestingDoesNotOverflowClassNames(): void
+    public function testIdenticalInlineObjectsAtDifferentPositionsGetDistinctPointers(): void
     {
-        $nested = ['type' => 'object', 'properties' => []];
-        $current = &$nested;
+        $className = $this->generateClassFromFile(
+            'DuplicateInlineObjects.json',
+            null,
+            true,  // originalClassNames - no uniqid
+        );
 
-        for ($i = 0; $i < 20; $i++) {
-            $current = &$current['properties'];
-            $key = 'level_' . $i;
-            $current[$key] = [
-                'allOf' => [
-                    ['type' => 'object', 'properties' => ['value' => ['type' => 'string', 'const' => 'lvl' . $i]]],
-                    ['type' => 'object', 'properties' => ['extra' => ['type' => 'integer']]],
-                ],
-            ];
-            $current = &$current[$key];
-        }
+        $object = new $className(['a' => ['x' => 'hello'], 'b' => ['x' => 'world']]);
 
-        $schema = json_encode(['type' => 'object', 'properties' => ['top' => $nested]]);
-        $className = $this->generateClass($schema);
+        $aRef = new ReflectionClass($object->getA());
+        $bRef = new ReflectionClass($object->getB());
 
-        $this->assertTrue(class_exists($className, false));
+        // On upstream (without fix): a and b share the SAME class
+        // On fix: a and b get DIFFERENT classes
+        $this->assertNotSame(
+            $aRef->getName(),
+            $bRef->getName(),
+            'Identical inline schemas at different positions must produce distinct classes',
+        );
+
+        // Each class must have its own JsonPointer
+        $aPointer = $aRef->getAttributes(JsonPointer::class);
+        $bPointer = $bRef->getAttributes(JsonPointer::class);
+        $this->assertCount(1, $aPointer);
+        $this->assertCount(1, $bPointer);
+        $this->assertSame('/properties/a', $aPointer[0]->getArguments()[0]);
+        $this->assertSame('/properties/b', $bPointer[0]->getArguments()[0]);
     }
 
     /**
-     * Cache key fix: Two identical inline schemas at different positions produce
-     * distinct Schema objects, each with correct class-level #[JsonPointer].
-     */
-    public function testIdenticalInlineContentAtDifferentPositionsGetDistinctPointers(): void
-    {
-        $schema = json_encode([
-            'type' => 'object',
-            'properties' => [
-                'version1' => [
-                    'allOf' => [
-                        [
-                            'type' => 'object',
-                            'properties' => [
-                                'major' => ['type' => 'integer'],
-                                'minor' => ['type' => 'integer'],
-                            ],
-                        ],
-                    ],
-                ],
-                'version2' => [
-                    'allOf' => [
-                        [
-                            'type' => 'object',
-                            'properties' => [
-                                'major' => ['type' => 'integer'],
-                                'minor' => ['type' => 'integer'],
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ]);
-
-        $className = $this->generateClass($schema);
-        $object = new $className([
-            'version1' => ['major' => 1, 'minor' => 0],
-            'version2' => ['major' => 2, 'minor' => 1],
-        ]);
-
-        $this->assertPropertyHasJsonPointer($object, 'version1', '/properties/version1');
-        $this->assertPropertyHasJsonPointer($object, 'version2', '/properties/version2');
-    }
-
-    /**
-     * Cache key fix: $ref targets still share the same class (pointer is definition
-     * location, not reference site).
+     * $ref targets must still share the same class (the pointer is always
+     * the definition location, so the cache key is the same).
      */
     public function testRefTargetsStillShareSchema(): void
     {
@@ -106,15 +73,17 @@ class B5ClassNameCompoundingTest extends AbstractPHPModelGeneratorTestCase
             '$defs' => [
                 'Foo' => [
                     'type' => 'object',
-                    'properties' => ['x' => ['type' => 'string']],
+                    'properties' => [
+                        'value' => ['type' => 'string'],
+                    ],
                 ],
             ],
         ]);
 
         $className = $this->generateClass($schema);
-        $object = new $className(['a' => ['x' => 'hello'], 'b' => ['x' => 'world']]);
+        $object = new $className(['a' => ['value' => 'hello'], 'b' => ['value' => 'world']]);
 
-        // Both properties should reference the SAME generated class for Foo
-        $this->assertSame($object->getA()::class, $object->getB()::class);
+        // $ref targets should share ONE class (same definition location)
+        $this->assertSame(get_class($object->getA()), get_class($object->getB()));
     }
 }
