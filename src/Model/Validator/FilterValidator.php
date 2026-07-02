@@ -79,6 +79,19 @@ class FilterValidator extends PropertyTemplateValidator
     }
 
     /**
+     * Also propagate the pointer to the embedded filterValueValidator, since
+     * InvalidFilterValueException is thrown by that nested validator, not by $this directly.
+     */
+    public function withJsonPointer(string $jsonPointer): static
+    {
+        $clone = parent::withJsonPointer($jsonPointer);
+        $clone->templateValues['filterValueValidator'] = $clone->templateValues['filterValueValidator']
+            ->withJsonPointer($jsonPointer);
+
+        return $clone;
+    }
+
+    /**
      * Track if a transformation failed. If a transformation fails don't execute subsequent filter as they'd fail with
      * an invalid type
      */

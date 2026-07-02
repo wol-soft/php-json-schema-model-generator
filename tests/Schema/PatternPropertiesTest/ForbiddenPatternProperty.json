@@ -1,0 +1,7 @@
+{
+  "$id": "ForbiddenPatternProperty",
+  "type": "object",
+  "patternProperties": {
+    "^S~/": false
+  }
+}

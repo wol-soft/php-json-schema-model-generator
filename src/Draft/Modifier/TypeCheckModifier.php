@@ -32,11 +32,11 @@ class TypeCheckModifier implements ModifierInterface
         }
 
         $property->addValidator(
-            new TypeCheckValidator(
+            (new TypeCheckValidator(
                 $this->type,
                 $property,
                 $schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed() && !$property->isRequired(),
-            ),
+            ))->withJsonPointer($propertySchema->getPointer() . '/type'),
             2,
         );
     }

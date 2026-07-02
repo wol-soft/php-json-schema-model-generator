@@ -36,6 +36,7 @@ class FilterValidatorFactory extends AbstractValidatorFactory
             $json[$this->key],
             $schemaProcessor->getGeneratorConfiguration(),
             $schema,
+            $propertySchema->getPointer() . '/' . $this->key,
         );
     }
 }

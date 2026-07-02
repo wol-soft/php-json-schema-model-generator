@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Object\InvalidPatternPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
@@ -32,15 +34,25 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         $propertyValue,
     ): void {
-        $this->expectValidationError(
-            $configuration,
-            'Invalid type for pattern property. Requires string, got ' .
-                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)),
-        );
+        $expectedMessage = 'Invalid type for pattern property. Requires string, got ' .
+            (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue));
 
         $className = $this->generateClassFromFile('TypedPatternProperty.json', $configuration);
 
-        new $className(['S_invalid' => $propertyValue]);
+        try {
+            new $className(['S_invalid' => $propertyValue]);
+            $this->fail('Expected exception for invalid typed pattern property');
+        } catch (ErrorRegistryException | InvalidPatternPropertiesException $exception) {
+            $this->assertStringContainsString($expectedMessage, $exception->getMessage());
+
+            // collectErrors(true) wraps the pattern properties exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(InvalidPatternPropertiesException::class, $innerException);
+            $this->assertSame('/patternProperties/^S_', $innerException->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidTypedPatternPropertyDataProvider(): array
@@ -74,6 +86,42 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
             'only non numeric chars' => ['abc'],
             'mixed string' => ['1234a'],
         ];
+    }
+
+    public function testForbiddenPatternPropertyIsAcceptedWhenNoMatchingKeyIsProvided(): void
+    {
+        $className = $this->generateClassFromFile('ForbiddenPatternProperty.json');
+        $object = new $className(['other' => 'value']);
+
+        $this->assertSame(['other' => 'value'], $object->meta()->rawInput());
+    }
+
+    #[DataProvider('validationMethodDataProvider')]
+    public function testForbiddenPatternPropertyThrowsAnException(GeneratorConfiguration $configuration): void
+    {
+        $className = $this->generateClassFromFile('ForbiddenPatternProperty.json', $configuration);
+
+        try {
+            new $className(['S~/invalid' => 'value']);
+            $this->fail('Expected exception for forbidden pattern property');
+        } catch (ErrorRegistryException | InvalidPatternPropertiesException $exception) {
+            $this->assertStringContainsString(
+                "invalid property 'S~/invalid' matching pattern '^S~/'",
+                $exception->getMessage(),
+            );
+
+            // collectErrors(true) wraps the pattern properties exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(InvalidPatternPropertiesException::class, $innerException);
+            // Pattern '^S~/' contains '~' and '/' which encode to '~0' and '~1' respectively.
+            $this->assertSame('/patternProperties/^S~0~1', $innerException->getJsonPointer()->pointer);
+
+            $deniedPropertyException = $innerException->getNestedExceptions()['S~/invalid'][0];
+            $this->assertSame('/patternProperties/^S~0~1', $deniedPropertyException->getJsonPointer()->pointer);
+        }
     }
 
     public function testMultipleTransformingFiltersForPatternPropertiesAndObjectPropertyThrowsAnException(): void
@@ -174,7 +222,8 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/Property 'alpha' has type int\|string but the matching patternProperties pattern '\\^a' requires type bool/",
+            "/Property 'alpha' has type int\|string but the matching patternProperties pattern"
+                . " '\\^a' requires type bool/",
         );
 
         $this->generateClassFromFile('CompositionPropertyConflictsWithPattern.json');

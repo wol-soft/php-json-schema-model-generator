@@ -36,13 +36,17 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTestCase
     public function testObjectWithInvalidPropertyAmountThrowsAnException(
         array $propertyValue,
         string $exceptionMessage,
+        string $expectedPointer,
     ): void {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessageMatches("/$exceptionMessage/");
-
         $className = $this->generateClassFromFile('ObjectSize.json');
 
-        new $className($propertyValue);
+        try {
+            new $className($propertyValue);
+            $this->fail('Expected exception for invalid property amount');
+        } catch (ValidationException $exception) {
+            $this->assertMatchesRegularExpression("/$exceptionMessage/", $exception->getMessage());
+            $this->assertSame($expectedPointer, $exception->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidObjectPropertyAmountDataProvider(): array
@@ -50,16 +54,19 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTestCase
         return [
             'empty object' => [
                 [],
-                'Provided object for ObjectSizeTest_(.*) must not contain less than 2 properties'
+                'Provided object for ObjectSizeTest_(.*) must not contain less than 2 properties',
+                '/minProperties',
             ],
             'too few properties' => [
                 ['b' => 2],
-                'Provided object for ObjectSizeTest_(.*) must not contain less than 2 properties'
+                'Provided object for ObjectSizeTest_(.*) must not contain less than 2 properties',
+                '/minProperties',
             ],
             'too many properties' => [
                 ['a' => 1, 'b' => 2, 'c' => 3, 'd' => 4],
-                'Provided object for ObjectSizeTest_(.*) must not contain more than 3 properties'
-            ]
+                'Provided object for ObjectSizeTest_(.*) must not contain more than 3 properties',
+                '/maxProperties',
+            ],
         ];
     }
 }

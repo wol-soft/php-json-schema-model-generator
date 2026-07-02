@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
@@ -101,9 +103,20 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
             false,
         );
 
-        $this->expectValidationError($generatorConfiguration, $exceptionMessage);
+        try {
+            new $className($properties);
+            $this->fail('Expected exception for invalid property names');
+        } catch (ErrorRegistryException | InvalidPropertyNamesException $exception) {
+            $this->assertStringContainsString($exceptionMessage, $exception->getMessage());
 
-        new $className($properties);
+            // collectErrors(true) wraps the property names exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(InvalidPropertyNamesException::class, $innerException);
+            $this->assertSame('/propertyNames', $innerException->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidPropertyNamesDataProvider(): array

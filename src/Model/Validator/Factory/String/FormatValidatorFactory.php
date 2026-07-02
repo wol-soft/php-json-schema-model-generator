@@ -44,11 +44,11 @@ class FormatValidatorFactory extends AbstractValidatorFactory
         }
 
         $property->addValidator(
-            new FormatValidator(
+            (new FormatValidator(
                 $property,
                 $formatValidator,
                 [$format],
-            ),
+            ))->withJsonPointer($propertySchema->getPointer() . '/format'),
         );
     }
 }

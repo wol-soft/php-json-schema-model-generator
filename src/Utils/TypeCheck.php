@@ -115,7 +115,8 @@ class TypeCheck
             || $typeCheckValidator instanceof MultiTypeCheckValidator
         ) {
             $property->addValidator(
-                new PassThroughTypeCheckValidator($passThroughTypeNames, $property, $typeCheckValidator),
+                (new PassThroughTypeCheckValidator($passThroughTypeNames, $property, $typeCheckValidator))
+                    ->withJsonPointer($typeCheckValidator->getJsonPointer()),
                 2,
             );
         }
