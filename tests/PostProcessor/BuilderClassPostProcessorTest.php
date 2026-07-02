@@ -198,10 +198,16 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $addressBuilderObject = new $addressBuilderClassName();
         $this->assertSame('string|null', $this->getParameterTypeAnnotation($addressBuilderObject, 'setStreet'));
         $this->assertSame('int|null', $this->getParameterTypeAnnotation($addressBuilderObject, 'setNumber'));
-        $this->assertSame('Address_Building|Address_BuildingBuilder|array|null', $this->getParameterTypeAnnotation($addressBuilderObject, 'setBuilding'));
+        $this->assertSame(
+            'Address_Building|Address_BuildingBuilder|array|null',
+            $this->getParameterTypeAnnotation($addressBuilderObject, 'setBuilding'),
+        );
         $this->assertSame('string|null', $this->getReturnTypeAnnotation($addressBuilderObject, 'getStreet'));
         $this->assertSame('int|null', $this->getReturnTypeAnnotation($addressBuilderObject, 'getNumber'));
-        $this->assertSame('Address_Building|Address_BuildingBuilder|array|null', $this->getReturnTypeAnnotation($addressBuilderObject, 'getBuilding'));
+        $this->assertSame(
+            'Address_Building|Address_BuildingBuilder|array|null',
+            $this->getReturnTypeAnnotation($addressBuilderObject, 'getBuilding'),
+        );
 
         $buildingBuilderClassName = 'MyApp\Namespace\Dependencies\Address_BuildingBuilder';
         $buildingBuilderObject = new $buildingBuilderClassName();
@@ -254,7 +260,7 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $nestedObjectClassName = null;
         foreach ($this->getGeneratedFiles() as $file) {
-            if (str_contains((string) $file, 'ItemOfArray')) {
+            if (str_contains((string) $file, 'AddressListItem')) {
                 $nestedObjectClassName = str_replace('.php', '', basename((string) $file));
 
                 break;
