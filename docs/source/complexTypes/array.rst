@@ -42,6 +42,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTy
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Items
 ^^^^^
@@ -82,6 +84,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidIte
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 A more complex array may contain a nested object.
 
@@ -204,6 +208,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidTup
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 .. hint::
 
@@ -259,6 +265,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\Additional
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 If invalid additional items are provided a detailed exception will be thrown containing all violations:
 
@@ -280,6 +288,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidAdd
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Contains
 --------
@@ -313,6 +323,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\ContainsEx
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 The ``contains`` keyword also accepts the boolean literals ``true`` and ``false``.
 
@@ -358,6 +370,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\MaxItemsEx
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Uniqueness
 ----------
@@ -389,3 +403,5 @@ The thrown exception will be an *PHPModelGenerator\\Exception\\Arrays\\UniqueIte
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer

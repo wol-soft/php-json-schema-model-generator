@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\String\FormatException;
 use PHPModelGenerator\Format\FormatValidatorFromRegEx;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
@@ -203,26 +204,39 @@ class FormatTest extends AbstractPHPModelGeneratorTestCase
     }
 
     #[DataProvider('invalidEmailProvider')]
-    public function testInvalidEmail(string $value): void
+    public function testInvalidEmail(GeneratorConfiguration $configuration, string $value): void
     {
-        $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches('/must match the format email/');
-
         $className = $this->generateClassFromFile(
             'Email.json',
-            (new GeneratorConfiguration())->setImmutable(false),
+            $configuration->setImmutable(false),
         );
 
-        new $className(['value' => $value]);
+        try {
+            new $className(['value' => $value]);
+            $this->fail('Expected exception for invalid email format');
+        } catch (ErrorRegistryException | FormatException $exception) {
+            $this->assertMatchesRegularExpression('/must match the format email/', $exception->getMessage());
+
+            // collectErrors(true) wraps the format exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(FormatException::class, $innerException);
+            $this->assertSame('/properties/value/format', $innerException->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidEmailProvider(): array
     {
-        return [
-            'no at sign'   => ['userexample.com'],
-            'no domain'    => ['user@'],
-            'empty string' => [''],
-        ];
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
+            [
+                'no at sign'   => ['userexample.com'],
+                'no domain'    => ['user@'],
+                'empty string' => [''],
+            ],
+        );
     }
 
     // --- hostname ---

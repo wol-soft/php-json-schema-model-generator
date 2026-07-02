@@ -173,12 +173,18 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         int $propertyValue,
         string $exceptionMessage,
     ): void {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage($exceptionMessage);
+        $className = $this->generateClassFromFile(
+            'ComposedPropertyDefinition.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
 
-        $className = $this->generateClassFromFile('ComposedPropertyDefinition.json');
-
-        new $className(['property' => $propertyValue]);
+        try {
+            new $className(['property' => $propertyValue]);
+            $this->fail('Expected AllOfException');
+        } catch (AllOfException $exception) {
+            $this->assertStringContainsString($exceptionMessage, $exception->getMessage());
+            $this->assertSame('/properties/property/allOf', $exception->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidComposedPropertyDataProvider(): array

@@ -6,6 +6,8 @@ namespace PHPModelGenerator\Tests\Filter;
 
 use DateTime;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Filter\InvalidFilterValueException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -115,20 +117,54 @@ class TransformingFilterTest extends AbstractFilterTestCase
 
     public function testFilterExceptionsAreCaught(): void
     {
-        $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessage(
-            <<<ERROR
-            Invalid value for property created denied by filter dateTime: Invalid Date Time value "Hello"
-            Invalid type for name. Requires string, got integer
-            ERROR,
-        );
-
         $className = $this->generateClassFromFile(
             'TransformingFilter.json',
             (new GeneratorConfiguration())->setCollectErrors(true),
         );
 
-        new $className(['created' => 'Hello', 'name' => 12]);
+        try {
+            new $className(['created' => 'Hello', 'name' => 12]);
+            $this->fail('Expected exception for invalid filter value and invalid type');
+        } catch (ErrorRegistryException $exception) {
+            $this->assertSame(
+                <<<ERROR
+                Invalid value for property created denied by filter dateTime: Invalid Date Time value "Hello"
+                Invalid type for name. Requires string, got integer
+                ERROR,
+                $exception->getMessage(),
+            );
+
+            $filterException = $exception->getErrors()[0];
+            $this->assertInstanceOf(InvalidFilterValueException::class, $filterException);
+            $this->assertSame('/properties/created/filter', $filterException->getJsonPointer()->pointer);
+        }
+    }
+
+    #[DataProvider('validationMethodDataProvider')]
+    public function testValueRejectedByPassThroughTypeCheckCarriesTypePointer(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('TransformingFilter.json', $configuration);
+
+        try {
+            // 12 is neither the original string type nor the transformed DateTime type, so the
+            // PassThroughTypeCheckValidator added on top of the dateTime filter must reject it.
+            new $className(['created' => 12]);
+            $this->fail('Expected exception for invalid type on a transforming-filtered property');
+        } catch (ErrorRegistryException | InvalidTypeException $exception) {
+            $this->assertStringContainsString(
+                'Invalid type for created. Requires [DateTime, string], got integer',
+                $exception->getMessage(),
+            );
+
+            // collectErrors(true) wraps the type exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(InvalidTypeException::class, $innerException);
+            $this->assertSame('/properties/created/type', $innerException->getJsonPointer()->pointer);
+        }
     }
 
     #[DataProvider('additionalFilterOptionsDataProvider')]

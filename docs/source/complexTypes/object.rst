@@ -63,6 +63,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTy
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 The nested object will be validated in the nested class Car which may throw additional exceptions if invalid data is provided. If the internal validation of a nested object fails a *PHPModelGenerator\\Exception\\Generic\\NestedObjectException* will be thrown which provides the following methods to get further error details:
 
@@ -74,6 +76,8 @@ The nested object will be validated in the nested class Car which may throw addi
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 If `error collection <../gettingStarted.html#collect-errors-vs-early-return>`__ is enabled the nested exception returned by `getNestedException` will be an **ErrorRegistryException** containing all validation errors of the nested object. Otherwise it will contain the first validation error which occurred during the validation of the nested object.
 
@@ -262,6 +266,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\MaxPropert
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Additional Properties
 ---------------------
@@ -309,6 +315,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\Additional
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 If invalid additional properties are provided a detailed exception will be thrown containing all violations:
 
@@ -330,6 +338,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidAdd
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 .. warning::
 
@@ -426,6 +436,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidPro
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Dependencies
 ------------
@@ -475,6 +487,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Dependency\\Invali
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 As stated above the dependency declaration is not bidirectional. If the presence of a billing_address shall also require the credit_card property to be required the dependency has to be declared separately:
 
@@ -572,6 +586,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Dependency\\Invali
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Multiple violations against the schema dependency may be included.
 
@@ -623,6 +639,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidPat
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 .. note::
 

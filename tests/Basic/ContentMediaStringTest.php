@@ -263,9 +263,13 @@ class ContentMediaStringTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['requiredContent' => 'req']);
 
-        $this->expectException(InvalidFilterValueException::class);
-        $this->expectExceptionMessageMatches('/mediaType mismatch/');
-        $object->setContent(new MediaString('data', 'text/plain'));
+        try {
+            $object->setContent(new MediaString('data', 'text/plain'));
+            $this->fail('Expected InvalidFilterValueException');
+        } catch (InvalidFilterValueException $exception) {
+            $this->assertMatchesRegularExpression('/mediaType mismatch/', $exception->getMessage());
+            $this->assertSame('/properties/content/contentMediaType', $exception->getJsonPointer()->pointer);
+        }
     }
 
     public function testPassingMediaStringWithMismatchedEncodingThrows(): void
@@ -277,9 +281,13 @@ class ContentMediaStringTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className([]);
 
-        $this->expectException(InvalidFilterValueException::class);
-        $this->expectExceptionMessageMatches('/encoding mismatch/');
-        $object->setContent(new MediaString('data', 'application/json', 'utf-8'));
+        try {
+            $object->setContent(new MediaString('data', 'application/json', 'utf-8'));
+            $this->fail('Expected InvalidFilterValueException');
+        } catch (InvalidFilterValueException $exception) {
+            $this->assertMatchesRegularExpression('/encoding mismatch/', $exception->getMessage());
+            $this->assertSame('/properties/content/contentEncoding', $exception->getJsonPointer()->pointer);
+        }
     }
 
     /**
@@ -342,6 +350,7 @@ class ContentMediaStringTest extends AbstractPHPModelGeneratorTestCase
             $this->assertSame('base64', $exception->getExpectedEncoding());
             $this->assertInstanceOf(RuntimeException::class, $exception->getPrevious());
             $this->assertStringContainsString('not-valid', $exception->getPrevious()->getMessage());
+            $this->assertSame('/properties/content/contentEncoding', $exception->getJsonPointer()->pointer);
         }
 
         // --- null on nullable property → content validator does not run ---
@@ -379,13 +388,21 @@ class ContentMediaStringTest extends AbstractPHPModelGeneratorTestCase
     public function testAddContentValidatorRejectsInvalidArrayElements(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        (new GeneratorConfiguration())->addContentValidator(['application/json', ''], 'base64', new AlwaysValidContentValidator());
+        (new GeneratorConfiguration())->addContentValidator(
+            ['application/json', ''],
+            'base64',
+            new AlwaysValidContentValidator(),
+        );
     }
 
     public function testAddContentValidatorRejectsNonStringInArray(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        (new GeneratorConfiguration())->addContentValidator('application/json', ['base64', null], new AlwaysValidContentValidator());
+        (new GeneratorConfiguration())->addContentValidator(
+            'application/json',
+            ['base64', null],
+            new AlwaysValidContentValidator(),
+        );
     }
 
     /**
@@ -515,6 +532,7 @@ class ContentMediaStringTest extends AbstractPHPModelGeneratorTestCase
         } catch (ContentException $exception) {
             $this->assertSame('image/png', $exception->getExpectedMediaType());
             $this->assertNull($exception->getExpectedEncoding());
+            $this->assertSame('/properties/content/contentMediaType', $exception->getJsonPointer()->pointer);
         }
 
         // Full wildcard also fires for this property
@@ -553,6 +571,7 @@ class ContentMediaStringTest extends AbstractPHPModelGeneratorTestCase
         } catch (ContentException $exception) {
             $this->assertNull($exception->getExpectedMediaType());
             $this->assertSame('base64', $exception->getExpectedEncoding());
+            $this->assertSame('/properties/content/contentEncoding', $exception->getJsonPointer()->pointer);
         }
     }
 }

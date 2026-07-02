@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Format\FormatValidatorFromRegEx;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
@@ -137,12 +138,23 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         string $propertyValue,
         string $exceptionMessage,
+        string $expectedPointer,
     ): void {
-        $this->expectValidationError($configuration, $exceptionMessage);
-
         $className = $this->generateClassFromFile('StringPropertyLengthValidation.json', $configuration);
 
-        new $className(['property' => $propertyValue]);
+        try {
+            new $className(['property' => $propertyValue]);
+            $this->fail('Expected exception for invalid string length');
+        } catch (ErrorRegistryException | ValidationException $exception) {
+            $this->assertSame($exceptionMessage, $exception->getMessage());
+
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(ValidationException::class, $innerException);
+            $this->assertSame($expectedPointer, $innerException->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidStringLengthDataProvider(): array
@@ -150,9 +162,21 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
         return self::combineDataProvider(
             self::validationMethodDataProvider(),
             [
-                'Empty string' => ['', 'Value for property must not be shorter than 2'],
-                'Too short string' => ['1', 'Value for property must not be shorter than 2'],
-                'Too long string' => ['Some Text', 'Value for property must not be longer than 8']
+                'Empty string' => [
+                    '',
+                    'Value for property must not be shorter than 2',
+                    '/properties/property/minLength',
+                ],
+                'Too short string' => [
+                    '1',
+                    'Value for property must not be shorter than 2',
+                    '/properties/property/minLength',
+                ],
+                'Too long string' => [
+                    'Some Text',
+                    'Value for property must not be longer than 8',
+                    '/properties/property/maxLength',
+                ],
             ],
         );
     }

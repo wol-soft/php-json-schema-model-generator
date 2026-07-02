@@ -436,6 +436,10 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                         ['filter'],
                     $generatorConfiguration,
                     $schema,
+                    // The property itself never declared a 'filter' keyword — it was
+                    // dynamically discovered as matching the pattern — so point to the
+                    // patternProperties branch that actually declared the filter.
+                    $patternPropertiesValidator->getJsonPointer() . '/filter',
                 );
             }
         }

@@ -231,10 +231,8 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         string $expectedExceptionMessage,
         string $action,
         array $items,
+        string $expectedPointer,
     ): void {
-        $this->expectException($expectedException);
-        $this->expectExceptionMessage($expectedExceptionMessage);
-
         $this->addPostProcessor(true);
 
         $className = $this->generateClassFromFile(
@@ -245,10 +243,17 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $object = new $className(['property1' => '  Hello  ', 'property2' => 'World']);
         $accessor = $object->additionalProperties();
 
-        foreach ($items as $property => $value) {
-            $action === 'remove'
-                ? $accessor->remove($value)
-                : $accessor->set($property, $value);
+        try {
+            foreach ($items as $property => $value) {
+                $action === 'remove'
+                    ? $accessor->remove($value)
+                    : $accessor->set($property, $value);
+            }
+            $this->fail("Expected $expectedException");
+        } catch (\Throwable $exception) {
+            $this->assertInstanceOf($expectedException, $exception);
+            $this->assertStringContainsString($expectedExceptionMessage, $exception->getMessage());
+            $this->assertSame($expectedPointer, $exception->getJsonPointer()->pointer);
         }
     }
 
@@ -260,32 +265,61 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
                 "Couldn't add regular property name as additional property to object ",
                 'add',
                 ['name' => 'Hannes'],
+                '/properties/name',
             ],
             'min properties violation' => [
                 MinPropertiesException::class,
                 'must not contain less than 2 properties',
                 'remove',
-                ['property1']
+                ['property1'],
+                '/minProperties',
             ],
             'max properties violation' => [
                 MaxPropertiesException::class,
                 'must not contain more than 4 properties',
                 'add',
-                ['property3' => 'Bye', 'property4' => 'Ciao', 'property5' => 'fails']
+                ['property3' => 'Bye', 'property4' => 'Ciao', 'property5' => 'fails'],
+                '/maxProperties',
             ],
             'Invalid property name' => [
                 InvalidPropertyNamesException::class,
                 "contains properties with invalid names",
                 'add',
-                ['property name with spaces' => 'should fail']
+                ['property name with spaces' => 'should fail'],
+                '/propertyNames',
             ],
             'Invalid property value' => [
                 InvalidAdditionalPropertiesException::class,
                 "Value for additional property must not be longer than 15",
                 'add',
-                ['property2' => 'My much too long property value will fail the validation']
+                ['property2' => 'My much too long property value will fail the validation'],
+                '/additionalProperties',
             ],
         ];
+    }
+
+    public function testRegularPropertyMergedFromMultipleBranchesReportsFirstDeclaredPointer(): void
+    {
+        // 'name' is declared in two allOf branches (no root-level declaration) and merged into
+        // a single property carrying one #[JsonPointer] attribute per declaration site. The
+        // collision exception must report one of those real locations, not an arbitrary value
+        // derived from whichever JsonSchema instance the merged property happens to carry.
+        $this->addPostProcessor(true);
+
+        $className = $this->generateClassFromFile(
+            'AdditionalPropertiesMultiBranchProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className(['name' => 'Hannes']);
+        $accessor = $object->additionalProperties();
+
+        try {
+            $accessor->set('name', 'Other');
+            $this->fail('Expected RegularPropertyAsAdditionalPropertyException');
+        } catch (RegularPropertyAsAdditionalPropertyException $exception) {
+            $this->assertSame('/allOf/0/properties/name', $exception->getJsonPointer()->pointer);
+        }
     }
 
     public function testMinPropertiesIsEnforcedWhenRemovingAPatternPropertyKey(): void

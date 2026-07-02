@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
+use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
@@ -76,31 +78,41 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
     #[DataProvider('additionalPropertiesDataProvider')]
     public function testAdditionalPropertiesThrowAnExceptionWhenSetToFalse(array $propertyValue): void
     {
-        $this->expectException(AdditionalPropertiesException::class);
-        $this->expectExceptionMessageMatches(
-            '/Provided JSON for .* contains not allowed additional properties \[additional\]/',
-        );
-
         $className = $this->generateClassFromFileTemplate('AdditionalProperties.json', ['false']);
 
-        new $className($propertyValue);
+        try {
+            new $className($propertyValue);
+            $this->fail('Expected AdditionalPropertiesException');
+        } catch (AdditionalPropertiesException $exception) {
+            $this->assertMatchesRegularExpression(
+                '/Provided JSON for .* contains not allowed additional properties \[additional\]/',
+                $exception->getMessage(),
+            );
+            $this->assertSame('/additionalProperties', $exception->getJsonPointer()->pointer);
+        }
     }
 
     #[DataProvider('additionalPropertiesDataProvider')]
     public function testAdditionalPropertiesThrowAnExceptionWhenNotDefinedAndDeniedByGeneratorConfiguration(
         array $propertyValue,
     ): void {
-        $this->expectException(AdditionalPropertiesException::class);
-        $this->expectExceptionMessageMatches(
-            '/Provided JSON for .* contains not allowed additional properties \[additional\]/',
-        );
-
         $className = $this->generateClassFromFile(
             'AdditionalPropertiesNotDefined.json',
             (new GeneratorConfiguration())->setDenyAdditionalProperties(true)->setCollectErrors(false),
         );
 
-        new $className($propertyValue);
+        try {
+            new $className($propertyValue);
+            $this->fail('Expected AdditionalPropertiesException');
+        } catch (AdditionalPropertiesException $exception) {
+            $this->assertMatchesRegularExpression(
+                '/Provided JSON for .* contains not allowed additional properties \[additional\]/',
+                $exception->getMessage(),
+            );
+            // denyAdditionalProperties() synthesizes the check without a literal "additionalProperties"
+            // keyword in the schema; the pointer still points at the synthetic root location.
+            $this->assertSame('/additionalProperties', $exception->getJsonPointer()->pointer);
+        }
     }
 
     #[DataProvider('validTypedAdditionalPropertiesDataProvider')]
@@ -137,10 +149,22 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         array $propertyValue,
         string $errorMessage,
     ): void {
-        $this->expectValidationError($generatorConfiguration, $errorMessage);
         $className = $this->generateClassFromFile('AdditionalPropertiesTyped.json', $generatorConfiguration);
 
-        new $className($propertyValue);
+        try {
+            new $className($propertyValue);
+            $this->fail('Expected exception for invalid typed additional property');
+        } catch (ErrorRegistryException | InvalidAdditionalPropertiesException $exception) {
+            $this->assertStringContainsString($errorMessage, $exception->getMessage());
+
+            // collectErrors(true) wraps the additional properties exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(InvalidAdditionalPropertiesException::class, $innerException);
+            $this->assertSame('/additionalProperties', $innerException->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidTypedAdditionalPropertiesDataProvider(): array
@@ -248,10 +272,22 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         array $propertyValue,
         string $errorMessage,
     ): void {
-        $this->expectValidationError($generatorConfiguration, $errorMessage);
         $className = $this->generateClassFromFile('AdditionalPropertiesObject.json', $generatorConfiguration);
 
-        new $className($propertyValue);
+        try {
+            new $className($propertyValue);
+            $this->fail('Expected exception for invalid additional property object');
+        } catch (ErrorRegistryException | InvalidAdditionalPropertiesException $exception) {
+            $this->assertStringContainsString($errorMessage, $exception->getMessage());
+
+            // collectErrors(true) wraps the additional properties exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(InvalidAdditionalPropertiesException::class, $innerException);
+            $this->assertSame('/additionalProperties', $innerException->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidAdditionalPropertiesObjectsDataProvider(): array

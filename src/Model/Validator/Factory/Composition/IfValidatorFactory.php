@@ -138,7 +138,7 @@ class IfValidatorFactory
         $this->applyIfThenElseTypeSemantics($property, $properties);
 
         $property->addValidator(
-            new ConditionalPropertyValidator(
+            (new ConditionalPropertyValidator(
                 $schemaProcessor->getGeneratorConfiguration(),
                 $property,
                 array_values(array_filter($properties)),
@@ -152,7 +152,7 @@ class IfValidatorFactory
                     'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
                     'onlyForDefinedValues' => $onlyForDefinedValues,
                 ],
-            ),
+            ))->withJsonPointer($propertySchema->getPointer() . '/if'),
             100,
         );
     }

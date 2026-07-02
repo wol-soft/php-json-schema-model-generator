@@ -47,12 +47,12 @@ class PatternPropertyValidatorFactory extends AbstractValidatorFactory
         $encodedPattern = base64_encode("/$escapedPattern/");
 
         $property->addValidator(
-            new PropertyValidator(
+            (new PropertyValidator(
                 $property,
                 "is_string(\$value) && !preg_match(base64_decode('$encodedPattern'), \$value)",
                 PatternException::class,
                 [$pattern],
-            ),
+            ))->withJsonPointer($propertySchema->getPointer() . '/pattern'),
         );
     }
 }

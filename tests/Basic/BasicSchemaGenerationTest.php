@@ -117,7 +117,6 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
         $object->setProperty('Hello');
 
         $this->assertSame('Hello', $object->getProperty());
-
     }
 
     public function testReadOnlyPropertyDoesntGenerateSetter(): void
@@ -278,7 +277,8 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidStringPropertyValueProvider(): array
     {
         return self::combineDataProvider(
-            self::validationMethodDataProvider(), [
+            self::validationMethodDataProvider(),
+            [
                 'Too long string' => [
                     'HelloMyOldFriend',
                     [

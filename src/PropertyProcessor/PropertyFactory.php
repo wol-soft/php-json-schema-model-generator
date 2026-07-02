@@ -248,7 +248,15 @@ class PropertyFactory
         }
 
         if ($required && !str_starts_with($propertyName, 'item of array ')) {
-            $property->addValidator(new RequiredPropertyValidator($property), 1);
+            // Compute the parent object schema pointer by stripping '<name>/properties' (last two
+            // path segments) from the property pointer, then appending the 'required' keyword.
+            $propertyPointer = $propertySchema->getPointer();
+            $segments = $propertyPointer !== '' ? explode('/', ltrim($propertyPointer, '/')) : [];
+            $parentPointer = count($segments) > 2 ? '/' . implode('/', array_slice($segments, 0, -2)) : '';
+            $property->addValidator(
+                (new RequiredPropertyValidator($property))->withJsonPointer($parentPointer . '/required'),
+                1,
+            );
         }
 
         $configuration = $schemaProcessor->getGeneratorConfiguration();
@@ -555,7 +563,8 @@ class PropertyFactory
             && !$property->isRequired();
 
         $property->addValidator(
-            new MultiTypeCheckValidator($collectedTypes, $property, $allowImplicitNull),
+            (new MultiTypeCheckValidator($collectedTypes, $property, $allowImplicitNull))
+                ->withJsonPointer($propertySchema->getPointer() . '/type'),
             2,
         );
 

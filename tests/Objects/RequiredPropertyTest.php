@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
-use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\Exception\Object\NestedObjectException;
+use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -150,5 +152,115 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
                 'RequiredReferencePropertyInComposition' => ['RequiredReferencePropertyInComposition.json'],
             ],
         );
+    }
+
+    public function testRequiredValueExceptionCarriesPointer(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RequiredStringProperty.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        try {
+            new $className([]);
+            $this->fail('Expected RequiredValueException');
+        } catch (RequiredValueException $exception) {
+            // The required keyword is on the parent object schema, not the property schema.
+            $this->assertSame('/required', $exception->getJsonPointer()->pointer);
+        }
+    }
+
+    public function testRequiredInAllOfBranchCarriesPointer(): void
+    {
+        // Property and required are both declared in the same allOf branch.
+        // The inner RequiredValueException must point to that branch's required keyword.
+        $className = $this->generateClassFromFile(
+            'RequiredPropertyInAllOfBranch.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        try {
+            new $className([]);
+            $this->fail('Expected ErrorRegistryException');
+        } catch (ErrorRegistryException $registryException) {
+            /** @var AllOfException $allOfException */
+            $allOfException = $registryException->getErrors()[0];
+            $this->assertInstanceOf(AllOfException::class, $allOfException);
+
+            /** @var RequiredValueException $requiredError */
+            $requiredError = $allOfException->getCompositionErrorCollection()[0]->getErrors()[0];
+            $this->assertInstanceOf(RequiredValueException::class, $requiredError);
+            $this->assertSame('/allOf/0/required', $requiredError->getJsonPointer()->pointer);
+        }
+    }
+
+    public function testRequiredCrossAllOfBranchesCarriesPointer(): void
+    {
+        // Property is defined in allOf branch 0 (optional there). Required is in allOf branch 1.
+        // The inner RequiredValueException must point to branch 1's required keyword.
+        $className = $this->generateClassFromFile(
+            'RequiredPropertyCrossAllOfBranches.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        try {
+            new $className([]);
+            $this->fail('Expected ErrorRegistryException');
+        } catch (ErrorRegistryException $registryException) {
+            /** @var AllOfException $allOfException */
+            $allOfException = $registryException->getErrors()[0];
+            $this->assertInstanceOf(AllOfException::class, $allOfException);
+
+            // Branch 0 succeeds (name is optional there); branch 1 fails (name is required).
+            $this->assertEmpty($allOfException->getCompositionErrorCollection()[0]->getErrors());
+
+            /** @var RequiredValueException $requiredError */
+            $requiredError = $allOfException->getCompositionErrorCollection()[1]->getErrors()[0];
+            $this->assertInstanceOf(RequiredValueException::class, $requiredError);
+            $this->assertSame('/allOf/1/required', $requiredError->getJsonPointer()->pointer);
+        }
+    }
+
+    public function testNestedObjectRequiredCarriesPointer(): void
+    {
+        // Required is declared on the nested object schema, not the root.
+        // The ObjectInstantiationDecorator wraps the inner RequiredValueException in a
+        // NestedObjectException; unwrap it to assert the inner exception's pointer.
+        $className = $this->generateClassFromFile(
+            'RequiredNestedObjectProperty.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        try {
+            // Provide address so the nested object is instantiated, but omit 'street'.
+            new $className(['address' => []]);
+            $this->fail('Expected NestedObjectException');
+        } catch (NestedObjectException $exception) {
+            $inner = $exception->getNestedException();
+            $this->assertInstanceOf(RequiredValueException::class, $inner);
+            /** @var RequiredValueException $inner */
+            $this->assertSame('/properties/address/required', $inner->getJsonPointer()->pointer);
+        }
+    }
+
+    public function testTrueSchemaPropertyRequiredInNestedObjectCarriesPointer(): void
+    {
+        // A "property": true schema inside a nested object, combined with required,
+        // must still compute the correct required pointer for the nested object.
+        // The NestedObjectException must wrap a RequiredValueException with the nested pointer.
+        $className = $this->generateClassFromFile(
+            'RequiredTruePropertyInNestedObject.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        try {
+            new $className(['address' => []]);
+            $this->fail('Expected NestedObjectException');
+        } catch (NestedObjectException $exception) {
+            $inner = $exception->getNestedException();
+            $this->assertInstanceOf(RequiredValueException::class, $inner);
+            /** @var RequiredValueException $inner */
+            $this->assertSame('/properties/address/required', $inner->getJsonPointer()->pointer);
+        }
     }
 }

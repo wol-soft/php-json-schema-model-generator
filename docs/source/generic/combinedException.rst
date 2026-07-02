@@ -88,3 +88,10 @@ The exception which will be thrown (combined array-exception and combined-schema
             * Missing required value for name
             * Invalid type for name. Requires string, got NULL
           - Composition element #2: Valid
+
+.. seealso::
+
+    Each leaf ``ValidationException`` inside a combined exception also exposes a JSON pointer to the
+    schema keyword that rejected the value. See
+    `Collect errors vs. early return <../gettingStarted.html#collect-errors-vs-early-return>`__
+    for details on ``getJsonPointer()``.
