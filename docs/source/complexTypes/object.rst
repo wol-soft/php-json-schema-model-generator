@@ -99,9 +99,40 @@ Otherwise, if an `$id` is present, the basename of the $id and as a last fallbac
 Naming of nested classes
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-For the class name of a nested class the `title` property (fallback to `$id`) of the nested object is used.
-If neither the title nor the $id property is present the property key will be prefixed with the parent class.
-If an object `Person` has a nested object `car` without a `title` and an `$id` the class for car will be named **Person_Car**.
+For the class name of a nested class the following priority order applies:
+
+1. **title** — used as-is if present on the nested schema.
+2. **$id** — the basename of the ``$id`` URI is used if present.
+3. **$anchor** — the ``$anchor`` value is used if present (Draft 2019-09 and later). ``$anchor``
+   is a plain-string identifier with the same intent as ``$id`` but without URI semantics.
+4. **Definition key** — when the nested schema is referenced from a named ``definitions`` or
+   ``$defs`` slot (e.g. ``$ref: "#/definitions/address"``), the definition key is used
+   (e.g. ``address``). This produces stable, readable names even for schemas that carry no
+   ``title``, ``$id``, or ``$anchor``.
+5. **Inline property name** — when the schema is defined inline directly under a ``properties``
+   keyword, the property key is used without a content hash. Property keys are unique within
+   their containing object, so the combination of parent class name and property key is
+   already collision-free. For example, an inline ``car`` object inside ``Person`` becomes
+   **Person_Car**.
+6. **Array items** — when the schema is the ``items`` of a named array property, the array
+   property name is extracted and ``Item`` is appended, making it clear that the class
+   represents one element of the array rather than the array itself. For example, the items
+   of a ``tags`` array property become **{Parent}_TagsItem**.
+7. **Property name + content hash** — final fallback for schemas that do not match any of the
+   above (e.g. inline schemas inside composition branches like ``anyOf``/``oneOf``). The
+   property key is prefixed with the parent class name and a short content hash is appended
+   to avoid collisions between branches that share the same property name.
+
+.. hint::
+
+    Set ``title``, ``$id``, or ``$anchor`` on nested schemas, or use named
+    ``definitions``/``$defs`` entries, to get the most explicit and predictable class names.
+    Schemas with large ``definitions`` blocks that lack these keywords will automatically
+    receive names derived from their definition key.
+
+    For full control over class naming, implement ``ClassNameGeneratorInterface`` and pass it
+    to the generator configuration via
+    `setClassNameGenerator() <../gettingStarted.html#class-name-generator>`__.
 
 Property Name Normalization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

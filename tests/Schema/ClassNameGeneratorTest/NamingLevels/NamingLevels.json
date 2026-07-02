@@ -1,0 +1,75 @@
+{
+  "type": "object",
+  "definitions": {
+    "address": {
+      "type": "object",
+      "properties": {
+        "street": {
+          "type": "string"
+        }
+      }
+    },
+    "labeled": {
+      "title": "PostalAddress",
+      "type": "object",
+      "properties": {
+        "zip": {
+          "type": "string"
+        }
+      }
+    },
+    "contact_info": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "properties": {
+    "home": {
+      "$ref": "#/definitions/address"
+    },
+    "office": {
+      "$ref": "#/definitions/address"
+    },
+    "postal": {
+      "$ref": "#/definitions/labeled"
+    },
+    "contact": {
+      "$ref": "#/definitions/contact_info"
+    },
+    "anchored": {
+      "$anchor": "AnchoredContent",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "properties": {
+        "city": {
+          "type": "string"
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

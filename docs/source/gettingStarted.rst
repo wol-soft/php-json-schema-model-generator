@@ -415,6 +415,21 @@ Draft class   Description
 
     :doc:`generator/custom/customDraft` — how to implement a custom draft or modifier.
 
+Class name generator
+^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: php
+
+    setClassNameGenerator(ClassNameGeneratorInterface $classNameGenerator);
+
+Replace the built-in class naming strategy with a custom implementation. The generator calls
+``getClassName()`` on the provided object for every nested class it creates. This gives you
+complete control over naming: you can derive names from external sources, enforce project
+conventions, strip prefixes, and so on.
+
+See `Naming of nested classes <complexTypes/object.html#naming-of-nested-classes>`__ for a
+description of the built-in priority order.
+
 Custom filter
 ^^^^^^^^^^^^^
 

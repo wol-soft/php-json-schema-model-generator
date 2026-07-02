@@ -216,7 +216,7 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
             ],
             'Object with scalar type (no merged property - redirect to generated object)' => [
                 'ReferencedObjectSchema.json',
-                '/^string\|ComposedAnyOfTest[\w]*Property[\w]*\|null$/',
+                '/^string\|ComposedAnyOfTest[\w]*Person[\w]*\|null$/',
                 2,
             ],
             'Multiple objects (merged property created)' => [
