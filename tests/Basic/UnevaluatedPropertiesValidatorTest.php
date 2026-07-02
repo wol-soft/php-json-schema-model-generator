@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\InvalidUnevaluatedPropertiesException;
+use PHPModelGenerator\Exception\Object\NestedObjectException;
 use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -22,6 +23,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
 class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCase
 {
+    protected const EXTERNAL_JSON_DIRECTORIES = ['../UnevaluatedPropertiesValidatorTest_external'];
+
     /**
      * Accepted input — the generated class must construct and round-trip the input through
      * `meta()->rawInput()` unchanged. One data row per scenario.
@@ -408,5 +411,198 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             );
             $this->assertSame(['extra'], $exception->getUnevaluatedProperties());
         }
+    }
+
+    /**
+     * The `unevaluatedProperties` keyword may be expressed as an inline `$ref` — the runtime
+     * shape is a schema, so the ref-resolved schema must be applied to every extra key. Two
+     * assertions on the same generated class:
+     *   - `{name: "Alice", count: 42}` accepts because 42 satisfies the resolved integer
+     *     schema.
+     *   - `{name: "Alice", count: "not-int"}` rejects because the value fails the resolved
+     *     integer schema.
+     */
+    public function testUnevaluatedPropertiesReferencedViaRef(): void
+    {
+        $className = $this->generateClassFromFile('UnevaluatedIsRef.json');
+
+        $accepted = new $className(['name' => 'Alice', 'count' => 42]);
+        $this->assertSame(['name' => 'Alice', 'count' => 42], $accepted->meta()->rawInput());
+
+        try {
+            new $className(['name' => 'Alice', 'count' => 'not-int']);
+            $this->fail('$ref-resolved unevaluatedProperties schema must reject non-integer extra');
+        } catch (InvalidUnevaluatedPropertiesException $exception) {
+            $this->assertMatchesRegularExpression(
+                '/^Provided JSON for \S+ contains invalid unevaluated properties/',
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * A composition branch expressed via `$ref` resolves to the referenced schema at generation
+     * time. Its `properties` declarations must contribute to the outer accumulator so an outer
+     * `unevaluatedProperties: false` sees the ref-resolved keys as evaluated. Two assertions
+     * on the same generated class:
+     *   - `{name: "Alice", foo: "hi", bar: 5}` accepts — the ref-resolved allOf branch claims
+     *     `foo` and `bar`; the local `properties` claims `name`; no unevaluated keys remain.
+     *   - `{name: "Alice", stray: 1}` rejects — `stray` is not declared anywhere.
+     */
+    public function testRefResolvedBranchContributesAnnotations(): void
+    {
+        $className = $this->generateClassFromFile('RefResolvedBranchContributesAnnotations.json');
+
+        $accepted = new $className(['name' => 'Alice', 'foo' => 'hi', 'bar' => 5]);
+        $this->assertSame(
+            ['name' => 'Alice', 'foo' => 'hi', 'bar' => 5],
+            $accepted->meta()->rawInput(),
+        );
+
+        try {
+            new $className(['name' => 'Alice', 'stray' => 1]);
+            $this->fail('An undeclared key must be rejected by unevaluatedProperties: false');
+        } catch (UnevaluatedPropertiesException $exception) {
+            $this->assertMatchesRegularExpression(
+                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[stray\]$/',
+                $exception->getMessage(),
+            );
+            $this->assertSame(['stray'], $exception->getUnevaluatedProperties());
+        }
+    }
+
+    /**
+     * A schema that references itself through `$defs` must not cause the activation walk to
+     * recurse indefinitely — the walk's `seenSchemas` map is required (not defensive) for
+     * termination. This is the object-side analogue of the array-side self-reference test.
+     *
+     * Three scenarios on the same generated class:
+     *   - `{root: {name: "n", child: {name: "n2"}}}` accepts because the recursive node's
+     *     `unevaluatedProperties: false` sees only the declared `name` / `child` keys at
+     *     every level.
+     *   - A stray key one level down (`root.stray`) surfaces as a `NestedObjectException`
+     *     wrapping the inner `UnevaluatedPropertiesException`. Unwrapping through
+     *     `getNestedException()` confirms the inner exception's identity and its
+     *     `getUnevaluatedProperties()` return value.
+     *   - A stray key two levels down (`root.child.stray`) proves the same enforcement
+     *     applies to the recursive `child` slot — meaning the `$ref`-resolved schema
+     *     produces a working `unevaluatedProperties` validator at every nesting depth,
+     *     not only at the outer entry point.
+     */
+    public function testRecursiveSelfReferenceTerminates(): void
+    {
+        $className = $this->generateClassFromFile('RecursiveSelfReference.json');
+
+        $accepted = new $className([
+            'root' => [
+                'name' => 'outer',
+                'child' => ['name' => 'inner'],
+            ],
+        ]);
+        $this->assertSame(
+            [
+                'root' => [
+                    'name' => 'outer',
+                    'child' => ['name' => 'inner'],
+                ],
+            ],
+            $accepted->meta()->rawInput(),
+        );
+
+        // The recursive Node class is generated once and shared by both `root` and `child`
+        // (SchemaDefinitionDictionary caches by pointer). Resolve its class name for the
+        // exception-message assertions below.
+        $generationDir = dirname((new \ReflectionClass($className))->getFileName());
+        $nestedFiles = array_values(array_filter(
+            glob($generationDir . DIRECTORY_SEPARATOR . '*.php'),
+            static fn(string $path): bool => str_contains(basename($path), $className . '_'),
+        ));
+        $nodeClassName = str_replace('.php', '', basename($nestedFiles[0]));
+
+        try {
+            new $className([
+                'root' => [
+                    'name' => 'outer',
+                    'stray' => 1,
+                ],
+            ]);
+            $this->fail('unevaluatedProperties: false on the recursive node must reject stray');
+        } catch (NestedObjectException $exception) {
+            $innerException = $exception->getNestedException();
+            $this->assertInstanceOf(UnevaluatedPropertiesException::class, $innerException);
+            $this->assertSame(['stray'], $innerException->getUnevaluatedProperties());
+
+            $this->assertSame(
+                <<<MSG
+                Invalid nested object for property root:
+                  - Provided JSON for {$nodeClassName} contains not allowed unevaluated properties [stray]
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        try {
+            new $className([
+                'root' => [
+                    'name' => 'outer',
+                    'child' => [
+                        'name' => 'inner',
+                        'stray' => 1,
+                    ],
+                ],
+            ]);
+            $this->fail(
+                'unevaluatedProperties: false must still enforce at the recursively referenced '
+                . 'child level',
+            );
+        } catch (NestedObjectException $exception) {
+            // Two-level unwrap: the outer NestedObjectException wraps a
+            // NestedObjectException for `child`, which in turn wraps the
+            // UnevaluatedPropertiesException that flagged `stray`.
+            $childException = $exception->getNestedException();
+            $this->assertInstanceOf(NestedObjectException::class, $childException);
+
+            $innerException = $childException->getNestedException();
+            $this->assertInstanceOf(UnevaluatedPropertiesException::class, $innerException);
+            $this->assertSame(['stray'], $innerException->getUnevaluatedProperties());
+
+            $this->assertSame(
+                <<<MSG
+                Invalid nested object for property root:
+                  - Invalid nested object for property child:
+                      - Provided JSON for {$nodeClassName} contains not allowed unevaluated properties [stray]
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * A `$ref` that resolves to a schema in a file outside the provider's base directory is
+     * represented at generation time as an `ExternalSchema` placeholder — a class the
+     * generator does not emit validation for. When such a placeholder is used as a composition
+     * branch, the design records that the branch's evaluated set is treated as covering every
+     * instance key, because we trust the external schema to enforce its own contract.
+     *
+     * End-to-end codegen is blocked today by the composition processor's insistence that every
+     * composed branch surface a nested schema. An `ExternalSchema` placeholder branch has
+     * `getNestedSchema() === null`, so SchemaProcessor throws before the unevaluated wiring
+     * ever runs. The same pre-existing limitation blocks a related test on the array-side
+     * self-referencing fixture. Fixing it lives in the composition processor's
+     * `shouldSkip()` / nested-schema expectation, which is out of scope for this topic.
+     *
+     * The fixture is kept in the test directory to document the intended behaviour and to
+     * accelerate the promotion of this case to a real assertion once the composition
+     * processor's nested-schema expectation is relaxed.
+     */
+    public function testExternalRefBranchTreatsAllKeysAsEvaluated(): void
+    {
+        $this->markTestIncomplete(
+            'End-to-end codegen blocked by the composition processor\'s requirement that '
+            . 'every composed branch surface a nested schema. An ExternalSchema placeholder '
+            . 'branch has no nested schema, so generation fails before the unevaluated '
+            . 'accumulator sees the branch. The fix belongs to the composition processor '
+            . '(same pre-existing bug that blocks the array-side self-referencing test).',
+        );
     }
 }
