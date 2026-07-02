@@ -127,8 +127,8 @@ For the class name of a nested class the following priority order applies:
 
     Set ``title``, ``$id``, or ``$anchor`` on nested schemas, or use named
     ``definitions``/``$defs`` entries, to get the most explicit and predictable class names.
-    Schemas with large ``definitions`` blocks that lack these keywords (e.g. the Atlassian
-    Document Format schema) will automatically receive names derived from their definition key.
+    Schemas with large ``definitions`` blocks that lack these keywords will automatically
+    receive names derived from their definition key.
 
     For full control over class naming, implement ``ClassNameGeneratorInterface`` and pass it
     to the generator configuration via
