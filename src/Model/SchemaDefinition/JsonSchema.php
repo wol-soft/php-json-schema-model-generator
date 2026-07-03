@@ -94,6 +94,18 @@ class JsonSchema
     }
 
     /**
+     * Creates a clone of this JsonSchema with a different pointer, without navigating the JSON content.
+     * Use when the target pointer path cannot be traversed via navigate() (e.g. the schema value is `true`).
+     */
+    public function withPointer(string $pointer): JsonSchema
+    {
+        $jsonSchema = clone $this;
+        $jsonSchema->pointer = $pointer;
+
+        return $jsonSchema;
+    }
+
+    /**
      * Creates a clone of the JsonSchema object with a subschema,
      * navigated to the provided $pointer from the current schema.
      */

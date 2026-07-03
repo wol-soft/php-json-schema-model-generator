@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator\AbstractPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
@@ -23,9 +24,15 @@ abstract class SimplePropertyValidatorFactory extends AbstractValidatorFactory
             return;
         }
 
-        $property->addValidator(
-            $this->getValidator($property, $propertySchema->getJson()[$this->key]),
-        );
+        $validator = $this->getValidator($property, $propertySchema->getJson()[$this->key]);
+
+        if ($validator instanceof AbstractPropertyValidator) {
+            $validator = $validator->withJsonPointer(
+                $propertySchema->getPointer() . '/' . JsonSchema::encodePointer($this->key),
+            );
+        }
+
+        $property->addValidator($validator);
     }
 
     protected function hasValidValue(PropertyInterface $property, JsonSchema $propertySchema): bool

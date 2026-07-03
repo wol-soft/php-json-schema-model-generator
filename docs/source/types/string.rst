@@ -37,6 +37,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTy
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Length validation
 -----------------
@@ -74,6 +76,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\String\\MinLengthE
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Pattern validation
 ------------------
@@ -111,6 +115,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\String\\PatternExc
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Format
 ------
@@ -144,6 +150,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\String\\FormatExce
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Builtin formats
 ^^^^^^^^^^^^^^^
@@ -383,3 +391,5 @@ The ``ContentException`` exposes:
     public function getExpectedEncoding(): ?string
     public function getPropertyName(): string
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer

@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
@@ -42,9 +42,13 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidValuesForMultipleChecksForSinglePropertyThrowsAnException(
         mixed $value,
         array $messages,
+        array $expectedPointers,
     ): void {
         try {
-            $className = $this->generateClassFromFile('MultipleChecksForSingleProperty.json', new GeneratorConfiguration());
+            $className = $this->generateClassFromFile(
+                'MultipleChecksForSingleProperty.json',
+                new GeneratorConfiguration(),
+            );
 
             new $className(['property' => $value]);
         } catch (ErrorRegistryException $e) {
@@ -57,6 +61,7 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
                 $this->assertStringContainsString($message, $error->getMessage());
                 $this->assertSame('property', $error->getPropertyName());
                 $this->assertSame($value, $error->getProvidedValue());
+                $this->assertSame($expectedPointers[$expectedExceptionClass], $error->getJsonPointer()->pointer);
             }
 
             return;
@@ -68,27 +73,58 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidValuesForSinglePropertyDataProvider(): array
     {
         return [
+            // PatternException → /pattern suffix; minLength → /minLength suffix; type check → /type suffix
             'pattern invalid' => [
                 '  ',
-                [PatternException::class => 'Value for property doesn\'t match pattern ^[^\s]+$']
+                [PatternException::class => 'Value for property doesn\'t match pattern ^[^\s]+$'],
+                [PatternException::class => '/properties/property/pattern'],
             ],
             'length invalid' => [
                 'a',
-                [MinLengthException::class => 'Value for property must not be shorter than 2']
+                [MinLengthException::class => 'Value for property must not be shorter than 2'],
+                [MinLengthException::class => '/properties/property/minLength'],
             ],
             'pattern and length invalid' => [
                 ' ',
                 [
                     PatternException::class => 'Value for property doesn\'t match pattern ^[^\s]+$',
-                    MinLengthException::class => 'Value for property must not be shorter than 2'
-                ]
+                    MinLengthException::class => 'Value for property must not be shorter than 2',
+                ],
+                [
+                    PatternException::class => '/properties/property/pattern',
+                    MinLengthException::class => '/properties/property/minLength',
+                ],
             ],
-            'null' => [null, [InvalidTypeException::class => 'Invalid type for property']],
-            'int' => [1, [InvalidTypeException::class => 'Invalid type for property']],
-            'float' => [0.92, [InvalidTypeException::class => 'Invalid type for property']],
-            'bool' => [true, [InvalidTypeException::class => 'Invalid type for property']],
-            'array' => [[], [InvalidTypeException::class => 'Invalid type for property']],
-            'object' => [new stdClass(), [InvalidTypeException::class => 'Invalid type for property']],
+            'null' => [
+                null,
+                [InvalidTypeException::class => 'Invalid type for property'],
+                [InvalidTypeException::class => '/properties/property/type'],
+            ],
+            'int' => [
+                1,
+                [InvalidTypeException::class => 'Invalid type for property'],
+                [InvalidTypeException::class => '/properties/property/type'],
+            ],
+            'float' => [
+                0.92,
+                [InvalidTypeException::class => 'Invalid type for property'],
+                [InvalidTypeException::class => '/properties/property/type'],
+            ],
+            'bool' => [
+                true,
+                [InvalidTypeException::class => 'Invalid type for property'],
+                [InvalidTypeException::class => '/properties/property/type'],
+            ],
+            'array' => [
+                [],
+                [InvalidTypeException::class => 'Invalid type for property'],
+                [InvalidTypeException::class => '/properties/property/type'],
+            ],
+            'object' => [
+                new stdClass(),
+                [InvalidTypeException::class => 'Invalid type for property'],
+                [InvalidTypeException::class => '/properties/property/type'],
+            ],
         ];
     }
 

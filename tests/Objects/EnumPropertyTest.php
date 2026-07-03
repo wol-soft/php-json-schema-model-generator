@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\Generic\EnumException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -89,12 +90,15 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
     #[DataProvider('invalidEnumEntriesDataProvider')]
     public function testInvalidItemThrowsAnException(string $propertyValue): void
     {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
-
         $className = $this->generateEnumClass('string', static::ENUM_STRING);
 
-        new $className(['property' => $propertyValue]);
+        try {
+            new $className(['property' => $propertyValue]);
+            $this->fail('Expected EnumException');
+        } catch (EnumException $exception) {
+            $this->assertSame('Invalid value for property declined by enum constraint', $exception->getMessage());
+            $this->assertSame('/properties/property/enum', $exception->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidEnumEntriesDataProvider(): array

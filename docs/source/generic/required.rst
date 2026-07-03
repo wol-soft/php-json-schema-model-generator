@@ -78,6 +78,8 @@ The thrown exception will be an *PHPModelGenerator\\Exception\\Object\\RequiredV
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Behaviour with different inputs:
 

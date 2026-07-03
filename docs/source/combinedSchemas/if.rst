@@ -69,6 +69,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Con
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 An object level composition will result in an object which contains all properties contained in the three possible blocks of the condition.
 

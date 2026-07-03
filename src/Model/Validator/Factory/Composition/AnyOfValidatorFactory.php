@@ -90,7 +90,7 @@ class AnyOfValidatorFactory
         $availableAmount = count($compositionProperties);
 
         $property->addValidator(
-            new ComposedPropertyValidator(
+            (new ComposedPropertyValidator(
                 $schemaProcessor->getGeneratorConfiguration(),
                 $property,
                 $compositionProperties,
@@ -107,7 +107,7 @@ class AnyOfValidatorFactory
                     'mergedProperty' => &$mergedProperty,
                     'onlyForDefinedValues' => $onlyForDefinedValues,
                 ],
-            ),
+            ))->withJsonPointer($propertySchema->getPointer() . '/' . $this->key),
             100,
         );
     }

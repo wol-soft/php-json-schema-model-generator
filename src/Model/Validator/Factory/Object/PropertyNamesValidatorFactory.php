@@ -30,11 +30,11 @@ class PropertyNamesValidatorFactory extends AbstractValidatorFactory
         }
 
         $schema->addBaseValidator(
-            new PropertyNamesValidator(
+            (new PropertyNamesValidator(
                 $schemaProcessor,
                 $schema,
                 $propertySchema->navigate($this->key),
-            )
+            ))->withJsonPointer($propertySchema->getPointer() . '/' . $this->key),
         );
     }
 }

@@ -35,6 +35,7 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         }
 
         $itemsSchema = $json[$this->key];
+        $itemsPointer = $propertySchema->getPointer() . '/' . $this->key;
 
         if (is_bool($itemsSchema)) {
             if ($itemsSchema === false) {
@@ -43,12 +44,12 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
                 // — define $count via the expression so the validator can pass it as the fourth
                 // constructor argument alongside the literal 0 maxItems.
                 $property->addValidator(
-                    new PropertyValidator(
+                    (new PropertyValidator(
                         $property,
                         '($count = count($value)) > 0',
                         MaxItemsException::class,
                         [0, '&$count'],
-                    ),
+                    ))->withJsonPointer($itemsPointer),
                 );
             }
 
@@ -60,18 +61,18 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
             is_array($itemsSchema) &&
             array_keys($itemsSchema) === range(0, count($itemsSchema) - 1)
         ) {
-            $this->addTupleValidator($schemaProcessor, $schema, $property, $propertySchema);
+            $this->addTupleValidator($schemaProcessor, $schema, $property, $propertySchema, $itemsPointer);
 
             return;
         }
 
         $property->addValidator(
-            new ArrayItemValidator(
+            (new ArrayItemValidator(
                 $schemaProcessor,
                 $schema,
                 $propertySchema->navigate($this->key),
                 $property,
-            ),
+            ))->withJsonPointer($itemsPointer),
         );
     }
 
@@ -83,6 +84,7 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         Schema $schema,
         PropertyInterface $property,
         JsonSchema $propertySchema,
+        string $itemsPointer,
     ): void {
         $json = $propertySchema->getJson();
 
@@ -91,12 +93,12 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         }
 
         $property->addValidator(
-            new ArrayTupleValidator(
+            (new ArrayTupleValidator(
                 $schemaProcessor,
                 $schema,
                 $propertySchema->navigate($this->key),
                 $property->getName(),
-            ),
+            ))->withJsonPointer($itemsPointer),
         );
     }
 
@@ -110,15 +112,16 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         JsonSchema $propertySchema,
     ): void {
         $json = $propertySchema->getJson();
+        $additionalItemsPointer = $propertySchema->getPointer() . '/additionalItems';
 
         if (!is_bool($json['additionalItems'])) {
             $property->addValidator(
-                new AdditionalItemsValidator(
+                (new AdditionalItemsValidator(
                     $schemaProcessor,
                     $schema,
                     $propertySchema,
                     $property->getName(),
-                ),
+                ))->withJsonPointer($additionalItemsPointer),
             );
 
             return;
@@ -127,12 +130,12 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         $expectedAmount = count($json[$this->key]);
 
         $property->addValidator(
-            new PropertyValidator(
+            (new PropertyValidator(
                 $property,
                 '($amount = count($value)) > ' . $expectedAmount,
                 AdditionalTupleItemsException::class,
                 [$expectedAmount, '&$amount'],
-            ),
+            ))->withJsonPointer($additionalItemsPointer),
         );
     }
 }

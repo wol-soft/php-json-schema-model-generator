@@ -137,6 +137,9 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
             $this->fail('Expected MinimumException for input -5');
         } catch (MinimumException $minimumException) {
             $this->assertStringContainsString('must not be smaller than 0', $minimumException->getMessage());
+            // AbstractRangeValidatorFactory (SimplePropertyValidatorFactory) stamps the keyword pointer;
+            // replaceValidatorWithGuardedCheck strips and re-injects it, so it survives filter rewriting.
+            $this->assertSame('/properties/value/minimum', $minimumException->getJsonPointer()->pointer);
         }
     }
 
@@ -183,6 +186,7 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
             $this->fail('Expected MinimumException for int input -5');
         } catch (MinimumException $minimumException) {
             $this->assertStringContainsString('must not be smaller than 0', $minimumException->getMessage());
+            $this->assertSame('/properties/value/minimum', $minimumException->getJsonPointer()->pointer);
         }
 
         // Already-transformed int 42: skip guard bypasses format check, minimum passes.

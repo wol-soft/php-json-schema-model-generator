@@ -177,6 +177,9 @@ class EnumPostProcessor extends PostProcessor
             ['filter' => (new EnumFilter())->getToken(), 'fqcn' => $fqcn],
             $generatorConfiguration,
             $schema,
+            // This synthetic filter converts an already-validated scalar into the generated
+            // enum-backed class; conceptually it's part of the enum keyword's contract.
+            $property->getJsonSchema()->getPointer() . '/enum',
         );
 
         $schema->addUsedClass($fqcn);

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\Dependency\InvalidPropertyDependencyException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
@@ -54,7 +56,9 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
             'Only dependant property provided 1' => [['billing_address' => '555 Debitors Lane']],
             'Only dependant property provided 2' => [['name' => 'John']],
             'Only dependant property provided 3' => [['billing_address' => '555 Debitors Lane', 'name' => 'John']],
-            'All properties provided' => [['credit_card' => 12345, 'billing_address' => '555 Debitors Lane', 'name' => 'John']],
+            'All properties provided' => [
+                ['credit_card' => 12345, 'billing_address' => '555 Debitors Lane', 'name' => 'John'],
+            ],
         ];
     }
 
@@ -77,18 +81,30 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     #[DataProvider('validationMethodDataProvider')]
-    public function testInvalidPropertyDependencyThrowsAnException(GeneratorConfiguration $configuration): void {
-        $this->expectValidationError(
-            $configuration,
-            <<<ERROR
-            Missing required attributes which are dependants of credit_card:
-              - billing_address
-            ERROR,
-        );
-
+    public function testInvalidPropertyDependencyThrowsAnException(GeneratorConfiguration $configuration): void
+    {
         $className = $this->generateClassFromFile('PropertyDependency.json', $configuration);
 
-        new $className(['credit_card' => 12345]);
+        try {
+            new $className(['credit_card' => 12345]);
+            $this->fail('Expected exception for missing property dependency');
+        } catch (ErrorRegistryException | InvalidPropertyDependencyException $exception) {
+            $this->assertSame(
+                <<<ERROR
+                Missing required attributes which are dependants of credit_card:
+                  - billing_address
+                ERROR,
+                $exception->getMessage(),
+            );
+
+            // collectErrors(true) wraps the dependency exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(InvalidPropertyDependencyException::class, $innerException);
+            $this->assertSame('/dependencies/credit_card', $innerException->getJsonPointer()->pointer);
+        }
     }
 
     #[DataProvider('invalidMultiplePropertyDependenciesDataProvider')]

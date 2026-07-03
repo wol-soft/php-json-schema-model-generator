@@ -38,23 +38,25 @@ class AdditionalPropertiesValidatorFactory extends AbstractValidatorFactory
             return;
         }
 
+        $additionalPropertiesPointer = $propertySchema->getPointer() . '/' . $this->key;
+
         if (!is_bool($json[$this->key])) {
             $schema->addBaseValidator(
-                new AdditionalPropertiesValidator(
+                (new AdditionalPropertiesValidator(
                     $schemaProcessor,
                     $schema,
                     $propertySchema,
-                )
+                ))->withJsonPointer($additionalPropertiesPointer),
             );
 
             return;
         }
 
         $schema->addBaseValidator(
-            new NoAdditionalPropertiesValidator(
+            (new NoAdditionalPropertiesValidator(
                 new Property($schema->getClassName(), null, $propertySchema),
                 $json,
-            )
+            ))->withJsonPointer($additionalPropertiesPointer),
         );
     }
 }

@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
+use PHPModelGenerator\Exception\Arrays\MaxItemsException;
 use PHPModelGenerator\Exception\Arrays\MinItemsException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -332,11 +335,26 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         array $propertyValue,
         string $exceptionMessage,
     ): void {
-        $this->expectValidationError($configuration, $exceptionMessage);
-
         $className = $this->generateClassFromFile('ArrayPropertyItemAmount.json', $configuration);
 
-        new $className(['property' => $propertyValue]);
+        try {
+            new $className(['property' => $propertyValue]);
+            $this->fail('Expected exception for invalid array item amount');
+        } catch (ErrorRegistryException | ValidationException $exception) {
+            $this->assertStringContainsString($exceptionMessage, $exception->getMessage());
+
+            // collectErrors(true) wraps the item-amount exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            if ($innerException instanceof MinItemsException) {
+                $this->assertSame('/properties/property/minItems', $innerException->getJsonPointer()->pointer);
+            } else {
+                $this->assertInstanceOf(MaxItemsException::class, $innerException);
+                $this->assertSame('/properties/property/maxItems', $innerException->getJsonPointer()->pointer);
+            }
+        }
     }
 
     public static function invalidItemAmountDataProvider(): array
@@ -674,11 +692,22 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         array $propertyValue,
         string $message,
     ): void {
-        $this->expectValidationError($configuration, $message);
-
         $className = $this->generateClassFromFile($file, $configuration);
 
-        new $className(['property' => $propertyValue]);
+        try {
+            new $className(['property' => $propertyValue]);
+            $this->fail('Expected exception for invalid object array item');
+        } catch (ErrorRegistryException | InvalidItemException $exception) {
+            $this->assertStringContainsString($message, $exception->getMessage());
+
+            // collectErrors(true) wraps the array item exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(InvalidItemException::class, $innerException);
+            $this->assertSame('/properties/property/items', $innerException->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidObjectArrayDataProvider(): array

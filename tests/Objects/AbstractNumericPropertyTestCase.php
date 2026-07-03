@@ -49,28 +49,43 @@ abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGenerator
     }
 
     #[DataProvider('invalidRangeDataProvider')]
-    public function testInvalidValueForRangeValidatorThrowsAnException($propertyValue, string $exceptionMessage): void
-    {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage($exceptionMessage);
-
+    public function testInvalidValueForRangeValidatorThrowsAnException(
+        $propertyValue,
+        string $exceptionMessage,
+        string $expectedPointerKeyword,
+    ): void {
         $className = $this->generateClassFromFile($this->getRangeFile(false));
 
-        new $className(['property' => $propertyValue]);
+        try {
+            new $className(['property' => $propertyValue]);
+            $this->fail('Expected ValidationException for out-of-range value');
+        } catch (ValidationException $exception) {
+            $this->assertSame($exceptionMessage, $exception->getMessage());
+            $this->assertSame(
+                "/properties/property/$expectedPointerKeyword",
+                $exception->getJsonPointer()->pointer,
+            );
+        }
     }
 
-    /**
-     * @param $propertyValue
-     */
     #[DataProvider('invalidExclusiveRangeDataProvider')]
-    public function testInvalidValueForExclusiveRangeValidatorThrowsAnException($propertyValue, string $exceptionMessage): void
-    {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage($exceptionMessage);
-
+    public function testInvalidValueForExclusiveRangeValidatorThrowsAnException(
+        $propertyValue,
+        string $exceptionMessage,
+        string $expectedPointerKeyword,
+    ): void {
         $className = $this->generateClassFromFile($this->getRangeFile(true));
 
-        new $className(['property' => $propertyValue]);
+        try {
+            new $className(['property' => $propertyValue]);
+            $this->fail('Expected ValidationException for out-of-range value');
+        } catch (ValidationException $exception) {
+            $this->assertSame($exceptionMessage, $exception->getMessage());
+            $this->assertSame(
+                "/properties/property/$expectedPointerKeyword",
+                $exception->getJsonPointer()->pointer,
+            );
+        }
     }
 
     /**
@@ -93,11 +108,14 @@ abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGenerator
     #[DataProvider('invalidMultipleOfDataProvider')]
     public function testInvalidValueForMultipleOfValidatorThrowsAnException($multipleOf, $propertyValue): void
     {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage("Value for property must be a multiple of $multipleOf");
-
         $className = $this->generateClassFromFileTemplate($this->getMultipleOfFile(), [$multipleOf]);
 
-        new $className(['property' => $propertyValue]);
+        try {
+            new $className(['property' => $propertyValue]);
+            $this->fail('Expected ValidationException for non-multiple value');
+        } catch (ValidationException $exception) {
+            $this->assertSame("Value for property must be a multiple of $multipleOf", $exception->getMessage());
+            $this->assertSame('/properties/property/multipleOf', $exception->getJsonPointer()->pointer);
+        }
     }
 }

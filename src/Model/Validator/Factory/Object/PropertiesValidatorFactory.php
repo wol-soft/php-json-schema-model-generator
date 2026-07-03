@@ -65,11 +65,15 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
                 }
 
                 $schema->addBaseValidator(
-                    new PropertyValidator(
+                    (new PropertyValidator(
                         new Property($propertyName, null, $propertySchema->withJson([])),
                         "array_key_exists('" . addslashes($propertyName) . "', \$modelData)",
                         DeniedPropertyException::class,
-                    )
+                    ))->withJsonPointer(
+                        $propertySchema->getPointer()
+                            . '/properties/'
+                            . JsonSchema::encodePointer((string) $propertyName),
+                    ),
                 );
                 continue;
             }
@@ -78,7 +82,15 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
             $dependencies = $json['dependencies'][$propertyName] ?? null;
 
             if ($propertyStructure === true) {
-                $nestedPropertySchema = $propertySchema->withJson([]);
+                // navigate() cannot traverse into a `true` schema value; use withPointer() to
+                // advance the pointer without descending into JSON content, then replace the json.
+                $nestedPropertySchema = $propertySchema
+                    ->withPointer(
+                        $propertySchema->getPointer()
+                            . '/' . $this->key . '/'
+                            . JsonSchema::encodePointer($propertyName)
+                    )
+                    ->withJson([]);
             } else {
                 $nestedPropertySchema = $propertySchema
                     ->navigate("$this->key/" . JsonSchema::encodePointer($propertyName))
@@ -130,8 +142,13 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
             }
         }
 
+        $dependencyPointer = $dependencyJsonSchema->getPointer();
+
         if ($propertyDependency) {
-            $property->addValidator(new PropertyDependencyValidator($property, $dependencyJsonSchema->getJson()));
+            $property->addValidator(
+                (new PropertyDependencyValidator($property, $dependencyJsonSchema->getJson()))
+                    ->withJsonPointer($dependencyPointer),
+            );
 
             return;
         }
@@ -148,7 +165,10 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
             $schema->getSchemaDictionary(),
         );
 
-        $property->addValidator(new SchemaDependencyValidator($schemaProcessor, $property, $dependencySchema));
+        $property->addValidator(
+            (new SchemaDependencyValidator($schemaProcessor, $property, $dependencySchema))
+                ->withJsonPointer($dependencyPointer),
+        );
         $schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
 
         $this->transferDependentPropertiesToBaseSchema($dependencySchema, $schema);

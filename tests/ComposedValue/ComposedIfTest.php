@@ -66,11 +66,15 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
     #[DataProvider('invalidConditionalPropertyDefinitionDataProvider')]
     public function testInvalidConditionalPropertyDefinition(int $value, string $expectedExceptionMessage): void
     {
-        $this->expectException(ConditionalException::class);
-        $this->expectExceptionMessage($expectedExceptionMessage);
-
         $className = $this->generateClassFromFile('ConditionalPropertyDefinition.json');
-        new $className(['property' => $value]);
+
+        try {
+            new $className(['property' => $value]);
+            $this->fail('Expected ConditionalException');
+        } catch (ConditionalException $exception) {
+            $this->assertSame($expectedExceptionMessage, $exception->getMessage());
+            $this->assertSame('/properties/property/if', $exception->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidConditionalPropertyDefinitionDataProvider(): array

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
@@ -36,10 +37,14 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
             'Only dependant property provided with different type' => [['billing_address' => true]],
             'Only dependant property provided 1' => [['billing_address' => '555 Debitors Lane']],
             'Only dependant property provided 2' => [['date_of_birth' => '01-01-1990']],
-            'Only dependant property provided 3' => [['billing_address' => '555 Debitors Lane', 'date_of_birth' => '01-01-1990']],
+            'Only dependant property provided 3' => [
+                ['billing_address' => '555 Debitors Lane', 'date_of_birth' => '01-01-1990'],
+            ],
             'Dependant property nulled 1' => [['billing_address' => null]],
             'Dependant property nulled 2' => [['date_of_birth' => null]],
-            'All properties provided' => [['credit_card' => 12345, 'billing_address' => '555 Debitors Lane', 'date_of_birth' => '01-01-1990']],
+            'All properties provided' => [
+                ['credit_card' => 12345, 'billing_address' => '555 Debitors Lane', 'date_of_birth' => '01-01-1990'],
+            ],
             'Only required properties provided' => [['credit_card' => 12345, 'date_of_birth' => '01-01-1990']],
         ];
     }
@@ -50,11 +55,24 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         array $propertyValue,
         string $message,
     ): void {
-        $this->expectValidationError($configuration, $message);
-
         $className = $this->generateClassFromFile('SchemaDependency.json', $configuration);
 
-        new $className($propertyValue);
+        try {
+            new $className($propertyValue);
+            $this->fail('Expected exception for invalid schema dependency');
+        } catch (ErrorRegistryException | InvalidSchemaDependencyException $exception) {
+            // collectErrors(true) appends additional collected errors after the expected message,
+            // matching the substring-style assertion the original expectExceptionMessage() used.
+            $this->assertStringContainsString($message, $exception->getMessage());
+
+            // collectErrors(true) wraps the dependency exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(InvalidSchemaDependencyException::class, $innerException);
+            $this->assertSame('/dependencies/credit_card', $innerException->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidSchemaDependencyDataProvider(): array
@@ -197,6 +215,7 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         new $className($propertyValue);
     }
 
+    // phpcs:disable Generic.Files.LineLength.TooLong
     public static function invalidSchemaDependencyCompositionDataProvider(): array
     {
         return [
@@ -239,6 +258,7 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
             ],
         ];
     }
+    // phpcs:enable Generic.Files.LineLength.TooLong
 
     #[DataProvider('validSchemaDependencyNestedObjectDataProvider')]
     public function testSchemaDependencyNestedObject(array $propertyValue): void
