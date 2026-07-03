@@ -17,6 +17,7 @@ use ReflectionClass;
 use stdClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\WithoutErrorHandler;
 
 /**
@@ -209,7 +210,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         return [
             'Internal path reference' => ['#/definitions/yearBetween1900and2000'],
             'Internal direct reference' => ['#yearBetween1900and2000'],
-            'External path reference' => ['../ReferencePropertyTest_external/library.json#/definitions/yearBetween1900and2000'],
+            'External path reference' => ['../ReferencePropertyTest_external/library.json#/definitions/yearBetween1900and2000'], // phpcs:ignore Generic.Files.LineLength.TooLong
             'External direct reference' => ['../ReferencePropertyTest_external/library.json#yearBetween1900and2000'],
         ];
     }
@@ -264,10 +265,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function recursiveExternalReferenceProvider(): array
     {
         return [
-            'external path reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personDirect'],
-            'external direct reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#personDirect'],
-            'external path reference to path recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personPath'],
-            'external direct reference to path recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#personPath'],
+            'external path reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personDirect'], // phpcs:ignore Generic.Files.LineLength.TooLong
+            'external direct reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#personDirect'], // phpcs:ignore Generic.Files.LineLength.TooLong
+            'external path reference to path recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personPath'], // phpcs:ignore Generic.Files.LineLength.TooLong
+            'external direct reference to path recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#personPath'], // phpcs:ignore Generic.Files.LineLength.TooLong
         ];
     }
 
@@ -276,7 +277,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         return array_merge(
             self::combineDataProvider(self::internalReferenceProvider(), self::internalReferenceProvider()),
             self::combineDataProvider(static::recursiveExternalReferenceProvider(), self::internalReferenceProvider()),
-            self::combineDataProvider(static::recursiveExternalReferenceProvider(), static::recursiveExternalReferenceProvider()),
+            self::combineDataProvider(
+                static::recursiveExternalReferenceProvider(),
+                static::recursiveExternalReferenceProvider(),
+            ),
         );
     }
 
@@ -685,7 +689,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             ],
             'network reference - absolute path to full URL $id' => [
                 $baseURL . 'ReferencePropertyTest/NestedExternalReference.json',
-                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/library.json',
+                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/library.json', // phpcs:ignore Generic.Files.LineLength.TooLong
             ],
         ];
     }
@@ -696,7 +700,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            sprintf('/Unresolved Reference %s#\/definitions\/family in file .*\.json/', str_replace('/', '\/', $reference)),
+            sprintf(
+                '/Unresolved Reference %s#\/definitions\/family in file .*\.json/',
+                str_replace('/', '\/', $reference),
+            ),
         );
 
         $this->generateClassFromFileTemplate('NestedExternalReference.json', [$id, $reference]);
@@ -725,7 +732,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             ],
             'network reference - absolute path to full URL $id' => [
                 $baseURL . 'ReferencePropertyTest/NestedExternalReference.json',
-                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/nonexistent.json',
+                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/nonexistent.json', // phpcs:ignore Generic.Files.LineLength.TooLong
             ],
         ];
     }
@@ -1100,5 +1107,112 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className([]);
         $this->assertPropertyHasJsonPointer($object, 'label', '/properties/label');
         $this->assertPropertyHasJsonPointer($object, 'child', '/properties/child');
+    }
+
+    // Draft 2019-09+: $ref and sibling keywords apply simultaneously (conjunction).
+
+    /**
+     * Draft 2019-09+: both ref properties and sibling properties appear on the generated class;
+     * pointers reflect the authored schema locations without a synthetic /allOf/ segment.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRefWithSiblingsBothApplyForDraft201909(): void
+    {
+        $className = $this->generateClassFromFile('RefWithSiblings.json');
+
+        $object = new $className(['name' => 'Alice', 'street' => 'Main St']);
+
+        // Both ref properties (street, city) and sibling properties (name, zip) are present.
+        $this->assertSame('Alice', $object->getName());
+        $this->assertSame('Main St', $object->getStreet());
+        $this->assertNull($object->getZip());
+        $this->assertNull($object->getCity());
+
+        // Sibling properties point to where they appear in the authored schema.
+        $this->assertPropertyHasJsonPointer($object, 'name', '/properties/name');
+        $this->assertPropertyHasJsonPointer($object, 'zip', '/properties/zip');
+
+        // Ref properties point into the referenced definition, not into a synthetic /allOf.
+        $this->assertPropertyHasJsonPointer($object, 'street', '/definitions/address/properties/street');
+        $this->assertPropertyHasJsonPointer($object, 'city', '/definitions/address/properties/city');
+    }
+
+    /**
+     * Draft 2019-09+: missing required fields (from either the ref or the sibling) trigger a
+     * validation error.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('invalidRefWithSiblingsDataProvider')]
+    public function testRefWithSiblingsMissingRequiredThrowsForDraft201909(array $data): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefWithSiblings.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        $this->expectException(ErrorRegistryException::class);
+
+        new $className($data);
+    }
+
+    public static function invalidRefWithSiblingsDataProvider(): array
+    {
+        return [
+            // Sibling-required field missing
+            'missing sibling-required name' => [['street' => 'Main St']],
+            // Ref-required field missing
+            'missing ref-required street'   => [['name' => 'Alice']],
+            // Both required fields missing
+            'missing both required'         => [[]],
+            // Sibling property with wrong type
+            'invalid zip type'              => [['name' => 'Alice', 'street' => 'Main St', 'zip' => 'ABC']],
+            // Ref property with wrong type
+            'invalid city type'             => [['name' => 'Alice', 'street' => 'Main St', 'city' => 42]],
+        ];
+    }
+
+    /**
+     * Draft 07: $ref siblings are silently ignored — only the referenced schema's properties
+     * appear on the generated class and only the ref's required constraint is enforced.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testRefWithSiblingsSilentlyDroppedForDraft07(): void
+    {
+        // Section 1: sibling properties (name, zip) and sibling-required (name) are absent.
+        $className = $this->generateClassFromFile('RefWithSiblings.json');
+
+        $object = new $className(['street' => 'Main St']);
+
+        $this->assertSame('Main St', $object->getStreet());
+        $this->assertNull($object->getCity());
+        $this->assertFalse(method_exists($object, 'getName'));
+        $this->assertFalse(method_exists($object, 'getZip'));
+
+        // Section 2: with error collection — sibling-required (name) is dropped, but
+        // ref-required (street) is still enforced.
+        $className = $this->generateClassFromFile(
+            'RefWithSiblings.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        // name is a sibling-required field, so providing no name is valid under Draft 07.
+        $object = new $className(['street' => 'Main St']);
+        $this->assertSame('Main St', $object->getStreet());
+
+        // Ref-required constraint on street still fires.
+        $this->expectException(ErrorRegistryException::class);
+        new $className([]);
     }
 }

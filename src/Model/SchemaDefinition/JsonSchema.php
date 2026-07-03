@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\SchemaDefinition;
 
-use PHPModelGenerator\Exception\GeneratorException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Utils\ArrayHash;
 
@@ -46,28 +45,6 @@ class JsonSchema
      */
     public function __construct(private string $file, array $json, private string $pointer = '')
     {
-        // wrap in an allOf to pass the processing to multiple handlers - ugly hack to be removed after rework
-        if (
-            isset($json['$ref']) &&
-            count(array_diff(
-                array_intersect(array_keys($json), self::SCHEMA_SIGNATURE_RELEVANT_FIELDS),
-                ['$ref', 'type'],
-            ))
-        ) {
-            $json = array_merge(
-                array_diff_key($json, array_fill_keys(self::SCHEMA_SIGNATURE_RELEVANT_FIELDS, null)),
-                [
-                    'allOf' => [
-                        ['$ref' => $json['$ref']],
-                        array_intersect_key(
-                            $json,
-                            array_fill_keys(array_diff(self::SCHEMA_SIGNATURE_RELEVANT_FIELDS, ['$ref']), null),
-                        ),
-                    ],
-                ],
-            );
-        }
-
         $this->json = $json;
     }
 

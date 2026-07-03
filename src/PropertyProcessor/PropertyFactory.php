@@ -155,6 +155,24 @@ class PropertyFactory
             return $exclusiveProducer->produce($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
         }
 
+        // For non-exclusive producers at base level, process sibling content first so that
+        // sibling properties are root-registered before the producer contributes its properties.
+        // Producer properties that collide with already-registered sibling names are then merged
+        // with allOf semantics (type intersection, default-conflict detection) by the producer.
+        // Producer keywords themselves are excluded so only true sibling keywords remain.
+        $json = $propertySchema->getJson();
+        if (isset($json['type']) && $json['type'] === 'base') {
+            $siblingJson = array_diff_key($json, $producers);
+            if (count($siblingJson) > 1) {
+                $this->createBaseProperty(
+                    $schemaProcessor,
+                    $schema,
+                    $propertyName,
+                    $propertySchema->withJson($siblingJson),
+                );
+            }
+        }
+
         $produced = array_map(
             static fn(PropertyProducerInterface $producer): PropertyInterface => $producer->produce(
                 $schemaProcessor,

@@ -11,6 +11,7 @@ use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
@@ -136,8 +137,15 @@ class RefResolver implements PropertyProducerInterface
             );
         }
 
-        foreach ($property->getNestedSchema()->getProperties() as $propertiesOfReferencedObject) {
-            $schema->addProperty($propertiesOfReferencedObject);
+        foreach ($property->getNestedSchema()->getProperties() as $refProperty) {
+            // Use allOf semantics when a sibling has already registered this property name so
+            // that type-intersection narrowing and default-conflict detection apply. For
+            // properties that only the ref defines, plain registration (null compositionProcessor)
+            // is correct — they become root-registered with no merge needed.
+            $compositionProcessor = $schema->getProperty($refProperty->getName()) !== null
+                ? AllOfValidatorFactory::class
+                : null;
+            $schema->addProperty($refProperty, $compositionProcessor);
         }
 
         return $property;
