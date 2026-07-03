@@ -231,6 +231,27 @@ The exceptions are implemented in the php-json-schema-model-generator-production
 
 All collected exceptions from an ErrorRegistryException are accessible via the *getErrors* method. The collected errors are the specific exceptions extending the **PHPModelGenerator\\Exception\\ValidationException** which would be thrown directly if error collection is disabled. Each exception provides various specific details about the validation violation.
 
+Every ``ValidationException`` carries a **JSON pointer** (see :rfc:`6901`) to the schema keyword
+that rejected the value:
+
+.. code-block:: php
+
+    public function getJsonPointer(): PHPModelGenerator\Attributes\JsonPointer;
+
+.. code-block:: php
+
+    try {
+        $person = new Person(['name' => 'Albert', 'age' => -1]);
+    } catch (\PHPModelGenerator\Exception\Number\MinimumException $e) {
+        $e->getPropertyName();          // 'age'
+        $e->getProvidedValue();         // -1
+        $e->getJsonPointer()->pointer;  // '/properties/age/minimum'
+    }
+
+The pointer identifies the **schema keyword** that rejected the value, not the data location. For
+object-level constraints such as ``minProperties`` the pointer is relative to the schema root
+(e.g. ``/minProperties``).
+
 .. code-block:: php
 
     (new GeneratorConfiguration())
@@ -414,6 +435,21 @@ Draft class   Description
 .. seealso::
 
     :doc:`generator/custom/customDraft` — how to implement a custom draft or modifier.
+
+Class name generator
+^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: php
+
+    setClassNameGenerator(ClassNameGeneratorInterface $classNameGenerator);
+
+Replace the built-in class naming strategy with a custom implementation. The generator calls
+``getClassName()`` on the provided object for every nested class it creates. This gives you
+complete control over naming: you can derive names from external sources, enforce project
+conventions, strip prefixes, and so on.
+
+See `Naming of nested classes <complexTypes/object.html#naming-of-nested-classes>`__ for a
+description of the built-in priority order.
 
 Custom filter
 ^^^^^^^^^^^^^

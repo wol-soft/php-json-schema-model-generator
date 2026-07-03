@@ -45,22 +45,26 @@ class PatternPropertiesValidatorFactory extends AbstractValidatorFactory
 
             if ($patternSchema === false) {
                 $schema->addBaseValidator(
-                    new ForbiddenPatternPropertiesValidator(
+                    (new ForbiddenPatternPropertiesValidator(
                         $pattern,
                         $schema->getClassName(),
                         $propertySchema,
-                    )
+                    ))->withJsonPointer(
+                        $propertySchema->getPointer() . '/' . $this->key . '/' . JsonSchema::encodePointer($pattern),
+                    ),
                 );
                 continue;
             }
 
             $schema->addBaseValidator(
-                new PatternPropertiesValidator(
+                (new PatternPropertiesValidator(
                     $schemaProcessor,
                     $schema,
                     $pattern,
                     $propertySchema->navigate("$this->key/" . JsonSchema::encodePointer($pattern)),
-                )
+                ))->withJsonPointer(
+                    $propertySchema->getPointer() . '/' . $this->key . '/' . JsonSchema::encodePointer($pattern),
+                ),
             );
         }
     }

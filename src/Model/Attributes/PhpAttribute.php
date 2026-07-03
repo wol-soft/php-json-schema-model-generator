@@ -33,6 +33,11 @@ final class PhpAttribute
         return $this->fqcn;
     }
 
+    public function getArguments(): array
+    {
+        return $this->arguments;
+    }
+
     /**
      * Render the attribute body — the content that appears inside #[...].
      * Uses the simple (unqualified) class name; the FQCN is added via use-import separately.

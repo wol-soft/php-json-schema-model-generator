@@ -183,6 +183,8 @@ If the filter throws an exception during execution the exception will be caught 
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Builtin filter
 --------------

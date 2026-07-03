@@ -104,11 +104,25 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         string $propertyValue,
     ): void {
-        $this->expectValidationError($configuration, 'Invalid value for property declined by composition constraint');
-
         $className = $this->generateClassFromFile('NotOfType.json', $configuration);
 
-        new $className(['property' => $propertyValue]);
+        try {
+            new $className(['property' => $propertyValue]);
+            $this->fail('Expected exception for value matching the not branch');
+        } catch (ErrorRegistryException | NotException $exception) {
+            $this->assertStringContainsString(
+                'Invalid value for property declined by composition constraint',
+                $exception->getMessage(),
+            );
+
+            // collectErrors(true) wraps the not exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(NotException::class, $innerException);
+            $this->assertSame('/properties/property/not', $innerException->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidPropertyTypeDataProvider(): array
