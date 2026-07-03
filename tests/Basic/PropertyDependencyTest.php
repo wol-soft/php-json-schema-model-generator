@@ -13,6 +13,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -334,5 +335,124 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['kind' => 'k', 'note' => 'n', 'extra' => 'e']);
         $this->assertSame(['kind' => 'k', 'note' => 'n', 'extra' => 'e'], $object->meta()->rawInput());
+    }
+
+    /**
+     * Defect proof (§0a, dependent-keywords analysis): a `dependencies` trigger that is declared
+     * neither in `properties` nor `required` is currently silently dropped by
+     * PropertiesValidatorFactory instead of being enforced, because the dependency-attaching code
+     * only runs inside the loop over declared `properties` entries. Restricted to Draft 7 so this
+     * proof is not entangled with the separate §0b Draft-gating defect proven below.
+     *
+     * Also asserts that both the trigger and each array-form dependency target are synthesised
+     * onto the generated class with mixed type hints when absent from the schema's `properties`
+     * block. If a target were already declared in `properties` its declared type would apply
+     * instead; this fixture exercises the fully-undeclared case.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced(): void
+    {
+        $className = $this->generateClassFromFile('UndeclaredTriggerPropertyDependency.json');
+
+        // Valid: no trigger present, dependency not enforced; both synthesised properties readable
+        $object = new $className([]);
+        $this->assertNull($object->getCreditCard());
+        $this->assertNull($object->getBillingAddress());
+
+        // Valid: trigger present and dependency satisfied; both accessors return correct values
+        $object = new $className(['credit_card' => 12345, 'billing_address' => '555 Debitors Lane']);
+        $this->assertSame(12345, $object->getCreditCard());
+        $this->assertSame('555 Debitors Lane', $object->getBillingAddress());
+
+        // Invalid: trigger present but required dependent property absent
+        $this->expectException(InvalidPropertyDependencyException::class);
+        $this->expectExceptionMessage(
+            "Missing required attributes which are dependants of credit_card:\n  - billing_address",
+        );
+
+        new $className(['credit_card' => 12345]);
+    }
+
+    /**
+     * When array-form dependency targets are already declared elsewhere — directly in `properties`
+     * or through a composition branch — the synthesised trigger carries a mixed type hint while
+     * each target inherits its type from its prior declaration rather than being re-synthesised
+     * as mixed. Covers root-property narrowing (billing_address typed as string) and composition
+     * narrowing (name typed as string via allOf). Restricted to Draft 7.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testArrayFormDependencyTargetsInheritDeclaredTypesWhenAlreadyPresent(): void
+    {
+        $className = $this->generateClassFromFile('NarrowedTargetPropertyDependency.json');
+
+        // Valid: no trigger; all properties readable with their declared types
+        $object = new $className([]);
+        $this->assertNull($object->getCreditCard());
+        $this->assertNull($object->getBillingAddress());
+        $this->assertNull($object->getName());
+
+        // Valid: trigger present and both targets satisfied
+        $object = new $className(['credit_card' => 'any', 'billing_address' => 'addr', 'name' => 'John']);
+        $this->assertSame('any', $object->getCreditCard());
+        $this->assertSame('addr', $object->getBillingAddress());
+        $this->assertSame('John', $object->getName());
+
+        // Invalid: trigger present but both targets absent
+        $this->expectException(InvalidPropertyDependencyException::class);
+        $this->expectExceptionMessage(
+            "Missing required attributes which are dependants of credit_card:\n  - billing_address\n  - name",
+        );
+
+        new $className(['credit_card' => 'any']);
+    }
+
+    /**
+     * When an array-form dependency trigger is declared in `properties` but its target is not
+     * declared anywhere in the schema, the target must be synthesised as a mixed-typed property
+     * so its value is readable via the generated accessor. The dependency enforcement already
+     * works today (PropertyDependencyValidator is attached because the trigger is found); the
+     * defect is the missing getter for the undeclared target. Restricted to Draft 7.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testArrayFormUndeclaredDependencyTargetIsSynthesisedAsMixed(): void
+    {
+        $className = $this->generateClassFromFile('DeclaredTriggerUndeclaredTargetPropertyDependency.json');
+
+        // Valid: no trigger; synthesised target accessor returns null
+        $object = new $className([]);
+        $this->assertNull($object->getCreditCard());
+        $this->assertNull($object->getBillingAddress());
+
+        // Valid: trigger present and target satisfied; both values readable
+        $object = new $className(['credit_card' => 12345, 'billing_address' => '555 Debitors Lane']);
+        $this->assertSame(12345, $object->getCreditCard());
+        $this->assertSame('555 Debitors Lane', $object->getBillingAddress());
+
+        // Invalid: trigger present but target absent
+        $this->expectException(InvalidPropertyDependencyException::class);
+        $this->expectExceptionMessage(
+            "Missing required attributes which are dependants of credit_card:\n  - billing_address",
+        );
+
+        new $className(['credit_card' => 12345]);
+    }
+
+    /**
+     * Defect proof (§0b, dependent-keywords analysis): `dependencies` is read directly out of raw
+     * JSON inside PropertiesValidatorFactory, unconditionally regardless of the active Draft.
+     * Draft 2019-09's core vocabulary does not define `dependencies` at all, so it must be
+     * ignored, not enforced. The trigger property here IS normally declared in `properties` (so
+     * §0a does not confound this), and no `unevaluatedProperties` is involved (so §0c does not
+     * confound this either) — this isolates §0b on its own.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testDependencyKeywordIsInertUnderDraft201909(): void
+    {
+        $className = $this->generateClassFromFile('PropertyDependency.json');
+
+        $object = new $className(['credit_card' => 12345]);
+
+        $this->assertSame(12345, $object->getCreditCard());
+        $this->assertNull($object->getBillingAddress());
     }
 }

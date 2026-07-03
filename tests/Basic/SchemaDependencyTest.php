@@ -6,12 +6,14 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
 use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionMethod;
 
@@ -420,6 +422,40 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * Defect proof (§0a, dependent-keywords analysis): a `dependencies` trigger that is declared
+     * neither in `properties` nor `required` is currently silently dropped instead of being
+     * enforced — the schema-form variant of testDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced
+     * in PropertyDependencyTest. Restricted to Draft 7 to avoid entangling this with §0b.
+     *
+     * Also asserts that the trigger property and the properties declared inside the dependency
+     * subschema are both synthesised onto the generated class and accessible via their accessors,
+     * even though neither appears in the schema's top-level `properties` block.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testSchemaDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced(): void
+    {
+        $className = $this->generateClassFromFile('UndeclaredTriggerSchemaDependency.json');
+
+        // Valid: no trigger present, dependency not enforced; both synthesised properties readable
+        $object = new $className([]);
+        $this->assertNull($object->getCreditCard());
+        $this->assertNull($object->getBillingAddress());
+
+        // Valid: trigger present and dependency satisfied; both accessors return correct values
+        $object = new $className(['credit_card' => 12345, 'billing_address' => '555 Debitors Lane']);
+        $this->assertSame(12345, $object->getCreditCard());
+        $this->assertSame('555 Debitors Lane', $object->getBillingAddress());
+
+        // Invalid: trigger present but required dependent property absent
+        $this->expectException(InvalidSchemaDependencyException::class);
+        $this->expectExceptionMessage(
+            "Invalid schema which is dependant on credit_card:\n  - Missing required value for billing_address",
+        );
+
+        new $className(['credit_card' => 12345]);
+    }
+
+    /**
      * A filter of a property inside a dependency schema runs inside the dependency schema (the validators of the
      * property see the filtered value), the base model keeps the value as provided. Consistent with the condition of
      * an if/then/else. A property which should be filtered has to be declared in the main schema.
@@ -500,5 +536,96 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         }
 
         $this->assertNull($object->getCreditCard());
+    }
+
+    /**
+     * When a schema-form dependency trigger is absent from the root `properties` block and its
+     * subschema declares properties that are already present — either in root `properties` or via
+     * a composition branch — the trigger is synthesised as mixed while each subschema property is
+     * merged with its pre-existing declaration (same path as allOf property merging) rather than
+     * being introduced anew. Covers root-property merging (billing_address) and composition
+     * merging (name via allOf). Restricted to Draft 7.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testSchemaDependencySubschemaPropertiesMergeWithPreExistingDeclarations(): void
+    {
+        $className = $this->generateClassFromFile('NarrowedTargetSchemaDependency.json');
+
+        // Valid: no trigger; all properties readable with their declared types
+        $object = new $className([]);
+        $this->assertNull($object->getCreditCard());
+        $this->assertNull($object->getBillingAddress());
+        $this->assertNull($object->getName());
+
+        // Valid: trigger present and both required properties satisfied
+        $object = new $className(['credit_card' => 'any', 'billing_address' => 'addr', 'name' => 'John']);
+        $this->assertSame('any', $object->getCreditCard());
+        $this->assertSame('addr', $object->getBillingAddress());
+        $this->assertSame('John', $object->getName());
+
+        // Invalid: trigger present but required properties absent
+        $this->expectException(InvalidSchemaDependencyException::class);
+        $this->expectExceptionMessage(
+            "Invalid schema which is dependant on credit_card:\n  - Missing required value for billing_address",
+        );
+
+        new $className(['credit_card' => 'any']);
+    }
+
+    /**
+     * Defect proof (§0c, dependent-keywords analysis): under Draft 2019-09, the legacy
+     * schema-form `dependencies` must be inert — it is not part of the 2019-09 vocabulary — so
+     * omitting the dependency's required property must NOT be rejected. Today it incorrectly is,
+     * because `dependencies` still fires regardless of the active Draft (§0b), and once it fires
+     * the resulting `billing_address` requirement is enforced even though `unevaluatedProperties`
+     * (the keyword that's actually meant to be active here) never sees it.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testSchemaDependencyDoesNotWronglyRejectValidDraft201909Instance(): void
+    {
+        $className = $this->generateClassFromFile('SchemaDependencyWithUnevaluatedProperties.json');
+
+        $object = new $className(['credit_card' => 12345]);
+
+        $this->assertSame(12345, $object->getCreditCard());
+    }
+
+    /**
+     * Companion to the §0c proof above: a property that exists only because the
+     * (soon-to-be-inert) dependency subschema declares it must still be rejected by
+     * `unevaluatedProperties` once `dependencies` no longer legitimises it under Draft 2019-09.
+     * This assertion holds both before and after the §0b/§0c fix — today it is rejected for the
+     * buggy reason of never having been added to the evaluated-keys set; after the fix it is
+     * rejected because the keyword that would have introduced it is correctly inert. Kept as a
+     * guard against the fix overcorrecting into silently accepting everything.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testSchemaDependencyIntroducedPropertyStillRejectedByUnevaluatedProperties(): void
+    {
+        $className = $this->generateClassFromFile('SchemaDependencyWithUnevaluatedProperties.json');
+
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessageMatches('/contains not allowed unevaluated properties \[billing_address\]/');
+
+        new $className(['credit_card' => 12345, 'billing_address' => '555 Debitors Lane']);
+    }
+
+    /**
+     * Regression guard: the §0b/§0c fix must not disable `dependencies` under Draft 7. The
+     * `unevaluatedProperties` keyword present in this fixture is simply unrecognised (ignored)
+     * under Draft 7, so `dependencies` must enforce exactly as it does without that keyword
+     * present at all.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testSchemaDependencyStillEnforcedUnderDraft07RegardlessOfUnevaluatedPropertiesKeyword(): void
+    {
+        $className = $this->generateClassFromFile('SchemaDependencyWithUnevaluatedProperties.json');
+
+        $this->expectException(InvalidSchemaDependencyException::class);
+        $this->expectExceptionMessage(
+            "Invalid schema which is dependant on credit_card:\n  - Missing required value for billing_address",
+        );
+
+        new $className(['credit_card' => 12345]);
     }
 }
