@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "dependencies": {
+    "credit_card": {
+      "properties": {
+        "billing_address": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "billing_address"
+      ]
+    }
+  }
+}
