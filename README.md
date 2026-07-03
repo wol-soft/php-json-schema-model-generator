@@ -28,7 +28,7 @@ Simple example from a PHP application: you define and document an API with swagg
 ## Requirements ##
 
 - Requires at least PHP 8.4
-- Requires the PHP extensions ext-json and ext-mbstring
+- Requires the PHP extension ext-mbstring
 
 ## Installation ##
 
