@@ -57,9 +57,11 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
             return;
         }
 
+        $unevaluatedPointer = $propertySchema->getPointer() . '/' . $this->key;
+
         if ($unevaluatedItems === false) {
             $property->addValidator(
-                new NoUnevaluatedItemsValidator($property),
+                (new NoUnevaluatedItemsValidator($property))->withJsonPointer($unevaluatedPointer),
                 self::VALIDATOR_PRIORITY,
             );
 
@@ -67,7 +69,8 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
         }
 
         $property->addValidator(
-            new UnevaluatedItemsValidator($schemaProcessor, $schema, $property, $propertySchema),
+            (new UnevaluatedItemsValidator($schemaProcessor, $schema, $property, $propertySchema))
+                ->withJsonPointer($unevaluatedPointer),
             self::VALIDATOR_PRIORITY,
         );
     }

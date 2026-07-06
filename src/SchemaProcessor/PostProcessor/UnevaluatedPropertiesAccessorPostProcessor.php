@@ -21,6 +21,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
+use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 use PHPModelGenerator\Utils\RenderHelper;
 use ReflectionClass;
 
@@ -145,58 +146,83 @@ class UnevaluatedPropertiesAccessorPostProcessor extends PostProcessor
      * Walks composition validators registered on the schema's base validators and recurses
      * through nested allOf/anyOf/oneOf/if-then-else by inspecting each branch's raw JSON.
      *
-     * @return array{0: string[], 1: string[]} [propertyNames, patternRegexes]
+     * Each branch's schema contributes its own JSON pointer root; a `properties.foo` declaration
+     * inside `/allOf/0` therefore reports the pointer `/allOf/0/properties/foo`. When the same
+     * name (or pattern) appears in multiple branches, the first branch-order encounter wins so
+     * the emitted map has stable content across regenerations.
+     *
+     * @return array{0: array<string, string>, 1: array<string, string>}
+     *   [propertyName => pointer, patternRegex => pointer]
      */
     private function harvestCompositionPropertyNames(Schema $schema): array
     {
-        $propertyNames = [];
-        $patternRegexes = [];
+        $propertyPointers = [];
+        $patternPointers = [];
 
         foreach ($schema->getBaseValidators() as $baseValidator) {
             if ($baseValidator instanceof AbstractComposedPropertyValidator) {
                 foreach ($baseValidator->getComposedProperties() as $branch) {
+                    $branchSchema = $branch->getBranchSchema();
                     $this->collectBranchPropertyNames(
-                        $branch->getBranchSchema()->getJson(),
-                        $propertyNames,
-                        $patternRegexes,
+                        $branchSchema->getJson(),
+                        $branchSchema->getPointer(),
+                        $propertyPointers,
+                        $patternPointers,
                     );
                 }
             }
         }
 
-        return [array_values(array_unique($propertyNames)), array_values(array_unique($patternRegexes))];
+        return [$propertyPointers, $patternPointers];
     }
 
     /**
      * Walks a single branch's raw JSON schema and appends its `properties` keys and
-     * `patternProperties` regexes to the accumulators. Recurses into nested composition
-     * keywords because a branch may itself contain allOf/anyOf/oneOf whose sub-branches
-     * declare further properties.
+     * `patternProperties` regexes to the accumulators, along with the pointer at which each
+     * declaration lives. Recurses into nested composition keywords because a branch may itself
+     * contain allOf/anyOf/oneOf whose sub-branches declare further properties.
      *
-     * @param string[] $propertyNames   accumulator for collected property names
-     * @param string[] $patternRegexes  accumulator for collected pattern regexes
+     * @param array<string, string> $propertyPointers accumulator: name => JSON pointer
+     * @param array<string, string> $patternPointers  accumulator: regex => JSON pointer
      */
-    private function collectBranchPropertyNames(array $branchJson, array &$propertyNames, array &$patternRegexes): void
-    {
+    private function collectBranchPropertyNames(
+        array $branchJson,
+        string $branchPointer,
+        array &$propertyPointers,
+        array &$patternPointers,
+    ): void {
         foreach (array_keys($branchJson['properties'] ?? []) as $name) {
-            $propertyNames[] = (string) $name;
+            $name = (string) $name;
+            $propertyPointers[$name] ??= $branchPointer . '/properties/' . JsonSchemaUtil::encodePointer($name);
         }
 
         foreach (array_keys($branchJson['patternProperties'] ?? []) as $pattern) {
-            $patternRegexes[] = (string) $pattern;
+            $pattern = (string) $pattern;
+            $patternPointers[$pattern] ??=
+                $branchPointer . '/patternProperties/' . JsonSchemaUtil::encodePointer($pattern);
         }
 
         foreach (['allOf', 'anyOf', 'oneOf'] as $compositionKey) {
-            foreach ($branchJson[$compositionKey] ?? [] as $nestedBranchJson) {
+            foreach ($branchJson[$compositionKey] ?? [] as $index => $nestedBranchJson) {
                 if (is_array($nestedBranchJson)) {
-                    $this->collectBranchPropertyNames($nestedBranchJson, $propertyNames, $patternRegexes);
+                    $this->collectBranchPropertyNames(
+                        $nestedBranchJson,
+                        $branchPointer . '/' . $compositionKey . '/' . $index,
+                        $propertyPointers,
+                        $patternPointers,
+                    );
                 }
             }
         }
 
         foreach (['if', 'then', 'else'] as $conditionalKey) {
             if (isset($branchJson[$conditionalKey]) && is_array($branchJson[$conditionalKey])) {
-                $this->collectBranchPropertyNames($branchJson[$conditionalKey], $propertyNames, $patternRegexes);
+                $this->collectBranchPropertyNames(
+                    $branchJson[$conditionalKey],
+                    $branchPointer . '/' . $conditionalKey,
+                    $propertyPointers,
+                    $patternPointers,
+                );
             }
         }
     }
@@ -279,28 +305,38 @@ class UnevaluatedPropertiesAccessorPostProcessor extends PostProcessor
         GeneratorConfiguration $generatorConfiguration,
         PropertyInterface $validationProperty,
     ): void {
-        $directProperties = array_map(
-            static fn(PropertyInterface $property): string => $property->getName(),
-            array_filter(
-                $schema->getProperties(),
-                static fn(PropertyInterface $property): bool => !$property->isInternal(),
-            ),
+        $nonInternalProperties = array_filter(
+            $schema->getProperties(),
+            static fn(PropertyInterface $property): bool => !$property->isInternal(),
         );
 
-        $directPatterns = array_keys($schema->getJsonSchema()->getJson()['patternProperties'] ?? []);
+        $directPropertyPointers = [];
+        foreach ($nonInternalProperties as $property) {
+            $directPropertyPointers[$property->getName()] = JsonSchemaUtil::resolvePrimaryJsonPointer($property);
+        }
+
+        $schemaRootPointer = $schema->getJsonSchema()->getPointer();
+        $directPatternPointers = [];
+        foreach (array_keys($schema->getJsonSchema()->getJson()['patternProperties'] ?? []) as $pattern) {
+            $pattern = (string) $pattern;
+            $directPatternPointers[$pattern] =
+                $schemaRootPointer . '/patternProperties/' . JsonSchemaUtil::encodePointer($pattern);
+        }
 
         // A composition branch's `properties` / `patternProperties` declarations contribute keys
         // to the evaluated set at runtime (when the branch succeeds). Setting such a key via
         // unevaluatedProperties()->set() would bypass the branch's own type/constraint
         // validation, so the shim must reject those keys with the same exception used for
-        // directly-declared properties.
-        [$compositionProperties, $compositionPatterns] = $this->harvestCompositionPropertyNames($schema);
+        // directly-declared properties. Root-declared entries win over branch-declared entries
+        // with the same name/pattern, so the reported pointer for a name that lives at both
+        // levels points at the root.
+        [$compositionPropertyPointers, $compositionPatternPointers] = $this->harvestCompositionPropertyNames($schema);
 
-        $objectProperties = array_values(array_unique(array_merge($directProperties, $compositionProperties)));
-        $patternProperties = array_values(array_unique(array_merge($directPatterns, $compositionPatterns)));
+        $objectPropertyPointers = $directPropertyPointers + $compositionPropertyPointers;
+        $patternPropertyPointers = $directPatternPointers + $compositionPatternPointers;
 
-        $hasObjectProperties = $objectProperties !== [];
-        $hasPatternProperties = $patternProperties !== [];
+        $hasObjectProperties = $objectPropertyPointers !== [];
+        $hasPatternProperties = $patternPropertyPointers !== [];
 
         if ($hasObjectProperties || $hasPatternProperties) {
             $schema->addUsedClass(RegularPropertyAsUnevaluatedPropertyException::class);
@@ -315,10 +351,11 @@ class UnevaluatedPropertiesAccessorPostProcessor extends PostProcessor
                 [
                     'validationProperty' => $validationProperty,
                     'hasObjectProperties' => $hasObjectProperties,
-                    'objectProperties' => RenderHelper::varExportArray($objectProperties),
+                    'objectProperties' => RenderHelper::varExportArray(array_keys($objectPropertyPointers)),
+                    'objectPropertyPointers' => RenderHelper::varExportArray($objectPropertyPointers),
                     'hasPatternProperties' => $hasPatternProperties,
                     'patternProperties' => $hasPatternProperties
-                        ? RenderHelper::varExportPcrePatterns($patternProperties)
+                        ? RenderHelper::varExportPcrePatternMap($patternPropertyPointers)
                         : null,
                     'schemaHookResolver' => new SchemaHookResolver($schema),
                 ],

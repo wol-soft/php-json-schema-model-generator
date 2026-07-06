@@ -124,8 +124,19 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
 
         $object = new $className(['name' => 'Alice']);
 
-        $this->expectException(RegularPropertyAsUnevaluatedPropertyException::class);
-        $object->unevaluatedProperties()->set('name', 42);
+        try {
+            $object->unevaluatedProperties()->set('name', 42);
+            $this->fail('Expected RegularPropertyAsUnevaluatedPropertyException');
+        } catch (RegularPropertyAsUnevaluatedPropertyException $exception) {
+            $this->assertSame(
+                "Couldn't add regular property name as unevaluated property to object {$className}",
+                $exception->getMessage(),
+            );
+            // `name` is declared directly in `properties`, so the pointer identifies the
+            // property's declaration site — resolved via the property's #[JsonPointer]
+            // attribute rather than recomputed from schema paths.
+            $this->assertSame('/properties/name', $exception->getJsonPointer()->pointer);
+        }
     }
 
     /**
@@ -192,11 +203,22 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
 
         $object = new $className();
 
-        $this->expectException(RegularPropertyAsUnevaluatedPropertyException::class);
-        // `branchOwned` is declared only inside the allOf branch, not on the outer schema.
-        // The accumulator would normally credit it to the branch — setting it via the
-        // unevaluated accessor must still throw.
-        $object->unevaluatedProperties()->set('branchOwned', 42);
+        try {
+            // `branchOwned` is declared only inside the allOf branch, not on the outer schema.
+            // The accumulator would normally credit it to the branch — setting it via the
+            // unevaluated accessor must still throw.
+            $object->unevaluatedProperties()->set('branchOwned', 42);
+            $this->fail('Expected RegularPropertyAsUnevaluatedPropertyException');
+        } catch (RegularPropertyAsUnevaluatedPropertyException $exception) {
+            $this->assertSame(
+                "Couldn't add regular property branchOwned as unevaluated property to object {$className}",
+                $exception->getMessage(),
+            );
+            // The composition-branch harvest resolves the pointer to the declaration site
+            // *inside* the allOf branch (index 0), proving the harvest walks branch schemas
+            // rather than just recording the property name.
+            $this->assertSame('/allOf/0/properties/branchOwned', $exception->getJsonPointer()->pointer);
+        }
     }
 
     /**
@@ -502,6 +524,12 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
      * The shim's runtime guard rejects keys matching a local `patternProperties` pattern when
      * the user tries to route them through `unevaluatedProperties()->set()` — they belong to a
      * different contract (the pattern's type schema) and must go through the pattern accessor.
+     *
+     * The fixture's pattern is `^s/~` — deliberately containing both RFC 6901 reserved
+     * characters. When the guard emits the offending pointer, `/` must escape to `~1` and
+     * `~` to `~0`, with `~1` applied first so a raw `/` doesn't collide with the intermediate
+     * `~0`. The pattern's pointer segment therefore becomes `^s~1~0`, giving the assertion
+     * proof that both replacement rules and their ordering fire.
      */
     public function testPatternAndUnevaluatedAccessorsExposeNonOverlappingBuckets(): void
     {
@@ -515,23 +543,35 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             (new GeneratorConfiguration())->setImmutable(false),
         );
 
-        $object = new $className(['name' => 'Alice', 'x_foo' => 'pattern-value', 'count' => 42]);
+        $object = new $className(['name' => 'Alice', 's/~1' => 'pattern-value', 'count' => 42]);
 
         // pattern-matching key landed in _patternProperties, not in _unevaluatedProperties.
         // The pattern accessor's `get()` returns the full key→value map for the pattern.
         $patternAccessor = $object->patternProperties();
-        $this->assertSame(['x_foo' => 'pattern-value'], $patternAccessor->get('^x_'));
+        $this->assertSame(['s/~1' => 'pattern-value'], $patternAccessor->get('^s/~'));
 
         // non-matching key landed in _unevaluatedProperties only.
         $unevaluatedAccessor = $object->unevaluatedProperties();
         $this->assertSame(['count' => 42], $unevaluatedAccessor->getAll());
-        $this->assertNull($unevaluatedAccessor->get('x_foo'));
+        $this->assertNull($unevaluatedAccessor->get('s/~1'));
 
         // Attempting to route a pattern-matching key through the unevaluated accessor is rejected
         // by the shim guard.
-        $this->expectException(RegularPropertyAsUnevaluatedPropertyException::class);
-        $unevaluatedAccessor->set('x_bar', 99);
+        try {
+            $unevaluatedAccessor->set('s/~2', 99);
+            $this->fail('Expected RegularPropertyAsUnevaluatedPropertyException');
+        } catch (RegularPropertyAsUnevaluatedPropertyException $exception) {
+            $this->assertSame(
+                "Couldn't add regular property s/~2 as unevaluated property to object {$className}",
+                $exception->getMessage(),
+            );
+            $this->assertSame(
+                '/patternProperties/^s~1~0',
+                $exception->getJsonPointer()->pointer,
+            );
+        }
     }
+
 
     /**
      * `remove()` walks both the backing _unevaluatedProperties array and the raw model data so

@@ -218,6 +218,9 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 $exception->getMessage(),
             );
             $this->assertSame(['extra'], $exception->getUnevaluatedProperties());
+            // Root-level unevaluatedProperties: false — pointer stamped by the factory identifies
+            // the exact schema keyword that produced the rejection.
+            $this->assertSame('/unevaluatedProperties', $exception->getJsonPointer()->pointer);
         }
 
         // Collect-errors mode — both errors must land in the registry.
@@ -249,6 +252,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 '/^Provided JSON for \S+ contains not allowed unevaluated properties \[extra\]$/',
                 $unevaluatedErrors[0]->getMessage(),
             );
+            $this->assertSame('/unevaluatedProperties', $unevaluatedErrors[0]->getJsonPointer()->pointer);
         }
     }
 
@@ -306,6 +310,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 $exception->getMessage(),
             );
             $this->assertSame(['extra'], $exception->getUnevaluatedProperties());
+            $this->assertSame('/unevaluatedProperties', $exception->getJsonPointer()->pointer);
         }
     }
 
@@ -437,6 +442,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 '/^Provided JSON for \S+ contains invalid unevaluated properties/',
                 $exception->getMessage(),
             );
+            $this->assertSame('/unevaluatedProperties', $exception->getJsonPointer()->pointer);
         }
     }
 

@@ -113,6 +113,13 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
                 $exception->getUnevaluatedItems(),
                 'getUnevaluatedItems() must report the same indices the message lists',
             );
+            // `tags` is the array property at /properties/tags; its unevaluatedItems keyword
+            // sits at /properties/tags/unevaluatedItems, which is the pointer stamped by the
+            // factory when the false-form validator is constructed.
+            $this->assertSame(
+                '/properties/tags/unevaluatedItems',
+                $exception->getJsonPointer()->pointer,
+            );
         }
     }
 
@@ -149,6 +156,10 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
                     * Invalid type for unevaluated item. Requires string, got boolean
                 MSG,
                 $exception->getMessage(),
+            );
+            $this->assertSame(
+                '/properties/tags/unevaluatedItems',
+                $exception->getJsonPointer()->pointer,
             );
 
             $invalidItems = $exception->getInvalidItems();
@@ -304,6 +315,10 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
                 $exception->getMessage(),
             );
             $this->assertSame([2], $exception->getUnevaluatedItems());
+            $this->assertSame(
+                '/properties/tags/unevaluatedItems',
+                $exception->getJsonPointer()->pointer,
+            );
         }
     }
 

@@ -48,8 +48,6 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
         $this->conditionBranches = $conditionBranches;
         $this->thenBranch = $validatorVariables['thenProperty'] ?? null;
         $this->elseBranch = $validatorVariables['elseProperty'] ?? null;
-
-        $this->templateValues['compositionValidator'] = $this;
     }
 
     /**
@@ -98,6 +96,10 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getCheck(): string
     {
+        // Late-bind `compositionValidator` so template guards see the flags set on the current
+        // clone rather than on the pre-`withJsonPointer()` original.
+        $this->templateValues['compositionValidator'] = $this;
+
         $this->setupBranchDefaultHelpers();
 
         $thenProperty = $this->templateValues['thenProperty'] ?? null;

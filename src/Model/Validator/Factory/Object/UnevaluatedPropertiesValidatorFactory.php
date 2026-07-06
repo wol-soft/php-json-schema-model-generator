@@ -63,16 +63,20 @@ class UnevaluatedPropertiesValidatorFactory extends AbstractValidatorFactory
             return;
         }
 
+        $unevaluatedPointer = $propertySchema->getPointer() . '/' . $this->key;
+
         if ($unevaluatedProperties === false) {
             $schema->addPostCompositionValidator(
-                new NoUnevaluatedPropertiesValidator($schema, $propertySchema),
+                (new NoUnevaluatedPropertiesValidator($schema, $propertySchema))
+                    ->withJsonPointer($unevaluatedPointer),
             );
 
             return;
         }
 
         $schema->addPostCompositionValidator(
-            new UnevaluatedPropertiesValidator($schemaProcessor, $schema, $propertySchema),
+            (new UnevaluatedPropertiesValidator($schemaProcessor, $schema, $propertySchema))
+                ->withJsonPointer($unevaluatedPointer),
         );
     }
 }

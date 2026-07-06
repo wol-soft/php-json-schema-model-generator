@@ -204,6 +204,24 @@ if ({$validator->getCheck()}) {
         );
     }
 
+    /**
+     * Returns a PHP array literal keyed by each raw pattern wrapped for direct `preg_match`
+     * use. Distinct from varExportPcrePatterns because the caller needs the values (not the
+     * numeric indices) so a per-pattern piece of metadata such as a JSON pointer can be looked
+     * up at runtime by the matched pattern.
+     *
+     * @param array<string, mixed> $rawPatternMap Keyed by raw regex; value is preserved verbatim.
+     */
+    public static function varExportPcrePatternMap(array $rawPatternMap): string
+    {
+        $keyed = [];
+        foreach ($rawPatternMap as $rawPattern => $value) {
+            $keyed['/' . addcslashes((string) $rawPattern, '/') . '/'] = $value;
+        }
+
+        return var_export($keyed, true);
+    }
+
     public static function filterClassImports(array $imports, string $namespace): array
     {
         // filter out non-compound uses and uses which link to the current namespace

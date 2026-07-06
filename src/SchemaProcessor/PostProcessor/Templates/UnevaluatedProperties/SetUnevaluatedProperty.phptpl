@@ -8,14 +8,19 @@ private function _setUnevaluatedProperty(
 ): void {
     {% if hasObjectProperties %}
         if (in_array($key, {{ objectProperties }})) {
-            throw new RegularPropertyAsUnevaluatedPropertyException($value, $key, self::class);
+            throw new RegularPropertyAsUnevaluatedPropertyException(
+                $value,
+                $key,
+                {{ objectPropertyPointers }}[$key] ?? '',
+                self::class,
+            );
         }
     {% endif %}
 
     {% if hasPatternProperties %}
-        foreach ({{ patternProperties }} as $pattern) {
-            if (preg_match($pattern, $key)) {
-                throw new RegularPropertyAsUnevaluatedPropertyException($value, $key, self::class);
+        foreach ({{ patternProperties }} as $regex => $pointer) {
+            if (preg_match($regex, $key)) {
+                throw new RegularPropertyAsUnevaluatedPropertyException($value, $key, $pointer, self::class);
             }
         }
     {% endif %}

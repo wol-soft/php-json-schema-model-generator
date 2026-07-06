@@ -6,7 +6,7 @@
     }
   },
   "patternProperties": {
-    "^x_": {
+    "^s/~": {
       "type": "string"
     }
   },
