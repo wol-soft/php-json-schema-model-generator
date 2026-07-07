@@ -100,7 +100,7 @@ output is available for analysis without re-running. Use `--display-warnings` to
 details and `--no-coverage` to skip slow coverage collection:
 
 ```bash
-php -d memory_limit=128M ./vendor/bin/phpunit --no-coverage --display-warnings 2>&1 | sed 's/\x1b\[[0-9;]*m//g' > /tmp/phpunit-output.txt; tail -5 /tmp/phpunit-output.txt
+php -d memory_limit=256M ./vendor/bin/phpunit --no-coverage --display-warnings 2>&1 | sed 's/\x1b\[[0-9;]*m//g' > /tmp/phpunit-output.txt; tail -5 /tmp/phpunit-output.txt
 ```
 
 Then analyse with: `grep -E "FAIL|ERROR|WARN|Tests:" /tmp/phpunit-output.txt`

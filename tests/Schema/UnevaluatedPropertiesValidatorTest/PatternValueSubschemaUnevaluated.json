@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "patternProperties": {
+    "^p_": {
+      "type": "object",
+      "properties": {
+        "known": {
+          "type": "string"
+        }
+      },
+      "unevaluatedProperties": false
+    }
+  }
+}

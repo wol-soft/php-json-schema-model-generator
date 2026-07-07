@@ -6,6 +6,8 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
+use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
+use PHPModelGenerator\Exception\Object\InvalidPatternPropertiesException;
 use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\Object\InvalidUnevaluatedPropertiesException;
 use PHPModelGenerator\Exception\Object\NestedObjectException;
@@ -216,8 +218,8 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             new $directClassName(['extra' => 'value']);
             $this->fail('Expected the unevaluated check to surface in direct-exception mode');
         } catch (UnevaluatedPropertiesException $exception) {
-            $this->assertMatchesRegularExpression(
-                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[extra\]$/',
+            $this->assertSame(
+                "Provided JSON for {$directClassName} contains not allowed unevaluated properties [extra]",
                 $exception->getMessage(),
             );
             $this->assertSame(['extra'], $exception->getUnevaluatedProperties());
@@ -251,8 +253,8 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             $this->assertSame('Missing required value for name', $requiredErrors[0]->getMessage());
 
             $this->assertCount(1, $unevaluatedErrors, 'expected one UnevaluatedPropertiesException');
-            $this->assertMatchesRegularExpression(
-                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[extra\]$/',
+            $this->assertSame(
+                "Provided JSON for {$collectClassName} contains not allowed unevaluated properties [extra]",
                 $unevaluatedErrors[0]->getMessage(),
             );
             $this->assertSame('/unevaluatedProperties', $unevaluatedErrors[0]->getJsonPointer()->pointer);
@@ -308,8 +310,8 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             new $className(['name' => 'Alice', 'extra' => 'value']);
             $this->fail('Empty allOf must not rescue extras from unevaluatedProperties: false');
         } catch (UnevaluatedPropertiesException $exception) {
-            $this->assertMatchesRegularExpression(
-                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[extra\]$/',
+            $this->assertSame(
+                "Provided JSON for {$className} contains not allowed unevaluated properties [extra]",
                 $exception->getMessage(),
             );
             $this->assertSame(['extra'], $exception->getUnevaluatedProperties());
@@ -345,14 +347,9 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         $accepted = new $className(['foo' => 'hi', 'bar' => 5]);
         $this->assertSame(['foo' => 'hi', 'bar' => 5], $accepted->meta()->rawInput());
 
-        // The branch is rendered as a nested class alongside the outer. Locate it by
-        // pattern-matching the file list so the assertion below can spell the full message.
-        $generationDir = dirname((new \ReflectionClass($className))->getFileName());
-        $nestedFiles = array_values(array_filter(
-            glob($generationDir . DIRECTORY_SEPARATOR . '*.php'),
-            static fn(string $path): bool => str_contains(basename($path), $className . '_'),
-        ));
-        $nestedClassName = str_replace('.php', '', basename($nestedFiles[0]));
+        // The branch is rendered as a nested class alongside the outer; its uniqid-suffixed
+        // name is resolved so the assertion below can spell the full message.
+        $nestedClassName = $this->resolveNestedClassName($className);
 
         try {
             new $className(['foo' => 'hi', 'bar' => 'not-int']);
@@ -413,8 +410,8 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 . 'outer unevaluated check fires',
             );
         } catch (UnevaluatedPropertiesException $exception) {
-            $this->assertMatchesRegularExpression(
-                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[extra\]$/',
+            $this->assertSame(
+                "Provided JSON for {$className} contains not allowed unevaluated properties [extra]",
                 $exception->getMessage(),
             );
             $this->assertSame(['extra'], $exception->getUnevaluatedProperties());
@@ -441,8 +438,12 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             new $className(['name' => 'Alice', 'count' => 'not-int']);
             $this->fail('$ref-resolved unevaluatedProperties schema must reject non-integer extra');
         } catch (InvalidUnevaluatedPropertiesException $exception) {
-            $this->assertMatchesRegularExpression(
-                '/^Provided JSON for \S+ contains invalid unevaluated properties/',
+            $this->assertSame(
+                <<<MSG
+                Provided JSON for {$className} contains invalid unevaluated properties.
+                  - invalid unevaluated property 'count'
+                    * Invalid type for unevaluated property. Requires int, got string
+                MSG,
                 $exception->getMessage(),
             );
             $this->assertSame('/unevaluatedProperties', $exception->getJsonPointer()->pointer);
@@ -472,8 +473,8 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             new $className(['name' => 'Alice', 'stray' => 1]);
             $this->fail('An undeclared key must be rejected by unevaluatedProperties: false');
         } catch (UnevaluatedPropertiesException $exception) {
-            $this->assertMatchesRegularExpression(
-                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[stray\]$/',
+            $this->assertSame(
+                "Provided JSON for {$className} contains not allowed unevaluated properties [stray]",
                 $exception->getMessage(),
             );
             $this->assertSame(['stray'], $exception->getUnevaluatedProperties());
@@ -521,12 +522,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         // The recursive Node class is generated once and shared by both `root` and `child`
         // (SchemaDefinitionDictionary caches by pointer). Resolve its class name for the
         // exception-message assertions below.
-        $generationDir = dirname((new \ReflectionClass($className))->getFileName());
-        $nestedFiles = array_values(array_filter(
-            glob($generationDir . DIRECTORY_SEPARATOR . '*.php'),
-            static fn(string $path): bool => str_contains(basename($path), $className . '_'),
-        ));
-        $nodeClassName = str_replace('.php', '', basename($nestedFiles[0]));
+        $nodeClassName = $this->resolveNestedClassName($className);
 
         try {
             new $className([
@@ -584,6 +580,77 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 $exception->getMessage(),
             );
         }
+    }
+
+    /**
+     * When `unevaluatedProperties` appears inside a `patternProperties` value-subschema, the
+     * inner subschema activates its own tracking during its own generated class's
+     * post-processing pass — the parent's activation walk does not need to recurse into
+     * pattern-value subschemas. `RenderQueue::execute()` runs
+     * `UnevaluatedPropertiesPostProcessor::process()` on every schema separately, and the
+     * inner class's `needsActivation()` returns true on the very first check because the
+     * inner JSON directly declares `unevaluatedProperties`.
+     *
+     *   - `{p_alpha: {known: "hi"}}` accepts — the nested class's declared property covers
+     *     the sole key.
+     *   - `{p_alpha: {known: "hi", stray: 1}}` rejects — the nested class enforces its own
+     *     `unevaluatedProperties: false`, surfacing at the parent as
+     *     `InvalidPatternPropertiesException` wrapping the inner
+     *     `UnevaluatedPropertiesException`.
+     */
+    public function testPatternPropertiesValueSubschemaEnforcesOwnUnevaluatedProperties(): void
+    {
+        $className = $this->generateClassFromFile('PatternValueSubschemaUnevaluated.json');
+
+        $accepted = new $className(['p_alpha' => ['known' => 'hi']]);
+        $this->assertSame(['p_alpha' => ['known' => 'hi']], $accepted->meta()->rawInput());
+
+        $nestedClassName = $this->resolveNestedClassName($className);
+
+        $this->expectException(InvalidPatternPropertiesException::class);
+        $this->expectExceptionMessage(
+            <<<MSG
+            Provided JSON for {$className} contains invalid pattern properties.
+              - invalid property 'p_alpha' matching pattern '^p_'
+                * Provided JSON for {$nestedClassName} contains not allowed unevaluated properties [stray]
+            MSG,
+        );
+        new $className(['p_alpha' => ['known' => 'hi', 'stray' => 1]]);
+    }
+
+    /**
+     * When `unevaluatedProperties` appears inside an `additionalProperties` value-subschema,
+     * the inner subschema activates its own tracking during its own generated class's
+     * post-processing pass — mirroring the pattern-value case above. The parent has no
+     * `unevaluatedProperties` of its own; only the inner subschema does, and the inner class
+     * self-activates because its own JSON declares the keyword.
+     *
+     *   - `{id: 1, dyn: {known: "hi"}}` accepts.
+     *   - `{id: 1, dyn: {known: "hi", stray: 1}}` rejects — the nested class throws
+     *     `UnevaluatedPropertiesException`, surfacing at the parent as
+     *     `InvalidAdditionalPropertiesException`.
+     */
+    public function testAdditionalPropertiesValueSubschemaEnforcesOwnUnevaluatedProperties(): void
+    {
+        $className = $this->generateClassFromFile('AdditionalValueSubschemaUnevaluated.json');
+
+        $accepted = new $className(['id' => 1, 'dyn' => ['known' => 'hi']]);
+        $this->assertSame(
+            ['id' => 1, 'dyn' => ['known' => 'hi']],
+            $accepted->meta()->rawInput(),
+        );
+
+        $nestedClassName = $this->resolveNestedClassName($className);
+
+        $this->expectException(InvalidAdditionalPropertiesException::class);
+        $this->expectExceptionMessage(
+            <<<MSG
+            Provided JSON for {$className} contains invalid additional properties.
+              - invalid additional property 'dyn'
+                * Provided JSON for {$nestedClassName} contains not allowed unevaluated properties [stray]
+            MSG,
+        );
+        new $className(['id' => 1, 'dyn' => ['known' => 'hi', 'stray' => 1]]);
     }
 
     /**

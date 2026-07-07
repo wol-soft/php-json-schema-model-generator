@@ -559,6 +559,41 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         return $this->generatedFiles;
     }
 
+    /**
+     * Resolves the names of classes the generator emitted alongside a parent class — i.e.
+     * files whose basename starts with the parent class name followed by an underscore. This
+     * is the naming pattern the generator applies to nested schemas produced by properties,
+     * composition branches, and `patternProperties` / `additionalProperties` value-subschemas.
+     * The expected count is asserted so a change in the generator's naming scheme surfaces as
+     * a clear failure rather than a downstream regex mismatch.
+     *
+     * Returns a plain string when exactly one nested class is expected (the ergonomic common
+     * case for exception-message assertions); returns a list of names otherwise.
+     *
+     * @return string|string[]
+     */
+    protected function resolveNestedClassName(string $parentClassName, int $expectedCount = 1): string | array
+    {
+        $prefix = $parentClassName . '_';
+        $nestedFiles = array_values(array_filter(
+            $this->generatedFiles,
+            static fn(string $path): bool => str_starts_with(basename($path), $prefix),
+        ));
+
+        $this->assertCount(
+            $expectedCount,
+            $nestedFiles,
+            sprintf('expected %d nested class file(s) for %s', $expectedCount, $parentClassName),
+        );
+
+        $classNames = array_map(
+            static fn(string $path): string => str_replace('.php', '', basename($path)),
+            $nestedFiles,
+        );
+
+        return $expectedCount === 1 ? $classNames[0] : $classNames;
+    }
+
     protected function getSchemaFilePath(string $file): string
     {
         return __DIR__ . '/Schema/' . $this->getStaticClassName() . '/' . $file;

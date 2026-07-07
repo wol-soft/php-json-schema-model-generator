@@ -441,8 +441,8 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             new $className(['name' => 'Alice', 'foo' => 'orphan']);
             $this->fail('Expected construction to reject the orphan key');
         } catch (UnevaluatedPropertiesException $constructorException) {
-            $this->assertMatchesRegularExpression(
-                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[foo\]$/',
+            $this->assertSame(
+                "Provided JSON for {$className} contains not allowed unevaluated properties [foo]",
                 $constructorException->getMessage(),
             );
             $this->assertSame(['foo'], $constructorException->getUnevaluatedProperties());
@@ -460,8 +460,8 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             $additionalAccessor->set('foo', 'orphan');
             $this->fail('Expected unevaluatedProperties: false to reject the orphan key');
         } catch (UnevaluatedPropertiesException $setterException) {
-            $this->assertMatchesRegularExpression(
-                '/^Provided JSON for \S+ contains not allowed unevaluated properties \[foo\]$/',
+            $this->assertSame(
+                "Provided JSON for {$className} contains not allowed unevaluated properties [foo]",
                 $setterException->getMessage(),
             );
             $this->assertSame(['foo'], $setterException->getUnevaluatedProperties());
