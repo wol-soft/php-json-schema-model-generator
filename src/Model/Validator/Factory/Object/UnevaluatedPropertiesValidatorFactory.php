@@ -45,18 +45,24 @@ class UnevaluatedPropertiesValidatorFactory extends AbstractValidatorFactory
             );
         }
 
-        // When the same schema declares a non-false `additionalProperties`, every key not
-        // claimed by `properties`/`patternProperties` is already evaluated by it. Composition
-        // contributions cannot retract that — `additionalProperties` only succeeds when every
-        // matched key passes — so the unevaluated set is guaranteed empty and the validator
-        // would be a no-op. Skip emission entirely and warn the developer that the keyword
-        // is dead code at this schema level.
-        if (isset($json['additionalProperties']) && $json['additionalProperties'] !== false) {
+        // A sibling `additionalProperties` (or the effective `false` produced by the
+        // `denyAdditionalProperties()` generator flag) short-circuits the unevaluated bucket:
+        //   - `true`      — every extra flows to the model unchecked, but the accumulator does
+        //                    not credit those keys, so unevaluatedProperties would still fire.
+        //                    Emitting it defeats the intent of `additionalProperties: true`
+        //                    (accept every extra), so we suppress and warn.
+        //   - `{schema}`  — every extra is claimed by additionalProperties, leaving the
+        //                    unevaluated set permanently empty.
+        //   - `false`     — every extra is rejected by additionalProperties before the
+        //                    post-composition phase, so the unevaluated validator never sees
+        //                    any keys.
+        $deadCodeReason = $this->deadCodeReason($schemaProcessor, $json);
+        if ($deadCodeReason !== null) {
             if ($schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
                 echo sprintf(
-                    "Warning: unevaluatedProperties on %s is dead code — sibling additionalProperties"
-                        . " already claims every extra key\n",
+                    "Warning: unevaluatedProperties on %s is dead code — %s\n",
                     $schema->getClassName(),
+                    $deadCodeReason,
                 );
             }
 
@@ -78,5 +84,36 @@ class UnevaluatedPropertiesValidatorFactory extends AbstractValidatorFactory
             (new UnevaluatedPropertiesValidator($schemaProcessor, $schema, $propertySchema))
                 ->withJsonPointer($unevaluatedPointer),
         );
+    }
+
+    /**
+     * Returns the human-readable reason unevaluatedProperties is dead code, or null when the
+     * validator must still be emitted. Consolidates the four sibling shapes that leave the
+     * unevaluated bucket permanently empty at this schema level.
+     */
+    private function deadCodeReason(SchemaProcessor $schemaProcessor, array $json): ?string
+    {
+        if (array_key_exists('additionalProperties', $json)) {
+            $additionalProperties = $json['additionalProperties'];
+
+            if ($additionalProperties === true) {
+                return 'sibling additionalProperties: true accepts every extra without crediting'
+                    . ' the unevaluated accumulator';
+            }
+
+            if ($additionalProperties === false) {
+                return 'sibling additionalProperties: false rejects every extra before the'
+                    . ' unevaluated phase runs';
+            }
+
+            return 'sibling additionalProperties: {schema} already validates every extra key';
+        }
+
+        if ($schemaProcessor->getGeneratorConfiguration()->denyAdditionalProperties()) {
+            return 'denyAdditionalProperties() flips missing additionalProperties to false,'
+                . ' rejecting every extra before the unevaluated phase runs';
+        }
+
+        return null;
     }
 }

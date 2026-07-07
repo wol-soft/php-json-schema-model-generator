@@ -198,6 +198,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     public function testUniqueItemsExceptionIdentityIsPreserved(): void
     {
         $this->expectException(UniqueItemsException::class);
+        $this->expectExceptionMessage('Items of array tags are not unique');
 
         $className = $this->generateClassFromFile('UnevaluatedFalseWithUniqueItems.json');
         new $className(['tags' => ['dup', 'dup']]);
@@ -577,6 +578,78 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
                 MSG,
                 $exception->getMessage(),
             );
+        }
+    }
+
+    /**
+     * `contains` with `minContains: 0` credits every index whose value matched the contains
+     * schema — even when zero matches would still satisfy the branch. The evaluated set is
+     * driven by which indices matched, not by the count. Non-matching indices remain
+     * unevaluated and the outer `unevaluatedItems: false` rejects them.
+     *
+     * Two assertions on the same generated class:
+     *   - `[]` accepts because no indices exist to be evaluated; contains-empty is legal
+     *     under minContains: 0 and the branch succeeds.
+     *   - `[1, 'a', 2, 'b', 3]` — indices 0, 2, 4 match the integer contains schema; indices
+     *     1, 3 are non-matching and surface as unevaluated.
+     */
+    public function testContainsWithMinContainsZeroCreditsMatchedIndicesOnly(): void
+    {
+        $className = $this->generateClassFromFile('ContainsMinContainsZeroBranch.json');
+
+        // Empty array: contains matches zero indices but minContains: 0 keeps the branch
+        // successful. Nothing is unevaluated because there are no indices to evaluate.
+        $accepted = new $className(['tags' => []]);
+        $this->assertSame([], $accepted->getTags());
+
+        // Mixed array: only integer indices are credited; string indices fall through to
+        // unevaluatedItems: false and are reported in declaration order.
+        try {
+            new $className(['tags' => [1, 'a', 2, 'b', 3]]);
+            $this->fail('Expected UnevaluatedItemsException for the two non-matching indices');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                'Provided JSON for tags contains not allowed unevaluated items [#1, #3]',
+                $exception->getMessage(),
+            );
+            $this->assertSame([1, 3], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * `oneOf` with two branches of different tuple lengths: the branch that succeeds
+     * determines how many indices are evaluated. Only one branch may succeed at a time
+     * because otherwise `oneOf` fails as a whole. The outer `unevaluatedItems: false` then
+     * inspects the surviving branch's evaluated indices and rejects any tail past that
+     * length.
+     *
+     * Three assertions on the same generated class:
+     *   - `['a', 'b']` matches only branch 0 (strings, tuple length 2); no tail indices,
+     *     accepted.
+     *   - `[1, 2, 3]` matches only branch 1 (integers, tuple length 3); no tail indices,
+     *     accepted.
+     *   - `[1, 2, 3, 4]` — branch 1 succeeds and covers indices 0-2, but index 3 is not
+     *     covered by any successful branch. `unevaluatedItems: false` rejects.
+     */
+    public function testOneOfBranchesOfDifferentTupleLengthsControlEvaluatedSet(): void
+    {
+        $className = $this->generateClassFromFile('OneOfDifferentTupleLengths.json');
+
+        $acceptedStrings = new $className(['tags' => ['a', 'b']]);
+        $this->assertSame(['a', 'b'], $acceptedStrings->getTags());
+
+        $acceptedIntegers = new $className(['tags' => [1, 2, 3]]);
+        $this->assertSame([1, 2, 3], $acceptedIntegers->getTags());
+
+        try {
+            new $className(['tags' => [1, 2, 3, 4]]);
+            $this->fail('Expected UnevaluatedItemsException for index 3 past widest surviving tuple');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                'Provided JSON for tags contains not allowed unevaluated items [#3]',
+                $exception->getMessage(),
+            );
+            $this->assertSame([3], $exception->getUnevaluatedItems());
         }
     }
 }

@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
+use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\Object\InvalidUnevaluatedPropertiesException;
 use PHPModelGenerator\Exception\Object\NestedObjectException;
 use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
@@ -610,5 +613,229 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             . 'accumulator sees the branch. The fix belongs to the composition processor '
             . '(same pre-existing bug that blocks the array-side self-referencing test).',
         );
+    }
+
+    /**
+     * Sibling `additionalProperties` (or the effective `false` produced by the
+     * `denyAdditionalProperties()` config flag) short-circuits the unevaluated bucket. Each row
+     * pins the exact factory warning so a message drift in the factory surfaces here rather than
+     * as a silent behaviour change to consumers who grep build output for these hints.
+     *
+     * @return array<string, array{0: string, 1: string, 2: GeneratorConfiguration}>
+     */
+    public static function deadCodeProvider(): array
+    {
+        $baseConfig = static fn(): GeneratorConfiguration =>
+            (new GeneratorConfiguration())->setOutputEnabled(true);
+
+        return [
+            // additionalProperties: true accepts every extra unchecked; without a matching
+            // annotation contribution the unevaluated accumulator would still reject them,
+            // which would defeat the intent of `additionalProperties: true`.
+            'additionalProperties: true suppresses unevaluated' => [
+                'AdditionalTrueDeadCode.json',
+                'sibling additionalProperties: true accepts every extra without crediting the unevaluated accumulator',
+                $baseConfig(),
+            ],
+            // additionalProperties: {schema} validates and claims every extra; unevaluated has
+            // nothing left to reach.
+            'additionalProperties: {schema} claims every extra' => [
+                'AdditionalSchemaDeadCode.json',
+                'sibling additionalProperties: {schema} already validates every extra key',
+                $baseConfig(),
+            ],
+            // additionalProperties: false rejects every extra at the base-validator phase,
+            // long before the post-composition unevaluated validator would run.
+            'additionalProperties: false rejects every extra first' => [
+                'AdditionalFalseDeadCode.json',
+                'sibling additionalProperties: false rejects every extra before the unevaluated phase runs',
+                $baseConfig(),
+            ],
+            // Same as the previous row but with the schema form of unevaluatedProperties.
+            'additionalProperties: false leaves unevaluated {schema} unreachable' => [
+                'AdditionalFalseWithUnevaluatedSchema.json',
+                'sibling additionalProperties: false rejects every extra before the unevaluated phase runs',
+                $baseConfig(),
+            ],
+            // denyAdditionalProperties() flips a missing additionalProperties to false at
+            // configuration time — the same dead-cell shape as the explicit false row but
+            // reached through the generator config instead of the JSON schema.
+            'denyAdditionalProperties() flag mimics false and warns' => [
+                'DenyAdditionalDeadCode.json',
+                'denyAdditionalProperties() flips missing additionalProperties to false,'
+                    . ' rejecting every extra before the unevaluated phase runs',
+                $baseConfig()->setDenyAdditionalProperties(true),
+            ],
+        ];
+    }
+
+    /**
+     * Each dead-cell shape emits the factory warning under the `echo` channel and skips
+     * emitting the unevaluated validator. Where an assertion on the resulting class is
+     * meaningful (extras still land where their governing keyword expects them), the test
+     * exercises the runtime path after checking the warning text.
+     */
+    #[DataProvider('deadCodeProvider')]
+    public function testDeadCellShapesEmitWarningAndSkipValidator(
+        string $schemaFile,
+        string $reasonFragment,
+        GeneratorConfiguration $config,
+    ): void {
+        $this->expectOutputRegex(
+            '/Warning: unevaluatedProperties on \S+ is dead code — ' . preg_quote($reasonFragment, '/') . '/',
+        );
+
+        $className = $this->generateClassFromFile($schemaFile, $config);
+
+        // Constructing with just the declared property must always succeed — the suppressed
+        // unevaluated validator can never contribute a false negative here.
+        $instance = new $className(['name' => 'Alice']);
+        $this->assertSame(['name' => 'Alice'], $instance->meta()->rawInput());
+    }
+
+    /**
+     * `additionalProperties: false` combined with `unevaluatedProperties: {schema}` (or `false`)
+     * must reject extras with `AdditionalPropertiesException`, never `UnevaluatedPropertiesException`,
+     * because the unevaluated validator is not emitted. Extra property `count: 42` would satisfy
+     * the unevaluated integer schema, so if the unevaluated validator were still running the
+     * construction would succeed. The rejection therefore proves the factory suppressed the
+     * validator as intended.
+     */
+    public function testAdditionalFalseRejectsExtrasEvenWhenUnevaluatedSchemaWouldAccept(): void
+    {
+        $className = $this->generateClassFromFile('AdditionalFalseWithUnevaluatedSchema.json');
+
+        $this->expectException(AdditionalPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for {$className} contains not allowed additional properties [count]",
+        );
+
+        new $className(['name' => 'Alice', 'count' => 42]);
+    }
+
+    /**
+     * `unevaluatedProperties: {schema}` whose inner schema is contradictory (allOf of two
+     * incompatible non-null types) must surface the same `SchemaException` the rest of the
+     * codebase throws for contradictory allOf types. The contradictory-type detection is
+     * shared machinery; this test only pins that the SchemaException identity survives when
+     * the offending subschema is nested under `unevaluatedProperties`.
+     */
+    public function testContradictoryInnerSchemaThrowsSchemaExceptionPointingAtFile(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Property 'unevaluated property' is defined with conflicting types in allOf"
+                . ' composition branches \\(file \\S+\\)\\. allOf requires all constraints to'
+                . ' hold simultaneously, making this schema unsatisfiable\\.$/',
+        );
+
+        $this->generateClassFromFile('ContradictoryUnevaluatedSchema.json');
+    }
+
+    /**
+     * `propertyNames` and `unevaluatedProperties` are orthogonal but propertyNames runs first
+     * because it is a base-phase validator whereas unevaluatedProperties is a post-composition
+     * validator. A key that violates the propertyNames regex must surface
+     * `InvalidPropertyNamesException` in direct-exception mode — even if the offending key's
+     * value would also fail the unevaluated schema, unevaluated never runs. Under error
+     * collection both fires do land in the registry because the base phase does not abort;
+     * assert both classes are present and the combined message pins the ordering.
+     *
+     * @return array<string, array{0: GeneratorConfiguration, 1: string, 2: string}>
+     *   [config, expected exception class, expected message with %s placeholder for class name]
+     */
+    public static function propertyNamesRejectionProvider(): array
+    {
+        return [
+            // Direct-exception mode: propertyNames throws first and the constructor never
+            // reaches the post-composition phase where unevaluated lives. The
+            // InvalidPropertyNamesException wraps the inner PatternException. The inner one
+            // names 'property name' (the sub-property name the propertyNames validator
+            // assigns) rather than the offending key; the outer names the offending key
+            // ('FOO') on its enclosing line.
+            'direct exception surfaces propertyNames only' => [
+                (new GeneratorConfiguration())->setCollectErrors(false),
+                InvalidPropertyNamesException::class,
+                <<<'MSG'
+                Provided JSON for {className} contains properties with invalid names.
+                  - invalid property 'FOO'
+                    * Value for property name doesn't match pattern ^[a-z]+$
+                MSG,
+            ],
+            // Error-collection mode: ErrorRegistryException joins each collected error with a
+            // single "\n" (no blank line). The propertyNames block lands first (base phase);
+            // the unevaluated-schema block lands second (post-composition phase). The value
+            // 'bar' fails the unevaluated schema's `type: integer` check, so the inner
+            // InvalidUnevaluatedPropertiesException reports the type mismatch — not the
+            // false-form "not allowed unevaluated properties" phrasing.
+            'collected errors capture both failures in phase order' => [
+                (new GeneratorConfiguration())->setCollectErrors(true),
+                ErrorRegistryException::class,
+                <<<'MSG'
+                Provided JSON for {className} contains properties with invalid names.
+                  - invalid property 'FOO'
+                    * Value for property name doesn't match pattern ^[a-z]+$
+                Provided JSON for {className} contains invalid unevaluated properties.
+                  - invalid unevaluated property 'FOO'
+                    * Invalid type for unevaluated property. Requires int, got string
+                MSG,
+            ],
+        ];
+    }
+
+    #[DataProvider('propertyNamesRejectionProvider')]
+    public function testPropertyNamesRejectionPrecedesUnevaluated(
+        GeneratorConfiguration $config,
+        string $expectedExceptionClass,
+        string $expectedMessageTemplate,
+    ): void {
+        $className = $this->generateClassFromFile('PropertyNamesFailsFirst.json', $config);
+
+        $this->expectException($expectedExceptionClass);
+        $this->expectExceptionMessage(str_replace('{className}', $className, $expectedMessageTemplate));
+
+        new $className(['FOO' => 'bar']);
+    }
+
+    /**
+     * `dependentSchemas` is a Draft 2019-09 applicator whose dependent subschemas contribute
+     * annotations to the unevaluated accumulator: when the trigger key is present on the
+     * instance and the dependent subschema validates, its `properties`/`patternProperties`/
+     * `additionalProperties` claims flow into the enclosing accumulator. The fixture
+     * declares `dependentSchemas: {kind: {properties: {extra: {type: integer}}}}` alongside
+     * `unevaluatedProperties: false`.
+     *
+     * Two shapes exercise the applicator once implemented:
+     *   1. `{kind, extra}` — `extra` is covered by the dependent subschema's `properties`
+     *      declaration, so the accumulator credits it and construction succeeds.
+     *   2. `{kind, stray}` — `stray` is NOT covered by the dependent subschema, so the
+     *      accumulator does not credit it and `unevaluatedProperties: false` rejects.
+     *
+     * Assertions are written for the post-implementation shape; the test is currently
+     * skipped because dependentSchemas is not yet recognised by the schema processor. When
+     * the applicator lands, removing the markTestSkipped line makes both assertions live.
+     */
+    public function testDependentSchemasContributionCreditsDependentPropertiesToAccumulator(): void
+    {
+        $this->markTestSkipped(
+            'dependentSchemas applicator not yet implemented in the schema processor; the'
+                . ' fixture and assertions describe the intended post-implementation shape.',
+        );
+
+        // @phpstan-ignore-next-line dead code — unreachable until the skip is removed
+        $className = $this->generateClassFromFile('DependentSchemasWithUnevaluated.json');
+
+        // Success path: `extra` is covered by the dependent subschema — accepted.
+        $instance = new $className(['kind' => 'X', 'extra' => 5]);
+        $this->assertSame(['kind' => 'X', 'extra' => 5], $instance->meta()->rawInput());
+
+        // Failure path: `stray` is not covered anywhere — `unevaluatedProperties: false`
+        // rejects. The pin proves that dependentSchemas only credits what its own subschema
+        // actually declares.
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for {$className} contains not allowed unevaluated properties [stray]",
+        );
+        new $className(['kind' => 'X', 'stray' => 5]);
     }
 }

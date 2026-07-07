@@ -494,8 +494,8 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         };
 
         $this->expectOutputRegex(
-            '/Warning: unevaluatedProperties on \S+ is dead code — sibling additionalProperties '
-            . 'already claims every extra key/',
+            '/Warning: unevaluatedProperties on \S+ is dead code — sibling additionalProperties: '
+            . 'true accepts every extra without crediting the unevaluated accumulator/',
         );
 
         $className = $this->generateClassFromFile(

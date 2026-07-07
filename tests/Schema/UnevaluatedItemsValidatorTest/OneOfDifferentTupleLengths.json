@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "oneOf": [
+        {
+          "items": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "items": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  }
+}
