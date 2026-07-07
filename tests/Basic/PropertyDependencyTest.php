@@ -21,7 +21,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-#[ApplicableDrafts]
+#[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
 class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
     #[DataProvider('validPropertyDependencyDataProvider')]
@@ -338,18 +338,17 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Defect proof (§0a, dependent-keywords analysis): a `dependencies` trigger that is declared
-     * neither in `properties` nor `required` is currently silently dropped by
-     * PropertiesValidatorFactory instead of being enforced, because the dependency-attaching code
-     * only runs inside the loop over declared `properties` entries. Restricted to Draft 7 so this
-     * proof is not entangled with the separate §0b Draft-gating defect proven below.
+     * A `dependencies` trigger that is declared neither in `properties` nor `required` was
+     * silently dropped by PropertiesValidatorFactory instead of being enforced, because the
+     * dependency-attaching code only ran inside the loop over declared `properties` entries.
+     * Restricted to Draft 7 to avoid entangling this with the separate Draft-gating defect
+     * proven in testDependencyKeywordIsInertUnderDraft201909.
      *
      * Also asserts that both the trigger and each array-form dependency target are synthesised
      * onto the generated class with mixed type hints when absent from the schema's `properties`
      * block. If a target were already declared in `properties` its declared type would apply
      * instead; this fixture exercises the fully-undeclared case.
      */
-    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
     public function testDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced(): void
     {
         $className = $this->generateClassFromFile('UndeclaredTriggerPropertyDependency.json');
@@ -380,7 +379,6 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
      * as mixed. Covers root-property narrowing (billing_address typed as string) and composition
      * narrowing (name typed as string via allOf). Restricted to Draft 7.
      */
-    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
     public function testArrayFormDependencyTargetsInheritDeclaredTypesWhenAlreadyPresent(): void
     {
         $className = $this->generateClassFromFile('NarrowedTargetPropertyDependency.json');
@@ -413,7 +411,6 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
      * works today (PropertyDependencyValidator is attached because the trigger is found); the
      * defect is the missing getter for the undeclared target. Restricted to Draft 7.
      */
-    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
     public function testArrayFormUndeclaredDependencyTargetIsSynthesisedAsMixed(): void
     {
         $className = $this->generateClassFromFile('DeclaredTriggerUndeclaredTargetPropertyDependency.json');
@@ -438,15 +435,14 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Defect proof (§0b, dependent-keywords analysis): `dependencies` is read directly out of raw
-     * JSON inside PropertiesValidatorFactory, unconditionally regardless of the active Draft.
-     * Draft 2019-09's core vocabulary does not define `dependencies` at all, so it must be
-     * ignored, not enforced. The trigger property here IS normally declared in `properties` (so
-     * §0a does not confound this), and no `unevaluatedProperties` is involved (so §0c does not
-     * confound this either) — this isolates §0b on its own.
+     * `dependencies` was read unconditionally regardless of the active Draft. Draft 2019-09's
+     * core vocabulary does not define `dependencies` at all, so it must be ignored, not enforced.
+     * The trigger property here IS normally declared in `properties` (so the undeclared-trigger
+     * case does not confound this), and no `unevaluatedProperties` is involved — this isolates
+     * the Draft-gating defect on its own.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
-    public function testDependencyKeywordIsInertUnderDraft201909(): void
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testDependencyKeywordIsInertInNewerDrafts(): void
     {
         $className = $this->generateClassFromFile('PropertyDependency.json');
 

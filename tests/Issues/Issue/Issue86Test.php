@@ -9,6 +9,7 @@ use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 #[ApplicableDrafts]
@@ -49,12 +50,25 @@ class Issue86Test extends AbstractIssueTestCase
     {
         return [
             'required property not provided' => [['optional' => 'World'], true, RequiredValueException::class],
-            'optional property null - implicit null disabled' => [['required' => 'Hello', 'optional' => null], false, InvalidTypeException::class],
-            'required property wrong type' => [['required' => 1, 'optional' => 'World'], true, InvalidTypeException::class],
-            'optional property wrong type' => [['required' => 'Hello', 'optional' => 1], true, InvalidTypeException::class],
+            'optional property null - implicit null disabled' => [
+                ['required' => 'Hello', 'optional' => null],
+                false,
+                InvalidTypeException::class,
+            ],
+            'required property wrong type' => [
+                ['required' => 1, 'optional' => 'World'],
+                true,
+                InvalidTypeException::class,
+            ],
+            'optional property wrong type' => [
+                ['required' => 'Hello', 'optional' => 1],
+                true,
+                InvalidTypeException::class,
+            ],
         ];
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
     #[DataProvider('validSchemaDependencyDataProvider')]
     public function testDifferentSchemaDependenciesForReferencedObject(array $input): void
     {
@@ -76,6 +90,7 @@ class Issue86Test extends AbstractIssueTestCase
         ];
     }
 
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
     #[DataProvider('invalidSchemaDependencyDataProvider')]
     public function testDifferentSchemaDependenciesForReferencedObjectWithInvalidInput(array $input): void
     {
@@ -93,8 +108,16 @@ class Issue86Test extends AbstractIssueTestCase
             'Dependency missing property 2'      => [['property2' => 'Hello']],
             'Dependency Property 1 invalid type' => [['property1' => 'Hello', 'property3' => 1]],
             'Dependency Property 2 invalid type' => [['property2' => 'Hello', 'property3' => 'World']],
-            'Both dependencies required 1'       => [['property1' => 'Hello', 'property2' => 'Hello', 'property3' => 'World']],
-            'Both dependencies required 2'       => [['property1' => 'Hello', 'property2' => 'Hello', 'property3' => 1]],
+            'Both dependencies required 1' => [[
+                'property1' => 'Hello',
+                'property2' => 'Hello',
+                'property3' => 'World',
+            ]],
+            'Both dependencies required 2' => [[
+                'property1' => 'Hello',
+                'property2' => 'Hello',
+                'property3' => 1,
+            ]],
         ];
     }
 }

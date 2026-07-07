@@ -32,6 +32,7 @@ use PHPModelGenerator\Model\Validator\Factory\Number\MaximumValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Number\MinimumValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Number\MultipleOfPropertyValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Object\AdditionalPropertiesValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Object\DependenciesValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Object\PropertiesValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Object\MaxPropertiesValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Object\MinPropertiesValidatorFactory;
@@ -57,6 +58,7 @@ class Draft_07 implements DraftInterface
                 ->addValidator('additionalProperties', new AdditionalPropertiesValidatorFactory())
                 ->addValidator('minProperties', new MinPropertiesValidatorFactory())
                 ->addValidator('maxProperties', new MaxPropertiesValidatorFactory())
+                ->addValidator('dependencies', new DependenciesValidatorFactory())
                 ->addModifier(new ObjectModifier()))
             ->addType((new Type('array'))
                 ->addValidator('items', new ItemsValidatorFactory())

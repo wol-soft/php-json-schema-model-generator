@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\Basic;
 use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
@@ -22,7 +23,7 @@ use ReflectionMethod;
  *
  * @package PHPModelGenerator\Tests\Basic
  */
-#[ApplicableDrafts]
+#[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
 class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
     #[DataProvider('validSchemaDependencyDataProvider')]
@@ -422,16 +423,15 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Defect proof (§0a, dependent-keywords analysis): a `dependencies` trigger that is declared
-     * neither in `properties` nor `required` is currently silently dropped instead of being
-     * enforced — the schema-form variant of testDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced
-     * in PropertyDependencyTest. Restricted to Draft 7 to avoid entangling this with §0b.
+     * A `dependencies` trigger that is declared neither in `properties` nor `required` was
+     * silently dropped instead of being enforced — the schema-form variant of
+     * testDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced in PropertyDependencyTest.
+     * Restricted to Draft 7 to avoid entangling this with the separate Draft-gating defect.
      *
      * Also asserts that the trigger property and the properties declared inside the dependency
      * subschema are both synthesised onto the generated class and accessible via their accessors,
      * even though neither appears in the schema's top-level `properties` block.
      */
-    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
     public function testSchemaDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced(): void
     {
         $className = $this->generateClassFromFile('UndeclaredTriggerSchemaDependency.json');
@@ -546,7 +546,6 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
      * being introduced anew. Covers root-property merging (billing_address) and composition
      * merging (name via allOf). Restricted to Draft 7.
      */
-    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
     public function testSchemaDependencySubschemaPropertiesMergeWithPreExistingDeclarations(): void
     {
         $className = $this->generateClassFromFile('NarrowedTargetSchemaDependency.json');
@@ -573,14 +572,29 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Defect proof (§0c, dependent-keywords analysis): under Draft 2019-09, the legacy
-     * schema-form `dependencies` must be inert — it is not part of the 2019-09 vocabulary — so
-     * omitting the dependency's required property must NOT be rejected. Today it incorrectly is,
-     * because `dependencies` still fires regardless of the active Draft (§0b), and once it fires
-     * the resulting `billing_address` requirement is enforced even though `unevaluatedProperties`
-     * (the keyword that's actually meant to be active here) never sees it.
+     * When a dep-subschema declares a property whose type contradicts the type already declared
+     * for that property in the root schema, generation must fail with SchemaException. The
+     * contradiction is unsatisfiable: the root schema constrains billing_address to integer while
+     * the dependency subschema for credit_card constrains it to string. Restricted to Draft 7.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testSchemaDependencyConflictingPropertyTypeThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $conflictPattern = "/^Property 'billing_address' is defined with conflicting types"
+            . " between the dependency schema for 'credit_card' and the base schema in file /";
+        $this->expectExceptionMessageMatches($conflictPattern);
+
+        $this->generateClassFromFile('ConflictingSchemaDependency.json');
+    }
+
+    /**
+     * Under Draft 2019-09, the legacy schema-form `dependencies` must be inert — it is not part
+     * of the 2019-09 vocabulary — so omitting the dependency's required property must NOT be
+     * rejected. It was incorrectly rejected because `dependencies` fired regardless of the active
+     * Draft, and once it fired the resulting `billing_address` requirement was enforced even
+     * though `unevaluatedProperties` (the keyword meant to be active here) never saw it.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
     public function testSchemaDependencyDoesNotWronglyRejectValidDraft201909Instance(): void
     {
         $className = $this->generateClassFromFile('SchemaDependencyWithUnevaluatedProperties.json');
@@ -591,15 +605,14 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Companion to the §0c proof above: a property that exists only because the
-     * (soon-to-be-inert) dependency subschema declares it must still be rejected by
-     * `unevaluatedProperties` once `dependencies` no longer legitimises it under Draft 2019-09.
-     * This assertion holds both before and after the §0b/§0c fix — today it is rejected for the
-     * buggy reason of never having been added to the evaluated-keys set; after the fix it is
-     * rejected because the keyword that would have introduced it is correctly inert. Kept as a
-     * guard against the fix overcorrecting into silently accepting everything.
+     * Companion to testSchemaDependencyDoesNotWronglyRejectValidDraft201909Instance: a property
+     * that exists only because the (now-inert) dependency subschema declares it must still be
+     * rejected by `unevaluatedProperties`. This assertion holds both before and after the fix —
+     * before, it was rejected for the wrong reason (never added to the evaluated-keys set);
+     * after, it is rejected because the keyword that would have introduced it is correctly inert.
+     * Kept as a guard against the fix overcorrecting into silently accepting everything.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
     public function testSchemaDependencyIntroducedPropertyStillRejectedByUnevaluatedProperties(): void
     {
         $className = $this->generateClassFromFile('SchemaDependencyWithUnevaluatedProperties.json');
@@ -611,12 +624,11 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Regression guard: the §0b/§0c fix must not disable `dependencies` under Draft 7. The
-     * `unevaluatedProperties` keyword present in this fixture is simply unrecognised (ignored)
-     * under Draft 7, so `dependencies` must enforce exactly as it does without that keyword
-     * present at all.
+     * Regression guard: removing `dependencies` from Draft 2019-09 must not disable it under
+     * Draft 7. The `unevaluatedProperties` keyword present in this fixture is simply unrecognised
+     * (ignored) under Draft 7, so `dependencies` must enforce exactly as it does without that
+     * keyword present at all.
      */
-    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
     public function testSchemaDependencyStillEnforcedUnderDraft07RegardlessOfUnevaluatedPropertiesKeyword(): void
     {
         $className = $this->generateClassFromFile('SchemaDependencyWithUnevaluatedProperties.json');
