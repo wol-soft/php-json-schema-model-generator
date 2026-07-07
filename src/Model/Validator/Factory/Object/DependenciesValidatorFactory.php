@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 use PHPModelGenerator\Utils\TypeIntersection;
 
 class DependenciesValidatorFactory extends AbstractValidatorFactory
@@ -55,7 +56,6 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
                     $schema,
                     $triggerName,
                     $propertySchema->withJson([]),
-                    false,
                 );
                 $schema->addProperty($triggerProperty);
             }
@@ -68,14 +68,18 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
                     $schema,
                     $propertyFactory,
                 );
+                $dependencyPointer = $propertySchema->getPointer()
+                    . '/dependencies/'
+                    . JsonSchemaUtil::encodePointer($triggerName);
                 $triggerProperty->addValidator(
-                    new PropertyDependencyValidator($triggerProperty, $dependency),
+                    (new PropertyDependencyValidator($triggerProperty, $dependency))
+                        ->withJsonPointer($dependencyPointer),
                 );
                 continue;
             }
 
             $dependencyJsonSchema = $propertySchema->navigate(
-                'dependencies/' . JsonSchema::encodePointer($triggerName),
+                'dependencies/' . JsonSchemaUtil::encodePointer($triggerName),
             );
 
             $dependencyJson = $dependencyJsonSchema->getJson();
@@ -96,7 +100,8 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
             // all dependency validators for different triggers would land on the same property and
             // be rendered under the wrong trigger condition. Base validators avoid this entirely.
             $schema->addBaseValidator(
-                new SchemaDependencyValidator($schemaProcessor, $triggerProperty, $dependencySchema),
+                (new SchemaDependencyValidator($schemaProcessor, $triggerProperty, $dependencySchema))
+                    ->withJsonPointer($dependencyJsonSchema->getPointer()),
             );
             $schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
 
@@ -142,7 +147,6 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
                     $schema,
                     $targetName,
                     $propertySchema->withJson([]),
-                    false,
                 ),
             );
         }
