@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
+use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\Utils\TypeCheck;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Utils\FilterReflection;
@@ -56,6 +57,16 @@ class TransformingFilterOutputTypePostProcessor extends PostProcessor
                 $validator instanceof AdditionalPropertiesValidator
                 || $validator instanceof PatternPropertiesValidator
             ) {
+                $this->processProperty($validator->getValidationProperty(), $schema, $generatorConfiguration);
+            }
+        }
+
+        // unevaluatedProperties runs in the post-composition phase, not as a base validator,
+        // so its validation property must be picked up separately. Without this, an already-
+        // transformed value fed to the accessor's set() shim would fail the subschema's
+        // type-check because the check would only accept the raw input type.
+        foreach ($schema->getPostCompositionValidators() as $validator) {
+            if ($validator instanceof UnevaluatedPropertiesValidator) {
                 $this->processProperty($validator->getValidationProperty(), $schema, $generatorConfiguration);
             }
         }

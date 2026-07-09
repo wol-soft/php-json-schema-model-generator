@@ -34,26 +34,39 @@ Generated interface with the **AdditionalPropertiesAccessorPostProcessor**:
 
 .. code-block:: php
 
-    public function setExample(float $example): static;
-    public function getExample(): float;
+    public function setExample(string $example): static;
+    public function getExample(): ?string;
 
     public function meta(): Meta;
-    public function additionalProperties(): AdditionalPropertiesAccessor;
+    public function additionalProperties(): ExampleAdditionalProperties;
 
-The ``additionalProperties()`` method returns an accessor object with the following interface:
+Because the example schema constrains additional values to ``string``, the generator produces a
+typed companion class ``ExampleAdditionalProperties`` whose signatures are narrowed to the
+declared type:
+
+.. code-block:: php
+
+    /** @return string[] */
+    public function getAll(): array;
+    public function get(string $key): ?string;
+    public function set(string $key, string $value): static;
+    public function remove(string $key): bool;
+
+.. note::
+
+    The methods **set** and **remove** on the accessor are only available if the `immutable setting <../../gettingStarted.html#immutable-classes>`__ is set to false. Immutable models return a read-only companion exposing only ``get`` and ``getAll``.
+
+When ``additionalProperties`` is ``true`` (or the subschema is untyped), no companion is
+generated and the accessor is the bare production-library class
+``AdditionalPropertiesAccessor``. Its signatures fall back to ``mixed`` while ``set`` keeps the
+fluent ``static`` return:
 
 .. code-block:: php
 
     public function getAll(): array;
     public function get(string $key): mixed;
-    public function set(string $key, mixed $value): void;
+    public function set(string $key, mixed $value): static;
     public function remove(string $key): bool;
-
-.. note::
-
-    The methods **set** and **remove** on the accessor are only available if the `immutable setting <../../gettingStarted.html#immutable-classes>`__ is set to false.
-
-When the ``additionalProperties`` keyword provides a schema that constrains the value type, a typed companion class ``{ModelName}AdditionalProperties`` is generated that narrows the return and parameter types of the accessor methods accordingly.
 
 **getAll**: Returns all additional properties currently part of the model as key-value pairs. Properties defined in the schema (in this case *example*) are not included. Unlike ``meta()->rawInput()``, the values returned here are the processed values — if the schema defines an object schema for additional properties, an array of object instances is returned; if a `filter <../../nonStandardExtensions/filter.html>`__ is applied, the filtered (and for transforming filters, transformed) values are returned.
 

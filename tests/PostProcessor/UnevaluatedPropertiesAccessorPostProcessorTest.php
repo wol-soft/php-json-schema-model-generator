@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\PostProcessor;
 
+use DateTime;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\RegularPropertyAsUnevaluatedPropertyException;
 use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
@@ -185,6 +186,115 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         // Immutable companion has no set/remove methods at all.
         $this->assertFalse(method_exists($accessor, 'set'));
         $this->assertFalse(method_exists($accessor, 'remove'));
+    }
+
+    /**
+     * A non-transforming filter (here `trim`) leaves the declared PHP type untouched — the
+     * companion's get/getAll/set signatures must remain the schema-declared `string` rather
+     * than widening to include the filter's raw input type. The filter still runs at both
+     * construction time (extras collected into the backing field) and mutator time (set()
+     * routes through the shim which re-invokes the filter).
+     */
+    public function testNonTransformingFilterKeepsCompanionTypesAtSchemaType(): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFile(
+            'TypedExtrasWithFilter.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // Construction collects the extras and runs `trim` on each value before storing them.
+        $object = new $className(['name' => 'Alice', 'greeting' => '  hello  ']);
+        $accessor = $object->unevaluatedProperties();
+
+        $this->assertSame('hello', $accessor->get('greeting'));
+        $this->assertSame(['greeting' => 'hello'], $accessor->getAll());
+
+        // set() routes through the shim, filter runs again on the new value.
+        $accessor->set('farewell', '  bye  ');
+        $this->assertSame('bye', $accessor->get('farewell'));
+
+        // Companion signatures — non-transforming filter must not widen the types.
+        $this->assertSame('string[]', $this->getReturnTypeAnnotation($accessor, 'getAll'));
+        $getAllReturn = $this->getReturnType($accessor, 'getAll');
+        $this->assertSame('array', $getAllReturn->getName());
+        $this->assertFalse($getAllReturn->allowsNull());
+
+        $this->assertSame('string|null', $this->getReturnTypeAnnotation($accessor, 'get'));
+        $getReturn = $this->getReturnType($accessor, 'get');
+        $this->assertSame('string', $getReturn->getName());
+        $this->assertTrue($getReturn->allowsNull());
+
+        $this->assertSame('string', $this->getParameterTypeAnnotation($accessor, 'set', 1));
+        $this->assertSame(['string'], $this->getParameterTypeNames($accessor, 'set', 1));
+    }
+
+    /**
+     * A transforming filter (here `dateTime`) turns the raw input string into a DateTime
+     * instance at collection time. The companion's get/getAll must therefore return the
+     * *transformed* type, and set() must accept either the raw input type OR the transformed
+     * type — mirroring the AdditionalPropertiesAccessorPostProcessor contract so a caller can
+     * pass a DateTime directly instead of round-tripping through a formatted string. The full
+     * round-trip serializes back to the raw format the filter's outputFormat declared.
+     */
+    public function testTransformingFilterNarrowsCompanionToTransformedType(): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFile(
+            'TypedExtrasWithTransformingFilter.json',
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setSerialization(true),
+        );
+
+        $object = new $className(['name' => 'Late autumn', 'start' => '2020-10-10']);
+        $accessor = $object->unevaluatedProperties();
+
+        // Extras collected at construction time are transformed to DateTime instances.
+        $this->assertInstanceOf(DateTime::class, $accessor->get('start'));
+        $this->assertInstanceOf(DateTime::class, $accessor->getAll()['start']);
+
+        // set() with a raw string routes through the filter and stores a DateTime.
+        $accessor->set('end', '2020-12-12');
+        $this->assertInstanceOf(DateTime::class, $accessor->get('end'));
+
+        // set() with an already-transformed value must also be accepted — the type-check on the
+        // unevaluated subschema's synthetic property is pass-through-wired around the
+        // transforming filter, so DateTime bypasses the pre-transform `is_string` guard.
+        $accessor->set('now', new DateTime());
+        $this->assertInstanceOf(DateTime::class, $accessor->get('now'));
+
+        // Serialization applies the filter's outputFormat and turns each DateTime back into
+        // the raw representation the filter accepts.
+        $this->assertEqualsCanonicalizing(
+            ['name' => 'Late autumn', 'start' => '20201010', 'end' => '20201212'],
+            array_intersect_key(
+                $object->toArray(),
+                ['name' => true, 'start' => true, 'end' => true],
+            ),
+        );
+
+        // Companion signatures — transforming filter must widen types on both read and write.
+        $this->assertSame('(DateTime|null)[]', $this->getReturnTypeAnnotation($accessor, 'getAll'));
+        $getAllReturn = $this->getReturnType($accessor, 'getAll');
+        $this->assertSame('array', $getAllReturn->getName());
+        $this->assertFalse($getAllReturn->allowsNull());
+
+        $this->assertSame('DateTime|null', $this->getReturnTypeAnnotation($accessor, 'get'));
+        $getReturn = $this->getReturnType($accessor, 'get');
+        $this->assertSame('DateTime', $getReturn->getName());
+        $this->assertTrue($getReturn->allowsNull());
+
+        $this->assertSame(
+            'string|DateTime|null',
+            $this->getParameterTypeAnnotation($accessor, 'set', 1),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['string', 'DateTime', 'null'],
+            $this->getParameterTypeNames($accessor, 'set', 1),
+        );
     }
 
     /**

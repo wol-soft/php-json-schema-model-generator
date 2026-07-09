@@ -55,3 +55,14 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Not
     - ``not: false`` — negation of the impossible schema; always valid. No validator is generated.
     - ``not: true`` — negation of the always-valid schema; always invalid. Providing any value
       raises a ``NotException`` at runtime. The generator also emits a warning at generation time.
+
+Property and item evaluation propagation
+----------------------------------------
+
+For an enclosing schema that uses `unevaluatedProperties <../complexTypes/object.html#unevaluated-properties>`__
+or `unevaluatedItems <../complexTypes/array.html#unevaluated-items>`__ (Draft 2019-09 and later),
+``not`` is a **negative** applicator and contributes nothing. ``not`` succeeds when its inner
+subschema *fails*, so any keys or indices touched by that inner subschema are, by definition,
+not evaluated. The generator explicitly discards anything the inner subschema tried to record —
+even an inner ``unevaluatedProperties``/``unevaluatedItems`` cannot leak into the enclosing
+accumulator.

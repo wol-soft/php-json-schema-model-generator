@@ -114,3 +114,28 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\One
 
     See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
     explanation and examples.
+
+Property and item evaluation propagation
+----------------------------------------
+
+For an enclosing schema that uses `unevaluatedProperties <../complexTypes/object.html#unevaluated-properties>`__
+or `unevaluatedItems <../complexTypes/array.html#unevaluated-items>`__ (Draft 2019-09 and later),
+only the **single successful** ``oneOf`` branch contributes to the evaluated set. If two or more
+branches match, the ``oneOf`` fails as a whole and no branch contributes. If none match, again
+no branch contributes.
+
+The active branch credits property names claimed by its ``properties``, ``patternProperties``,
+and ``additionalProperties`` (per key with a passing value), and — on the array side — the
+indices claimed by its ``items``/``additionalItems``/``contains``. Because the identity of the
+active branch depends on the input, the evaluated set is derived per validation call and
+refreshed whenever the model is mutated.
+
+.. note::
+
+    *Omitting* ``additionalProperties`` from a branch is **not** the same as writing
+    ``additionalProperties: true``. An omitted keyword produces no annotation and therefore
+    credits nothing to the enclosing ``unevaluatedProperties`` — only an *explicit*
+    ``additionalProperties`` (whether ``true`` or ``{schema}``) contributes. Two branches with
+    identical extras behaviour but one writing the keyword and the other omitting it will
+    therefore credit different evaluated sets. This is a spec-mandated distinction from
+    JSON Schema 2019-09. The same rule applies to ``additionalItems`` on the array side.

@@ -1,0 +1,9 @@
+protected function _serializeUnevaluatedProperties(int $depth, array $except, bool $emptyObjectsAsStdClass): array
+{
+    $serializedValues = [];
+    foreach ($this->_unevaluatedProperties as $key => $value) {
+        $serializedValues[$key] = \{{ serializerClass }}::{{ serializerMethod }}($value, {{ serializerOptions }});
+    }
+
+    return (array) $this->_getSerializedValue($serializedValues, $depth, $except, $emptyObjectsAsStdClass);
+}
