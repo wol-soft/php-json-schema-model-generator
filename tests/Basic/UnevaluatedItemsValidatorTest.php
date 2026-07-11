@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\Arrays\InvalidUnevaluatedItemsException;
 use PHPModelGenerator\Exception\Arrays\UniqueItemsException;
 use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -188,6 +189,109 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             );
             $this->assertSame('string', $booleanFailure->getExpectedType());
         }
+    }
+
+    /**
+     * The tuple form of `items` evaluates every index it covers: index i is evaluated when
+     * i < count(items) and the value at i validated against items[i]. Only indices past the
+     * tuple remain for `unevaluatedItems` — per the 2019-09 annotation rules a sibling
+     * applicator's claims must be credited even without any composition keyword involved.
+     */
+    public function testSiblingTupleItemsCreditTheirEvaluatedIndices(): void
+    {
+        $className = $this->generateClassFromFile('SiblingTupleItems.json');
+
+        // Index 0 is covered by the tuple — nothing is left for unevaluatedItems.
+        $accepted = new $className(['tags' => ['covered']]);
+        $this->assertSame(['covered'], $accepted->getTags());
+
+        // Index 1 lies past the tuple and no other applicator claims it — only that index
+        // may be reported as unevaluated.
+        try {
+            new $className(['tags' => ['covered', 'surplus']]);
+            $this->fail('Expected UnevaluatedItemsException for the index past the tuple');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                'Provided JSON for tags contains not allowed unevaluated items [#1]',
+                $exception->getMessage(),
+            );
+            $this->assertSame([1], $exception->getUnevaluatedItems());
+            $this->assertSame(
+                '/properties/tags/unevaluatedItems',
+                $exception->getJsonPointer()->pointer,
+            );
+        }
+    }
+
+    /**
+     * A sibling `contains` evaluates exactly the indices whose values satisfy its subschema.
+     * Matched indices are credited to the accumulator; every other index remains unevaluated.
+     */
+    public function testSiblingContainsCreditsOnlyMatchingIndices(): void
+    {
+        $className = $this->generateClassFromFile('SiblingContains.json');
+
+        // The single element matches the contains subschema and is therefore evaluated.
+        $accepted = new $className(['tags' => [5]]);
+        $this->assertSame([5], $accepted->getTags());
+
+        // Index 0 matches, index 1 does not — only the non-matching index is unevaluated.
+        try {
+            new $className(['tags' => [5, 'surplus']]);
+            $this->fail('Expected UnevaluatedItemsException for the index contains did not match');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                'Provided JSON for tags contains not allowed unevaluated items [#1]',
+                $exception->getMessage(),
+            );
+            $this->assertSame([1], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * An explicit `items: true` is an applicator: it validates (trivially) and annotates every
+     * index, leaving nothing for `unevaluatedItems`. This mirrors the object side, where an
+     * explicit `additionalProperties: true` claims every extra key — in contrast to an omitted
+     * keyword, which produces no annotation.
+     */
+    public function testSiblingItemsTrueCreditsEveryIndex(): void
+    {
+        $className = $this->generateClassFromFile('SiblingItemsTrue.json');
+
+        $accepted = new $className(['tags' => ['anything', 42]]);
+        $this->assertSame(['anything', 42], $accepted->getTags());
+    }
+
+    /**
+     * A composition branch may carry `unevaluatedItems` even when the array property itself
+     * does not: `allOf: [{unevaluatedItems: {schema}}]`. Within the branch every index is
+     * unevaluated (the branch declares no other applicator), so the branch's subschema applies
+     * to every item and decides the branch outcome.
+     *
+     * The rejection surfaces through the property-level composition wrapping: the inner
+     * unevaluatedItems failure is swallowed by the branch's try/catch and the composition
+     * reports the failed branch. In direct-exception mode the composition summary carries no
+     * per-element details, so the message is fully static.
+     */
+    public function testBranchOnlyUnevaluatedItemsValidatesEveryIndex(): void
+    {
+        $className = $this->generateClassFromFile('InnerUnevaluatedItemsOnlyInBranch.json');
+
+        // Every index satisfies the branch's unevaluatedItems schema — the branch succeeds.
+        $accepted = new $className(['tags' => ['alpha', 'beta']]);
+        $this->assertSame(['alpha', 'beta'], $accepted->getTags());
+
+        // A non-string item violates the branch's unevaluatedItems schema — the branch and
+        // therefore the allOf composition must reject the array.
+        $this->expectException(AllOfException::class);
+        $this->expectExceptionMessage(
+            <<<'MSG'
+            Invalid value for tags declined by composition constraint.
+              Requires to match all composition elements but matched 0 elements.
+            MSG,
+        );
+
+        new $className(['tags' => [5]]);
     }
 
     /**

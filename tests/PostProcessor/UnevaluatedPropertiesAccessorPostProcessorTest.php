@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\PostProcessor;
 
 use DateTime;
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\RegularPropertyAsUnevaluatedPropertyException;
 use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
@@ -18,6 +19,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
 
 /**
  * Exercises UnevaluatedPropertiesAccessorPostProcessor: the unevaluatedProperties() accessor
@@ -111,6 +113,51 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
     }
 
     /**
+     * When a successful composition branch claims every extra key (here via the branch's
+     * `additionalProperties: {type: integer}`), a key routed through
+     * unevaluatedProperties()->set() is subject to that claim. A value violating the claim
+     * must be rejected — it must never be committed to the raw model data while staying
+     * invisible to the accessor. After the rejected write the accessor state and the raw
+     * model data are unchanged, and the model remains constructible from its own raw data
+     * view (the write must not poison round-tripping).
+     *
+     * The expected rejection is the composition re-validation of the candidate state — the
+     * same AllOfException the constructor raises for `{kind: "a", extra: "not-an-integer"}`.
+     * In direct-exception mode the composition summary carries no per-element details, so the
+     * message is fully constructible.
+     */
+    public function testSetRejectsValueViolatingASuccessfulBranchClaim(): void
+    {
+        $this->addPostProcessor();
+        $className = $this->generateClassFromFile(
+            'BranchAdditionalPropertiesClaimsExtras.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className(['kind' => 'a']);
+
+        try {
+            $object->unevaluatedProperties()->set('extra', 'not-an-integer');
+            $this->fail('Expected the branch additionalProperties claim to reject the value');
+        } catch (AllOfException $exception) {
+            $this->assertSame(
+                <<<MSG
+                Invalid value for {$className} declined by composition constraint.
+                  Requires to match all composition elements but matched 0 elements.
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertSame([], $object->unevaluatedProperties()->getAll());
+        $this->assertSame(['kind' => 'a'], $object->meta()->rawInput());
+
+        // Round-trip guard: the model's raw data view must still satisfy its own schema.
+        $reconstructed = new $className($object->meta()->rawInput());
+        $this->assertSame(['kind' => 'a'], $reconstructed->meta()->rawInput());
+    }
+
+    /**
      * Keys that match a declared property name must be routed through the named setter and
      * not the unevaluated accessor. The shim's runtime guard rejects them with a dedicated
      * exception.
@@ -157,7 +204,7 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         $object = new $className();
         $accessor = $object->unevaluatedProperties();
 
-        $reflection = new \ReflectionClass($accessor);
+        $reflection = new ReflectionClass($accessor);
         $this->assertSame($className . 'UnevaluatedProperties', $reflection->getName());
         $this->assertTrue($reflection->hasMethod('get'));
         $this->assertTrue($reflection->hasMethod('set'));

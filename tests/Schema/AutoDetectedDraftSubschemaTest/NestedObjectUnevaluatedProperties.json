@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "type": "object",
+  "properties": {
+    "child": {
+      "type": "object",
+      "properties": {
+        "known": {
+          "type": "string"
+        }
+      },
+      "unevaluatedProperties": false
+    }
+  }
+}

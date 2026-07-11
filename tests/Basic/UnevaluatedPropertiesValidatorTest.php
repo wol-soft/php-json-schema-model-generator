@@ -419,6 +419,80 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
+     * A branch-level `unevaluatedProperties: true` is an applicator like any other: within the
+     * branch every key is unevaluated, `true` validates all of them, and per the 2019-09
+     * annotation rules the branch thereby claims every key on the instance. The outer
+     * `unevaluatedProperties: false` therefore accepts any input — including keys no other
+     * sibling covers. An explicit `true` must not be collapsed into the absent-keyword case,
+     * which produces no annotation.
+     */
+    public function testBranchLevelUnevaluatedTrueClaimsEveryKeyForTheOuterAccumulator(): void
+    {
+        $className = $this->generateClassFromFile('BranchUnevaluatedTrueClaims.json');
+
+        $accepted = new $className(['foo' => 'x', 'bar' => 5]);
+        $this->assertSame('x', $accepted->getFoo());
+        $this->assertSame(['foo' => 'x', 'bar' => 5], $accepted->meta()->rawInput());
+    }
+
+    /**
+     * Keys matched by a successful branch's `patternProperties` (with passing values) are
+     * evaluated by that branch and must be credited to the outer accumulator — also when the
+     * branch renders as a nested class rather than being merged or inlined. Two assertions on
+     * the same generated class:
+     *   - `{x-a: "v"}` matches the branch pattern with a passing value → credited → accepted.
+     *   - `{other: 1}` matches no pattern and no other applicator → rejected by the outer
+     *     unevaluated check.
+     */
+    public function testBranchLevelPatternPropertiesMatchesCreditTheOuterAccumulator(): void
+    {
+        $className = $this->generateClassFromFile('BranchPatternPropertiesClaim.json');
+
+        $accepted = new $className(['x-a' => 'v']);
+        $this->assertSame(['x-a' => 'v'], $accepted->meta()->rawInput());
+
+        try {
+            new $className(['other' => 1]);
+            $this->fail('Expected UnevaluatedPropertiesException for a key no branch pattern matches');
+        } catch (UnevaluatedPropertiesException $exception) {
+            $this->assertSame(
+                "Provided JSON for {$className} contains not allowed unevaluated properties [other]",
+                $exception->getMessage(),
+            );
+            $this->assertSame(['other'], $exception->getUnevaluatedProperties());
+        }
+    }
+
+    /**
+     * A property subschema declaring object applicators (`properties`, `unevaluatedProperties`)
+     * without an explicit `type: object` still applies those keywords when the instance value
+     * is an object — JSON Schema applicators are not gated on a type declaration. The keyword
+     * must not be silently dropped for untyped subschemas: the subschema behaves exactly as if
+     * `type: object` were declared, so the rejection surfaces through the nested-object
+     * wrapping. The nested class name is matched by regex because the class does not carry a
+     * predictable name (the class-name generator appends a uniqid).
+     */
+    public function testUnevaluatedPropertiesAppliesWithoutExplicitObjectTypeDeclaration(): void
+    {
+        $className = $this->generateClassFromFile('UntypedNestedSchemaWithUnevaluated.json');
+
+        // Only the declared key is present — nothing is unevaluated inside `child`.
+        $accepted = new $className(['child' => ['known' => 'a']]);
+        $this->assertSame(['child' => ['known' => 'a']], $accepted->meta()->rawInput());
+
+        // `extra` is claimed by nothing inside `child` and must be rejected.
+        $this->expectException(NestedObjectException::class);
+        $this->expectExceptionMessageMatches(
+            <<<'REGEX'
+            /^Invalid nested object for property child:
+              - Provided JSON for .+ contains not allowed unevaluated properties \[extra\]$/
+            REGEX,
+        );
+
+        new $className(['child' => ['known' => 'a', 'extra' => 1]]);
+    }
+
+    /**
      * The `unevaluatedProperties` keyword may be expressed as an inline `$ref` — the runtime
      * shape is a schema, so the ref-resolved schema must be applied to every extra key. Two
      * assertions on the same generated class:
