@@ -17,14 +17,8 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
- * Class CompositionValidationPostProcessor
- *
- * The CompositionValidationPostProcessor adds methods to models which require composition validations on object level
- * to validate the compositions.
- *
- * Additionally extends setter methods to also validate compositions if the updated property is part of a composition
- *
- * @package PHPModelGenerator\SchemaProcessor\PostProcessor\Internal
+ * Adds methods to models that require composition validations at object level, and extends setter
+ * methods to re-run composition validation when an updated property is part of a composition.
  */
 class CompositionValidationPostProcessor extends PostProcessor
 {
@@ -63,20 +57,14 @@ class CompositionValidationPostProcessor extends PostProcessor
             }
 
             foreach ($validator->getComposedProperties() as $composedProperty) {
-                if ($composedProperty->getNestedSchema() === null) {
-                    // Harvest inline branch declared property names so setter-side revalidation
-                    // fires when those properties change. Without this, updating a property that
-                    // only an inline branch's `properties` declares would leave _compositionEvaluations
-                    // stale.
-                    foreach ($composedProperty->getBranchDeclaredPropertyNames() as $propertyName) {
-                        if (!isset($validatorPropertyMap[$propertyName])) {
-                            $validatorPropertyMap[$propertyName] = [];
-                        }
-                        $validatorPropertyMap[$propertyName][] = $validatorIndex;
-                    }
-                    continue;
-                }
-
+                // Every schema-level composition branch has a nested schema at this point:
+                // SchemaProcessor::transferComposedPropertiesToSchema() throws SchemaException
+                // for any branch that lacks one, and inheritPropertyType() forces branches to
+                // adopt the parent's object type so PropertyFactory routes them through
+                // createObjectProperty(). The branch's declared properties are thus visible
+                // via getNestedSchema()->getProperties(), covering setter-side revalidation
+                // for inline oneOf/anyOf/if-then-else discriminators without a separate
+                // harvest path.
                 foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
                     if (!isset($validatorPropertyMap[$property->getName()])) {
                         $validatorPropertyMap[$property->getName()] = [];
