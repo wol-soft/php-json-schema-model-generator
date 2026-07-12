@@ -11,12 +11,11 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator\ArrayContainsValidator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
-use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
-use PHPModelGenerator\Utils\RenderHelper;
 
 class ContainsValidatorFactory extends AbstractValidatorFactory
 {
@@ -74,26 +73,14 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
             (array_key_exists('minContains', $json) || array_key_exists('maxContains', $json));
 
         $property->addValidator(
-            new class (
+            new ArrayContainsValidator(
                 $property,
-                DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ArrayContains.phptpl',
-                [
-                    'property' => $nestedProperty,
-                    'schema' => $schema,
-                    'countMatches' => $countMatches,
-                    'allowNoMatch' => ($json['minContains'] ?? 1) === 0,
-                    'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
-                    'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
-                ],
-                ContainsException::class,
-            ) extends PropertyTemplateValidator {
-                public function getValidatorSetUp(): string
-                {
-                    return $this->templateValues['countMatches'] ? '
-                        $containsMatches = 0;
-                    ' : '';
-                }
-            },
+                $nestedProperty,
+                $schema,
+                $schemaProcessor->getGeneratorConfiguration(),
+                $countMatches,
+                ($json['minContains'] ?? 1) === 0,
+            ),
         );
 
         if (!$countMatches) {

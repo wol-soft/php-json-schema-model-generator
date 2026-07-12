@@ -100,7 +100,7 @@ output is available for analysis without re-running. Use `--display-warnings` to
 details and `--no-coverage` to skip slow coverage collection:
 
 ```bash
-php -d memory_limit=128M ./vendor/bin/phpunit --no-coverage --display-warnings 2>&1 | sed 's/\x1b\[[0-9;]*m//g' > /tmp/phpunit-output.txt; tail -5 /tmp/phpunit-output.txt
+php -d memory_limit=256M ./vendor/bin/phpunit --no-coverage --display-warnings 2>&1 | sed 's/\x1b\[[0-9;]*m//g' > /tmp/phpunit-output.txt; tail -5 /tmp/phpunit-output.txt
 ```
 
 Then analyse with: `grep -E "FAIL|ERROR|WARN|Tests:" /tmp/phpunit-output.txt`
@@ -231,6 +231,36 @@ After finishing an implementation task, always stage all relevant changed files 
 Never add `.claude/` files (issues, topics, memory, etc.) to git unless the user explicitly asks.
 These are working notes for the session and must not appear in commits.
 
+**Always review the diff against the repo rules before staging.** Before running `git add`,
+inspect the full diff (`git diff` for unstaged work, plus `git diff --staged` afterwards) and
+verify every change conforms to the rules in this file. In particular, run the recovery procedure
+from the "No implementation-plan references in code" rule: grep the diff for `Stage `, `Phase `,
+`decision `, `§`, and `#` followed by a number, and rewrite every match in source, test, or
+prod-lib code (test data providers, DocBlocks, and inline comments included) before staging.
+This review is *mandatory*, not optional — staging without it lets violations slip into commits.
+
+The same review applies to changes pushed to a coordinated production-library checkout: source
+code in `php-json-schema-model-generator-production` is bound by the same rules as code in this
+repo. Planning artefacts under `.claude/` are the only place plan references may live.
+
+### Pre-existing rule violations in touched files
+
+Whenever you edit, read, or otherwise touch a file as part of any task, sweep it for *all*
+pre-existing violations of the rules in this file — implementation-plan references, single-
+letter variables, leading-backslash class references, missing `use` imports, copy-pasted
+docblocks, PHPCS errors visible in the local run, and anything else CLAUDE.md forbids — and
+fix every one in the same change. Do not leave a known violation sitting just because it
+predates your edit; "broken windows" is exactly how decay accumulates and the rule erodes.
+
+Scope: this is about files you *touch*, not a codebase-wide audit. If you edit a method,
+scan the whole file (not just the surrounding lines) and fix everything visible. If
+fixing the pre-existing violations would balloon the diff into an unrelated refactor,
+flag it (and only then) before proceeding — that is the only escape hatch. Default is:
+clean it up.
+
+The rule applies symmetrically to the production-library checkout when you edit anything
+there.
+
 ### Reading files
 
 Always use the dedicated `Read` tool to read file contents. Never use `sed`, `head`, `tail`, `cat`, or `awk` to read or extract portions of files. The `Read` tool supports `offset` and `limit` parameters for reading partial files when needed.
@@ -240,6 +270,15 @@ Always use the dedicated `Read` tool to read file contents. Never use `sed`, `he
 Never use single-character variable names. All variables must have meaningful, descriptive names
 that convey their purpose. For example, use `$typeName` instead of `$t`, `$validator` instead of
 `$v`, `$property` instead of `$p`.
+
+Never prefix local variables with an underscore. The underscore prefix is reserved for *class
+member* identifiers (instance properties, internal methods like `_validateTags`) where it marks
+the symbol as internal-by-convention. Applying the same prefix to local variables blurs the
+member/local distinction without adding information. Use the plain name instead:
+`$branchContainsMatches`, not `$_branchContainsMatches`. The rule applies symmetrically to
+variables declared inside generated template code that escape into the generated PHP output —
+local variables inside template-emitted closures and IIFEs are still local PHP variables and
+must not carry the underscore prefix.
 
 ### PHP import style
 
@@ -354,23 +393,111 @@ priority ordering, etc.), that is precisely the issue that needs solving. Open i
 topic if it cannot be addressed immediately, but keep the test in place and marked as expected to
 fail (`@expectedExceptionMessage`, `$this->expectException(...)`) until the fix lands.
 
+#### How to handle every bug found during development
+
+This rule generalises the test-evasion rule above to every bug, however it is discovered —
+through a failing test, while reading code, during a debugging session, or as a side-observation
+in an unrelated task.
+
+**Every bug must be acknowledged explicitly the moment it is found.** State, in the user-facing
+response, *exactly* what the bug is — the failure mode, the code path, and a minimal reproducer
+or pointer to one. Do not let bugs surface implicitly as test failures the user has to dig out
+of the log; surface them in prose.
+
+**Write a test that reproduces the bug *before* fixing it.** This applies whether the bug is
+about to be fixed in the same change (path 1 below) or deferred (path 2). The test name encodes
+the specific scenario so a regression surfaces immediately as a named, self-explaining failure
+rather than a cryptic assertion error elsewhere. When deferring, the test is marked failing
+(`$this->expectException(...)` plus an explicit assertion of the *current wrong* behaviour, or
+`#[Test] #[ExpectedFailure]` if the framework supports it) so the gap is visible in CI until
+the fix lands. When fixing in the same change, the test starts red and turns green as the fix
+lands — the diff carries proof that the change actually closes the reported scenario, not just
+that other tests still pass. Sequence: reproduce → confirm red → fix → confirm green. Do not
+skip the "confirm red" step; a test that was always green is no evidence of anything.
+
+**Every acknowledged bug takes one of three paths. Choose explicitly, never silently:**
+
+1. **Fix it in the same change.** Default path. If the bug is reachable from the work in
+   progress and fixing it does not balloon the diff into an unrelated refactor, fix it now and
+   note the fix in the response.
+2. **Defer with a tracked artifact.** Only when the fix is genuinely out of scope (different
+   subsystem, requires user direction on architecture, blocked on external work). Deferral
+   requires *both*:
+   - A tracking entry: a `.claude/topics/<slug>/` plan stub, a `@expectedException` test
+     fixture marked failing, OR an entry in the active plan's post-implementation review list
+     — whichever fits the current workflow.
+   - A surfacing mechanism in the codebase: the failing test, a `throw new \LogicException(...)`
+     at the unreachable site, or a documented assertion. Comments alone are not enough — a
+     comment without an enforcement mechanism rots silently.
+
+   State the deferral and the chosen tracking + surfacing mechanism in the same response that
+   announces the bug.
+3. **Reject it as not-a-bug.** When closer reading reveals the apparent bug is correct behaviour
+   under a constraint you missed. Explain the constraint in the response and update any
+   misleading comment, test, or doc that suggested otherwise.
+
+**Routing around a bug is forbidden.** Removing a test, swapping a fixture for one that does not
+trigger the bug, narrowing a test's assertion to skip the affected output, choosing an
+alternative implementation path purely to avoid touching the buggy subsystem, or deciding "this
+edge case is rare so I'll not test it" — all of these are silent suppression. They are explicitly
+not in the deferral path: deferral requires the bug to remain *visible*, just not yet fixed.
+
+**A bug downstream of your change is still your bug.** When your edit causes a previously-passing
+test to fail, the test is reporting a real defect in your change — even if the test was
+"unrelated" before. Do not dismiss it as "pre-existing brittleness"; the failure path is now in
+scope. Either your change has a bug, or the test was wrong all along and now is the right time
+to fix it (explicitly, with justification). The same applies symmetrically: when you discover an
+existing bug while reading code, the "broken windows" rule from "Pre-existing rule violations in
+touched files" still applies — flag it, then decide between paths 1, 2, and 3.
+
+**Why this matters.** Silent bug suppression is the most insidious form of code rot because each
+individual instance looks like a reasonable scope-management decision. Over a long session the
+cumulative effect is a codebase where everyone knows "you can't go that way" and the deferred
+defects compound. Surfacing every bug — every time, in prose, with a path forward — is the only
+discipline that prevents this.
+
 #### No implementation-plan references in code
 
-Do not embed references to implementation-plan phases, issue numbers, or source-code line numbers
-in comments, docblocks, filenames, or any other artifact that lands in the repository. These
-references decay immediately (phases complete, line numbers shift) and add noise without adding
-meaning.
+Do not embed references to implementation-plan phases, section numbers, decision identifiers,
+issue numbers, or source-code line numbers in comments, docblocks, filenames, test fixture
+descriptions, or any other artifact that lands in the repository. These references decay
+immediately (plans get restructured, phases complete, sections renumber, line numbers shift)
+and add noise without adding meaning to a reader who does not have the plan open in another
+tab.
 
+**Patterns that violate the rule** — anything in this category must be rewritten:
+- `Phase N`, `Phase N's`, `phase N landed`
+- `decision N.N`, `Decision N.N`, `per decision N.N`
+- `§N.N`, `§N.N.N`, `section N.N`, `§N.N's matrix`
+- `Per §N.N`, `Follows §N.N`, `the §N.N test list`
+- Issue numbers (`#123`) used as a stand-in for an explanation
+- Specific line numbers in the codebase (`lines 130-158`, `line 429`)
+- References to documents under `.claude/` from anywhere outside `.claude/`
+
+**Examples:**
 - ❌ `// Phase 2 guarantees anyOf/oneOf have uniform spaces`
 - ✅ `// Static rejection guarantees anyOf/oneOf have uniform spaces`
+- ❌ `* Emission policy follows the §3.5.2.1 / decision 0.10 matrix`
+- ✅ `* Emission policy: emit when the keyword's reach is non-empty (additionalProperties absent or true)`
+- ❌ `// Dead-code rows from §4.1: additionalProperties: false or {schema}`
+- ✅ `// additionalProperties: false / {schema} leave the unevaluated bucket permanently empty`
 - ❌ `* Covers FilterValidator::runCompatibilityCheck lines 130–158`
 - ✅ `* Validates the zero-overlap rejection path in FilterValidator`
 - ❌ `* exercises FilterProcessor line 429 (else branch of classifyValidatorAdjustments)`
 - ✅ `* exercises the else branch of classifyValidatorAdjustments`
+- ❌ `// Decision 0.3: Also harvest inline branch property names`
+- ❌ `// Decision 0.6 unconditional rollback`
+- ❌ `// Phase 3's UnevaluatedPropertiesValidator can query...`
+- ❌ `// not with inline branch — Decision 0.6: slot permanently success=false`
 
-This rule applies equally to DocBlocks in test files: do not reference specific line numbers of
-the code under test. Line numbers shift whenever the file is edited, making such references
-misleading immediately after refactoring. Describe *what the code does or why* instead.
+This rule applies equally to DocBlocks in test files: do not reference specific line numbers
+of the code under test, decision identifiers from the plan, or section numbers anywhere in the
+plan. Line numbers shift whenever the file is edited, and section/decision numbers decay
+whenever the plan is restructured. Describe *what the code does or why* instead.
+
+**Recovery procedure when this rule is violated:** before staging a change, grep the diff for
+`Phase `, `decision `, `§`, and `#` followed by a number. Rewrite every match found in source
+or test files to a self-contained explanation of the rule or behaviour.
 
 Describe *what the code does or why* — not where it came from in a planning document.
 
@@ -405,6 +532,19 @@ parts that cannot be predicted upfront (e.g. file paths, uniqid suffixes).
 Never use multiple `assertStringContainsString` calls on the same exception message when the full
 message can be constructed. A single `assertSame($expectedMessage, $exception->getMessage())` is
 both stronger and self-documenting.
+
+When the expected exception message spans multiple lines (e.g. an `ErrorRegistryException`
+joining several sub-errors with `"\n"`, or any nested-exception format that embeds newlines),
+**always write the expected value as a heredoc**, never as a `sprintf` call with `\n` escapes
+or as concatenated `.` string fragments. Heredoc preserves the literal layout of the message
+exactly as it will appear at runtime, so the test source reads as the message and a diff
+against the actual output is line-by-line. Use the variable-interpolating `<<<MSG ... MSG;`
+form when the message embeds dynamic class names or other runtime values; use the literal
+`<<<'MSG' ... MSG;` form only when no interpolation is needed.
+
+Inline the heredoc directly into the `assertSame` call rather than assigning it to a local
+variable first — the assertion reads as a single self-contained statement that places the
+expected message next to the actual one, which is what a reader is comparing.
 
 For pull requests, check the qlty.sh coverage report by constructing the URL from the current PR
 number:

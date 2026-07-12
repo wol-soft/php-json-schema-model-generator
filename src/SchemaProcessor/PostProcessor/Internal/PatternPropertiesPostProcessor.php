@@ -94,6 +94,7 @@ class PatternPropertiesPostProcessor extends PostProcessor
                 ->setDefaultValue(array_fill_keys($patternHashes, []))
                 ->setInternal(true),
         );
+        $schema->addRollbackProperty('_patternProperties');
     }
 
     /**

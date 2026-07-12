@@ -12,7 +12,7 @@
     ],
     "require": {
         "wol-soft/php-json-schema-model-generator-production": "dev-jsonSchemaDraft2019",
-        "wol-soft/php-micro-template": "^1.10.2",
+        "wol-soft/php-micro-template": "^1.11.0",
 
         "php": ">=8.4",
         "ext-mbstring": "*"

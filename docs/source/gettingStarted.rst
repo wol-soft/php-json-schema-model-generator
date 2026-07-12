@@ -28,7 +28,7 @@ The first parameter of the *generateModels* method must be a class implementing 
 =========================== ===========
 Provider                    Description
 =========================== ===========
-RecursiveDirectoryProvider  Fetches all *.json files from the given source directory. Each file must contain a JSON Schema object definition on the top level
+RecursiveDirectoryProvider  Fetches all ``*.json`` files from the given source directory. Each file must contain a JSON Schema object definition on the top level
 OpenAPIv3Provider           Fetches all objects defined in the #/components/schemas section of an Open API v3 spec file
 =========================== ===========
 

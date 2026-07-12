@@ -48,6 +48,10 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getCheck(): string
     {
+        // Make this validator instance available to the template so the unevaluatedProperties
+        // tracking guards (hasEvaluationTrackingEnabled, isNotComposition) can be evaluated.
+        $this->templateValues['compositionValidator'] = $this;
+
         $this->setupBranchDefaultHelpers();
 
         return parent::getCheck();

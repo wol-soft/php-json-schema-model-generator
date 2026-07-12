@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\ForbiddenPatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 
 class PatternPropertiesValidatorFactory extends AbstractValidatorFactory
 {
@@ -50,7 +51,8 @@ class PatternPropertiesValidatorFactory extends AbstractValidatorFactory
                         $schema->getClassName(),
                         $propertySchema,
                     ))->withJsonPointer(
-                        $propertySchema->getPointer() . '/' . $this->key . '/' . JsonSchema::encodePointer($pattern),
+                        $propertySchema->getPointer() . '/' . $this->key
+                            . '/' . JsonSchemaUtil::encodePointer($pattern),
                     ),
                 );
                 continue;
@@ -61,9 +63,9 @@ class PatternPropertiesValidatorFactory extends AbstractValidatorFactory
                     $schemaProcessor,
                     $schema,
                     $pattern,
-                    $propertySchema->navigate("$this->key/" . JsonSchema::encodePointer($pattern)),
+                    $propertySchema->navigate("$this->key/" . JsonSchemaUtil::encodePointer($pattern)),
                 ))->withJsonPointer(
-                    $propertySchema->getPointer() . '/' . $this->key . '/' . JsonSchema::encodePointer($pattern),
+                    $propertySchema->getPointer() . '/' . $this->key . '/' . JsonSchemaUtil::encodePointer($pattern),
                 ),
             );
         }

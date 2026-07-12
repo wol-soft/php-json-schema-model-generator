@@ -202,63 +202,74 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
     #[DataProvider('invalidSchemaDependencyCompositionDataProvider')]
     public function testInvalidSchemaDependencyComposition(
         array $propertyValue,
-        string $message,
+        string $messageTemplate,
     ): void {
-        $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches("/$message/m");
-
         $className = $this->generateClassFromFile(
             'CompositionSchemaDependency.json',
             (new GeneratorConfiguration())->setCollectErrors(true),
         );
 
+        // Generation emits three nested classes: the dependency wrapper (named
+        // *_credit_card_Dependency) plus one class per allOf branch. Only the wrapper
+        // appears in the composition-decline error, so filter for it explicitly.
+        $nestedClasses = $this->resolveNestedClassName($className, 3);
+        $wrapperMatches = array_values(array_filter(
+            $nestedClasses,
+            static fn(string $name): bool => str_ends_with($name, '_credit_card_Dependency'),
+        ));
+        $this->assertCount(1, $wrapperMatches, 'expected exactly one dependency wrapper class');
+        $dependencyClass = $wrapperMatches[0];
+
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage(
+            str_replace('{dependencyClass}', $dependencyClass, $messageTemplate),
+        );
+
         new $className($propertyValue);
     }
 
-    // phpcs:disable Generic.Files.LineLength.TooLong
     public static function invalidSchemaDependencyCompositionDataProvider(): array
     {
         return [
             'required attribute not provided 1' => [
                 ['credit_card' => 12345],
-                <<<ERROR
+                <<<'ERROR'
                 Invalid schema which is dependant on credit_card:
-                  - Invalid value for SchemaDependencyTest_\w+_credit_card_Dependency declined by composition constraint.
+                  - Invalid value for {dependencyClass} declined by composition constraint.
                       Requires to match all composition elements but matched 0 elements.
                       - Composition element #1: Failed
-                        \* Missing required value for name
-                        \* Invalid type for name. Requires string, got NULL
+                        * Missing required value for name
+                        * Invalid type for name. Requires string, got NULL
                       - Composition element #2: Failed
-                        \* Missing required value for age
-                        \* Invalid type for age. Requires int, got NULL
+                        * Missing required value for age
+                        * Invalid type for age. Requires int, got NULL
                 ERROR,
             ],
             'required attribute not provided 2' => [
                 ['credit_card' => 12345, 'age' => 42],
-                <<<ERROR
+                <<<'ERROR'
                 Invalid schema which is dependant on credit_card:
-                  - Invalid value for SchemaDependencyTest_\w+_credit_card_Dependency declined by composition constraint.
+                  - Invalid value for {dependencyClass} declined by composition constraint.
                       Requires to match all composition elements but matched 1 elements.
                       - Composition element #1: Failed
-                        \* Missing required value for name
-                        \* Invalid type for name. Requires string, got NULL
+                        * Missing required value for name
+                        * Invalid type for name. Requires string, got NULL
                       - Composition element #2: Valid
                 ERROR,
             ],
-            'invalid data type'                 => [
+            'invalid data type' => [
                 ['credit_card' => 12345, 'name' => false, 'age' => 42],
-                <<<ERROR
+                <<<'ERROR'
                 Invalid schema which is dependant on credit_card:
-                  - Invalid value for SchemaDependencyTest_\w+_credit_card_Dependency declined by composition constraint.
+                  - Invalid value for {dependencyClass} declined by composition constraint.
                       Requires to match all composition elements but matched 1 elements.
                       - Composition element #1: Failed
-                        \* Invalid type for name. Requires string, got boolean
+                        * Invalid type for name. Requires string, got boolean
                       - Composition element #2: Valid
                 ERROR,
             ],
         ];
     }
-    // phpcs:enable Generic.Files.LineLength.TooLong
 
     #[DataProvider('validSchemaDependencyNestedObjectDataProvider')]
     public function testSchemaDependencyNestedObject(array $propertyValue): void

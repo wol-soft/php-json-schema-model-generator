@@ -16,6 +16,7 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
+use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\Hook\SerializationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
@@ -47,6 +48,10 @@ class SerializationPostProcessor extends PostProcessor
         $json = $schema->getJsonSchema()->getJson();
         if (isset($json['additionalProperties']) && $json['additionalProperties'] !== false) {
             $this->addAdditionalPropertiesTransformingFilterSerializer($schema, $generatorConfiguration);
+        }
+
+        if (isset($json['unevaluatedProperties']) && $json['unevaluatedProperties'] !== false) {
+            $this->addUnevaluatedPropertiesTransformingFilterSerializer($schema, $generatorConfiguration);
         }
     }
 
@@ -186,6 +191,64 @@ class SerializationPostProcessor extends PostProcessor
                 $schema,
                 $generatorConfiguration,
                 'Serialization/AdditionalPropertiesSerializer.phptpl',
+                [
+                    'serializerClass' => $serializerClass,
+                    'serializerMethod' => $serializerMethod,
+                    'serializerOptions' => var_export($transformingFilterValidator->getFilterOptions(), true),
+                ],
+            )
+        );
+    }
+
+    /**
+     * When unevaluated properties have a transforming filter, override
+     * _serializeUnevaluatedProperties on the model so the filter's serialize() runs before the
+     * values reach the generic serializer. Without this, transformed values (e.g. DateTime
+     * instances) reach the generic path unfiltered and drop to empty arrays in the output.
+     *
+     * The generic case (no transforming filter) is handled by
+     * SerializableTrait::_serializeUnevaluatedProperties.
+     */
+    public function addUnevaluatedPropertiesTransformingFilterSerializer(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
+        $validationProperty = null;
+        foreach ($schema->getPostCompositionValidators() as $validator) {
+            if (is_a($validator, UnevaluatedPropertiesValidator::class)) {
+                $validationProperty = $validator->getValidationProperty();
+                break;
+            }
+        }
+
+        $transformingFilterValidator = null;
+        $serializerClass = null;
+        $serializerMethod = null;
+
+        if ($validationProperty) {
+            foreach ($validationProperty->getValidators() as $validator) {
+                $validator = $validator->getValidator();
+
+                if (
+                    $validator instanceof FilterValidator &&
+                    $validator->getFilter() instanceof TransformingFilterInterface
+                ) {
+                    $transformingFilterValidator = $validator;
+                    [$serializerClass, $serializerMethod] = $validator->getFilter()->getSerializer();
+                }
+            }
+        }
+
+        if (!$transformingFilterValidator) {
+            return;
+        }
+
+        $schema->addMethod(
+            '_serializeUnevaluatedProperties',
+            new RenderedMethod(
+                $schema,
+                $generatorConfiguration,
+                'Serialization/UnevaluatedPropertiesSerializer.phptpl',
                 [
                     'serializerClass' => $serializerClass,
                     'serializerMethod' => $serializerMethod,

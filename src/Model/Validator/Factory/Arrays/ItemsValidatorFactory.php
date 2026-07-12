@@ -39,12 +39,16 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
 
         if (is_bool($itemsSchema)) {
             if ($itemsSchema === false) {
+                // `items: false` means the array must be empty. MaxItemsException's constructor
+                // requires both the maxItems limit and the actual count of the offending array
+                // — define $count via the expression so the validator can pass it as the fourth
+                // constructor argument alongside the literal 0 maxItems.
                 $property->addValidator(
                     (new PropertyValidator(
                         $property,
-                        'count($value) > 0',
+                        '($count = count($value)) > 0',
                         MaxItemsException::class,
-                        [0],
+                        [0, '&$count'],
                     ))->withJsonPointer($itemsPointer),
                 );
             }

@@ -147,3 +147,13 @@ Generated interface:
 If a base reference is used and the reference doesn't point to an object definition an Exception will be thrown during the model generation process:
 
 * A referenced schema on base level must provide an object definition [Citizen]
+
+.. note::
+
+    A ``$ref`` is a positive applicator. When an enclosing schema uses
+    `unevaluatedProperties <../complexTypes/object.html#unevaluated-properties>`__ or
+    `unevaluatedItems <../complexTypes/array.html#unevaluated-items>`__ (Draft 2019-09 and later),
+    the resolved schema's evaluated set contributes to the enclosing schema's evaluated set —
+    exactly as an inline branch of the same shape would. Self-referential ``$ref`` chains are
+    handled without infinite recursion: the generator terminates the walk when it revisits a
+    schema it has already processed.

@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "unevaluatedProperties": {
+    "type": "string",
+    "filter": [
+      {
+        "filter": "dateTime",
+        "outputFormat": "Ymd"
+      }
+    ]
+  }
+}

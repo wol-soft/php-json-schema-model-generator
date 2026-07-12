@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\SchemaDefinition;
 use PHPModelGenerator\Exception\GeneratorException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Utils\ArrayHash;
+use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 
 /**
  * Class JsonSchema
@@ -121,7 +122,7 @@ class JsonSchema
 
         foreach (explode('/', $trimmed) as $pathSegment) {
             $jsonSchema->pointer .= "/$pathSegment";
-            $decodedPathSegment = self::decodePointer($pathSegment);
+            $decodedPathSegment = JsonSchemaUtil::decodePointer($pathSegment);
 
             if (!array_key_exists($decodedPathSegment, $jsonSchema->json)) {
                 throw new SchemaException("Unresolved path segment $pathSegment in file $this->file");
@@ -141,15 +142,5 @@ class JsonSchema
     public function getPointer(): string
     {
         return $this->pointer;
-    }
-
-    public static function encodePointer(string | int $pointer): string
-    {
-        return str_replace(['~', '/'], ['~0', '~1'], (string) $pointer);
-    }
-
-    public static function decodePointer(string | int $pointer): string
-    {
-        return str_replace(['~1', '~0'], ['/', '~'], (string) $pointer);
     }
 }

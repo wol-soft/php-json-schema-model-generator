@@ -1,0 +1,16 @@
+{
+  "$defs": {
+    "integerValue": {
+      "type": "integer"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "unevaluatedProperties": {
+    "$ref": "#/$defs/integerValue"
+  }
+}

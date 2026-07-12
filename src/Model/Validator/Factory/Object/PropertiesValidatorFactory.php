@@ -17,6 +17,7 @@ use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 
 class PropertiesValidatorFactory extends AbstractValidatorFactory
 {
@@ -72,7 +73,7 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
                     ))->withJsonPointer(
                         $propertySchema->getPointer()
                             . '/properties/'
-                            . JsonSchema::encodePointer((string) $propertyName),
+                            . JsonSchemaUtil::encodePointer((string) $propertyName),
                     ),
                 );
                 continue;
@@ -88,12 +89,12 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
                     ->withPointer(
                         $propertySchema->getPointer()
                             . '/' . $this->key . '/'
-                            . JsonSchema::encodePointer($propertyName)
+                            . JsonSchemaUtil::encodePointer($propertyName)
                     )
                     ->withJson([]);
             } else {
                 $nestedPropertySchema = $propertySchema
-                    ->navigate("$this->key/" . JsonSchema::encodePointer($propertyName))
+                    ->navigate("$this->key/" . JsonSchemaUtil::encodePointer($propertyName))
                     ->withJson(
                         $dependencies !== null
                             ? $propertyStructure + ['_dependencies' => $dependencies]
@@ -113,7 +114,7 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
                 $this->addDependencyValidator(
                     $nestedProperty,
                     $schema->getJsonSchema()->navigate(
-                        'dependencies/' . JsonSchema::encodePointer((string) $propertyName),
+                        'dependencies/' . JsonSchemaUtil::encodePointer((string) $propertyName),
                     ),
                     $schemaProcessor,
                     $schema,

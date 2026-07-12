@@ -1,0 +1,30 @@
+/**
+ * {% if minPropertyValidator %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+ */
+private function _removeUnevaluatedProperty(string $key): bool
+{
+    if (!array_key_exists($key, $this->_unevaluatedProperties)) {
+        return false;
+    }
+
+    {% if minPropertyValidator %}
+        {% if generatorConfiguration.collectErrors() %}
+            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+        {% endif %}
+
+        if ({{ minPropertyValidator.getCheck() }}) {
+            {{ viewHelper.validationError(minPropertyValidator) }}
+        }
+
+        {% if generatorConfiguration.collectErrors() %}
+            if (count($this->_errorRegistry->getErrors())) {
+                throw $this->_errorRegistry;
+            }
+        {% endif %}
+    {% endif %}
+
+    unset($this->_unevaluatedProperties[$key]);
+    unset($this->_rawModelDataInput[$key]);
+
+    return true;
+}

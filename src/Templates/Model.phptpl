@@ -70,6 +70,10 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
             $this->_executeBaseValidators($rawModelDataInput);
         {% endif %}
 
+        {% if schema.getPostCompositionValidators() %}
+            $this->_executePostCompositionValidators($rawModelDataInput);
+        {% endif %}
+
         {% foreach schema.getProperties() as property %}
             {% if not property.isInternal() %}
                 $this->_process{{ viewHelper.ucfirst(property.getAttribute()) }}($rawModelDataInput);
@@ -88,6 +92,12 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
     }
 
     {% if schema.getBaseValidators() %}
+        /**
+         * Runs property-level validators and composition validators against $modelData. Used
+         * for the constructor's full validation pass and for populate()'s per-property delta
+         * check. Schema-level validators that depend on the merged cross-property state live
+         * in _executePostCompositionValidators().
+         */
         protected function _executeBaseValidators(array &$modelData): void
         {
             $value = &$modelData;
@@ -98,6 +108,24 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
 
             {% foreach schema.getCompositionValidatorKeys() as compositionValidatorKey %}
                 $this->_validateComposition_{{ compositionValidatorKey }}($modelData);
+            {% endforeach %}
+        }
+    {% endif %}
+
+    {% if schema.getPostCompositionValidators() %}
+        /**
+         * Runs schema-level validators that depend on the merged state of every property —
+         * currently just unevaluatedProperties. The constructor calls this on the raw input
+         * after _executeBaseValidators; setters call it against a candidate state (raw input
+         * with the new value plugged in) before commit; populate() calls it against the
+         * would-be merged state before applying the merge.
+         */
+        protected function _executePostCompositionValidators(array &$modelData): void
+        {
+            $value = &$modelData;
+
+            {% foreach schema.getPostCompositionValidators() as validator %}
+                {{ viewHelper.renderValidator(validator, schema) }}
             {% endforeach %}
         }
     {% endif %}
@@ -153,6 +181,17 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
                     {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
 
                     $value = $this->_validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
+
+                    {% if schema.getPostCompositionValidators() %}
+                        // Cross-state validation: build a candidate raw input with the new
+                        // value plugged in so post-composition validators (notably
+                        // unevaluatedProperties) see the would-be state instead of the still
+                        // pre-mutation $this->_rawModelDataInput. Validates without committing —
+                        // the commit below only runs after every validator passes.
+                        $candidateRawModelDataInput = $this->_rawModelDataInput;
+                        $candidateRawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
+                        $this->_executePostCompositionValidators($candidateRawModelDataInput);
+                    {% endif %}
 
                     {% if generatorConfiguration.collectErrors() %}
                         if ($this->_errorRegistry->getErrors()) {

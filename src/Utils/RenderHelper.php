@@ -187,6 +187,41 @@ if ({$validator->getCheck()}) {
         return preg_replace('(\d+\s=>)', '', var_export($values, true));
     }
 
+    /**
+     * Returns a PHP array literal whose values are each raw $patterns entry wrapped with `/`
+     * delimiters and with any embedded `/` characters escaped so they cannot terminate the
+     * delimiter early. The result is ready for direct `preg_match` use at runtime.
+     *
+     * @param string[] $rawPatterns Raw patternProperties regexes from a JSON Schema.
+     */
+    public static function varExportPcrePatterns(array $rawPatterns): string
+    {
+        return self::varExportArray(
+            array_map(
+                static fn(string $rawPattern): string => '/' . addcslashes($rawPattern, '/') . '/',
+                $rawPatterns,
+            ),
+        );
+    }
+
+    /**
+     * Returns a PHP array literal keyed by each raw pattern wrapped for direct `preg_match`
+     * use. Distinct from varExportPcrePatterns because the caller needs the values (not the
+     * numeric indices) so a per-pattern piece of metadata such as a JSON pointer can be looked
+     * up at runtime by the matched pattern.
+     *
+     * @param array<string, mixed> $rawPatternMap Keyed by raw regex; value is preserved verbatim.
+     */
+    public static function varExportPcrePatternMap(array $rawPatternMap): string
+    {
+        $keyed = [];
+        foreach ($rawPatternMap as $rawPattern => $value) {
+            $keyed['/' . addcslashes((string) $rawPattern, '/') . '/'] = $value;
+        }
+
+        return var_export($keyed, true);
+    }
+
     public static function filterClassImports(array $imports, string $namespace): array
     {
         // filter out non-compound uses and uses which link to the current namespace

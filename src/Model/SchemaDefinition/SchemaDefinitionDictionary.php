@@ -8,6 +8,7 @@ use ArrayObject;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 
 /**
  * Class SchemaDefinitionDictionary
@@ -47,7 +48,7 @@ class SchemaDefinitionDictionary extends ArrayObject
             $this->addDefinition(
                 $key,
                 new SchemaDefinition(
-                    $schema->getJsonSchema()->navigate(JsonSchema::encodePointer($key)),
+                    $schema->getJsonSchema()->navigate(JsonSchemaUtil::encodePointer($key)),
                     $schemaProcessor,
                     $schema,
                 ),
@@ -80,7 +81,7 @@ class SchemaDefinitionDictionary extends ArrayObject
             }
 
             $this->fetchDefinitionsById(
-                $jsonSchema->navigate(JsonSchema::encodePointer($key)),
+                $jsonSchema->navigate(JsonSchemaUtil::encodePointer($key)),
                 $schemaProcessor,
                 $schema,
             );

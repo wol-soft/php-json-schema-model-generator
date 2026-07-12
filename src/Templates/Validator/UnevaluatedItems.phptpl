@@ -1,0 +1,53 @@
+is_array($value) && (function ($items) use (&$invalidItems, $modelData): bool {
+    {% if generatorConfiguration.collectErrors() %}
+        $originalErrorRegistry = $this->_errorRegistry;
+    {% endif %}
+    $rollbackEvaluatedItemIndices = $this->_evaluatedItemIndices;
+
+    $unevaluatedIndices = $this->collectUnevaluatedIndices(
+        $items,
+        '{{ arrayPropertyName }}',
+        {{ compositionSlotKeys }},
+    );
+
+    foreach ($unevaluatedIndices as $index) {
+        try {
+            $value = $items[$index];
+
+            {% if generatorConfiguration.collectErrors() %}
+                $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            {% endif %}
+
+            {{ viewHelper.resolvePropertyDecorator(validationProperty) }}
+
+            {% foreach validationProperty.getOrderedValidators() as validator %}
+                {{ viewHelper.renderValidator(validator, schema) }}
+            {% endforeach %}
+
+            {% if generatorConfiguration.collectErrors() %}
+                if ($this->_errorRegistry->getErrors()) {
+                    $invalidItems[$index] = $this->_errorRegistry->getErrors();
+                    continue;
+                }
+            {% endif %}
+
+            // The index validated against the unevaluatedItems subschema — record it so an
+            // enclosing schema's unevaluatedItems accumulator can credit it.
+            $this->_evaluatedItemIndices['{{ arrayPropertyName }}'][$index] = true;
+        } catch (\Exception $e) {
+            isset($invalidItems[$index])
+                ? $invalidItems[$index][] = $e
+                : $invalidItems[$index] = [$e];
+        }
+    }
+
+    {% if generatorConfiguration.collectErrors() %}
+        $this->_errorRegistry = $originalErrorRegistry;
+    {% endif %}
+
+    if (!empty($invalidItems)) {
+        $this->_evaluatedItemIndices = $rollbackEvaluatedItemIndices;
+    }
+
+    return !empty($invalidItems);
+})($value)

@@ -1,0 +1,11 @@
+{
+  "definitions": {
+    "extension": {
+      "properties": {
+        "external": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

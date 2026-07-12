@@ -1,0 +1,10 @@
+public function unevaluatedProperties(): {{ accessorType }}
+{
+    return $this->_unevaluatedPropertiesAccessor ??= new {{ accessorType }}(
+        $this->_unevaluatedProperties,
+        {% if not immutable %}
+        $this->_setUnevaluatedProperty(...),
+        $this->_removeUnevaluatedProperty(...),
+        {% endif %}
+    );
+}

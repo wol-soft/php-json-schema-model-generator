@@ -1,0 +1,65 @@
+(function () use ($properties, &$invalidProperties, $modelData): bool {
+    {% if generatorConfiguration.collectErrors() %}
+        $originalErrorRegistry = $this->_errorRegistry;
+    {% endif %}
+    {% if collectUnevaluatedProperties %}
+        $rollbackUnevaluatedProperties = $this->_unevaluatedProperties;
+    {% endif %}
+    $rollbackEvaluatedPropertyKeys = $this->_evaluatedPropertyKeys;
+
+    $unevaluatedKeys = $this->collectUnevaluatedKeys(
+        $modelData,
+        {{ declaredPropertyNames }},
+        {{ pcrePatterns }},
+        {{ compositionValidatorKeys }},
+    );
+
+    foreach ($unevaluatedKeys as $propertyKey) {
+        try {
+            $value = $properties[$propertyKey];
+
+            {% if generatorConfiguration.collectErrors() %}
+                $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+            {% endif %}
+
+            {{ viewHelper.resolvePropertyDecorator(validationProperty) }}
+
+            {% foreach validationProperty.getOrderedValidators() as validator %}
+                {{ viewHelper.renderValidator(validator, schema) }}
+            {% endforeach %}
+
+            {% if generatorConfiguration.collectErrors() %}
+                if ($this->_errorRegistry->getErrors()) {
+                    $invalidProperties[$propertyKey] = $this->_errorRegistry->getErrors();
+
+                    continue;
+                }
+            {% endif %}
+
+            // The key validated against the unevaluatedProperties subschema — record it so an
+            // enclosing schema's unevaluatedProperties accumulator can credit it.
+            $this->_evaluatedPropertyKeys[$propertyKey] = true;
+
+            {% if collectUnevaluatedProperties %}
+                $this->_unevaluatedProperties[$propertyKey] = $value;
+            {% endif %}
+        } catch (\Exception $e) {
+            isset($invalidProperties[$propertyKey])
+                ? $invalidProperties[$propertyKey][] = $e
+                : $invalidProperties[$propertyKey] = [$e];
+        }
+    }
+
+    {% if generatorConfiguration.collectErrors() %}
+        $this->_errorRegistry = $originalErrorRegistry;
+    {% endif %}
+
+    if (!empty($invalidProperties)) {
+        {% if collectUnevaluatedProperties %}
+            $this->_unevaluatedProperties = $rollbackUnevaluatedProperties;
+        {% endif %}
+        $this->_evaluatedPropertyKeys = $rollbackEvaluatedPropertyKeys;
+    }
+
+    return !empty($invalidProperties);
+})()
