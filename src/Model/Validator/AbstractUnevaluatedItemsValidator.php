@@ -35,16 +35,43 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
     ) {
         $this->parentProperty = $property;
 
+        [$siblingTupleItemsCount, $siblingCoversTail] = $this->siblingItemsCoverage(
+            $property->getJsonSchema()->getJson(),
+        );
+
         parent::__construct(
             $property,
             $templatePath,
             $extraTemplateValues + [
                 'arrayPropertyName' => $property->getName(),
                 'compositionSlotKeys' => '[]',
+                'siblingTupleItemsCount' => $siblingTupleItemsCount,
+                'siblingCoversTail' => $siblingCoversTail ? 'true' : 'false',
             ],
             $exceptionClass,
             $exceptionParams,
         );
+    }
+
+    /**
+     * Positional index coverage from a sibling `items` tuple and `additionalItems` on the same
+     * property: a tuple `items` evaluates indices [0, count); a non-false `additionalItems` then
+     * evaluates every index past the tuple. Every other `items` shape is suppressed as dead code
+     * by UnevaluatedItemsValidatorFactory, so it contributes no coverage here.
+     *
+     * @return array{0: int, 1: bool} [tuple length, whether additionalItems covers the tail]
+     */
+    private function siblingItemsCoverage(array $json): array
+    {
+        $items = $json['items'] ?? null;
+
+        if (!is_array($items) || $items === [] || !array_is_list($items)) {
+            return [0, false];
+        }
+
+        $coversTail = array_key_exists('additionalItems', $json) && $json['additionalItems'] !== false;
+
+        return [count($items), $coversTail];
     }
 
     public function getCheck(): string

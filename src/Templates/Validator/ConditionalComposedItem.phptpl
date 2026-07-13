@@ -43,8 +43,8 @@
         {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() and ifProperty.getNestedSchema() %}
             $capturedIfInstance = is_object($value) ? $value : null;
         {% endif %}
-    } catch (\Exception $e) {
-        $ifException = $e;
+    } catch (\Exception $exception) {
+        $ifException = $exception;
     }
 
     $value = $originalModelData;
@@ -77,13 +77,13 @@
         if ($ifException) {
             $this->_compositionEvaluations[$validatorIndex][0] = null;
         } else {
-            {% if ifProperty.branchHasNonFalseAdditionalProperties() %}
+            {% if ifProperty.branchClaimsAllKeys() %}
                 $this->_compositionEvaluations[$validatorIndex][0] = true;
             {% endif %}
-            {% if not ifProperty.branchHasNonFalseAdditionalProperties() and ifProperty.getNestedSchema() %}
+            {% if not ifProperty.branchClaimsAllKeys() and ifProperty.getNestedSchema() %}
                 $this->_compositionEvaluations[$validatorIndex][0] = $capturedIfInstance;
             {% endif %}
-            {% if not ifProperty.branchHasNonFalseAdditionalProperties() and not ifProperty.getNestedSchema() %}
+            {% if not ifProperty.branchClaimsAllKeys() and not ifProperty.getNestedSchema() %}
                 $this->_compositionEvaluations[$validatorIndex][0] = $this->collectEvaluatedProperties(
                     $modelData,
                     {{ ifProperty.getBranchDeclaredPropertyNamesPhpLiteral() }},
@@ -123,8 +123,8 @@
                 {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() and thenProperty.getNestedSchema() %}
                     $capturedThenInstance = is_object($value) ? $value : null;
                 {% endif %}
-            } catch (\Exception $e) {
-                $thenException = $e;
+            } catch (\Exception $exception) {
+                $thenException = $exception;
             }
 
             {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and thenProperty.branchIsArrayKind() %}
@@ -155,13 +155,13 @@
                 if ($thenException) {
                     $this->_compositionEvaluations[$validatorIndex][1] = null;
                 } else {
-                    {% if thenProperty.branchHasNonFalseAdditionalProperties() %}
+                    {% if thenProperty.branchClaimsAllKeys() %}
                         $this->_compositionEvaluations[$validatorIndex][1] = true;
                     {% endif %}
-                    {% if not thenProperty.branchHasNonFalseAdditionalProperties() and thenProperty.getNestedSchema() %}
+                    {% if not thenProperty.branchClaimsAllKeys() and thenProperty.getNestedSchema() %}
                         $this->_compositionEvaluations[$validatorIndex][1] = $capturedThenInstance;
                     {% endif %}
-                    {% if not thenProperty.branchHasNonFalseAdditionalProperties() and not thenProperty.getNestedSchema() %}
+                    {% if not thenProperty.branchClaimsAllKeys() and not thenProperty.getNestedSchema() %}
                         $this->_compositionEvaluations[$validatorIndex][1] = $this->collectEvaluatedProperties(
                             $modelData,
                             {{ thenProperty.getBranchDeclaredPropertyNamesPhpLiteral() }},
@@ -204,8 +204,8 @@
                 {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() and elseProperty.getNestedSchema() %}
                     $capturedElseInstance = is_object($value) ? $value : null;
                 {% endif %}
-            } catch (\Exception $e) {
-                $elseException = $e;
+            } catch (\Exception $exception) {
+                $elseException = $exception;
             }
 
             {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and elseProperty.branchIsArrayKind() %}
@@ -236,13 +236,13 @@
                 if ($elseException) {
                     $this->_compositionEvaluations[$validatorIndex][2] = null;
                 } else {
-                    {% if elseProperty.branchHasNonFalseAdditionalProperties() %}
+                    {% if elseProperty.branchClaimsAllKeys() %}
                         $this->_compositionEvaluations[$validatorIndex][2] = true;
                     {% endif %}
-                    {% if not elseProperty.branchHasNonFalseAdditionalProperties() and elseProperty.getNestedSchema() %}
+                    {% if not elseProperty.branchClaimsAllKeys() and elseProperty.getNestedSchema() %}
                         $this->_compositionEvaluations[$validatorIndex][2] = $capturedElseInstance;
                     {% endif %}
-                    {% if not elseProperty.branchHasNonFalseAdditionalProperties() and not elseProperty.getNestedSchema() %}
+                    {% if not elseProperty.branchClaimsAllKeys() and not elseProperty.getNestedSchema() %}
                         $this->_compositionEvaluations[$validatorIndex][2] = $this->collectEvaluatedProperties(
                             $modelData,
                             {{ elseProperty.getBranchDeclaredPropertyNamesPhpLiteral() }},

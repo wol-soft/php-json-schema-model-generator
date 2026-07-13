@@ -43,10 +43,10 @@
             {% if collectUnevaluatedProperties %}
                 $this->_unevaluatedProperties[$propertyKey] = $value;
             {% endif %}
-        } catch (\Exception $e) {
+        } catch (\Exception $exception) {
             isset($invalidProperties[$propertyKey])
-                ? $invalidProperties[$propertyKey][] = $e
-                : $invalidProperties[$propertyKey] = [$e];
+                ? $invalidProperties[$propertyKey][] = $exception
+                : $invalidProperties[$propertyKey] = [$exception];
         }
     }
 

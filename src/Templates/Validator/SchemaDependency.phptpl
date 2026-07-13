@@ -16,8 +16,8 @@ array_key_exists('{{ property.getName() }}', $modelData) && (function () use ($m
 
         $this->_errorRegistry = $originalErrorRegistry;
     {% else %}
-        } catch (\Exception $e) {
-            $dependencyException = $e;
+        } catch (\Exception $exception) {
+            $dependencyException = $exception;
         }
     {% endif %}
 

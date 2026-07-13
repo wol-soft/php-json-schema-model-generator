@@ -147,6 +147,23 @@ class CompositionPropertyDecorator extends PropertyProxy
     }
 
     /**
+     * Returns true when a successful branch is treated as evaluating every model key. That holds
+     * when the branch declares a non-false `additionalProperties` (claims every extra key) or an
+     * `unevaluatedProperties: true` (claims every key the branch did not otherwise evaluate).
+     * Either way the whole instance is covered, so the branch's evaluation slot becomes an
+     * all-keys-evaluated marker rather than an explicit name list or nested-instance query.
+     *
+     * `unevaluatedProperties: {schema}` is deliberately excluded: it claims only the remaining
+     * keys whose values validate against the subschema, which is instance-dependent and cannot be
+     * reduced to an all-keys marker at generation time.
+     */
+    public function branchClaimsAllKeys(): bool
+    {
+        return $this->branchHasNonFalseAdditionalProperties()
+            || ($this->jsonSchema->getJson()['unevaluatedProperties'] ?? null) === true;
+    }
+
+    /**
      * True when the branch declares `items` as a schema object (not a tuple list, not a
      * boolean). A schema-form `items` claims every index in the validated array.
      */

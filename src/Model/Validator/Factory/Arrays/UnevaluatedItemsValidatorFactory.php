@@ -105,9 +105,18 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
             return true;
         }
 
-        $isTupleItems = is_array($items)
-            && $items !== []
-            && array_keys($items) === range(0, count($items) - 1);
+        if ($items === true) {
+            $this->warn(
+                $schemaProcessor,
+                $schema,
+                $property,
+                "sibling items: true already claims every index",
+            );
+
+            return true;
+        }
+
+        $isTupleItems = is_array($items) && $items !== [] && array_is_list($items);
 
         if ($isTupleItems) {
             if (($json['additionalItems'] ?? null) === false) {

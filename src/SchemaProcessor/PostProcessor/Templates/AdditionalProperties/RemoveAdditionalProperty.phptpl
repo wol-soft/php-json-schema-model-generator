@@ -7,8 +7,8 @@ private function _removeAdditionalProperty(string $key): bool
 
     $inPatternProperties = false;
     if (isset($this->_patternProperties)) {
-        foreach ($this->_patternProperties as $patternHash => $_) {
-            if (isset($this->_patternProperties[$patternHash][$key])) {
+        foreach ($this->_patternProperties as $patternEntries) {
+            if (isset($patternEntries[$key])) {
                 $inPatternProperties = true;
                 break;
             }
@@ -86,9 +86,10 @@ private function _removeAdditionalProperty(string $key): bool
     {% endif %}
 
     if ($inPatternProperties) {
-        foreach ($this->_patternProperties as $patternHash => $_) {
-            unset($this->_patternProperties[$patternHash][$key]);
+        foreach ($this->_patternProperties as &$patternEntries) {
+            unset($patternEntries[$key]);
         }
+        unset($patternEntries);
     }
 
     if ($inAdditionalProperties) {

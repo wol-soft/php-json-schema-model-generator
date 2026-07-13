@@ -142,16 +142,10 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      */
     private function activateArrayPropertyTracking(Schema $schema): void
     {
-        $unevaluatedItemsPresent = false;
+        $evaluatedItemIndicesNeeded = false;
         $compositionActivated = false;
 
         foreach ($schema->getProperties() as $schemaProperty) {
-            $propertyJson = $schemaProperty->getJsonSchema()->getJson();
-
-            if (!array_key_exists('unevaluatedItems', $propertyJson)) {
-                continue;
-            }
-
             // The unevaluatedItems factory is registered on the `array` type only, so a
             // property whose type cannot hold an array never produces an unevaluatedItems
             // validator at runtime. Activating compositions in that case would write
@@ -161,7 +155,29 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 continue;
             }
 
-            $unevaluatedItemsPresent = true;
+            $propertyJson = $schemaProperty->getJsonSchema()->getJson();
+            $hasDirectUnevaluatedItems = array_key_exists('unevaluatedItems', $propertyJson);
+            // A composition branch may carry unevaluatedItems even when the array property itself
+            // does not (e.g. allOf: [{unevaluatedItems: {schema}}]). The branch's validator still
+            // needs the _evaluatedItemIndices field declared on the class.
+            $hasBranchUnevaluatedItems = $this->propertyHasBranchUnevaluatedItems($schemaProperty);
+
+            if (!$hasDirectUnevaluatedItems && !$hasBranchUnevaluatedItems) {
+                continue;
+            }
+
+            $evaluatedItemIndicesNeeded = true;
+
+            // Composition activation and sibling crediting are only relevant when the property
+            // itself carries an unevaluatedItems check that reads those annotations. A branch-only
+            // unevaluatedItems validates within its own branch and needs no outer crediting.
+            if (!$hasDirectUnevaluatedItems) {
+                continue;
+            }
+
+            // A direct-sibling `contains` credits its matched indices to the property's evaluated
+            // set so the sibling unevaluatedItems check sees them as evaluated.
+            $this->enableDirectSiblingContainsTracking($schemaProperty);
 
             $this->slotKeyCounter = 0;
             $this->activatedCompositions = [];
@@ -189,7 +205,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             );
         }
 
-        if ($unevaluatedItemsPresent) {
+        if ($evaluatedItemIndicesNeeded) {
             // Per-array-property index map of indices the property's UnevaluatedItems validator
             // successfully evaluated, shaped as [propertyName => [index => true]]. Inner and outer
             // UnevaluatedItems validators share the same instance field — there are no nested
@@ -204,6 +220,41 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                     ->setInternal(true)
                     ->setDefaultValue([]),
             );
+        }
+    }
+
+    /**
+     * True when any composition validator directly on the property carries a branch declaring
+     * `unevaluatedItems`. Such a branch's validator writes and reads `_evaluatedItemIndices`, so
+     * the field must be declared even though the array property itself has no unevaluatedItems.
+     */
+    private function propertyHasBranchUnevaluatedItems(PropertyInterface $property): bool
+    {
+        foreach ($property->getOrderedValidators() as $validator) {
+            if (!$validator instanceof AbstractComposedPropertyValidator) {
+                continue;
+            }
+
+            foreach ($validator->getComposedProperties() as $composedProperty) {
+                if (array_key_exists('unevaluatedItems', $composedProperty->getBranchSchema()->getJson())) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Enable direct-sibling index crediting on any `contains` validator sitting directly on the
+     * property, so a sibling unevaluatedItems check sees the matched indices as evaluated.
+     */
+    private function enableDirectSiblingContainsTracking(PropertyInterface $property): void
+    {
+        foreach ($property->getOrderedValidators() as $validator) {
+            if ($validator instanceof ArrayContainsValidator) {
+                $validator->setTrackEvaluatedItems();
+            }
         }
     }
 
@@ -316,9 +367,11 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
     /**
      * Builds a MethodInterface that emits `_getEvaluatedProperties()` for the given nested
-     * schema. The method returns the union of declared property names present in the
-     * instance's raw model data and the keys recorded in `_evaluatedPropertyKeys` (populated
-     * by the nested schema's own unevaluatedProperties validator).
+     * schema. The method returns the union of declared property names present in the instance's
+     * raw model data, the keys matched by the schema's own `patternProperties`, and the keys
+     * recorded in `_evaluatedPropertyKeys` (populated by the nested schema's own
+     * unevaluatedProperties validator). Together these are the keys the branch evaluated, so an
+     * enclosing unevaluatedProperties check must credit them.
      */
     private function buildGetEvaluatedPropertiesMethod(Schema $nestedSchema): MethodInterface
     {
@@ -348,12 +401,18 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                                 $evaluated[$propName] = true;
                             }
                         }
+                        // Keys matched by this schema\'s own patternProperties (with passing
+                        // values) are evaluated too, so an enclosing schema must see them. Only the
+                        // keys matter (the result is array_keys($evaluated)), so union the maps.
+                        if (property_exists($this, "_patternProperties")) {
+                            foreach ($this->_patternProperties as $patternMatches) {
+                                $evaluated += $patternMatches;
+                            }
+                        }
                         // Keys evaluated by this schema\'s own unevaluatedProperties: {schema}
                         // validator are tracked so an enclosing schema can see them.
                         if (property_exists($this, "_evaluatedPropertyKeys")) {
-                            foreach ($this->_evaluatedPropertyKeys as $propName => $_) {
-                                $evaluated[$propName] = true;
-                            }
+                            $evaluated += $this->_evaluatedPropertyKeys;
                         }
                         return array_keys($evaluated);
                     }',
@@ -387,35 +446,15 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             return $seen[$schemaKey] = true;
         }
 
-        // Check each composition branch: both the branch-level JSON and any nested schema it produces.
-        foreach ($schema->getBaseValidators() as $baseValidator) {
-            if (!$baseValidator instanceof AbstractComposedPropertyValidator) {
-                continue;
-            }
-
-            foreach ($baseValidator->getComposedProperties() as $composedProperty) {
-                $branchJson = $composedProperty->getBranchSchema()->getJson();
-
-                if (
-                    array_key_exists('unevaluatedProperties', $branchJson)
-                    || array_key_exists('unevaluatedItems', $branchJson)
-                ) {
-                    return $seen[$schemaKey] = true;
-                }
-
-                $nestedSchema = $composedProperty->getNestedSchema();
-
-                if ($nestedSchema !== null && $this->needsActivation($nestedSchema, $seen)) {
-                    return $seen[$schemaKey] = true;
-                }
-            }
+        // Check each schema-level composition: both the branch-level JSON and any nested schema.
+        if ($this->compositionValidatorsNeedActivation($schema->getBaseValidators(), $seen)) {
+            return $seen[$schemaKey] = true;
         }
 
-        // Check property-level nested schemas (e.g. an object-typed property with its own composition).
-        // Array properties never carry a nested schema — their unevaluatedItems lives in the
-        // property's own JSON, so check that before the getNestedSchema() recursion. Without
-        // this, a schema like {type: object, properties: {tags: {type: array, unevaluatedItems: false}}}
-        // would miss activation entirely.
+        // Check each property: its own JSON, its nested schema, and any composition sitting
+        // directly on it. Array properties never carry a nested schema — their unevaluatedItems
+        // lives in the property's own JSON or in a composition branch on the property (e.g.
+        // {tags: {type: array, allOf: [{unevaluatedItems: {schema}}]}}), so both must be checked.
         foreach ($schema->getProperties() as $schemaProperty) {
             $propertyJson = $schemaProperty->getJsonSchema()->getJson();
 
@@ -431,8 +470,48 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             if ($nestedSchema !== null && $this->needsActivation($nestedSchema, $seen)) {
                 return $seen[$schemaKey] = true;
             }
+
+            if ($this->compositionValidatorsNeedActivation($schemaProperty->getOrderedValidators(), $seen)) {
+                return $seen[$schemaKey] = true;
+            }
         }
 
         return $seen[$schemaKey] = false;
+    }
+
+    /**
+     * True when any composition validator in the given list carries a branch that declares an
+     * unevaluated keyword — either in the branch-level JSON or in a nested schema the branch
+     * produces. Shared by the schema-level (base validators) and property-level checks.
+     *
+     * @param iterable<mixed> $validators
+     * @param array<string, bool> $seen
+     */
+    private function compositionValidatorsNeedActivation(iterable $validators, array &$seen): bool
+    {
+        foreach ($validators as $validator) {
+            if (!$validator instanceof AbstractComposedPropertyValidator) {
+                continue;
+            }
+
+            foreach ($validator->getComposedProperties() as $composedProperty) {
+                $branchJson = $composedProperty->getBranchSchema()->getJson();
+
+                if (
+                    array_key_exists('unevaluatedProperties', $branchJson)
+                    || array_key_exists('unevaluatedItems', $branchJson)
+                ) {
+                    return true;
+                }
+
+                $nestedSchema = $composedProperty->getNestedSchema();
+
+                if ($nestedSchema !== null && $this->needsActivation($nestedSchema, $seen)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

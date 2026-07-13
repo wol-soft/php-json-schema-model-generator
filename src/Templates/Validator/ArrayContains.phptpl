@@ -7,6 +7,10 @@ is_array($value) && (function (&$items){% if countMatches or trackBranchMatches 
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
 
+    {% if trackEvaluatedItems %}
+        $branchContainsMatches = [];
+    {% endif %}
+
     foreach ($items as $index => &$value) {
         try {
             {% if generatorConfiguration.collectErrors() %}
@@ -27,18 +31,18 @@ is_array($value) && (function (&$items){% if countMatches or trackBranchMatches 
                 $this->_errorRegistry = $originalErrorRegistry;
             {% endif %}
 
-            {% if trackBranchMatches %}
+            {% if trackBranchMatches or trackEvaluatedItems %}
                 $branchContainsMatches[$index] = true;
             {% endif %}
 
             {% if countMatches %}
                 $containsMatches++;
             {% endif %}
-            {% if not countMatches and not trackBranchMatches %}
+            {% if not countMatches and not trackBranchMatches and not trackEvaluatedItems %}
                 // one matched item is enough; no need to keep iterating
                 return false;
             {% endif %}
-        } catch (\Exception $e) {
+        } catch (\Exception) {
             continue;
         }
     }
@@ -47,10 +51,17 @@ is_array($value) && (function (&$items){% if countMatches or trackBranchMatches 
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
+    {% if trackEvaluatedItems %}
+        // Credit every matched index to the property's evaluated-index set so a sibling
+        // unevaluatedItems validator sees those indices as evaluated.
+        $this->_evaluatedItemIndices['{{ trackEvaluatedItemsProperty }}'] =
+            ($this->_evaluatedItemIndices['{{ trackEvaluatedItemsProperty }}'] ?? []) + $branchContainsMatches;
+    {% endif %}
+
     return {% if countMatches %}
             {% if allowNoMatch %}false{% else %}$containsMatches === 0{% endif %}
         {% else %}
-            {% if trackBranchMatches %}
+            {% if trackBranchMatches or trackEvaluatedItems %}
                 empty($branchContainsMatches)
             {% else %}
                 true
