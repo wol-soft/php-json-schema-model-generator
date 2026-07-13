@@ -14,8 +14,6 @@ use PHPModelGenerator\Attributes\WriteOnlyProperty;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
 use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
 use PHPModelGenerator\Draft\Producer\PropertyProducerInterface;
-use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
-use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Property\BaseProperty;
@@ -24,6 +22,8 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
+use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
@@ -31,6 +31,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecor
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\TypeConverter;
+use PHPModelGenerator\Utils\TypeIntersection;
 
 /**
  * Class PropertyFactory
@@ -155,14 +156,17 @@ class PropertyFactory
             return $exclusiveProducer->produce($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
         }
 
-        // For non-exclusive producers at base level, process sibling content first so that
-        // sibling properties are root-registered before the producer contributes its properties.
-        // Producer properties that collide with already-registered sibling names are then merged
-        // with allOf semantics (type intersection, default-conflict detection) by the producer.
-        // Producer keywords themselves are excluded so only true sibling keywords remain.
-        $json = $propertySchema->getJson();
+        // For non-exclusive producers, strip producer keywords so only sibling keywords remain.
+        $json        = $propertySchema->getJson();
+        $siblingJson = array_diff_key($json, $producers);
+
         if (isset($json['type']) && $json['type'] === 'base') {
-            $siblingJson = array_diff_key($json, $producers);
+            // Base level: process sibling content first so that sibling properties are
+            // root-registered before the producer contributes its properties. Producer
+            // properties that collide with already-registered sibling names are then merged
+            // with allOf semantics (type intersection, default-conflict detection) by the
+            // producer. The base-level marker 'type':'base' counts as one entry, so we only
+            // create a base property when additional sibling keywords are present (count > 1).
             if (count($siblingJson) > 1) {
                 $this->createBaseProperty(
                     $schemaProcessor,
@@ -171,6 +175,19 @@ class PropertyFactory
                     $propertySchema->withJson($siblingJson),
                 );
             }
+        } elseif (!empty($siblingJson)) {
+            // Property level: there are sibling keywords alongside the producer (e.g. $ref).
+            // Draft 2019-09+ applies all siblings simultaneously with the $ref; earlier drafts
+            // suppress them via ExclusiveProducer, so this branch is only reached for 2019-09+.
+            return $this->mergeProducedPropertyWithSiblings(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema,
+                $required,
+                $producers,
+                $siblingJson,
+            );
         }
 
         $produced = array_map(
@@ -185,6 +202,252 @@ class PropertyFactory
         );
 
         return array_values($produced)[0];
+    }
+
+    /**
+     * Produce the property from the producer keyword ($ref), then asynchronously merge it
+     * with any sibling keywords present on the same schema node.
+     *
+     * Builds an untyped placeholder property to return immediately (required for recursive
+     * $ref support, where the backing property is not yet available when produce() returns).
+     * The actual type and validators are wired in the onResolve callback once the ref
+     * property has resolved.
+     *
+     * Object×object merge — when the ref property resolves to an object schema AND either
+     * (a) siblings include structural object keywords like 'properties', or (b) a second
+     * producer keyword is present and also resolves to an object — requires processSchema()
+     * to be called for the merged object. However, processSchema() mutates
+     * SchemaProcessor::currentClassPath as a side effect. Calling it inside an onResolve
+     * callback (which fires mid-resolveReference) would corrupt the class-path context for
+     * subsequent properties in the parent schema. This case is therefore not yet supported
+     * and falls back to wiring the ref property's nested schema onto the target property
+     * while ignoring sibling structural keywords. A future change adding save/restore of
+     * class context to SchemaProcessor will unblock this.
+     *
+     * @param array<string, PropertyProducerInterface> $producers
+     *
+     * @throws SchemaException
+     */
+    private function mergeProducedPropertyWithSiblings(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        bool $required,
+        array $producers,
+        array $siblingJson,
+    ): PropertyInterface {
+        $siblingSchema  = $propertySchema->withJson($siblingJson);
+        $targetProperty = $this->buildProperty(
+            $schemaProcessor,
+            $propertyName,
+            null,
+            $siblingSchema,
+            $required,
+        );
+
+        $refProperty = array_values($producers)[0]->produce(
+            $schemaProcessor,
+            $schema,
+            $propertyName,
+            $propertySchema,
+            $required,
+        );
+
+        $refProperty->onResolve(function () use (
+            $targetProperty,
+            $refProperty,
+            $siblingSchema,
+            $schemaProcessor,
+            $schema,
+            $propertyName,
+        ): void {
+            if ($refProperty->getNestedSchema() !== null) {
+                // Object×object: not yet supported — fall back to the ref property as-is.
+                // Sibling structural keywords (properties, required, etc.) are ignored for
+                // this case. See method docblock for the underlying constraint.
+                $targetProperty->setNestedSchema($refProperty->getNestedSchema());
+                $this->wireObjectProperty($schemaProcessor, $schema, $targetProperty, $siblingSchema);
+                $this->applyModifiers($schemaProcessor, $schema, $targetProperty, $siblingSchema, anyOnly: true);
+
+                return;
+            }
+
+            $this->applyScalarSiblingMerge(
+                $targetProperty,
+                $refProperty,
+                $siblingSchema,
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+            );
+        });
+
+        return $targetProperty;
+    }
+
+    /**
+     * Merge sibling keywords onto a freshly built scalar/array property whose type was
+     * determined by the producer ($ref).
+     *
+     * Steps:
+     * 1. Resolve the effective PHP type as the intersection of the produced type and any
+     *    explicit sibling 'type' keyword. An empty intersection is a schema error.
+     * 2. Set that type on the target property.
+     * 3. Apply type-specific sibling modifiers (minLength, minimum, pattern, …).
+     * 4. Apply 'any' sibling modifiers (default, enum, const).
+     * 5. Transfer non-TypeCheck, non-Required validators from the ref property so that
+     *    constraints from the $ref definition are preserved.
+     *
+     * @throws SchemaException
+     */
+    private function applyScalarSiblingMerge(
+        PropertyInterface $targetProperty,
+        PropertyInterface $refProperty,
+        JsonSchema $siblingSchema,
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+    ): void {
+        $producedType = $refProperty->getType(true);
+
+        if ($producedType === null) {
+            // Truly untyped ref property: transfer validators directly; skip type-conversion
+            // decorators for the same reason as the typed path.
+            $this->transferProducedValidators($targetProperty, $refProperty, skipTypeCheck: false);
+
+            return;
+        }
+
+        $producedPhpTypeNames  = $producedType->getNames();
+        $effectivePhpTypeNames = $this->resolveEffectiveSiblingType(
+            $producedPhpTypeNames,
+            $siblingSchema,
+            $propertyName,
+        );
+
+        $targetProperty->setType(
+            new PropertyType($effectivePhpTypeNames, $producedType->isNullable()),
+            new PropertyType($effectivePhpTypeNames, $producedType->isNullable()),
+        );
+
+        $siblingJson = $siblingSchema->getJson();
+        if (count($effectivePhpTypeNames) === 1) {
+            // Single effective type: apply type-specific sibling modifiers (adds TypeCheck +
+            // type-keyed validators like minLength, pattern, minimum, etc.). These run on the
+            // sibling schema; the TypeCheck added here is the one that validates the final
+            // effective type, not the ref property's potentially broader type.
+            $siblingWithType = array_merge(
+                $siblingJson,
+                ['type' => TypeConverter::phpToJsonSchema($effectivePhpTypeNames[0])],
+            );
+            $this->applyModifiers(
+                $schemaProcessor,
+                $schema,
+                $targetProperty,
+                $siblingSchema->withJson($siblingWithType),
+                anyOnly: false,
+                typeOnly: true,
+            );
+        }
+
+        // Apply any-type sibling keywords (default, enum, const) that were not yet applied
+        // during the type-specific modifier pass above.
+        $this->applyModifiers(
+            $schemaProcessor,
+            $schema,
+            $targetProperty,
+            $siblingSchema,
+            anyOnly: true,
+        );
+
+        // Transfer constraints that originate from the $ref'd definition (e.g. minLength on
+        // the referenced string schema). Skip TypeCheck (added above with the effective type)
+        // and RequiredPropertyValidator (already on targetProperty from buildProperty).
+        // Decorators are intentionally NOT transferred: type-conversion decorators on the
+        // ref property (e.g. IntToFloatCastDecorator on a number $ref) target the produced
+        // type, not the narrowed effective type. Transferring them would corrupt the value
+        // before the effective-type TypeCheck can inspect it.
+        $this->transferProducedValidators($targetProperty, $refProperty, skipTypeCheck: true);
+    }
+
+    /**
+     * Resolve the effective PHP type set for a property-level sibling merge.
+     *
+     * If the sibling specifies no 'type' keyword, the produced type is used as-is.
+     * If the sibling specifies a 'type', its PHP equivalent is intersected with the produced
+     * type set (JSON Schema: integer is a subtype of number). An empty intersection means the
+     * sibling type and the $ref type are incompatible; SchemaException is thrown.
+     *
+     * @param string[] $producedPhpTypeNames
+     * @return string[]
+     *
+     * @throws SchemaException
+     */
+    private function resolveEffectiveSiblingType(
+        array $producedPhpTypeNames,
+        JsonSchema $siblingSchema,
+        string $propertyName,
+    ): array {
+        $siblingJson = $siblingSchema->getJson();
+        if (!isset($siblingJson['type']) || is_array($siblingJson['type'])) {
+            return $producedPhpTypeNames;
+        }
+
+        $siblingPhpTypeName = TypeConverter::jsonSchemaToPHP($siblingJson['type']);
+        $intersection       = TypeIntersection::compute([$siblingPhpTypeName], $producedPhpTypeNames);
+
+        if (empty($intersection)) {
+            throw new SchemaException(sprintf(
+                "Property '%s' in file '%s': \$ref resolves to type '%s' but sibling 'type' "
+                    . "declares '%s'; the types are incompatible",
+                $propertyName,
+                $siblingSchema->getFile(),
+                implode(' | ', $producedPhpTypeNames),
+                $siblingJson['type'],
+            ));
+        }
+
+        return $intersection;
+    }
+
+    /**
+     * Transfer validators (but NOT decorators) from a $ref property to a target property.
+     *
+     * When $skipTypeCheck is true, TypeCheckInterface validators are excluded (they were
+     * already added to the target property with the resolved effective type). When false,
+     * all validators including TypeCheck are transferred (used for truly-untyped ref
+     * properties where no separate type resolution step ran).
+     *
+     * RequiredPropertyValidator is always excluded: it is added to the target property by
+     * buildProperty() and must not be duplicated.
+     *
+     * Decorators are deliberately excluded here: type-conversion decorators on the ref
+     * property (e.g. IntToFloatCastDecorator on a number $ref) target the produced type and
+     * must not be applied after the type has been narrowed to a different effective type.
+     */
+    private function transferProducedValidators(
+        PropertyInterface $targetProperty,
+        PropertyInterface $refProperty,
+        bool $skipTypeCheck,
+    ): void {
+        foreach ($refProperty->getValidators() as $validatorWrapper) {
+            $validator = $validatorWrapper->getValidator();
+
+            if ($validator instanceof RequiredPropertyValidator) {
+                continue;
+            }
+
+            if ($skipTypeCheck && $validator instanceof TypeCheckInterface) {
+                continue;
+            }
+
+            $targetProperty->addValidator(
+                $validator,
+                $validatorWrapper->getPriority(),
+                $validatorWrapper->getSourceKey(),
+            );
+        }
     }
 
     /**

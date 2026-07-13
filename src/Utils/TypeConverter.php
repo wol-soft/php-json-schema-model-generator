@@ -24,4 +24,13 @@ class TypeConverter
             'boolean' => 'bool',
         ][$type] ?? $type;
     }
+
+    public static function phpToJsonSchema(string $phpType): string
+    {
+        return [
+            'int'  => 'integer',
+            'float' => 'number',
+            'bool' => 'boolean',
+        ][$phpType] ?? $phpType;
+    }
 }

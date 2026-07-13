@@ -1215,4 +1215,119 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(ErrorRegistryException::class);
         new $className([]);
     }
+
+    // Draft 2019-09+: $ref with scalar/array sibling constraints.
+
+    /**
+     * Draft 2019-09+: a sibling minLength alongside a string $ref is enforced. The property
+     * accepts any string when the constraint is met and rejects strings that are too short.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRefWithPropertyLevelScalarSiblingsApplyForDraft201909(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefWithPropertyLevelScalarSiblings.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        // Happy path: name is absent (optional) or at least 3 characters long.
+        $object = new $className([]);
+        $this->assertNull($object->getName());
+
+        $object = new $className(['name' => 'Alice']);
+        $this->assertSame('Alice', $object->getName());
+
+        // Violation: name is present but shorter than minLength: 3.
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage('Value for name must not be shorter than 3');
+        new $className(['name' => 'Jo']);
+    }
+
+    /**
+     * Draft 07: a sibling minLength alongside a string $ref is silently ignored. Short strings
+     * that would violate the sibling constraint are accepted.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testRefWithPropertyLevelScalarSiblingsIgnoredForDraft07(): void
+    {
+        $className = $this->generateClassFromFile('RefWithPropertyLevelScalarSiblings.json');
+
+        // The sibling minLength is not applied under Draft 07, so short strings are accepted.
+        $object = new $className(['name' => 'Jo']);
+        $this->assertSame('Jo', $object->getName());
+    }
+
+    /**
+     * Draft 2019-09+: a sibling 'type: integer' alongside a 'number' $ref narrows the
+     * effective type to integer. Float values are rejected by the TypeCheck validator.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRefWithPropertyLevelTypeNarrowingForDraft201909(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefWithPropertyLevelTypeNarrowing.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        // Integer value satisfies both the $ref number type and the sibling integer type.
+        $object = new $className(['score' => 42]);
+        $this->assertSame(42, $object->getScore());
+
+        // Float value is rejected: the effective type after intersection is integer only.
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage('Invalid type for score. Requires int, got double');
+        new $className(['score' => 42.5]);
+    }
+
+    /**
+     * Draft 07: a sibling 'type' alongside a $ref is silently ignored. The effective type
+     * remains the $ref type (number), so float values are accepted.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testRefWithPropertyLevelTypeNarrowingIgnoredForDraft07(): void
+    {
+        $className = $this->generateClassFromFile('RefWithPropertyLevelTypeNarrowing.json');
+
+        // Under Draft 07 the sibling type is ignored: the $ref number type accepts floats.
+        $object = new $className(['score' => 42.5]);
+        $this->assertSame(42.5, $object->getScore());
+    }
+
+    /**
+     * Draft 2019-09+: a sibling 'type' that is incompatible with the $ref type produces a
+     * SchemaException at generation time.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRefWithPropertyLevelTypeConflictThrowsForDraft201909(): void
+    {
+        $this->expectException(SchemaException::class);
+        // The exception is thrown against the temp-copy of the schema (the test harness
+        // copies schemas to a session temp directory before processing). The file path
+        // in the message is the temp-copy path, so match only the invariant parts.
+        $this->expectExceptionMessageMatches(<<<'PATTERN'
+            /Property 'name' in file '.*': \$ref resolves to type 'string' but sibling 'type' declares 'integer'; the types are incompatible/
+            PATTERN);
+
+        $this->generateClassFromFile('RefWithPropertyLevelTypeConflict.json');
+    }
 }
