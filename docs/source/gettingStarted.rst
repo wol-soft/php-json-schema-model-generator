@@ -418,8 +418,6 @@ To integrate the generation process with your own logging infrastructure (e.g. `
 
 Every message is emitted as a PSR-3 message template together with a context array of the underlying values (e.g. ``$logger->warning('Property {property} ...', ['property' => $name])``) instead of a single pre-formatted string, so a structured logging backend can filter, index, and query on the individual fields rather than parsing text.
 
-*EchoLogger* additionally raises a native PHP ``E_USER_WARNING`` (via ``trigger_error()``) for every warning-level message, in addition to writing it to STDOUT. This lets a generation run inside a CI pipeline surface schema warnings through PHP's own warning channel without having to parse STDOUT or configure a custom logger just to detect problems. This behaviour is specific to *EchoLogger* and not part of the *LoggerInterface* contract — a custom logger will only receive the PSR-3 call.
-
 JSON Schema draft version
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
