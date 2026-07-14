@@ -9,6 +9,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use Psr\Log\NullLogger;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -29,15 +30,28 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
     public function testBuilder(): void
     {
+        $recordingLogger = new RecordingLogger();
+
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setSerialization(true),
+            (new GeneratorConfiguration())->setSerialization(true)->setLogger($recordingLogger),
             implicitNull: false,
         );
 
         $this->assertGeneratedBuilders(1);
 
         $builderClassName = $className . 'Builder';
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'info',
+                'Rendered builder class {class}',
+                ['class' => '\\' . $builderClassName],
+            ),
+            'Expected a "Rendered builder class" log entry for the generated builder.',
+        );
+
         $builderObject = new $builderClassName();
 
         $this->assertNull($builderObject->getName());

@@ -284,27 +284,4 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame($subObject1->getObject1()::class, $subObject2->getObject1()[0]::class);
     }
-
-    /**
-     * Checks whether any recorded log entry matches the given level, message template, and
-     * (optionally) a subset of expected context values.
-     *
-     * @param array<int, array{level: string, message: string, context: array}> $entries
-     */
-    private function hasLogEntry(array $entries, string $level, string $message, array $expectedContext = []): bool
-    {
-        foreach ($entries as $entry) {
-            if ($entry['level'] !== $level || $entry['message'] !== $message) {
-                continue;
-            }
-
-            $contextMatches = array_intersect_key($entry['context'], $expectedContext) === $expectedContext;
-
-            if ($contextMatches) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

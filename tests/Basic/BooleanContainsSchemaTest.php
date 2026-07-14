@@ -6,13 +6,30 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 class BooleanContainsSchemaTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testContainsFalseAllowsAbsentProperty(): void
     {
-        $className = $this->generateClassFromFile('FalseContains.json');
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'FalseContains.json',
+            (new GeneratorConfiguration())->setLogger($recordingLogger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "contains: false for property '{property}' can never be satisfied; any array will fail",
+                ['property' => 'property'],
+            ),
+            'Expected a "contains: false" warning for the property.',
+        );
+
         $object = new $className([]);
         $this->assertNull($object->getProperty());
     }

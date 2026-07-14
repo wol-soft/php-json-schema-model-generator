@@ -14,6 +14,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use ReflectionEnum;
 use TypeError;
 use UnitEnum;
@@ -367,14 +368,38 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->addPostProcessor();
 
+        $recordingLogger = new RecordingLogger();
+
         $className = $this->generateClassFromFileTemplate(
             $file,
             $enums,
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)->setLogger($recordingLogger),
             false,
         );
 
         $this->assertGeneratedEnums(1);
+
+        // The first property's enum is rendered; the second, identical, one is redirected to it.
+        $entries = $recordingLogger->getEntries();
+
+        $renderedEntries = array_values(array_filter(
+            $entries,
+            static fn(array $entry): bool => $entry['level'] === 'info' && $entry['message'] === 'Rendered enum {enum}',
+        ));
+        $this->assertCount(1, $renderedEntries);
+        $this->assertNotEmpty($renderedEntries[0]['context']['enum'] ?? null);
+
+        $duplicateEntries = array_values(array_filter(
+            $entries,
+            static fn(array $entry): bool => $entry['level'] === 'notice'
+                && $entry['message']
+                    === 'Duplicated signature {signature} for enum {enum}. Redirecting to {redirectEnum}',
+        ));
+        $this->assertCount(1, $duplicateEntries);
+        $this->assertSame(['signature', 'enum', 'redirectEnum'], array_keys($duplicateEntries[0]['context']));
+        $this->assertNotEmpty($duplicateEntries[0]['context']['signature']);
+        $this->assertNotEmpty($duplicateEntries[0]['context']['enum']);
+        $this->assertNotEmpty($duplicateEntries[0]['context']['redirectEnum']);
 
         $object = new $className(['property1' => 'Hans', 'property2' => 'Dieter']);
         $this->assertSame('Hans', $object->getProperty1()->value);

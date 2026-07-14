@@ -359,6 +359,27 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     }
 
     /**
+     * Checks whether any entry recorded by a RecordingLogger matches the given level, message
+     * template, and (optionally) a subset of expected context values.
+     *
+     * @param array<int, array{level: string, message: string, context: array}> $entries
+     */
+    protected function hasLogEntry(array $entries, string $level, string $message, array $expectedContext = []): bool
+    {
+        foreach ($entries as $entry) {
+            if ($entry['level'] !== $level || $entry['message'] !== $message) {
+                continue;
+            }
+
+            if (array_intersect_key($entry['context'], $expectedContext) === $expectedContext) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Check if the given error registry exception contains the requested exception.
      *
      * @throws AssertionFailedError
