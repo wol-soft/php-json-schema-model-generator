@@ -109,7 +109,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                         . ' for property %s in file %s.',
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
-                ));
+                ), $property->getJsonSchema());
             }
             return;
         }
@@ -126,7 +126,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
                     $index,
-                ));
+                ), $property->getJsonSchema());
             }
         }
     }
@@ -491,7 +491,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     . ' making this schema unsatisfiable.',
                 $property->getName(),
                 $property->getJsonSchema()->getFile(),
-            ));
+            ), $property->getJsonSchema());
         }
 
         if (empty($nonNullNames)) {

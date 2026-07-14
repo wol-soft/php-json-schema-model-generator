@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntToFloatCastDecorator;
@@ -142,7 +143,7 @@ class PropertyMerger
      *
      * @throws SchemaException
      */
-    public function checkForTotalConflict(string $propertyName, int $branchCount): void
+    public function checkForTotalConflict(string $propertyName, int $branchCount, JsonSchema $jsonSchema): void
     {
         if (
             isset($this->rootConflictCounts[$propertyName]) &&
@@ -152,7 +153,7 @@ class PropertyMerger
                 "Property '%s' is defined in root with a type that conflicts with all composition branches, " .
                 "making this schema unsatisfiable.",
                 $propertyName,
-            ));
+            ), $jsonSchema);
         }
     }
 
@@ -260,6 +261,7 @@ class PropertyMerger
             $incomingOutput,
             $incoming->isRequired(),
             $conflictMessage,
+            $existing->getJsonSchema(),
         );
 
         if ($intersection === null) {
@@ -302,6 +304,7 @@ class PropertyMerger
             $constraintType,
             $existing->isRequired(),
             $conflictMessage,
+            $existing->getJsonSchema(),
         );
 
         if ($intersection === null) {
@@ -326,11 +329,12 @@ class PropertyMerger
         PropertyType $incomingType,
         bool $incomingIsRequired,
         string $conflictMessage,
+        JsonSchema $jsonSchema,
     ): ?array {
         $implicitNull = $this->generatorConfiguration?->isImplicitNullAllowed() ?? false;
 
         if (!TypeIntersection::compute($existingType->getNames(), $incomingType->getNames())) {
-            throw new SchemaException($conflictMessage);
+            throw new SchemaException($conflictMessage, $jsonSchema);
         }
 
         $existingEffective = $this->buildEffectiveTypeSet($existingType, $existingIsRequired, $implicitNull);

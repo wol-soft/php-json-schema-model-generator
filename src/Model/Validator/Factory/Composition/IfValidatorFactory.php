@@ -49,6 +49,7 @@ class IfValidatorFactory
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
                 ),
+                $property->getJsonSchema(),
             );
         }
 
@@ -81,7 +82,7 @@ class IfValidatorFactory
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
                     $keyword,
-                ));
+                ), $property->getJsonSchema());
             }
         }
 
@@ -298,6 +299,7 @@ class IfValidatorFactory
                         $property->getName(),
                         $property->getJsonSchema()->getFile(),
                     ),
+                    $property->getJsonSchema(),
                 );
             }
 
@@ -312,6 +314,7 @@ class IfValidatorFactory
                         $property->getName(),
                         $property->getJsonSchema()->getFile(),
                     ),
+                    $property->getJsonSchema(),
                 );
             }
 
@@ -444,7 +447,7 @@ class IfValidatorFactory
                     . ' No value can satisfy both constraints.',
                 $property->getName(),
                 $property->getJsonSchema()->getFile(),
-            ));
+            ), $property->getJsonSchema());
         }
     }
 

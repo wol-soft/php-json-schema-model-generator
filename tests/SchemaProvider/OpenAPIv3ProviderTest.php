@@ -9,17 +9,12 @@ use PHPModelGenerator\SchemaProvider\OpenAPIv3Provider;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class OpenAPIv3ProviderTest
- *
- * @package PHPModelGenerator\Tests\SchemaProvider
- */
 class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testInvalidJsonSchemaFileThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file (.*)\.json$/');
+        $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file (.*)\.json at line 5, column 2$/');
 
         $this->generateClassFromFile('InvalidJSONSchema.json', null, false, true, OpenAPIv3Provider::class);
     }
@@ -29,7 +24,7 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Open API v3 spec file (.*)\.json doesn't contain any schemas to process$/",
+            "/^Open API v3 spec file (.*)\.json doesn't contain any schemas to process at line 1, column 1$/",
         );
 
         $this->generateClassFromFile($file, null, false, true, OpenAPIv3Provider::class);

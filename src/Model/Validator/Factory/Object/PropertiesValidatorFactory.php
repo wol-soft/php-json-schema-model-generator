@@ -51,6 +51,7 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
                             $propertyName,
                             $propertySchema->getFile(),
                         ),
+                        $propertySchema,
                     );
                 }
 
@@ -61,6 +62,7 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
                             $propertyName,
                             $propertySchema->getFile(),
                         ),
+                        $propertySchema,
                     );
                 }
 

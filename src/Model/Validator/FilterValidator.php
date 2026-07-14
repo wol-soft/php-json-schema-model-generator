@@ -17,11 +17,6 @@ use PHPModelGenerator\Utils\TypeCheck;
 use PHPModelGenerator\Utils\TypeConverter;
 use ReflectionException;
 
-/**
- * Class FilterValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class FilterValidator extends PropertyTemplateValidator
 {
     /**
@@ -199,7 +194,8 @@ class FilterValidator extends PropertyTemplateValidator
                     implode('|', array_merge($typeNames, $isNullable ? ['null'] : [])),
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
-                )
+                ),
+                $property->getJsonSchema(),
             );
         }
     }
@@ -235,7 +231,8 @@ class FilterValidator extends PropertyTemplateValidator
                         $transformingFilter->getToken(),
                         $property->getName(),
                         $property->getJsonSchema()->getFile(),
-                    )
+                    ),
+                    $property->getJsonSchema(),
                 );
             }
 
@@ -268,7 +265,8 @@ class FilterValidator extends PropertyTemplateValidator
                     $typeDisplay,
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
-                )
+                ),
+                $property->getJsonSchema(),
             );
         }
     }
@@ -356,6 +354,6 @@ class FilterValidator extends PropertyTemplateValidator
             $property->getJsonSchema()->getFile(),
             implode('|', $effectiveTypes),
             implode('|', $acceptedTypes),
-        ));
+        ), $property->getJsonSchema());
     }
 }

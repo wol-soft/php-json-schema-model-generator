@@ -30,7 +30,8 @@ class NormalizedName
                     "Name '%s' results in an empty name in file %s",
                     $name,
                     $jsonSchema->getFile(),
-                )
+                ),
+                $jsonSchema,
             );
         }
 

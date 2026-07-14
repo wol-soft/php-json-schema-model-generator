@@ -11,11 +11,6 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class PropertyNamesTest
- *
- * @package PHPModelGenerator\Tests\Basic
- */
 class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
 {
     #[DataProvider('validationMethodDataProvider')]
@@ -220,32 +215,41 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
     {
         return [
             // kebab-case and camelCase normalize to the same attribute
-            'foo-bar and fooBar' => ['KebabAndCamelCase.json', 'foo-bar', 'fooBar', 'fooBar'],
+            'foo-bar and fooBar' => ['KebabAndCamelCase.json', 'foo-bar', 'fooBar', 'fooBar', 69],
             // underscore_case and camelCase normalize to the same attribute
-            'foo_bar and fooBar' => ['UnderscoreAndCamelCase.json', 'foo_bar', 'fooBar', 'fooBar'],
+            'foo_bar and fooBar' => ['UnderscoreAndCamelCase.json', 'foo_bar', 'fooBar', 'fooBar', 69],
             // dot.notation and camelCase normalize to the same attribute
-            'foo.bar and fooBar' => ['DotAndCamelCase.json', 'foo.bar', 'fooBar', 'fooBar'],
+            'foo.bar and fooBar' => ['DotAndCamelCase.json', 'foo.bar', 'fooBar', 'fooBar', 69],
             // leading underscore is stripped by the normalizer
-            '_foo and foo' => ['LeadingUnderscoreAndPlain.json', '_foo', 'foo', 'foo'],
+            '_foo and foo' => ['LeadingUnderscoreAndPlain.json', '_foo', 'foo', 'foo', 63],
             // multiple separators still collapse to the same attribute as a single separator
-            'foo--bar and foo_bar' => ['MultipleSeparators.json', 'foo--bar', 'foo_bar', 'fooBar'],
+            'foo--bar and foo_bar' => ['MultipleSeparators.json', 'foo--bar', 'foo_bar', 'fooBar', 71],
         ];
     }
 
+    /**
+     * The schema fixtures are re-encoded as compact, single-line JSON (with an injected "title"
+     * key) by the test harness before generation, so every collision is reported on line 1 - the
+     * expected column for each fixture was captured from an actual generation run and is asserted
+     * exactly rather than via a generic \d+ pattern.
+     */
     #[DataProvider('collidingPropertyPairProvider')]
     public function testCollidingPropertyNamesThrowSchemaException(
         string $schemaFile,
         string $firstRawName,
         string $secondRawName,
         string $expectedAttribute,
+        int $expectedColumn,
     ): void {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
             sprintf(
-                "/^Property names '%s' and '%s' both normalize to attribute '%s' in file .+\.json$/",
+                "/^Property names '%s' and '%s' both normalize to attribute '%s' in file .+\.json"
+                    . ' at line 1, column %d$/',
                 preg_quote($firstRawName, '/'),
                 preg_quote($secondRawName, '/'),
                 preg_quote($expectedAttribute, '/'),
+                $expectedColumn,
             ),
         );
 

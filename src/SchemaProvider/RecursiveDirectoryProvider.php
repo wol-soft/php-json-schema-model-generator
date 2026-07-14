@@ -11,11 +11,6 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RegexIterator;
 
-/**
- * Class RecursiveDirectoryProvider
- *
- * @package PHPModelGenerator\SchemaProvider
- */
 class RecursiveDirectoryProvider implements SchemaProviderInterface
 {
     use RefResolverTrait;
@@ -62,14 +57,14 @@ class RecursiveDirectoryProvider implements SchemaProviderInterface
             $decodedJsonSchema = json_decode($jsonSchema, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new SchemaException("Invalid JSON-Schema file $file");
+                throw SchemaException::invalidJson($file, $jsonSchema);
             }
 
             if (!is_array($decodedJsonSchema)) {
                 continue;
             }
 
-            yield new JsonSchema($file, $decodedJsonSchema);
+            yield new JsonSchema($file, $decodedJsonSchema, rawSource: $jsonSchema);
         }
     }
 

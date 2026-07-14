@@ -258,7 +258,7 @@ class EnumPostProcessor extends PostProcessor
                     "Can't apply enum filter to an already transformed value on property %s in file %s",
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
-                ));
+                ), $property->getJsonSchema());
             }
         }
     }
@@ -281,7 +281,8 @@ class EnumPostProcessor extends PostProcessor
                     $message,
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
-                )
+                ),
+                $property->getJsonSchema(),
             );
         };
 

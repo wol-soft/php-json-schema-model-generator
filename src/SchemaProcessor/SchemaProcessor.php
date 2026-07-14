@@ -31,11 +31,6 @@ use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
 use PHPModelGenerator\Utils\PropertyAttributeSynthesizer;
 
-/**
- * Class SchemaProcessor
- *
- * @package PHPModelGenerator\SchemaProcessor
- */
 class SchemaProcessor
 {
     protected string $currentClassPath;
@@ -527,7 +522,8 @@ class SchemaProcessor
                                 "No nested schema for composed property %s in file %s found",
                                 $property->getName(),
                                 $property->getJsonSchema()->getFile(),
-                            )
+                            ),
+                            $property->getJsonSchema(),
                         );
                     }
 
@@ -579,6 +575,7 @@ class SchemaProcessor
                                     $schema->getPropertyMerger()->checkForTotalConflict(
                                         $branchPropertyName,
                                         $totalBranches,
+                                        $schema->getJsonSchema(),
                                     );
                                 }
 
@@ -726,7 +723,8 @@ class SchemaProcessor
                         $existingDefault,
                         $branchLabel,
                         $branchDefault,
-                    )
+                    ),
+                    $branchProperty->getJsonSchema(),
                 );
             }
         }
@@ -761,7 +759,8 @@ class SchemaProcessor
                         $patternDefault,
                         $branchLabel,
                         $effectiveBranchDefault,
-                    )
+                    ),
+                    $branchProperty->getJsonSchema(),
                 );
             }
 
@@ -868,7 +867,8 @@ class SchemaProcessor
                     $keyword,
                     $compositionProperty->getJsonSchema()->getFile(),
                     implode(', ', $sites),
-                )
+                ),
+                $compositionProperty->getJsonSchema(),
             );
         }
     }

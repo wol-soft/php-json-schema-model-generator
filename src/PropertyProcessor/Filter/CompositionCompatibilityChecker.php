@@ -94,7 +94,7 @@ class CompositionCompatibilityChecker
                         $this->property->getJsonSchema()->getFile(),
                         $propertyName,
                         $index,
-                    ));
+                    ), $this->property->getJsonSchema());
                 }
             }
         }
@@ -124,7 +124,7 @@ class CompositionCompatibilityChecker
                     $keyword,
                     $this->property->getJsonSchema()->getFile(),
                     $propertyName,
-                ));
+                ), $this->property->getJsonSchema());
             }
         }
     }
@@ -150,7 +150,7 @@ class CompositionCompatibilityChecker
                     $this->property->getName(),
                     $this->property->getJsonSchema()->getFile(),
                     $index,
-                ));
+                ), $this->property->getJsonSchema());
             }
         }
     }
@@ -182,7 +182,7 @@ class CompositionCompatibilityChecker
                     $this->property->getName(),
                     $this->property->getJsonSchema()->getFile(),
                     $index,
-                ));
+                ), $this->property->getJsonSchema());
             }
 
             if ($space === TypeSpace::Input && $firstInputIndex === null) {
@@ -205,7 +205,7 @@ class CompositionCompatibilityChecker
                 $firstInputIndex,
                 $firstOutputIndex,
                 $keyword,
-            ));
+            ), $this->property->getJsonSchema());
         }
     }
 
@@ -224,7 +224,7 @@ class CompositionCompatibilityChecker
                     . ' the inner schema spans both input and output type-spaces.',
                 $this->property->getName(),
                 $this->property->getJsonSchema()->getFile(),
-            ));
+            ), $this->property->getJsonSchema());
         }
     }
 
@@ -260,7 +260,7 @@ class CompositionCompatibilityChecker
                     . ' when combined with a transforming filter.',
                 $this->property->getName(),
                 $this->property->getJsonSchema()->getFile(),
-            ));
+            ), $this->property->getJsonSchema());
         }
     }
 
