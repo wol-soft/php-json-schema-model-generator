@@ -149,11 +149,14 @@ class PropertyMerger
             isset($this->rootConflictCounts[$propertyName]) &&
             $this->rootConflictCounts[$propertyName] >= $branchCount
         ) {
-            throw new SchemaException(sprintf(
-                "Property '%s' is defined in root with a type that conflicts with all composition branches, " .
-                "making this schema unsatisfiable.",
-                $propertyName,
-            ), $jsonSchema);
+            throw new SchemaException(
+                sprintf(
+                    "Property '%s' is defined in root with a type that conflicts with all composition branches, " .
+                    "making this schema unsatisfiable.",
+                    $propertyName,
+                ),
+                $jsonSchema,
+            );
         }
     }
 

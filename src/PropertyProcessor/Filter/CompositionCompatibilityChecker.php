@@ -86,15 +86,18 @@ class CompositionCompatibilityChecker
                     // TODO: proper handling is deferred to a follow-up topic.
                     // Root-level composition branches cannot yet be split around the
                     // filter's transform boundary.
-                    throw new SchemaException(sprintf(
-                        'Composition %s in file %s constrains filtered subproperty %s'
-                            . ' (branch #%d) with output-type-space constraints;'
-                            . ' this combination is not yet supported.',
-                        $keyword,
-                        $this->property->getJsonSchema()->getFile(),
-                        $propertyName,
-                        $index,
-                    ), $this->property->getJsonSchema());
+                    throw new SchemaException(
+                        sprintf(
+                            'Composition %s in file %s constrains filtered subproperty %s'
+                                . ' (branch #%d) with output-type-space constraints;'
+                                . ' this combination is not yet supported.',
+                            $keyword,
+                            $this->property->getJsonSchema()->getFile(),
+                            $propertyName,
+                            $index,
+                        ),
+                        $this->property->getJsonSchema(),
+                    );
                 }
             }
         }
@@ -118,13 +121,16 @@ class CompositionCompatibilityChecker
 
             if ($space === TypeSpace::Output || $space === TypeSpace::Mixed) {
                 // TODO: see above.
-                throw new SchemaException(sprintf(
-                    'Composition %s in file %s constrains filtered subproperty %s'
-                        . ' with output-type-space constraints; this combination is not yet supported.',
-                    $keyword,
-                    $this->property->getJsonSchema()->getFile(),
-                    $propertyName,
-                ), $this->property->getJsonSchema());
+                throw new SchemaException(
+                    sprintf(
+                        'Composition %s in file %s constrains filtered subproperty %s'
+                            . ' with output-type-space constraints; this combination is not yet supported.',
+                        $keyword,
+                        $this->property->getJsonSchema()->getFile(),
+                        $propertyName,
+                    ),
+                    $this->property->getJsonSchema(),
+                );
             }
         }
     }
@@ -142,15 +148,18 @@ class CompositionCompatibilityChecker
 
         foreach ($branches as $index => $branch) {
             if ($this->classifier->classify($branch) === TypeSpace::Mixed) {
-                throw new SchemaException(sprintf(
-                    'Composition allOf under property %s in file %s cannot be resolved:'
-                        . ' branch #%d spans both input and output type-spaces;'
-                        . ' allOf branches must not contain constraints from both type-spaces'
-                        . ' when combined with a transforming filter.',
-                    $this->property->getName(),
-                    $this->property->getJsonSchema()->getFile(),
-                    $index,
-                ), $this->property->getJsonSchema());
+                throw new SchemaException(
+                    sprintf(
+                        'Composition allOf under property %s in file %s cannot be resolved:'
+                            . ' branch #%d spans both input and output type-spaces;'
+                            . ' allOf branches must not contain constraints from both type-spaces'
+                            . ' when combined with a transforming filter.',
+                        $this->property->getName(),
+                        $this->property->getJsonSchema()->getFile(),
+                        $index,
+                    ),
+                    $this->property->getJsonSchema(),
+                );
             }
         }
     }
@@ -173,16 +182,19 @@ class CompositionCompatibilityChecker
             $space = $this->classifier->classify($branch);
 
             if ($space === TypeSpace::Mixed) {
-                throw new SchemaException(sprintf(
-                    'Composition %s under property %s in file %s cannot be resolved:'
-                        . ' branch #%d spans both input and output type-spaces;'
-                        . ' branches must not contain constraints from both type-spaces'
-                        . ' when combined with a transforming filter.',
-                    $keyword,
-                    $this->property->getName(),
-                    $this->property->getJsonSchema()->getFile(),
-                    $index,
-                ), $this->property->getJsonSchema());
+                throw new SchemaException(
+                    sprintf(
+                        'Composition %s under property %s in file %s cannot be resolved:'
+                            . ' branch #%d spans both input and output type-spaces;'
+                            . ' branches must not contain constraints from both type-spaces'
+                            . ' when combined with a transforming filter.',
+                        $keyword,
+                        $this->property->getName(),
+                        $this->property->getJsonSchema()->getFile(),
+                        $index,
+                    ),
+                    $this->property->getJsonSchema(),
+                );
             }
 
             if ($space === TypeSpace::Input && $firstInputIndex === null) {
@@ -195,17 +207,20 @@ class CompositionCompatibilityChecker
         }
 
         if ($firstInputIndex !== null && $firstOutputIndex !== null) {
-            throw new SchemaException(sprintf(
-                'Composition %s under property %s in file %s cannot be resolved:'
-                    . ' branch #%d constrains input type-space but branch #%d constrains output type-space;'
-                    . ' %s branches must share a single type-space when combined with a transforming filter.',
-                $keyword,
-                $this->property->getName(),
-                $this->property->getJsonSchema()->getFile(),
-                $firstInputIndex,
-                $firstOutputIndex,
-                $keyword,
-            ), $this->property->getJsonSchema());
+            throw new SchemaException(
+                sprintf(
+                    'Composition %s under property %s in file %s cannot be resolved:'
+                        . ' branch #%d constrains input type-space but branch #%d constrains output type-space;'
+                        . ' %s branches must share a single type-space when combined with a transforming filter.',
+                    $keyword,
+                    $this->property->getName(),
+                    $this->property->getJsonSchema()->getFile(),
+                    $firstInputIndex,
+                    $firstOutputIndex,
+                    $keyword,
+                ),
+                $this->property->getJsonSchema(),
+            );
         }
     }
 
@@ -219,12 +234,15 @@ class CompositionCompatibilityChecker
         }
 
         if ($this->classifier->classify($innerSchema) === TypeSpace::Mixed) {
-            throw new SchemaException(sprintf(
-                'Composition not under property %s in file %s cannot be resolved:'
-                    . ' the inner schema spans both input and output type-spaces.',
-                $this->property->getName(),
-                $this->property->getJsonSchema()->getFile(),
-            ), $this->property->getJsonSchema());
+            throw new SchemaException(
+                sprintf(
+                    'Composition not under property %s in file %s cannot be resolved:'
+                        . ' the inner schema spans both input and output type-spaces.',
+                    $this->property->getName(),
+                    $this->property->getJsonSchema()->getFile(),
+                ),
+                $this->property->getJsonSchema(),
+            );
         }
     }
 
@@ -253,14 +271,17 @@ class CompositionCompatibilityChecker
         $hasMixed  = in_array(TypeSpace::Mixed, $subSchemaSpaces, true);
 
         if ($hasMixed || ($hasInput && $hasOutput)) {
-            throw new SchemaException(sprintf(
-                'Composition if/then/else under property %s in file %s cannot be resolved:'
-                    . ' sub-schemas span different type-spaces;'
-                    . ' if/then/else sub-schemas must share a single type-space'
-                    . ' when combined with a transforming filter.',
-                $this->property->getName(),
-                $this->property->getJsonSchema()->getFile(),
-            ), $this->property->getJsonSchema());
+            throw new SchemaException(
+                sprintf(
+                    'Composition if/then/else under property %s in file %s cannot be resolved:'
+                        . ' sub-schemas span different type-spaces;'
+                        . ' if/then/else sub-schemas must share a single type-space'
+                        . ' when combined with a transforming filter.',
+                    $this->property->getName(),
+                    $this->property->getJsonSchema()->getFile(),
+                ),
+                $this->property->getJsonSchema(),
+            );
         }
     }
 
