@@ -221,11 +221,12 @@ class IfValidatorFactory
         if (is_bool($json['if'])) {
             if ($json['if'] === false) {
                 if (!isset($json['else'])) {
-                    if (isset($json['then']) && $schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
-                        // @codeCoverageIgnoreStart
-                        echo "Warning: if: false for property '{$property->getName()}'"
-                            . " — then branch will never apply (condition never matches); no constraint generated.\n";
-                        // @codeCoverageIgnoreEnd
+                    if (isset($json['then'])) {
+                        $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                            "if: false for property '{property}' — then branch will never apply"
+                                . " (condition never matches); no constraint generated.",
+                            ['property' => $property->getName()],
+                        );
                     }
                     return null;
                 }
@@ -261,11 +262,12 @@ class IfValidatorFactory
             }
 
             if (!isset($json['then'])) {
-                if (isset($json['else']) && $schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
-                    // @codeCoverageIgnoreStart
-                    echo "Warning: if: true for property '{$property->getName()}'"
-                        . " — else branch will never apply (condition always matches); no constraint generated.\n";
-                    // @codeCoverageIgnoreEnd
+                if (isset($json['else'])) {
+                    $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                        "if: true for property '{property}' — else branch will never apply"
+                            . " (condition always matches); no constraint generated.",
+                        ['property' => $property->getName()],
+                    );
                 }
                 return null;
             }

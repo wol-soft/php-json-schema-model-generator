@@ -383,22 +383,14 @@ The following example would keep the *SCHEMA_NAME* and *JSON_SCHEMA* attributes 
         ->enableAttributes(PhpAttribute::SOURCE | PhpAttribute::JSON_SCHEMA)
         ->disableAttributes(PhpAttribute::JSON_POINTER | PhpAttribute::SOURCE);
 
-Output generation process
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Logging the generation process
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: php
 
-    setOutputEnabled(bool $outputEnabled);
+    setLogger(Psr\Log\LoggerInterface $logger);
 
-Enable or disable output of the generation process to STDOUT. By default the output is enabled.
-
-.. code-block:: php
-
-    (new GeneratorConfiguration())
-        ->setOutputEnabled(false);
-
-The output contains information about generated classes, rendered classes, hints and warnings concerning the internal handling or the given schema files.
-The output of a generation process may look like:
+The generation process reports its progress (generated/rendered classes), notable events (duplicated schema signatures being redirected to an already-generated class) and warnings (schema constructs that are unreachable, unsatisfiable, or otherwise likely a mistake) through a `PSR-3 <https://www.php-fig.org/psr/psr-3/>`_ logger. By default a *GeneratorConfiguration* uses the built-in ``PHPModelGenerator\Logger\EchoLogger``, which reproduces the library's classic behaviour of writing every message to STDOUT:
 
 .. code-block:: none
 
@@ -407,6 +399,26 @@ The output of a generation process may look like:
     Duplicated signature 444fd086d8d1f186145a6f81a3ac3f7a for class Register_Message. Redirecting to Login_Message
     Rendered class MyApp\User\Response\Login
     Rendered class MyApp\User\Response\Register
+
+To silence the generation process, supply PSR-3's ``NullLogger``:
+
+.. code-block:: php
+
+    use Psr\Log\NullLogger;
+
+    (new GeneratorConfiguration())
+        ->setLogger(new NullLogger());
+
+To integrate the generation process with your own logging infrastructure (e.g. `Monolog <https://github.com/Seldaek/monolog>`_), pass any object implementing ``Psr\Log\LoggerInterface``:
+
+.. code-block:: php
+
+    (new GeneratorConfiguration())
+        ->setLogger($monolog);
+
+Every message is emitted as a PSR-3 message template together with a context array of the underlying values (e.g. ``$logger->warning('Property {property} ...', ['property' => $name])``) instead of a single pre-formatted string, so a structured logging backend can filter, index, and query on the individual fields rather than parsing text.
+
+*EchoLogger* additionally raises a native PHP ``E_USER_WARNING`` (via ``trigger_error()``) for every warning-level message, in addition to writing it to STDOUT. This lets a generation run inside a CI pipeline surface schema warnings through PHP's own warning channel without having to parse STDOUT or configure a custom logger just to detect problems. This behaviour is specific to *EchoLogger* and not part of the *LoggerInterface* contract — a custom logger will only receive the PSR-3 call.
 
 JSON Schema draft version
 ^^^^^^^^^^^^^^^^^^^^^^^^^

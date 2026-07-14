@@ -143,10 +143,14 @@ class SchemaProcessor
         $schemaSignature = $jsonSchema->getSignature();
 
         if (!$initialClass && isset($this->processedSchema[$schemaSignature])) {
-            if ($this->generatorConfiguration->isOutputEnabled()) {
-                echo "Duplicated signature $schemaSignature for class $className." .
-                    " Redirecting to {$this->processedSchema[$schemaSignature]->getClassName()}\n";
-            }
+            $this->generatorConfiguration->getLogger()->notice(
+                'Duplicated signature {signature} for class {class}. Redirecting to {redirectClass}',
+                [
+                    'signature' => $schemaSignature,
+                    'class' => $className,
+                    'redirectClass' => $this->processedSchema[$schemaSignature]->getClassName(),
+                ],
+            );
 
             return $this->processedSchema[$schemaSignature];
         }
@@ -205,10 +209,10 @@ class SchemaProcessor
     {
         $this->renderQueue->addRenderJob(new RenderJob($schema));
 
-        if ($this->generatorConfiguration->isOutputEnabled()) {
-            echo sprintf(
-                "Generated class %s\n",
-                join(
+        $this->generatorConfiguration->getLogger()->info(
+            'Generated class {class}',
+            [
+                'class' => join(
                     '\\',
                     array_filter([
                         $this->generatorConfiguration->getNamespacePrefix(),
@@ -216,8 +220,8 @@ class SchemaProcessor
                         $schema->getClassName(),
                     ]),
                 ),
-            );
-        }
+            ],
+        );
 
         $this->generatedFiles[] = $schema->getTargetFileName();
     }

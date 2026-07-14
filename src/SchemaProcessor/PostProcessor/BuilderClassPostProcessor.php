@@ -90,11 +90,7 @@ class BuilderClassPostProcessor extends PostProcessor
 
             require $filename;
 
-            if ($this->generatorConfiguration->isOutputEnabled()) {
-                // @codeCoverageIgnoreStart
-                echo "Rendered builder class $fqcn\n";
-                // @codeCoverageIgnoreEnd
-            }
+            $this->generatorConfiguration->getLogger()->info('Rendered builder class {class}', ['class' => $fqcn]);
         }
     }
 

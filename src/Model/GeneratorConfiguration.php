@@ -22,21 +22,18 @@ use PHPModelGenerator\Format\RegexFormatValidator;
 use PHPModelGenerator\Format\UriFormatValidator;
 use PHPModelGenerator\Format\UriReferenceFormatValidator;
 use PHPModelGenerator\Format\UriTemplateFormatValidator;
+use PHPModelGenerator\Logger\EchoLogger;
+use PHPModelGenerator\MediaString\ContentValidatorInterface;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\ImmutableMediaStringFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\MediaStringFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
-use PHPModelGenerator\MediaString\ContentValidatorInterface;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Utils\ClassNameGeneratorInterface;
+use Psr\Log\LoggerInterface;
 
-/**
- * Class GeneratorConfiguration
- *
- * @package PHPModelGenerator\Model
- */
 class GeneratorConfiguration
 {
     /** @var string */
@@ -49,8 +46,7 @@ class GeneratorConfiguration
     protected $defaultArraysToEmptyArray = false;
     /** @var bool */
     protected $denyAdditionalProperties = false;
-    /** @var bool */
-    protected $outputEnabled = true;
+    protected LoggerInterface $logger;
     /** @var bool */
     protected $collectErrors = true;
     /** @var string */
@@ -84,6 +80,7 @@ class GeneratorConfiguration
     {
         $this->draft = new AutoDetectionDraft();
         $this->classNameGenerator = new ClassNameGenerator();
+        $this->logger = new EchoLogger();
 
         // add all built-in filter and format validators
         $this->initFilter();
@@ -316,16 +313,16 @@ class GeneratorConfiguration
         return $this;
     }
 
-    public function setOutputEnabled(bool $outputEnabled): self
+    public function setLogger(LoggerInterface $logger): self
     {
-        $this->outputEnabled = $outputEnabled;
+        $this->logger = $logger;
 
         return $this;
     }
 
-    public function isOutputEnabled(): bool
+    public function getLogger(): LoggerInterface
     {
-        return $this->outputEnabled;
+        return $this->logger;
     }
 
     public function collectErrors(): bool

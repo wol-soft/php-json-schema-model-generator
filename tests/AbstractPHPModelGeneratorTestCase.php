@@ -8,6 +8,7 @@ use Exception;
 use FilesystemIterator;
 use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Interfaces\JSONModelInterface;
+use PHPModelGenerator\Logger\EchoLogger;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\SchemaProvider\OpenAPIv3Provider;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
@@ -21,6 +22,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
@@ -180,8 +182,14 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         string $schemaProviderClass = RecursiveDirectoryProvider::class,
     ): string {
         $generatorConfiguration = ($generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false))
-            ->setImplicitNull($implicitNull)
-            ->setOutputEnabled(false);
+            ->setImplicitNull($implicitNull);
+
+        // Keep the test suite silent by default (matches the historic setOutputEnabled(false)
+        // default) without clobbering a logger a test explicitly injected (e.g. a RecordingLogger
+        // to assert on emitted log entries) — only swap out the untouched default EchoLogger.
+        if ($generatorConfiguration->getLogger() instanceof EchoLogger) {
+            $generatorConfiguration->setLogger(new NullLogger());
+        }
 
         $baseDir = TEST_BASE_DIR;
 
