@@ -390,7 +390,7 @@ Logging the generation process
 
     setLogger(Psr\Log\LoggerInterface $logger);
 
-The generation process reports its progress (generated/rendered classes), notable events (duplicated schema signatures being redirected to an already-generated class) and warnings (schema constructs that are unreachable, unsatisfiable, or otherwise likely a mistake) through a `PSR-3 <https://www.php-fig.org/psr/psr-3/>`_ logger. By default a *GeneratorConfiguration* uses the built-in ``PHPModelGenerator\Logger\EchoLogger``, which reproduces the library's classic behaviour of writing every message to STDOUT:
+The generation process reports its progress (generated/rendered classes), notable events (duplicated schema signatures being redirected to an already-generated class) and warnings (schema constructs that are unreachable, unsatisfiable, or otherwise likely a mistake) through a `PSR-3 <https://www.php-fig.org/psr/psr-3/>`_ logger. By default a *GeneratorConfiguration* uses the built-in ``PHPModelGenerator\Logger\EchoLogger``, which writes every message to STDOUT:
 
 .. code-block:: none
 
