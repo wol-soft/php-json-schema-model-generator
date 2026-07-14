@@ -160,4 +160,114 @@ class JsonLexerTest extends TestCase
 
         $this->assertSame(2, $lexer->getPosition()->column);
     }
+
+    public function testLexStringReturnsNullWhenNotPositionedAtAQuote(): void
+    {
+        $this->assertNull((new JsonLexer('123'))->lexString());
+    }
+
+    public function testLexStringReturnsNullForABackslashAtEndOfInput(): void
+    {
+        $unterminatedEscape = '"abc' . chr(92);
+
+        $this->assertNull((new JsonLexer($unterminatedEscape))->lexString());
+    }
+
+    public function testLexStringReturnsNullForALowSurrogateOutOfRange(): void
+    {
+        // A valid high surrogate followed by \u, but the second unit isn't a low surrogate.
+        $lexer = new JsonLexer('"\\ud83dA"');
+
+        $this->assertNull($lexer->lexString());
+    }
+
+    public function testLexStringReturnsNullForInvalidHexDigitsInUnicodeEscape(): void
+    {
+        $lexer = new JsonLexer('"\\uZZZZ"');
+
+        $this->assertNull($lexer->lexString());
+    }
+
+    public function testLexStringDecodesAnAsciiUnicodeEscape(): void
+    {
+        $lexer = new JsonLexer('"\\u0041"');
+
+        $this->assertSame('A', $lexer->lexString());
+    }
+
+    public function testLexStringDecodesAThreeByteBmpUnicodeEscape(): void
+    {
+        $lexer = new JsonLexer('"\\u4e2d"');
+
+        $this->assertSame('中', $lexer->lexString());
+    }
+
+    public function testColumnCountsARawThreeByteUtf8CharacterAsOneColumn(): void
+    {
+        $lexer = new JsonLexer("\"\xE4\xB8\xAD\"x");
+
+        $this->assertSame('中', $lexer->lexString());
+        $this->assertSame(4, $lexer->getPosition()->column);
+        $this->assertSame(5, $lexer->getPosition()->offset);
+    }
+
+    public function testColumnCountsARawFourByteUtf8CharacterAsOneColumn(): void
+    {
+        $lexer = new JsonLexer("\"\xF0\x9F\x98\x80\"x");
+
+        $this->assertSame("\u{1F600}", $lexer->lexString());
+        $this->assertSame(4, $lexer->getPosition()->column);
+        $this->assertSame(6, $lexer->getPosition()->offset);
+    }
+
+    public function testSkipValueReturnsFalseAtEndOfInput(): void
+    {
+        $this->assertFalse((new JsonLexer(''))->skipValue());
+    }
+
+    public function testSkipValueConsumesAnEmptyObject(): void
+    {
+        $lexer = new JsonLexer('{}x');
+
+        $this->assertTrue($lexer->skipValue());
+        $this->assertSame('x', $lexer->peekChar());
+    }
+
+    public function testSkipValueConsumesAnEmptyArray(): void
+    {
+        $lexer = new JsonLexer('[]x');
+
+        $this->assertTrue($lexer->skipValue());
+        $this->assertSame('x', $lexer->peekChar());
+    }
+
+    public function testSkipValueReturnsFalseForAnObjectWithANonStringKey(): void
+    {
+        $this->assertFalse((new JsonLexer('{bad: 1}'))->skipValue());
+    }
+
+    public function testSkipValueReturnsFalseForAnObjectMissingAColon(): void
+    {
+        $this->assertFalse((new JsonLexer('{"a" 1}'))->skipValue());
+    }
+
+    public function testSkipValueReturnsFalseForAnObjectWithAnInvalidValue(): void
+    {
+        $this->assertFalse((new JsonLexer('{"a": }'))->skipValue());
+    }
+
+    public function testSkipValueReturnsFalseForAnObjectWithUnexpectedTrailingContent(): void
+    {
+        $this->assertFalse((new JsonLexer('{"a": 1 "b": 2}'))->skipValue());
+    }
+
+    public function testSkipValueReturnsFalseForAnArrayWithAnInvalidElement(): void
+    {
+        $this->assertFalse((new JsonLexer('[1,]'))->skipValue());
+    }
+
+    public function testSkipValueReturnsFalseForAnArrayWithUnexpectedTrailingContent(): void
+    {
+        $this->assertFalse((new JsonLexer('[1 2]'))->skipValue());
+    }
 }

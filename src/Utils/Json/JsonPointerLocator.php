@@ -61,10 +61,9 @@ class JsonPointerLocator
      */
     private static function findObjectKey(JsonLexer $lexer, string $segment): ?JsonSourcePosition
     {
-        if (!$lexer->matchChar('{')) {
-            return null;
-        }
-
+        // The opening brace is guaranteed by findSegment()'s dispatch on peekChar() - no need to
+        // guard against a failed match here.
+        $lexer->matchChar('{');
         $lexer->skipWhitespace();
 
         if ($lexer->matchChar('}')) {
@@ -122,10 +121,9 @@ class JsonPointerLocator
 
         $targetIndex = (int) $segment;
 
-        if (!$lexer->matchChar('[')) {
-            return null;
-        }
-
+        // The opening bracket is guaranteed by findSegment()'s dispatch on peekChar() - no need to
+        // guard against a failed match here.
+        $lexer->matchChar('[');
         $lexer->skipWhitespace();
 
         if ($lexer->matchChar(']')) {

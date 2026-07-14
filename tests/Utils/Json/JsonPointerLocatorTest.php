@@ -93,4 +93,35 @@ class JsonPointerLocatorTest extends TestCase
 
         $this->assertSame(3, $position->line);
     }
+
+    public function testAnEmptyObjectResolvesNoSegment(): void
+    {
+        $this->assertNull(JsonPointerLocator::locate('{}', '/a'));
+    }
+
+    public function testAnEmptyArrayResolvesNoSegment(): void
+    {
+        $this->assertNull(JsonPointerLocator::locate('{"items": []}', '/items/0'));
+    }
+
+    /**
+     * The locator assumes it is only ever given text that already passed json_decode, but it must
+     * still degrade gracefully - never throw or produce a wrong position - if that assumption is
+     * ever violated (a caller bug, or a race between reading the file and reporting the error).
+     */
+    public function testMalformedTextIsResolvedAsNullRatherThanThrowingOrMisreporting(): void
+    {
+        $this->assertNull(JsonPointerLocator::locate('{bad: 1}', '/a'));
+        $this->assertNull(JsonPointerLocator::locate('{"a" 1}', '/a'));
+        $this->assertNull(JsonPointerLocator::locate('{"a": }', '/a'));
+        $this->assertNull(JsonPointerLocator::locate('{"a": 1 "b": 2}', '/b'));
+        $this->assertNull(JsonPointerLocator::locate('[}]', '/0'));
+        $this->assertNull(JsonPointerLocator::locate('[1 2]', '/1'));
+    }
+
+    public function testAnArrayIndexSegmentInAnInvalidFormatResolvesToNull(): void
+    {
+        $this->assertNull(JsonPointerLocator::locate('{"items": [1, 2]}', '/items/abc'));
+        $this->assertNull(JsonPointerLocator::locate('{"items": [1, 2]}', '/items/-1'));
+    }
 }

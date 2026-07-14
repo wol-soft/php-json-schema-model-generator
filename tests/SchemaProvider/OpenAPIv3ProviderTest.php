@@ -19,6 +19,36 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
         $this->generateClassFromFile('InvalidJSONSchema.json', null, false, true, OpenAPIv3Provider::class);
     }
 
+    /**
+     * The spec file decodes successfully (valid JSON), but its root value isn't an object/array,
+     * so there is nothing to build an Open API v3 spec from. No JsonSchema can be constructed for
+     * a non-array value, so this case has no location - it is reported by file name only.
+     */
+    #[DataProvider('nonObjectRootDataProvider')]
+    public function testNonObjectRootValueThrowsSchemaException(string $jsonContent): void
+    {
+        $tempFile = sys_get_temp_dir() . '/openApiV3ProviderTest_' . uniqid() . '.json';
+        file_put_contents($tempFile, $jsonContent);
+
+        try {
+            $this->expectException(SchemaException::class);
+            $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file .+\.json$/');
+            new OpenAPIv3Provider($tempFile);
+        } finally {
+            @unlink($tempFile);
+        }
+    }
+
+    public static function nonObjectRootDataProvider(): array
+    {
+        return [
+            'boolean' => ['true'],
+            'integer' => ['42'],
+            'string' => ['"hello"'],
+            'null' => ['null'],
+        ];
+    }
+
     #[DataProvider('missingSchemasDataProvider')]
     public function testOpenApiV3JsonSchemaFileWithoutSchemasThrowsAnException(string $file): void
     {

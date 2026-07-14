@@ -90,6 +90,34 @@ class JsonSyntaxErrorLocatorTest extends TestCase
         $this->assertSame(5, $position->offset);
     }
 
+    public function testAnInvalidEscapeInAnObjectKeyIsReportedAtTheKey(): void
+    {
+        $position = JsonSyntaxErrorLocator::locate('{"ab\\c": 1}');
+
+        $this->assertSame(1, $position->line);
+        $this->assertSame(6, $position->column);
+        $this->assertSame(5, $position->offset);
+    }
+
+    public function testAnEmptyArrayIsFullyValidAndReportsNoError(): void
+    {
+        $this->assertNull(JsonSyntaxErrorLocator::locate('[]'));
+    }
+
+    public function testAPopulatedArrayThatClosesCleanlyIsFullyValidAndReportsNoError(): void
+    {
+        $this->assertNull(JsonSyntaxErrorLocator::locate('{"a": [1, 2, 3]}'));
+    }
+
+    public function testAMissingCommaBetweenArrayElementsIsReportedAtTheUnexpectedToken(): void
+    {
+        $position = JsonSyntaxErrorLocator::locate('[1 2]');
+
+        $this->assertSame(1, $position->line);
+        $this->assertSame(4, $position->column);
+        $this->assertSame(3, $position->offset);
+    }
+
     /**
      * The lexer's grammar walk treats any byte sequence starting with 0x80-0xF7 as a plausible
      * multi-byte UTF-8 character without validating the continuation bytes - it does not perform
