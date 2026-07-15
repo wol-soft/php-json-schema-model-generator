@@ -12,7 +12,6 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use ReflectionClass;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Psr\Log\NullLogger;
 
 /**
  * Class IdenticalNestedSchemaTest
@@ -79,12 +78,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
         string $class1FQCN,
         string $class2FQCN,
     ): void {
-        $this->generateDirectory(
-            $file,
-            (new GeneratorConfiguration())
-                ->setNamespacePrefix($file)
-                ->setLogger(new NullLogger()),
-        );
+        $this->generateDirectory($file, (new GeneratorConfiguration())->setNamespacePrefix($file));
 
         $object1 = new $class1FQCN(['member' => ['name' => 'Hannes', 'age' => 42]]);
         $this->assertSame('Hannes', $object1->getMember()->getName());
@@ -117,9 +111,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'IdenticalSubSchemaDifferentNamespace',
-            (new GeneratorConfiguration())
-                ->setNamespacePrefix('IdenticalSubSchemaDifferentNamespace')
-                ->setLogger(new NullLogger()),
+            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaDifferentNamespace'),
         );
 
         $subClass1FQCN = '\\IdenticalSubSchemaDifferentNamespace\\DifferentNamespaceSubFolder10\\SubSchema';
@@ -137,9 +129,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'IdenticalSubSchemaInArray',
-            (new GeneratorConfiguration())
-                ->setNamespacePrefix('IdenticalSubSchemaInArray')
-                ->setLogger(new NullLogger()),
+            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaInArray'),
         );
 
         $subClass1FQCN = '\\IdenticalSubSchemaInArray\\ArraySubFolder1\\SubSchema';
@@ -215,7 +205,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'IdenticalSubSchemaInCompositionInArray',
-            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchema')->setLogger(new NullLogger()),
+            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchema'),
         );
 
         $subClass1FQCN = '\\IdenticalSubSchema\\CompositionSubFolder1\\SubSchema';
@@ -237,9 +227,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'IdenticalSubSchemaCombined1',
-            (new GeneratorConfiguration())
-                ->setNamespacePrefix('IdenticalSubSchemaCombined1')
-                ->setLogger(new NullLogger()),
+            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaCombined1'),
         );
 
         $subClass1FQCN = '\\IdenticalSubSchemaCombined1\\CompositionSubFolder1\\SubSchema';
@@ -261,9 +249,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'IdenticalSubSchemaCombined2',
-            (new GeneratorConfiguration())
-                ->setNamespacePrefix('IdenticalSubSchemaCombined2')
-                ->setLogger(new NullLogger()),
+            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaCombined2'),
         );
 
         $subClass1FQCN = '\\IdenticalSubSchemaCombined2\\CompositionSubFolder1\\SubSchema';

@@ -13,7 +13,6 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
-use Psr\Log\NullLogger;
 use ReflectionClass;
 use stdClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -947,7 +946,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     {
         return (new GeneratorConfiguration())
             ->setNamespacePrefix($namespace)
-            ->setLogger(new NullLogger())
             ->setCollectErrors(false);
     }
 

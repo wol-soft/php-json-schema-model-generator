@@ -18,7 +18,6 @@ use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Psr\Log\NullLogger;
 
 /**
  * Class BasicSchemaGenerationTest
@@ -349,7 +348,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'RecursiveTest',
-            (new GeneratorConfiguration())->setNamespacePrefix('Application')->setLogger(new NullLogger()),
+            (new GeneratorConfiguration())->setNamespacePrefix('Application'),
         );
 
         $mainClassFQCN = '\\Application\\MainClass';

@@ -6,7 +6,6 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
-use Psr\Log\NullLogger;
 
 /**
  * Issue #116: When an external schema file contains a $ref pointing to another schema file and
@@ -23,7 +22,6 @@ class Issue116Test extends AbstractIssueTestCase
     {
         return (new GeneratorConfiguration())
             ->setNamespacePrefix($namespace)
-            ->setLogger(new NullLogger())
             ->setCollectErrors(false);
     }
 

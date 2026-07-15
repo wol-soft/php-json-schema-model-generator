@@ -184,12 +184,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         $generatorConfiguration = ($generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false))
             ->setImplicitNull($implicitNull);
 
-        // Keep the test suite silent by default (matches the historic setOutputEnabled(false)
-        // default) without clobbering a logger a test explicitly injected (e.g. a RecordingLogger
-        // to assert on emitted log entries) — only swap out the untouched default EchoLogger.
-        if ($generatorConfiguration->getLogger() instanceof EchoLogger) {
-            $generatorConfiguration->setLogger(new NullLogger());
-        }
+        $this->silenceDefaultLogger($generatorConfiguration);
 
         $baseDir = TEST_BASE_DIR;
 
@@ -266,6 +261,18 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     }
 
     /**
+     * Keeps the test suite silent by default without clobbering a logger a test explicitly
+     * injected (e.g. a RecordingLogger to assert on emitted log entries) — only swaps out the
+     * untouched default EchoLogger.
+     */
+    private function silenceDefaultLogger(GeneratorConfiguration $generatorConfiguration): void
+    {
+        if ($generatorConfiguration->getLogger() instanceof EchoLogger) {
+            $generatorConfiguration->setLogger(new NullLogger());
+        }
+    }
+
+    /**
      * Generate objects for all JSON-Schema files in the given directory
      *
      * @throws FileSystemException
@@ -274,6 +281,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
      */
     protected function generateDirectory(string $directory, GeneratorConfiguration $configuration): array
     {
+        $this->silenceDefaultLogger($configuration);
+
         $generator = new ModelGenerator($configuration);
         if (is_callable($this->modifyModelGenerator)) {
             ($this->modifyModelGenerator)($generator);

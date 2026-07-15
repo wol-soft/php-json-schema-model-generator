@@ -10,7 +10,6 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
-use Psr\Log\NullLogger;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionUnionType;
@@ -183,7 +182,6 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
             'NestedObject',
             (new GeneratorConfiguration())
                 ->setNamespacePrefix('MyApp\\Namespace\\')
-                ->setLogger(new NullLogger())
                 ->setImplicitNull(true),
         );
 

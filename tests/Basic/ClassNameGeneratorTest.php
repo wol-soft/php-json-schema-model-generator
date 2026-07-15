@@ -6,7 +6,6 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
-use Psr\Log\NullLogger;
 
 class ClassNameGeneratorTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -24,9 +23,7 @@ class ClassNameGeneratorTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'NamingLevels',
-            (new GeneratorConfiguration())
-                ->setNamespacePrefix('ClassNameGeneratorTest')
-                ->setLogger(new NullLogger()),
+            (new GeneratorConfiguration())->setNamespacePrefix('ClassNameGeneratorTest'),
         );
 
         $rootFqcn        = 'ClassNameGeneratorTest\NamingLevels';
