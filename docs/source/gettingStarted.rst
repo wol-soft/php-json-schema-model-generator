@@ -32,6 +32,19 @@ RecursiveDirectoryProvider  Fetches all *.json files from the given source direc
 OpenAPIv3Provider           Fetches all objects defined in the #/components/schemas section of an Open API v3 spec file
 =========================== ===========
 
+The built-in providers pass the raw, undecoded text of each schema file into the ``JsonSchema``
+objects they yield. This is what allows a `SchemaException <#schema-errors>`__ raised while
+processing that schema to report the exact line and column of the problem. If you implement a
+custom ``SchemaProviderInterface``, you can opt into the same behaviour by passing your schema's
+raw source text as the optional fourth constructor argument when you create a ``JsonSchema``:
+
+.. code-block:: php
+
+    new JsonSchema($file, $decodedJson, rawSource: $rawFileContents);
+
+Omitting the raw source is safe — location reporting is simply skipped and ``SchemaException``
+messages fall back to naming only the file.
+
 The second parameter must point to an existing and empty directory (you may use the *generateModelDirectory* helper method to create your destination directory). This directory will contain the generated PHP classes after the generator is finished.
 
 As an optional parameter you can set up a *GeneratorConfiguration* object to configure your Generator and/or use the method *generateModelDirectory* to generate your model directory (will generate the directory if it doesn't exist; if it exists, all contained files and folders will be removed for a clean generation process):
@@ -49,6 +62,42 @@ As an optional parameter you can set up a *GeneratorConfiguration* object to con
         ->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
 
 The generator will check the given source directory recursive and convert all found \*.json files to models. All JSON-Schema files inside the source directory must provide a schema of an object.
+
+Schema errors
+^^^^^^^^^^^^^
+
+If a schema file can't be parsed as JSON, or is valid JSON but contradicts itself (e.g. an
+``allOf`` composition requiring incompatible types for the same property), the generator throws a
+**PHPModelGenerator\\Exception\\SchemaException** while processing that file. This is a
+generation-time error about the schema itself, distinct from the runtime
+``ValidationException``/``ErrorRegistryException`` thrown by generated model classes when they're
+given bad *data* (see `Collect errors vs. early return <#collect-errors-vs-early-return>`__).
+
+Whenever the location of the problem can be determined, ``getMessage()`` includes the line and
+column, and the same information is available as structured accessors:
+
+.. code-block:: php
+
+    public function getSchemaFile(): ?string;   // the JSON schema file the problem was found in
+    public function getSourceLine(): ?int;      // 1-indexed line, or null if unresolved
+    public function getSourceColumn(): ?int;    // 1-indexed column, or null if unresolved
+
+.. code-block:: php
+
+    try {
+        (new Generator())->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
+    } catch (\PHPModelGenerator\Exception\SchemaException $e) {
+        $e->getMessage();     // e.g. 'Invalid JSON-Schema file schema/Person.json at line 4, column 12'
+        $e->getSchemaFile();  // 'schema/Person.json'
+        $e->getSourceLine();  // 4
+        $e->getSourceColumn(); // 12
+    }
+
+The accessors return ``null`` when a location can't be determined — for example when the schema
+file couldn't be read at all, or when a custom ``SchemaProviderInterface`` doesn't supply the raw
+source text needed to locate the problem (see the note on custom providers above). A missing
+location never prevents the exception from being thrown; it only means the message names the file
+without a line and column.
 
 Default interface of configured classes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -12,11 +12,6 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 
-/**
- * Class SingleFileProviderTest
- *
- * @package PHPModelGenerator\Tests\SchemaProvider
- */
 class SingleFileProviderTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
@@ -74,6 +69,32 @@ class SingleFileProviderTest extends AbstractPHPModelGeneratorTestCase
             'non-existing file' => ['/non/existing/path.json'],
             'invalid JSON file' => [__DIR__ . '/../Schema/SingleFileProviderTest/InvalidJSON.json'],
         ];
+    }
+
+    /**
+     * A non-existing file has no raw text to scan, so getSourceLine()/getSourceColumn() stay null
+     * even though the message names the file. A file with malformed JSON content does have raw
+     * text on hand, so its location is resolved and exposed through the structured accessors.
+     */
+    public function testInvalidSourceLocationAccessorsReflectWhetherRawTextWasAvailable(): void
+    {
+        try {
+            new SingleFileProvider('/non/existing/path.json');
+            $this->fail('Expected a SchemaException to be thrown');
+        } catch (SchemaException $exception) {
+            $this->assertNull($exception->getSchemaFile());
+            $this->assertNull($exception->getSourceLine());
+            $this->assertNull($exception->getSourceColumn());
+        }
+
+        try {
+            new SingleFileProvider(__DIR__ . '/../Schema/SingleFileProviderTest/InvalidJSON.json');
+            $this->fail('Expected a SchemaException to be thrown');
+        } catch (SchemaException $exception) {
+            $this->assertStringEndsWith('InvalidJSON.json', $exception->getSchemaFile());
+            $this->assertSame(1, $exception->getSourceLine());
+            $this->assertSame(1, $exception->getSourceColumn());
+        }
     }
 
     /**

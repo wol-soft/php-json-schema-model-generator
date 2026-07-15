@@ -24,11 +24,6 @@ use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorat
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookInterface;
 use PHPModelGenerator\Utils\PropertyMerger;
 
-/**
- * Class Schema
- *
- * @package PHPModelGenerator\Model
- */
 class Schema
 {
     use JsonSchemaTrait;
@@ -217,6 +212,7 @@ class Schema
                             $attribute,
                             $this->jsonSchema->getFile(),
                         ),
+                        $property->getJsonSchema(),
                     );
                 }
 

@@ -68,6 +68,7 @@ class DefaultValueModifier implements ModifierInterface
                 $property->getName(),
                 $propertySchema->getFile(),
             ),
+            $propertySchema,
         );
     }
 

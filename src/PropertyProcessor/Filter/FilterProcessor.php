@@ -35,11 +35,6 @@ use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeCheck;
 use ReflectionException;
 
-/**
- * Class FilterProcessor
- *
- * @package PHPModelGenerator\PropertyProcessor\Filter
- */
 class FilterProcessor
 {
     /**
@@ -91,7 +86,8 @@ class FilterProcessor
                         $filterToken,
                         $property->getName(),
                         $property->getJsonSchema()->getFile(),
-                    )
+                    ),
+                    $property->getJsonSchema(),
                 );
             }
 
@@ -106,7 +102,8 @@ class FilterProcessor
                             $property->getName(),
                             $property->getJsonSchema()->getFile(),
                             $exception->getMessage(),
-                        )
+                        ),
+                        $property->getJsonSchema(),
                     );
                 }
             }
@@ -120,7 +117,8 @@ class FilterProcessor
                             'Applying a transforming filter to the array property %s is not supported in file %s',
                             $property->getName(),
                             $property->getJsonSchema()->getFile(),
-                        )
+                        ),
+                        $property->getJsonSchema(),
                     );
                 }
                 if ($transformingFilter) {
@@ -129,7 +127,8 @@ class FilterProcessor
                             'Applying multiple transforming filters for property %s is not supported in file %s',
                             $property->getName(),
                             $property->getJsonSchema()->getFile(),
-                        )
+                        ),
+                        $property->getJsonSchema(),
                     );
                 }
             }

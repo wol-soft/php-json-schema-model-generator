@@ -8,11 +8,6 @@ use PHPModelGenerator\Exception\GeneratorException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Utils\ArrayHash;
 
-/**
- * Class JsonSchema
- *
- * @package PHPModelGenerator\Model\SchemaDefinition
- */
 class JsonSchema
 {
     private const array SCHEMA_SIGNATURE_RELEVANT_FIELDS = [
@@ -43,9 +38,16 @@ class JsonSchema
      * @param string $file the source file for the schema
      * @param array $json Decoded json schema
      * @param string $pointer The JSON pointer inside the $file leading to the schema provided in $json
+     * @param string|null $rawSource The raw, undecoded text of $file, if the provider retained it. Populating this
+     *                               enables SchemaException to report the line/column a validation error occurred
+     *                               at; providers that don't have the raw text on hand may omit it.
      */
-    public function __construct(private string $file, array $json, private string $pointer = '')
-    {
+    public function __construct(
+        private string $file,
+        array $json,
+        private string $pointer = '',
+        private ?string $rawSource = null,
+    ) {
         // wrap in an allOf to pass the processing to multiple handlers - ugly hack to be removed after rework
         if (
             isset($json['$ref']) &&
@@ -124,7 +126,7 @@ class JsonSchema
             $decodedPathSegment = self::decodePointer($pathSegment);
 
             if (!array_key_exists($decodedPathSegment, $jsonSchema->json)) {
-                throw new SchemaException("Unresolved path segment $pathSegment in file $this->file");
+                throw new SchemaException("Unresolved path segment $pathSegment in file $this->file", $jsonSchema);
             }
 
             $jsonSchema->json = $jsonSchema->json[$decodedPathSegment];
@@ -136,6 +138,11 @@ class JsonSchema
     public function getFile(): string
     {
         return $this->file;
+    }
+
+    public function getRawSource(): ?string
+    {
+        return $this->rawSource;
     }
 
     public function getPointer(): string

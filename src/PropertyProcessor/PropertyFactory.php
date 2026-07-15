@@ -34,11 +34,6 @@ use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\TypeConverter;
 
-/**
- * Class PropertyFactory
- *
- * @package PHPModelGenerator\PropertyProcessor
- */
 class PropertyFactory
 {
     /** @var Draft[] Keyed by draft class name */
@@ -231,6 +226,7 @@ class PropertyFactory
                     $propertyName,
                     $propertySchema->getFile(),
                 ),
+                $propertySchema,
             );
         }
 
@@ -369,12 +365,16 @@ class PropertyFactory
         } catch (Exception $exception) {
             throw new SchemaException(
                 "Unresolved Reference $reference in file {$propertySchema->getFile()}",
+                null,
                 0,
                 $exception,
             );
         }
 
-        throw new SchemaException("Unresolved Reference $reference in file {$propertySchema->getFile()}");
+        throw new SchemaException(
+            "Unresolved Reference $reference in file {$propertySchema->getFile()}",
+            $propertySchema,
+        );
     }
 
     /**
@@ -400,7 +400,8 @@ class PropertyFactory
                     'A referenced schema on base level must provide an object definition for property %s in file %s',
                     $propertyName,
                     $propertySchema->getFile(),
-                )
+                ),
+                $propertySchema,
             );
         }
 
@@ -674,7 +675,8 @@ class PropertyFactory
                 'Invalid property type %s in file %s',
                 $type,
                 $schema->getJsonSchema()->getFile(),
-            )
+            ),
+            $schema->getJsonSchema(),
         );
     }
 

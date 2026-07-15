@@ -18,11 +18,6 @@ use stdClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\WithoutErrorHandler;
 
-/**
- * Class ReferencePropertyTest
- *
- * @package PHPModelGenerator\Tests\Objects
- */
 class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     protected const EXTERNAL_JSON_DIRECTORIES = ['../ReferencePropertyTest_external'];
@@ -207,8 +202,12 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         return [
             'Internal path reference' => ['#/definitions/yearBetween1900and2000'],
             'Internal direct reference' => ['#yearBetween1900and2000'],
-            'External path reference' => ['../ReferencePropertyTest_external/library.json#/definitions/yearBetween1900and2000'],
-            'External direct reference' => ['../ReferencePropertyTest_external/library.json#yearBetween1900and2000'],
+            'External path reference' => [
+                '../ReferencePropertyTest_external/library.json#/definitions/yearBetween1900and2000',
+            ],
+            'External direct reference' => [
+                '../ReferencePropertyTest_external/library.json#yearBetween1900and2000',
+            ],
         ];
     }
 
@@ -262,10 +261,18 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function recursiveExternalReferenceProvider(): array
     {
         return [
-            'external path reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personDirect'],
-            'external direct reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#personDirect'],
-            'external path reference to path recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personPath'],
-            'external direct reference to path recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#personPath'],
+            'external path reference to direct recursion' => [
+                '../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personDirect',
+            ],
+            'external direct reference to direct recursion' => [
+                '../ReferencePropertyTest_external/recursiveLibrary.json#personDirect',
+            ],
+            'external path reference to path recursion' => [
+                '../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personPath',
+            ],
+            'external direct reference to path recursion' => [
+                '../ReferencePropertyTest_external/recursiveLibrary.json#personPath',
+            ],
         ];
     }
 
@@ -274,7 +281,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         return array_merge(
             self::combineDataProvider(self::internalReferenceProvider(), self::internalReferenceProvider()),
             self::combineDataProvider(static::recursiveExternalReferenceProvider(), self::internalReferenceProvider()),
-            self::combineDataProvider(static::recursiveExternalReferenceProvider(), static::recursiveExternalReferenceProvider()),
+            self::combineDataProvider(
+                static::recursiveExternalReferenceProvider(),
+                static::recursiveExternalReferenceProvider(),
+            ),
         );
     }
 
@@ -683,7 +693,8 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             ],
             'network reference - absolute path to full URL $id' => [
                 $baseURL . 'ReferencePropertyTest/NestedExternalReference.json',
-                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/library.json',
+                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/'
+                    . 'ReferencePropertyTest_external/library.json',
             ],
         ];
     }
@@ -694,7 +705,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            sprintf('/Unresolved Reference %s#\/definitions\/family in file .*\.json/', str_replace('/', '\/', $reference)),
+            sprintf(
+                '/Unresolved Reference %s#\/definitions\/family in file .*\.json/',
+                str_replace('/', '\/', $reference),
+            ),
         );
 
         $this->generateClassFromFileTemplate('NestedExternalReference.json', [$id, $reference]);
@@ -723,7 +737,8 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             ],
             'network reference - absolute path to full URL $id' => [
                 $baseURL . 'ReferencePropertyTest/NestedExternalReference.json',
-                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/nonexistent.json',
+                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/'
+                    . 'ReferencePropertyTest_external/nonexistent.json',
             ],
         ];
     }
@@ -734,6 +749,33 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->expectExceptionMessage('A referenced schema on base level must provide an object definition');
 
         $this->generateClassFromFile('InvalidBaseReference.json');
+    }
+
+    /**
+     * When a $ref points at an external file that isn't valid JSON, PropertyFactory wraps the
+     * underlying SchemaException into a generic "Unresolved Reference" message - but the
+     * structured accessors must still expose the referenced file's own line/column, falling back
+     * through the wrapped exception rather than reporting the referencing file's location.
+     */
+    public function testExternalReferenceToMalformedJsonReportsTheReferencedFilesOwnLocation(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^Unresolved Reference \.\.\/ReferencePropertyTest_external\/malformed\.json in file (.*)\.json$/',
+        );
+
+        try {
+            $this->generateClassFromFileTemplate(
+                'ObjectReference.json',
+                ['../ReferencePropertyTest_external/malformed.json'],
+            );
+        } catch (SchemaException $exception) {
+            $this->assertStringEndsWith('malformed.json', $exception->getSchemaFile());
+            $this->assertSame(7, $exception->getSourceLine());
+            $this->assertSame(3, $exception->getSourceColumn());
+
+            throw $exception;
+        }
     }
 
     /**

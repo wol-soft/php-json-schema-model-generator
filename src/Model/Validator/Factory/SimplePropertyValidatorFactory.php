@@ -52,6 +52,7 @@ abstract class SimplePropertyValidatorFactory extends AbstractValidatorFactory
                     $property->getName(),
                     $propertySchema->getFile(),
                 ),
+                $propertySchema,
             );
         }
 

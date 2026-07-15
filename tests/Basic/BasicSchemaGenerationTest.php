@@ -19,11 +19,6 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class BasicSchemaGenerationTest
- *
- * @package PHPModelGenerator\Tests\Basic
- */
 class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
@@ -365,9 +360,26 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidJsonSchemaFileThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file (.*)\.json$/');
+        $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file (.*)\.json at line 6, column 2$/');
 
         $this->generateClassFromFile('InvalidJSONSchema.json');
+    }
+
+    /**
+     * Malformed JSON discovered via RecursiveDirectoryProvider (the default provider used by
+     * generateClassFromFile) exposes its location through SchemaException's structured accessors,
+     * not just through the message text.
+     */
+    public function testInvalidJsonSchemaFileExposesLocationThroughAccessors(): void
+    {
+        try {
+            $this->generateClassFromFile('InvalidJSONSchema.json');
+            $this->fail('Expected a SchemaException to be thrown');
+        } catch (SchemaException $exception) {
+            $this->assertStringEndsWith('.json', $exception->getSchemaFile());
+            $this->assertSame(6, $exception->getSourceLine());
+            $this->assertSame(2, $exception->getSourceColumn());
+        }
     }
 
     public function testJsonSchemaWithInvalidPropertyTypeThrowsAnException(): void

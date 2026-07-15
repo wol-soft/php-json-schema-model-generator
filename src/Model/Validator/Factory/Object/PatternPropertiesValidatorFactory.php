@@ -36,6 +36,7 @@ class PatternPropertiesValidatorFactory extends AbstractValidatorFactory
             if (@preg_match("/$escapedPattern/", '') === false) {
                 throw new SchemaException(
                     "Invalid pattern '$pattern' for pattern property in file {$propertySchema->getFile()}",
+                    $propertySchema,
                 );
             }
 

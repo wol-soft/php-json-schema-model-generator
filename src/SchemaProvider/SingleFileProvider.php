@@ -7,16 +7,12 @@ namespace PHPModelGenerator\SchemaProvider;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 
-/**
- * Class SingleFileProvider
- *
- * @package PHPModelGenerator\SchemaProvider
- */
 class SingleFileProvider implements SchemaProviderInterface
 {
     use RefResolverTrait;
 
     private array $schema;
+    private string $rawSource;
 
     public function __construct(private string $sourceFile)
     {
@@ -30,7 +26,7 @@ class SingleFileProvider implements SchemaProviderInterface
         $decoded = json_decode($jsonSchemaContent, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new SchemaException("Invalid JSON-Schema file {$this->sourceFile}");
+            throw SchemaException::invalidJson($this->sourceFile, $jsonSchemaContent);
         }
 
         if (!is_array($decoded)) {
@@ -38,6 +34,7 @@ class SingleFileProvider implements SchemaProviderInterface
         }
 
         $this->schema = $decoded;
+        $this->rawSource = $jsonSchemaContent;
     }
 
     /**
@@ -45,7 +42,7 @@ class SingleFileProvider implements SchemaProviderInterface
      */
     public function getSchemas(): iterable
     {
-        yield new JsonSchema($this->sourceFile, $this->schema);
+        yield new JsonSchema($this->sourceFile, $this->schema, rawSource: $this->rawSource);
     }
 
     /**
