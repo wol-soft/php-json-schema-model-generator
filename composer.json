@@ -13,6 +13,7 @@
     "require": {
         "wol-soft/php-json-schema-model-generator-production": "dev-master",
         "wol-soft/php-micro-template": "^1.10.2",
+        "psr/log": "^3.0",
 
         "php": ">=8.4",
         "ext-mbstring": "*"

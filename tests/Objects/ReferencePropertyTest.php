@@ -946,7 +946,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     {
         return (new GeneratorConfiguration())
             ->setNamespacePrefix($namespace)
-            ->setOutputEnabled(false)
             ->setCollectErrors(false);
     }
 

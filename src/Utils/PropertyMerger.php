@@ -124,13 +124,15 @@ class PropertyMerger
             $this->rootConflictCounts[$incoming->getName()] =
                 ($this->rootConflictCounts[$incoming->getName()] ?? 0) + 1;
 
-            if ($this->generatorConfiguration?->isOutputEnabled()) {
-                echo "Warning: composition branch defines property '{$incoming->getName()}' with type "
-                    . implode('|', $incomingOutput->getNames())
-                    . " which differs from root type "
-                    . implode('|', $existingOutput->getNames())
-                    . " — root definition takes precedence.\n";
-            }
+            $this->generatorConfiguration?->getLogger()->warning(
+                "Composition branch defines property '{property}' with type {incomingType} which differs"
+                    . " from root type {rootType} — root definition takes precedence.",
+                [
+                    'property' => $incoming->getName(),
+                    'incomingType' => implode('|', $incomingOutput->getNames()),
+                    'rootType' => implode('|', $existingOutput->getNames()),
+                ],
+            );
         }
 
         return true;

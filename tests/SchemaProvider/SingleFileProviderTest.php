@@ -10,6 +10,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProvider\SingleFileProvider;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Psr\Log\NullLogger;
 
 /**
  * Class SingleFileProviderTest
@@ -23,7 +24,7 @@ class SingleFileProviderTest extends AbstractPHPModelGeneratorTestCase
      */
     private function generateViaProvider(string $file, ?GeneratorConfiguration $config = null): void
     {
-        $config = ($config ?? (new GeneratorConfiguration())->setCollectErrors(false))->setOutputEnabled(false);
+        $config = ($config ?? (new GeneratorConfiguration())->setCollectErrors(false))->setLogger(new NullLogger());
 
         (new ModelGenerator($config))->generateModels(
             new SingleFileProvider($this->getSchemaFilePath($file)),
@@ -46,7 +47,7 @@ class SingleFileProviderTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(dirname(realpath($filePath)), $provider->getBaseDirectory());
 
         (new ModelGenerator(
-            (new GeneratorConfiguration())->setCollectErrors(false)->setOutputEnabled(false),
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger(new NullLogger()),
         ))->generateModels($provider, MODEL_TEMP_PATH);
 
         $person = new \SingleFileProviderPerson(['name' => 'Alice', 'age' => 30]);

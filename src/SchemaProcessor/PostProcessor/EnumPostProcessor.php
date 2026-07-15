@@ -92,7 +92,7 @@ class EnumPostProcessor extends PostProcessor
         if (isset($json['enum']) && !$this->hasEnumFilterAlreadyApplied($property)) {
             // Filter incompatible values before validation so that e.g. a string-typed enum
             // with a stray integer value is still valid (and the integer is removed with a warning).
-            $values = $this->filterValuesByDeclaredType($json, $property);
+            $values = $this->filterValuesByDeclaredType($json, $property, $generatorConfiguration);
 
             if ($this->validateEnum($property, $values)) {
                 $this->convertEnumProperty($property, $schema, $generatorConfiguration, $json, $values);
@@ -159,12 +159,14 @@ class EnumPostProcessor extends PostProcessor
                 ),
             ];
         } else {
-            if ($generatorConfiguration->isOutputEnabled()) {
-                // @codeCoverageIgnoreStart
-                echo "Duplicated signature $enumSignature for enum $enumName." .
-                    " Redirecting to {$this->generatedEnums[$enumSignature]['name']}\n";
-                // @codeCoverageIgnoreEnd
-            }
+            $generatorConfiguration->getLogger()->notice(
+                'Duplicated signature {signature} for enum {enum}. Redirecting to {redirectEnum}',
+                [
+                    'signature' => $enumSignature,
+                    'enum' => $enumName,
+                    'redirectEnum' => $this->generatedEnums[$enumSignature]['name'],
+                ],
+            );
         }
 
         $fqcn = $this->generatedEnums[$enumSignature]['fqcn'];
@@ -327,8 +329,11 @@ class EnumPostProcessor extends PostProcessor
      * Removes values that can never satisfy the type constraint and emits a warning for each
      * removed value so the developer is aware at generation time.
      */
-    private function filterValuesByDeclaredType(array $json, PropertyInterface $property): array
-    {
+    private function filterValuesByDeclaredType(
+        array $json,
+        PropertyInterface $property,
+        GeneratorConfiguration $generatorConfiguration,
+    ): array {
         $values = $json['enum'];
 
         if (!isset($json['type'])) {
@@ -377,13 +382,15 @@ class EnumPostProcessor extends PostProcessor
                 $removedValues,
             ));
 
-            echo sprintf(
-                "Warning: enum property '%s' in file %s declares type '%s' but contains incompatible values: %s."
-                    . " These values have been removed from the generated enum.\n",
-                $property->getName(),
-                $property->getJsonSchema()->getFile(),
-                $typeLabel,
-                $removedList,
+            $generatorConfiguration->getLogger()->warning(
+                "Enum property '{property}' in file {file} declares type '{type}' but contains incompatible"
+                    . " values: {removedValues}. These values have been removed from the generated enum.",
+                [
+                    'property' => $property->getName(),
+                    'file' => $property->getJsonSchema()->getFile(),
+                    'type' => $typeLabel,
+                    'removedValues' => $removedList,
+                ],
             );
         }
 
@@ -450,11 +457,7 @@ class EnumPostProcessor extends PostProcessor
 
         require $filename;
 
-        if ($generatorConfiguration->isOutputEnabled()) {
-            // @codeCoverageIgnoreStart
-            echo "Rendered enum $fqcn\n";
-            // @codeCoverageIgnoreEnd
-        }
+        $generatorConfiguration->getLogger()->info('Rendered enum {enum}', ['enum' => $fqcn]);
 
         return $fqcn;
     }

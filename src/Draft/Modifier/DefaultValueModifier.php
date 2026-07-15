@@ -30,14 +30,11 @@ class DefaultValueModifier implements ModifierInterface
         // provided — but without a value there is no signal to select the branch in the
         // first place. Warn and drop rather than applying the default unconditionally.
         if ($this->isScalarInsideCompositionBranch($propertySchema)) {
-            if ($schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
-                echo sprintf(
-                    "Warning: property '%s' declares a default value inside a composition branch"
-                        . " in file '%s'. Scalar branch defaults are unreachable and will be ignored.\n",
-                    $property->getName(),
-                    $propertySchema->getFile(),
-                );
-            }
+            $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                "Property '{property}' declares a default value inside a composition branch in file"
+                    . " '{file}'. Scalar branch defaults are unreachable and will be ignored.",
+                ['property' => $property->getName(), 'file' => $propertySchema->getFile()],
+            );
 
             return;
         }

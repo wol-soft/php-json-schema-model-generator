@@ -9,6 +9,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 
 class RecursiveDirectoryProviderTest extends TestCase
 {
@@ -42,7 +43,7 @@ class RecursiveDirectoryProviderTest extends TestCase
         $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file .+empty\.json$/');
 
         (new ModelGenerator(
-            (new GeneratorConfiguration())->setOutputEnabled(false),
+            (new GeneratorConfiguration())->setLogger(new NullLogger()),
         ))->generateModels(
             new RecursiveDirectoryProvider($this->schemaDir),
             $this->outputDir,
@@ -89,7 +90,7 @@ class RecursiveDirectoryProviderTest extends TestCase
         file_put_contents($this->schemaDir . '/null_schema.json', 'null');
 
         (new ModelGenerator(
-            (new GeneratorConfiguration())->setOutputEnabled(false),
+            (new GeneratorConfiguration())->setLogger(new NullLogger()),
         ))->generateModels(
             new RecursiveDirectoryProvider($this->schemaDir),
             $this->outputDir,

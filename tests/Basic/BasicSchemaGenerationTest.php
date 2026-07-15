@@ -348,7 +348,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'RecursiveTest',
-            (new GeneratorConfiguration())->setNamespacePrefix('Application')->setOutputEnabled(false),
+            (new GeneratorConfiguration())->setNamespacePrefix('Application'),
         );
 
         $mainClassFQCN = '\\Application\\MainClass';

@@ -22,7 +22,6 @@ class Issue116Test extends AbstractIssueTestCase
     {
         return (new GeneratorConfiguration())
             ->setNamespacePrefix($namespace)
-            ->setOutputEnabled(false)
             ->setCollectErrors(false);
     }
 

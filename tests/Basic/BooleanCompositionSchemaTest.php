@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\Basic;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
@@ -85,9 +86,25 @@ class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
     }
 
     #[DataProvider('alwaysFalseAbsentPropertyDataProvider')]
-    public function testAlwaysFalseCompositionAllowsAbsentProperty(string $schemaFile): void
+    public function testAlwaysFalseCompositionAllowsAbsentProperty(string $schemaFile, string $expectedReason): void
     {
-        $className = $this->generateClassFromFile($schemaFile);
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            $schemaFile,
+            (new GeneratorConfiguration())->setLogger($recordingLogger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "Always-unsatisfiable schema for property '{property}': {reason}",
+                ['property' => 'value', 'reason' => $expectedReason],
+            ),
+            'Expected an always-unsatisfiable warning for the value property.',
+        );
+
         $object = new $className([]);
         $this->assertNull($object->getValue());
     }
@@ -96,17 +113,35 @@ class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         return [
             // allOf: false branch makes composition unsatisfiable
-            'allOf false branch'        => ['AllOfFalseBranch.json'],
+            'allOf false branch'  => [
+                'AllOfFalseBranch.json',
+                'allOf contains a false branch which can never be satisfied',
+            ],
             // anyOf: all false — no branch can ever satisfy
-            'anyOf all false'           => ['AnyOfAllFalse.json'],
+            'anyOf all false'     => [
+                'AnyOfAllFalse.json',
+                'all anyOf branches are false; no value can satisfy the schema',
+            ],
             // oneOf: all false — no branch can ever satisfy
-            'oneOf all false'           => ['OneOfAllFalse.json'],
+            'oneOf all false'     => [
+                'OneOfAllFalse.json',
+                'all oneOf branches are false; no value can satisfy the schema',
+            ],
             // not: true — negation of always-valid schema
-            'not true'                  => ['NotTrue.json'],
+            'not true'            => [
+                'NotTrue.json',
+                'not: true negates the always-valid schema; no value is accepted',
+            ],
             // if: false, else: false — always unsatisfiable
-            'if false else false'       => ['IfFalseElseFalse.json'],
+            'if false else false' => [
+                'IfFalseElseFalse.json',
+                'if: false with else: false means the composition is always unsatisfiable',
+            ],
             // if: true, then: false — always unsatisfiable
-            'if true then false'        => ['IfTrueThenFalse.json'],
+            'if true then false'  => [
+                'IfTrueThenFalse.json',
+                'if: true with then: false means the composition is always unsatisfiable',
+            ],
         ];
     }
 
@@ -268,7 +303,23 @@ class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
      */
     public function testIfFalseWithThenButNoElseImposesNoConstraint(): void
     {
-        $className = $this->generateClassFromFile('IfFalseNoElse.json');
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'IfFalseNoElse.json',
+            (new GeneratorConfiguration())->setLogger($recordingLogger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "if: false for property '{property}' — then branch will never apply (condition never"
+                    . " matches); no constraint generated.",
+                ['property' => 'value'],
+            ),
+            'Expected an "if: false" warning for the value property.',
+        );
 
         $object = new $className(['value' => 'hello']);
         $this->assertSame('hello', $object->getValue());
@@ -287,7 +338,23 @@ class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
      */
     public function testIfTrueWithElseButNoThenImposesNoConstraint(): void
     {
-        $className = $this->generateClassFromFile('IfTrueNoThen.json');
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'IfTrueNoThen.json',
+            (new GeneratorConfiguration())->setLogger($recordingLogger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "if: true for property '{property}' — else branch will never apply (condition always"
+                    . " matches); no constraint generated.",
+                ['property' => 'value'],
+            ),
+            'Expected an "if: true" warning for the value property.',
+        );
 
         $object = new $className(['value' => 'hello']);
         $this->assertSame('hello', $object->getValue());
