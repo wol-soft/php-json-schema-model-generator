@@ -74,6 +74,47 @@ class RecursiveDirectoryProviderTest extends TestCase
     }
 
     /**
+     * A $ref that resolves to an existing local filesystem entry which cannot be read as a regular
+     * file must produce a distinct "failed to read" message naming the resolved path, rather than
+     * being misreported as "non existing" (which implies no path could be resolved at all).
+     *
+     * A Unix domain socket is used to trigger this deterministically: file_exists() (used by
+     * getLocalRefPath()) reports true for a socket node, so the ref resolves, but file_get_contents()
+     * fails to open it as a stream. A directory was considered and rejected: file_get_contents() on a
+     * directory returns "" (not false) on Linux, so it falls through to the "Invalid JSON-Schema file"
+     * check instead of exercising the read-failure branch. A permission-denied file was also rejected:
+     * tests commonly run as root, which bypasses Unix read permission checks entirely.
+     */
+    public function testGetRefToUnreadableLocalFileThrowsSchemaException(): void
+    {
+        $refFilename = 'unreadable.sock';
+        $socketPath = $this->schemaDir . '/' . $refFilename;
+
+        $socket = @stream_socket_server('unix://' . $socketPath, $errno, $errstr);
+        if ($socket === false) {
+            $this->markTestSkipped("Unable to set up a Unix domain socket for this test: $errstr");
+        }
+
+        try {
+            $provider = new RecursiveDirectoryProvider($this->schemaDir);
+            // Use a normalised current-file path so dirname() produces a backslash-only path
+            // and the candidate path remains resolvable on all platforms.
+            $currentFile = realpath($this->schemaDir) . DIRECTORY_SEPARATOR . 'dummy.json';
+
+            $this->expectException(SchemaException::class);
+            $this->expectExceptionMessageMatches(
+                '/^Failed to read referenced JSON-Schema file ' . preg_quote($refFilename, '/') . ' from .+'
+                    . preg_quote($refFilename, '/') . ': file_get_contents\(.+' . preg_quote($refFilename, '/')
+                    . '\): Failed to open stream: No such device or address$/',
+            );
+
+            $provider->getRef($currentFile, null, $refFilename);
+        } finally {
+            fclose($socket);
+        }
+    }
+
+    /**
      * Files whose JSON decodes to a non-object value (boolean, number, string, null) are silently
      * skipped — consistent with how SchemaProcessor skips non-object schemas.
      */
