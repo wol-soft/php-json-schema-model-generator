@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "example": {
+        "label": "ABC"
+      }
+    }
+  ]
+}
