@@ -1,0 +1,30 @@
+{
+  "definitions": {
+    "name": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "nameExample": {
+      "example": {
+        "label": "ABC"
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "wrapper": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/name"
+        },
+        {
+          "$ref": "#/definitions/nameExample"
+        }
+      ]
+    }
+  }
+}
