@@ -33,3 +33,4 @@ register_shutdown_function(static function (): void {
 });
 
 require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/Fixtures/file_get_contents_override.php';

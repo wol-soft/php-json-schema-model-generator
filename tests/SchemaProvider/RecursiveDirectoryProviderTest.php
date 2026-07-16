@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
+use PHPModelGenerator\Tests\Fixtures\FileGetContentsFailureSimulator;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
@@ -78,29 +79,26 @@ class RecursiveDirectoryProviderTest extends TestCase
      * file must produce a distinct "failed to read" message naming the resolved path, rather than
      * being misreported as "non existing" (which implies no path could be resolved at all).
      *
-     * A Unix domain socket is used to trigger this deterministically: file_exists() (used by
-     * getLocalRefPath()) reports true for a socket node, so the ref resolves, but file_get_contents()
-     * fails to open it as a stream. A directory was considered and rejected: file_get_contents() on a
-     * directory returns "" (not false) on Linux, so it falls through to the "Invalid JSON-Schema file"
-     * check instead of exercising the read-failure branch. A permission-denied file was also rejected:
-     * tests commonly run as root, which bypasses Unix read permission checks entirely.
-     *
-     * Cross-platform: PHP's "unix://" transport has no Windows support, so stream_socket_server()
-     * fails there and the test skips itself rather than asserting a platform it cannot exercise.
-     * The trailing OS error text is not asserted verbatim either - the C library's ENXIO message
-     * differs between Linux ("No such device or address") and BSD/macOS ("Device not configured"),
-     * so only the PHP-authored "Failed to open stream:" prefix (produced by PHP's own streams code,
-     * not the OS) is asserted precisely; the underlying reason is matched loosely.
+     * There is no portable, platform-independent filesystem trick to reproduce "path exists but
+     * cannot be read": a Unix domain socket reproduces it on Linux/macOS but has no Windows
+     * equivalent (PHP's "unix://" transport isn't supported there), a directory returns "" - not
+     * false - from file_get_contents() on Linux (falling through to the "Invalid JSON-Schema file"
+     * check instead), and permission bits are bypassed entirely when tests run as root, which they
+     * commonly do. FileGetContentsFailureSimulator arms the namespaced file_get_contents() override
+     * (tests/Fixtures/file_get_contents_override.php) to fail for one specific, otherwise perfectly
+     * readable file instead, so the test is deterministic on every platform and the exact exception
+     * message can be asserted rather than a platform-dependent regex.
      */
     public function testGetRefToUnreadableLocalFileThrowsSchemaException(): void
     {
-        $refFilename = 'unreadable.sock';
-        $socketPath = $this->schemaDir . '/' . $refFilename;
+        $refFilename = 'unreadable.json';
+        file_put_contents($this->schemaDir . '/' . $refFilename, '{}');
+        $resolvedPath = realpath($this->schemaDir . '/' . $refFilename);
 
-        $socket = @stream_socket_server('unix://' . $socketPath, $errno, $errstr);
-        if ($socket === false) {
-            $this->markTestSkipped("Unable to set up a Unix domain socket for this test: $errstr");
-        }
+        FileGetContentsFailureSimulator::armFor(
+            $resolvedPath,
+            "file_get_contents($resolvedPath): Failed to open stream: simulated read failure",
+        );
 
         try {
             $provider = new RecursiveDirectoryProvider($this->schemaDir);
@@ -109,15 +107,14 @@ class RecursiveDirectoryProviderTest extends TestCase
             $currentFile = realpath($this->schemaDir) . DIRECTORY_SEPARATOR . 'dummy.json';
 
             $this->expectException(SchemaException::class);
-            $this->expectExceptionMessageMatches(
-                '/^Failed to read referenced JSON-Schema file ' . preg_quote($refFilename, '/') . ' from .+'
-                    . preg_quote($refFilename, '/') . ': file_get_contents\(.+' . preg_quote($refFilename, '/')
-                    . '\): Failed to open stream: .+$/',
+            $this->expectExceptionMessage(
+                "Failed to read referenced JSON-Schema file $refFilename from $resolvedPath: "
+                    . "file_get_contents($resolvedPath): Failed to open stream: simulated read failure",
             );
 
             $provider->getRef($currentFile, null, $refFilename);
         } finally {
-            fclose($socket);
+            FileGetContentsFailureSimulator::disarm();
         }
     }
 
