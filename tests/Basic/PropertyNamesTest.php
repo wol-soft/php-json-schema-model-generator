@@ -162,9 +162,9 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     contains properties with invalid names.
                       - invalid property 'test1'
-                        * Invalid value for property name declined by const constraint
+                        * Value for 'property name' must be "test", got "test1"
                       - invalid property 'bla'
-                        * Invalid value for property name declined by const constraint
+                        * Value for 'property name' must be "test", got "bla"
                     ERROR,
                 ],
             ],

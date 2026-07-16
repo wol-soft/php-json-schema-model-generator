@@ -126,7 +126,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid tuple item in array property:
                       - invalid tuple #2
-                        * Invalid value for tuple item #1 of array property declined by enum constraint
+                        * Value for 'tuple item #1 of array property' must be one of ["Street","Avenue","Boulevard"], got ""
                     ERROR,
                 ],
                 'invalid type' => [
@@ -151,7 +151,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid tuple item in array property:
                       - invalid tuple #2
-                        * Invalid value for tuple item #1 of array property declined by enum constraint
+                        * Value for 'tuple item #1 of array property' must be one of ["Street","Avenue","Boulevard"], got "Way"
                     ERROR
 
                 ],

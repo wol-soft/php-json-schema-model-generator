@@ -298,7 +298,9 @@ class TransformingFilterTest extends AbstractFilterTestCase
         );
 
         $this->expectException(\PHPModelGenerator\Exception\ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for filteredProperty declined by enum constraint');
+        $this->expectExceptionMessage(
+            'Value for \'filteredProperty\' must be one of ["2020-12-12","2019-12-12",null], got "1999-12-12"',
+        );
 
         new $className(['filteredProperty' => '1999-12-12']);
     }
