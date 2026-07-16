@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Issues\Issue;
 
-use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
@@ -161,24 +160,21 @@ class Issue72Test extends AbstractIssueTestCase
 
     /**
      * A genuinely contradictory `allOf` at the schema root (one branch requires an object shape,
-     * the other requires a plain string - no value can ever satisfy both) is not reported through
-     * `AbstractCompositionValidatorFactory::transferPropertyType()`'s dedicated "conflicting types
-     * in allOf composition branches" diagnostic. That diagnostic only considers branches with a
-     * scalar `getType()`; an object-shaped branch (resolved via a nested schema instead of a
-     * PropertyType) is invisible to it, so the conflict goes undetected there. Instead, generation
-     * fails with the same confusing generic error as the example-only case above, because the
-     * string branch has no nested schema and
-     * `SchemaProcessor::transferComposedPropertiesToSchema()` requires one unconditionally.
-     *
-     * This means a future fix for the example-only defect must not simply relax that unconditional
-     * requirement without also closing this gap - doing so would silently turn this genuine
-     * schema error into silently-generated, broken code instead of any diagnostic at all.
+     * the other requires a plain string - no value can ever satisfy both) is now correctly caught
+     * at generation time with a clear diagnostic, fixed as a Phase 0 prerequisite for the
+     * example-only branch defect (see analysis.md §2e). Previously this fell through to the same
+     * confusing generic "No nested schema for composed property" crash as the example-only case,
+     * because `AbstractCompositionValidatorFactory::transferPropertyType()` returned immediately
+     * whenever any branch had a nested schema, before its object-vs-scalar conflict could ever be
+     * checked.
      */
-    public function testRootLevelAllOfWithConflictingObjectAndScalarTypesFailsWithConfusingError(): void
+    public function testRootLevelAllOfWithConflictingObjectAndScalarTypesThrowsConflictingTypesException(): void
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            '/^No nested schema for composed property .* in file (.*)\.json found at line 1, column 1$/',
+            "/^Property '\\w+' is defined with conflicting types in allOf composition branches"
+                . ' \\(file (.*)\\.json\\)\\. allOf requires all constraints to hold simultaneously,'
+                . ' making this schema unsatisfiable\\. at line 1, column 1$/',
         );
 
         $this->generateClassFromFile('AllOfConflictingObjectAndScalar.json');
@@ -186,31 +182,20 @@ class Issue72Test extends AbstractIssueTestCase
 
     /**
      * The same conflicting object/string `allOf` nested inside a property (rather than at the
-     * schema root) does not fail generation at all - the gap in transferPropertyType() described
-     * above applies here too, since the property-level path never goes through
-     * transferComposedPropertiesToSchema()'s unconditional nested-schema check. Generation
-     * succeeds, but the resulting validator can never be satisfied by any input at runtime: an
-     * object is rejected for not being a string, a string is rejected for not being an object, and
-     * every other type is rejected for both - the schema author gets no diagnostic at generation
-     * time, only a maximally confusing "every input is invalid" outcome at runtime.
+     * schema root) is now also caught at generation time with the same clear diagnostic. Before
+     * the Phase 0 fix, this path had no unconditional nested-schema check at all, so generation
+     * succeeded silently and the resulting validator could never be satisfied by any input at
+     * runtime instead.
      */
-    #[DataProvider('unsatisfiablePropertyLevelAllOfDataProvider')]
-    public function testPropertyLevelAllOfWithConflictingObjectAndScalarTypesIsUnsatisfiableAtRuntime(
-        array|int|string $value,
-    ): void {
-        $this->expectException(AllOfException::class);
-
-        $className = $this->generateClassFromFile('PropertyLevelAllOfConflictingObjectAndScalar.json');
-
-        new $className(['property' => $value]);
-    }
-
-    public static function unsatisfiablePropertyLevelAllOfDataProvider(): array
+    public function testPropertyLevelAllOfWithConflictingObjectAndScalarTypesThrowsConflictingTypesException(): void
     {
-        return [
-            'well-formed object' => [['label' => 'Hannes']],
-            'well-formed string' => ['just a string'],
-            'neither shape' => [42],
-        ];
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Property 'property' is defined with conflicting types in allOf composition branches"
+                . ' \\(file (.*)\\.json\\)\\. allOf requires all constraints to hold simultaneously,'
+                . ' making this schema unsatisfiable\\. at line 1, column \\d+$/',
+        );
+
+        $this->generateClassFromFile('PropertyLevelAllOfConflictingObjectAndScalar.json');
     }
 }

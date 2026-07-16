@@ -374,7 +374,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     /**
      * After all composition branches resolve, derive the parent property's type from the
      * branch types and apply it. Skips when any branch has a nested schema (object merging
-     * is handled elsewhere).
+     * is handled elsewhere), except that allOf still checks such branches against any sibling
+     * scalar-typed branch for an object-vs-scalar conflict — see assertNoObjectScalarTypeConflict().
      *
      * allOf: intersect all typed branch types — only values satisfying every branch simultaneously
      * are valid, so the PHP type is the intersection. Branches with no declared type impose no
@@ -383,7 +384,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      *
      * anyOf / oneOf: union of all typed branch types — at least one branch must pass, so the PHP
      * type is the union. An untyped branch accepts every value, making the composition satisfied
-     * by any input; the property's type hint is removed (remains mixed) in that case.
+     * by any input; the property's type hint is removed (remains mixed) in that case. A branch
+     * that resolves to an object (nested schema) alongside a scalar-typed sibling branch is not a
+     * conflict here: unlike allOf, anyOf/oneOf allow a value to satisfy either shape, so no check
+     * is needed.
      *
      * Also callable from outside the factory (e.g. EnumPostProcessor) after a post processor has
      * mutated branch types and needs the parent's native type recomputed from the updated branches.
@@ -391,17 +395,28 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * @param bool $isAllOf true for allOf, false for anyOf/oneOf.
      * @param CompositionPropertyDecorator[] $compositionProperties
      *
-     * @throws SchemaException when allOf branches declare contradictory types.
+     * @throws SchemaException when allOf branches declare conflicting types, including an
+     *                          object-shaped branch conflicting with a scalar-typed branch.
      */
     public static function transferPropertyType(
         PropertyInterface $property,
         array $compositionProperties,
         bool $isAllOf,
     ): void {
+        $hasNestedSchemaBranch = false;
         foreach ($compositionProperties as $compositionProperty) {
             if ($compositionProperty->getNestedSchema() !== null) {
-                return;
+                $hasNestedSchemaBranch = true;
+                break;
             }
+        }
+
+        if ($hasNestedSchemaBranch) {
+            if ($isAllOf) {
+                self::assertNoObjectScalarTypeConflict($property, $compositionProperties);
+            }
+
+            return;
         }
 
         // For anyOf/oneOf: a true branch always satisfies the composition for any value,
@@ -436,6 +451,58 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         }
 
         self::transferAnyOfOneOfType($property, $compositionProperties, $hasBranchWithOptionalProperty);
+    }
+
+    /**
+     * A branch resolved via a nested schema always requires the value to be an object. allOf
+     * requires every branch to hold simultaneously for the same value, so any sibling branch with
+     * an explicit scalar type (string, integer, number, boolean, array, or null) can never be
+     * satisfied at the same time as an object-shaped branch — the schema is unsatisfiable.
+     *
+     * This case is invisible to transferAllOfType()'s type intersection, which only inspects
+     * branches with a scalar getType() and returns early whenever any branch has a nested schema.
+     * Without this check the conflict previously went undetected: at the schema root it instead
+     * surfaced as a confusing generic "No nested schema for composed property" crash (the scalar
+     * branch has no nested schema, which SchemaProcessor::transferComposedPropertiesToSchema()
+     * requires unconditionally), and nested inside a property it produced no generation-time
+     * diagnostic at all — only an allOf validator that rejects every possible input at runtime.
+     *
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     *
+     * @throws SchemaException when a scalar-typed branch coexists with an object-shaped branch.
+     */
+    private static function assertNoObjectScalarTypeConflict(
+        PropertyInterface $property,
+        array $compositionProperties,
+    ): void {
+        $hasConflictingScalarBranch = array_filter(
+            $compositionProperties,
+            static fn(CompositionPropertyDecorator $p): bool =>
+                $p->getNestedSchema() === null
+                && $p->getType() !== null
+                && !$p->isAlwaysTrueBranch(),
+        ) !== [];
+
+        if ($hasConflictingScalarBranch) {
+            self::throwConflictingAllOfTypesException($property);
+        }
+    }
+
+    /**
+     * @throws SchemaException
+     */
+    private static function throwConflictingAllOfTypesException(PropertyInterface $property): void
+    {
+        throw new SchemaException(
+            sprintf(
+                "Property '%s' is defined with conflicting types in allOf composition branches"
+                    . ' (file %s). allOf requires all constraints to hold simultaneously,'
+                    . ' making this schema unsatisfiable.',
+                $property->getName(),
+                $property->getJsonSchema()->getFile(),
+            ),
+            $property->getJsonSchema(),
+        );
     }
 
     /**
@@ -488,16 +555,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         )) === count($constrainingBranches);
 
         if (empty($nonNullNames) && !$allBranchesAllowNull) {
-            throw new SchemaException(
-                sprintf(
-                    "Property '%s' is defined with conflicting types in allOf composition branches"
-                        . ' (file %s). allOf requires all constraints to hold simultaneously,'
-                        . ' making this schema unsatisfiable.',
-                    $property->getName(),
-                    $property->getJsonSchema()->getFile(),
-                ),
-                $property->getJsonSchema(),
-            );
+            self::throwConflictingAllOfTypesException($property);
         }
 
         if (empty($nonNullNames)) {
