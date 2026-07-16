@@ -84,6 +84,13 @@ class RecursiveDirectoryProviderTest extends TestCase
      * directory returns "" (not false) on Linux, so it falls through to the "Invalid JSON-Schema file"
      * check instead of exercising the read-failure branch. A permission-denied file was also rejected:
      * tests commonly run as root, which bypasses Unix read permission checks entirely.
+     *
+     * Cross-platform: PHP's "unix://" transport has no Windows support, so stream_socket_server()
+     * fails there and the test skips itself rather than asserting a platform it cannot exercise.
+     * The trailing OS error text is not asserted verbatim either - the C library's ENXIO message
+     * differs between Linux ("No such device or address") and BSD/macOS ("Device not configured"),
+     * so only the PHP-authored "Failed to open stream:" prefix (produced by PHP's own streams code,
+     * not the OS) is asserted precisely; the underlying reason is matched loosely.
      */
     public function testGetRefToUnreadableLocalFileThrowsSchemaException(): void
     {
@@ -105,7 +112,7 @@ class RecursiveDirectoryProviderTest extends TestCase
             $this->expectExceptionMessageMatches(
                 '/^Failed to read referenced JSON-Schema file ' . preg_quote($refFilename, '/') . ' from .+'
                     . preg_quote($refFilename, '/') . ': file_get_contents\(.+' . preg_quote($refFilename, '/')
-                    . '\): Failed to open stream: No such device or address$/',
+                    . '\): Failed to open stream: .+$/',
             );
 
             $provider->getRef($currentFile, null, $refFilename);
