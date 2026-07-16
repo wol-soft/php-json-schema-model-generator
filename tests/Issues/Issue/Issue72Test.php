@@ -4,28 +4,29 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Issues\Issue;
 
-use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
-use ReflectionMethod;
 
 /**
  * Issue #72 / PR #74: a FedEx OpenAPI schema could not be processed because of two independent
- * defects in composition handling. Both defects are still present on current master, although the
- * originally reported crash for the first one no longer occurs — see .claude/issues/72/analysis.md
- * for the full investigation and the patch each defect still needs.
+ * defects in composition handling. See .claude/issues/72/analysis.md for the full investigation
+ * and .claude/issues/72/implementation-plan.md for the phased fix.
+ *
+ * Each test below asserts the CORRECT, desired behavior — not today's actual (buggy) behavior.
+ * Tests for defects not yet fixed are therefore expected to be red until their phase lands; they
+ * must not be weakened to pass against the current, broken output. Once a phase's fix lands, its
+ * tests turn green with no further change needed.
  */
 class Issue72Test extends AbstractIssueTestCase
 {
     /**
      * Deeply nested `allOf` compositions (a property whose `allOf` branches are themselves `$ref`s
-     * to further `allOf` definitions) no longer crash generation with a `SchemaException`, but the
-     * resulting nested property is never instantiated into an object. The getter's PHP return type
-     * is `mixed` and it returns the raw associative array instead of the generated nested class,
-     * even though the rendered PHPDoc `@return` annotation names the (unusable) nested classes.
+     * to further `allOf` definitions) must instantiate the nested property as an object exposing
+     * working getters, not a raw associative array. Requires Phase 3 (not yet implemented).
      */
-    public function testDeeplyNestedAllOfCompositionDoesNotInstantiateNestedObject(): void
+    public function testDeeplyNestedAllOfCompositionInstantiatesNestedObject(): void
     {
         $className = $this->generateClassFromFile('NestedAllOf.json');
 
@@ -42,112 +43,77 @@ class Issue72Test extends AbstractIssueTestCase
             ],
         ]);
 
-        $reflection = new ReflectionMethod($company, 'getCEO');
-        $this->assertSame('mixed', (string) $reflection->getReturnType());
+        $ceo = $company->getCEO();
+        $this->assertIsObject($ceo);
+        $this->assertSame(10, $ceo->getYearsInCompany());
+        $this->assertSame('Hannes', $ceo->getName());
+        $this->assertSame(10000, $ceo->getSalary());
 
-        // A correct fix must turn this into an instantiated nested object exposing
-        // getYearsInCompany()/getName()/getSalary()/getAssistance() instead of a raw array.
-        $this->assertSame(
-            [
-                'yearsInCompany' => 10,
-                'name' => 'Hannes',
-                'salary' => 10000,
-                'assistance' => [
-                    'yearsInCompany' => 4,
-                    'name' => 'Dieter',
-                    'salary' => 8000,
-                ],
-            ],
-            $company->getCEO(),
-        );
+        $assistance = $ceo->getAssistance();
+        $this->assertIsObject($assistance);
+        $this->assertSame(4, $assistance->getYearsInCompany());
+        $this->assertSame('Dieter', $assistance->getName());
+        $this->assertSame(8000, $assistance->getSalary());
     }
 
     /**
      * A `oneOf` composition placed directly at the schema root, with a `$ref`-based branch that
-     * resolves to only an `example` keyword (no `type`/`properties`/any validation keyword), fails
-     * generation entirely with a confusing, generic error.
-     *
-     * This is specifically a `$ref` problem, not a general "untyped branch" problem: an inline
-     * (non-`$ref`) example-only branch at the schema root does NOT crash (see
-     * testRootLevelOneOfWithInlineExampleOnlyBranchGeneratesButAlwaysOverMatches below). Root-level
-     * composition inherits the parent's `type: object` into every branch that declares no type of
-     * its own (`AbstractCompositionValidatorFactory::inheritPropertyType()`), but per JSON Schema
-     * Draft 7 a `$ref` sibling keyword is ignored once the reference is resolved, so the inherited
-     * type is silently dropped for `$ref`-based branches. The referenced "nameExample" definition
-     * therefore never gets a nested schema, and
-     * `SchemaProcessor::transferComposedPropertiesToSchema()` requires one unconditionally for
-     * every branch, so it throws.
+     * resolves to only an `example` keyword (no `type`/`properties`/any validation keyword), must
+     * generate successfully and validate conforming input correctly - the example-only branch must
+     * be excluded rather than crashing generation. Requires Phase 1 (not yet implemented).
      */
-    public function testRootLevelOneOfWithReferencedExampleOnlyBranchFailsGeneration(): void
+    public function testRootLevelOneOfWithReferencedExampleOnlyBranchAcceptsConformingInput(): void
     {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            '/^No nested schema for composed property .* in file (.*)\.json found at line 1, column 1$/',
-        );
+        $className = $this->generateClassFromFile('OneOfExampleRoot.json');
 
-        $this->generateClassFromFile('OneOfExampleRoot.json');
+        $object = new $className(['label' => 'Hannes']);
+
+        $this->assertSame('Hannes', $object->getLabel());
     }
 
     /**
-     * The same example-only branch written inline (not via `$ref`) at the schema root does not
-     * crash: type inheritance applies normally, the branch becomes an empty `type: object` nested
-     * schema, and generation succeeds. But the branch still carries no constraints, so it always
-     * matches - the schema root itself then always over-matches (2 of 2 branches) for any
-     * well-formed input, same as the nested case below.
+     * The same example-only branch written inline (not via `$ref`) at the schema root must also
+     * accept conforming input - the example-only branch must be excluded from the composition so
+     * it stops over-matching. Requires Phase 2 (not yet implemented).
      */
-    public function testRootLevelOneOfWithInlineExampleOnlyBranchGeneratesButAlwaysOverMatches(): void
+    public function testRootLevelOneOfWithInlineExampleOnlyBranchAcceptsConformingInput(): void
     {
-        $this->expectException(OneOfException::class);
-        $this->expectExceptionMessageMatches(
-            '/^Invalid value for .* declined by composition constraint\.\n'
-                . '  Requires to match one composition element but matched 2 elements\.$/',
-        );
-
         $className = $this->generateClassFromFile('OneOfExampleRootInline.json');
 
-        new $className(['label' => 'Hannes']);
+        $object = new $className(['label' => 'Hannes']);
+
+        $this->assertSame('Hannes', $object->getLabel());
     }
 
     /**
-     * The example-only `oneOf` branch nested inside a property (rather than at the schema root)
-     * allows generation to succeed, but the example-only branch is never skipped during
-     * validation. Since it carries no constraints, it matches every input, so a value that
-     * correctly matches the "name" branch is rejected for matching two branches instead of one -
-     * one half of the defect reported in issue #72; see the "still accepts non-conforming input"
-     * test below for the other half.
+     * The example-only `oneOf` branch nested inside a property must be excluded from the
+     * composition so a value that conforms to the only meaningful branch ("name") is accepted
+     * instead of being rejected for matching two branches. Requires Phase 2 (not yet implemented).
      */
-    public function testNestedOneOfWithExampleOnlyBranchRejectsConformingObjectForMatchingTwoBranches(): void
+    public function testNestedOneOfWithExampleOnlyBranchAcceptsConformingObject(): void
     {
-        $this->expectException(OneOfException::class);
-        $this->expectExceptionMessage(
-            <<<ERROR
-            Invalid value for wrapper declined by composition constraint.
-              Requires to match one composition element but matched 2 elements.
-            ERROR,
-        );
-
         $className = $this->generateClassFromFile('OneOfExampleNested.json');
 
-        new $className(['wrapper' => ['label' => 'Hannes']]);
+        $object = new $className(['wrapper' => ['label' => 'Hannes']]);
+
+        $this->assertSame('Hannes', $object->getWrapper()->getLabel());
     }
 
     /**
-     * The flip side of the defect above, and the literal scenario the linked issue reported
-     * (there, `{"body": 34}` validated against a schema whose "body" should have been an object):
-     * because the example-only branch carries no constraints at all, it matches *any* value,
-     * including ones that make no sense for the property - a bare integer or string is silently
-     * accepted for `wrapper` even though the only meaningful branch ("name") requires an object.
-     * This is the core problem issue #72 asked to have fixed; it is unresolved on current master.
+     * The literal scenario the linked issue reported (there, `{"body": 34}` validated against a
+     * schema whose "body" should have been an object): once the example-only branch is excluded,
+     * a bare scalar no longer satisfies anything and must be rejected. Requires Phase 2 (not yet
+     * implemented).
      */
     #[DataProvider('nonConformingScalarDataProvider')]
-    public function testNestedOneOfWithExampleOnlyBranchStillAcceptsNonConformingScalarInput(
+    public function testNestedOneOfWithExampleOnlyBranchRejectsNonConformingScalarInput(
         int|string $nonConformingValue,
     ): void {
+        $this->expectException(ValidationException::class);
+
         $className = $this->generateClassFromFile('OneOfExampleNested.json');
 
-        $object = new $className(['wrapper' => $nonConformingValue]);
-
-        $this->assertSame($nonConformingValue, $object->getWrapper());
+        new $className(['wrapper' => $nonConformingValue]);
     }
 
     public static function nonConformingScalarDataProvider(): array
@@ -160,13 +126,9 @@ class Issue72Test extends AbstractIssueTestCase
 
     /**
      * A genuinely contradictory `allOf` at the schema root (one branch requires an object shape,
-     * the other requires a plain string - no value can ever satisfy both) is now correctly caught
-     * at generation time with a clear diagnostic, fixed as a Phase 0 prerequisite for the
-     * example-only branch defect (see analysis.md §2e). Previously this fell through to the same
-     * confusing generic "No nested schema for composed property" crash as the example-only case,
-     * because `AbstractCompositionValidatorFactory::transferPropertyType()` returned immediately
-     * whenever any branch had a nested schema, before its object-vs-scalar conflict could ever be
-     * checked.
+     * the other requires a plain string - no value can ever satisfy both) must be caught at
+     * generation time with a clear diagnostic. Fixed by Phase 0 (see analysis.md §2e); this test
+     * is expected to pass already.
      */
     public function testRootLevelAllOfWithConflictingObjectAndScalarTypesThrowsConflictingTypesException(): void
     {
@@ -181,11 +143,9 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
-     * The same conflicting object/string `allOf` nested inside a property (rather than at the
-     * schema root) is now also caught at generation time with the same clear diagnostic. Before
-     * the Phase 0 fix, this path had no unconditional nested-schema check at all, so generation
-     * succeeded silently and the resulting validator could never be satisfied by any input at
-     * runtime instead.
+     * The same conflicting object/string `allOf` nested inside a property must also be caught at
+     * generation time with the same clear diagnostic. Fixed by Phase 0 (see analysis.md §2e); this
+     * test is expected to pass already.
      */
     public function testPropertyLevelAllOfWithConflictingObjectAndScalarTypesThrowsConflictingTypesException(): void
     {

@@ -403,20 +403,14 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         array $compositionProperties,
         bool $isAllOf,
     ): void {
-        $hasNestedSchemaBranch = false;
         foreach ($compositionProperties as $compositionProperty) {
             if ($compositionProperty->getNestedSchema() !== null) {
-                $hasNestedSchemaBranch = true;
-                break;
-            }
-        }
+                if ($isAllOf) {
+                    self::assertNoObjectScalarTypeConflict($property, $compositionProperties);
+                }
 
-        if ($hasNestedSchemaBranch) {
-            if ($isAllOf) {
-                self::assertNoObjectScalarTypeConflict($property, $compositionProperties);
+                return;
             }
-
-            return;
         }
 
         // For anyOf/oneOf: a true branch always satisfies the composition for any value,
@@ -477,10 +471,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     ): void {
         $hasConflictingScalarBranch = array_filter(
             $compositionProperties,
-            static fn(CompositionPropertyDecorator $p): bool =>
-                $p->getNestedSchema() === null
-                && $p->getType() !== null
-                && !$p->isAlwaysTrueBranch(),
+            static fn(CompositionPropertyDecorator $compositionProperty): bool =>
+                $compositionProperty->getNestedSchema() === null
+                && $compositionProperty->getType() !== null
+                && !$compositionProperty->isAlwaysTrueBranch(),
         ) !== [];
 
         if ($hasConflictingScalarBranch) {
