@@ -1,0 +1,21 @@
+{
+  "definitions": {
+    "base": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "Alice"
+        }
+      }
+    }
+  },
+  "$ref": "#/definitions/base",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "default": "Bob"
+    }
+  }
+}

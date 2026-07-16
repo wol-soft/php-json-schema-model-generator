@@ -308,6 +308,137 @@ class RefSiblingsTest extends AbstractPHPModelGeneratorTestCase
     }
 
     // -------------------------------------------------------------------------
+    // Object-level type intersection (Draft 2019-09+)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Draft 2019-09+: when a property is declared by both the $ref'd object and a sibling
+     * 'properties' entry, the effective type is their allOf intersection. Here the ref
+     * contributes 'count: number' and the sibling contributes 'count: integer'; the
+     * intersection (integer ⊂ number) narrows the type to int. Float values must be rejected.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testObjectLevelTypeIntersectionNarrowsToInteger(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ObjectLevelTypeIntersection.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $object = new $className(['count' => 5]);
+        $this->assertSame(5, $object->getCount());
+
+        // float not accepted after narrowing to integer
+        $this->expectException(ValidationException::class);
+
+        new $className(['count' => 1.5]);
+    }
+
+    /**
+     * Draft 2019-09+: the ref's minimum: 0 constraint is preserved after the integer
+     * narrowing — the allOf intersection applies both type and value constraints.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testObjectLevelTypeIntersectionPreservesRefConstraints(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ObjectLevelTypeIntersection.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $this->expectException(ValidationException::class);
+
+        new $className(['count' => -1]); // violates ref minimum: 0
+    }
+
+    /**
+     * Draft 07: the sibling 'count: integer' entry is silently ignored. The ref's
+     * 'count: number' type (float in PHP) is used as-is, so float values are accepted.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testObjectLevelTypeIntersectionSiblingIgnoredDraft07(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ObjectLevelTypeIntersection.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        // float is accepted: sibling integer narrowing is ignored
+        $object = new $className(['count' => 1.5]);
+        $this->assertSame(1.5, $object->getCount());
+    }
+
+    // -------------------------------------------------------------------------
+    // Default value parity for overlapping $ref + sibling properties (Draft 2019-09+)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Draft 2019-09+: when the $ref'd object and the sibling 'properties' entry declare
+     * the same default for a shared property, generation succeeds and the default is applied.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testDefaultValuesAgreeNoError(): void
+    {
+        $className = $this->generateClassFromFile(
+            'DefaultValuesAgree.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        // Default 'World' applied when property is absent from input
+        $object = new $className([]);
+        $this->assertSame('World', $object->getName());
+    }
+
+    /**
+     * Draft 2019-09+: when the $ref'd object and the sibling 'properties' entry declare
+     * conflicting defaults for the same property, generation must fail with a SchemaException
+     * that cites the authored property pointers — never a synthetic allOf/N path.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testDefaultValuesConflictThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches('/Conflicting default values for property .name./');
+
+        $this->generateClassFromFile('DefaultValuesConflict.json');
+    }
+
+    /**
+     * Draft 07: sibling 'properties' are ignored, so the conflicting defaults are never
+     * compared and no SchemaException is thrown. Only the ref's default ('Alice') applies.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testDefaultConflictIgnoredDraft07(): void
+    {
+        $className = $this->generateClassFromFile(
+            'DefaultValuesConflict.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        // Sibling default 'Bob' is ignored; only ref default 'Alice' is active.
+        $object = new $className([]);
+        $this->assertSame('Alice', $object->getName());
+    }
+
+    /**
+     * Draft 2019-09+: when a property is declared by the $ref'd object with a default
+     * value and the sibling 'properties' entry for the same property has no default,
+     * the ref's default is propagated to the merged property.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testDefaultValuePropagatedFromRef(): void
+    {
+        $className = $this->generateClassFromFile(
+            'DefaultValuePropagation.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        // Ref's default 'World' propagated even though sibling declared 'name' without a default.
+        $object = new $className([]);
+        $this->assertSame('World', $object->getName());
+    }
+
+    // -------------------------------------------------------------------------
     // Root-level pointer assertions (no /allOf/ segment)
     // -------------------------------------------------------------------------
 

@@ -19,7 +19,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntToFloatCastDecorat
  *  - Root-precedence guard (anyOf/oneOf must not widen a root-registered property)
  *  - Nullable-branch merge (incoming has no scalar type)
  *  - Existing-null promotion (existing slot is a null/untyped placeholder)
- *  - allOf intersection (narrow to the common type set)
+ *  - allOf intersection (narrow to the common type set) + default reconciliation
  *  - anyOf/oneOf union (widen to the combined type set)
  */
 class PropertyMerger
@@ -44,7 +44,7 @@ class PropertyMerger
      * - Either property has a nested schema (object merging is handled elsewhere)
      * - Root-precedence guard blocks a non-allOf composition branch
      *
-     * @throws SchemaException when allOf branches define conflicting types
+     * @throws SchemaException when allOf branches define conflicting types or conflicting defaults
      */
     public function merge(
         PropertyInterface $existing,
@@ -67,16 +67,20 @@ class PropertyMerger
         // For allOf: a truly-untyped incoming branch (no type keyword, not an explicit null-type
         // branch) adds no type constraint — all allOf branches apply simultaneously, so the
         // existing type is unaffected. Skip mergeNullableBranch in that case to avoid wrongly
-        // wiping the existing type.
+        // wiping the existing type. Defaults still need reconciliation even for untyped branches.
         if (
             $isAllOf
             && $incoming->getType(true) === null
             && !str_contains($incoming->getTypeHint(), 'null')
         ) {
+            $this->reconcileAllOfDefaults($existing, $incoming);
             return;
         }
 
         if ($this->mergeNullableBranch($existing, $incoming) || $this->mergeIntoExistingNull($existing, $incoming)) {
+            if ($isAllOf) {
+                $this->reconcileAllOfDefaults($existing, $incoming);
+            }
             return;
         }
 
@@ -90,10 +94,51 @@ class PropertyMerger
                     $incoming->getName(),
                 ),
             );
+            $this->reconcileAllOfDefaults($existing, $incoming);
             return;
         }
 
         $this->applyAnyOfOneOfUnion($existing, $incoming);
+    }
+
+    /**
+     * Detect and reconcile default values for direct allOf-style property merges.
+     *
+     * For composition-branch merges via SchemaProcessor::transferComposedPropertiesToSchema,
+     * branch property defaults are cleared to null before addProperty is called (so this
+     * check is a no-op for those paths — the composition validator handles branch defaults
+     * separately). This method has effect only for direct allOf merges that bypass the
+     * composition machinery: $ref + sibling at base level and object×object property-level
+     * merges in PropertyFactory.
+     *
+     * When both sides declare non-identical non-null defaults the schema is contradictory.
+     * When only the incoming side carries a default it is propagated to the existing slot.
+     *
+     * @throws SchemaException when both sides declare non-identical non-null defaults
+     */
+    private function reconcileAllOfDefaults(
+        PropertyInterface $existing,
+        PropertyInterface $incoming,
+    ): void {
+        $existingDefault = $existing->getDefaultValue();
+        $incomingDefault = $incoming->getDefaultValue();
+
+        if ($existingDefault !== null && $incomingDefault !== null && $existingDefault !== $incomingDefault) {
+            throw new SchemaException(sprintf(
+                "Conflicting default values for property '%s': '%s' declared at '%s'"
+                    . " conflicts with '%s' declared at '%s' in file '%s'",
+                $existing->getName(),
+                $existingDefault,
+                $existing->getJsonSchema()->getPointer(),
+                $incomingDefault,
+                $incoming->getJsonSchema()->getPointer(),
+                $existing->getJsonSchema()->getFile(),
+            ));
+        }
+
+        if ($existingDefault === null && $incomingDefault !== null) {
+            $existing->setDefaultValue($incomingDefault, true);
+        }
     }
 
     /**
