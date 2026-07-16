@@ -26,6 +26,12 @@ class Issue79Test extends AbstractIssueTestCase
         $this->assertSame('A28', $object->getStreet());
         $this->assertNull($object->getAge());
         $this->assertNull($object->getZip());
+
+        // Properties must carry their authored JSON pointers — no synthetic /allOf/N segment.
+        $this->assertPropertyHasJsonPointer($object, 'name', '/properties/name');
+        $this->assertPropertyHasJsonPointer($object, 'age', '/properties/age');
+        $this->assertPropertyHasJsonPointer($object, 'street', '/definitions/location/properties/street');
+        $this->assertPropertyHasJsonPointer($object, 'zip', '/definitions/location/properties/zip');
     }
 
     #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]

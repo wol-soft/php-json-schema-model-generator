@@ -1,0 +1,14 @@
+{
+  "definitions": {
+    "stringDef": {
+      "type": "string"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "value": {
+      "$ref": "#/definitions/stringDef",
+      "type": "integer"
+    }
+  }
+}

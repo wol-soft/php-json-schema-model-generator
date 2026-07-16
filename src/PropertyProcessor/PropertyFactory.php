@@ -22,12 +22,14 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
+use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\TypeConverter;
@@ -205,24 +207,46 @@ class PropertyFactory
     }
 
     /**
-     * Produce the property from the producer keyword ($ref), then asynchronously merge it
-     * with any sibling keywords present on the same schema node.
+     * Keywords that, when present in the sibling JSON alongside a $ref, indicate that the
+     * $ref's resolved type must be an object and the two should be merged into a new nested
+     * class (object×object merge). Non-structural siblings (default, enum, const, …) take
+     * the scalar/array merge path or the object-with-any-only-modifiers fallback instead.
+     */
+    private const OBJECT_STRUCTURAL_KEYWORDS = [
+        'properties',
+        'required',
+        'additionalProperties',
+        'patternProperties',
+        'propertyNames',
+        'minProperties',
+        'maxProperties',
+        'unevaluatedProperties',
+        'dependentSchemas',
+        'dependentRequired',
+    ];
+
+    /**
+     * Produce the property from the producer keyword ($ref), then merge it with any sibling
+     * keywords present on the same schema node.
      *
      * Builds an untyped placeholder property to return immediately (required for recursive
      * $ref support, where the backing property is not yet available when produce() returns).
      * The actual type and validators are wired in the onResolve callback once the ref
      * property has resolved.
      *
-     * Object×object merge — when the ref property resolves to an object schema AND either
-     * (a) siblings include structural object keywords like 'properties', or (b) a second
-     * producer keyword is present and also resolves to an object — requires processSchema()
-     * to be called for the merged object. However, processSchema() mutates
-     * SchemaProcessor::currentClassPath as a side effect. Calling it inside an onResolve
-     * callback (which fires mid-resolveReference) would corrupt the class-path context for
-     * subsequent properties in the parent schema. This case is therefore not yet supported
-     * and falls back to wiring the ref property's nested schema onto the target property
-     * while ignoring sibling structural keywords. A future change adding save/restore of
-     * class context to SchemaProcessor will unblock this.
+     * Three distinct merge paths, chosen before produce() is called:
+     *
+     * 1. Object×object (structural sibling keywords + ref→object): a merged Schema is
+     *    pre-created and sibling properties are processed into it synchronously; once the
+     *    ref resolves, ref properties are transferred into the merged Schema with allOf
+     *    semantics (type intersection, default-conflict detection) for name collisions.
+     *
+     * 2. Object with non-structural siblings (ref→object + default/enum/const/…): the ref's
+     *    nested Schema is wired directly; non-structural siblings are applied as any-type
+     *    modifiers on the outer property.
+     *
+     * 3. Scalar/array merge (ref→non-object): a fresh property is built from the sibling
+     *    schema and the ref's type and validators are merged into it non-mutably.
      *
      * @param array<string, PropertyProducerInterface> $producers
      *
@@ -237,7 +261,7 @@ class PropertyFactory
         array $producers,
         array $siblingJson,
     ): PropertyInterface {
-        $siblingSchema  = $propertySchema->withJson($siblingJson);
+        $siblingSchema = $propertySchema->withJson($siblingJson);
         $targetProperty = $this->buildProperty(
             $schemaProcessor,
             $propertyName,
@@ -245,6 +269,24 @@ class PropertyFactory
             $siblingSchema,
             $required,
         );
+
+        // Detect object structural siblings before producing the ref so the merged Schema can
+        // be created synchronously (avoiding processSchema() inside an onResolve callback).
+        $hasObjectStructuralSiblings = !empty(
+            array_intersect(array_keys($siblingJson), self::OBJECT_STRUCTURAL_KEYWORDS)
+        );
+
+        // Pre-create the merged Schema when siblings contain structural object keywords.
+        // Sibling content is processed into the Schema now; ref properties are added later
+        // inside onResolve via allOf semantics.
+        $mergedSchema = $hasObjectStructuralSiblings
+            ? $schemaProcessor->createObjectRefSiblingMergedSchema(
+                $schema,
+                $propertyName,
+                $propertySchema,
+                $siblingJson,
+            )
+            : null;
 
         $refProperty = array_values($producers)[0]->produce(
             $schemaProcessor,
@@ -261,18 +303,52 @@ class PropertyFactory
             $schemaProcessor,
             $schema,
             $propertyName,
+            $mergedSchema,
         ): void {
             if ($refProperty->getNestedSchema() !== null) {
-                // Object×object: not yet supported — fall back to the ref property as-is.
-                // Sibling structural keywords (properties, required, etc.) are ignored for
-                // this case. See method docblock for the underlying constraint.
-                $targetProperty->setNestedSchema($refProperty->getNestedSchema());
+                if ($mergedSchema !== null) {
+                    // Object×object merge path (path 1): transfer ref properties into the
+                    // pre-created merged Schema with allOf semantics for collisions.
+                    foreach ($refProperty->getNestedSchema()->getProperties() as $refProp) {
+                        $compositionProcessor = $mergedSchema->getProperty($refProp->getName()) !== null
+                            ? AllOfValidatorFactory::class
+                            : null;
+                        $mergedSchema->addProperty($refProp, $compositionProcessor);
+                    }
+
+                    // Ensure the merged Schema's class can resolve all types used by the
+                    // ref's properties (e.g. when those properties reference nested classes).
+                    $mergedSchema->addNamespaceTransferDecorator(
+                        new SchemaNamespaceTransferDecorator($refProperty->getNestedSchema()),
+                    );
+
+                    $targetProperty->setNestedSchema($mergedSchema);
+                    $schemaProcessor->generateClassFile($mergedSchema);
+                } else {
+                    // Object with non-structural siblings (path 2): wire ref's nested Schema
+                    // directly; non-structural siblings are applied as any-type modifiers.
+                    $targetProperty->setNestedSchema($refProperty->getNestedSchema());
+                }
+
                 $this->wireObjectProperty($schemaProcessor, $schema, $targetProperty, $siblingSchema);
                 $this->applyModifiers($schemaProcessor, $schema, $targetProperty, $siblingSchema, anyOnly: true);
 
                 return;
             }
 
+            if ($mergedSchema !== null) {
+                // Structural object siblings were detected but the $ref resolved to a
+                // non-object type — these are contradictory constraints.
+                throw new SchemaException(sprintf(
+                    "Property '%s' in file '%s': sibling structural object keywords"
+                        . " ('properties', 'required', …) require the \$ref to resolve to an object,"
+                        . " but it resolved to a non-object type",
+                    $propertyName,
+                    $siblingSchema->getFile(),
+                ));
+            }
+
+            // Scalar/array merge path (path 3).
             $this->applyScalarSiblingMerge(
                 $targetProperty,
                 $refProperty,
@@ -326,20 +402,49 @@ class PropertyFactory
             $propertyName,
         );
 
+        // A concrete (non-array) sibling type that does not include null narrows away the
+        // ref's nullability — the intersection of "string|null" and "string" is "string".
+        // When no sibling type is present or the sibling type is an array, the ref's
+        // nullable is preserved unchanged.
+        $siblingJson      = $siblingSchema->getJson();
+        $effectiveNullable = $producedType->isNullable();
+
+        if (isset($siblingJson['type']) && !is_array($siblingJson['type']) && $siblingJson['type'] !== 'null') {
+            $effectiveNullable = false;
+        }
+
         $targetProperty->setType(
-            new PropertyType($effectivePhpTypeNames, $producedType->isNullable()),
-            new PropertyType($effectivePhpTypeNames, $producedType->isNullable()),
+            new PropertyType($effectivePhpTypeNames, $effectiveNullable),
+            new PropertyType($effectivePhpTypeNames, $effectiveNullable),
         );
 
-        $siblingJson = $siblingSchema->getJson();
         if (count($effectivePhpTypeNames) === 1) {
-            // Single effective type: apply type-specific sibling modifiers (adds TypeCheck +
-            // type-keyed validators like minLength, pattern, minimum, etc.). These run on the
-            // sibling schema; the TypeCheck added here is the one that validates the final
-            // effective type, not the ref property's potentially broader type.
+            $effectiveTypeJsonSchemaName = TypeConverter::phpToJsonSchema($effectivePhpTypeNames[0]);
+
+            // Apply type-specific validators from the ref's definition with the effective
+            // (narrowed) type substituted. This re-derives range validators (minimum, maximum,
+            // etc.) using the correct PHP type-check function for the effective type (e.g.,
+            // is_int instead of is_float when narrowing from number to integer). TypeCheck
+            // deduplication in TypeCheckModifier ensures only one TypeCheck is added.
+            $refJsonWithEffectiveType = array_merge(
+                $refProperty->getJsonSchema()->getJson(),
+                ['type' => $effectiveTypeJsonSchemaName],
+            );
+            $this->applyModifiers(
+                $schemaProcessor,
+                $schema,
+                $targetProperty,
+                $siblingSchema->withJson($refJsonWithEffectiveType),
+                anyOnly: false,
+                typeOnly: true,
+            );
+
+            // Apply type-specific validators from the sibling schema. TypeCheck is already
+            // present (dedup no-op); sibling constraints like minLength, pattern, and
+            // additional range bounds are added here.
             $siblingWithType = array_merge(
                 $siblingJson,
-                ['type' => TypeConverter::phpToJsonSchema($effectivePhpTypeNames[0])],
+                ['type' => $effectiveTypeJsonSchemaName],
             );
             $this->applyModifiers(
                 $schemaProcessor,
@@ -361,9 +466,14 @@ class PropertyFactory
             anyOnly: true,
         );
 
-        // Transfer constraints that originate from the $ref'd definition (e.g. minLength on
-        // the referenced string schema). Skip TypeCheck (added above with the effective type)
-        // and RequiredPropertyValidator (already on targetProperty from buildProperty).
+        // Transfer any validators from the $ref'd definition that were not covered by the
+        // type-specific modifier passes above (e.g. enum, const, or filter validators on
+        // the referenced definition). TypeCheck validators are skipped (one is already added
+        // above with the effective type); RequiredPropertyValidator is also skipped (added
+        // by buildProperty). Type-specific validators transferred here may duplicate those
+        // added by the ref modifier pass, but the duplicates are harmless: the ones with
+        // wrong type-check functions (e.g. is_float on a narrowed int property) silently
+        // skip at runtime because the type-guard condition never matches.
         // Decorators are intentionally NOT transferred: type-conversion decorators on the
         // ref property (e.g. IntToFloatCastDecorator on a number $ref) target the produced
         // type, not the narrowed effective type. Transferring them would corrupt the value
