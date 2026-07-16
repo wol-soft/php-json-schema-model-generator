@@ -42,11 +42,13 @@ class ConstModifier implements ModifierInterface
                     . var_export($json['const'], true),
         };
 
-        $property->addValidator(new PropertyValidator(
-            $property,
-            $check,
-            InvalidConstException::class,
-            [$json['const']],
-        ));
+        $property->addValidator(
+            (new PropertyValidator(
+                $property,
+                $check,
+                InvalidConstException::class,
+                [$json['const']],
+            ))->withJsonPointer($propertySchema->getPointer() . '/const'),
+        );
     }
 }

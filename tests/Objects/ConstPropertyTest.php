@@ -162,12 +162,21 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     #[DataProvider('invalidPropertyDataProvider')]
     public function testNotMatchingProvidedDataThrowsAnException(mixed $propertyValue): void
     {
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for stringProperty declined by const constraint');
-
         $className = $this->generateClassFromFile('ConstProperty.json', null, false, false);
 
-        new $className(['stringProperty' => $propertyValue]);
+        try {
+            new $className(['stringProperty' => $propertyValue]);
+            $this->fail('Expected ValidationException');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                'Invalid value for stringProperty declined by const constraint',
+                $exception->getMessage(),
+            );
+            $this->assertSame(
+                '/properties/stringProperty/const',
+                $exception->getJsonPointer()->pointer,
+            );
+        }
     }
 
     public static function invalidPropertyDataProvider(): array
