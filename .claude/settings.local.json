@@ -38,7 +38,8 @@
       "Bash(do)",
       "Bash(done)",
       "Bash(rm /tmp/phpunit-output.txt)",
-      "Bash(grep -E \"FAIL|ERROR|WARN|Tests:\" /tmp/phpunit-output.txt; rm /tmp/phpunit-output.txt)"
+      "Bash(grep -E \"FAIL|ERROR|WARN|Tests:\" /tmp/phpunit-output.txt; rm /tmp/phpunit-output.txt)",
+      "Bash(mkdir -p /home/user/php-json-schema-model-generator/.claude/issues/72 && ls /home/user/php-json-schema-model-generator/tests/Issues/Issue/ | tail -20)"
     ]
   }
 }
