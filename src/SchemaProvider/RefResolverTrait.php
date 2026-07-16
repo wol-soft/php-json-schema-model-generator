@@ -11,11 +11,27 @@ trait RefResolverTrait
 {
     public function getRef(string $currentFile, ?string $id, string $ref): JsonSchema
     {
-        $jsonSchemaFilePath = $this->getFullRefURL($id ?? $currentFile, $ref)
-            ?: $this->getLocalRefPath($currentFile, $ref);
+        $resolvedURL = $this->getFullRefURL($id ?? $currentFile, $ref);
+        $jsonSchemaFilePath = $resolvedURL ?: $this->getLocalRefPath($currentFile, $ref);
 
-        if ($jsonSchemaFilePath === null || !($jsonSchema = file_get_contents($jsonSchemaFilePath))) {
-            throw new SchemaException("Reference to non existing JSON-Schema file $ref");
+        if ($jsonSchemaFilePath === null) {
+            throw new SchemaException(
+                "Reference to non existing JSON-Schema file $ref: no local file found relative to $currentFile",
+            );
+        }
+
+        error_clear_last();
+        $jsonSchema = @file_get_contents($jsonSchemaFilePath);
+
+        if ($jsonSchema === false) {
+            $lastError = error_get_last();
+
+            throw new SchemaException(
+                ($resolvedURL !== null
+                    ? "Failed to fetch referenced JSON-Schema file $ref from $jsonSchemaFilePath"
+                    : "Failed to read referenced JSON-Schema file $ref from $jsonSchemaFilePath"
+                ) . ($lastError !== null ? ': ' . $lastError['message'] : ''),
+            );
         }
 
         $decodedJsonSchema = json_decode($jsonSchema, true);
