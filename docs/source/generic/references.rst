@@ -147,3 +147,97 @@ Generated interface:
 If a base reference is used and the reference doesn't point to an object definition an Exception will be thrown during the model generation process:
 
 * A referenced schema on base level must provide an object definition [Citizen]
+
+$ref with sibling keywords
+--------------------------
+
+When additional keywords appear alongside ``$ref`` in the same schema object — such as
+``properties``, ``required``, ``type``, ``minLength``, ``enum``, or others — their treatment
+depends on the active JSON Schema draft.
+
+**Draft 2019-09+ (siblings applied)**
+    Sibling keywords take full effect alongside ``$ref``.  At the base/root level, sibling
+    ``properties`` and ``required`` are merged with the referenced object's own properties —
+    constraints from both sides apply (type intersection, required union).  At the property
+    level, sibling constraints (``type``, ``minLength``, ``enum``, etc.) narrow the referenced
+    type.
+
+**Draft 7 (siblings silently ignored)**
+    Sibling keywords are discarded.  Only the ``$ref`` is effective.  This matches the Draft 7
+    specification, where ``$ref`` is exclusive over all co-located keywords.
+
+    .. note::
+
+        If your schemas rely on siblings alongside ``$ref`` and you switch from Draft 7 to
+        Draft 2019-09 (or use ``AutoDetectionDraft`` with a ``$schema`` URI pointing to
+        2019-09), those siblings will start taking effect.  Review schemas that combine
+        ``$ref`` with extra keywords before upgrading.
+
+**Example — base-level $ref + sibling properties (Draft 2019-09+)**
+
+.. code-block:: json
+
+    {
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
+        "$defs": {
+            "person": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "age": {
+                        "type": "integer"
+                    }
+                },
+                "required": ["name"]
+            }
+        },
+        "$ref": "#/$defs/person",
+        "properties": {
+            "street": {
+                "type": "string"
+            }
+        },
+        "required": ["name", "street"]
+    }
+
+The generated class exposes ``name`` and ``age`` (from the ref) together with ``street``
+(from the sibling ``properties``):
+
+.. code-block:: php
+
+    public function getName(): ?string;
+    public function getAge(): ?int;
+    public function getStreet(): ?string;
+
+When a property is declared by **both** the ``$ref``'d object and the sibling ``properties``
+block, the two declarations are merged with ``allOf`` semantics: types narrow to their
+intersection (for example, ``number`` ∩ ``integer`` → ``int``), and conflicting default
+values cause a generation-time ``SchemaException``.
+
+**Example — property-level $ref + sibling constraint (Draft 2019-09+)**
+
+A property schema with ``$ref`` pointing to a string definition and a sibling ``minLength``:
+
+.. code-block:: json
+
+    {
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
+        "type": "object",
+        "properties": {
+            "code": {
+                "$ref": "#/$defs/shortString",
+                "minLength": 5
+            }
+        },
+        "$defs": {
+            "shortString": {
+                "type": "string",
+                "minLength": 1
+            }
+        }
+    }
+
+Both constraints are enforced: the effective minimum length is ``5`` (the sibling tightens
+the ref's ``minLength: 1``).
