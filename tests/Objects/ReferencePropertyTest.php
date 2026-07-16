@@ -1324,9 +1324,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         // The exception is thrown against the temp-copy of the schema (the test harness
         // copies schemas to a session temp directory before processing). The file path
         // in the message is the temp-copy path, so match only the invariant parts.
-        $this->expectExceptionMessageMatches(<<<'PATTERN'
-            /Property 'name' in file '.*': \$ref resolves to type 'string' but sibling 'type' declares 'integer'; the types are incompatible/
-            PATTERN);
+        $this->expectExceptionMessageMatches(
+            '/Property \'name\' in file \'.*\':'
+            . ' \$ref resolves to type \'string\' but sibling \'type\' declares \'integer\';'
+            . ' the types are incompatible/',
+        );
 
         $this->generateClassFromFile('RefWithPropertyLevelTypeConflict.json');
     }
