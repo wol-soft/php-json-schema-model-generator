@@ -166,7 +166,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
                 <<<ERROR
                 Invalid items in array property:
                   - invalid item #1
-                    * Invalid type for item of array property. Requires string, got integer
+                    * Invalid type for property. Requires string, got integer
                 ERROR,
             ]
         ];
@@ -287,7 +287,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
                 <<<ERROR
                 Invalid items in array property:
                   - invalid item #1
-                    * Invalid type for item of array property. Requires [string, array], got integer
+                    * Invalid type for property. Requires [string, array], got integer
                 ERROR,
             ],
             'invalid array length' => [
@@ -303,7 +303,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
                   - invalid item #1
                     * Invalid items in array property:
                       - invalid item #0
-                        * Invalid type for item of array property. Requires [string, array], got integer
+                        * Invalid type for property. Requires [string, array], got integer
                 ERROR,
             ],
             'invalid array length in nested array' => [
@@ -312,7 +312,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
                 <<<ERROR
                 Invalid items in array property:
                   - invalid item #1
-                    * Array item of array property must not contain less than 2 items
+                    * Array property must not contain less than 2 items
                 ERROR,
             ],
         ];

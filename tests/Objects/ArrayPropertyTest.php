@@ -503,7 +503,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid items in array property:
                       - invalid item #2
-                        * Invalid type for item of array property. Requires string, got integer
+                        * Invalid type for property. Requires string, got integer
                     ERROR,
                 ],
                 'String array containing null' => [
@@ -512,7 +512,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid items in array property:
                       - invalid item #2
-                        * Invalid type for item of array property. Requires string, got NULL
+                        * Invalid type for property. Requires string, got NULL
                     ERROR,
                 ],
                 'Int array containing string' => [
@@ -521,7 +521,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid items in array property:
                       - invalid item #3
-                        * Invalid type for item of array property. Requires int, got string
+                        * Invalid type for property. Requires int, got string
                     ERROR,
                 ],
                 'Int array containing float' => [
@@ -530,7 +530,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid items in array property:
                       - invalid item #3
-                        * Invalid type for item of array property. Requires int, got double
+                        * Invalid type for property. Requires int, got double
                     ERROR,
                 ],
                 'Number array containing array' => [
@@ -539,7 +539,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid items in array property:
                       - invalid item #4
-                        * Invalid type for item of array property. Requires float, got array
+                        * Invalid type for property. Requires float, got array
                     ERROR,
                 ],
                 'Boolean array containing int' => [
@@ -548,7 +548,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid items in array property:
                       - invalid item #3
-                        * Invalid type for item of array property. Requires bool, got integer
+                        * Invalid type for property. Requires bool, got integer
                     ERROR,
                 ],
                 'Null array containing string' => [
@@ -557,7 +557,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid items in array property:
                       - invalid item #2
-                        * Invalid type for item of array property. Requires null, got string
+                        * Invalid type for property. Requires null, got string
                     ERROR,
                 ],
                 'Multiple violations' => [
@@ -566,9 +566,9 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid items in array property:
                       - invalid item #3
-                        * Invalid type for item of array property. Requires bool, got integer
+                        * Invalid type for property. Requires bool, got integer
                       - invalid item #5
-                        * Invalid type for item of array property. Requires bool, got string
+                        * Invalid type for property. Requires bool, got string
                     ERROR,
                 ],
                 'Nested array containing null' => [
@@ -577,7 +577,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid items in array property:
                       - invalid item #2
-                        * Invalid type for item of array property. Requires array, got NULL
+                        * Invalid type for property. Requires array, got NULL
                     ERROR,
                 ],
                 'Nested array containing int' => [
@@ -586,7 +586,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid items in array property:
                       - invalid item #2
-                        * Invalid type for item of array property. Requires array, got integer
+                        * Invalid type for property. Requires array, got integer
                     ERROR,
                 ],
                 'Nested array inner array containing string' => [
@@ -595,9 +595,9 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid items in array property:
                       - invalid item #0
-                        * Invalid items in array item of array property:
+                        * Invalid items in array property:
                           - invalid item #1
-                            * Invalid type for item of array item of array property. Requires int, got string
+                            * Invalid type for property. Requires int, got string
                     ERROR,
                 ],
                 'Multi type array containing invalid values' => [
@@ -606,13 +606,50 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid items in array property:
                       - invalid item #2
-                        * Invalid type for item of array property. Requires [string, int], got boolean
+                        * Invalid type for property. Requires [string, int], got boolean
                       - invalid item #4
-                        * Invalid type for item of array property. Requires [string, int], got array
+                        * Invalid type for property. Requires [string, int], got array
                     ERROR,
                 ],
             ],
         );
+    }
+
+    /**
+     * getPropertyName() must return the array's real property name (not a synthetic
+     * "item of array X" description) and getInstancePointer() must resolve to the failing
+     * item's real position within the data, including through nested arrays.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testInvalidTypedArrayItemExposesRealPropertyNameAndInstancePointer(): void
+    {
+        $className = $this->generateClassFromFileTemplate(
+            'ArrayPropertyTyped.json',
+            ['"array","items":{"type":"integer"}'],
+            (new GeneratorConfiguration())->setCollectErrors(false),
+            false,
+        );
+
+        try {
+            new $className(['property' => [[1, 2], [3, 'not an int']]]);
+            $this->fail('Expected ValidationException');
+        } catch (ValidationException $exception) {
+            $this->assertInstanceOf(InvalidItemException::class, $exception);
+            $this->assertSame('property', $exception->getPropertyName());
+            $this->assertSame('/property', $exception->getInstancePointer()->pointer);
+
+            $innerException = $exception->getInvalidItems()[1][0];
+            $this->assertInstanceOf(InvalidItemException::class, $innerException);
+            $this->assertSame('property', $innerException->getPropertyName());
+            $this->assertSame('/property/1', $innerException->getInstancePointer()->pointer);
+
+            $leafException = $innerException->getInvalidItems()[1][0];
+            $this->assertSame('property', $leafException->getPropertyName());
+            $this->assertSame('/property/1/1', $leafException->getInstancePointer()->pointer);
+        }
     }
 
     #[DataProvider('validArrayContainsDataProvider')]
@@ -772,7 +809,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         <<<ERROR
                         Invalid items in array property:
                           - invalid item #0
-                            * Invalid type for item of array property. Requires object, got NULL
+                            * Invalid type for property. Requires object, got NULL
                         ERROR,
                     ],
                     'invalid type bool' => [
@@ -780,7 +817,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         <<<ERROR
                         Invalid items in array property:
                           - invalid item #1
-                            * Invalid type for item of array property. Requires object, got boolean
+                            * Invalid type for property. Requires object, got boolean
                         ERROR,
                     ],
                     'missing property name' => [
@@ -808,7 +845,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                           - invalid item #1
                             * Invalid type for age. Requires int, got string
                           - invalid item #2
-                            * Invalid type for item of array property. Requires object, got integer
+                            * Invalid type for property. Requires object, got integer
                           - invalid item #3
                             * Missing required value for name
                         ERROR,
@@ -832,12 +869,12 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         <<<ERROR
                         Invalid items in array property:
                           - invalid item #1
-                            * Invalid value for item of array property declined by composition constraint.
+                            * Invalid value for property declined by composition constraint.
                               Requires to match all composition elements but matched 0 elements.
                               - Composition element #1: Failed
-                                * Invalid type for item of array property. Requires object, got boolean
+                                * Invalid type for property. Requires object, got boolean
                               - Composition element #2: Failed
-                                * Invalid type for item of array property. Requires object, got boolean
+                                * Invalid type for property. Requires object, got boolean
                         ERROR,
                     ],
                     'missing property name' => [
@@ -845,7 +882,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         <<<ERROR
                         Invalid items in array property:
                           - invalid item #1
-                            * Invalid value for item of array property declined by composition constraint.
+                            * Invalid value for property declined by composition constraint.
                               Requires to match all composition elements but matched 1 elements.
                               - Composition element #1: Failed
                                 * Missing required value for name
@@ -858,7 +895,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         <<<ERROR
                         Invalid items in array property:
                           - invalid item #1
-                            * Invalid value for item of array property declined by composition constraint.
+                            * Invalid value for property declined by composition constraint.
                               Requires to match all composition elements but matched 1 elements.
                               - Composition element #1: Failed
                                 * Invalid type for name. Requires string, got boolean
@@ -870,27 +907,27 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         <<<ERROR
                         Invalid items in array property:
                           - invalid item #0
-                            * Invalid value for item of array property declined by composition constraint.
+                            * Invalid value for property declined by composition constraint.
                               Requires to match all composition elements but matched 1 elements.
                               - Composition element #1: Failed
                                 * Invalid type for name. Requires string, got boolean
                               - Composition element #2: Valid
                           - invalid item #1
-                            * Invalid value for item of array property declined by composition constraint.
+                            * Invalid value for property declined by composition constraint.
                               Requires to match all composition elements but matched 0 elements.
                               - Composition element #1: Failed
                                 * Value for name must not be shorter than 2
                               - Composition element #2: Failed
                                 * Invalid type for age. Requires int, got string
                           - invalid item #2
-                            * Invalid value for item of array property declined by composition constraint.
+                            * Invalid value for property declined by composition constraint.
                               Requires to match all composition elements but matched 0 elements.
                               - Composition element #1: Failed
-                                * Invalid type for item of array property. Requires object, got integer
+                                * Invalid type for property. Requires object, got integer
                               - Composition element #2: Failed
-                                * Invalid type for item of array property. Requires object, got integer
+                                * Invalid type for property. Requires object, got integer
                           - invalid item #3
-                            * Invalid value for item of array property declined by composition constraint.
+                            * Invalid value for property declined by composition constraint.
                               Requires to match all composition elements but matched 1 elements.
                               - Composition element #1: Failed
                                 * Missing required value for name

@@ -20,7 +20,7 @@ class Issue77Test extends AbstractIssueTestCase
         $this->assertSame(0, $object->getPet()->getAge());
         $this->assertSame('Hans', $object->getPet()->getName());
 
-        $this->expectExceptionMessage('Value for item of array values must not be smaller than 1');
+        $this->expectExceptionMessage('Value for values must not be smaller than 1');
 
         new $className(['values' => [0]]);
     }
