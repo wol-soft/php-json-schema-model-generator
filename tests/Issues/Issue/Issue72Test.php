@@ -60,7 +60,8 @@ class Issue72Test extends AbstractIssueTestCase
      * A `oneOf` composition placed directly at the schema root, with a `$ref`-based branch that
      * resolves to only an `example` keyword (no `type`/`properties`/any validation keyword), must
      * generate successfully and validate conforming input correctly - the example-only branch must
-     * be excluded rather than crashing generation. Requires Phase 1 (not yet implemented).
+     * be excluded from the composition. Phase 1 already fixed the generation-time crash; Phase 2
+     * (not yet implemented) is still needed to actually exclude the branch during validation.
      */
     public function testRootLevelOneOfWithReferencedExampleOnlyBranchAcceptsConformingInput(): void
     {
