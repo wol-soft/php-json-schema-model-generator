@@ -303,8 +303,9 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
             $this->fail('Expected AllOfException for non-string raw input');
         } catch (ErrorRegistryException $exception) {
             $errors = $exception->getErrors();
-            $this->assertCount(1, $errors);
-            $this->assertContainsOnlyInstancesOf(AllOfException::class, $errors);
+            $this->assertCount(2, $errors);
+
+            $this->assertInstanceOf(AllOfException::class, $errors[0]);
             $this->assertStringContainsString(
                 <<<ERROR
                 Invalid value for filteredProperty declined by composition constraint.
@@ -315,6 +316,16 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
                 $errors[0]->getMessage(),
             );
             $this->assertSame(0, $errors[0]->getSucceededCompositionElements());
+
+            // With the composed-value restoration bug fixed, the filter now correctly receives
+            // the real input (42) instead of a null leftover from the failed composition, and
+            // honestly reports its own failure to parse it as a date/time string, instead of the
+            // second error silently going missing.
+            $this->assertInstanceOf(InvalidFilterValueException::class, $errors[1]);
+            $this->assertStringStartsWith(
+                'Invalid value for property filteredProperty denied by filter mixedAcceptDateTimeFilter:',
+                $errors[1]->getMessage(),
+            );
         }
 
         // Already-constructed DateTime: pre-transform pipeline skipped, accepted as-is.

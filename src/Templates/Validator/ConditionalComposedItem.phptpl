@@ -104,5 +104,17 @@
         }
     {% endif %}
 
+    // A failed then/else branch may have left $value as the leftover result of a nested object
+    // instantiation attempt (an exception object, when the decorator's instantiation try/catch
+    // caught a validation failure) rather than the original input. Unlike the "if" branch, which
+    // always restores $originalModelData right after its own check, the then/else branch does not
+    // reset on its own — restore it here so a failure reports the real input value instead of an
+    // internal exception object. Left untouched on success: hasModifiedValuesMethod above still
+    // needs the branch's transformed value, and a successful branch's instantiated object is the
+    // correct resulting value for a property whose shape is defined entirely by that branch.
+    if ($thenException || $elseException) {
+        $value = $originalModelData;
+    }
+
     return $thenException || $elseException;
 })($value)

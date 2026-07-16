@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\Arrays\MaxItemsException;
 use PHPModelGenerator\Exception\Arrays\MinItemsException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
@@ -938,6 +939,40 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 ],
             )
         );
+    }
+
+    /**
+     * Regression test: when a composition applied to an array item fails entirely (no branch
+     * succeeds), the array item's real value must survive. Array items are validated by
+     * reference — each item aliases directly into the array being validated — so a composed-value
+     * validator that adopts an unset/leftover proposed value on total failure doesn't just corrupt
+     * its own reported providedValue; the corruption propagates back into the original array too.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testInvalidCombinedObjectArrayItemPreservesProvidedValueOnTotalCompositionFailure(): void
+    {
+        $className = $this->generateClassFromFile('ArrayPropertyCombinedObject.json', new GeneratorConfiguration());
+
+        $propertyValue = [['name' => 'Hannes'], true];
+
+        try {
+            new $className(['property' => $propertyValue]);
+            $this->fail('Expected exception for invalid object array item');
+        } catch (ErrorRegistryException $exception) {
+            $itemException = $exception->getErrors()[0];
+            $this->assertInstanceOf(InvalidItemException::class, $itemException);
+            // Item #0 validates successfully, so the array reports its instantiated merged
+            // object there; item #1 (true) never validates, so it must survive as the raw
+            // input rather than being corrupted to null by the failed composition.
+            $this->assertSame(true, $itemException->getProvidedValue()[1]);
+
+            $compositionException = $itemException->getInvalidItems()[1][0];
+            $this->assertInstanceOf(AllOfException::class, $compositionException);
+            $this->assertSame(true, $compositionException->getProvidedValue());
+        }
     }
 
     #[DataProvider('validRecursiveArrayDataProvider')]
