@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use PHPModelGenerator\Attributes\JsonSchema as JsonSchemaAttribute;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
 
 /**
  * Tests for property-level $ref + non-structural sibling keywords, type parity, and pointer
@@ -20,6 +23,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  */
 class RefSiblingsTest extends AbstractPHPModelGeneratorTestCase
 {
+    protected const EXTERNAL_JSON_DIRECTORIES = ['../RefSiblingsTest_external'];
     // -------------------------------------------------------------------------
     // $ref alone — unchanged behavior across all drafts
     // -------------------------------------------------------------------------
@@ -465,5 +469,169 @@ class RefSiblingsTest extends AbstractPHPModelGeneratorTestCase
         $this->assertPropertyHasJsonPointer($object, 'withMinLength', '/properties/withMinLength');
         $this->assertPropertyHasJsonPointer($object, 'withEnum', '/properties/withEnum');
         $this->assertPropertyHasJsonPointer($object, 'withConst', '/properties/withConst');
+    }
+
+    // -------------------------------------------------------------------------
+    // Recursive $ref with siblings — no crash (Draft 2019-09+)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Draft 2019-09+: when the $ref'd object contains a recursive self-reference (next →
+     * node), adding a sibling 'label' property at the root must not crash. All three
+     * properties — from the ref (value, next) and from the sibling (label) — must be
+     * accessible on the generated class.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRecursiveRefWithSiblingsMergesCorrectly(): void
+    {
+        $className = $this->generateClassFromFile('RecursiveRefSiblings.json');
+
+        // All properties — from ref (value, next) and from sibling (label) — must be present.
+        $object = new $className(['value' => 'root', 'label' => 'tag']);
+        $this->assertSame('root', $object->getValue());
+        $this->assertSame('tag', $object->getLabel());
+        $this->assertNull($object->getNext());
+    }
+
+    /**
+     * Draft 07: sibling 'label' is silently ignored; only properties from the $ref'd
+     * recursive object (value, next) appear on the generated class.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testRecursiveRefDraft07SiblingIgnored(): void
+    {
+        $className = $this->generateClassFromFile('RecursiveRefSiblings.json');
+
+        // Only ref properties (value, next) are present; sibling label is absent.
+        $object = new $className(['value' => 'root']);
+        $this->assertSame('root', $object->getValue());
+        $this->assertFalse(method_exists($object, 'getLabel'));
+    }
+
+    // -------------------------------------------------------------------------
+    // External-file $ref with siblings (Draft 2019-09+)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Draft 2019-09+: when the root $ref resolves to an external JSON file and the schema
+     * has sibling 'properties' (city), the generated class must expose both properties from
+     * the external file (street, required) and from the sibling (city, optional).
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testExternalFileRefWithSiblingsMerged(): void
+    {
+        $className = $this->generateClassFromFile('ExternalRefSiblings.json');
+
+        // street (from external ref, required) and city (from sibling) both accessible.
+        $object = new $className(['street' => 'Main St', 'city' => 'Berlin']);
+        $this->assertSame('Main St', $object->getStreet());
+        $this->assertSame('Berlin', $object->getCity());
+    }
+
+    /**
+     * Draft 2019-09+: the external ref's required constraint (street) is enforced.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testExternalFileRefEnforcesRefConstraints(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ExternalRefSiblings.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        $this->expectException(ErrorRegistryException::class);
+
+        new $className(['city' => 'Berlin']); // missing required 'street' from external ref
+    }
+
+    /**
+     * Draft 07: sibling 'city' is silently ignored; only properties from the external
+     * $ref file (street) appear on the generated class.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testExternalFileRefDraft07SiblingIgnored(): void
+    {
+        $className = $this->generateClassFromFile('ExternalRefSiblings.json');
+
+        // Only ref property 'street' is present; sibling 'city' is absent.
+        $object = new $className(['street' => 'Main St']);
+        $this->assertSame('Main St', $object->getStreet());
+        $this->assertFalse(method_exists($object, 'getCity'));
+    }
+
+    // -------------------------------------------------------------------------
+    // {$ref, siblings} nested inside a real allOf branch (Draft 2019-09+)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Draft 2019-09+: when an allOf branch contains {$ref → location, properties: {city}},
+     * the branch is treated as an object×object merge — the resulting nested class for
+     * 'address' exposes both properties from the ref (street) and from the sibling (city).
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRefSiblingsInsideAllOfBranchMerged(): void
+    {
+        $className = $this->generateClassFromFile('RefSiblingsInsideAllOf.json');
+
+        $object  = new $className(['address' => ['street' => 'Main St', 'city' => 'Berlin']]);
+        $address = $object->getAddress();
+
+        $this->assertSame('Main St', $address->getStreet());
+        $this->assertSame('Berlin', $address->getCity());
+    }
+
+    /**
+     * Draft 07: when an allOf branch contains {$ref → location, properties: {city}}, the
+     * sibling 'city' is silently ignored (ExclusiveProducer). Only the ref's property
+     * 'street' is present on the nested address object.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testRefSiblingsInsideAllOfBranchDraft07SiblingIgnored(): void
+    {
+        $className = $this->generateClassFromFile('RefSiblingsInsideAllOf.json');
+
+        $object  = new $className(['address' => ['street' => 'Main St']]);
+        $address = $object->getAddress();
+
+        $this->assertSame('Main St', $address->getStreet());
+        $this->assertFalse(method_exists($address, 'getCity'));
+    }
+
+    // -------------------------------------------------------------------------
+    // #[JsonSchema] attribute reflects authored schema, not synthetic allOf
+    // -------------------------------------------------------------------------
+
+    /**
+     * Draft 2019-09+: the #[JsonSchema] PHP attribute attached to the generated class must
+     * encode the authored schema (with $ref and properties at the top level), not a
+     * synthetic allOf wrapper that the old JsonSchema constructor used to inject.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testJsonSchemaAttributeReflectsAuthoredSchema(): void
+    {
+        $configuration = (new GeneratorConfiguration())
+            ->setCollectErrors(false)
+            ->setEnabledAttributes(PhpAttribute::JSON_SCHEMA | PhpAttribute::JSON_POINTER);
+
+        $className = $this->generateClassFromFile('ObjectLevelTypeIntersection.json', $configuration);
+
+        $classAttributes = (new ReflectionClass($className))->getAttributes();
+
+        $jsonSchemaAttr = null;
+        foreach ($classAttributes as $attr) {
+            if ($attr->getName() === JsonSchemaAttribute::class) {
+                $jsonSchemaAttr = $attr;
+                break;
+            }
+        }
+
+        $this->assertNotNull($jsonSchemaAttr, '#[JsonSchema] attribute missing from generated class');
+
+        $jsonSchemaArg = $jsonSchemaAttr->getArguments()[0];
+
+        // The authored $ref must be present at the top level of the embedded schema.
+        $this->assertStringContainsString('"$ref"', $jsonSchemaArg);
+        // A synthetic allOf wrapper must not appear — the schema is authored directly.
+        $this->assertStringNotContainsString('"allOf"', $jsonSchemaArg);
     }
 }

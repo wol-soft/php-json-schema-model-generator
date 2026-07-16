@@ -1,0 +1,9 @@
+{
+  "$ref": "../RefSiblingsTest_external/Base.json",
+  "type": "object",
+  "properties": {
+    "city": {
+      "type": "string"
+    }
+  }
+}

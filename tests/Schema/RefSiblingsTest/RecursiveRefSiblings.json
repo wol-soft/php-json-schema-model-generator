@@ -1,0 +1,23 @@
+{
+  "definitions": {
+    "node": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "next": {
+          "$ref": "#/definitions/node"
+        }
+      },
+      "required": ["value"]
+    }
+  },
+  "$ref": "#/definitions/node",
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string"
+    }
+  }
+}
