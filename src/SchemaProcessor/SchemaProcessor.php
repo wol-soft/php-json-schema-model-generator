@@ -521,14 +521,33 @@ class SchemaProcessor
                     &$seenBranchPropertyNames,
                 ): void {
                     if (!$composedProperty->getNestedSchema()) {
-                        throw new SchemaException(
-                            sprintf(
-                                "No nested schema for composed property %s in file %s found",
-                                $property->getName(),
-                                $property->getJsonSchema()->getFile(),
-                            ),
-                            $property->getJsonSchema(),
+                        if ($composedProperty->getType() !== null) {
+                            throw new SchemaException(
+                                sprintf(
+                                    "No nested schema for composed property %s in file %s found",
+                                    $property->getName(),
+                                    $property->getJsonSchema()->getFile(),
+                                ),
+                                $property->getJsonSchema(),
+                            );
+                        }
+
+                        // A branch with neither a nested schema nor an explicit type (e.g. a $ref
+                        // to a definition carrying only annotation keywords such as example)
+                        // matches any value and contributes no named properties to transfer -
+                        // this is not a schema error, unlike a branch with an explicit type that
+                        // still lacks a nested schema (a genuine type conflict, handled above).
+                        $this->finalizeComposedBranchResolution(
+                            in_array($composedProperty, $branchesForValidator, true),
+                            $totalBranches,
+                            $resolvedPropertiesCallbacks,
+                            $seenBranchPropertyNames,
+                            $validator,
+                            $property,
+                            $schema,
                         );
+
+                        return;
                     }
 
                     $isBranchForValidator = in_array($composedProperty, $branchesForValidator, true);
@@ -574,28 +593,54 @@ class SchemaProcessor
                                 $seenBranchPropertyNames[$branchProperty->getName()] = true;
                             }
 
-                            if ($isBranchForValidator && ++$resolvedPropertiesCallbacks === $totalBranches) {
-                                foreach (array_keys($seenBranchPropertyNames) as $branchPropertyName) {
-                                    $schema->getPropertyMerger()->checkForTotalConflict(
-                                        $branchPropertyName,
-                                        $totalBranches,
-                                        $schema->getJsonSchema(),
-                                    );
-                                }
-
-                                $this->checkCrossBranchDefaultConflicts($validator, $property);
-
-                                $this->propertyAttributeSynthesizer->synthesiseForValidator(
-                                    $validator,
-                                    $schema,
-                                    $seenBranchPropertyNames,
-                                );
-                            }
+                            $this->finalizeComposedBranchResolution(
+                                $isBranchForValidator,
+                                $totalBranches,
+                                $resolvedPropertiesCallbacks,
+                                $seenBranchPropertyNames,
+                                $validator,
+                                $property,
+                                $schema,
+                            );
                         },
                     );
                 });
             }
         }
+    }
+
+    /**
+     * Run the once-per-composition cross-branch checks and property-attribute synthesis after the
+     * final branch of a composed property has finished contributing its properties to the schema -
+     * whether by transferring named properties from a nested schema, or by contributing none
+     * because the branch has neither a nested schema nor an explicit type.
+     *
+     * @param array<string, true> $seenBranchPropertyNames
+     */
+    private function finalizeComposedBranchResolution(
+        bool $isBranchForValidator,
+        int $totalBranches,
+        int &$resolvedPropertiesCallbacks,
+        array $seenBranchPropertyNames,
+        AbstractComposedPropertyValidator $validator,
+        PropertyInterface $property,
+        Schema $schema,
+    ): void {
+        if (!$isBranchForValidator || ++$resolvedPropertiesCallbacks !== $totalBranches) {
+            return;
+        }
+
+        foreach (array_keys($seenBranchPropertyNames) as $branchPropertyName) {
+            $schema->getPropertyMerger()->checkForTotalConflict(
+                $branchPropertyName,
+                $totalBranches,
+                $schema->getJsonSchema(),
+            );
+        }
+
+        $this->checkCrossBranchDefaultConflicts($validator, $property);
+
+        $this->propertyAttributeSynthesizer->synthesiseForValidator($validator, $schema, $seenBranchPropertyNames);
     }
 
     /**
