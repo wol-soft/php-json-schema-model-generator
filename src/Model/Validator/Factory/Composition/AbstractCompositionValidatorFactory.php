@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator\Factory\Composition;
 
+use PHPModelGenerator\Draft\Draft;
+use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\BaseProperty;
@@ -35,21 +37,17 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     private const array EXCLUDABLE_COMPOSITION_KEYS = ['anyOf', 'oneOf', 'if'];
 
     /**
-     * JSON Schema keywords that are purely descriptive/documentary and impose no validation
-     * constraint of their own. Used only to decide whether to emit the vacuous-branch warning -
-     * never to decide exclusion, which is scoped narrowly to isExampleOnlyBranch() instead.
+     * Keywords that constrain validation but are registered on a Type via addModifier() rather
+     * than addValidator() (TypeCheckModifier for 'type', ConstModifier for 'const' - see
+     * Draft_07::getDefinition()), so Draft::getTypesForKeyword() cannot see them: Type::$modifiers
+     * only exposes addValidator() entries as keyword => factory pairs; addModifier() entries are
+     * appended with plain numeric keys. Without this list, isVacuousBranch() would incorrectly
+     * treat a branch containing only e.g. {"const": "foo"} as vacuous.
      */
-    private const array ANNOTATION_ONLY_KEYWORDS = [
-        '$comment',
-        'title',
-        'description',
-        'default',
-        'example',
-        'examples',
-        'deprecated',
-        'readOnly',
-        'writeOnly',
-    ];
+    private const array MODIFIER_ONLY_VALIDATION_KEYWORDS = ['type', 'const'];
+
+    /** @var array<string, Draft> keyed by the concrete DraftInterface class name */
+    private array $draftCache = [];
 
     /**
      * Emit a generation-time warning for always-unsatisfiable composition schemas.
@@ -95,8 +93,9 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         PropertyInterface $property,
         int $branchIndex,
         array $resolvedBranchJson,
+        Draft $draft,
     ): void {
-        if (array_diff(array_keys($resolvedBranchJson), self::ANNOTATION_ONLY_KEYWORDS) !== []) {
+        if (!$this->isVacuousBranch($draft, $resolvedBranchJson)) {
             return;
         }
 
@@ -105,6 +104,46 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 . ' matches any value',
             ['index' => $branchIndex, 'property' => $property->getName()],
         );
+    }
+
+    /**
+     * A branch is vacuous when none of its keys is an actually-registered validation keyword -
+     * driven by the Draft itself rather than a hardcoded list of "known safe" keywords, so an
+     * unrecognized or misspelled key is correctly treated as non-constraining (the same as a
+     * genuine annotation keyword) instead of being mistaken for a real constraint merely because
+     * it wasn't anticipated.
+     *
+     * @param array<string, mixed> $resolvedBranchJson
+     */
+    private function isVacuousBranch(Draft $draft, array $resolvedBranchJson): bool
+    {
+        foreach (array_keys($resolvedBranchJson) as $keyword) {
+            if (
+                in_array($keyword, self::MODIFIER_ONLY_VALIDATION_KEYWORDS, true)
+                || $draft->getTypesForKeyword($keyword) !== []
+            ) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Resolve and build the Draft instance in effect for the given schema, cached per concrete
+     * DraftInterface class for the lifetime of this factory (which is shared across every
+     * property using this composition keyword throughout the whole generation run - see
+     * Draft_07::getDefinition(), where each *ValidatorFactory is instantiated exactly once).
+     */
+    private function resolveBuiltDraft(SchemaProcessor $schemaProcessor, JsonSchema $propertySchema): Draft
+    {
+        $configDraft = $schemaProcessor->getGeneratorConfiguration()->getDraft();
+
+        $draftInterface = $configDraft instanceof DraftFactoryInterface
+            ? $configDraft->getDraftForSchema($propertySchema)
+            : $configDraft;
+
+        return $this->draftCache[$draftInterface::class] ??= $draftInterface->getDefinition()->build();
     }
 
     /**
@@ -236,6 +275,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         $propertyFactory = new PropertyFactory();
         $compositionProperties = [];
         $json = $propertySchema->getJson()['propertySchema']->getJson();
+        $draft = $this->resolveBuiltDraft($schemaProcessor, $propertySchema->getJson()['propertySchema']);
 
         $property->addTypeHintDecorator(new ClearTypeHintDecorator());
 
@@ -283,7 +323,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             if ($compositionProperty->isResolved()) {
                 $resolvedBranchJson = $compositionProperty->getJsonSchema()->getJson();
 
-                $this->warnIfVacuousBranch($schemaProcessor, $property, $index, $resolvedBranchJson);
+                $this->warnIfVacuousBranch($schemaProcessor, $property, $index, $resolvedBranchJson, $draft);
 
                 if (
                     in_array($this->key, self::EXCLUDABLE_COMPOSITION_KEYS, true)

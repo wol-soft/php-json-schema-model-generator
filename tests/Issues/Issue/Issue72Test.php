@@ -6,6 +6,8 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -159,5 +161,60 @@ class Issue72Test extends AbstractIssueTestCase
         );
 
         $this->generateClassFromFile('PropertyLevelAllOfConflictingObjectAndScalar.json');
+    }
+
+    /**
+     * The vacuous-branch warning (Phase 2's broader, non-behavior-changing piece) must be driven
+     * by the Draft's own registered validator keywords, not a hardcoded list of "known safe"
+     * keywords - otherwise an unrecognized or misspelled key would wrongly be treated as a real
+     * constraint merely because nobody anticipated it, silently defeating the warning for exactly
+     * the schemas it is meant to catch. A branch containing only an unrecognized key must warn,
+     * while branches containing only "const" or "type" - both registered on their Type via
+     * addModifier() rather than addValidator() in Draft_07, so invisible to
+     * Draft::getTypesForKeyword() - must not, since both are genuine constraints.
+     */
+    public function testVacuousBranchWarningIsDrivenByRegisteredValidatorsNotAHardcodedList(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $this->generateClassFromFile(
+            'VacuousBranchWarning.json',
+            (new GeneratorConfiguration())->setLogger($recordingLogger),
+        );
+
+        $entries = $recordingLogger->getEntries();
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $entries,
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+                ['index' => 1, 'property' => 'unknownKeyBranch'],
+            ),
+            'Expected a vacuous-branch warning for the unknownKeyBranch property.',
+        );
+
+        $this->assertFalse(
+            $this->hasLogEntry(
+                $entries,
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+                ['property' => 'constOnlyBranch'],
+            ),
+            'A branch containing only "const" must not be treated as vacuous.',
+        );
+
+        $this->assertFalse(
+            $this->hasLogEntry(
+                $entries,
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+                ['property' => 'typeOnlyBranch'],
+            ),
+            'A branch containing only "type" must not be treated as vacuous.',
+        );
     }
 }
