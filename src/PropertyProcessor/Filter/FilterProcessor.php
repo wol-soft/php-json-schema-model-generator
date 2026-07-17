@@ -6,8 +6,6 @@ namespace PHPModelGenerator\PropertyProcessor\Filter;
 
 use Exception;
 use LogicException;
-use PHPModelGenerator\Draft\Draft;
-use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\Object\InvalidInstanceOfException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -156,7 +154,7 @@ class FilterProcessor
                 // called externally multiple times on the same property; the null-coalescing
                 // assignment ensures we do not rebuild when called from a MediaStringModifier
                 // followed by a FilterValidatorFactory invocation.
-                $builtDraft ??= $this->resolveBuiltDraft($generatorConfiguration, $property);
+                $builtDraft ??= $generatorConfiguration->getBuiltDraft($property->getJsonSchema());
                 $classifier = new CompositionBranchClassifier($builtDraft, $inputTypeNames, $returnTypeNames);
                 $checker = new CompositionCompatibilityChecker($classifier, $property);
                 $checker->checkTransformingFilterCompositionConflicts($property->getJsonSchema()->getJson());
@@ -679,26 +677,6 @@ class FilterProcessor
                 $schema->addUsedClass($typeName);
             }
         }
-    }
-
-    /**
-     * Build and return the Draft instance for the given property's schema.
-     *
-     * Resolves DraftFactoryInterface vs DraftInterface from the GeneratorConfiguration
-     * and builds the immutable Draft registry. Callers should cache the result rather
-     * than calling this method more than once per process() invocation.
-     */
-    private function resolveBuiltDraft(
-        GeneratorConfiguration $generatorConfiguration,
-        PropertyInterface $property,
-    ): Draft {
-        $configDraft = $generatorConfiguration->getDraft();
-
-        $draftInterface = $configDraft instanceof DraftFactoryInterface
-            ? $configDraft->getDraftForSchema($property->getJsonSchema())
-            : $configDraft;
-
-        return $draftInterface->getDefinition()->build();
     }
 
     /**

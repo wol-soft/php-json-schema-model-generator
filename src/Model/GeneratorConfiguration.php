@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model;
 use Exception;
 use InvalidArgumentException;
 use PHPModelGenerator\Draft\AutoDetectionDraft;
+use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\DraftInterface;
 use PHPModelGenerator\Exception\ErrorRegistryException;
@@ -25,6 +26,7 @@ use PHPModelGenerator\Format\UriTemplateFormatValidator;
 use PHPModelGenerator\Logger\EchoLogger;
 use PHPModelGenerator\MediaString\ContentValidatorInterface;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\ImmutableMediaStringFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\MediaStringFilter;
@@ -62,6 +64,9 @@ class GeneratorConfiguration
 
     /** @var DraftInterface | DraftFactoryInterface */
     protected $draft;
+
+    /** @var array<string, Draft> keyed by the concrete DraftInterface class name */
+    private array $builtDraftCache = [];
 
     /** @var ClassNameGeneratorInterface */
     protected $classNameGenerator;
@@ -359,6 +364,21 @@ class GeneratorConfiguration
         $this->draft = $draft;
 
         return $this;
+    }
+
+    /**
+     * Resolve and build the Draft instance in effect for the given schema, cached per concrete
+     * DraftInterface class for the lifetime of this GeneratorConfiguration (one instance per
+     * generation run, shared by every caller) so the registry is built at most once per Draft
+     * class regardless of how many properties or schemas are processed.
+     */
+    public function getBuiltDraft(JsonSchema $propertySchema): Draft
+    {
+        $draftInterface = $this->draft instanceof DraftFactoryInterface
+            ? $this->draft->getDraftForSchema($propertySchema)
+            : $this->draft;
+
+        return $this->builtDraftCache[$draftInterface::class] ??= $draftInterface->getDefinition()->build();
     }
 
     public function isImplicitNullAllowed(): bool
