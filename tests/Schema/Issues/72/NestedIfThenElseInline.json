@@ -1,0 +1,42 @@
+{
+  "type": "object",
+  "properties": {
+    "p": {
+      "if": {
+        "type": "object",
+        "properties": {
+          "isPerson": {
+            "const": true
+          }
+        },
+        "required": ["isPerson"]
+      },
+      "then": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["name"]
+          }
+        ]
+      },
+      "else": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "companyName": {
+                "type": "string"
+              }
+            },
+            "required": ["companyName"]
+          }
+        ]
+      }
+    }
+  }
+}

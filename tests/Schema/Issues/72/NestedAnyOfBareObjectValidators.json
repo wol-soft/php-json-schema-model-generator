@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "p": {
+      "anyOf": [
+        {
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": ["name"]
+        },
+        {
+          "properties": {
+            "companyName": {
+              "type": "string"
+            }
+          },
+          "required": ["companyName"]
+        }
+      ]
+    }
+  }
+}
