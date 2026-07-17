@@ -125,8 +125,8 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(
-            'Invalid type for property. Requires string, got ' .
-                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)),
+            "Invalid type for 'property': requires 'string', got '" .
+                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)) . "'",
         );
 
         $className = $this->generateEnumClass('string', static::ENUM_STRING);
@@ -153,7 +153,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testNotProvidedValueForRequiredEnumThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage("Missing required value for property");
+        $this->expectExceptionMessage("Missing required value for 'property'");
 
         $className = $this->generateEnumClass('string', static::ENUM_STRING, true);
 
@@ -168,7 +168,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testNullProvidedForRequiredEnumThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage("Invalid type for property. Requires string, got NULL");
+        $this->expectExceptionMessage("Invalid type for 'property': requires 'string', got 'NULL'");
 
         $className = $this->generateEnumClass('string', static::ENUM_STRING, true);
 
@@ -310,7 +310,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testNotProvidedEnumItemInRequiredUntypedEnumThrowsAnException(bool $implicitNull): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Missing required value for property');
+        $this->expectExceptionMessage('Missing required value for \'property\'');
 
         $className = $this->generateClassFromFile('RequiredUntypedEnumProperty.json', null, false, $implicitNull);
 

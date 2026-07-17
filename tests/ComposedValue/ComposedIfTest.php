@@ -83,30 +83,30 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
             'invalid negative' => [
                 -50,
                 <<<ERROR
-                Invalid value for property declined by conditional composition constraint
+                Invalid value for 'property' declined by conditional composition constraint
                   - Condition: Failed
-                    * Value for property must not be smaller than 100
+                    * Value for 'property' must not be smaller than 100
                   - Conditional branch failed:
-                    * Value for property must be a multiple of 30
+                    * Value for 'property' must be a multiple of 30
                 ERROR,
             ],
             'invalid positive else' => [
                 50,
                 <<<ERROR
-                Invalid value for property declined by conditional composition constraint
+                Invalid value for 'property' declined by conditional composition constraint
                   - Condition: Failed
-                    * Value for property must not be smaller than 100
+                    * Value for 'property' must not be smaller than 100
                   - Conditional branch failed:
-                    * Value for property must be a multiple of 30
+                    * Value for 'property' must be a multiple of 30
                 ERROR,
             ],
             'invalid positive then' => [
                 120,
                 <<<ERROR
-                Invalid value for property declined by conditional composition constraint
+                Invalid value for 'property' declined by conditional composition constraint
                   - Condition: Valid
                   - Conditional branch failed:
-                    * Value for property must be a multiple of 50
+                    * Value for 'property' must be a multiple of 50
                 ERROR,
             ],
         ];
@@ -171,7 +171,7 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
     ): void {
         $this->expectValidationErrorRegExp(
             $configuration,
-            '/(Invalid value for .*? declined by composition constraint|postal_code doesn\'t match pattern .*)/',
+            '/(Invalid value for .*? declined by composition constraint|\'postal_code\' does not match pattern .*)/',
         );
 
         $className = $this->generateClassFromFile($schemaFile, $configuration);

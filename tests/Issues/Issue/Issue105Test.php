@@ -42,7 +42,7 @@ class Issue105Test extends AbstractIssueTestCase
         // passes, "delivery_status" fails its enum check, so allOf requires 2 matches but got 1.
         $this->expectException(InvalidItemException::class);
         $this->expectExceptionMessage(
-            'Requires to match all composition elements but matched 1 elements.',
+            'Requires to match all composition elements but matched 1 elements',
         );
         new $className([
             'by_package' => [

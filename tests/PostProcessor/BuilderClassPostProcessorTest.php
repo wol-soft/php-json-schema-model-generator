@@ -113,8 +113,8 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->expectValidationErrorRegExp(
             $configuration,
             [
-                '/Value for name must not be shorter than 5/',
-                '/Value for age must not be smaller than 0/'
+                '/Value for \'name\' must not be shorter than 5/',
+                '/Value for \'age\' must not be smaller than 0/'
             ],
         );
 

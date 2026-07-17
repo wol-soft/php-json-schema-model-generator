@@ -29,7 +29,7 @@ Generated interface:
 
 Possible exceptions:
 
-* Invalid type for example. Requires string, got __TYPE__
+* Invalid type for 'example': requires 'string', got '__TYPE__'
 * Value for 'example' must be one of ["ABC","DEF"], got "GHI"
 
 Untyped Enum

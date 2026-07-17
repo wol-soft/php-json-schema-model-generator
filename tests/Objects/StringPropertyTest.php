@@ -76,8 +76,8 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     ): void {
         $this->expectValidationError(
             $configuration,
-            'Invalid type for property. Requires string, got ' .
-                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)),
+            "Invalid type for 'property': requires 'string', got '" .
+                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)) . "'",
         );
 
         $className = $this->generateClassFromFile('StringProperty.json', $configuration);
@@ -164,17 +164,17 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
             [
                 'Empty string' => [
                     '',
-                    'Value for property must not be shorter than 2',
+                    'Value for \'property\' must not be shorter than 2',
                     '/properties/property/minLength',
                 ],
                 'Too short string' => [
                     '1',
-                    'Value for property must not be shorter than 2',
+                    'Value for \'property\' must not be shorter than 2',
                     '/properties/property/minLength',
                 ],
                 'Too long string' => [
                     'Some Text',
-                    'Value for property must not be longer than 8',
+                    'Value for \'property\' must not be longer than 8',
                     '/properties/property/maxLength',
                 ],
             ],
@@ -240,7 +240,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
         string $pattern,
         string $propertyValue,
     ): void {
-        $this->expectValidationError($configuration, "Value for property doesn't match pattern $pattern");
+        $this->expectValidationError($configuration, "Value for 'property' does not match pattern '$pattern'");
 
         $className = $this->generateClassFromFileTemplate('StringPropertyPattern.json', [$pattern], $configuration);
 
@@ -286,7 +286,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidStringFormatCheck(string $value): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessage('Value for property must match the format onlyNumbers');
+        $this->expectExceptionMessage('Value for \'property\' must match the format \'onlyNumbers\'');
 
         $className = $this->generateClassFromFile(
             'StringPropertyFormat.json',

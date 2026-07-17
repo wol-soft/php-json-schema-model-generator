@@ -11,7 +11,10 @@ class Issue77Test extends AbstractIssueTestCase
 {
     public function testCompositionValidatorOnPropertyGeneratesNoDynamicProperty(): void
     {
-        $className = $this->generateClassFromFile('dynamicProperty.json', (new GeneratorConfiguration())->setImmutable(false));
+        $className = $this->generateClassFromFile(
+            'dynamicProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
 
         $object = new $className(['values' => [1, 10, 1000], 'pet' => ['type' => 'dog', 'age' => 0, 'name' => 'Hans']]);
 
@@ -20,7 +23,7 @@ class Issue77Test extends AbstractIssueTestCase
         $this->assertSame(0, $object->getPet()->getAge());
         $this->assertSame('Hans', $object->getPet()->getName());
 
-        $this->expectExceptionMessage('Value for values must not be smaller than 1');
+        $this->expectExceptionMessage('Value for \'values\' must not be smaller than 1');
 
         new $className(['values' => [0]]);
     }

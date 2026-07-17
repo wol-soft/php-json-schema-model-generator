@@ -147,7 +147,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testNotMatchingOneOfPropertyThrowsAnException(): void
     {
         $this->expectException(OneOfException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage('Invalid value for \'property\' declined by composition constraint');
 
         $className = $this->generateClassFromFile('OneOfConstProperty.json');
 
@@ -297,7 +297,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testNotProvidedRequiredPropertyThrowsAnException(): void
     {
         $this->expectException(RequiredValueException::class);
-        $this->expectExceptionMessage('Missing required value for requiredProperty');
+        $this->expectExceptionMessage('Missing required value for \'requiredProperty\'');
 
         $className = $this->generateClassFromFile('RequiredAndOptionalConstProperties.json');
 
@@ -459,7 +459,7 @@ class ConstPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidConstArrayContainsThrowsAnException(array $value): void
     {
         $this->expectException(ContainsException::class);
-        $this->expectExceptionMessage('No item in array property matches contains constraint');
+        $this->expectExceptionMessage('No item in array \'property\' matches the \'contains\' constraint');
 
         $className = $this->generateClassFromFile('ArrayContainsConst.json');
 

@@ -277,20 +277,20 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
                 'Too long string' => [
                     'HelloMyOldFriend',
                     [
-                        'Value for property must not be longer than 8'
+                        'Value for \'property\' must not be longer than 8'
                     ]
                 ],
                 'Invalid pattern' => [
                     '123456789',
                     [
-                        'property doesn\'t match pattern ^[a-zA-Z]*$'
+                        'Value for \'property\' does not match pattern \'^[a-zA-Z]*$\''
                     ]
                 ],
                 'Too long and invalid pattern' => [
                     'HelloMyOld1234567',
                     [
-                        'property doesn\'t match pattern ^[a-zA-Z]*$',
-                        'Value for property must not be longer than 8',
+                        'Value for \'property\' does not match pattern \'^[a-zA-Z]*$\'',
+                        'Value for \'property\' must not be longer than 8',
                     ]
                 ]
             ],

@@ -95,7 +95,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     ): void {
         $this->expectValidationError(
             $configuration,
-            'Tuple array property contains not allowed additional items. Expected 3 items, got 4',
+            'Tuple array \'property\' contains not allowed additional items: expected 3 items, got 4',
         );
 
         $className = $this->generateClassFromFile('TupleArrayNoAdditionalItems.json', $configuration);
@@ -124,7 +124,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 'not all elements invalid type' => [
                     [400, ''],
                     <<<ERROR
-                    Invalid tuple item in array property:
+                    Invalid tuple item in array 'property':
                       - invalid tuple #2
                         * Value for 'tuple item #1 of array property' must be one of ["Street","Avenue","Boulevard"], got ""
                     ERROR,
@@ -132,24 +132,24 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 'invalid type' => [
                     ['400', 'Avenue', ['name' => 'Hans', 'age' => 42]],
                     <<<ERROR
-                    Invalid tuple item in array property:
+                    Invalid tuple item in array 'property':
                       - invalid tuple #1
-                        * Invalid type for tuple item #0 of array property. Requires int, got string
+                        * Invalid type for 'tuple item #0 of array property': requires 'int', got 'string'
                     ERROR,
                 ],
                 'Too small number' => [
                     [2, 'Boulevard', ['name' => 'Hans', 'age' => 42]],
                     <<<ERROR
-                    Invalid tuple item in array property:
+                    Invalid tuple item in array 'property':
                       - invalid tuple #1
-                        * Value for tuple item #0 of array property must not be smaller than 3
+                        * Value for 'tuple item #0 of array property' must not be smaller than 3
                     ERROR
 
                 ],
                 'invalid enum value' => [
                     [400, 'Way', ['name' => 'Hans', 'age' => 42]],
                     <<<ERROR
-                    Invalid tuple item in array property:
+                    Invalid tuple item in array 'property':
                       - invalid tuple #2
                         * Value for 'tuple item #1 of array property' must be one of ["Street","Avenue","Boulevard"], got "Way"
                     ERROR
@@ -158,37 +158,37 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 'Missing required field in nested object' => [
                     [400, 'Street', ['age' => 42]],
                     <<<ERROR
-                    Invalid tuple item in array property:
+                    Invalid tuple item in array 'property':
                       - invalid tuple #3
-                        * Missing required value for name
+                        * Missing required value for 'name'
                     ERROR,
                 ],
                 'Invalid type in nested object' => [
                     [400, 'Street', ['name' => 'Hans', 'age' => true]],
                     <<<ERROR
-                    Invalid tuple item in array property:
+                    Invalid tuple item in array 'property':
                       - invalid tuple #3
-                        * Invalid type for age. Requires int, got boolean
+                        * Invalid type for 'age': requires 'int', got 'boolean'
                     ERROR,
                 ],
                 'Invalid order' => [
                     [['name' => 'Hans', 'age' => 42], 'Street', 400],
                     <<<ERROR
-                    Invalid tuple item in array property:
+                    Invalid tuple item in array 'property':
                       - invalid tuple #1
-                        * Invalid type for tuple item #0 of array property. Requires int, got array
+                        * Invalid type for 'tuple item #0 of array property': requires 'int', got 'array'
                       - invalid tuple #3
-                        * Invalid type for tuple item #2 of array property. Requires object, got integer
+                        * Invalid type for 'tuple item #2 of array property': requires 'object', got 'integer'
                     ERROR,
                 ],
                 'null values' => [
                     [null, null, ['name' => 'Hans', 'age' => 42]],
                     <<<ERROR
-                    Invalid tuple item in array property:
+                    Invalid tuple item in array 'property':
                       - invalid tuple #1
-                        * Invalid type for tuple item #0 of array property. Requires int, got NULL
+                        * Invalid type for 'tuple item #0 of array property': requires 'int', got 'NULL'
                       - invalid tuple #2
-                        * Invalid type for tuple item #1 of array property. Requires string, got NULL
+                        * Invalid type for 'tuple item #1 of array property': requires 'string', got 'NULL'
                     ERROR,
                 ],
             ],
@@ -240,7 +240,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidAdditionalItemsDataProvider(): array
     {
         $exception = <<<ERROR
-        Tuple array property contains invalid additional items.
+        Tuple array 'property' contains invalid additional items
           - invalid additional item '2'
             * %s
         ERROR;
@@ -250,38 +250,38 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             [
                 'invalid type for additional item (null)' => [
                     [3, 'Avenue', null],
-                    sprintf($exception, 'Invalid type for additional item. Requires string, got NULL')
+                    sprintf($exception, 'Invalid type for \'additional item\': requires \'string\', got \'NULL\'')
                 ],
                 'invalid type for additional item (int)' => [
                     [3, 'Avenue', 0],
-                    sprintf($exception, 'Invalid type for additional item. Requires string, got int')
+                    sprintf($exception, 'Invalid type for \'additional item\': requires \'string\', got \'integer\'')
                 ],
                 'invalid type for additional item (float)' => [
                     [3, 'Avenue', 0.2],
-                    sprintf($exception, 'Invalid type for additional item. Requires string, got double')
+                    sprintf($exception, 'Invalid type for \'additional item\': requires \'string\', got \'double\'')
                 ],
                 'invalid type for additional item (bool)' => [
                     [3, 'Avenue', false],
-                    sprintf($exception, 'Invalid type for additional item. Requires string, got bool')
+                    sprintf($exception, 'Invalid type for \'additional item\': requires \'string\', got \'boolean\'')
                 ],
                 'invalid type for additional item (object)' => [
                     [3, 'Avenue', new stdClass()],
-                    sprintf($exception, 'Invalid type for additional item. Requires string, got stdClass')
+                    sprintf($exception, 'Invalid type for \'additional item\': requires \'string\', got \'stdClass\'')
                 ],
                 'invalid type for additional item (array)' => [
                     [3, 'Avenue', [1, 2]],
-                    sprintf($exception, 'Invalid type for additional item. Requires string, got array')
+                    sprintf($exception, 'Invalid type for \'additional item\': requires \'string\', got \'array\'')
                 ],
                 'Multiple violations' => [
                     [3, 'Avenue', 0, 'asx', null, 'ADC', false],
                     <<<ERROR
-                    Tuple array property contains invalid additional items.
+                    Tuple array 'property' contains invalid additional items
                       - invalid additional item '2'
-                        * Invalid type for additional item. Requires string, got integer
+                        * Invalid type for 'additional item': requires 'string', got 'integer'
                       - invalid additional item '4'
-                        * Invalid type for additional item. Requires string, got NULL
+                        * Invalid type for 'additional item': requires 'string', got 'NULL'
                       - invalid additional item '6'
-                        * Invalid type for additional item. Requires string, got boolean
+                        * Invalid type for 'additional item': requires 'string', got 'boolean'
                     ERROR,
                 ],
             ],
@@ -345,7 +345,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidObjectAdditionalItemsDataProvider(): array
     {
         $exception = <<<ERROR
-        Tuple array property contains invalid additional items.
+        Tuple array 'property' contains invalid additional items
           - invalid additional item '2'
             * %s
         ERROR;
@@ -355,23 +355,23 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             [
                 'invalid type for additional item (null)' => [
                     [3, 'Avenue', null],
-                    sprintf($exception, 'Invalid type for additional item. Requires object, got NULL')
+                    sprintf($exception, 'Invalid type for \'additional item\': requires \'object\', got \'NULL\'')
                 ],
                 'invalid type for additional item (int)' => [
                     [3, 'Avenue', 12],
-                    sprintf($exception, 'Invalid type for additional item. Requires object, got int')
+                    sprintf($exception, 'Invalid type for \'additional item\': requires \'object\', got \'integer\'')
                 ],
                 'Missing required name' => [
                     [3, 'Avenue', ['age' => 42], ['name' => 'Hans']],
-                    sprintf($exception, 'Missing required value for name')
+                    sprintf($exception, 'Missing required value for \'name\'')
                 ],
-                'Invalid type for name' => [
+                'Invalid type for \'name\'' => [
                     [3, 'Avenue', ['name' => 42], ['name' => 'Hans']],
-                    sprintf($exception, 'Invalid type for name. Requires string, got integer')
+                    sprintf($exception, 'Invalid type for \'name\': requires \'string\', got \'integer\'')
                 ],
-                'Invalid type for age' => [
+                'Invalid type for \'age\'' => [
                     [3, 'Avenue', ['name' => 'Frida', 'age' => true], ['name' => 'Hans']],
-                    sprintf($exception, 'Invalid type for age. Requires int, got bool')
+                    sprintf($exception, 'Invalid type for \'age\': requires \'int\', got \'boolean\'')
                 ],
                 'Multiple violations' => [
                     [
@@ -382,11 +382,11 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         ['name' => 'Jens', 'age' => false]
                     ],
                     <<<ERROR
-                    Tuple array property contains invalid additional items.
+                    Tuple array 'property' contains invalid additional items
                       - invalid additional item '2'
-                        * Invalid type for name. Requires string, got integer
+                        * Invalid type for 'name': requires 'string', got 'integer'
                       - invalid additional item '4'
-                        * Invalid type for age. Requires int, got boolean
+                        * Invalid type for 'age': requires 'int', got 'boolean'
                     ERROR,
                 ],
             ],

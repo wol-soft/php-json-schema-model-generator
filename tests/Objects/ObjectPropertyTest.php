@@ -65,7 +65,9 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidPropertyTypeThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid type for property. Requires object, got ' . gettype($propertyValue));
+        $this->expectExceptionMessage(
+            "Invalid type for 'property': requires 'object', got '" . gettype($propertyValue) . "'",
+        );
 
         $className = $this->generateClassFromFile('ObjectProperty.json');
 
@@ -96,7 +98,7 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected InvalidInstanceOfException');
         } catch (InvalidInstanceOfException $exception) {
             $this->assertMatchesRegularExpression(
-                '/Invalid class for property. Requires ObjectPropertyTest_.*, got stdClass/',
+                '/Invalid class for \'property\': requires \'ObjectPropertyTest_.*\', got \'stdClass\'/',
                 $exception->getMessage(),
             );
             $this->assertSame('/properties/property/type', $exception->getJsonPointer()->pointer);
@@ -166,17 +168,17 @@ class ObjectPropertyTest extends AbstractPHPModelGeneratorTestCase
             'Missing required property' => [
                 ['age' => 42, 'alive' => true],
                 ValidationException::class,
-                'Missing required value for name'
+                'Missing required value for \'name\''
             ],
             'Too few arguments' => [
                 ['name' => 'Hannes'],
                 ValidationException::class,
-                'Provided object for ObjectPropertyTest_(.*) must not contain less than 2 properties'
+                'Provided object for \'ObjectPropertyTest_(.*)\' must not contain less than 2 properties'
             ],
             'Too many arguments' => [
                 ['name' => 'Hannes', 'age' => 42, 'alive' => true, 'children' => 3],
                 ValidationException::class,
-                'Provided object for ObjectPropertyTest_(.*) must not contain more than 3 properties'
+                'Provided object for \'ObjectPropertyTest_(.*)\' must not contain more than 3 properties'
             ],
         ];
     }

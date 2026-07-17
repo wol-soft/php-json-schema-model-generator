@@ -76,19 +76,19 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
             // PatternException → /pattern suffix; minLength → /minLength suffix; type check → /type suffix
             'pattern invalid' => [
                 '  ',
-                [PatternException::class => 'Value for property doesn\'t match pattern ^[^\s]+$'],
+                [PatternException::class => 'Value for \'property\' does not match pattern \'^[^\\s]+$\''],
                 [PatternException::class => '/properties/property/pattern'],
             ],
             'length invalid' => [
                 'a',
-                [MinLengthException::class => 'Value for property must not be shorter than 2'],
+                [MinLengthException::class => 'Value for \'property\' must not be shorter than 2'],
                 [MinLengthException::class => '/properties/property/minLength'],
             ],
             'pattern and length invalid' => [
                 ' ',
                 [
-                    PatternException::class => 'Value for property doesn\'t match pattern ^[^\s]+$',
-                    MinLengthException::class => 'Value for property must not be shorter than 2',
+                    PatternException::class => 'Value for \'property\' does not match pattern \'^[^\\s]+$\'',
+                    MinLengthException::class => 'Value for \'property\' must not be shorter than 2',
                 ],
                 [
                     PatternException::class => '/properties/property/pattern',
@@ -97,32 +97,32 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
             ],
             'null' => [
                 null,
-                [InvalidTypeException::class => 'Invalid type for property'],
+                [InvalidTypeException::class => 'Invalid type for \'property\''],
                 [InvalidTypeException::class => '/properties/property/type'],
             ],
             'int' => [
                 1,
-                [InvalidTypeException::class => 'Invalid type for property'],
+                [InvalidTypeException::class => 'Invalid type for \'property\''],
                 [InvalidTypeException::class => '/properties/property/type'],
             ],
             'float' => [
                 0.92,
-                [InvalidTypeException::class => 'Invalid type for property'],
+                [InvalidTypeException::class => 'Invalid type for \'property\''],
                 [InvalidTypeException::class => '/properties/property/type'],
             ],
             'bool' => [
                 true,
-                [InvalidTypeException::class => 'Invalid type for property'],
+                [InvalidTypeException::class => 'Invalid type for \'property\''],
                 [InvalidTypeException::class => '/properties/property/type'],
             ],
             'array' => [
                 [],
-                [InvalidTypeException::class => 'Invalid type for property'],
+                [InvalidTypeException::class => 'Invalid type for \'property\''],
                 [InvalidTypeException::class => '/properties/property/type'],
             ],
             'object' => [
                 new stdClass(),
-                [InvalidTypeException::class => 'Invalid type for property'],
+                [InvalidTypeException::class => 'Invalid type for \'property\''],
                 [InvalidTypeException::class => '/properties/property/type'],
             ],
         ];
@@ -147,8 +147,8 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
             'matching both composition elements' => [
                 6,
                 <<<ERROR
-                Invalid value for (.*?) declined by composition constraint\.
-                  Requires to match one composition element but matched 2 elements\.
+                Invalid value for (.*?) declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
                   - Composition element #1: Valid
                   - Composition element #2: Valid
                 ERROR,
@@ -156,36 +156,36 @@ class ErrorCollectionTest extends AbstractPHPModelGeneratorTestCase
             'too low number both' => [
                 0,
                 <<<ERROR
-                Invalid value for (.*?) declined by composition constraint\.
-                  Requires to match one composition element but matched 0 elements\.
+                Invalid value for (.*?) declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
                   - Composition element #1: Failed
-                    \* Value for integerProperty must not be smaller than 2
+                    \* Value for 'integerProperty' must not be smaller than 2
                   - Composition element #2: Failed
-                    \* Value for integerProperty must not be smaller than 3
+                    \* Value for 'integerProperty' must not be smaller than 3
                 ERROR,
             ],
             'nothing matches' => [
                 1,
                 <<<ERROR
-                Invalid value for (.*?) declined by composition constraint\.
-                  Requires to match one composition element but matched 0 elements\.
+                Invalid value for (.*?) declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
                   - Composition element #1: Failed
-                    \* Value for integerProperty must not be smaller than 2
-                    \* Value for integerProperty must be a multiple of 2
+                    \* Value for 'integerProperty' must not be smaller than 2
+                    \* Value for 'integerProperty' must be a multiple of 2
                   - Composition element #2: Failed
-                    \* Value for integerProperty must not be smaller than 3
-                    \* Value for integerProperty must be a multiple of 3
+                    \* Value for 'integerProperty' must not be smaller than 3
+                    \* Value for 'integerProperty' must be a multiple of 3
                 ERROR,
             ],
             'invalid type' => [
                 "4",
                 <<<ERROR
-                Invalid value for (.*?) declined by composition constraint\.
-                  Requires to match one composition element but matched 0 elements\.
+                Invalid value for (.*?) declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
                   - Composition element #1: Failed
-                    \* Invalid type for integerProperty. Requires int, got string
+                    \* Invalid type for 'integerProperty': requires 'int', got 'string'
                   - Composition element #2: Failed
-                    \* Invalid type for integerProperty. Requires int, got string
+                    \* Invalid type for 'integerProperty': requires 'int', got 'string'
                 ERROR,
             ],
         ];

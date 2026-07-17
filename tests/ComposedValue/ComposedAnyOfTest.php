@@ -37,8 +37,8 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(
             <<<ERROR
-            Invalid value for property declined by composition constraint.
-              Requires to match at least one composition element.
+            Invalid value for 'property' declined by composition constraint
+              Requires to match at least one composition element
             ERROR,
         );
 
@@ -148,8 +148,8 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessageMatches(
-            '/^Invalid value for (.*?) declined by composition constraint.\s*' .
-            'Requires to match at least one composition element.\s*$/',
+            '/^Invalid value for \'(.*?)\' declined by composition constraint\\s*' .
+            'Requires to match at least one composition element\\s*$/',
         );
 
         $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
@@ -236,7 +236,7 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidProvidedAnyOfTypePropertyThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage('Invalid value for \'property\' declined by composition constraint');
 
         $className = $this->generateClassFromFile('AnyOfType.json');
 
@@ -280,7 +280,7 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidProvidedRequiredAnyOfTypePropertyThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage('Invalid value for \'property\' declined by composition constraint');
 
         $className = $this->generateClassFromFile('AnyOfTypeRequired.json');
 
@@ -340,15 +340,15 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
         return [
             'int 13' => [
                 13,
-                'Invalid value for property declined by composition constraint',
+                'Invalid value for \'property\' declined by composition constraint',
                 '/properties/property/anyOf',
             ],
-            'float 9.9' => [9.9, 'Value for property must not be smaller than 10', '/properties/property/minimum'],
-            'int 8' => [8, 'Value for property must not be smaller than 10', '/properties/property/minimum'],
-            'bool' => [true, 'Invalid type for property', '/properties/property/type'],
-            'array' => [[], 'Invalid type for property', '/properties/property/type'],
-            'object' => [new stdClass(), 'Invalid type for property', '/properties/property/type'],
-            'string' => ['', 'Invalid type for property', '/properties/property/type'],
+            'float 9.9' => [9.9, 'Value for \'property\' must not be smaller than 10', '/properties/property/minimum'],
+            'int 8' => [8, 'Value for \'property\' must not be smaller than 10', '/properties/property/minimum'],
+            'bool' => [true, 'Invalid type for \'property\'', '/properties/property/type'],
+            'array' => [[], 'Invalid type for \'property\'', '/properties/property/type'],
+            'object' => [new stdClass(), 'Invalid type for \'property\'', '/properties/property/type'],
+            'string' => ['', 'Invalid type for \'property\'', '/properties/property/type'],
         ];
     }
 
@@ -423,7 +423,7 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
         mixed $propertyValue,
     ): void {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage('Invalid value for \'property\' declined by composition constraint');
 
         $className = $this->generateClassFromFile($schema);
 
@@ -456,7 +456,7 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
         mixed $propertyValue,
     ): void {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage('Invalid value for \'property\' declined by composition constraint');
 
         $className = $this->generateClassFromFile($schema);
 
@@ -636,19 +636,19 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match at least one composition element.
+                declined by composition constraint
+                  Requires to match at least one composition element
                   - Composition element #1: Failed
-                    * Invalid type for stringProperty. Requires string, got NULL
+                    * Invalid type for 'stringProperty': requires 'string', got 'NULL'
                   - Composition element #2: Failed
-                    * Invalid type for integerProperty. Requires int, got NULL
+                    * Invalid type for 'integerProperty': requires 'int', got 'NULL'
                 ERROR,
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match at least one composition element.
+                declined by composition constraint
+                  Requires to match at least one composition element
                 ERROR,
             ],
         ];
