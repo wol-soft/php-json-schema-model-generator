@@ -223,6 +223,55 @@ If a production-library class lacks the required type hints (needed for reflecti
 derivation), the fix is to add or update the callable in the production library, not to create
 a wrapper class here.
 
+### Exception message conventions
+
+`ValidationException` subclasses live in `php-json-schema-model-generator-production`
+(`src/Exception/**`), not in this repo, but message wording must stay consistent across both
+repos since a single wording pass touches both. Follow these conventions for every new or edited
+exception message:
+
+- **Quote every interpolated identifier.** Property names, nested keys, patterns, filter tokens,
+  and type/class names embedded directly in message text are wrapped in single quotes:
+  `"Value for '$propertyName' must not be smaller than {$this->minimum}"`. This applies even to
+  synthetic/placeholder names used as a message-text label (e.g. `'additional property'`,
+  `'pattern property'`, `'additional item'`) and to the class-name placeholder used by base
+  validators that have no access to the real property name — quote it too, for visual consistency
+  with every other message, even though it isn't a real property name.
+- **No trailing periods**, including on header sentences that introduce a nested bullet list
+  (composition, conditional, tuple, additional/pattern properties). A two-clause message uses a
+  colon instead of splicing two sentences together: `"Tuple array '%s' contains not allowed
+  additional items: expected %s items, got %s"`, not `"... items. Expected %s items, got %s"`.
+- **Lists of names get every entry quoted individually**, not just wrapped as a group:
+  `['additional1', 'additional2']`, not `[additional1, additional2]`.
+- **The expected ("requires") and actual ("got") sides of a type mismatch are not
+  interchangeable formats.** `InvalidTypeException`'s expected side uses the generator's internal
+  type name (`'int'`, `'bool'`, `'float'`, `'object'`, `'array'`, `'string'`, `'null'`) — the same
+  short forms `Model\Property\PropertyType` uses — while the actual/"got" side is always
+  `gettype($providedValue)` (or `$providedValue::class` for objects) *verbatim*, never abbreviated:
+  `"integer"`, `"boolean"`, `"double"`, `"NULL"`, `"array"`, or a class name. Do not "normalize"
+  one side to match the other's format — they come from different sources and are deliberately
+  different token sets. A test asserting `"got int"` instead of `"got integer"` happens to still
+  pass today only because `"int"` is a text-prefix of `"integer"` and the assertion uses substring
+  containment — that's a latent bug in the test, not a sign the abbreviated form is correct; fix
+  the test to the full `gettype()` word instead of copying the abbreviation forward.
+- **Enum/const values** render through `PHPModelGenerator\Exception\ValueFormatter::format()`
+  (json_encode-based, `var_export` fallback for non-encodable values) — never hand-roll formatting
+  for a provided/expected/allowed value; add a case to `ValueFormatter` if a new value shape needs
+  special handling.
+- **Watch for message-prefix collisions with unrelated exceptions.** More than one
+  generation-time `SchemaException` in this repo's `src/` builds a message that shares an exact
+  literal prefix with a different runtime exception in the production repo (e.g. both
+  `FilterValidator`'s zero-overlap `SchemaException` and `IncompatibleFilterException` start with
+  `"Filter %s is not compatible with property type %s for property %s"`; both
+  `DefaultValueModifier`'s `SchemaException` and `InvalidTypeException` start with `"Invalid type
+  for "`). When editing one, grep the *other* repo for the same leading phrase before assuming a
+  wording change is isolated to the exception you're touching — a shared prefix means a test
+  asserting a substring/prefix match against one can silently start matching (or stop matching)
+  text produced by the other.
+- When changing wording, grep both repos' `tests/` and `docs/source/` for the old phrase before
+  considering the change done — message text is asserted in dozens of places across the generator
+  repo's integration tests and documented as literal examples in `docs/source/**/*.rst`.
+
 ### Staging changes
 
 After finishing an implementation task, always stage all relevant changed files for commit using
