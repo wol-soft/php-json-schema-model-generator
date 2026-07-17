@@ -12,8 +12,6 @@ use PHPModelGenerator\Attributes\Required;
 use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Attributes\WriteOnlyProperty;
 use Exception;
-use PHPModelGenerator\Draft\Draft;
-use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
@@ -36,9 +34,6 @@ use PHPModelGenerator\Utils\TypeConverter;
 
 class PropertyFactory
 {
-    /** @var Draft[] Keyed by draft class name */
-    private array $draftCache = [];
-
     /**
      * Create a property, applying all applicable Draft modifiers.
      *
@@ -622,7 +617,7 @@ class PropertyFactory
         bool $typeOnly = false,
     ): void {
         $type       = $propertySchema->getJson()['type'] ?? 'any';
-        $builtDraft = $this->resolveBuiltDraft($schemaProcessor, $propertySchema);
+        $builtDraft = $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($propertySchema);
 
         // For untyped properties ('any'), only run the 'any' entry — getCoveredTypes('any')
         // returns all types, which would incorrectly apply type-specific modifiers.
@@ -678,16 +673,5 @@ class PropertyFactory
             ),
             $schema->getJsonSchema(),
         );
-    }
-
-    private function resolveBuiltDraft(SchemaProcessor $schemaProcessor, JsonSchema $propertySchema): Draft
-    {
-        $configDraft = $schemaProcessor->getGeneratorConfiguration()->getDraft();
-
-        $draft = $configDraft instanceof DraftFactoryInterface
-            ? $configDraft->getDraftForSchema($propertySchema)
-            : $configDraft;
-
-        return $this->draftCache[$draft::class] ??= $draft->getDefinition()->build();
     }
 }
