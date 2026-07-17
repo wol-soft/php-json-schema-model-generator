@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Issues\Issue;
 
+use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
+use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
+use PHPModelGenerator\Exception\ComposedValue\NotException;
+use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\SchemaException;
-use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
@@ -113,7 +116,13 @@ class Issue72Test extends AbstractIssueTestCase
     public function testNestedOneOfWithExampleOnlyBranchRejectsNonConformingScalarInput(
         int|string $nonConformingValue,
     ): void {
-        $this->expectException(ValidationException::class);
+        $this->expectException(OneOfException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for wrapper declined by composition constraint.
+              Requires to match one composition element but matched 0 elements.
+            ERROR,
+        );
 
         $className = $this->generateClassFromFile('OneOfExampleNested.json');
 
@@ -205,7 +214,13 @@ class Issue72Test extends AbstractIssueTestCase
         string $schemaFile,
         array|int $nonMatchingValue,
     ): void {
-        $this->expectException(ValidationException::class);
+        $this->expectException(AnyOfException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for p declined by composition constraint.
+              Requires to match at least one composition element.
+            ERROR,
+        );
 
         $className = $this->generateClassFromFile($schemaFile);
 
@@ -262,8 +277,15 @@ class Issue72Test extends AbstractIssueTestCase
     public function testOneOfWithImpliedObjectBranchesRejectsNonMatchingValue(
         string $schemaFile,
         array $nonMatchingValue,
+        int $expectedMatchedElements,
     ): void {
-        $this->expectException(ValidationException::class);
+        $this->expectException(OneOfException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for p declined by composition constraint.
+              Requires to match one composition element but matched $expectedMatchedElements elements.
+            ERROR,
+        );
 
         $className = $this->generateClassFromFile($schemaFile);
 
@@ -273,14 +295,14 @@ class Issue72Test extends AbstractIssueTestCase
     public static function oneOfNonMatchingValueDataProvider(): array
     {
         $nonMatchingValues = [
-            'matches both branches' => ['name' => 'Hannes', 'companyName' => 'ACME'],
-            'matches neither branch' => [],
+            'matches both branches' => [['name' => 'Hannes', 'companyName' => 'ACME'], 2],
+            'matches neither branch' => [[], 0],
         ];
 
         $cases = [];
         foreach (self::impliedOneOfSchemaDataProvider() as $schemaLabel => [$schemaFile]) {
-            foreach ($nonMatchingValues as $valueLabel => $nonMatchingValue) {
-                $cases["$schemaLabel - $valueLabel"] = [$schemaFile, $nonMatchingValue];
+            foreach ($nonMatchingValues as $valueLabel => [$nonMatchingValue, $expectedMatchedElements]) {
+                $cases["$schemaLabel - $valueLabel"] = [$schemaFile, $nonMatchingValue, $expectedMatchedElements];
             }
         }
 
@@ -325,7 +347,15 @@ class Issue72Test extends AbstractIssueTestCase
     public function testIfThenElseWithImpliedObjectBranchesRejectsValueViolatingTakenBranch(
         string $schemaFile,
     ): void {
-        $this->expectException(ValidationException::class);
+        $this->expectException(ConditionalException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for p declined by conditional composition constraint
+              - Condition: Valid
+              - Conditional branch failed:
+                * Missing required value for name
+            ERROR,
+        );
 
         $className = $this->generateClassFromFile($schemaFile);
 
@@ -364,7 +394,13 @@ class Issue72Test extends AbstractIssueTestCase
     #[DataProvider('impliedNotSchemaDataProvider')]
     public function testNotWithImpliedObjectSchemaRejectsMatchingValue(string $schemaFile): void
     {
-        $this->expectException(ValidationException::class);
+        $this->expectException(NotException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for p declined by composition constraint.
+              Requires to match none composition element but matched 1 elements.
+            ERROR,
+        );
 
         $className = $this->generateClassFromFile($schemaFile);
 
@@ -398,7 +434,13 @@ class Issue72Test extends AbstractIssueTestCase
     public function testAnyOfMixingImpliedObjectAndScalarBranchRejectsNonMatchingValue(
         array|int $nonMatchingValue,
     ): void {
-        $this->expectException(ValidationException::class);
+        $this->expectException(AnyOfException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for p declined by composition constraint.
+              Requires to match at least one composition element.
+            ERROR,
+        );
 
         $className = $this->generateClassFromFile('NestedAnyOfMixedScalar.json');
 
@@ -438,7 +480,13 @@ class Issue72Test extends AbstractIssueTestCase
      */
     public function testOneOfMixingImpliedObjectAndScalarBranchRejectsNonMatchingValue(): void
     {
-        $this->expectException(ValidationException::class);
+        $this->expectException(OneOfException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for p declined by composition constraint.
+              Requires to match one composition element but matched 0 elements.
+            ERROR,
+        );
 
         $className = $this->generateClassFromFile('NestedOneOfMixedScalar.json');
 
@@ -470,7 +518,15 @@ class Issue72Test extends AbstractIssueTestCase
      */
     public function testIfThenElseMixingImpliedObjectThenAndScalarElseRejectsValueViolatingThenBranch(): void
     {
-        $this->expectException(ValidationException::class);
+        $this->expectException(ConditionalException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for p declined by conditional composition constraint
+              - Condition: Valid
+              - Conditional branch failed:
+                * Missing required value for name
+            ERROR,
+        );
 
         $className = $this->generateClassFromFile('NestedIfThenElseMixedScalar.json');
 
@@ -520,14 +576,22 @@ class Issue72Test extends AbstractIssueTestCase
     /**
      * The same bare-validator `oneOf` must reject values whose outcome is identical under strict
      * spec and object-implied semantics: objects matching both branches, objects matching
-     * neither, and non-objects (spec: vacuously match both branches - matched 2; object-implied:
-     * match none - matched 0; rejected either way).
+     * neither, and non-objects. The expected matched-counts follow the strict-spec reading
+     * (`required`/`properties` constrain only objects): a non-object matches both bare branches
+     * vacuously and is rejected for matching 2 elements, not 0.
      */
     #[DataProvider('bareOneOfNonMatchingValueDataProvider')]
     public function testOneOfWithBareObjectValidatorBranchesRejectsNonMatchingValue(
         array|int $nonMatchingValue,
+        int $expectedMatchedElements,
     ): void {
-        $this->expectException(ValidationException::class);
+        $this->expectException(OneOfException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for p declined by composition constraint.
+              Requires to match one composition element but matched $expectedMatchedElements elements.
+            ERROR,
+        );
 
         $className = $this->generateClassFromFile('NestedOneOfBareObjectValidators.json');
 
@@ -537,9 +601,9 @@ class Issue72Test extends AbstractIssueTestCase
     public static function bareOneOfNonMatchingValueDataProvider(): array
     {
         return [
-            'object matching both branches' => [['name' => 'Hannes', 'companyName' => 'ACME']],
-            'object matching neither branch' => [[]],
-            'non-object' => [42],
+            'object matching both branches' => [['name' => 'Hannes', 'companyName' => 'ACME'], 2],
+            'object matching neither branch' => [[], 0],
+            'non-object matching both vacuously' => [42, 2],
         ];
     }
 
@@ -567,11 +631,36 @@ class Issue72Test extends AbstractIssueTestCase
      */
     public function testAnyOfWithBareObjectValidatorBranchesRejectsObjectMatchingNoBranch(): void
     {
-        $this->expectException(ValidationException::class);
+        $this->expectException(AnyOfException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for p declined by composition constraint.
+              Requires to match at least one composition element.
+            ERROR,
+        );
 
         $className = $this->generateClassFromFile('NestedAnyOfBareObjectValidators.json');
 
         new $className(['p' => []]);
+    }
+
+    /**
+     * A NON-object value in a bare-validator `anyOf` must be ACCEPTED, following strict JSON
+     * Schema semantics: `properties`/`required` only constrain objects, so a non-object matches
+     * every bare branch vacuously and satisfies the anyOf. Treating the bare branches as
+     * object-implied (rejecting `42`) was considered and rejected - overriding spec semantics
+     * must remain a narrowly whitelisted opt-in, and authors who mean objects can declare
+     * `type: object`. This deliberately differs from the oneOf case, where a non-object's
+     * vacuous match on BOTH branches violates "exactly one" and is rejected under the same
+     * strict-spec reading.
+     */
+    public function testAnyOfWithBareObjectValidatorBranchesAcceptsNonObjectValuePerSpec(): void
+    {
+        $className = $this->generateClassFromFile('NestedAnyOfBareObjectValidators.json');
+
+        $object = new $className(['p' => 42]);
+
+        $this->assertSame(42, $object->getP());
     }
 
     /**
