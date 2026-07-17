@@ -164,6 +164,151 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
+     * An `anyOf` whose branches are composition-implied objects ($refs to allOf-only definitions)
+     * must behave exactly like the same `anyOf` with explicit object branches: a value matching a
+     * branch is accepted and instantiated as an object exposing getters for the matched
+     * properties. Verified against the explicit-object equivalent, which instantiates a merged
+     * class today.
+     */
+    public function testAnyOfWithImpliedObjectBranchesInstantiatesMatchingValue(): void
+    {
+        $className = $this->generateClassFromFile('NestedAnyOf.json');
+
+        $personMatch = new $className(['p' => ['name' => 'Hannes', 'salary' => 10000]]);
+        $person = $personMatch->getP();
+        $this->assertIsObject($person);
+        $this->assertSame('Hannes', $person->getName());
+        $this->assertSame(10000, $person->getSalary());
+
+        $agedMatch = new $className(['p' => ['age' => 42]]);
+        $aged = $agedMatch->getP();
+        $this->assertIsObject($aged);
+        $this->assertSame(42, $aged->getAge());
+    }
+
+    /**
+     * The same `anyOf` must reject values matching no branch - like the explicit-object
+     * equivalent does. Today every value is silently accepted because the composed validators of
+     * composition-implied branches are stripped, leaving the branches without any validation.
+     */
+    #[DataProvider('anyOfNonMatchingValueDataProvider')]
+    public function testAnyOfWithImpliedObjectBranchesRejectsNonMatchingValue(array|int $nonMatchingValue): void
+    {
+        $this->expectException(ValidationException::class);
+
+        $className = $this->generateClassFromFile('NestedAnyOf.json');
+
+        new $className(['p' => $nonMatchingValue]);
+    }
+
+    public static function anyOfNonMatchingValueDataProvider(): array
+    {
+        return [
+            'object matching no branch' => [[]],
+            'scalar value' => [42],
+        ];
+    }
+
+    /**
+     * A `oneOf` whose branches are composition-implied objects must accept a value matching
+     * exactly one branch and instantiate it as that branch's object - like the explicit-object
+     * equivalent, which returns the matched branch's class instance today. Currently every value
+     * is rejected with "matched 2 elements" because both stripped branches trivially "match".
+     */
+    public function testOneOfWithImpliedObjectBranchesInstantiatesMatchingValue(): void
+    {
+        $className = $this->generateClassFromFile('NestedOneOf.json');
+
+        $object = new $className(['p' => ['name' => 'Hannes']]);
+        $person = $object->getP();
+        $this->assertIsObject($person);
+        $this->assertSame('Hannes', $person->getName());
+    }
+
+    /**
+     * The same `oneOf` must reject values matching both branches or neither branch.
+     */
+    #[DataProvider('oneOfNonMatchingValueDataProvider')]
+    public function testOneOfWithImpliedObjectBranchesRejectsNonMatchingValue(array $nonMatchingValue): void
+    {
+        $this->expectException(ValidationException::class);
+
+        $className = $this->generateClassFromFile('NestedOneOf.json');
+
+        new $className(['p' => $nonMatchingValue]);
+    }
+
+    public static function oneOfNonMatchingValueDataProvider(): array
+    {
+        return [
+            'matches both branches' => [['name' => 'Hannes', 'companyName' => 'ACME']],
+            'matches neither branch' => [[]],
+        ];
+    }
+
+    /**
+     * An if/then/else whose then/else branches are composition-implied objects must validate and
+     * instantiate the taken branch - like the explicit-object equivalent, which returns the taken
+     * branch's class instance today. Currently the taken branch enforces nothing and the value
+     * stays a raw array.
+     */
+    public function testIfThenElseWithImpliedObjectBranchesInstantiatesMatchingValue(): void
+    {
+        $className = $this->generateClassFromFile('NestedIfThenElse.json');
+
+        $thenMatch = new $className(['p' => ['isPerson' => true, 'name' => 'Hannes']]);
+        $person = $thenMatch->getP();
+        $this->assertIsObject($person);
+        $this->assertSame('Hannes', $person->getName());
+
+        $elseMatch = new $className(['p' => ['companyName' => 'ACME']]);
+        $company = $elseMatch->getP();
+        $this->assertIsObject($company);
+        $this->assertSame('ACME', $company->getCompanyName());
+    }
+
+    /**
+     * The same if/then/else must reject a value that satisfies the condition but violates the
+     * then branch's constraints.
+     */
+    public function testIfThenElseWithImpliedObjectBranchesRejectsValueViolatingTakenBranch(): void
+    {
+        $this->expectException(ValidationException::class);
+
+        $className = $this->generateClassFromFile('NestedIfThenElse.json');
+
+        new $className(['p' => ['isPerson' => true, 'companyName' => 'ACME']]);
+    }
+
+    /**
+     * A `not` with a composition-implied object schema must accept values not matching the
+     * forbidden schema. Unlike the other composition keywords, the value legitimately stays a raw
+     * array - `not` describes what the value must NOT be, so no class represents it; verified
+     * against the explicit-object equivalent. Currently every value is rejected because the
+     * stripped forbidden-branch trivially "matches" everything, inverting into a full rejection.
+     */
+    public function testNotWithImpliedObjectSchemaAcceptsNonMatchingValue(): void
+    {
+        $className = $this->generateClassFromFile('NestedNot.json');
+
+        $object = new $className(['p' => ['name' => 'Hannes']]);
+
+        $this->assertSame(['name' => 'Hannes'], $object->getP());
+    }
+
+    /**
+     * The same `not` must reject values matching the forbidden schema.
+     */
+    public function testNotWithImpliedObjectSchemaRejectsMatchingValue(): void
+    {
+        $this->expectException(ValidationException::class);
+
+        $className = $this->generateClassFromFile('NestedNot.json');
+
+        new $className(['p' => ['password' => 'secret']]);
+    }
+
+    /**
      * The vacuous-branch warning (Phase 2's broader, non-behavior-changing piece) must be driven
      * by the Draft's own registered validator keywords, not a hardcoded list of "known safe"
      * keywords - otherwise an unrecognized or misspelled key would wrongly be treated as a real
