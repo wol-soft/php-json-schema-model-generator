@@ -60,8 +60,8 @@ class Issue72Test extends AbstractIssueTestCase
      * A `oneOf` composition placed directly at the schema root, with a `$ref`-based branch that
      * resolves to only an `example` keyword (no `type`/`properties`/any validation keyword), must
      * generate successfully and validate conforming input correctly - the example-only branch must
-     * be excluded from the composition. Phase 1 already fixed the generation-time crash; Phase 2
-     * (not yet implemented) is still needed to actually exclude the branch during validation.
+     * be excluded from the composition. Fixed by Phases 1 and 2; this test is expected to pass
+     * already.
      */
     public function testRootLevelOneOfWithReferencedExampleOnlyBranchAcceptsConformingInput(): void
     {
@@ -75,7 +75,7 @@ class Issue72Test extends AbstractIssueTestCase
     /**
      * The same example-only branch written inline (not via `$ref`) at the schema root must also
      * accept conforming input - the example-only branch must be excluded from the composition so
-     * it stops over-matching. Requires Phase 2 (not yet implemented).
+     * it stops over-matching. Fixed by Phase 2; this test is expected to pass already.
      */
     public function testRootLevelOneOfWithInlineExampleOnlyBranchAcceptsConformingInput(): void
     {
@@ -89,7 +89,8 @@ class Issue72Test extends AbstractIssueTestCase
     /**
      * The example-only `oneOf` branch nested inside a property must be excluded from the
      * composition so a value that conforms to the only meaningful branch ("name") is accepted
-     * instead of being rejected for matching two branches. Requires Phase 2 (not yet implemented).
+     * instead of being rejected for matching two branches. Fixed by Phase 2; this test is expected
+     * to pass already.
      */
     public function testNestedOneOfWithExampleOnlyBranchAcceptsConformingObject(): void
     {
@@ -103,8 +104,8 @@ class Issue72Test extends AbstractIssueTestCase
     /**
      * The literal scenario the linked issue reported (there, `{"body": 34}` validated against a
      * schema whose "body" should have been an object): once the example-only branch is excluded,
-     * a bare scalar no longer satisfies anything and must be rejected. Requires Phase 2 (not yet
-     * implemented).
+     * a bare scalar no longer satisfies anything and must be rejected. Fixed by Phase 2; this test
+     * is expected to pass already.
      */
     #[DataProvider('nonConformingScalarDataProvider')]
     public function testNestedOneOfWithExampleOnlyBranchRejectsNonConformingScalarInput(
