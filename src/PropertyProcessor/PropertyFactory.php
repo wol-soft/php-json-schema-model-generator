@@ -23,6 +23,8 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
@@ -108,6 +110,32 @@ class PropertyFactory
             );
         }
 
+        // A bare object-validator schema (object-constraining keywords, no type and no composition)
+        // is object-describing: it constrains object values but is vacuously satisfied by
+        // non-objects per strict spec. Give it a guarded representation class - instantiated for
+        // object values, with non-objects passing through unchanged - so its constraints actually
+        // run (they are registered on the object Type and would otherwise never execute on an
+        // untyped property). No asserting object type check is added, preserving the strict-spec
+        // pass-through of non-object values (this is why it is NOT the ObjectAsserting path above).
+        if (
+            !isset($json['type'])
+            && !isset($json['filter'])
+            && !array_intersect(array_keys($json), ['allOf', 'anyOf', 'oneOf', 'if', 'not', '$ref'])
+            && $this->resolveObjectShape($schemaProcessor, $schema, $json) === ObjectShape::ObjectDescribing
+        ) {
+            $objectJson = $json;
+            $objectJson['type'] = 'object';
+
+            return $this->createObjectProperty(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema->withJson($objectJson),
+                $required,
+                guarded: true,
+            );
+        }
+
         $this->checkType($resolvedType, $schema);
 
         return match ($resolvedType) {
@@ -174,6 +202,7 @@ class PropertyFactory
         string $propertyName,
         JsonSchema $propertySchema,
         bool $required,
+        bool $guarded = false,
     ): PropertyInterface {
         $json     = $propertySchema->getJson();
         $property = $this->buildProperty($schemaProcessor, $propertyName, null, $propertySchema, $required);
@@ -199,7 +228,12 @@ class PropertyFactory
 
         if ($nestedSchema !== null) {
             $property->setNestedSchema($nestedSchema);
-            $this->wireObjectProperty($schemaProcessor, $schema, $property, $propertySchema);
+
+            if ($guarded) {
+                $this->wireDescribingObjectProperty($schemaProcessor, $schema, $property, $propertySchema);
+            } else {
+                $this->wireObjectProperty($schemaProcessor, $schema, $property, $propertySchema);
+            }
         }
 
         // Universal modifiers (filter, enum, default, const) run on the outer property.
@@ -636,6 +670,32 @@ class PropertyFactory
         $property->addTypeHintDecorator(new TypeHintDecorator($typeHints));
 
         $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema, true);
+    }
+
+    /**
+     * Wire the outer property for a guarded (object-describing) nested object: attach the
+     * instantiation linkage but NOT the asserting object type check. The instantiation decorator
+     * only instantiates array/object values (`is_array($value) ? new X($value) : $value`), so a
+     * non-object value passes through unchanged and vacuously satisfies the schema per strict JSON
+     * Schema semantics, while an object value is instantiated and validated against the
+     * representation class.
+     *
+     * @throws SchemaException
+     */
+    private function wireDescribingObjectProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): void {
+        (new ObjectModifier())->modify($schemaProcessor, $schema, $property, $propertySchema);
+
+        // ObjectModifier adds an asserting InstanceOfValidator that rejects non-object values.
+        // A describing schema must accept them vacuously, so drop it - the guarded instantiation
+        // decorator remains and carries the object-value validation.
+        $property->filterValidators(
+            static fn(Validator $validator): bool => !($validator->getValidator() instanceof InstanceOfValidator),
+        );
     }
 
     /**
