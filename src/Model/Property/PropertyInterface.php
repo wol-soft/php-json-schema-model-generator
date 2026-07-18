@@ -153,14 +153,28 @@ interface PropertyInterface extends ResolvableInterface
     public function isInternal(): bool;
 
     /**
-     * Set a nested schema
+     * Attach the single generated PHP class whose instances represent this property's value
+     * whenever the value is an object.
+     *
+     * Contract: the nested schema is an identity/representation link, not a validation
+     * container. It may only be set when the property's value can exclusively be an object -
+     * an explicit `type: object` schema, or a composition that asserts object-ness (e.g. an
+     * allOf of object branches). Consumers rely on `getNestedSchema() !== null` implying
+     * "definitively object-typed with exactly one representing class".
      *
      * @return PropertyInterface
      */
     public function setNestedSchema(Schema $schema);
 
     /**
-     * Get a nested schema if a schema was appended to the property
+     * Get the single generated class representing this property's object values.
+     *
+     * `null` means no single class represents the property's object values: the property is
+     * either not exclusively object-valued, or (anyOf/oneOf compositions) its object values
+     * are represented by branch-owned classes - each reachable via the corresponding branch
+     * property of the property's composed validator, which is deliberately NOT flattened into
+     * a list here: a multi-class accessor would break the "non-null implies exactly one
+     * representing class" inference consumers depend on.
      */
     public function getNestedSchema(): ?Schema;
 

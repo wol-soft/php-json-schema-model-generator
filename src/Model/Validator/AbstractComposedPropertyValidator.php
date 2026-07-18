@@ -86,6 +86,16 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
             }
 
             foreach ($compositionProperty->getNestedSchema()->getProperties() as $branchProperty) {
+                // Internal machinery properties (e.g. the composition state tracker
+                // propertyValidationState of a re-routed composition branch class) are not schema
+                // properties and must never be transferred as a branch default of the outer
+                // composition - doing so both clobbers the outer schema's own internal attributes
+                // and, for a mixed object/scalar composition, feeds a non-array scalar input into
+                // the branch-default array_key_exists lookup.
+                if ($branchProperty->isInternal()) {
+                    continue;
+                }
+
                 $propertyAccessors[$branchProperty->getName()] = 'get' . ucfirst($branchProperty->getAttribute());
 
                 if ($branchProperty->getDefaultValue() === null) {

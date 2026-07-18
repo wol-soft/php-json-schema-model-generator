@@ -133,12 +133,14 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
 
         $object = new $className([]);
-        $regexp = '/ComposedAllOfTest[\w]*_Merged_[\w]*/';
+        // An all-object allOf is routed through the object path, so the composed property is typed
+        // with a regular nested class named after the property rather than a _Merged_ class.
+        $regexp = '/ComposedAllOfTest[\w]*_Property[\w]*/';
 
         $this->assertMatchesRegularExpression($regexp, $this->getPropertyTypeAnnotation($object, 'property'));
         $this->assertMatchesRegularExpression($regexp, $this->getReturnTypeAnnotation($object, 'getProperty'));
 
-        // base class, merged property class and two classes for validating the composition components
+        // base class, composed property class and two classes for validating the composition components
         $this->assertCount(4, $this->getGeneratedFiles());
     }
 
@@ -283,9 +285,13 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     #[DataProvider('invalidObjectPropertyWithReferencedPersonSchemaDataProvider')]
     public function testNotMatchingObjectPropertyWithReferencedPersonSchemaThrowsAnException(
         mixed $propertyValue,
+        string $expectedMessageFragment,
     ): void {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        // The all-object allOf is routed through the object path, so a non-object value fails the
+        // object type/instance check (a clearer "requires object" message) while an object failing
+        // the composition is reported as a nested-object composition error.
+        $this->expectExceptionMessage($expectedMessageFragment);
 
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
 
@@ -295,25 +301,39 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidObjectPropertyWithReferencedPersonSchemaDataProvider(): array
     {
         return [
-            'int' => [0],
-            'float' => [0.92],
-            'bool' => [true],
-            'object' => [new stdClass()],
-            'string' => ['Hannes'],
-            'one match - first option' => [['name' => 'Hannes', 'age' => 42]],
-            'one match - second option' => [['race' => 'Horse']],
-            'one match - Missing property' => [['name' => 'Hannes', 'race' => 'Horse']],
-            'one match - Additional properties' => [['name' => 'Hannes', 'age' => 42, 'alive' => true]],
-            'Matching object with invalid type' => [['name' => 'Hannes', 'age' => '42', 'race' => 'Horse']],
-            'Matching object with invalid data' => [['name' => 'H', 'age' => 42, 'race' => 'Horse']],
+            'int' => [0, 'Invalid type for property. Requires object, got integer'],
+            'float' => [0.92, 'Invalid type for property. Requires object, got double'],
+            'bool' => [true, 'Invalid type for property. Requires object, got boolean'],
+            'object' => [new stdClass(), 'Invalid class for property. Requires'],
+            'string' => ['Hannes', 'Invalid type for property. Requires object, got string'],
+            'one match - first option' => [['name' => 'Hannes', 'age' => 42], 'declined by composition constraint'],
+            'one match - second option' => [['race' => 'Horse'], 'declined by composition constraint'],
+            'one match - Missing property' => [
+                ['name' => 'Hannes', 'race' => 'Horse'],
+                'declined by composition constraint',
+            ],
+            'one match - Additional properties' => [
+                ['name' => 'Hannes', 'age' => 42, 'alive' => true],
+                'declined by composition constraint',
+            ],
+            'Matching object with invalid type' => [
+                ['name' => 'Hannes', 'age' => '42', 'race' => 'Horse'],
+                'declined by composition constraint',
+            ],
+            'Matching object with invalid data' => [
+                ['name' => 'H', 'age' => 42, 'race' => 'Horse'],
+                'declined by composition constraint',
+            ],
         ];
     }
 
     #[DataProvider('invalidObjectPropertyWithReferencedPetSchemaDataProvider')]
-    public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException(mixed $propertyValue): void
-    {
+    public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException(
+        mixed $propertyValue,
+        string $expectedMessageFragment,
+    ): void {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage($expectedMessageFragment);
 
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
 
@@ -323,15 +343,15 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidObjectPropertyWithReferencedPetSchemaDataProvider(): array
     {
         return [
-            'int' => [0],
-            'float' => [0.92],
-            'bool' => [true],
-            'object' => [new stdClass()],
-            'string' => ['Horse'],
-            'empty array' => [[]],
-            'Too many properties' => [['race' => 'Horse', 'alive' => true]],
-            'Matching object with invalid type' => [['race' => 123]],
-            'Matching object with invalid data' => [['race' => 'H']],
+            'int' => [0, 'Invalid type for property. Requires object, got integer'],
+            'float' => [0.92, 'Invalid type for property. Requires object, got double'],
+            'bool' => [true, 'Invalid type for property. Requires object, got boolean'],
+            'object' => [new stdClass(), 'Invalid class for property. Requires'],
+            'string' => ['Horse', 'Invalid type for property. Requires object, got string'],
+            'empty array' => [[], 'declined by composition constraint'],
+            'Too many properties' => [['race' => 'Horse', 'alive' => true], 'declined by composition constraint'],
+            'Matching object with invalid type' => [['race' => 123], 'declined by composition constraint'],
+            'Matching object with invalid data' => [['race' => 'H'], 'declined by composition constraint'],
         ];
     }
 
@@ -586,7 +606,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             (new GeneratorConfiguration())->setImmutable(false),
         );
 
-        // main class, merged class, two separate for referenced objects
+        // main class, composed CEO/CFO class (shared via signature dedup), two referenced objects
         $this->assertCount(4, $this->getGeneratedFiles());
 
         $object = new $className([
@@ -597,8 +617,11 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame($object->getCEO()::class, $object->getCFO()::class);
 
+        // The identical all-object allOf composition of both CEO and CFO is routed through the
+        // object path and deduplicated by signature to a single nested class named after the
+        // property, so both properties share the same regular (non-_Merged_) class type.
         $this->assertMatchesRegularExpression(
-            '/ComposedAllOfTest_\w+_Merged_CEO\w+\|null$/',
+            '/ComposedAllOfTest_\w+_CEO\w+\|null$/',
             $this->getPropertyTypeAnnotation($className, 'ceo'),
         );
         $this->assertSame(
@@ -607,7 +630,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         );
 
         $this->assertMatchesRegularExpression(
-            '/ComposedAllOfTest_\w+_Merged_CEO\w+\|null$/',
+            '/ComposedAllOfTest_\w+_CEO\w+\|null$/',
             $this->getParameterTypeAnnotation($className, 'setCeo'),
         );
         $this->assertSame(

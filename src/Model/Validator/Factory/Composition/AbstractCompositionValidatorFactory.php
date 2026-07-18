@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator\Factory\Composition;
 
+use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\BaseProperty;
@@ -27,6 +28,23 @@ use PHPModelGenerator\Utils\TypeIntersection;
 
 abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFactory
 {
+    /**
+     * Composition keywords whose branches are alternatives rather than joint constraints
+     * (unlike allOf) - the only keywords for which excluding a vacuous branch changes the
+     * composition's meaning rather than merely removing a no-op.
+     */
+    private const array EXCLUDABLE_COMPOSITION_KEYS = ['anyOf', 'oneOf', 'if'];
+
+    /**
+     * Keywords that constrain validation but are registered on a Type via addModifier() rather
+     * than addValidator() (TypeCheckModifier for 'type', ConstModifier for 'const' - see
+     * Draft_07::getDefinition()), so Draft::getTypesForKeyword() cannot see them: Type::$modifiers
+     * only exposes addValidator() entries as keyword => factory pairs; addModifier() entries are
+     * appended with plain numeric keys. Without this list, isVacuousBranch() would incorrectly
+     * treat a branch containing only e.g. {"const": "foo"} as vacuous.
+     */
+    private const array MODIFIER_ONLY_VALIDATION_KEYWORDS = ['type', 'const'];
+
     /**
      * Emit a generation-time warning for always-unsatisfiable composition schemas.
      */
@@ -55,6 +73,77 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 ['property' => $property->getName()],
             );
         }
+    }
+
+    /**
+     * Emit a generation-time warning when a ($ref-resolved) composition branch carries no
+     * validation/assertion keyword at all and therefore matches any value. This is purely
+     * informational: unlike the narrow, whitelisted exclusion in isExampleOnlyBranch(), it is not
+     * limited to the "example" shape and does not change generated behavior - a vacuous branch
+     * keeps its full (odd but spec-correct) effect on the composition regardless of this warning.
+     *
+     * A branch is vacuous when none of its keys is an actually-registered validation keyword -
+     * driven by the Draft itself rather than a hardcoded list of "known safe" keywords, so an
+     * unrecognized or misspelled key is correctly treated as non-constraining (the same as a
+     * genuine annotation keyword) instead of being mistaken for a real constraint merely because
+     * it wasn't anticipated.
+     *
+     * @param array<string, mixed> $resolvedBranchJson
+     */
+    private function warnIfVacuousBranch(
+        SchemaProcessor $schemaProcessor,
+        PropertyInterface $property,
+        int $branchIndex,
+        array $resolvedBranchJson,
+        Draft $draft,
+    ): void {
+        foreach (array_keys($resolvedBranchJson) as $keyword) {
+            if (
+                in_array($keyword, self::MODIFIER_ONLY_VALIDATION_KEYWORDS, true)
+                || $draft->getTypesForKeyword($keyword) !== []
+            ) {
+                return;
+            }
+        }
+
+        $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+            "Composition branch #{index} for '{property}' carries no validation keyword and"
+                . ' matches any value',
+            ['index' => $branchIndex, 'property' => $property->getName()],
+        );
+    }
+
+    /**
+     * A branch consisting solely of the literal "example" keyword (single key, exactly
+     * "example") - the one shape explicitly reported in issue #72/PR #74. Deliberately not
+     * generalized to any other annotation keyword or combination, and not to a bare empty `{}`
+     * branch: JSON Schema does not define "annotation-only branches match nothing", so excluding a
+     * branch from a composition is an opinionated DX override of that spec meaning that must stay
+     * opt-in per keyword rather than silently expanding to every schema shape that merely lacks
+     * assertions.
+     *
+     * A companion `"type": "object"` key is also tolerated. This is not a broadening of the
+     * whitelist by concept: inheritPropertyType() mutates the raw branch JSON (injecting the
+     * parent's type into any branch that declares none of its own) before this method ever sees
+     * it, for every branch regardless of $ref usage. A $ref-based branch loses that injected
+     * sibling on resolution (Draft 7 ignores keywords sitting next to $ref), so it resolves to
+     * exactly `{"example": ...}` - but an inline branch keeps it, resolving to
+     * `{"example": ..., "type": "object"}` instead. Both are the exact same author-written
+     * "example"-only shape; only our own internal bookkeeping differs, so both must be recognized
+     * as the same whitelisted case rather than treating $ref vs inline as a real distinction.
+     *
+     * @param array<string, mixed> $resolvedBranchJson
+     */
+    private static function isExampleOnlyBranch(array $resolvedBranchJson): bool
+    {
+        $keys = array_keys($resolvedBranchJson);
+        sort($keys);
+
+        if ($keys === ['example']) {
+            return true;
+        }
+
+        return $keys === ['example', 'type'] && $resolvedBranchJson['type'] === 'object';
     }
 
     /**
@@ -153,6 +242,9 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         $propertyFactory = new PropertyFactory();
         $compositionProperties = [];
         $json = $propertySchema->getJson()['propertySchema']->getJson();
+        $draft = $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft(
+            $propertySchema->getJson()['propertySchema'],
+        );
 
         $property->addTypeHintDecorator(new ClearTypeHintDecorator());
 
@@ -190,6 +282,30 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     $property->isRequired(),
                 ),
             );
+
+            // Only branches that resolve synchronously (i.e. right here, not deferred to a later
+            // onResolve callback) can be inspected safely: a branch still awaiting resolution is,
+            // by construction, part of a recursive $ref chain, which requires structural content
+            // (properties/items/...) to recurse through and can therefore never be the vacuous
+            // shape this check looks for. Calling getJsonSchema() on a not-yet-resolved branch
+            // would risk a fatal error (its wrapped property may still be an unresolved proxy).
+            if ($compositionProperty->isResolved()) {
+                $resolvedBranchJson = $compositionProperty->getJsonSchema()->getJson();
+
+                $this->warnIfVacuousBranch($schemaProcessor, $property, $index, $resolvedBranchJson, $draft);
+
+                if (
+                    in_array($this->key, self::EXCLUDABLE_COMPOSITION_KEYS, true)
+                    && self::isExampleOnlyBranch($resolvedBranchJson)
+                ) {
+                    // A branch consisting solely of the OpenAPI-style "example" keyword carries no
+                    // constraint and is almost certainly leftover documentation data rather than an
+                    // intended alternative - exclude it entirely rather than letting it match any
+                    // value. See analysis.md §2d for why this must not reuse
+                    // createAlwaysTrueBranchProperty()/markAsAlwaysTrueBranch() instead.
+                    continue;
+                }
+            }
 
             $compositionProperty->onResolve(function () use ($compositionProperty, $property, $merged): void {
                 $nestedSchema = $compositionProperty->getNestedSchema();
@@ -374,7 +490,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     /**
      * After all composition branches resolve, derive the parent property's type from the
      * branch types and apply it. Skips when any branch has a nested schema (object merging
-     * is handled elsewhere).
+     * is handled elsewhere), except that allOf still checks such branches against any sibling
+     * scalar-typed branch for an object-vs-scalar conflict — see assertNoObjectScalarTypeConflict().
      *
      * allOf: intersect all typed branch types — only values satisfying every branch simultaneously
      * are valid, so the PHP type is the intersection. Branches with no declared type impose no
@@ -383,7 +500,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      *
      * anyOf / oneOf: union of all typed branch types — at least one branch must pass, so the PHP
      * type is the union. An untyped branch accepts every value, making the composition satisfied
-     * by any input; the property's type hint is removed (remains mixed) in that case.
+     * by any input; the property's type hint is removed (remains mixed) in that case. A branch
+     * that resolves to an object (nested schema) alongside a scalar-typed sibling branch is not a
+     * conflict here: unlike allOf, anyOf/oneOf allow a value to satisfy either shape, so no check
+     * is needed.
      *
      * Also callable from outside the factory (e.g. EnumPostProcessor) after a post processor has
      * mutated branch types and needs the parent's native type recomputed from the updated branches.
@@ -391,7 +511,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * @param bool $isAllOf true for allOf, false for anyOf/oneOf.
      * @param CompositionPropertyDecorator[] $compositionProperties
      *
-     * @throws SchemaException when allOf branches declare contradictory types.
+     * @throws SchemaException when allOf branches declare conflicting types, including an
+     *                          object-shaped branch conflicting with a scalar-typed branch.
      */
     public static function transferPropertyType(
         PropertyInterface $property,
@@ -400,6 +521,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     ): void {
         foreach ($compositionProperties as $compositionProperty) {
             if ($compositionProperty->getNestedSchema() !== null) {
+                if ($isAllOf) {
+                    self::assertNoObjectScalarTypeConflict($property, $compositionProperties);
+                }
+
                 return;
             }
         }
@@ -436,6 +561,58 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         }
 
         self::transferAnyOfOneOfType($property, $compositionProperties, $hasBranchWithOptionalProperty);
+    }
+
+    /**
+     * A branch resolved via a nested schema always requires the value to be an object. allOf
+     * requires every branch to hold simultaneously for the same value, so any sibling branch with
+     * an explicit scalar type (string, integer, number, boolean, array, or null) can never be
+     * satisfied at the same time as an object-shaped branch — the schema is unsatisfiable.
+     *
+     * This case is invisible to transferAllOfType()'s type intersection, which only inspects
+     * branches with a scalar getType() and returns early whenever any branch has a nested schema.
+     * Without this check the conflict previously went undetected: at the schema root it instead
+     * surfaced as a confusing generic "No nested schema for composed property" crash (the scalar
+     * branch has no nested schema, which SchemaProcessor::transferComposedPropertiesToSchema()
+     * requires unconditionally), and nested inside a property it produced no generation-time
+     * diagnostic at all — only an allOf validator that rejects every possible input at runtime.
+     *
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     *
+     * @throws SchemaException when a scalar-typed branch coexists with an object-shaped branch.
+     */
+    private static function assertNoObjectScalarTypeConflict(
+        PropertyInterface $property,
+        array $compositionProperties,
+    ): void {
+        $hasConflictingScalarBranch = array_filter(
+            $compositionProperties,
+            static fn(CompositionPropertyDecorator $compositionProperty): bool =>
+                $compositionProperty->getNestedSchema() === null
+                && $compositionProperty->getType() !== null
+                && !$compositionProperty->isAlwaysTrueBranch(),
+        ) !== [];
+
+        if ($hasConflictingScalarBranch) {
+            self::throwConflictingAllOfTypesException($property);
+        }
+    }
+
+    /**
+     * @throws SchemaException
+     */
+    private static function throwConflictingAllOfTypesException(PropertyInterface $property): void
+    {
+        throw new SchemaException(
+            sprintf(
+                "Property '%s' is defined with conflicting types in allOf composition branches"
+                    . ' (file %s). allOf requires all constraints to hold simultaneously,'
+                    . ' making this schema unsatisfiable.',
+                $property->getName(),
+                $property->getJsonSchema()->getFile(),
+            ),
+            $property->getJsonSchema(),
+        );
     }
 
     /**
@@ -488,16 +665,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         )) === count($constrainingBranches);
 
         if (empty($nonNullNames) && !$allBranchesAllowNull) {
-            throw new SchemaException(
-                sprintf(
-                    "Property '%s' is defined with conflicting types in allOf composition branches"
-                        . ' (file %s). allOf requires all constraints to hold simultaneously,'
-                        . ' making this schema unsatisfiable.',
-                    $property->getName(),
-                    $property->getJsonSchema()->getFile(),
-                ),
-                $property->getJsonSchema(),
-            );
+            self::throwConflictingAllOfTypesException($property);
         }
 
         if (empty($nonNullNames)) {

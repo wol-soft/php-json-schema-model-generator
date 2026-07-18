@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "p": {
+      "not": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "password": {
+                "type": "string"
+              }
+            },
+            "required": ["password"]
+          }
+        ]
+      }
+    }
+  }
+}

@@ -12,8 +12,6 @@ use PHPModelGenerator\Attributes\Required;
 use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Attributes\WriteOnlyProperty;
 use Exception;
-use PHPModelGenerator\Draft\Draft;
-use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
@@ -25,20 +23,22 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
+use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShape;
+use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\TypeConverter;
+use Throwable;
 
 class PropertyFactory
 {
-    /** @var Draft[] Keyed by draft class name */
-    private array $draftCache = [];
-
     /**
      * Create a property, applying all applicable Draft modifiers.
      *
@@ -83,6 +83,59 @@ class PropertyFactory
             );
         }
 
+        // Re-route a composition-only schema that the composition itself guarantees to be an
+        // object (e.g. an allOf of object branches, possibly multiple $ref levels deep) through
+        // the object path, so it becomes a genuine nested class with instantiation and instanceof
+        // validation instead of a bare composed validator. Gated on allOf as the outer keyword:
+        // anyOf/oneOf deliberately keep their per-matched-branch runtime value identity and are
+        // fixed instead at the branch level (a branch that is itself an object-asserting
+        // composition re-routes here when it is created). Injecting an explicit type: object makes
+        // the implied object-ness explicit so the existing object path (which processSchema forces
+        // to a type: base nested class handling the composition internally) applies unchanged.
+        if (
+            !isset($json['type'])
+            && !isset($json['filter'])
+            && isset($json['allOf'])
+            && $this->resolveObjectShape($schemaProcessor, $schema, $json) === ObjectShape::ObjectAsserting
+        ) {
+            $objectJson = $json;
+            $objectJson['type'] = 'object';
+
+            return $this->createObjectProperty(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema->withJson($objectJson),
+                $required,
+            );
+        }
+
+        // A bare object-validator schema (object-constraining keywords, no type and no composition)
+        // is object-describing: it constrains object values but is vacuously satisfied by
+        // non-objects per strict spec. Give it a guarded representation class - instantiated for
+        // object values, with non-objects passing through unchanged - so its constraints actually
+        // run (they are registered on the object Type and would otherwise never execute on an
+        // untyped property). No asserting object type check is added, preserving the strict-spec
+        // pass-through of non-object values (this is why it is NOT the ObjectAsserting path above).
+        if (
+            !isset($json['type'])
+            && !isset($json['filter'])
+            && !array_intersect(array_keys($json), ['allOf', 'anyOf', 'oneOf', 'if', 'not', '$ref'])
+            && $this->resolveObjectShape($schemaProcessor, $schema, $json) === ObjectShape::ObjectDescribing
+        ) {
+            $objectJson = $json;
+            $objectJson['type'] = 'object';
+
+            return $this->createObjectProperty(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema->withJson($objectJson),
+                $required,
+                guarded: true,
+            );
+        }
+
         $this->checkType($resolvedType, $schema);
 
         return match ($resolvedType) {
@@ -106,6 +159,38 @@ class PropertyFactory
     }
 
     /**
+     * Statically classify the object shape of the given raw schema, peeking through `$ref` chains
+     * via the schema definition dictionary. Only a raw, un-processed peek happens here - no
+     * property is created for the target - so the classification stays side-effect-free for the
+     * common same-file reference case (cross-file references may parse the external file, which the
+     * order-independent external-schema machinery would parse moments later anyway).
+     */
+    private function resolveObjectShape(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        array $json,
+    ): ObjectShape {
+        $dictionary = $schema->getSchemaDictionary();
+
+        $refResolver = static function (string $reference) use ($schemaProcessor, $dictionary): array|bool|null {
+            $path = [];
+
+            try {
+                $definition = $dictionary->getDefinition($reference, $schemaProcessor, $path);
+
+                return $definition?->getSource()->navigate(implode('/', $path))->getJson();
+            } catch (Throwable) {
+                // An unresolvable, malformed, or boolean-leaf reference leaves object-ness
+                // undecidable; returning null makes the resolver bail out conservatively to
+                // NotObject, keeping the schema on its current processing path.
+                return null;
+            }
+        };
+
+        return (new ObjectShapeResolver($refResolver))->resolve($json);
+    }
+
+    /**
      * Handle a nested object property: generate the nested class, wire the outer property,
      * then apply universal modifiers (filter, enum, default, const) on the outer property.
      *
@@ -117,6 +202,7 @@ class PropertyFactory
         string $propertyName,
         JsonSchema $propertySchema,
         bool $required,
+        bool $guarded = false,
     ): PropertyInterface {
         $json     = $propertySchema->getJson();
         $property = $this->buildProperty($schemaProcessor, $propertyName, null, $propertySchema, $required);
@@ -142,7 +228,12 @@ class PropertyFactory
 
         if ($nestedSchema !== null) {
             $property->setNestedSchema($nestedSchema);
-            $this->wireObjectProperty($schemaProcessor, $schema, $property, $propertySchema);
+
+            if ($guarded) {
+                $this->wireDescribingObjectProperty($schemaProcessor, $schema, $property, $propertySchema);
+            } else {
+                $this->wireObjectProperty($schemaProcessor, $schema, $property, $propertySchema);
+            }
         }
 
         // Universal modifiers (filter, enum, default, const) run on the outer property.
@@ -582,6 +673,32 @@ class PropertyFactory
     }
 
     /**
+     * Wire the outer property for a guarded (object-describing) nested object: attach the
+     * instantiation linkage but NOT the asserting object type check. The instantiation decorator
+     * only instantiates array/object values (`is_array($value) ? new X($value) : $value`), so a
+     * non-object value passes through unchanged and vacuously satisfies the schema per strict JSON
+     * Schema semantics, while an object value is instantiated and validated against the
+     * representation class.
+     *
+     * @throws SchemaException
+     */
+    private function wireDescribingObjectProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): void {
+        (new ObjectModifier())->modify($schemaProcessor, $schema, $property, $propertySchema);
+
+        // ObjectModifier adds an asserting InstanceOfValidator that rejects non-object values.
+        // A describing schema must accept them vacuously, so drop it - the guarded instantiation
+        // decorator remains and carries the object-value validation.
+        $property->filterValidators(
+            static fn(Validator $validator): bool => !($validator->getValidator() instanceof InstanceOfValidator),
+        );
+    }
+
+    /**
      * Wire the outer property for a nested object: add the type-check validator and instantiation
      * linkage. Schema-targeting modifiers are intentionally NOT run here because processSchema
      * already applied them to the nested schema.
@@ -622,7 +739,7 @@ class PropertyFactory
         bool $typeOnly = false,
     ): void {
         $type       = $propertySchema->getJson()['type'] ?? 'any';
-        $builtDraft = $this->resolveBuiltDraft($schemaProcessor, $propertySchema);
+        $builtDraft = $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($propertySchema);
 
         // For untyped properties ('any'), only run the 'any' entry — getCoveredTypes('any')
         // returns all types, which would incorrectly apply type-specific modifiers.
@@ -678,16 +795,5 @@ class PropertyFactory
             ),
             $schema->getJsonSchema(),
         );
-    }
-
-    private function resolveBuiltDraft(SchemaProcessor $schemaProcessor, JsonSchema $propertySchema): Draft
-    {
-        $configDraft = $schemaProcessor->getGeneratorConfiguration()->getDraft();
-
-        $draft = $configDraft instanceof DraftFactoryInterface
-            ? $configDraft->getDraftForSchema($propertySchema)
-            : $configDraft;
-
-        return $this->draftCache[$draft::class] ??= $draft->getDefinition()->build();
     }
 }

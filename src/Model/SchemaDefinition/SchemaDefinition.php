@@ -42,6 +42,16 @@ class SchemaDefinition
     }
 
     /**
+     * The raw JsonSchema this definition points at (before any property processing). Used by the
+     * object-shape routing decision to statically peek at a `$ref` target without resolving it into
+     * a property.
+     */
+    public function getSource(): JsonSchema
+    {
+        return $this->source;
+    }
+
+    /**
      * Resolve a reference
      *
      * @throws PHPModelGeneratorException
