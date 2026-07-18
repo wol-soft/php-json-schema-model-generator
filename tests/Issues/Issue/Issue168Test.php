@@ -107,4 +107,65 @@ class Issue168Test extends AbstractIssueTestCase
 
         $this->assertSame('Hans', $object->getTarget()->getName());
     }
+
+    /**
+     * `additionalProperties: <schema>` (as opposed to `true`/`false`) must not let a JSON array
+     * masquerade as a fully legitimate `additionalProperties` bag keyed by its own indices. This
+     * is a stronger form of testPermissiveObjectTypePropertyRejectsArrayInsteadOfDroppingItsData:
+     * today the array isn't dropped, it is silently and fully absorbed as indistinguishable
+     * object data (verified: `additionalProperties()->getAll() === [0 => 'Hello', 1 => 'World']`,
+     * no exception). The `array_is_list()` gate on ObjectInstantiationDecorator fixes this too,
+     * transitively - the nested object is never instantiated for a genuine list, so the
+     * additionalProperties machinery never runs on it at all.
+     */
+    public function testObjectTypePropertyWithSchemaAdditionalPropertiesRejectsArrayInsteadOfAbsorbingIt(): void
+    {
+        $className = $this->generateClassFromFile('AdditionalPropertiesSchemaAbsorbsArray.json');
+
+        $this->expectException(InvalidTypeException::class);
+        $this->expectExceptionMessage('Invalid type for target. Requires object, got array');
+
+        new $className(['target' => ['Hello', 'World']]);
+    }
+
+    /**
+     * Same absorption bug as above, but via a digit-matching `patternProperties` pattern instead
+     * of a schema-typed `additionalProperties` - and, unlike
+     * testRestrictiveObjectTypePropertyRejectsArrayWithTheSameCleanMessage,
+     * `additionalProperties: false` does NOT help here: the array's indices match the pattern
+     * before the additionalProperties catch-all is ever reached, so today this absorbs the array
+     * as a legitimate pattern-property match with no exception at all. The same
+     * `array_is_list()` gate fixes it for the same reason - the nested object, and therefore its
+     * patternProperties matching, is never reached for a genuine list.
+     */
+    public function testObjectTypePropertyWithNumericPatternPropertiesRejectsArrayInsteadOfAbsorbingIt(): void
+    {
+        $className = $this->generateClassFromFile('PatternPropertiesNumericAbsorbsArray.json');
+
+        $this->expectException(InvalidTypeException::class);
+        $this->expectExceptionMessage('Invalid type for target. Requires object, got array');
+
+        new $className(['target' => ['Hello', 'World']]);
+    }
+
+    /**
+     * A `oneOf` between an array branch and an object branch with schema-typed
+     * `additionalProperties` is a strictly worse form of
+     * testOneOfArrayOrObjectAcceptsValidObjectAsAnUnambiguousMatch: there, the object branch's
+     * `additionalProperties: false` already excluded arrays from matching it, so only an object
+     * matching the array branch's `items` schema was ambiguous. Here, EVERY array also matches
+     * the object branch via absorption (see
+     * testObjectTypePropertyWithSchemaAdditionalPropertiesRejectsArrayInsteadOfAbsorbingIt), so a
+     * plain, unambiguous array input is rejected as "matched 2 elements" - oneOf between an array
+     * schema and any realistically map-shaped object schema is broken outright today, not merely
+     * ambiguous in edge cases.
+     */
+    public function testOneOfArrayOrObjectWithSchemaAdditionalPropertiesAcceptsArrayAsAnUnambiguousMatch(): void
+    {
+        $className = $this->generateClassFromFile('OneOfArrayOrObjectWithSchemaAdditionalProperties.json');
+
+        $object = new $className(['target' => ['Hello', 'World']]);
+
+        $this->assertSame(['Hello', 'World'], $object->getTarget());
+    }
 }
