@@ -11,16 +11,11 @@ use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
  * Issue #168: JSON objects and JSON arrays both decode to a PHP `array` via `json_decode($json,
  * true)`, and the generator's type guards for "object" (an `is_array($value) ? new X($value) :
  * $value` instantiation attempt) and "array" (`is_array($value)` / iterate-by-value item
- * validation) both key off exactly that same PHP `array` type. Neither guard ever checks
- * `array_is_list()`, so nothing in the generated code actually distinguishes a JSON array from a
- * JSON object once the raw value has reached PHP. See
- * .claude/topics/array-object-type-guard-collision/analysis.md for the full investigation.
- *
- * Each test below asserts the CORRECT, desired behavior per JSON Schema - not today's actual
- * (buggy) behavior. All of them are therefore expected to be red until a fix (an
- * `array_is_list()` gate on both guards, per the analysis doc's suggested fix direction) lands;
- * they must not be weakened to pass against the current, broken output. Once the fix lands, they
- * should turn green with no further change needed.
+ * validation) both key off exactly that same PHP `array` type. Fixed by additionally requiring
+ * `array_is_list($value)` at every load-bearing guard (`TypeCheckValidator`,
+ * `ReflectionTypeCheckValidator`, `ObjectInstantiationDecorator`, `DefaultValueModifier`). See
+ * .claude/topics/array-object-type-guard-collision/analysis.md for the full investigation and
+ * implementation notes.
  */
 class Issue168Test extends AbstractIssueTestCase
 {
@@ -28,12 +23,19 @@ class Issue168Test extends AbstractIssueTestCase
      * A `"type": "array"` property must reject a JSON object, even when every one of the
      * object's values individually satisfies the `items` schema. `is_array($value)` alone is not
      * sufficient - the value must additionally be a list (`array_is_list($value)`).
+     *
+     * The resulting message ("Requires array, got array") is not very informative - `gettype()`
+     * reports "array" for both a JSON array and a JSON object once decoded, so it cannot itself
+     * distinguish which shape was actually provided. That is an existing message-formatting
+     * limitation shared with every other `InvalidTypeException`, not something this fix
+     * introduces; improving it is a separate, unstarted concern.
      */
     public function testArrayTypePropertyRejectsAJsonObject(): void
     {
         $className = $this->generateClassFromFile('ArrayTypeAcceptsObject.json');
 
         $this->expectException(InvalidTypeException::class);
+        $this->expectExceptionMessage('Invalid type for tags. Requires array, got array');
 
         new $className(['tags' => ['a' => 'x', 'b' => 'y']]);
     }
