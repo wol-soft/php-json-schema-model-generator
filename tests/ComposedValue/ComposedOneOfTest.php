@@ -103,14 +103,17 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     #[DataProvider('objectLevelOneOfSchemaFileDataProvider')]
-    public function testNotProvidedObjectLevelOneOfThrowsAnException(string $schema, int $matchedElements): void
-    {
+    public function testNotProvidedObjectLevelOneOfThrowsAnException(
+        string $schema,
+        int $matchedElements,
+        string $elementDetails,
+    ): void {
         $this->expectException(ValidationException::class);
+        // Direct-exception mode now enumerates each branch's outcome and its underlying reason.
         $this->expectExceptionMessageMatches(
-            <<<ERROR
-            /^Invalid value for (.*?) declined by composition constraint.
-              Requires to match one composition element but matched $matchedElements elements.$/
-            ERROR,
+            '/^Invalid value for (.*?) declined by composition constraint\.\s+' .
+            "Requires to match one composition element but matched {$matchedElements} elements\\.\\s+" .
+            $elementDetails . '\s*$/',
         );
 
         $className = $this->generateClassFromFile($schema);
@@ -121,8 +124,17 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
     public static function objectLevelOneOfSchemaFileDataProvider(): array
     {
         return [
-            'ObjectLevelComposition.json' => ['ObjectLevelComposition.json', 2],
-            'ObjectLevelCompositionRequired.json' => ['ObjectLevelCompositionRequired.json', 0],
+            'ObjectLevelComposition.json' => [
+                'ObjectLevelComposition.json',
+                2,
+                '- Composition element #1: Valid\s+- Composition element #2: Valid',
+            ],
+            'ObjectLevelCompositionRequired.json' => [
+                'ObjectLevelCompositionRequired.json',
+                0,
+                '- Composition element #1: Failed\s+\* Missing required value for stringProperty\s+'
+                    . '- Composition element #2: Failed\s+\* Missing required value for integerProperty',
+            ],
         ];
     }
 
