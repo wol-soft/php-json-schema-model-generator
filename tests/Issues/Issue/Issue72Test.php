@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Issues\Issue;
 
+use PHPModelGenerator\Exception\Arrays\InvalidItemException;
 use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
 use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Exception\ComposedValue\NotException;
@@ -59,6 +60,44 @@ class Issue72Test extends AbstractIssueTestCase
         $this->assertSame(4, $assistance->getYearsInCompany());
         $this->assertSame('Dieter', $assistance->getName());
         $this->assertSame(8000, $assistance->getSalary());
+    }
+
+    /**
+     * Array items referencing a multi-level composition-implied definition (an allOf whose
+     * branches are themselves allOf-only $refs) must instantiate each item and enforce the
+     * item constraints - like the explicit-object equivalent does, and like SINGLE-level implied
+     * items (an allOf of explicit object branches) already do today. Currently multi-level
+     * implied items stay raw arrays and their constraints are silently dropped.
+     */
+    public function testMultiLevelImpliedObjectArrayItemsInstantiateAndValidate(): void
+    {
+        $className = $this->generateClassFromFile('NestedAllOfInArrayItems.json');
+
+        $object = new $className(['members' => [['name' => 'Hannes', 'salary' => 10000]]]);
+        $members = $object->getMembers();
+        $this->assertCount(1, $members);
+        $this->assertIsObject($members[0]);
+        $this->assertSame('Hannes', $members[0]->getName());
+        $this->assertSame(10000, $members[0]->getSalary());
+    }
+
+    /**
+     * The same array must reject items violating the implied definition's constraints.
+     */
+    public function testMultiLevelImpliedObjectArrayItemsRejectInvalidItem(): void
+    {
+        $this->expectException(InvalidItemException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid items in array members:
+              - invalid item #0
+                * Missing required value for name
+            ERROR,
+        );
+
+        $className = $this->generateClassFromFile('NestedAllOfInArrayItems.json');
+
+        new $className(['members' => [['salary' => 10000]]]);
     }
 
     /**

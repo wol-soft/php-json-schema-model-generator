@@ -1,0 +1,41 @@
+{
+  "definitions": {
+    "identification": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": ["name"]
+        }
+      ]
+    },
+    "person": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/identification"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "salary": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "members": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/person"
+      }
+    }
+  }
+}

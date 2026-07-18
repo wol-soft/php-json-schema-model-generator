@@ -250,11 +250,97 @@ semantics reject them (nested-schema-analysis.md §8.9-§8.10; the refined impli
 predicate lives in §8.10). Issue72Test now: 43 cases, 26 red-until-fixed, 17 green; full suite
 2906 tests, no impact outside Issue72Test.
 
-Next step: turn nested-schema-analysis.md §8-§10 into a phased implementation plan (routing
-predicate per §8.10 applied to definitions AND inline branches, test-migration audit for
-`_Merged_`-naming assertions, scalar-hole companion fix for #167, contract docblock) and confirm
-the remaining scope boundaries (filter exclusion, and the §8.10.3 anyOf bare-validator
-non-object semantics fork) with the maintainer before coding.
+**Analysis completeness check (maintainer-requested) — two final gaps found and closed**:
+(a) array-items context verified — single-level implied items work today, multi-level implied
+items are broken identically to properties (two more red tests,
+`NestedAllOfInArrayItems.json`); other `PropertyFactory::create()` contexts (dependencies,
+contains, patternProperties values) are covered by the same mechanism argument and deferred to
+the implementation test matrix (§8.11). (b) The §8.10 predicate had to become **three-valued** —
+object-asserting vs. object-describing vs. not-object — to reconcile the strict-spec decision
+with the pinned instantiation expectations for bare-validator branches (§8.10, asserting/
+describing distinction). The bare-validator semantics fork was resolved by the maintainer:
+strict spec. Issue72Test after all rounds: 46 cases, 31 red-until-fixed, 15 green; full suite
+2908 tests, all reds confined to Issue72Test.
+
+The anyOf bare-validator fork is resolved (strict spec); the remaining stated-but-unconfirmed
+assumptions are the `filter`-keyword exclusion from re-routing (§8.2 rule 2) and the vacuous-
+branch warning firing for `allOf` too — both are visible in this plan and cheap to change.
+
+### Phase 3 implementation plan (Direction 2)
+
+The sub-phases are ordered so each lands green-by-construction on everything except the
+Issue72Test reds it is meant to flip, and each is independently commit-able. File pointers
+reference the current tree.
+
+**P3.1 — `nestedSchema` contract + object-shape resolver (no behavior change).**
+- Document the §10 contract on `PropertyInterface::setNestedSchema()/getNestedSchema()`.
+- New self-contained resolver (suggested: `src/PropertyProcessor/ObjectShape/`) classifying a
+  `JsonSchema` per §8.10 as `NotObject | ObjectDescribing | ObjectAsserting`:
+  explicit `type: object` → asserting; `type` array or scalar type → not-object; no type +
+  object-constraining keywords only → describing; composition → recursive over branches
+  (allOf: asserting if ≥1 branch asserting, describing if all describing/vacuous;
+  anyOf/oneOf: asserting only if ALL branches asserting; boolean/vacuous branches neutral),
+  resolved through `$ref` chains via the schema dictionary with a visited-set (cycle or
+  unresolvable → NotObject, conservative bail-out). `filter`-bearing schemas → never asserting
+  (stay on the filter-composition machinery).
+- Unit tests for the resolver against every shape in the §8.10 table, including cycles and
+  external-file `$ref`s in both discovery orders (§8.6.1).
+
+**P3.2 — re-route object-asserting composition-only schemas through the object path.**
+- `PropertyFactory::create()`: when the schema has no `type`/`filter` key, has `allOf` (initial
+  outer-keyword scope), and the resolver says ObjectAsserting → route through the
+  `createObjectProperty()` path (`processSchema` handles composition roots; `generateModel`
+  forces `type: base` internally). Applies automatically to definitions (fixing implied
+  *branches* of every keyword), inline branches, array items, and root-level `$ref` targets.
+- Re-guard the Phase 1 skip in `transferComposedPropertiesToSchema()`: a skipped branch must be
+  NotObject-shaped; ObjectAsserting/Describing branches now carry nested schemas or restored
+  validation, so the §2 #10 silent drop closes.
+- Expected test flips: allOf chain (`testDeeplyNestedAllOfCompositionInstantiatesNestedObject`),
+  array items pair, the anyOf/oneOf/if/not implied tests whose branches become real object
+  properties, and the mixed-composition tests except allOf-mixed (P3.4). Migration audit: run
+  the full suite; classify every failure as naming-only (`_Merged_` assertions,
+  `testIdenticalMergedSchemaIsRedirected` — semantic core must survive via signature dedup) or
+  behavioral (investigate before touching the test); document each intended change.
+
+**P3.3 — restore branch validation where no re-validating class exists (companion fix, #167).**
+- Make the `ComposedPropertyValidator` strip in `getCompositionProperties()` (and its root-level
+  twin `withoutNestedCompositionValidation()`) conditional on the branch having a class that
+  re-validates on instantiation; otherwise keep the nested composed validator.
+- Spike first: nested `ComposedItem` rendering collides on by-reference closure variables
+  (`$succeededCompositionElements` etc.) — render retained nested validators via their
+  extracted-method form (own scope), see §9.4.
+- ObjectDescribing branches: generate the guarded representation class (validators run only
+  against object values; instantiation via the existing `is_array(...)` decorator idiom) so the
+  bare-validator tests flip (strict-spec matched-counts + instantiation, §8.10). Conservative
+  default for describing-only compositions: guarded validation without outer re-routing.
+- Fixes the #167 scalar hole; add the #167 reproduction schema as a regression test here.
+- Resolve the `if` asymmetry (§9.1) explicitly: same conditional rule for
+  `ConditionalPropertyValidator` instead of the accidental class-hierarchy split.
+
+**P3.4 — conflict detection for implied shapes (Phase 0 extension).**
+- `assertNoObjectScalarTypeConflict()` (and the transferPropertyType guard) consume the resolver:
+  an ObjectAsserting branch conflicts with a scalar-typed sibling in `allOf` even without a
+  nested schema. Flips `testAllOfMixingImpliedObjectAndScalarBranchThrowsConflictingTypesException`.
+- Add the generation-time warning for describing-only branches ("does not constrain non-object
+  values"), scope per the standing assumption (all keywords) unless corrected.
+
+**P3.5 — consumer sweep + edge matrix.**
+- Walk the §2 consumer table: with re-routing, meaning-C consumers see real nested schemas —
+  add one targeted test each for required-promotion, cross-branch defaults, attribute
+  synthesis (JsonPointer/JsonSchema), setter revalidation (mutable models), widening, and the
+  §8.11 contexts (dependencies — watch `SchemaDependencyValidator`'s own decorator —, contains,
+  patternProperties values). Plus serialization round-trip and Populate/Builder post processors
+  on a re-routed property.
+- Re-verify FilterValidator behavior on mixed anyOf with now-real object branches (the §3.2
+  regression scenario) — must stay green.
+
+**P3.6 — documentation + cleanup.**
+- `docs/source/combinedSchemas/{allOf,anyOf,oneOf}.rst` + `not`/`if` pages: document
+  composition-implied objects, the strict-spec bare-validator semantics, and the changed class
+  naming for re-routed schemas; changelog entry (breaking: generated class names for
+  property-level all-object `allOf`).
+- Optional follow-up (separate decision): extend outer-keyword re-routing beyond `allOf`.
+- Final commit before merge: delete `.claude/issues/72/` per the standing exception note.
 
 ### Phase 4 — documentation
 
