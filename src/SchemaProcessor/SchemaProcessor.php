@@ -681,9 +681,16 @@ class SchemaProcessor
             if ($this->exclusiveBranchPropertyNeedsWidening($property->getName(), $sourceBranch, $wideningBranches)) {
                 $transferredProperty->setType(null, null, reset: true);
             }
-        }
 
-        $transferredProperty->setJsonSchema($transferredProperty->getJsonSchema()->withJson([]));
+            // Blank the branch schema for disjunctive compositions (anyOf/oneOf/if): a constraint
+            // declared on one branch (e.g. an enum on a single oneOf branch while another branch
+            // accepts free-form values) must not leak onto the outer merged property, which a
+            // value may satisfy via a different branch. For allOf every branch constraint applies
+            // to the same value, so the schema is preserved instead - keeping representation-level
+            // information such as enum sub-schemas visible to post processors on the merged
+            // property, matching the dedicated _Merged_ class path.
+            $transferredProperty->setJsonSchema($transferredProperty->getJsonSchema()->withJson([]));
+        }
 
         return $transferredProperty;
     }

@@ -34,12 +34,16 @@ class Issue105Test extends AbstractIssueTestCase
         $object = new $className($data);
 
         $this->assertCount(1, $object->getByPackage());
+        // The enum branch of the all-object allOf is routed through the object path; the enum type
+        // is preserved on the merged item property, so the getter still returns the backed enum.
         $this->assertSame('completed', $object->getByPackage()[0]->getDeliveryStatus()->value);
         $this->assertSame(250000, $object->getByPackage()[0]->getImpressions());
 
         // Composition must not adopt a partially-successful branch's value when the overall
         // composition fails: only the "impressions" branch (optional, absent here) trivially
-        // passes, "delivery_status" fails its enum check, so allOf requires 2 matches but got 1.
+        // passes, "delivery_status" fails its enum check, so allOf requires 2 matches but got 1 -
+        // surfaced as the item's composition constraint failure since the item is validated
+        // through its composed class.
         $this->expectException(InvalidItemException::class);
         $this->expectExceptionMessage(
             'Requires to match all composition elements but matched 1 element',
