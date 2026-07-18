@@ -32,7 +32,7 @@ class Issue113Test extends AbstractIssueTestCase
         $className = $this->generateClassFromFile('ifThenWithoutElse.json');
 
         $this->expectException(ConditionalException::class);
-        $this->expectExceptionMessage('Missing required value for audiences');
+        $this->expectExceptionMessage("Missing required value for 'audiences'");
 
         new $className(['delete_missing' => true]);
     }

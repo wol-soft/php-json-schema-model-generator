@@ -13,7 +13,7 @@ class Issue105Test extends AbstractIssueTestCase
 {
     public function testEnumInComposition(): void
     {
-        $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator) : void {
+        $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {
             $modelGenerator->addPostProcessor(new EnumPostProcessor(
                 TEST_BASE_DIR . DIRECTORY_SEPARATOR . 'Enum',
                 'Enum',
@@ -37,8 +37,13 @@ class Issue105Test extends AbstractIssueTestCase
         $this->assertSame('completed', $object->getByPackage()[0]->getDeliveryStatus()->value);
         $this->assertSame(250000, $object->getByPackage()[0]->getImpressions());
 
+        // Composition must not adopt a partially-successful branch's value when the overall
+        // composition fails: only the "impressions" branch (optional, absent here) trivially
+        // passes, "delivery_status" fails its enum check, so allOf requires 2 matches but got 1.
         $this->expectException(InvalidItemException::class);
-        $this->expectExceptionMessage('"invalid" is not a valid backing value for enum');
+        $this->expectExceptionMessage(
+            'Requires to match all composition elements but matched 1 element',
+        );
         new $className([
             'by_package' => [
                 [

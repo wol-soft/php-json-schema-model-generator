@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use Closure;
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\Arrays\MaxItemsException;
 use PHPModelGenerator\Exception\Arrays\MinItemsException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
@@ -15,6 +17,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -211,8 +214,8 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     ): void {
         $this->expectValidationError(
             $configuration,
-            'Invalid type for property. Requires array, got ' .
-                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)),
+            "Invalid type for 'property': requires 'array', got '" .
+                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)) . "'",
         );
 
         $className = $this->generateClassFromFile('ArrayProperty.json', $configuration);
@@ -274,7 +277,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         array $propertyValue,
     ): void {
-        $this->expectValidationError($configuration, 'Items of array property are not unique');
+        $this->expectValidationError($configuration, "Items of array 'property' are not unique");
 
         $className = $this->generateClassFromFile('ArrayPropertyUnique.json', $configuration);
 
@@ -360,9 +363,9 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         return self::combineDataProvider(
             self::validationMethodDataProvider(),
             [
-                'Empty array' => [[], 'Array property must not contain less than 2 items'],
-                'Too few array items' => [[1], 'Array property must not contain less than 2 items'],
-                'Too many array items' => [[1, 2, 3 , 4], 'Array property must not contain more than 3 items']
+                'Empty array' => [[], "Array 'property' must not contain less than 2 items"],
+                'Too few array items' => [[1], "Array 'property' must not contain less than 2 items"],
+                'Too many array items' => [[1, 2, 3 , 4], "Array 'property' must not contain more than 3 items"]
             ],
         );
     }
@@ -483,13 +486,26 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         string $type,
         array $propertyValue,
-        string $message = '',
+        string $message,
+        ?Closure $extraAssertions = null,
     ): void {
-        $this->expectValidationError($configuration, $message);
-
         $className = $this->generateClassFromFileTemplate('ArrayPropertyTyped.json', [$type], $configuration, false);
 
-        new $className(['property' => $propertyValue]);
+        try {
+            new $className(['property' => $propertyValue]);
+            $this->fail('Expected exception for invalid typed array item');
+        } catch (ErrorRegistryException | InvalidItemException $exception) {
+            $this->assertStringContainsString($message, $exception->getMessage());
+
+            // collectErrors(true) wraps the array item exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            if ($extraAssertions) {
+                $extraAssertions($innerException);
+            }
+        }
     }
 
     public static function invalidTypedArrayDataProvider(): array
@@ -501,114 +517,130 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     '"string"',
                     ['a', 'b', 1],
                     <<<ERROR
-                    Invalid items in array property:
+                    Invalid items in array 'property':
                       - invalid item #2
-                        * Invalid type for item of array property. Requires string, got integer
+                        * Invalid type for 'property': requires 'string', got 'integer'
                     ERROR,
                 ],
                 'String array containing null' => [
                     '"string"',
                     ['a', 'b', null],
                     <<<ERROR
-                    Invalid items in array property:
+                    Invalid items in array 'property':
                       - invalid item #2
-                        * Invalid type for item of array property. Requires string, got NULL
+                        * Invalid type for 'property': requires 'string', got 'NULL'
                     ERROR,
                 ],
                 'Int array containing string' => [
                     '"integer"',
                     [1, 2, 3, '4'],
                     <<<ERROR
-                    Invalid items in array property:
+                    Invalid items in array 'property':
                       - invalid item #3
-                        * Invalid type for item of array property. Requires int, got string
+                        * Invalid type for 'property': requires 'int', got 'string'
                     ERROR,
                 ],
                 'Int array containing float' => [
                     '"integer"',
                     [1, 2, 3, 2.5],
                     <<<ERROR
-                    Invalid items in array property:
+                    Invalid items in array 'property':
                       - invalid item #3
-                        * Invalid type for item of array property. Requires int, got double
+                        * Invalid type for 'property': requires 'int', got 'double'
                     ERROR,
                 ],
                 'Number array containing array' => [
                     '"number"',
                     [1, 1.1, 4.5, 6, []],
                     <<<ERROR
-                    Invalid items in array property:
+                    Invalid items in array 'property':
                       - invalid item #4
-                        * Invalid type for item of array property. Requires float, got array
+                        * Invalid type for 'property': requires 'float', got 'array'
                     ERROR,
                 ],
                 'Boolean array containing int' => [
                     '"boolean"',
                     [true, false, true, 3],
                     <<<ERROR
-                    Invalid items in array property:
+                    Invalid items in array 'property':
                       - invalid item #3
-                        * Invalid type for item of array property. Requires bool, got integer
+                        * Invalid type for 'property': requires 'bool', got 'integer'
                     ERROR,
                 ],
                 'Null array containing string' => [
                     '"null"',
                     [null, null, 'null'],
                     <<<ERROR
-                    Invalid items in array property:
+                    Invalid items in array 'property':
                       - invalid item #2
-                        * Invalid type for item of array property. Requires null, got string
+                        * Invalid type for 'property': requires 'null', got 'string'
                     ERROR,
                 ],
                 'Multiple violations' => [
                     '"boolean"',
                     [true, false, true, 3, true, 'true'],
                     <<<ERROR
-                    Invalid items in array property:
+                    Invalid items in array 'property':
                       - invalid item #3
-                        * Invalid type for item of array property. Requires bool, got integer
+                        * Invalid type for 'property': requires 'bool', got 'integer'
                       - invalid item #5
-                        * Invalid type for item of array property. Requires bool, got string
+                        * Invalid type for 'property': requires 'bool', got 'string'
                     ERROR,
                 ],
                 'Nested array containing null' => [
                     '"array","items":{"type":"integer"}',
                     [[1, 2], [], null],
                     <<<ERROR
-                    Invalid items in array property:
+                    Invalid items in array 'property':
                       - invalid item #2
-                        * Invalid type for item of array property. Requires array, got NULL
+                        * Invalid type for 'property': requires 'array', got 'NULL'
                     ERROR,
                 ],
                 'Nested array containing int' => [
                     '"array","items":{"type":"integer"}',
                     [[1, 2], [], 3],
                     <<<ERROR
-                    Invalid items in array property:
+                    Invalid items in array 'property':
                       - invalid item #2
-                        * Invalid type for item of array property. Requires array, got integer
+                        * Invalid type for 'property': requires 'array', got 'integer'
                     ERROR,
                 ],
                 'Nested array inner array containing string' => [
                     '"array","items":{"type":"integer"}',
                     [[1, '2'], [], [3]],
                     <<<ERROR
-                    Invalid items in array property:
+                    Invalid items in array 'property':
                       - invalid item #0
-                        * Invalid items in array item of array property:
+                        * Invalid items in array 'property':
                           - invalid item #1
-                            * Invalid type for item of array item of array property. Requires int, got string
+                            * Invalid type for 'property': requires 'int', got 'string'
                     ERROR,
+                    function (InvalidItemException $exception): void {
+                        // getPropertyName()/getInstancePointer() must resolve to the array's real
+                        // name and position at every nesting level, not a synthetic "item of array
+                        // X" placeholder.
+                        Assert::assertSame('property', $exception->getPropertyName());
+                        Assert::assertSame('/property', $exception->getInstancePointer()->pointer);
+
+                        $nestedException = $exception->getInvalidItems()[0][0];
+                        Assert::assertInstanceOf(InvalidItemException::class, $nestedException);
+                        Assert::assertSame('property', $nestedException->getPropertyName());
+                        Assert::assertSame('/property/0', $nestedException->getInstancePointer()->pointer);
+
+                        $leafException = $nestedException->getInvalidItems()[1][0];
+                        Assert::assertSame('property', $leafException->getPropertyName());
+                        Assert::assertSame('/property/0/1', $leafException->getInstancePointer()->pointer);
+                    },
                 ],
                 'Multi type array containing invalid values' => [
                     '["string", "integer"]',
                     ['a', 1, true, 'true', [], -6],
                     <<<ERROR
-                    Invalid items in array property:
+                    Invalid items in array 'property':
                       - invalid item #2
-                        * Invalid type for item of array property. Requires [string, int], got boolean
+                        * Invalid type for 'property': requires ['string', 'int'], got 'boolean'
                       - invalid item #4
-                        * Invalid type for item of array property. Requires [string, int], got array
+                        * Invalid type for 'property': requires ['string', 'int'], got 'array'
                     ERROR,
                 ],
             ],
@@ -643,7 +675,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         array $propertyValue,
     ): void {
-        $this->expectValidationError($configuration, 'No item in array property matches contains constraint');
+        $this->expectValidationError(
+            $configuration,
+            "No item in array 'property' matches the 'contains' constraint",
+        );
 
         $className = $this->generateClassFromFile('ArrayPropertyContains.json', $configuration);
 
@@ -738,6 +773,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         array $propertyValue,
         string $message,
+        ?Closure $extraAssertions = null,
     ): void {
         $className = $this->generateClassFromFile($file, $configuration);
 
@@ -754,6 +790,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 
             $this->assertInstanceOf(InvalidItemException::class, $innerException);
             $this->assertSame('/properties/property/items', $innerException->getJsonPointer()->pointer);
+
+            if ($extraAssertions) {
+                $extraAssertions($innerException);
+            }
         }
     }
 
@@ -770,47 +810,47 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     'null' => [
                         [null],
                         <<<ERROR
-                        Invalid items in array property:
+                        Invalid items in array 'property':
                           - invalid item #0
-                            * Invalid type for item of array property. Requires object, got NULL
+                            * Invalid type for 'property': requires 'object', got 'NULL'
                         ERROR,
                     ],
                     'invalid type bool' => [
                         [['name' => 'Hannes'], true],
                         <<<ERROR
-                        Invalid items in array property:
+                        Invalid items in array 'property':
                           - invalid item #1
-                            * Invalid type for item of array property. Requires object, got boolean
+                            * Invalid type for 'property': requires 'object', got 'boolean'
                         ERROR,
                     ],
                     'missing property name' => [
                         [['name' => 'Hannes'], ['age' => 42]],
                         <<<ERROR
-                        Invalid items in array property:
+                        Invalid items in array 'property':
                           - invalid item #1
-                            * Missing required value for name
+                            * Missing required value for 'name'
                         ERROR,
                     ],
                     'invalid type name' => [
                         [['name' => 'Hannes'], ['name' => false, 'age' => 42]],
                         <<<ERROR
-                        Invalid items in array property:
+                        Invalid items in array 'property':
                           - invalid item #1
-                            * Invalid type for name. Requires string, got boolean
+                            * Invalid type for 'name': requires 'string', got 'boolean'
                         ERROR,
                     ],
                     'multiple violations' => [
                         [['name' => false, 'age' => 42], ['name' => 'Frida', 'age' => 'yes'], 5, []],
                         <<<ERROR
-                        Invalid items in array property:
+                        Invalid items in array 'property':
                           - invalid item #0
-                            * Invalid type for name. Requires string, got boolean
+                            * Invalid type for 'name': requires 'string', got 'boolean'
                           - invalid item #1
-                            * Invalid type for age. Requires int, got string
+                            * Invalid type for 'age': requires 'int', got 'string'
                           - invalid item #2
-                            * Invalid type for item of array property. Requires object, got integer
+                            * Invalid type for 'property': requires 'object', got 'integer'
                           - invalid item #3
-                            * Missing required value for name
+                            * Missing required value for 'name'
                         ERROR,
                     ],
                 ],
@@ -830,71 +870,95 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     'invalid type bool' => [
                         [['name' => 'Hannes'], true],
                         <<<ERROR
-                        Invalid items in array property:
+                        Invalid items in array 'property':
                           - invalid item #1
-                            * Invalid value for item of array property declined by composition constraint.
-                              Requires to match all composition elements but matched 0 elements.
+                            * Invalid value for 'property' declined by composition constraint
+                              Requires to match all composition elements but matched 0 elements
                               - Composition element #1: Failed
-                                * Invalid type for item of array property. Requires object, got boolean
+                                * Invalid type for 'property': requires 'object', got 'boolean'
                               - Composition element #2: Failed
-                                * Invalid type for item of array property. Requires object, got boolean
+                                * Invalid type for 'property': requires 'object', got 'boolean'
                         ERROR,
+                        function (InvalidItemException $exception): void {
+                            // Regression: when a composition applied to an array item fails
+                            // entirely (no branch succeeds), the array item's real value must
+                            // survive. Array items are validated by reference — each item aliases
+                            // directly into the array being validated — so a composed-value
+                            // validator that adopts an unset/leftover proposed value on total
+                            // failure doesn't just corrupt its own reported providedValue; the
+                            // corruption propagates back into the original array too.
+                            //
+                            // Item #0 validates successfully, so the array reports its
+                            // instantiated merged object there; item #1 (true) never validates, so
+                            // it must survive as the raw input rather than being corrupted to null
+                            // by the failed composition.
+                            Assert::assertSame(true, $exception->getProvidedValue()[1]);
+                            Assert::assertSame('/property', $exception->getInstancePointer()->pointer);
+
+                            $compositionException = $exception->getInvalidItems()[1][0];
+                            Assert::assertInstanceOf(AllOfException::class, $compositionException);
+                            Assert::assertSame(true, $compositionException->getProvidedValue());
+                            Assert::assertSame(
+                                '/property/1',
+                                $compositionException->getInstancePointer()->pointer,
+                            );
+                        },
                     ],
                     'missing property name' => [
                         [['name' => 'Hannes'], ['age' => 42]],
                         <<<ERROR
-                        Invalid items in array property:
+                        Invalid items in array 'property':
                           - invalid item #1
-                            * Invalid value for item of array property declined by composition constraint.
-                              Requires to match all composition elements but matched 1 elements.
+                            * Invalid value for 'property' declined by composition constraint
+                              Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
-                                * Missing required value for name
-                                * Invalid type for name. Requires string, got NULL
+                                * Missing required value for 'name'
+                                * Invalid type for 'name': requires 'string', got 'NULL'
                               - Composition element #2: Valid
                         ERROR,
                     ],
                     'invalid type name' => [
                         [['name' => 'Hannes'], ['name' => false, 'age' => 42]],
                         <<<ERROR
-                        Invalid items in array property:
+                        Invalid items in array 'property':
                           - invalid item #1
-                            * Invalid value for item of array property declined by composition constraint.
-                              Requires to match all composition elements but matched 1 elements.
+                            * Invalid value for 'property' declined by composition constraint
+                              Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
-                                * Invalid type for name. Requires string, got boolean
+                                * Invalid type for 'name': requires 'string', got 'boolean'
                               - Composition element #2: Valid
                         ERROR,
                     ],
                     'multiple violations' => [
                         [['name' => false, 'age' => 42], ['name' => 'F', 'age' => 'yes'], 5, []],
                         <<<ERROR
-                        Invalid items in array property:
+                        Invalid items in array 'property':
                           - invalid item #0
-                            * Invalid value for item of array property declined by composition constraint.
-                              Requires to match all composition elements but matched 1 elements.
+                            * Invalid value for 'property' declined by composition constraint
+                              Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
-                                * Invalid type for name. Requires string, got boolean
+                                * Invalid type for 'name': requires 'string', got 'boolean'
                               - Composition element #2: Valid
                           - invalid item #1
-                            * Invalid value for item of array property declined by composition constraint.
-                              Requires to match all composition elements but matched 0 elements.
+                            * Invalid value for 'property' declined by composition constraint
+                              Requires to match all composition elements but matched 0 elements
                               - Composition element #1: Failed
-                                * Value for name must not be shorter than 2
+                                * Value for 'name' must not be shorter than 2
                               - Composition element #2: Failed
-                                * Invalid type for age. Requires int, got string
+                                * Invalid type for 'age': requires 'int', got 'string'
                           - invalid item #2
-                            * Invalid value for item of array property declined by composition constraint.
-                              Requires to match all composition elements but matched 0 elements.
+                            * Invalid value for 'property' declined by composition constraint
+                              Requires to match all composition elements but matched 0 elements
                               - Composition element #1: Failed
-                                * Invalid type for item of array property. Requires object, got integer
+                                * Invalid type for 'property': requires 'object', got 'integer'
                               - Composition element #2: Failed
-                                * Invalid type for item of array property. Requires object, got integer
+                                * Invalid type for 'property': requires 'object', got 'integer'
                           - invalid item #3
-                            * Invalid value for item of array property declined by composition constraint.
-                              Requires to match all composition elements but matched 1 elements.
+                            * Invalid value for 'property' declined by composition constraint
+                              Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
-                                * Missing required value for name
-                                * Invalid type for name. Requires string, got NULL
+                                * Missing required value for 'name'
+                                * Invalid type for 'name': requires 'string', got 'NULL'
                               - Composition element #2: Valid
                         ERROR,
                     ],

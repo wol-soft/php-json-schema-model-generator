@@ -99,7 +99,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         if (!$implicitNull) {
             $this->expectException(InvalidTypeException::class);
-            $this->expectExceptionMessage('Invalid type for age. Requires int, got NULL');
+            $this->expectExceptionMessage("Invalid type for 'age': requires 'int', got 'NULL'");
         }
 
         $object->populate(['age' => null]);
@@ -120,7 +120,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Hannes', $object->getName());
 
         $this->expectException(InvalidTypeException::class);
-        $this->expectExceptionMessage('Invalid type for name. Requires string, got NULL');
+        $this->expectExceptionMessage("Invalid type for 'name': requires 'string', got 'NULL'");
 
         $object->populate(['name' => null]);
     }
@@ -160,43 +160,49 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
                 ['name' => 'Anne-Marie', 'age' => false],
                 false,
                 PatternException::class,
-                "Value for name doesn't match pattern ^[a-zA-Z]*$"
+                "Value for 'name' does not match pattern '^[a-zA-Z]*$'"
             ],
             'No error collection - first value ok second invalid' => [
                 ['name' => 'Hannes', 'age' => false],
                 false,
                 InvalidTypeException::class,
-                "Invalid type for age. Requires int, got boolean"
+                "Invalid type for 'age': requires 'int', got 'boolean'"
             ],
             'Error collection - first value ok second invalid' => [
                 ['name' => 'Hannes', 'age' => false],
                 true,
                 ErrorRegistryException::class,
-                "Invalid type for age. Requires int, got boolean"
+                "Invalid type for 'age': requires 'int', got 'boolean'"
             ],
             'Error collection - multiple violations' => [
                 ['name' => 'Anne-Marie', 'age' => false],
                 true,
                 ErrorRegistryException::class,
-                "Value for name doesn't match pattern ^[a-zA-Z]*$
-Value for name must not be longer than 8
-Invalid type for age. Requires int, got boolean"
+                <<<ERROR
+                Value for 'name' does not match pattern '^[a-zA-Z]*$'
+                Value for 'name' must not be longer than 8
+                Invalid type for 'age': requires 'int', got 'boolean'
+                ERROR,
             ],
             'Invalid additional property' => [
                 ['numeric' => 9],
                 false,
                 InvalidAdditionalPropertiesException::class,
-                "contains invalid additional properties.
-  - invalid additional property 'numeric'
-    * Invalid type for additional property. Requires string, got integer"
+                <<<ERROR
+                contains invalid additional properties
+                  - invalid additional property 'numeric'
+                    * Invalid type for 'additional property': requires 'string', got 'integer'
+                ERROR,
             ],
             'Invalid additional property name' => [
                 ['invalid name' => 'Hi'],
                 false,
                 InvalidPropertyNamesException::class,
-                "contains properties with invalid names.
-  - invalid property 'invalid name'
-    * Value for property name doesn't match pattern ^[a-zA-Z]*$"
+                <<<ERROR
+                contains properties with invalid names
+                  - invalid property 'invalid name'
+                    * Value for 'property name' does not match pattern '^[a-zA-Z]*$'
+                ERROR,
             ],
             'Too many properties' => [
                 ['additional' => 'Hi', 'another' => 'Ho'],
@@ -245,8 +251,7 @@ Invalid type for age. Requires int, got boolean"
         ?string $expectedException,
         ?string $expectedExceptionMessage,
         array $populateValues,
-    ): void
-    {
+    ): void {
         $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {
             $modelGenerator->addPostProcessor(new PopulatePostProcessor());
             $modelGenerator->addPostProcessor(new class () extends PostProcessor {
@@ -288,7 +293,7 @@ Invalid type for age. Requires int, got boolean"
             ],
             'update not hooked value invalid' => [
                 InvalidTypeException::class,
-                'Invalid type for name. Requires string, got boolean',
+                "Invalid type for 'name': requires 'string', got 'boolean'",
                 ['name' => false],
             ],
             'update hooked value not changed' => [
@@ -303,7 +308,7 @@ Invalid type for age. Requires int, got boolean"
             ],
             'update hooked value invalid' => [
                 InvalidTypeException::class,
-                'Invalid type for age. Requires int, got boolean',
+                "Invalid type for 'age': requires 'int', got 'boolean'",
                 ['age' => false],
             ],
         ];
@@ -378,29 +383,29 @@ Invalid type for age. Requires int, got boolean"
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match one composition element but matched 2 elements.
+                declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
                   - Composition element #1: Valid
                   - Composition element #2: Valid
                 ERROR,
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match one composition element but matched 0 elements.
+                declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
                   - Composition element #1: Failed
-                    * Invalid type for stringProperty. Requires string, got integer
+                    * Invalid type for 'stringProperty': requires 'string', got 'integer'
                   - Composition element #2: Failed
-                    * Invalid type for integerProperty. Requires int, got NULL
+                    * Invalid type for 'integerProperty': requires 'int', got 'NULL'
                 ERROR,
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match one composition element but matched 2 elements.
+                declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
                 ERROR,
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match one composition element but matched 0 elements.
+                declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
                 ERROR,
             ],
         ];

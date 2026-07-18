@@ -55,8 +55,8 @@ class NullPropertyTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(
-            'Invalid type for property. Requires null, got ' .
-                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)),
+            "Invalid type for 'property': requires 'null', got '" .
+                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)) . "'",
         );
 
         $className = $this->generateClassFromFile('NullProperty.json');

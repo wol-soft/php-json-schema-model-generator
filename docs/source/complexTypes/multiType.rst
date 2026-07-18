@@ -25,7 +25,7 @@ Generated interface:
 
 Possible exceptions:
 
-* Invalid type for property. Requires [float, string], got __TYPE__
+* Invalid type for 'example': requires ['float', 'string'], got '__TYPE__'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTypeException* which provides the following methods to get further error details:
 
@@ -69,6 +69,6 @@ For example if an array **["Hello", 123, "Goodbye"]** is given the validation wi
 
 .. code-block:: none
 
-    Invalid items in array example:
+    Invalid items in array 'example':
       - invalid item #1
-        * Invalid type for item of array example. Requires string, got integer
+        * Invalid type for 'example': requires 'string', got 'integer'

@@ -30,8 +30,8 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(
             <<<ERROR
-            Invalid value for property declined by composition constraint.
-              Requires to match none composition element but matched 1 elements.
+            Invalid value for 'property' declined by composition constraint
+              Requires to match none composition element but matched 1 element
             ERROR,
         );
 
@@ -109,7 +109,7 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected exception for value matching the not branch');
         } catch (ErrorRegistryException | NotException $exception) {
             $this->assertStringContainsString(
-                'Invalid value for property declined by composition constraint',
+                "Invalid value for 'property' declined by composition constraint",
                 $exception->getMessage(),
             );
 
@@ -143,7 +143,10 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
     #[DataProvider('validationMethodDataProvider')]
     public function testNotProvidedOptionalNotNullPropertyThrowsAnException(GeneratorConfiguration $configuration): void
     {
-        $this->expectValidationError($configuration, 'Invalid value for property declined by composition constraint');
+        $this->expectValidationError(
+            $configuration,
+            "Invalid value for 'property' declined by composition constraint",
+        );
 
         $className = $this->generateClassFromFile('NotNull.json', $configuration);
 
@@ -159,7 +162,10 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidProvidedOptionalNotNullPropertyThrowsAnException(
         GeneratorConfiguration $configuration,
     ): void {
-        $this->expectValidationError($configuration, 'Invalid value for property declined by composition constraint');
+        $this->expectValidationError(
+            $configuration,
+            "Invalid value for 'property' declined by composition constraint",
+        );
 
         $className = $this->generateClassFromFile('NotNull.json', $configuration);
 
@@ -262,15 +268,15 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
         return self::combineDataProvider(
             self::validationMethodDataProvider(),
             [
-                '10.' => [10., 'Invalid value for property declined by composition constraint'],
-                '12.' => [12., 'Invalid value for property declined by composition constraint'],
-                '9.9' => [9.9, 'Value for property must not be smaller than 10'],
-                '9.' => [9, 'Value for property must not be smaller than 10'],
-                '8.' => [8, 'Value for property must not be smaller than 10'],
-                'bool' => [true, 'Invalid type for property'],
-                'array' => [[], 'Invalid type for property'],
-                'object' => [new stdClass(), 'Invalid type for property'],
-                'string' => ['', 'Invalid type for property'],
+                '10.' => [10., "Invalid value for 'property' declined by composition constraint"],
+                '12.' => [12., "Invalid value for 'property' declined by composition constraint"],
+                '9.9' => [9.9, "Value for 'property' must not be smaller than 10"],
+                '9.' => [9, "Value for 'property' must not be smaller than 10"],
+                '8.' => [8, "Value for 'property' must not be smaller than 10"],
+                'bool' => [true, "Invalid type for 'property'"],
+                'array' => [[], "Invalid type for 'property'"],
+                'object' => [new stdClass(), "Invalid type for 'property'"],
+                'string' => ['', "Invalid type for 'property'"],
             ],
         );
     }
@@ -335,7 +341,7 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
     public function testMatchingObjectPropertyWithReferencedSchemaThrowsAnException(
         GeneratorConfiguration $configuration,
     ): void {
-        $this->expectValidationError($configuration, 'Invalid value for person declined by composition constraint');
+        $this->expectValidationError($configuration, "Invalid value for 'person' declined by composition constraint");
 
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json', $configuration);
 
@@ -380,16 +386,16 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-                Invalid value for property declined by composition constraint.
-                  Requires to match none composition element but matched 1 elements.
+                Invalid value for 'property' declined by composition constraint
+                  Requires to match none composition element but matched 1 element
                   - Composition element #1: Valid
                 ERROR,
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-                Invalid value for property declined by composition constraint.
-                  Requires to match none composition element but matched 1 elements.
+                Invalid value for 'property' declined by composition constraint
+                  Requires to match none composition element but matched 1 element
                 ERROR,
             ],
         ];

@@ -34,8 +34,8 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         $propertyValue,
     ): void {
-        $expectedMessage = 'Invalid type for pattern property. Requires string, got ' .
-            (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue));
+        $expectedMessage = "Invalid type for 'pattern property': requires 'string', got '" .
+            (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)) . "'";
 
         $className = $this->generateClassFromFile('TypedPatternProperty.json', $configuration);
 

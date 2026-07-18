@@ -52,6 +52,7 @@ class SchemaDefinition
         string $path,
         bool $required,
         ?array $dependencies = null,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $jsonSchema = $this->source->navigate($path);
 
@@ -72,6 +73,7 @@ class SchemaDefinition
                         $propertyName,
                         $jsonSchema,
                         $required,
+                        $isArrayItem,
                     );
 
                 $this->resolvedPaths->offsetSet($key, $property);
@@ -90,7 +92,12 @@ class SchemaDefinition
             }
         }
 
+        // The cache key deliberately does not include $isArrayItem: the same $ref definition can
+        // be reused as a plain property in one place and as an array item in another. Each usage
+        // gets its own proxy, so the flag is set directly on the proxy rather than shared via the
+        // cached underlying property.
         $proxy = new PropertyProxy($propertyName, $this->source, $this->resolvedPaths, $key);
+        $proxy->setArrayItem($isArrayItem);
         $this->unresolvedProxies[$key][] = $proxy;
 
         if ($this->resolvedPaths->offsetGet($key)) {

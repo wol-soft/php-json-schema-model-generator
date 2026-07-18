@@ -83,8 +83,8 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(
-            'Invalid type for property. Requires float, got ' .
-                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)),
+            "Invalid type for 'property': requires 'float', got '" .
+                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)) . "'",
         );
 
         $className = $this->generateClassFromFile('NumberProperty.json');
@@ -178,10 +178,10 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
     public static function invalidRangeDataProvider(): iterable
     {
         return [
-            'Too large number int' => [2, 'Value for property must not be larger than 1.6', 'maximum'],
-            'Too large number float' => [1.7, 'Value for property must not be larger than 1.6', 'maximum'],
-            'Too small number int' => [-2, 'Value for property must not be smaller than -1.6', 'minimum'],
-            'Too small number float' => [-1.7, 'Value for property must not be smaller than -1.6', 'minimum'],
+            'Too large number int' => [2, "Value for 'property' must not be larger than 1.6", 'maximum'],
+            'Too large number float' => [1.7, "Value for 'property' must not be larger than 1.6", 'maximum'],
+            'Too small number int' => [-2, "Value for 'property' must not be smaller than -1.6", 'minimum'],
+            'Too small number float' => [-1.7, "Value for 'property' must not be smaller than -1.6", 'minimum'],
         ];
     }
     #[\Override]
@@ -202,12 +202,12 @@ class NumberPropertyTest extends AbstractNumericPropertyTestCase
     public static function invalidExclusiveRangeDataProvider(): iterable
     {
         return [
-            'Too large number int' => [2, 'Value for property must be smaller than 1.6', 'exclusiveMaximum'],
-            'Too large number float 1' => [1.6, 'Value for property must be smaller than 1.6', 'exclusiveMaximum'],
-            'Too large number float 2' => [1.9, 'Value for property must be smaller than 1.6', 'exclusiveMaximum'],
-            'Too small number int' => [-2, 'Value for property must be larger than -1.6', 'exclusiveMinimum'],
-            'Too small number float 1' => [-1.6, 'Value for property must be larger than -1.6', 'exclusiveMinimum'],
-            'Too small number float 2' => [-1.9, 'Value for property must be larger than -1.6', 'exclusiveMinimum'],
+            'Too large number int' => [2, "Value for 'property' must be smaller than 1.6", 'exclusiveMaximum'],
+            'Too large number float 1' => [1.6, "Value for 'property' must be smaller than 1.6", 'exclusiveMaximum'],
+            'Too large number float 2' => [1.9, "Value for 'property' must be smaller than 1.6", 'exclusiveMaximum'],
+            'Too small number int' => [-2, "Value for 'property' must be larger than -1.6", 'exclusiveMinimum'],
+            'Too small number float 1' => [-1.6, "Value for 'property' must be larger than -1.6", 'exclusiveMinimum'],
+            'Too small number float 2' => [-1.9, "Value for 'property' must be larger than -1.6", 'exclusiveMinimum'],
         ];
     }
 }

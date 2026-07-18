@@ -72,7 +72,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testNotProvidedRequiredPropertyThrowsAnException(bool $implicitNull, string $file): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches("/Missing required value for property/");
+        $this->expectExceptionMessageMatches("/Missing required value for 'property'/");
 
         $className = $this->generateClassFromFile(
             $file,
@@ -131,7 +131,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testNullProvidedForRequiredPropertyThrowsAnException(bool $implicitNull, string $schemaFile): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches("/Invalid type for property/");
+        $this->expectExceptionMessageMatches("/Invalid type for 'property'/");
 
         $className = $this->generateClassFromFile(
             $schemaFile,

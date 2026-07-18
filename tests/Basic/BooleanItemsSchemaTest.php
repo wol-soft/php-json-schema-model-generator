@@ -33,7 +33,7 @@ class BooleanItemsSchemaTest extends AbstractPHPModelGeneratorTestCase
     ): void {
         $this->expectValidationError(
             $configuration,
-            'Array items must not contain more than 0 items',
+            "Array 'items' must not contain more than 0 items",
         );
 
         $className = $this->generateClassFromFile('FalseItems.json', $configuration);

@@ -142,10 +142,10 @@ class ComposedIfThenElseBranchDefaultTest extends AbstractPHPModelGeneratorTestC
         $this->assertInstanceOf(ConditionalException::class, $caughtException);
         $this->assertMatchesRegularExpression(
             <<<'PATTERN'
-            /^Invalid value for \S+ declined by conditional composition constraint
+            /^Invalid value for '\S+' declined by conditional composition constraint
               - Condition: Valid
               - Conditional branch failed:
-                \* Value for score must not be smaller than 50$/
+                \* Value for 'score' must not be smaller than 50$/
             PATTERN,
             $caughtException->getMessage(),
         );

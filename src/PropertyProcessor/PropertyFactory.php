@@ -50,6 +50,7 @@ class PropertyFactory
         string $propertyName,
         JsonSchema $propertySchema,
         bool $required = false,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $json = $propertySchema->getJson();
 
@@ -64,10 +65,18 @@ class PropertyFactory
                     $propertyName,
                     $propertySchema,
                     $required,
+                    $isArrayItem,
                 );
             }
 
-            return $this->processReference($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
+            return $this->processReference(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema,
+                $required,
+                $isArrayItem,
+            );
         }
 
         $resolvedType = $json['type'] ?? 'any';
@@ -80,6 +89,7 @@ class PropertyFactory
                 $propertySchema,
                 $resolvedType,
                 $required,
+                $isArrayItem,
             );
         }
 
@@ -92,6 +102,7 @@ class PropertyFactory
                 $propertyName,
                 $propertySchema,
                 $required,
+                $isArrayItem,
             ),
             'base'   => $this->createBaseProperty($schemaProcessor, $schema, $propertyName, $propertySchema),
             default  => $this->createTypedProperty(
@@ -101,6 +112,7 @@ class PropertyFactory
                 $propertySchema,
                 $resolvedType,
                 $required,
+                $isArrayItem,
             ),
         };
     }
@@ -117,9 +129,17 @@ class PropertyFactory
         string $propertyName,
         JsonSchema $propertySchema,
         bool $required,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $json     = $propertySchema->getJson();
-        $property = $this->buildProperty($schemaProcessor, $propertyName, null, $propertySchema, $required);
+        $property = $this->buildProperty(
+            $schemaProcessor,
+            $propertyName,
+            null,
+            $propertySchema,
+            $required,
+            $isArrayItem,
+        );
 
         $className = $schemaProcessor->getGeneratorConfiguration()->getClassNameGenerator()->getClassName(
             $propertyName,
@@ -187,6 +207,7 @@ class PropertyFactory
         JsonSchema $propertySchema,
         string $type,
         bool $required,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $phpType  = $type !== 'any' ? TypeConverter::jsonSchemaToPHP($type) : null;
         $property = $this->buildProperty(
@@ -195,6 +216,7 @@ class PropertyFactory
             $phpType !== null ? new PropertyType($phpType) : null,
             $propertySchema,
             $required,
+            $isArrayItem,
         );
 
         $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema);
@@ -213,6 +235,7 @@ class PropertyFactory
         ?PropertyType $type,
         JsonSchema $propertySchema,
         bool $required,
+        bool $isArrayItem = false,
     ): Property {
         $json = $propertySchema->getJson();
 
@@ -232,6 +255,7 @@ class PropertyFactory
 
         $property = (new Property($propertyName, $type, $propertySchema, $json['description'] ?? ''))
             ->setRequired($required)
+            ->setArrayItem($isArrayItem)
             ->setReadOnly($isSchemaReadOnly || $schemaProcessor->getGeneratorConfiguration()->isImmutable())
             ->setWriteOnly($isWriteOnly);
 
@@ -243,7 +267,7 @@ class PropertyFactory
             $property->setExamples($json['examples']);
         }
 
-        if ($required && !str_starts_with($propertyName, 'item of array ')) {
+        if ($required && !$isArrayItem) {
             // Compute the parent object schema pointer by stripping '<name>/properties' (last two
             // path segments) from the property pointer, then appending the 'required' keyword.
             $propertyPointer = $propertySchema->getPointer();
@@ -315,6 +339,7 @@ class PropertyFactory
         string $propertyName,
         JsonSchema $propertySchema,
         bool $required,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $path       = [];
         $reference  = $propertySchema->getJson()['$ref'];
@@ -352,6 +377,7 @@ class PropertyFactory
                     implode('/', $path),
                     $required,
                     $propertySchema->getJson()['_dependencies'] ?? null,
+                    $isArrayItem,
                 );
 
                 // Use the reference site's pointer (where $ref appears in the schema) rather
@@ -389,10 +415,18 @@ class PropertyFactory
         string $propertyName,
         JsonSchema $propertySchema,
         bool $required,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $schema->getSchemaDictionary()->setUpDefinitionDictionary($schemaProcessor, $schema);
 
-        $property = $this->processReference($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
+        $property = $this->processReference(
+            $schemaProcessor,
+            $schema,
+            $propertyName,
+            $propertySchema,
+            $required,
+            $isArrayItem,
+        );
 
         if (!$property->getNestedSchema()) {
             throw new SchemaException(
@@ -427,9 +461,17 @@ class PropertyFactory
         JsonSchema $propertySchema,
         array $types,
         bool $required,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $json     = $propertySchema->getJson();
-        $property = $this->buildProperty($schemaProcessor, $propertyName, null, $propertySchema, $required);
+        $property = $this->buildProperty(
+            $schemaProcessor,
+            $propertyName,
+            null,
+            $propertySchema,
+            $required,
+            $isArrayItem,
+        );
 
         $collectedTypes   = [];
         $typeHints        = [];
@@ -449,7 +491,14 @@ class PropertyFactory
 
             // For type=object, delegate to the same object path (processSchema + wireObjectProperty).
             $subProperty = $type === 'object'
-                ? $this->createObjectProperty($schemaProcessor, $schema, $propertyName, $subSchema, $required)
+                ? $this->createObjectProperty(
+                    $schemaProcessor,
+                    $schema,
+                    $propertyName,
+                    $subSchema,
+                    $required,
+                    $isArrayItem,
+                )
                 : $this->createSubTypeProperty(
                     $schemaProcessor,
                     $schema,
@@ -457,6 +506,7 @@ class PropertyFactory
                     $subSchema,
                     $type,
                     $required,
+                    $isArrayItem,
                 );
 
             $subProperty->onResolve(function () use (
@@ -522,6 +572,7 @@ class PropertyFactory
         JsonSchema $propertySchema,
         string $type,
         bool $required,
+        bool $isArrayItem = false,
     ): Property {
         $subProperty = $this->buildProperty(
             $schemaProcessor,
@@ -529,6 +580,7 @@ class PropertyFactory
             new PropertyType(TypeConverter::jsonSchemaToPHP($type)),
             $propertySchema,
             $required,
+            $isArrayItem,
         );
 
         $this->applyModifiers($schemaProcessor, $schema, $subProperty, $propertySchema, anyOnly: false, typeOnly: true);

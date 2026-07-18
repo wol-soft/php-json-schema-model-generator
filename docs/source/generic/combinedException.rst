@@ -60,33 +60,33 @@ The exception which will be thrown (combined array-exception and combined-schema
 
 .. code-block:: none
 
-    Invalid items in array property:
+    Invalid items in array 'property':
       - invalid item #0
-        * Invalid value for item of array property declined by composition constraint.
-          Requires to match all composition elements but matched 1 elements.
+        * Invalid value for 'property' declined by composition constraint
+          Requires to match all composition elements but matched 1 element
           - Composition element #1: Failed
-            * Invalid type for name. Requires string, got boolean
+            * Invalid type for 'name': requires 'string', got 'boolean'
           - Composition element #2: Valid
       - invalid item #1
-        * Invalid value for item of array property declined by composition constraint.
-          Requires to match all composition elements but matched 0 elements.
+        * Invalid value for 'property' declined by composition constraint
+          Requires to match all composition elements but matched 0 elements
           - Composition element #1: Failed
-            * Value for name must not be shorter than 2
+            * Value for 'name' must not be shorter than 2
           - Composition element #2: Failed
-            * Invalid type for age. Requires int, got string
+            * Invalid type for 'age': requires 'int', got 'string'
       - invalid item #2
-        * Invalid value for item of array property declined by composition constraint.
-          Requires to match all composition elements but matched 0 elements.
+        * Invalid value for 'property' declined by composition constraint
+          Requires to match all composition elements but matched 0 elements
           - Composition element #1: Failed
-            * Invalid type for item of array property. Requires object, got integer
+            * Invalid type for 'property': requires 'object', got 'integer'
           - Composition element #2: Failed
-            * Invalid type for item of array property. Requires object, got integer
+            * Invalid type for 'property': requires 'object', got 'integer'
       - invalid item #3
-        * Invalid value for item of array property declined by composition constraint.
-          Requires to match all composition elements but matched 1 elements.
+        * Invalid value for 'property' declined by composition constraint
+          Requires to match all composition elements but matched 1 element
           - Composition element #1: Failed
-            * Missing required value for name
-            * Invalid type for name. Requires string, got NULL
+            * Missing required value for 'name'
+            * Invalid type for 'name': requires 'string', got 'NULL'
           - Composition element #2: Valid
 
 .. seealso::
