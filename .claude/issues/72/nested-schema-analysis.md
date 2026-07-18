@@ -526,11 +526,32 @@ superseding 8.2 rule 4:
    who mean objects can declare `type: object`. Pinned by
    `testAnyOfWithBareObjectValidatorBranchesAcceptsNonObjectValuePerSpec` (green today — the
    right outcome, currently for the wrong reason — and guards against a future object-implied
-   fix silently flipping it). Consequence for the §8.10 predicate: **bare object-validator
-   subschemas are NOT object-implied for value acceptance**; their fix is limited to making the
-   object validators actually run against object values (per-branch validation restoration, the
-   #167 family), not to typing the branch. Implementation may add a generation-time warning that
-   such branches do not constrain non-object values.
+   fix silently flipping it). Implementation may add a generation-time warning that such
+   branches do not constrain non-object values.
+
+   **Consequence — the predicate must be three-valued (asserting vs. describing).** The pinned
+   bare-`oneOf` expectations are only jointly satisfiable under a distinction the earlier
+   two-valued predicate missed: `42` must be rejected for matching BOTH branches vacuously
+   ("matched 2" — the branches do not *assert* object-ness), while an accepted `{name: ...}`
+   must still be *instantiated* (a class *represents* the branch's object shape). So a schema's
+   object shape is one of:
+   - **object-asserting** — explicit `type: object`, or a composition whose branches are all
+     asserting: non-objects fail it; eligible for re-routing through the object path.
+   - **object-describing** — object-constraining keywords without a type (bare-validator case),
+     or compositions of only-describing branches: constrains objects, vacuous for non-objects,
+     never re-routed and never object-typed — but still gets a representation class whose
+     validators are guarded to run only against object values. The existing per-branch decorator
+     idiom (`is_array($value) ? new X($value) : $value`) already implements exactly this
+     "instantiate arrays, pass everything else through" behavior, and guarded per-branch
+     validation yields the correct matched-counts for every pinned case (`42` → both vacuous
+     matches; `{}` → fails `required` in both; `{name}` → exactly one).
+   - **not object** — everything else.
+   An `allOf` containing at least one asserting branch is asserting (the value must be an
+   object); an `allOf` of only describing branches is describing (per strict spec it accepts
+   non-objects vacuously — `allOf: [{required: [a]}, {required: [b]}]` accepts `42`). Whether
+   describing-only compositions get a representation class at all, or only guarded validation
+   with raw values, is a low-stakes implementation decision (conservative default: guarded
+   validation only).
 4. `type` is an array (e.g. `["object", "string"]`) → NOT implied-object (not exclusively
    object-valued); never re-routed.
 5. Everything else (scalar types, scalar compositions, vacuous/boolean branches) → not object.
@@ -538,6 +559,31 @@ superseding 8.2 rule 4:
 Also verified while probing: `required`/`properties` DO constrain actual objects even under
 strict spec (an empty object fails a bare `{required: [name]}` branch) — the vacuous-match
 question exists only for non-object values.
+
+### 8.11 Other schema-creation contexts (array items, dependencies, contains)
+
+Every context that processes a subschema through `PropertyFactory::create()` inherits both the
+defect and — by construction — the fix, since the routing predicate lives at that single entry
+point. Verified for the most common one, **array items** **[verified empirically]**:
+
+- `items: {$ref: single-level implied definition}` (an `allOf` of *explicit* object branches)
+  **works today** — items are instantiated as the `_Merged_` class and item constraints are
+  enforced. Consistent with the property-level single-level case (`IdenticalMergedSchema`):
+  the defect is strictly about branches that are *themselves* implied.
+- `items: {$ref: multi-level implied definition}` (an `allOf` whose branches are allOf-only
+  `$refs`) is **broken identically to the property case**: valid items stay raw arrays, and
+  items violating the inner definition's `required` are silently accepted. Pinned red by
+  `testMultiLevelImpliedObjectArrayItemsInstantiateAndValidate` /
+  `...RejectInvalidItem` (`NestedAllOfInArrayItems.json`), with the expected rejection message
+  captured from the explicit-object gold equivalent (`InvalidItemException`, "Missing required
+  value for name").
+
+Not separately probed (same entry point, lower usage): schema `dependencies` values,
+`contains`, `patternProperties` value schemas, `additionalProperties` object schemas. These are
+covered by the same mechanism argument and belong in the implementation test matrix rather than
+requiring more pre-implementation red tests — with one watch item: `SchemaDependencyValidator`
+wires its own `ObjectInstantiationDecorator`, so the dependencies context has its own
+instantiation path to re-verify after re-routing.
 
 ### 8.6 Risks and open implementation questions
 
