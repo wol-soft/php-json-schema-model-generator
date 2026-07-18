@@ -29,8 +29,11 @@ use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
+use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShape;
+use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\TypeConverter;
+use Throwable;
 
 class PropertyFactory
 {
@@ -78,6 +81,33 @@ class PropertyFactory
             );
         }
 
+        // Re-route a composition-only schema that the composition itself guarantees to be an
+        // object (e.g. an allOf of object branches, possibly multiple $ref levels deep) through
+        // the object path, so it becomes a genuine nested class with instantiation and instanceof
+        // validation instead of a bare composed validator. Gated on allOf as the outer keyword:
+        // anyOf/oneOf deliberately keep their per-matched-branch runtime value identity and are
+        // fixed instead at the branch level (a branch that is itself an object-asserting
+        // composition re-routes here when it is created). Injecting an explicit type: object makes
+        // the implied object-ness explicit so the existing object path (which processSchema forces
+        // to a type: base nested class handling the composition internally) applies unchanged.
+        if (
+            !isset($json['type'])
+            && !isset($json['filter'])
+            && isset($json['allOf'])
+            && $this->resolveObjectShape($schemaProcessor, $schema, $json) === ObjectShape::ObjectAsserting
+        ) {
+            $objectJson = $json;
+            $objectJson['type'] = 'object';
+
+            return $this->createObjectProperty(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema->withJson($objectJson),
+                $required,
+            );
+        }
+
         $this->checkType($resolvedType, $schema);
 
         return match ($resolvedType) {
@@ -98,6 +128,38 @@ class PropertyFactory
                 $required,
             ),
         };
+    }
+
+    /**
+     * Statically classify the object shape of the given raw schema, peeking through `$ref` chains
+     * via the schema definition dictionary. Only a raw, un-processed peek happens here - no
+     * property is created for the target - so the classification stays side-effect-free for the
+     * common same-file reference case (cross-file references may parse the external file, which the
+     * order-independent external-schema machinery would parse moments later anyway).
+     */
+    private function resolveObjectShape(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        array $json,
+    ): ObjectShape {
+        $dictionary = $schema->getSchemaDictionary();
+
+        $refResolver = static function (string $reference) use ($schemaProcessor, $dictionary): array|bool|null {
+            $path = [];
+
+            try {
+                $definition = $dictionary->getDefinition($reference, $schemaProcessor, $path);
+
+                return $definition?->getSource()->navigate(implode('/', $path))->getJson();
+            } catch (Throwable) {
+                // An unresolvable, malformed, or boolean-leaf reference leaves object-ness
+                // undecidable; returning null makes the resolver bail out conservatively to
+                // NotObject, keeping the schema on its current processing path.
+                return null;
+            }
+        };
+
+        return (new ObjectShapeResolver($refResolver))->resolve($json);
     }
 
     /**
