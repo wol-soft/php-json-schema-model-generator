@@ -86,18 +86,31 @@ class Issue72Test extends AbstractIssueTestCase
      */
     public function testMultiLevelImpliedObjectArrayItemsRejectInvalidItem(): void
     {
-        $this->expectException(InvalidItemException::class);
-        $this->expectExceptionMessage(
-            <<<ERROR
-            Invalid items in array members:
-              - invalid item #0
-                * Missing required value for name
-            ERROR,
-        );
-
         $className = $this->generateClassFromFile('NestedAllOfInArrayItems.json');
 
-        new $className(['members' => [['salary' => 10000]]]);
+        try {
+            new $className(['members' => [['salary' => 10000]]]);
+            $this->fail('Expected an InvalidItemException for the item violating the implied definition');
+        } catch (InvalidItemException $exception) {
+            // The item references a multi-level composition-implied definition, so the failure is a
+            // two-level nested composition error; direct-exception mode surfaces the leaf reason at
+            // the bottom. Both generated class names are normalised to a stable token.
+            $this->assertSame(
+                <<<ERROR
+                Invalid items in array members:
+                  - invalid item #0
+                    * Invalid value for <class> declined by composition constraint.
+                      Requires to match all composition elements but matched 1 elements.
+                      - Composition element #1: Failed
+                        * Invalid value for <class> declined by composition constraint.
+                      Requires to match all composition elements but matched 0 elements.
+                      - Composition element #1: Failed
+                        * Missing required value for name
+                      - Composition element #2: Valid
+                ERROR,
+                $this->normalizeCompositionClassNames($exception->getMessage()),
+            );
+        }
     }
 
     /**
@@ -386,19 +399,45 @@ class Issue72Test extends AbstractIssueTestCase
     public function testIfThenElseWithImpliedObjectBranchesRejectsValueViolatingTakenBranch(
         string $schemaFile,
     ): void {
-        $this->expectException(ConditionalException::class);
-        $this->expectExceptionMessage(
-            <<<ERROR
-            Invalid value for p declined by conditional composition constraint
-              - Condition: Valid
-              - Conditional branch failed:
-                * Missing required value for name
-            ERROR,
-        );
-
         $className = $this->generateClassFromFile($schemaFile);
 
-        new $className(['p' => ['isPerson' => true, 'companyName' => 'ACME']]);
+        try {
+            new $className(['p' => ['isPerson' => true, 'companyName' => 'ACME']]);
+            $this->fail('Expected a ConditionalException for the value violating the taken branch');
+        } catch (ConditionalException $exception) {
+            // The then-branch is a composition-implied object, so the taken-branch failure is
+            // reported as a nested composition error; direct-exception mode surfaces the underlying
+            // leaf reason ("Missing required value for name"). The nested class name carries a
+            // uniqid suffix and is normalised to a stable token.
+            $this->assertSame(
+                <<<ERROR
+                Invalid value for p declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Invalid value for <class> declined by composition constraint.
+                  Requires to match all composition elements but matched 0 elements.
+                  - Composition element #1: Failed
+                    * Missing required value for name
+                ERROR,
+                $this->normalizeCompositionClassNames($exception->getMessage()),
+            );
+        }
+    }
+
+    /**
+     * Normalise generated nested-class names inside a composition error message to a stable token.
+     * A re-routed composition-implied object branch is validated through a generated class whose
+     * name carries a uniqid suffix, so the "Invalid value for <ClassName> declined by composition
+     * constraint" fragment cannot be asserted verbatim. The outer conditional wrapper ("declined
+     * by conditional composition constraint") is deliberately left untouched by the pattern.
+     */
+    private function normalizeCompositionClassNames(string $message): string
+    {
+        return preg_replace(
+            '/Invalid value for \w+ declined by composition constraint/',
+            'Invalid value for <class> declined by composition constraint',
+            $message,
+        );
     }
 
     /**
@@ -557,19 +596,25 @@ class Issue72Test extends AbstractIssueTestCase
      */
     public function testIfThenElseMixingImpliedObjectThenAndScalarElseRejectsValueViolatingThenBranch(): void
     {
-        $this->expectException(ConditionalException::class);
-        $this->expectExceptionMessage(
-            <<<ERROR
-            Invalid value for p declined by conditional composition constraint
-              - Condition: Valid
-              - Conditional branch failed:
-                * Missing required value for name
-            ERROR,
-        );
-
         $className = $this->generateClassFromFile('NestedIfThenElseMixedScalar.json');
 
-        new $className(['p' => []]);
+        try {
+            new $className(['p' => []]);
+            $this->fail('Expected a ConditionalException for the object violating the then branch');
+        } catch (ConditionalException $exception) {
+            $this->assertSame(
+                <<<ERROR
+                Invalid value for p declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Invalid value for <class> declined by composition constraint.
+                  Requires to match all composition elements but matched 0 elements.
+                  - Composition element #1: Failed
+                    * Missing required value for name
+                ERROR,
+                $this->normalizeCompositionClassNames($exception->getMessage()),
+            );
+        }
     }
 
     /**

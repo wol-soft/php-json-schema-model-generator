@@ -84,6 +84,19 @@
                     }
                 {% endif %}
 
+                {% if not generatorConfiguration.collectErrors()
+                      and not viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
+                %}
+                    // Direct-exception mode keeps no per-branch error registry, so the composition
+                    // exception would otherwise report only the matched-count summary. Record an
+                    // empty registry for a branch that validated cleanly (rendered as "Valid") so
+                    // the exception can enumerate every branch's outcome; the catch block below
+                    // records the branch's own exception on failure, keeping the underlying reason
+                    // visible in the message. Excluded for the mutable base validator, whose
+                    // state-cache fast path skips branch evaluation and would misalign the registry.
+                    $compositionErrorCollection[] = new \PHPModelGenerator\Exception\ErrorRegistryException();
+                {% endif %}
+
                 {% if postPropose %}
                     $proposedValue = $proposedValue ?? $value;
                 {% endif %}
@@ -108,6 +121,20 @@
                 if (isset($validatorIndex)) {
                     $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = false;
                 }
+            {% endif %}
+
+            {% if not generatorConfiguration.collectErrors()
+                  and not viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
+            %}
+                // Record the failing branch's own exception (rendered as "Failed" with its
+                // message) so the composition exception surfaces the underlying reason in
+                // direct-exception mode. Control-flow exceptions used purely for counting are not
+                // ValidationExceptions and contribute no message.
+                $branchErrorRegistry = new \PHPModelGenerator\Exception\ErrorRegistryException();
+                if ($e instanceof \PHPModelGenerator\Exception\ValidationException) {
+                    $branchErrorRegistry->addError($e);
+                }
+                $compositionErrorCollection[] = $branchErrorRegistry;
             {% endif %}
 
             $succeededCompositionElements--;
