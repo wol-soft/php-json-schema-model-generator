@@ -99,7 +99,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         if (!$implicitNull) {
             $this->expectException(InvalidTypeException::class);
-            $this->expectExceptionMessage('Invalid type for \'age\': requires \'int\', got \'NULL\'');
+            $this->expectExceptionMessage("Invalid type for 'age': requires 'int', got 'NULL'");
         }
 
         $object->populate(['age' => null]);
@@ -120,7 +120,7 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Hannes', $object->getName());
 
         $this->expectException(InvalidTypeException::class);
-        $this->expectExceptionMessage('Invalid type for \'name\': requires \'string\', got \'NULL\'');
+        $this->expectExceptionMessage("Invalid type for 'name': requires 'string', got 'NULL'");
 
         $object->populate(['name' => null]);
     }
@@ -178,25 +178,31 @@ class PopulatePostProcessorTest extends AbstractPHPModelGeneratorTestCase
                 ['name' => 'Anne-Marie', 'age' => false],
                 true,
                 ErrorRegistryException::class,
-                "Value for 'name' does not match pattern '^[a-zA-Z]*$'
-Value for 'name' must not be longer than 8
-Invalid type for 'age': requires 'int', got 'boolean'"
+                <<<ERROR
+                Value for 'name' does not match pattern '^[a-zA-Z]*$'
+                Value for 'name' must not be longer than 8
+                Invalid type for 'age': requires 'int', got 'boolean'
+                ERROR,
             ],
             'Invalid additional property' => [
                 ['numeric' => 9],
                 false,
                 InvalidAdditionalPropertiesException::class,
-                "contains invalid additional properties
-  - invalid additional property 'numeric'
-    * Invalid type for 'additional property': requires 'string', got 'integer'"
+                <<<ERROR
+                contains invalid additional properties
+                  - invalid additional property 'numeric'
+                    * Invalid type for 'additional property': requires 'string', got 'integer'
+                ERROR,
             ],
             'Invalid additional property name' => [
                 ['invalid name' => 'Hi'],
                 false,
                 InvalidPropertyNamesException::class,
-                "contains properties with invalid names
-  - invalid property 'invalid name'
-    * Value for 'property name' does not match pattern '^[a-zA-Z]*$'"
+                <<<ERROR
+                contains properties with invalid names
+                  - invalid property 'invalid name'
+                    * Value for 'property name' does not match pattern '^[a-zA-Z]*$'
+                ERROR,
             ],
             'Too many properties' => [
                 ['additional' => 'Hi', 'another' => 'Ho'],
@@ -287,7 +293,7 @@ Invalid type for 'age': requires 'int', got 'boolean'"
             ],
             'update not hooked value invalid' => [
                 InvalidTypeException::class,
-                'Invalid type for \'name\': requires \'string\', got \'boolean\'',
+                "Invalid type for 'name': requires 'string', got 'boolean'",
                 ['name' => false],
             ],
             'update hooked value not changed' => [
@@ -302,7 +308,7 @@ Invalid type for 'age': requires 'int', got 'boolean'"
             ],
             'update hooked value invalid' => [
                 InvalidTypeException::class,
-                'Invalid type for \'age\': requires \'int\', got \'boolean\'',
+                "Invalid type for 'age': requires 'int', got 'boolean'",
                 ['age' => false],
             ],
         ];

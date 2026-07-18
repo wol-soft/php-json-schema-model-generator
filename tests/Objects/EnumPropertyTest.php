@@ -310,7 +310,7 @@ class EnumPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testNotProvidedEnumItemInRequiredUntypedEnumThrowsAnException(bool $implicitNull): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Missing required value for \'property\'');
+        $this->expectExceptionMessage("Missing required value for 'property'");
 
         $className = $this->generateClassFromFile('RequiredUntypedEnumProperty.json', null, false, $implicitNull);
 

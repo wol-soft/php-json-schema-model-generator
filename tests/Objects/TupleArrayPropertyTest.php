@@ -95,7 +95,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     ): void {
         $this->expectValidationError(
             $configuration,
-            'Tuple array \'property\' contains not allowed additional items: expected 3 items, got 4',
+            "Tuple array 'property' contains not allowed additional items: expected 3 items, got 4",
         );
 
         $className = $this->generateClassFromFile('TupleArrayNoAdditionalItems.json', $configuration);
@@ -250,27 +250,27 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             [
                 'invalid type for additional item (null)' => [
                     [3, 'Avenue', null],
-                    sprintf($exception, 'Invalid type for \'additional item\': requires \'string\', got \'NULL\'')
+                    sprintf($exception, "Invalid type for 'additional item': requires 'string', got 'NULL'")
                 ],
                 'invalid type for additional item (int)' => [
                     [3, 'Avenue', 0],
-                    sprintf($exception, 'Invalid type for \'additional item\': requires \'string\', got \'integer\'')
+                    sprintf($exception, "Invalid type for 'additional item': requires 'string', got 'integer'")
                 ],
                 'invalid type for additional item (float)' => [
                     [3, 'Avenue', 0.2],
-                    sprintf($exception, 'Invalid type for \'additional item\': requires \'string\', got \'double\'')
+                    sprintf($exception, "Invalid type for 'additional item': requires 'string', got 'double'")
                 ],
                 'invalid type for additional item (bool)' => [
                     [3, 'Avenue', false],
-                    sprintf($exception, 'Invalid type for \'additional item\': requires \'string\', got \'boolean\'')
+                    sprintf($exception, "Invalid type for 'additional item': requires 'string', got 'boolean'")
                 ],
                 'invalid type for additional item (object)' => [
                     [3, 'Avenue', new stdClass()],
-                    sprintf($exception, 'Invalid type for \'additional item\': requires \'string\', got \'stdClass\'')
+                    sprintf($exception, "Invalid type for 'additional item': requires 'string', got 'stdClass'")
                 ],
                 'invalid type for additional item (array)' => [
                     [3, 'Avenue', [1, 2]],
-                    sprintf($exception, 'Invalid type for \'additional item\': requires \'string\', got \'array\'')
+                    sprintf($exception, "Invalid type for 'additional item': requires 'string', got 'array'")
                 ],
                 'Multiple violations' => [
                     [3, 'Avenue', 0, 'asx', null, 'ADC', false],
@@ -355,23 +355,23 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             [
                 'invalid type for additional item (null)' => [
                     [3, 'Avenue', null],
-                    sprintf($exception, 'Invalid type for \'additional item\': requires \'object\', got \'NULL\'')
+                    sprintf($exception, "Invalid type for 'additional item': requires 'object', got 'NULL'")
                 ],
                 'invalid type for additional item (int)' => [
                     [3, 'Avenue', 12],
-                    sprintf($exception, 'Invalid type for \'additional item\': requires \'object\', got \'integer\'')
+                    sprintf($exception, "Invalid type for 'additional item': requires 'object', got 'integer'")
                 ],
                 'Missing required name' => [
                     [3, 'Avenue', ['age' => 42], ['name' => 'Hans']],
-                    sprintf($exception, 'Missing required value for \'name\'')
+                    sprintf($exception, "Missing required value for 'name'")
                 ],
-                'Invalid type for \'name\'' => [
+                "Invalid type for 'name'" => [
                     [3, 'Avenue', ['name' => 42], ['name' => 'Hans']],
-                    sprintf($exception, 'Invalid type for \'name\': requires \'string\', got \'integer\'')
+                    sprintf($exception, "Invalid type for 'name': requires 'string', got 'integer'")
                 ],
-                'Invalid type for \'age\'' => [
+                "Invalid type for 'age'" => [
                     [3, 'Avenue', ['name' => 'Frida', 'age' => true], ['name' => 'Hans']],
-                    sprintf($exception, 'Invalid type for \'age\': requires \'int\', got \'boolean\'')
+                    sprintf($exception, "Invalid type for 'age': requires 'int', got 'boolean'")
                 ],
                 'Multiple violations' => [
                     [

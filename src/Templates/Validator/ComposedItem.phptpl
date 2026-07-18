@@ -117,12 +117,14 @@
         $validatorComponentIndex++;
     {% endforeach %}
 
-    // Only a satisfied composition may adopt a branch's (possibly decorator-transformed)
-    // proposed value. If no branch succeeded, $proposedValue never advanced past its initial
-    // null (each branch only reaches "$proposedValue = $proposedValue ?? $value;" once it has
-    // already passed its own composition-error check), so unconditionally assigning it to $value
-    // would replace the real input with null — corrupting both this validator's own reported
-    // value and, since array/object items are validated by reference, the original data itself.
+    {#
+        Only a satisfied composition may adopt a branch's (possibly decorator-transformed)
+        proposed value. If no branch succeeded, $proposedValue never advanced past its initial
+        null (each branch only reaches "$proposedValue = $proposedValue ?? $value;" once it has
+        already passed its own composition-error check), so unconditionally assigning it to $value
+        would replace the real input with null — corrupting both this validator's own reported
+        value and, since array/object items are validated by reference, the original data itself.
+    #}
     $compositionSatisfied = {{ composedValueValidation }};
 
     {% if mergedProperty %}

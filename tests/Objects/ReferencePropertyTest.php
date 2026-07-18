@@ -142,7 +142,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(ValidationException::class);
         if ($propertyValue instanceof stdClass) {
             $this->expectExceptionMessageMatches(
-                '/Invalid class for \'person\': requires \'ReferencePropertyTest_.*\', got \'stdClass\'/',
+                "/Invalid class for 'person': requires 'ReferencePropertyTest_.*', got 'stdClass'/",
             );
         } else {
             $this->expectExceptionMessage(
@@ -249,13 +249,13 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         return self::combineDataProvider(
             static::intReferenceProvider(),
             [
-                'bool' => [true, 'Invalid type for \'year\''],
-                'float' => [0.92, 'Invalid type for \'year\''],
-                'array' => [[2], 'Invalid type for \'year\''],
-                'object' => [new stdClass(), 'Invalid type for \'year\''],
-                'string' => ['1', 'Invalid type for \'year\''],
-                'int too low' => [1899, 'Value for \'year\' must not be smaller than 1900'],
-                'int too high' => [2001, 'Value for \'year\' must not be larger than 2000'],
+                'bool' => [true, "Invalid type for 'year'"],
+                'float' => [0.92, "Invalid type for 'year'"],
+                'array' => [[2], "Invalid type for 'year'"],
+                'object' => [new stdClass(), "Invalid type for 'year'"],
+                'string' => ['1', "Invalid type for 'year'"],
+                'int too low' => [1899, "Value for 'year' must not be smaller than 1900"],
+                'int too high' => [2001, "Value for 'year' must not be larger than 2000"],
             ],
         );
     }
@@ -456,7 +456,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testRecursivePathRefWithInvalidTypeThrowsException(string $schemaFile): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid type for \'root\': requires \'object\', got \'integer\'');
+        $this->expectExceptionMessage("Invalid type for 'root': requires 'object', got 'integer'");
 
         $className = $this->generateClassFromFile($schemaFile);
         new $className(['root' => 42]);
@@ -519,7 +519,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testDefsObjectRefInvalidTypeThrowsException(string $reference): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid type for \'person\': requires \'object\', got \'integer\'');
+        $this->expectExceptionMessage("Invalid type for 'person': requires 'object', got 'integer'");
 
         $className = $this->generateClassFromFileTemplate('DefsObjectReference.json', [$reference]);
         new $className(['person' => 42]);
@@ -920,7 +920,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testBaseRefToInBaseDirFileEnforcesRequiredProperty(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Missing required value for \'street\'');
+        $this->expectExceptionMessage("Missing required value for 'street'");
 
         $namespace = 'T5BaseDirBaseRefRequired';
         $this->generateDirectory('BaseDirBaseRef', $this->directoryConfig($namespace));
@@ -1040,11 +1040,11 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider(): array
     {
         return [
-            'Invalid value for \'personA\'' => [
+            "Invalid value for 'personA'" => [
                 ['personA' => 10],
-                'Invalid type for \'personA\': requires \'object\', got \'integer\'',
+                "Invalid type for 'personA': requires 'object', got 'integer'",
             ],
-            'Invalid value for \'both persons\'' => [
+            "Invalid value for 'both persons'" => [
                 ['personA' => 10, 'personB' => false],
                 <<<ERROR
                 Invalid type for 'personA': requires 'object', got 'integer'

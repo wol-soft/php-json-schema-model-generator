@@ -109,8 +109,8 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $this->expectException(InvalidTypeException::class);
         $this->expectExceptionMessageMatches(
-            '/Invalid type for \'property\': requires \'EnumPostProcessorTest_.*Property\', ' .
-                'got \'PHPModelGenerator\\\\Tests\\\\PostProcessor\\\\IntEnum\'/',
+            "/Invalid type for 'property': requires 'EnumPostProcessorTest_.*Property', " .
+                "got 'PHPModelGenerator\\\\Tests\\\\PostProcessor\\\\IntEnum'/",
         );
 
         new $className(['property' => IntEnum::A]);
@@ -287,7 +287,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         );
 
         $this->expectException(EnumException::class);
-        $this->expectExceptionMessage('Value for \'property\' must be one of [10,100,null], got 1');
+        $this->expectExceptionMessage("Value for 'property' must be one of [10,100,null], got 1");
         $object->setProperty(1);
     }
 
@@ -500,7 +500,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFile('EnumPropertyRequired.json');
 
         $this->expectException(RequiredValueException::class);
-        $this->expectExceptionMessage('Missing required value for \'property\'');
+        $this->expectExceptionMessage("Missing required value for 'property'");
 
         new $className();
     }

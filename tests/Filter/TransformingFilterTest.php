@@ -153,7 +153,7 @@ class TransformingFilterTest extends AbstractFilterTestCase
             $this->fail('Expected exception for invalid type on a transforming-filtered property');
         } catch (ErrorRegistryException | InvalidTypeException $exception) {
             $this->assertStringContainsString(
-                'Invalid type for \'created\': requires [\'DateTime\', \'string\'], got \'integer\'',
+                "Invalid type for 'created': requires ['DateTime', 'string'], got 'integer'",
                 $exception->getMessage(),
             );
 
@@ -277,7 +277,7 @@ class TransformingFilterTest extends AbstractFilterTestCase
 
         if (!$implicitNull) {
             $this->expectException(ErrorRegistryException::class);
-            $this->expectExceptionMessage('Invalid type for \'value\': requires [\'string\', \'int\'], got \'NULL\'');
+            $this->expectExceptionMessage("Invalid type for 'value': requires ['string', 'int'], got 'NULL'");
             new $fqcn(['value' => null]);
         }
     }

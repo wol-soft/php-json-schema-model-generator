@@ -236,7 +236,7 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
                 <<<ERROR
                 Invalid schema which is dependant on 'credit_card':
                   - Invalid value for 'SchemaDependencyTest_\w+_credit_card_Dependency' declined by composition constraint
-                      Requires to match all composition elements but matched 1 elements
+                      Requires to match all composition elements but matched 1 element
                       - Composition element #1: Failed
                         \* Missing required value for 'name'
                         \* Invalid type for 'name': requires 'string', got 'NULL'
@@ -248,7 +248,7 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
                 <<<ERROR
                 Invalid schema which is dependant on 'credit_card':
                   - Invalid value for 'SchemaDependencyTest_\w+_credit_card_Dependency' declined by composition constraint
-                      Requires to match all composition elements but matched 1 elements
+                      Requires to match all composition elements but matched 1 element
                       - Composition element #1: Failed
                         \* Invalid type for 'name': requires 'string', got 'boolean'
                       - Composition element #2: Valid

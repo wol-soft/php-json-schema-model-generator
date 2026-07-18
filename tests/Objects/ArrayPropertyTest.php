@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use Closure;
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\Arrays\MaxItemsException;
@@ -16,6 +17,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -275,7 +277,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         array $propertyValue,
     ): void {
-        $this->expectValidationError($configuration, 'Items of array \'property\' are not unique');
+        $this->expectValidationError($configuration, "Items of array 'property' are not unique");
 
         $className = $this->generateClassFromFile('ArrayPropertyUnique.json', $configuration);
 
@@ -361,9 +363,9 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         return self::combineDataProvider(
             self::validationMethodDataProvider(),
             [
-                'Empty array' => [[], 'Array \'property\' must not contain less than 2 items'],
-                'Too few array items' => [[1], 'Array \'property\' must not contain less than 2 items'],
-                'Too many array items' => [[1, 2, 3 , 4], 'Array \'property\' must not contain more than 3 items']
+                'Empty array' => [[], "Array 'property' must not contain less than 2 items"],
+                'Too few array items' => [[1], "Array 'property' must not contain less than 2 items"],
+                'Too many array items' => [[1, 2, 3 , 4], "Array 'property' must not contain more than 3 items"]
             ],
         );
     }
@@ -484,13 +486,26 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         string $type,
         array $propertyValue,
-        string $message = '',
+        string $message,
+        ?Closure $extraAssertions = null,
     ): void {
-        $this->expectValidationError($configuration, $message);
-
         $className = $this->generateClassFromFileTemplate('ArrayPropertyTyped.json', [$type], $configuration, false);
 
-        new $className(['property' => $propertyValue]);
+        try {
+            new $className(['property' => $propertyValue]);
+            $this->fail('Expected exception for invalid typed array item');
+        } catch (ErrorRegistryException | InvalidItemException $exception) {
+            $this->assertStringContainsString($message, $exception->getMessage());
+
+            // collectErrors(true) wraps the array item exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            if ($extraAssertions) {
+                $extraAssertions($innerException);
+            }
+        }
     }
 
     public static function invalidTypedArrayDataProvider(): array
@@ -600,6 +615,22 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                           - invalid item #1
                             * Invalid type for 'property': requires 'int', got 'string'
                     ERROR,
+                    function (InvalidItemException $exception): void {
+                        // getPropertyName()/getInstancePointer() must resolve to the array's real
+                        // name and position at every nesting level, not a synthetic "item of array
+                        // X" placeholder.
+                        Assert::assertSame('property', $exception->getPropertyName());
+                        Assert::assertSame('/property', $exception->getInstancePointer()->pointer);
+
+                        $nestedException = $exception->getInvalidItems()[0][0];
+                        Assert::assertInstanceOf(InvalidItemException::class, $nestedException);
+                        Assert::assertSame('property', $nestedException->getPropertyName());
+                        Assert::assertSame('/property/0', $nestedException->getInstancePointer()->pointer);
+
+                        $leafException = $nestedException->getInvalidItems()[1][0];
+                        Assert::assertSame('property', $leafException->getPropertyName());
+                        Assert::assertSame('/property/0/1', $leafException->getInstancePointer()->pointer);
+                    },
                 ],
                 'Multi type array containing invalid values' => [
                     '["string", "integer"]',
@@ -614,43 +645,6 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 ],
             ],
         );
-    }
-
-    /**
-     * getPropertyName() must return the array's real property name (not a synthetic
-     * "item of array X" description) and getInstancePointer() must resolve to the failing
-     * item's real position within the data, including through nested arrays.
-     *
-     * @throws FileSystemException
-     * @throws RenderException
-     * @throws SchemaException
-     */
-    public function testInvalidTypedArrayItemExposesRealPropertyNameAndInstancePointer(): void
-    {
-        $className = $this->generateClassFromFileTemplate(
-            'ArrayPropertyTyped.json',
-            ['"array","items":{"type":"integer"}'],
-            (new GeneratorConfiguration())->setCollectErrors(false),
-            false,
-        );
-
-        try {
-            new $className(['property' => [[1, 2], [3, 'not an int']]]);
-            $this->fail('Expected ValidationException');
-        } catch (ValidationException $exception) {
-            $this->assertInstanceOf(InvalidItemException::class, $exception);
-            $this->assertSame('property', $exception->getPropertyName());
-            $this->assertSame('/property', $exception->getInstancePointer()->pointer);
-
-            $innerException = $exception->getInvalidItems()[1][0];
-            $this->assertInstanceOf(InvalidItemException::class, $innerException);
-            $this->assertSame('property', $innerException->getPropertyName());
-            $this->assertSame('/property/1', $innerException->getInstancePointer()->pointer);
-
-            $leafException = $innerException->getInvalidItems()[1][0];
-            $this->assertSame('property', $leafException->getPropertyName());
-            $this->assertSame('/property/1/1', $leafException->getInstancePointer()->pointer);
-        }
     }
 
     #[DataProvider('validArrayContainsDataProvider')]
@@ -683,7 +677,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     ): void {
         $this->expectValidationError(
             $configuration,
-            'No item in array \'property\' matches the \'contains\' constraint',
+            "No item in array 'property' matches the 'contains' constraint",
         );
 
         $className = $this->generateClassFromFile('ArrayPropertyContains.json', $configuration);
@@ -779,6 +773,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         array $propertyValue,
         string $message,
+        ?Closure $extraAssertions = null,
     ): void {
         $className = $this->generateClassFromFile($file, $configuration);
 
@@ -795,6 +790,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 
             $this->assertInstanceOf(InvalidItemException::class, $innerException);
             $this->assertSame('/properties/property/items', $innerException->getJsonPointer()->pointer);
+
+            if ($extraAssertions) {
+                $extraAssertions($innerException);
+            }
         }
     }
 
@@ -880,6 +879,30 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                               - Composition element #2: Failed
                                 * Invalid type for 'property': requires 'object', got 'boolean'
                         ERROR,
+                        function (InvalidItemException $exception): void {
+                            // Regression: when a composition applied to an array item fails
+                            // entirely (no branch succeeds), the array item's real value must
+                            // survive. Array items are validated by reference — each item aliases
+                            // directly into the array being validated — so a composed-value
+                            // validator that adopts an unset/leftover proposed value on total
+                            // failure doesn't just corrupt its own reported providedValue; the
+                            // corruption propagates back into the original array too.
+                            //
+                            // Item #0 validates successfully, so the array reports its
+                            // instantiated merged object there; item #1 (true) never validates, so
+                            // it must survive as the raw input rather than being corrupted to null
+                            // by the failed composition.
+                            Assert::assertSame(true, $exception->getProvidedValue()[1]);
+                            Assert::assertSame('/property', $exception->getInstancePointer()->pointer);
+
+                            $compositionException = $exception->getInvalidItems()[1][0];
+                            Assert::assertInstanceOf(AllOfException::class, $compositionException);
+                            Assert::assertSame(true, $compositionException->getProvidedValue());
+                            Assert::assertSame(
+                                '/property/1',
+                                $compositionException->getInstancePointer()->pointer,
+                            );
+                        },
                     ],
                     'missing property name' => [
                         [['name' => 'Hannes'], ['age' => 42]],
@@ -887,7 +910,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         Invalid items in array 'property':
                           - invalid item #1
                             * Invalid value for 'property' declined by composition constraint
-                              Requires to match all composition elements but matched 1 elements
+                              Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
                                 * Missing required value for 'name'
                                 * Invalid type for 'name': requires 'string', got 'NULL'
@@ -900,7 +923,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         Invalid items in array 'property':
                           - invalid item #1
                             * Invalid value for 'property' declined by composition constraint
-                              Requires to match all composition elements but matched 1 elements
+                              Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
                                 * Invalid type for 'name': requires 'string', got 'boolean'
                               - Composition element #2: Valid
@@ -912,7 +935,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         Invalid items in array 'property':
                           - invalid item #0
                             * Invalid value for 'property' declined by composition constraint
-                              Requires to match all composition elements but matched 1 elements
+                              Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
                                 * Invalid type for 'name': requires 'string', got 'boolean'
                               - Composition element #2: Valid
@@ -932,7 +955,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                                 * Invalid type for 'property': requires 'object', got 'integer'
                           - invalid item #3
                             * Invalid value for 'property' declined by composition constraint
-                              Requires to match all composition elements but matched 1 elements
+                              Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
                                 * Missing required value for 'name'
                                 * Invalid type for 'name': requires 'string', got 'NULL'
@@ -942,40 +965,6 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 ],
             )
         );
-    }
-
-    /**
-     * Regression test: when a composition applied to an array item fails entirely (no branch
-     * succeeds), the array item's real value must survive. Array items are validated by
-     * reference — each item aliases directly into the array being validated — so a composed-value
-     * validator that adopts an unset/leftover proposed value on total failure doesn't just corrupt
-     * its own reported providedValue; the corruption propagates back into the original array too.
-     *
-     * @throws FileSystemException
-     * @throws RenderException
-     * @throws SchemaException
-     */
-    public function testInvalidCombinedObjectArrayItemPreservesProvidedValueOnTotalCompositionFailure(): void
-    {
-        $className = $this->generateClassFromFile('ArrayPropertyCombinedObject.json', new GeneratorConfiguration());
-
-        $propertyValue = [['name' => 'Hannes'], true];
-
-        try {
-            new $className(['property' => $propertyValue]);
-            $this->fail('Expected exception for invalid object array item');
-        } catch (ErrorRegistryException $exception) {
-            $itemException = $exception->getErrors()[0];
-            $this->assertInstanceOf(InvalidItemException::class, $itemException);
-            // Item #0 validates successfully, so the array reports its instantiated merged
-            // object there; item #1 (true) never validates, so it must survive as the raw
-            // input rather than being corrupted to null by the failed composition.
-            $this->assertSame(true, $itemException->getProvidedValue()[1]);
-
-            $compositionException = $itemException->getInvalidItems()[1][0];
-            $this->assertInstanceOf(AllOfException::class, $compositionException);
-            $this->assertSame(true, $compositionException->getProvidedValue());
-        }
     }
 
     #[DataProvider('validRecursiveArrayDataProvider')]

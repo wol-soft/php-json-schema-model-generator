@@ -53,7 +53,7 @@ class BooleanPropertySchemaTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         mixed $value,
     ): void {
-        $this->expectValidationError($configuration, 'Value for \'forbidden\' is not allowed');
+        $this->expectValidationError($configuration, "Value for 'forbidden' is not allowed");
         $className = $this->generateClassFromFile('FalseProperty.json', $configuration);
         new $className(['forbidden' => $value]);
     }

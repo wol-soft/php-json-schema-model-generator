@@ -41,7 +41,7 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
     #[DataProvider('validationMethodDataProvider')]
     public function testNotProvidedRequiredAnyPropertyThrowsAnException(GeneratorConfiguration $configuration): void
     {
-        $this->expectValidationError($configuration, 'Missing required value for \'property\'');
+        $this->expectValidationError($configuration, "Missing required value for 'property'");
         $className = $this->generateClassFromFile('RequiredAnyProperty.json', $configuration);
 
         new $className([]);

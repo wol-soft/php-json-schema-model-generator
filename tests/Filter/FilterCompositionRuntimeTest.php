@@ -233,7 +233,7 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
             $this->assertStringContainsString(
                 <<<ERROR
                 Invalid value for 'filteredProperty' declined by composition constraint
-                  Requires to match all composition elements but matched 1 elements
+                  Requires to match all composition elements but matched 1 element
                   - Composition element #1: Valid
                   - Composition element #2: Failed
                     * Value for 'filteredProperty' must not be larger than 100
@@ -255,7 +255,7 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
             $this->assertStringContainsString(
                 <<<ERROR
                 Invalid value for 'filteredProperty' declined by composition constraint
-                  Requires to match all composition elements but matched 1 elements
+                  Requires to match all composition elements but matched 1 element
                   - Composition element #1: Failed
                     * Value for 'filteredProperty' must not be smaller than 0
                 ERROR,
@@ -323,7 +323,7 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
             // second error silently going missing.
             $this->assertInstanceOf(InvalidFilterValueException::class, $errors[1]);
             $this->assertStringStartsWith(
-                'Invalid value for property \'filteredProperty\' denied by filter \'mixedAcceptDateTimeFilter\':',
+                "Invalid value for property 'filteredProperty' denied by filter 'mixedAcceptDateTimeFilter':",
                 $errors[1]->getMessage(),
             );
         }
@@ -810,7 +810,7 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
             $this->assertStringContainsString(
                 <<<ERROR
                 Invalid value for 'filteredProperty' declined by composition constraint
-                  Requires to match none composition element but matched 1 elements
+                  Requires to match none composition element but matched 1 element
                   - Composition element #1: Valid
                 ERROR,
                 $errors[0]->getMessage(),
@@ -860,7 +860,7 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
             $this->assertStringContainsString(
                 <<<ERROR
                 Invalid value for 'filteredProperty' declined by composition constraint
-                  Requires to match none composition element but matched 1 elements
+                  Requires to match none composition element but matched 1 element
                   - Composition element #1: Valid
                 ERROR,
                 $errors[0]->getMessage(),
@@ -883,7 +883,7 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
             $this->assertStringContainsString(
                 <<<ERROR
                 Invalid value for 'filteredProperty' declined by composition constraint
-                  Requires to match none composition element but matched 1 elements
+                  Requires to match none composition element but matched 1 element
                   - Composition element #1: Valid
                 ERROR,
                 $errors[0]->getMessage(),
@@ -1042,7 +1042,7 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
             $this->assertNotNull($exception->getThenException());
             $this->assertNull($exception->getElseException());
             $this->assertStringContainsString(
-                'Value for \'filteredProperty\' must not be longer than 20',
+                "Value for 'filteredProperty' must not be longer than 20",
                 $exception->getMessage(),
             );
         }

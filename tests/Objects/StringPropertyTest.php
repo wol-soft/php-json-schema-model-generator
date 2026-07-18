@@ -164,17 +164,17 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
             [
                 'Empty string' => [
                     '',
-                    'Value for \'property\' must not be shorter than 2',
+                    "Value for 'property' must not be shorter than 2",
                     '/properties/property/minLength',
                 ],
                 'Too short string' => [
                     '1',
-                    'Value for \'property\' must not be shorter than 2',
+                    "Value for 'property' must not be shorter than 2",
                     '/properties/property/minLength',
                 ],
                 'Too long string' => [
                     'Some Text',
-                    'Value for \'property\' must not be longer than 8',
+                    "Value for 'property' must not be longer than 8",
                     '/properties/property/maxLength',
                 ],
             ],
@@ -224,7 +224,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
                     '[0-9]{4}-[0-9]{2}-[0-9]{2}',
                     'Contains a Date 2018-12-12 and something else'
                 ],
-                'Regex escape test' => ['^\\\\\\\\/\'$', '\\/\''],
+                'Regex escape test' => ['^\\\\\\\\/\'$', "\/'"],
             ],
         );
     }
@@ -252,7 +252,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
         return self::combineDataProvider(
             self::validationMethodDataProvider(),
             [
-                'String starts with' => ['^The', 'This Test doesn\'t start with The'],
+                'String starts with' => ['^The', "This Test doesn't start with The"],
                 'No spaces in string' => ['^[^\\s]+$', 'This String Contains Spaces'],
                 'A formatted date' => ['^[0-9]{4}-[0-9]{2}-[0-9]{2}$', '12.12.2018'],
                 'A formatted date inside a text' => [
@@ -286,7 +286,7 @@ class StringPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidStringFormatCheck(string $value): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessage('Value for \'property\' must match the format \'onlyNumbers\'');
+        $this->expectExceptionMessage("Value for 'property' must match the format 'onlyNumbers'");
 
         $className = $this->generateClassFromFile(
             'StringPropertyFormat.json',

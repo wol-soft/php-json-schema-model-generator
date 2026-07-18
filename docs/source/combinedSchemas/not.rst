@@ -30,7 +30,7 @@ Possible exceptions:
 .. code-block:: none
 
     Invalid value for 'example' declined by composition constraint
-      Requires to match none composition element but matched 1 elements
+      Requires to match none composition element but matched 1 element
       - Composition element #1: Valid
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\NotException* which provides the following methods to get further error details:

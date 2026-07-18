@@ -73,7 +73,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
             'Invalid value' => [
                 false,
                 InvalidTypeException::class,
-                'Invalid type for \'name\': requires \'string\', got \'boolean\'',
+                "Invalid type for 'name': requires 'string', got 'boolean'",
             ],
             'Valid value' => [
                 'Hannes',
@@ -163,7 +163,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
             'Invalid value' => [
                 -12,
                 MinimumException::class,
-                'Value for \'age\' must not be smaller than 0',
+                "Value for 'age' must not be smaller than 0",
             ],
             'Valid value' => [
                 12,

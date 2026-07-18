@@ -85,7 +85,7 @@ class ContentMediaStringTest extends AbstractPHPModelGeneratorTestCase
 
         // Missing required property → throws
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches('/Missing required value for \'requiredContent\'/');
+        $this->expectExceptionMessageMatches("/Missing required value for 'requiredContent'/");
         new $className([]);
     }
 

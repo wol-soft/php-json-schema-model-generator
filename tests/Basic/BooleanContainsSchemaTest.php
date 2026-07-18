@@ -41,7 +41,7 @@ class BooleanContainsSchemaTest extends AbstractPHPModelGeneratorTestCase
     ): void {
         $this->expectValidationError(
             $configuration,
-            'No item in array \'property\' matches the \'contains\' constraint',
+            "No item in array 'property' matches the 'contains' constraint",
         );
 
         $className = $this->generateClassFromFile('FalseContains.json', $configuration);
@@ -74,7 +74,7 @@ class BooleanContainsSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectValidationError(
             $configuration,
-            'No item in array \'property\' matches the \'contains\' constraint',
+            "No item in array 'property' matches the 'contains' constraint",
         );
 
         $className = $this->generateClassFromFile('TrueContains.json', $configuration);

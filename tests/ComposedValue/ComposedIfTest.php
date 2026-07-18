@@ -171,7 +171,7 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
     ): void {
         $this->expectValidationErrorRegExp(
             $configuration,
-            '/(Invalid value for .*? declined by composition constraint|\'postal_code\' does not match pattern .*)/',
+            "/(Invalid value for .*? declined by composition constraint|'postal_code' does not match pattern .*)/",
         );
 
         $className = $this->generateClassFromFile($schemaFile, $configuration);

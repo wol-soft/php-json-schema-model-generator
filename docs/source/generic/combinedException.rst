@@ -63,7 +63,7 @@ The exception which will be thrown (combined array-exception and combined-schema
     Invalid items in array 'property':
       - invalid item #0
         * Invalid value for 'property' declined by composition constraint
-          Requires to match all composition elements but matched 1 elements
+          Requires to match all composition elements but matched 1 element
           - Composition element #1: Failed
             * Invalid type for 'name': requires 'string', got 'boolean'
           - Composition element #2: Valid
@@ -83,7 +83,7 @@ The exception which will be thrown (combined array-exception and combined-schema
             * Invalid type for 'property': requires 'object', got 'integer'
       - invalid item #3
         * Invalid value for 'property' declined by composition constraint
-          Requires to match all composition elements but matched 1 elements
+          Requires to match all composition elements but matched 1 element
           - Composition element #1: Failed
             * Missing required value for 'name'
             * Invalid type for 'name': requires 'string', got 'NULL'

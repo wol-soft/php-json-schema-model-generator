@@ -50,7 +50,7 @@ Possible exception (if eg. 5 is provided, which matches only one subschema):
 .. code-block:: none
 
     Invalid value for 'example' declined by composition constraint
-      Requires to match all composition elements but matched 1 elements
+      Requires to match all composition elements but matched 1 element
       - Composition element #1: Valid
       - Composition element #2: Failed
         * Value for 'example' must be a multiple of 3

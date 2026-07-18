@@ -156,17 +156,17 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
         return [
             'Bool' => [
                 true,
-                'Invalid type for \'property\': requires [\'float\', \'string\', \'array\'], got \'boolean\'',
+                "Invalid type for 'property': requires ['float', 'string', 'array'], got 'boolean'",
             ],
             'Object' => [
                 new stdClass(),
-                'Invalid type for \'property\': requires [\'float\', \'string\', \'array\'], got \'stdClass\'',
+                "Invalid type for 'property': requires ['float', 'string', 'array'], got 'stdClass'",
             ],
-            'Invalid int' => [9, 'Value for \'property\' must not be smaller than 10'],
-            'zero' => [0, 'Value for \'property\' must not be smaller than 10'],
-            'Invalid float' => [9.9, 'Value for \'property\' must not be smaller than 10'],
-            'Invalid string' => ['ABC', 'Value for \'property\' must not be shorter than 4'],
-            'Array with too few items' => [['Hello'], 'Array \'property\' must not contain less than 2 items'],
+            'Invalid int' => [9, "Value for 'property' must not be smaller than 10"],
+            'zero' => [0, "Value for 'property' must not be smaller than 10"],
+            'Invalid float' => [9.9, "Value for 'property' must not be smaller than 10"],
+            'Invalid string' => ['ABC', "Value for 'property' must not be shorter than 4"],
+            'Array with too few items' => [['Hello'], "Array 'property' must not contain less than 2 items"],
             'Array with invalid items' => [
                 ['Hello', 123],
                 <<<ERROR
@@ -285,7 +285,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
             'int' => [
                 1,
                 InvalidTypeException::class,
-                'Invalid type for \'property\': requires [\'string\', \'array\'], got \'integer\'',
+                "Invalid type for 'property': requires ['string', 'array'], got 'integer'",
             ],
             'invalid item in array' => [
                 ['Test1', 1],
@@ -299,7 +299,7 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
             'invalid array length' => [
                 [],
                 MinItemsException::class,
-                'Array \'property\' must not contain less than 2 items',
+                "Array 'property' must not contain less than 2 items",
             ],
             'invalid item in nested array' => [
                 ['Test1', [3, 'Test3']],

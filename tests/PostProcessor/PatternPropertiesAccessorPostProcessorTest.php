@@ -377,7 +377,7 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
             'value declined by property constraint' => [
                 'alpha',
                 0,
-                'Value for \'alpha\' must not be smaller than 10'
+                "Value for 'alpha' must not be smaller than 10"
             ],
             'value declined by pattern property constraint' => [
                 'alpha',
@@ -482,7 +482,7 @@ class PatternPropertiesAccessorPostProcessorTest extends AbstractPHPModelGenerat
 
         $this->expectException(AdditionalPropertiesException::class);
         $this->expectExceptionMessageMatches(
-            '/Provided JSON for .* contains not allowed additional properties \[\'b1\'\]/',
+            "/Provided JSON for .* contains not allowed additional properties \['b1'\]/",
         );
 
         $object->populate(['a0' => 'Hello', 'b1' => 'not allowed']);

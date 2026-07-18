@@ -84,7 +84,7 @@ class FilterChainTest extends AbstractFilterTestCase
     {
         $this->expectException(ErrorRegistryException::class);
         $this->expectExceptionMessage(
-            'Invalid value for property \'filteredProperty\' denied by filter \'exceptionFilter\': ' .
+            "Invalid value for property 'filteredProperty' denied by filter 'exceptionFilter': " .
             'Exception filter called with 12.12.2020',
         );
 
@@ -138,7 +138,7 @@ class FilterChainTest extends AbstractFilterTestCase
     {
         $this->expectException(ErrorRegistryException::class);
         $this->expectExceptionMessage(
-            'Invalid value for property \'filteredProperty\' denied by filter \'dateTime\': ' .
+            "Invalid value for property 'filteredProperty' denied by filter 'dateTime': " .
                 'Invalid Date Time value "Hello"',
         );
 
