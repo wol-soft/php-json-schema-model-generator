@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "target": {
+      "type": [
+        "object",
+        "array"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -56,7 +56,15 @@ class DefaultValueModifier implements ModifierInterface
             }
 
             $typeCheckFn = 'is_' . $phpType;
-            if (function_exists($typeCheckFn) && $typeCheckFn($default)) {
+
+            // "array" additionally requires array_is_list(): a JSON object and a JSON array
+            // both decode to a PHP array, so is_array() alone cannot tell a JSON-object-shaped
+            // default apart from a genuine JSON-array default.
+            $matchesType = $phpType === 'array'
+                ? is_array($default) && array_is_list($default)
+                : (function_exists($typeCheckFn) && $typeCheckFn($default));
+
+            if ($matchesType) {
                 $property->setDefaultValue($default);
                 return;
             }

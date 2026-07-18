@@ -48,9 +48,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         return self::combineDataProvider(
             self::validationMethodDataProvider(),
             [
-                'Associative Array' => [['a' => 1, 'b' => 2, 'c' => 1]],
                 'Numeric Array' => [['a', 'b', 'b']],
-                'Mixed Array' => [['a', 'b' => 1]],
                 'Empty array' => [[]],
                 'Null' => [null],
             ],
@@ -232,7 +230,13 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 'float' => [0.92],
                 'bool' => [true],
                 'string' => ['array'],
-                'object' => [new stdClass()]
+                'object' => [new stdClass()],
+                // A JSON object and a JSON array both decode to a PHP array via
+                // json_decode($x, true); array_is_list() is what distinguishes a real JSON
+                // array from a JSON object represented as a PHP map, even when the map is
+                // constructed directly in PHP rather than reached through JSON decoding.
+                'associative array' => [['a' => 1, 'b' => 2, 'c' => 1]],
+                'mixed array' => [['a', 'b' => 1]],
             ],
         );
     }

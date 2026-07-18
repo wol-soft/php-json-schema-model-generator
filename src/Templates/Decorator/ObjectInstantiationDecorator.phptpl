@@ -1,6 +1,6 @@
 (function ($value) {
     try {
-        return is_array($value) ? new {{ className }}($value) : $value;
+        return (is_array($value) && (!array_is_list($value) || $value === [])) ? new {{ className }}($value) : $value;
     } catch (\Exception $instantiationException) {
         {% if nestedProperty %}
             {{ viewHelper.validationError(nestedValidator) }}
