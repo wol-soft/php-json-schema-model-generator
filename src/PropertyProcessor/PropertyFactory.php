@@ -696,6 +696,13 @@ class PropertyFactory
         $property->filterValidators(
             static fn(Validator $validator): bool => !($validator->getValidator() instanceof InstanceOfValidator),
         );
+
+        // ObjectModifier also typed the property as the representation class. A describing property
+        // is not exclusively object-valued (a non-object passes through unchanged), so keep it
+        // untyped: the value is either an instance of the representation class or the raw
+        // non-object input. Without this a non-object value would violate the getter's object
+        // return type at read time even though it validated cleanly.
+        $property->setType(null, null, reset: true);
     }
 
     /**
