@@ -119,8 +119,16 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         foreach ($validator->composedProperties as $composedProperty) {
             $composedProperty->onResolve(static function () use ($composedProperty): void {
                 $composedProperty->filterValidators(
+                    // Strip a branch's nested composition validator only when the branch has a
+                    // generated object class that re-validates the composition on instantiation.
+                    // A scalar nested composition branch (no nested schema) has no such class, so
+                    // its validator must be kept - otherwise the nested composition validates
+                    // nothing (#167). This applies uniformly to every composition keyword
+                    // (allOf/anyOf/oneOf and if/then/else), removing the earlier accidental split
+                    // where only ConditionalPropertyValidator happened to survive.
                     static fn(Validator $validator): bool =>
                         !is_a($validator->getValidator(), AbstractComposedPropertyValidator::class)
+                        || $composedProperty->getNestedSchema() === null,
                 );
             });
         }
