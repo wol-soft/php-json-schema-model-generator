@@ -9,6 +9,7 @@ use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
 use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Exception\ComposedValue\NotException;
 use PHPModelGenerator\Exception\ComposedValue\OneOfException;
+use PHPModelGenerator\Exception\Object\NestedObjectException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
@@ -745,6 +746,46 @@ class Issue72Test extends AbstractIssueTestCase
         $object = new $className(['p' => 42]);
 
         $this->assertSame(42, $object->getP());
+    }
+
+    /**
+     * A standalone property carrying only object validators (properties/required) without a type -
+     * reached directly rather than through a composition - is object-describing: it constrains
+     * object values but is vacuously satisfied by non-object values per strict JSON Schema. It must
+     * instantiate and validate an object value while passing a non-object value through unchanged
+     * (the getter type stays open, not the representation class, so the non-object does not violate
+     * an object return type).
+     */
+    public function testStandaloneObjectDescribingPropertyValidatesObjectsAndPassesNonObjects(): void
+    {
+        $className = $this->generateClassFromFile('StandaloneObjectDescribingProperty.json');
+
+        $objectValue = new $className(['p' => ['name' => 'Hannes']]);
+        $person = $objectValue->getP();
+        $this->assertIsObject($person);
+        $this->assertSame('Hannes', $person->getName());
+
+        $scalarValue = new $className(['p' => 42]);
+        $this->assertSame(42, $scalarValue->getP());
+    }
+
+    /**
+     * The same standalone describing property must still reject an object that violates its
+     * constraints - they are not vacuous for object values.
+     */
+    public function testStandaloneObjectDescribingPropertyRejectsInvalidObject(): void
+    {
+        $this->expectException(NestedObjectException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid nested object for property p:
+              - Missing required value for name
+            ERROR,
+        );
+
+        $className = $this->generateClassFromFile('StandaloneObjectDescribingProperty.json');
+
+        new $className(['p' => []]);
     }
 
     /**
