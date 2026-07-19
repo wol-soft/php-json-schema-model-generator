@@ -316,7 +316,14 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                             return false;
                         }
                         if (is_a($validator->getValidator(), ComposedPropertyValidator::class)) {
-                            return false;
+                            // Strip the nested composition validator only when the branch has a
+                            // generated object class that re-validates the composition on
+                            // instantiation - keeping it would duplicate that validation. When the
+                            // branch is a scalar nested composition (no nested schema, e.g. an allOf
+                            // branch that is itself an anyOf/oneOf of scalar types) there is no such
+                            // class, so keep the validator; otherwise the nested composition would
+                            // validate nothing and every invalid value would slip through (#167).
+                            return $nestedSchema === null;
                         }
                         // An empty object schema ({type: object} with no declared properties)
                         // must accept any PHP object in composition context. The generated
