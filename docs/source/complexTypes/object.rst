@@ -85,6 +85,44 @@ If `error collection <../gettingStarted.html#collect-errors-vs-early-return>`__ 
 
     If the class created for a nested object is instantiated manually you will either get a collection exception or a specific exception based on your error collection configuration if invalid data is provided.
 
+Object applicators without an explicit type
+-------------------------------------------
+
+A property subschema that declares object applicators — ``properties``, ``patternProperties``, ``additionalProperties``, ``unevaluatedProperties``, ``propertyNames``, ``minProperties`` or ``maxProperties`` — is treated as an object even when it omits ``type: object``. JSON Schema applicators are not gated on a type declaration, so the keywords apply whenever the provided value is an object.
+
+Because an untyped schema imposes no type constraint, a value of any other type is still accepted and passes through unchanged. The property is therefore *not* typed as the nested class alone:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "child": {
+                "properties": {
+                    "known": {
+                        "type": "string"
+                    }
+                },
+                "unevaluatedProperties": false
+            }
+        }
+    }
+
+Generated interface — an object value for ``child`` is wrapped in and validated by the generated nested class, while any other value is accepted unchanged:
+
+.. code-block:: php
+
+    /** @return Child|mixed */
+    public function getChild(): mixed;
+
+The native return type is ``mixed``, not ``Child | mixed``: ``mixed`` already subsumes every type, and PHP rejects it inside a union. The annotation carries the additional information that the value may be an instance of the generated nested class.
+
+A ``child`` object carrying an unevaluated key is rejected, while a scalar ``child`` value is accepted without modification. A bare untyped schema (``{}``) declares no applicators, so no nested class is generated and the property remains a plain ``mixed`` value.
+
+.. note::
+
+    The same principle applies to scalar and array applicators: a subschema declaring ``minLength`` without ``type: string``, or ``minItems`` without ``type: array``, enforces the constraint only when the value is of the matching type and accepts values of every other type.
+
 Namespaces
 ----------
 

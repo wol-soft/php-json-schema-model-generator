@@ -14,6 +14,7 @@ use PHPModelGenerator\Attributes\WriteOnlyProperty;
 use Exception;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
+use PHPModelGenerator\Draft\Modifier\ModifierInterface;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Draft\Modifier\TypeCheckModifier;
@@ -99,6 +100,13 @@ class PropertyFactory
                 $required,
             ),
             'base'   => $this->createBaseProperty($schemaProcessor, $schema, $propertyName, $propertySchema),
+            'any'    => $this->createUntypedProperty(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema,
+                $required,
+            ),
             default  => $this->createTypedProperty(
                 $schemaProcessor,
                 $schema,
@@ -181,7 +189,9 @@ class PropertyFactory
     }
 
     /**
-     * Handle scalar, array, and untyped properties: construct directly and run all Draft modifiers.
+     * Handle a scalar or array property: construct directly and run all Draft modifiers. Untyped
+     * ('any') properties are routed to createUntypedProperty instead, so $type is always a concrete
+     * JSON Schema type here.
      *
      * @throws SchemaException
      */
@@ -193,11 +203,10 @@ class PropertyFactory
         string $type,
         bool $required,
     ): PropertyInterface {
-        $phpType  = $type !== 'any' ? TypeConverter::jsonSchemaToPHP($type) : null;
         $property = $this->buildProperty(
             $schemaProcessor,
             $propertyName,
-            $phpType !== null ? new PropertyType($phpType) : null,
+            new PropertyType(TypeConverter::jsonSchemaToPHP($type)),
             $propertySchema,
             $required,
         );
@@ -205,6 +214,161 @@ class PropertyFactory
         $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema);
 
         return $property;
+    }
+
+    /**
+     * Handle an untyped property (`type` absent → resolves to 'any'). JSON Schema applicators are
+     * not gated on a type declaration, so a subschema declaring object/scalar/array applicators
+     * must apply them whenever the instance is of the relevant type while still accepting values
+     * of every other type — an untyped schema imposes no type constraint.
+     *
+     * Three layers are wired onto a single, permissive (nullable/mixed) property:
+     *  - object applicators (properties, patternProperties, unevaluatedProperties, …) generate a
+     *    nested class and attach gated instantiation + instanceof, WITHOUT stamping the nested type;
+     *  - the universal 'any' modifiers (enum, const, composition, if, not, filter, default) run once;
+     *  - scalar/array applicators (minLength, minItems, …) attach their self-gating validators.
+     *
+     * A bare `{}` (or a schema carrying only universal keywords) activates neither the object nor
+     * the scalar layer and behaves exactly like the previous untyped handling.
+     *
+     * @throws SchemaException
+     */
+    private function createUntypedProperty(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        bool $required,
+    ): PropertyInterface {
+        $builtDraft = $this->resolveBuiltDraft($schemaProcessor, $propertySchema);
+        $property   = $this->buildProperty($schemaProcessor, $propertyName, null, $propertySchema, $required);
+
+        // Object applicators first so the instantiation decorator is registered before any filter
+        // decorators the universal modifiers add — mirrors the createObjectProperty ordering.
+        if ($this->hasObjectApplicator($builtDraft, $propertySchema->getJson())) {
+            $this->wireUntypedObjectClass($schemaProcessor, $schema, $property, $propertySchema, $propertyName);
+        }
+
+        // Universal 'any' modifiers on the outer property.
+        $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema, anyOnly: true);
+
+        // Scalar/array applicators (self-guarding on keyword presence, self-gating on runtime type).
+        $this->applyUntypedScalarModifiers($schemaProcessor, $schema, $property, $propertySchema, $builtDraft);
+
+        return $property;
+    }
+
+    /**
+     * Whether the given untyped schema carries at least one applicator keyword registered on the
+     * object type (properties, patternProperties, additionalProperties, unevaluatedProperties,
+     * minProperties, maxProperties, propertyNames, …). Only then is the nested-object class worth
+     * generating — a bare `{}` must not produce an empty class.
+     */
+    private function hasObjectApplicator(Draft $builtDraft, array $json): bool
+    {
+        foreach (array_keys($json) as $keyword) {
+            if (in_array('object', $builtDraft->getTypesForKeyword($keyword), true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Generate the nested object class for an untyped property that carries object applicators and
+     * wire gated instantiation onto the outer property, keeping the outer property permissive.
+     *
+     * @throws SchemaException
+     */
+    private function wireUntypedObjectClass(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+        string $propertyName,
+    ): void {
+        $className = $schemaProcessor->getGeneratorConfiguration()->getClassNameGenerator()->getClassName(
+            $propertyName,
+            $propertySchema,
+            false,
+            $schemaProcessor->getCurrentClassName(),
+        );
+
+        // Force `type: object` on the copy handed to processSchema so the nested class is generated;
+        // the outer property stays untyped. Property-level universal keywords target the outer
+        // property (handled by applyModifiers) and are stripped here, mirroring createObjectProperty.
+        $nestedJson = $propertySchema->getJson();
+        unset($nestedJson['filter'], $nestedJson['enum'], $nestedJson['default']);
+        $nestedJson['type'] = 'object';
+
+        $nestedSchema = $schemaProcessor->processSchema(
+            $propertySchema->withJson($nestedJson),
+            $schemaProcessor->getCurrentClassPath(),
+            $className,
+            $schema->getSchemaDictionary(),
+        );
+
+        // Injecting `type: object` guarantees processSchema generates a class — its skip path only
+        // triggers for a non-object, non-composition, non-$ref root — so $nestedSchema is never null
+        // here. The guard mirrors createObjectProperty and degrades gracefully rather than fatally
+        // if a custom pipeline ever returns null.
+        if ($nestedSchema === null) {
+            return;
+        }
+
+        $property->setNestedSchema($nestedSchema);
+
+        // ObjectModifier attaches the array→Nested instantiation decorator and the instanceof guard;
+        // both self-gate at runtime (is_array / is_object) so a non-object value passes through
+        // untouched. It also stamps the nested-class type — required so InstanceOfValidator can name
+        // the class — which is immediately reset below to keep the getter permissive: the value may
+        // be the nested object OR any other type the untyped schema accepts, so the property is
+        // typed `Nested | mixed`, not `Nested`. TypeCheckModifier(object) is deliberately NOT wired:
+        // it would hard-reject non-object values and defeat "an untyped schema constrains nothing".
+        (new ObjectModifier())->modify($schemaProcessor, $schema, $property, $propertySchema);
+
+        $property
+            ->setType(null)
+            ->addTypeHintDecorator(new TypeHintDecorator([$nestedSchema->getClassName(), 'mixed']));
+    }
+
+    /**
+     * Apply the concrete-type validator factories to an untyped property. Each factory self-guards
+     * on keyword presence and each emitted validator self-gates on the runtime type
+     * (e.g. `is_string($value) && …`), so running every concrete type's factories against an
+     * untyped value contributes a validator only for a keyword that is actually present and never
+     * constrains the value's type.
+     *
+     * The object type is skipped — its applicators are owned by the nested class wired in
+     * wireUntypedObjectClass — and so is 'any', whose modifiers already ran via applyModifiers.
+     *
+     * @throws SchemaException
+     */
+    private function applyUntypedScalarModifiers(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+        Draft $builtDraft,
+    ): void {
+        foreach ($builtDraft->getTypes() as $typeName => $type) {
+            if ($typeName === 'any' || $typeName === 'object') {
+                continue;
+            }
+
+            foreach ($type->getModifiers() as $modifier) {
+                // Only the keyword-keyed validator factories are safe to run untyped. The remaining
+                // modifiers are type-shaping and NOT keyword-gated: TypeCheckModifier would impose a
+                // type constraint, IntToFloatModifier would cast every int, NullModifier would force
+                // null — none may run on a property that accepts any type.
+                if (!$modifier instanceof AbstractValidatorFactory) {
+                    continue;
+                }
+
+                $this->runModifier($modifier, $schemaProcessor, $schema, $property, $propertySchema);
+            }
+        }
     }
 
     /**
@@ -641,21 +805,33 @@ class PropertyFactory
             }
 
             foreach ($coveredType->getModifiers() as $modifier) {
-                $countBefore = count($property->getValidators());
-                $modifier->modify($schemaProcessor, $schema, $property, $propertySchema);
+                $this->runModifier($modifier, $schemaProcessor, $schema, $property, $propertySchema);
+            }
+        }
+    }
 
-                // Tag every validator that was just added by this modifier with its schema
-                // keyword so FilterProcessor can later classify each validator as
-                // input-space or output-space relative to a transforming filter.
-                // This must cover all Draft-registered validators — not only those known
-                // to interact with filters today — because a custom Draft may register
-                // any validator factory under any type, and the classification must work
-                // without enumerating individual keywords.
-                if ($modifier instanceof AbstractValidatorFactory && ($modifierKey = $modifier->getKey()) !== null) {
-                    foreach (array_slice($property->getValidators(), $countBefore) as $validatorWrapper) {
-                        $validatorWrapper->setSourceKey($modifierKey);
-                    }
-                }
+    /**
+     * Run a single Draft modifier and tag every validator it just added with its schema keyword so
+     * FilterProcessor can later classify each validator as input-space or output-space relative to
+     * a transforming filter. This must cover all Draft-registered validators — not only those known
+     * to interact with filters today — because a custom Draft may register any validator factory
+     * under any type, and the classification must work without enumerating individual keywords.
+     *
+     * @throws SchemaException
+     */
+    private function runModifier(
+        ModifierInterface $modifier,
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): void {
+        $countBefore = count($property->getValidators());
+        $modifier->modify($schemaProcessor, $schema, $property, $propertySchema);
+
+        if ($modifier instanceof AbstractValidatorFactory && ($modifierKey = $modifier->getKey()) !== null) {
+            foreach (array_slice($property->getValidators(), $countBefore) as $validatorWrapper) {
+                $validatorWrapper->setSourceKey($modifierKey);
             }
         }
     }

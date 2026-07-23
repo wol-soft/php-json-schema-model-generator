@@ -476,20 +476,34 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     {
         $className = $this->generateClassFromFile('UntypedNestedSchemaWithUnevaluated.json');
 
-        // Only the declared key is present — nothing is unevaluated inside `child`.
+        // Object value: only the declared key is present — nothing is unevaluated inside `child`.
         $accepted = new $className(['child' => ['known' => 'a']]);
         $this->assertSame(['child' => ['known' => 'a']], $accepted->meta()->rawInput());
 
-        // `extra` is claimed by nothing inside `child` and must be rejected.
-        $this->expectException(NestedObjectException::class);
-        $this->expectExceptionMessageMatches(
-            <<<'REGEX'
-            /^Invalid nested object for property child:
-              - Provided JSON for .+ contains not allowed unevaluated properties \[extra\]$/
-            REGEX,
+        // Non-object value: an untyped schema imposes no type constraint, so a scalar passes through
+        // untouched even though `child` declares object applicators.
+        $this->assertSame('a string', (new $className(['child' => 'a string']))->getChild());
+
+        // The getter stays permissive: the value may be the generated nested object OR any other
+        // type the untyped schema accepts, so the annotated return type is `<NestedClass>|mixed`.
+        $this->assertMatchesRegularExpression(
+            '/^\w+\|mixed$/',
+            $this->getReturnTypeAnnotation($className, 'getChild'),
         );
 
-        new $className(['child' => ['known' => 'a', 'extra' => 1]]);
+        // `extra` is claimed by nothing inside `child` and must be rejected by unevaluatedProperties.
+        try {
+            new $className(['child' => ['known' => 'a', 'extra' => 1]]);
+            $this->fail('Unevaluated key inside an untyped object subschema must be rejected');
+        } catch (NestedObjectException $exception) {
+            $this->assertMatchesRegularExpression(
+                <<<'REGEX'
+                /^Invalid nested object for property child:
+                  - Provided JSON for .+ contains not allowed unevaluated properties \[extra\]$/
+                REGEX,
+                $exception->getMessage(),
+            );
+        }
     }
 
     /**
