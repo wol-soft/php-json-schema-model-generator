@@ -48,12 +48,12 @@ class Issue168Test extends AbstractIssueTestCase
             // the fix keeps the value as the raw (still-array) input whenever it fails the
             // `array_is_list()` gate, the existing TypeCheckValidator for "object"
             // (`!is_object($value)`) is the one that fires, producing the same
-            // "Requires object, got array" wording already used for a directly-passed scalar
+            // "requires 'object', got 'array'" wording already used for a directly-passed scalar
             // mismatch (see ObjectPropertyTest).
             'permissive object property rejects a JSON array' => [
                 'ObjectTypePermissive.json',
                 ['Hello', 'World'],
-                'Invalid type for target. Requires object, got array',
+                "Invalid type for 'target': requires 'object', got 'array'",
             ],
             // Same as above with `additionalProperties: false` on the nested schema. Before the
             // fix this incidentally rejected the array too, but through the additionalProperties
@@ -66,7 +66,7 @@ class Issue168Test extends AbstractIssueTestCase
             'restrictive object property (additionalProperties: false) rejects with the same clean message' => [
                 'ObjectTypeRestrictive.json',
                 ['Hello', 'World'],
-                'Invalid type for target. Requires object, got array',
+                "Invalid type for 'target': requires 'object', got 'array'",
             ],
             // `additionalProperties: <schema>` (as opposed to `true`/`false`) must not let a JSON
             // array masquerade as a fully legitimate `additionalProperties` bag keyed by its own
@@ -79,7 +79,7 @@ class Issue168Test extends AbstractIssueTestCase
             'object property with schema-typed additionalProperties rejects instead of absorbing a JSON array' => [
                 'AdditionalPropertiesSchemaAbsorbsArray.json',
                 ['Hello', 'World'],
-                'Invalid type for target. Requires object, got array',
+                "Invalid type for 'target': requires 'object', got 'array'",
             ],
             // Same absorption bug as above, but via a digit-matching `patternProperties` pattern
             // instead of a schema-typed `additionalProperties` - and, unlike the restrictive case
@@ -92,7 +92,7 @@ class Issue168Test extends AbstractIssueTestCase
             'object property with numeric patternProperties rejects instead of absorbing a JSON array' => [
                 'PatternPropertiesNumericAbsorbsArray.json',
                 ['Hello', 'World'],
-                'Invalid type for target. Requires object, got array',
+                "Invalid type for 'target': requires 'object', got 'array'",
             ],
         ];
     }
@@ -104,7 +104,7 @@ class Issue168Test extends AbstractIssueTestCase
      * from arrayOrObjectTypeMismatchDataProvider() above because it targets a differently-named
      * property ("tags", declared as "array" rather than "object") in its own schema file.
      *
-     * The resulting message ("Requires array, got array") is not very informative - `gettype()`
+     * The resulting message ("requires 'array', got 'array'") is not very informative - `gettype()`
      * reports "array" for both a JSON array and a JSON object once decoded, so it cannot itself
      * distinguish which shape was actually provided. That is an existing message-formatting
      * limitation shared with every other `InvalidTypeException`, not something this fix
@@ -115,7 +115,7 @@ class Issue168Test extends AbstractIssueTestCase
         $className = $this->generateClassFromFile('ArrayTypeAcceptsObject.json');
 
         $this->expectException(InvalidTypeException::class);
-        $this->expectExceptionMessage('Invalid type for tags. Requires array, got array');
+        $this->expectExceptionMessage("Invalid type for 'tags': requires 'array', got 'array'");
 
         new $className(['tags' => ['a' => 'x', 'b' => 'y']]);
     }
