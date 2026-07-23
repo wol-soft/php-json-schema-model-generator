@@ -6,11 +6,11 @@ namespace PHPModelGenerator\Tests\Objects;
 
 use Closure;
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
-use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\Arrays\MaxItemsException;
 use PHPModelGenerator\Exception\Arrays\MinItemsException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -892,27 +892,23 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                             * Invalid type for 'property': requires 'object', got 'boolean'
                         ERROR,
                         function (InvalidItemException $exception): void {
-                            // Regression: when a composition applied to an array item fails
-                            // entirely (no branch succeeds), the array item's real value must
-                            // survive. Array items are validated by reference — each item aliases
-                            // directly into the array being validated — so a composed-value
-                            // validator that adopts an unset/leftover proposed value on total
-                            // failure doesn't just corrupt its own reported providedValue; the
-                            // corruption propagates back into the original array too.
+                            // All allOf branches of this schema assert 'object', so the composition
+                            // is routed through the object path: a non-object item value fails the
+                            // outer object type check directly instead of running any composition
+                            // branch. The array item's real value must still survive that rejection.
                             //
                             // Item #0 validates successfully, so the array reports its
                             // instantiated merged object there; item #1 (true) never validates, so
-                            // it must survive as the raw input rather than being corrupted to null
-                            // by the failed composition.
+                            // it must survive as the raw input rather than being corrupted to null.
                             Assert::assertSame(true, $exception->getProvidedValue()[1]);
                             Assert::assertSame('/property', $exception->getInstancePointer()->pointer);
 
-                            $compositionException = $exception->getInvalidItems()[1][0];
-                            Assert::assertInstanceOf(AllOfException::class, $compositionException);
-                            Assert::assertSame(true, $compositionException->getProvidedValue());
+                            $typeException = $exception->getInvalidItems()[1][0];
+                            Assert::assertInstanceOf(InvalidTypeException::class, $typeException);
+                            Assert::assertSame(true, $typeException->getProvidedValue());
                             Assert::assertSame(
                                 '/property/1',
-                                $compositionException->getInstancePointer()->pointer,
+                                $typeException->getInstancePointer()->pointer,
                             );
                         },
                     ],
