@@ -371,13 +371,17 @@ class PropertyProxy extends AbstractProperty
 
     /**
      * @inheritdoc
+     *
+     * Stores the attribute on the proxy itself (via AttributesTrait) rather than on the shared
+     * underlying property, so adding an attribute to one proxy does not leak to sibling proxies
+     * that reference the same $ref definition.
      */
     public function addAttribute(
         PhpAttribute $attribute,
         ?GeneratorConfiguration $generatorConfiguration = null,
         ?int $enablementFlag = null,
     ): static {
-        $this->getProperty()->addAttribute($attribute);
+        parent::addAttribute($attribute, $generatorConfiguration, $enablementFlag);
 
         return $this;
     }
@@ -396,13 +400,12 @@ class PropertyProxy extends AbstractProperty
     /**
      * @inheritdoc
      *
-     * Replaces the SchemaName attribute from the underlying shared property with one that
-     * carries the proxy's own name. Two proxies sharing the same $ref definition would
-     * otherwise both report the first property's name via the shared underlying attribute.
-     *
-     * When a JsonPointer override is set, all existing JsonPointer attributes (there may be
-     * multiple when the underlying property was synthesised from composition branches) are
-     * removed and replaced with a single attribute pointing to the reference site.
+     * Merges three sources, later ones winning by attribute type:
+     *  - the underlying property's attributes (ReadOnly, WriteOnly, Deprecated, …), with its
+     *    SchemaName replaced by this proxy's own name so sibling proxies of the same $ref do not
+     *    all report the first property's name;
+     *  - the JsonPointer override, when set, pointing at this reference site;
+     *  - attributes added directly to this proxy, stored locally so they do not leak to siblings.
      */
     public function getAttributes(): array
     {
@@ -419,6 +422,18 @@ class PropertyProxy extends AbstractProperty
                 static fn(PhpAttribute $attribute): bool => $attribute->getFqcn() !== JsonPointer::class,
             ));
             $attributes[] = $this->overrideJsonPointer;
+        }
+
+        if ($this->phpAttributes !== []) {
+            $localFqcns = array_map(
+                static fn(PhpAttribute $attribute): string => $attribute->getFqcn(),
+                $this->phpAttributes,
+            );
+            $attributes = array_values(array_filter(
+                $attributes,
+                static fn(PhpAttribute $attribute): bool => !in_array($attribute->getFqcn(), $localFqcns, true),
+            ));
+            $attributes = array_merge($attributes, $this->phpAttributes);
         }
 
         return $attributes;
