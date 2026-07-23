@@ -15,11 +15,6 @@ use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\ConstructorBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 
-/**
- * Class PatternPropertiesPostProcessor
- *
- * @package PHPModelGenerator\SchemaProcessor\PostProcessor\Internal
- */
 class PatternPropertiesPostProcessor extends PostProcessor
 {
     /**
@@ -43,6 +38,7 @@ class PatternPropertiesPostProcessor extends PostProcessor
 
                     throw new SchemaException(
                         "Duplicate pattern property access key '$key' in file {$schema->getJsonSchema()->getFile()}",
+                        $schema->getJsonSchema(),
                     );
                 }
 

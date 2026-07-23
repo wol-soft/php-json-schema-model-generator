@@ -117,34 +117,50 @@
         $validatorComponentIndex++;
     {% endforeach %}
 
+    {#
+        Only a satisfied composition may adopt a branch's (possibly decorator-transformed)
+        proposed value. If no branch succeeded, $proposedValue never advanced past its initial
+        null (each branch only reaches "$proposedValue = $proposedValue ?? $value;" once it has
+        already passed its own composition-error check), so unconditionally assigning it to $value
+        would replace the real input with null — corrupting both this validator's own reported
+        value and, since array/object items are validated by reference, the original data itself.
+    #}
+    $compositionSatisfied = {{ composedValueValidation }};
+
     {% if mergedProperty %}
-        if (is_object($proposedValue)) {
+        if ($compositionSatisfied && is_object($proposedValue)) {
             if ($modifiedValues) {
                 $value = array_merge($value, $modifiedValues);
             }
 
             {{ viewHelper.resolvePropertyDecorator(mergedProperty) }}
-        } else {
+        } elseif ($compositionSatisfied) {
             $value = $proposedValue;
+        } else {
+            $value = $originalModelData;
         }
     {% else %}
-        {% if hasModifiedValuesMethod %}
-            foreach ({{ allBranchDefaultAttributeMap }} as $branchDefaultKey => $branchDefaultAttr) {
-                if (!array_key_exists($branchDefaultKey, $originalModelData)) {
-                    $this->$branchDefaultAttr = array_key_exists($branchDefaultKey, $modifiedValues)
-                        ? $modifiedValues[$branchDefaultKey]
-                        : null;
+        if ($compositionSatisfied) {
+            {% if hasModifiedValuesMethod %}
+                foreach ({{ allBranchDefaultAttributeMap }} as $branchDefaultKey => $branchDefaultAttr) {
+                    if (!array_key_exists($branchDefaultKey, $originalModelData)) {
+                        $this->$branchDefaultAttr = array_key_exists($branchDefaultKey, $modifiedValues)
+                            ? $modifiedValues[$branchDefaultKey]
+                            : null;
+                    }
                 }
-            }
-        {% endif %}
-        $value = $proposedValue;
+            {% endif %}
+            $value = $proposedValue;
+        } else {
+            $value = $originalModelData;
+        }
     {% endif %}
 
     {% if generatorConfiguration.collectErrors() %}
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
-    $result = !({{ composedValueValidation }});
+    $result = !$compositionSatisfied;
 
     {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
         if ($result) {

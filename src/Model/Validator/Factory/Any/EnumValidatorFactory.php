@@ -41,6 +41,7 @@ class EnumValidatorFactory extends AbstractValidatorFactory
                     $property->getName(),
                     $propertySchema->getFile(),
                 ),
+                $propertySchema,
             );
         }
 
@@ -55,6 +56,7 @@ class EnumValidatorFactory extends AbstractValidatorFactory
                         $property->getName(),
                         $propertySchema->getFile(),
                     ),
+                    $propertySchema,
                 );
             }
         }
@@ -91,6 +93,9 @@ class EnumValidatorFactory extends AbstractValidatorFactory
             $allowedValues[] = null;
         }
 
-        $property->addValidator(new EnumValidator($property, $allowedValues), 3);
+        $property->addValidator(
+            (new EnumValidator($property, $allowedValues))->withJsonPointer($propertySchema->getPointer() . '/enum'),
+            3,
+        );
     }
 }

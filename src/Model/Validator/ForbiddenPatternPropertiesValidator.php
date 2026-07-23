@@ -18,6 +18,8 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
  */
 class ForbiddenPatternPropertiesValidator extends AbstractPropertyValidator
 {
+    private readonly string $patternPointer;
+
     /**
      * @param string $pattern The unescaped regex pattern from the schema
      */
@@ -28,6 +30,10 @@ class ForbiddenPatternPropertiesValidator extends AbstractPropertyValidator
             InvalidPatternPropertiesException::class,
             [$pattern, '&$invalidProperties'],
         );
+
+        $this->patternPointer = $propertySchema->getPointer()
+            . '/patternProperties/'
+            . JsonSchema::encodePointer($this->pattern);
     }
 
     public function getPattern(): string
@@ -46,20 +52,23 @@ class ForbiddenPatternPropertiesValidator extends AbstractPropertyValidator
     public function getCheck(): string
     {
         $escapedPattern = addcslashes($this->pattern, '/');
+        $escapedPointer = addslashes($this->patternPointer);
 
         return <<<PHP
-(function () use (\$properties, &\$invalidProperties) {
-    foreach (\$properties as \$propertyKey => \$propertyValue) {
-        \$propertyKey = (string) \$propertyKey;
-        if (!preg_match('/$escapedPattern/', \$propertyKey)) {
-            continue;
-        }
-        \$invalidProperties[\$propertyKey] = [
-            new \PHPModelGenerator\Exception\Generic\DeniedPropertyException(\$propertyValue, \$propertyKey),
-        ];
-    }
-    return !empty(\$invalidProperties);
-})()
-PHP;
+            (function () use (\$properties, &\$invalidProperties) {
+                foreach (\$properties as \$propertyKey => \$propertyValue) {
+                    \$propertyKey = (string) \$propertyKey;
+                    if (!preg_match('/$escapedPattern/', \$propertyKey)) {
+                        continue;
+                    }
+                    \$invalidProperties[\$propertyKey] = [
+                        new \PHPModelGenerator\Exception\Generic\DeniedPropertyException(
+                            \$propertyValue, \$propertyKey, '$escapedPointer'
+                        ),
+                    ];
+                }
+                return !empty(\$invalidProperties);
+            })()
+            PHP;
     }
 }

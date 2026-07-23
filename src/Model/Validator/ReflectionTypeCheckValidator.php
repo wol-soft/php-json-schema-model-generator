@@ -26,7 +26,7 @@ class ReflectionTypeCheckValidator extends PropertyValidator
      */
     public function __construct(string $name, PropertyInterface $property)
     {
-        $typeCheck = TypeCheck::buildNegatedCompound([$name]);
+        $typeCheck = TypeCheck::buildNegatedJsonSchemaTypeCheck($name);
 
         parent::__construct($property, $typeCheck, '');
     }

@@ -25,7 +25,7 @@ Generated interface:
 
 Possible exceptions:
 
-* Invalid type for example. Requires bool, got __TYPE__
+* Invalid type for 'example': requires 'bool', got '__TYPE__'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTypeException* which provides the following methods to get further error details:
 
@@ -37,3 +37,5 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTy
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer

@@ -20,11 +20,6 @@ use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\WithoutErrorHandler;
 
-/**
- * Class ReferencePropertyTest
- *
- * @package PHPModelGenerator\Tests\Objects
- */
 #[ApplicableDrafts]
 class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -150,10 +145,12 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(ValidationException::class);
         if ($propertyValue instanceof stdClass) {
             $this->expectExceptionMessageMatches(
-                '/Invalid class for person. Requires ReferencePropertyTest_.*, got stdClass/',
+                "/Invalid class for 'person': requires 'ReferencePropertyTest_.*', got 'stdClass'/",
             );
         } else {
-            $this->expectExceptionMessage('Invalid type for person. Requires object, got ' . gettype($propertyValue));
+            $this->expectExceptionMessage(
+                "Invalid type for 'person': requires 'object', got '" . gettype($propertyValue) . "'",
+            );
         }
 
         $className = $this->generateClassFromFileTemplate('ObjectReference.json', [$reference]);
@@ -210,8 +207,12 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         return [
             'Internal path reference' => ['#/definitions/yearBetween1900and2000'],
             'Internal direct reference' => ['#yearBetween1900and2000'],
-            'External path reference' => ['../ReferencePropertyTest_external/library.json#/definitions/yearBetween1900and2000'], // phpcs:ignore Generic.Files.LineLength.TooLong
-            'External direct reference' => ['../ReferencePropertyTest_external/library.json#yearBetween1900and2000'],
+            'External path reference' => [
+                '../ReferencePropertyTest_external/library.json#/definitions/yearBetween1900and2000',
+            ],
+            'External direct reference' => [
+                '../ReferencePropertyTest_external/library.json#yearBetween1900and2000',
+            ],
         ];
     }
 
@@ -251,13 +252,13 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         return self::combineDataProvider(
             static::intReferenceProvider(),
             [
-                'bool' => [true, 'Invalid type for year'],
-                'float' => [0.92, 'Invalid type for year'],
-                'array' => [[2], 'Invalid type for year'],
-                'object' => [new stdClass(), 'Invalid type for year'],
-                'string' => ['1', 'Invalid type for year'],
-                'int too low' => [1899, 'Value for year must not be smaller than 1900'],
-                'int too high' => [2001, 'Value for year must not be larger than 2000'],
+                'bool' => [true, "Invalid type for 'year'"],
+                'float' => [0.92, "Invalid type for 'year'"],
+                'array' => [[2], "Invalid type for 'year'"],
+                'object' => [new stdClass(), "Invalid type for 'year'"],
+                'string' => ['1', "Invalid type for 'year'"],
+                'int too low' => [1899, "Value for 'year' must not be smaller than 1900"],
+                'int too high' => [2001, "Value for 'year' must not be larger than 2000"],
             ],
         );
     }
@@ -265,10 +266,18 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function recursiveExternalReferenceProvider(): array
     {
         return [
-            'external path reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personDirect'], // phpcs:ignore Generic.Files.LineLength.TooLong
-            'external direct reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#personDirect'], // phpcs:ignore Generic.Files.LineLength.TooLong
-            'external path reference to path recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personPath'], // phpcs:ignore Generic.Files.LineLength.TooLong
-            'external direct reference to path recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#personPath'], // phpcs:ignore Generic.Files.LineLength.TooLong
+            'external path reference to direct recursion' => [
+                '../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personDirect',
+            ],
+            'external direct reference to direct recursion' => [
+                '../ReferencePropertyTest_external/recursiveLibrary.json#personDirect',
+            ],
+            'external path reference to path recursion' => [
+                '../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personPath',
+            ],
+            'external direct reference to path recursion' => [
+                '../ReferencePropertyTest_external/recursiveLibrary.json#personPath',
+            ],
         ];
     }
 
@@ -450,7 +459,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testRecursivePathRefWithInvalidTypeThrowsException(string $schemaFile): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid type for root. Requires object, got integer');
+        $this->expectExceptionMessage("Invalid type for 'root': requires 'object', got 'integer'");
 
         $className = $this->generateClassFromFile($schemaFile);
         new $className(['root' => 42]);
@@ -513,7 +522,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testDefsObjectRefInvalidTypeThrowsException(string $reference): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid type for person. Requires object, got integer');
+        $this->expectExceptionMessage("Invalid type for 'person': requires 'object', got 'integer'");
 
         $className = $this->generateClassFromFileTemplate('DefsObjectReference.json', [$reference]);
         new $className(['person' => 42]);
@@ -689,7 +698,8 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             ],
             'network reference - absolute path to full URL $id' => [
                 $baseURL . 'ReferencePropertyTest/NestedExternalReference.json',
-                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/library.json', // phpcs:ignore Generic.Files.LineLength.TooLong
+                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/'
+                    . 'ReferencePropertyTest_external/library.json',
             ],
         ];
     }
@@ -732,7 +742,8 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             ],
             'network reference - absolute path to full URL $id' => [
                 $baseURL . 'ReferencePropertyTest/NestedExternalReference.json',
-                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/nonexistent.json', // phpcs:ignore Generic.Files.LineLength.TooLong
+                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/'
+                    . 'ReferencePropertyTest_external/nonexistent.json',
             ],
         ];
     }
@@ -743,6 +754,33 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->expectExceptionMessage('A referenced schema on base level must provide an object definition');
 
         $this->generateClassFromFile('InvalidBaseReference.json');
+    }
+
+    /**
+     * When a $ref points at an external file that isn't valid JSON, PropertyFactory wraps the
+     * underlying SchemaException into a generic "Unresolved Reference" message - but the
+     * structured accessors must still expose the referenced file's own line/column, falling back
+     * through the wrapped exception rather than reporting the referencing file's location.
+     */
+    public function testExternalReferenceToMalformedJsonReportsTheReferencedFilesOwnLocation(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^Unresolved Reference \.\.\/ReferencePropertyTest_external\/malformed\.json in file (.*)\.json$/',
+        );
+
+        try {
+            $this->generateClassFromFileTemplate(
+                'ObjectReference.json',
+                ['../ReferencePropertyTest_external/malformed.json'],
+            );
+        } catch (SchemaException $exception) {
+            $this->assertStringEndsWith('malformed.json', $exception->getSchemaFile());
+            $this->assertSame(7, $exception->getSourceLine());
+            $this->assertSame(3, $exception->getSourceColumn());
+
+            throw $exception;
+        }
     }
 
     /**
@@ -888,7 +926,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testBaseRefToInBaseDirFileEnforcesRequiredProperty(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Missing required value for street');
+        $this->expectExceptionMessage("Missing required value for 'street'");
 
         $namespace = 'T5BaseDirBaseRefRequired';
         $this->generateDirectory('BaseDirBaseRef', $this->directoryConfig($namespace));
@@ -960,7 +998,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     {
         return (new GeneratorConfiguration())
             ->setNamespacePrefix($namespace)
-            ->setOutputEnabled(false)
             ->setCollectErrors(false);
     }
 
@@ -1011,32 +1048,32 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider(): array
     {
         return [
-            'Invalid value for personA' => [
+            "Invalid value for 'personA'" => [
                 ['personA' => 10],
-                'Invalid type for personA. Requires object, got integer',
+                "Invalid type for 'personA': requires 'object', got 'integer'",
             ],
-            'Invalid value for both persons' => [
+            "Invalid value for 'both persons'" => [
                 ['personA' => 10, 'personB' => false],
                 <<<ERROR
-                Invalid type for personA. Requires object, got integer
-                Invalid type for personB. Requires object, got boolean
+                Invalid type for 'personA': requires 'object', got 'integer'
+                Invalid type for 'personB': requires 'object', got 'boolean'
                 ERROR,
             ],
             'Invalid names for personB' => [
                 ['personA' => ['name' => 'A'], 'personB' => ['name' => 10]],
                 <<<ERROR
-                Invalid nested object for property personA:
-                  - Value for name must not be shorter than 3
-                Invalid nested object for property personB:
-                  - Invalid type for name. Requires string, got integer
+                Invalid nested object for property 'personA':
+                  - Value for 'name' must not be shorter than 3
+                Invalid nested object for property 'personB':
+                  - Invalid type for 'name': requires 'string', got 'integer'
                 ERROR,
             ],
             'Combined top level validation error and nested error' => [
                 ['personA' => ['name' => 'A'], 'personB' => 10],
                 <<<ERROR
-                Invalid nested object for property personA:
-                  - Value for name must not be shorter than 3
-                Invalid type for personB. Requires object, got integer
+                Invalid nested object for property 'personA':
+                  - Value for 'name' must not be shorter than 3
+                Invalid type for 'personB': requires 'object', got 'integer'
                 ERROR,
             ],
         ];

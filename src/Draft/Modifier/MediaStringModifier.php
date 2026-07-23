@@ -52,6 +52,13 @@ class MediaStringModifier implements ModifierInterface
         $mediaType = $json['contentMediaType'] ?? null;
         $encoding  = $json['contentEncoding'] ?? null;
 
+        // ContentValidatorInterface::validate() is a single opaque check over both dimensions
+        // combined — it has no contract for reporting which one actually failed. Until that
+        // interface gains a way to attribute failure to a specific dimension, encoding takes
+        // pointer priority over media type when both are present, since the encoding (e.g.
+        // base64) is decoded first and is the more "mechanical" of the two transformations.
+        $pointer = $propertySchema->getPointer() . '/' . ($encoding !== null ? 'contentEncoding' : 'contentMediaType');
+
         (new FilterProcessor())->process(
             $property,
             [
@@ -61,12 +68,16 @@ class MediaStringModifier implements ModifierInterface
             ],
             $generatorConfiguration,
             $schema,
+            $pointer,
             self::FILTER_START_PRIORITY,
         );
 
         $contentValidator = $generatorConfiguration->getContentValidator($mediaType, $encoding);
         if ($contentValidator !== null) {
-            $property->addValidator(new ContentValidator($property, $contentValidator, $mediaType, $encoding));
+            $property->addValidator(
+                (new ContentValidator($property, $contentValidator, $mediaType, $encoding))
+                    ->withJsonPointer($pointer),
+            );
         }
     }
 }

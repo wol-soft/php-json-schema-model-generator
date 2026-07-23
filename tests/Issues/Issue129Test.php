@@ -10,6 +10,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use TypeError;
 
 /**
@@ -108,16 +109,29 @@ class Issue129Test extends AbstractPHPModelGeneratorTestCase
     {
         $this->addEnumPostProcessor();
 
-        // 1234 is incompatible with "type": "string" — expect a warning on stdout
-        $this->expectOutputRegex(
-            '/Warning:.*property.*incompatible values.*1234.*removed/i',
-        );
+        $recordingLogger = new RecordingLogger();
 
         $className = $this->generateClassFromFile(
             'EnumPropertyWithTypeAndMixedValues.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)
+                ->setLogger($recordingLogger),
             false,
         );
+
+        $warnings = array_values(array_filter(
+            $recordingLogger->getEntries(),
+            static fn(array $entry): bool => $entry['level'] === 'warning',
+        ));
+
+        $this->assertCount(1, $warnings);
+        $this->assertSame(
+            "Enum property '{property}' in file {file} declares type '{type}' but contains incompatible"
+                . " values: {removedValues}. These values have been removed from the generated enum.",
+            $warnings[0]['message'],
+        );
+        $this->assertSame('property', $warnings[0]['context']['property']);
+        $this->assertSame('string', $warnings[0]['context']['type']);
+        $this->assertSame('1234', $warnings[0]['context']['removedValues']);
 
         // Only string cases must exist; 1234 must be absent
         $enumClass = $this->getReturnType(new $className(['property' => 'foo']), 'getProperty')->getName();

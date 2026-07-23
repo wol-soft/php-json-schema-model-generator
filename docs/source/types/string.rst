@@ -25,7 +25,7 @@ Generated interface:
 
 Possible exceptions:
 
-* Invalid type for example. Requires string, got __TYPE__
+* Invalid type for 'example': requires 'string', got '__TYPE__'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTypeException* which provides the following methods to get further error details:
 
@@ -37,6 +37,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTy
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Length validation
 -----------------
@@ -59,8 +61,8 @@ To add a length validation to the property use the `minLength` and `maxLength` k
 
 Possible exceptions:
 
-* Value for example must not be shorter than 3
-* Value for example must not be longer than 5
+* Value for 'example' must not be shorter than 3
+* Value for 'example' must not be longer than 5
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\String\\MinLengthException* or a *PHPModelGenerator\\Exception\\String\\MaxLengthException* which provides the following methods to get further error details:
 
@@ -74,6 +76,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\String\\MinLengthE
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Pattern validation
 ------------------
@@ -99,7 +103,7 @@ To add a pattern validation to the property use the `pattern` keyword.
 
 Possible exceptions:
 
-* Value for property doesn't match pattern ^[a-zA-Z]*$
+* Value for 'example' does not match pattern '^[a-zA-Z]*$'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\String\\PatternException* which provides the following methods to get further error details:
 
@@ -111,6 +115,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\String\\PatternExc
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Format
 ------
@@ -132,7 +138,7 @@ To add a format validation to the property use the `format` keyword.
 
 Possible exceptions:
 
-* Value for property must match the format __FORMAT__
+* Value for 'example' must match the format '__FORMAT__'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\String\\FormatException* which provides the following methods to get further error details:
 
@@ -144,6 +150,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\String\\FormatExce
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Builtin formats
 ^^^^^^^^^^^^^^^
@@ -383,3 +391,5 @@ The ``ContentException`` exposes:
     public function getExpectedEncoding(): ?string
     public function getPropertyName(): string
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer

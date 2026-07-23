@@ -20,7 +20,7 @@ class ExplicitNullTest extends AbstractPHPModelGeneratorTestCase
     public function testNullForOptionalValueWithoutImplicitNullThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid type for age. Requires int, got NULL');
+        $this->expectExceptionMessage("Invalid type for 'age': requires 'int', got 'NULL'");
 
         $className = $this->generateClassFromFile('ImplicitNull.json', null, false, false);
 
@@ -30,7 +30,7 @@ class ExplicitNullTest extends AbstractPHPModelGeneratorTestCase
     public function testNullForRequiredValueWithoutImplicitNullThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid type for name. Requires string, got NULL');
+        $this->expectExceptionMessage("Invalid type for 'name': requires 'string', got 'NULL'");
 
         $className = $this->generateClassFromFile('ImplicitNull.json', null, false, false);
 
@@ -47,7 +47,7 @@ class ExplicitNullTest extends AbstractPHPModelGeneratorTestCase
     public function testNullForRequiredValueWithImplicitNullThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid type for name. Requires string, got NULL');
+        $this->expectExceptionMessage("Invalid type for 'name': requires 'string', got 'NULL'");
 
         $className = $this->generateClassFromFile('ImplicitNull.json');
 

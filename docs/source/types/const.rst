@@ -24,7 +24,7 @@ Generated interface (the typehint is auto-detected from the given constant value
 
 Possible exceptions:
 
-* Invalid value for example declined by const constraint
+* Value for 'example' must be 42, got 41
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidConstException* which provides the following methods to get further error details:
 
@@ -36,3 +36,5 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidCo
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer

@@ -70,10 +70,10 @@ class RenderJob
 
         require $this->schema->getTargetFileName();
 
-        if ($generatorConfiguration->isOutputEnabled()) {
-            echo sprintf(
-                "Rendered class %s\n",
-                join(
+        $generatorConfiguration->getLogger()->info(
+            'Rendered class {class}',
+            [
+                'class' => join(
                     '\\',
                     array_filter([
                         $generatorConfiguration->getNamespacePrefix(),
@@ -81,8 +81,8 @@ class RenderJob
                         $this->schema->getClassName(),
                     ]),
                 ),
-            );
-        }
+            ],
+        );
     }
 
     /**

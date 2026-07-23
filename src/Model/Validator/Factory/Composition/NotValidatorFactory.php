@@ -79,7 +79,7 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
         $availableAmount = count($compositionProperties);
 
         $property->addValidator(
-            new ComposedPropertyValidator(
+            (new ComposedPropertyValidator(
                 $schemaProcessor->getGeneratorConfiguration(),
                 $property,
                 $compositionProperties,
@@ -96,7 +96,7 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
                     'mergedProperty' => null,
                     'onlyForDefinedValues' => false,
                 ],
-            ),
+            ))->withJsonPointer($propertySchema->getPointer() . '/not'),
             100,
         );
     }
@@ -153,7 +153,7 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
         $compositionProperties = [$branchProperty];
 
         $property->addValidator(
-            new ComposedPropertyValidator(
+            (new ComposedPropertyValidator(
                 $schemaProcessor->getGeneratorConfiguration(),
                 $property,
                 $compositionProperties,
@@ -170,7 +170,7 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
                     'mergedProperty' => null,
                     'onlyForDefinedValues' => false,
                 ],
-            ),
+            ))->withJsonPointer($propertySchema->getPointer() . '/not'),
             100,
         );
     }

@@ -14,6 +14,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\DraftRunContext;
 use ReflectionEnum;
 use TypeError;
@@ -88,7 +89,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         );
 
         $this->expectException(EnumException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+        $this->expectExceptionMessage('Value for \'property\' must be one of ["hans","dieter",null], got "Meier"');
         $object->setProperty('Meier');
     }
 
@@ -98,7 +99,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFileTemplate('EnumProperty.json', ['["Hans", "Dieter"]'], null, false);
 
         $this->expectException(EnumException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+        $this->expectExceptionMessage('Value for \'property\' must be one of ["Hans","Dieter",null], got "Meier"');
 
         new $className(['property' => 'Meier']);
     }
@@ -111,7 +112,8 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $this->expectException(InvalidTypeException::class);
         $this->expectExceptionMessageMatches(
-            '/Invalid type for property\. Requires EnumPostProcessorTest_.*Property, got PHPModelGenerator\\\\Tests\\\\PostProcessor\\\\IntEnum/',
+            "/Invalid type for 'property': requires 'EnumPostProcessorTest_.*Property', " .
+                "got 'PHPModelGenerator\\\\Tests\\\\PostProcessor\\\\IntEnum'/",
         );
 
         new $className(['property' => IntEnum::A]);
@@ -283,7 +285,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         );
 
         $this->expectException(EnumException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+        $this->expectExceptionMessage("Value for 'property' must be one of [10,100,null], got 1");
         $object->setProperty(1);
     }
 
@@ -347,7 +349,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull($enum::tryFrom('Dieter'));
 
         $this->expectException(EnumException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+        $this->expectExceptionMessage('Value for \'property\' must be one of ["Hans",100,true,60.5,null], got 1');
         $object->setProperty(1);
     }
 
@@ -365,14 +367,38 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->addPostProcessor();
 
+        $recordingLogger = new RecordingLogger();
+
         $className = $this->generateClassFromFileTemplate(
             $file,
             $enums,
-            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false)->setLogger($recordingLogger),
             false,
         );
 
         $this->assertGeneratedEnums(1);
+
+        // The first property's enum is rendered; the second, identical, one is redirected to it.
+        $entries = $recordingLogger->getEntries();
+
+        $renderedEntries = array_values(array_filter(
+            $entries,
+            static fn(array $entry): bool => $entry['level'] === 'info' && $entry['message'] === 'Rendered enum {enum}',
+        ));
+        $this->assertCount(1, $renderedEntries);
+        $this->assertNotEmpty($renderedEntries[0]['context']['enum'] ?? null);
+
+        $duplicateEntries = array_values(array_filter(
+            $entries,
+            static fn(array $entry): bool => $entry['level'] === 'notice'
+                && $entry['message']
+                    === 'Duplicated signature {signature} for enum {enum}. Redirecting to {redirectEnum}',
+        ));
+        $this->assertCount(1, $duplicateEntries);
+        $this->assertSame(['signature', 'enum', 'redirectEnum'], array_keys($duplicateEntries[0]['context']));
+        $this->assertNotEmpty($duplicateEntries[0]['context']['signature']);
+        $this->assertNotEmpty($duplicateEntries[0]['context']['enum']);
+        $this->assertNotEmpty($duplicateEntries[0]['context']['redirectEnum']);
 
         $object = new $className(['property1' => 'Hans', 'property2' => 'Dieter']);
         $this->assertSame('Hans', $object->getProperty1()->value);
@@ -472,7 +498,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFile('EnumPropertyRequired.json');
 
         $this->expectException(RequiredValueException::class);
-        $this->expectExceptionMessage('Missing required value for property');
+        $this->expectExceptionMessage("Missing required value for 'property'");
 
         new $className();
     }
@@ -596,7 +622,7 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $builder->setProperty('Meier');
         $this->expectException(EnumException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by enum constraint');
+        $this->expectExceptionMessage('Value for \'property\' must be one of ["hans","dieter",null], got "Meier"');
         $builder->validate();
     }
 

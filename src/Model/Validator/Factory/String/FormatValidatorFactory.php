@@ -40,15 +40,16 @@ class FormatValidatorFactory extends AbstractValidatorFactory
                     $property->getName(),
                     $propertySchema->getFile(),
                 ),
+                $propertySchema,
             );
         }
 
         $property->addValidator(
-            new FormatValidator(
+            (new FormatValidator(
                 $property,
                 $formatValidator,
                 [$format],
-            ),
+            ))->withJsonPointer($propertySchema->getPointer() . '/format'),
         );
     }
 }

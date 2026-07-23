@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Validator\Factory;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator\AbstractPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 abstract class SimpleBaseValidatorFactory extends SimplePropertyValidatorFactory
@@ -21,8 +22,14 @@ abstract class SimpleBaseValidatorFactory extends SimplePropertyValidatorFactory
             return;
         }
 
-        $schema->addBaseValidator(
-            $this->getValidator($property, $propertySchema->getJson()[$this->key]),
-        );
+        $validator = $this->getValidator($property, $propertySchema->getJson()[$this->key]);
+
+        if ($validator instanceof AbstractPropertyValidator) {
+            $validator = $validator->withJsonPointer(
+                $propertySchema->getPointer() . '/' . JsonSchema::encodePointer($this->key),
+            );
+        }
+
+        $schema->addBaseValidator($validator);
     }
 }

@@ -116,7 +116,7 @@ class BuiltInFilterTest extends AbstractFilterTestCase
     public function testLengthValidationForFilteredValueForInvalidValuesThrowsAnException(string $input): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Value for property must not be shorter than 2');
+        $this->expectExceptionMessage("Value for 'property' must not be shorter than 2");
 
         $className = $this->generateClassFromFile('TrimAsStringWithLengthValidation.json');
 

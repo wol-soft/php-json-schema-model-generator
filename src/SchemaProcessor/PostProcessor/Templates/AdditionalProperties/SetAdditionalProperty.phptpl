@@ -8,7 +8,7 @@ private function _setAdditionalProperty(
 ): void {
     {% if hasObjectProperties %}
         if (in_array($key, {{ objectProperties }})) {
-            throw new RegularPropertyAsAdditionalPropertyException($value, $key, self::class);
+            throw new RegularPropertyAsAdditionalPropertyException($value, $key, {{ objectPropertyPointers }}[$key] ?? '', self::class);
         }
     {% endif %}
 

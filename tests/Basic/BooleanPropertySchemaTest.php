@@ -55,7 +55,7 @@ class BooleanPropertySchemaTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         mixed $value,
     ): void {
-        $this->expectValidationError($configuration, 'Value for forbidden is not allowed');
+        $this->expectValidationError($configuration, "Value for 'forbidden' is not allowed");
         $className = $this->generateClassFromFile('FalseProperty.json', $configuration);
         new $className(['forbidden' => $value]);
     }
@@ -115,7 +115,10 @@ class BooleanPropertySchemaTest extends AbstractPHPModelGeneratorTestCase
     #[DataProvider('validationMethodDataProvider')]
     public function testTruePropertyDependencyIsEnforced(GeneratorConfiguration $configuration): void
     {
-        $this->expectValidationError($configuration, "Missing required attributes which are dependants of anything");
+        $this->expectValidationError(
+            $configuration,
+            "Missing required attributes which are dependants of 'anything'",
+        );
 
         $className = $this->generateClassFromFile('TruePropertyWithDependency.json', $configuration);
         new $className(['anything' => 'hello']);

@@ -20,6 +20,8 @@ abstract class AbstractPropertyValidator implements PropertyValidatorInterface
     /**
      * AbstractPropertyValidator constructor.
      */
+    protected string $jsonPointer = '';
+
     public function __construct(
         protected PropertyInterface $property,
         protected string $exceptionClass,
@@ -45,12 +47,36 @@ abstract class AbstractPropertyValidator implements PropertyValidatorInterface
         return $this->exceptionClass;
     }
 
+    public function withJsonPointer(string $jsonPointer): static
+    {
+        $clone = clone $this;
+        $clone->jsonPointer = $jsonPointer;
+
+        // If the original is not yet resolved (e.g. ArrayItemValidator waiting on a recursive
+        // $ref), the SchemaDefinition resolution chain holds a reference to the original, not
+        // the clone. Forward resolution so the clone resolves when the original does — otherwise
+        // the property that received the clone never decrements its pending-validator count and
+        // finalizeMultiTypeProperty never fires.
+        if (!$this->isResolved) {
+            $this->onResolve(static function () use ($clone): void {
+                $clone->resolve();
+            });
+        }
+
+        return $clone;
+    }
+
+    public function getJsonPointer(): string
+    {
+        return $this->jsonPointer;
+    }
+
     /**
      * @inheritDoc
      */
     public function getExceptionParams(): array
     {
-        return array_merge([$this->property->getName()], $this->exceptionParams);
+        return array_merge([$this->property->getName(), $this->jsonPointer], $this->exceptionParams);
     }
 
     /**

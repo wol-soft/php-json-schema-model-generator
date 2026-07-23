@@ -36,6 +36,7 @@ class PatternPropertiesValidatorFactory extends AbstractValidatorFactory
             if (@preg_match("/$escapedPattern/", '') === false) {
                 throw new SchemaException(
                     "Invalid pattern '$pattern' for pattern property in file {$propertySchema->getFile()}",
+                    $propertySchema,
                 );
             }
 
@@ -45,22 +46,26 @@ class PatternPropertiesValidatorFactory extends AbstractValidatorFactory
 
             if ($patternSchema === false) {
                 $schema->addBaseValidator(
-                    new ForbiddenPatternPropertiesValidator(
+                    (new ForbiddenPatternPropertiesValidator(
                         $pattern,
                         $schema->getClassName(),
                         $propertySchema,
-                    )
+                    ))->withJsonPointer(
+                        $propertySchema->getPointer() . '/' . $this->key . '/' . JsonSchema::encodePointer($pattern),
+                    ),
                 );
                 continue;
             }
 
             $schema->addBaseValidator(
-                new PatternPropertiesValidator(
+                (new PatternPropertiesValidator(
                     $schemaProcessor,
                     $schema,
                     $pattern,
                     $propertySchema->navigate("$this->key/" . JsonSchema::encodePointer($pattern)),
-                )
+                ))->withJsonPointer(
+                    $propertySchema->getPointer() . '/' . $this->key . '/' . JsonSchema::encodePointer($pattern),
+                ),
             );
         }
     }

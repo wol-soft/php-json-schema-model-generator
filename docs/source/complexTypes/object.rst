@@ -48,10 +48,10 @@ Possible exceptions:
 
 .. code-block:: none
 
-    * Invalid type for car. Requires object, got __TYPE__
+    * Invalid type for 'car': requires 'object', got '__TYPE__'
 
-    * Invalid nested object for property car:
-      - Invalid type for model. Requires string, got __TYPE__
+    * Invalid nested object for property 'car':
+      - Invalid type for 'model': requires 'string', got '__TYPE__'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTypeException* which provides the following methods to get further error details:
 
@@ -63,6 +63,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTy
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 The nested object will be validated in the nested class Car which may throw additional exceptions if invalid data is provided. If the internal validation of a nested object fails a *PHPModelGenerator\\Exception\\Generic\\NestedObjectException* will be thrown which provides the following methods to get further error details:
 
@@ -74,6 +76,8 @@ The nested object will be validated in the nested class Car which may throw addi
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 If `error collection <../gettingStarted.html#collect-errors-vs-early-return>`__ is enabled the nested exception returned by `getNestedException` will be an **ErrorRegistryException** containing all validation errors of the nested object. Otherwise it will contain the first validation error which occurred during the validation of the nested object.
 
@@ -99,9 +103,40 @@ Otherwise, if an `$id` is present, the basename of the $id and as a last fallbac
 Naming of nested classes
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-For the class name of a nested class the `title` property (fallback to `$id`) of the nested object is used.
-If neither the title nor the $id property is present the property key will be prefixed with the parent class.
-If an object `Person` has a nested object `car` without a `title` and an `$id` the class for car will be named **Person_Car**.
+For the class name of a nested class the following priority order applies:
+
+1. **title** — used as-is if present on the nested schema.
+2. **$id** — the basename of the ``$id`` URI is used if present.
+3. **$anchor** — the ``$anchor`` value is used if present (Draft 2019-09 and later). ``$anchor``
+   is a plain-string identifier with the same intent as ``$id`` but without URI semantics.
+4. **Definition key** — when the nested schema is referenced from a named ``definitions`` or
+   ``$defs`` slot (e.g. ``$ref: "#/definitions/address"``), the definition key is used
+   (e.g. ``address``). This produces stable, readable names even for schemas that carry no
+   ``title``, ``$id``, or ``$anchor``.
+5. **Inline property name** — when the schema is defined inline directly under a ``properties``
+   keyword, the property key is used without a content hash. Property keys are unique within
+   their containing object, so the combination of parent class name and property key is
+   already collision-free. For example, an inline ``car`` object inside ``Person`` becomes
+   **Person_Car**.
+6. **Array items** — when the schema is the ``items`` of a named array property, the array
+   property name is extracted and ``Item`` is appended, making it clear that the class
+   represents one element of the array rather than the array itself. For example, the items
+   of a ``tags`` array property become **{Parent}_TagsItem**.
+7. **Property name + content hash** — final fallback for schemas that do not match any of the
+   above (e.g. inline schemas inside composition branches like ``anyOf``/``oneOf``). The
+   property key is prefixed with the parent class name and a short content hash is appended
+   to avoid collisions between branches that share the same property name.
+
+.. hint::
+
+    Set ``title``, ``$id``, or ``$anchor`` on nested schemas, or use named
+    ``definitions``/``$defs`` entries, to get the most explicit and predictable class names.
+    Schemas with large ``definitions`` blocks that lack these keywords will automatically
+    receive names derived from their definition key.
+
+    For full control over class naming, implement ``ClassNameGeneratorInterface`` and pass it
+    to the generator configuration via
+    `setClassNameGenerator() <../gettingStarted.html#class-name-generator>`__.
 
 Property Name Normalization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -159,7 +194,7 @@ Using the keyword `required` a list of properties may be defined which must be p
 
 Possible exceptions:
 
-* Missing required value for name
+* Missing required value for 'name'
 
 .. hint::
 
@@ -216,8 +251,8 @@ With the keywords `minProperties` and `maxProperties` the number of allowed prop
 
 Possible exceptions:
 
-* Provided object for person must not contain less than 2 properties
-* Provided object for person must not contain more than 3 properties
+* Provided object for 'person' must not contain less than 2 properties
+* Provided object for 'person' must not contain more than 3 properties
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\MaxPropertiesException* or a *PHPModelGenerator\\Exception\\Object\\MinPropertiesException* which provides the following methods to get further error details:
 
@@ -231,6 +266,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\MaxPropert
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Additional Properties
 ---------------------
@@ -266,7 +303,7 @@ Using the keyword `additionalProperties` the object can be limited to not contai
 
 Possible exceptions:
 
-* Provided JSON for example contains not allowed additional properties [additional1, additional2]
+* Provided JSON for 'example' contains not allowed additional properties ['additional1', 'additional2']
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\AdditionalPropertiesException* which provides the following methods to get further error details:
 
@@ -278,16 +315,18 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\Additional
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 If invalid additional properties are provided a detailed exception will be thrown containing all violations:
 
 .. code-block:: none
 
-    Provided JSON for example contains invalid additional properties.
+    Provided JSON for 'example' contains invalid additional properties
       - invalid additional property 'additional1'
-        * Invalid type for name. Requires string, got integer
+        * Invalid type for 'name': requires 'string', got 'integer'
       - invalid additional property 'additional2'
-        * Invalid type for age. Requires int, got string
+        * Invalid type for 'age': requires 'int', got 'string'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidAdditionalPropertiesException* which provides the following methods to get further error details:
 
@@ -299,6 +338,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidAdd
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 .. warning::
 
@@ -377,12 +418,12 @@ Exceptions contain detailed information about the violations:
 
 .. code-block:: none
 
-    Provided JSON for example contains properties with invalid names.
+    Provided JSON for 'example' contains properties with invalid names
       - invalid property 'test12345a'
-        * Value for property name doesn't match pattern ^test[0-9]+$
-        * Value for property name must not be longer than 8
+        * Value for 'property name' does not match pattern '^test[0-9]+$'
+        * Value for 'property name' must not be longer than 8
       - invalid property 'test123456789'
-        * Value for property name must not be longer than 8
+        * Value for 'property name' must not be longer than 8
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidPropertyNamesException* which provides the following methods to get further error details:
 
@@ -395,6 +436,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidPro
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Dependencies
 ------------
@@ -431,8 +474,8 @@ Exceptions contain a list of all violated properties which are declared as a dep
 
 .. code-block:: none
 
-    Missing required attributes which are dependants of credit_card:
-      - billing_address
+    Missing required attributes which are dependants of 'credit_card':
+      - 'billing_address'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Dependency\\InvalidPropertyDependencyException* which provides the following methods to get further error details:
 
@@ -444,6 +487,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Dependency\\Invali
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 As stated above the dependency declaration is not bidirectional. If the presence of a billing_address shall also require the credit_card property to be required the dependency has to be declared separately:
 
@@ -528,8 +573,8 @@ Possible exceptions:
 
 .. code-block:: none
 
-    Invalid schema which is dependant on credit_card:
-      - Missing required value for date_of_birth
+    Invalid schema which is dependant on 'credit_card':
+      - Missing required value for 'date_of_birth'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Dependency\\InvalidSchemaDependencyException* which provides the following methods to get further error details:
 
@@ -541,6 +586,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Dependency\\Invali
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 Multiple violations against the schema dependency may be included.
 
@@ -576,9 +623,9 @@ If invalid pattern properties are provided a detailed exception will be thrown c
 
 .. code-block:: none
 
-    Provided JSON for Example contains invalid pattern properties.
+    Provided JSON for 'Example' contains invalid pattern properties
       - invalid property 'a0' matching pattern '\^a'
-        * Invalid type for pattern property. Requires string, got integer
+        * Invalid type for 'pattern property': requires 'string', got 'integer'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidPatternPropertiesException* which provides the following methods to get further error details:
 
@@ -592,6 +639,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidPat
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 .. note::
 

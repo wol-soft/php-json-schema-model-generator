@@ -68,6 +68,9 @@ class ObjectModifier implements ModifierInterface
             )
             ->setType(new PropertyType($nestedSchema->getClassName()));
 
-        $property->addValidator(new InstanceOfValidator($property), 3);
+        $property->addValidator(
+            (new InstanceOfValidator($property))->withJsonPointer($propertySchema->getPointer() . '/type'),
+            3,
+        );
     }
 }

@@ -9,6 +9,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use ReflectionClass;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -79,12 +80,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
         string $class1Suffix,
         string $class2Suffix,
     ): void {
-        $this->generateDirectory(
-            $file,
-            (new GeneratorConfiguration())
-                ->setNamespacePrefix($file)
-                ->setOutputEnabled(false),
-        );
+        $this->generateDirectory($file, (new GeneratorConfiguration())->setNamespacePrefix($file));
 
         $namespacePrefix = $this->lastGeneratedNamespacePrefix;
         $object1 = new ("\\{$namespacePrefix}\\{$class1Suffix}")(['member' => ['name' => 'Hannes', 'age' => 42]]);
@@ -118,9 +114,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'IdenticalSubSchemaDifferentNamespace',
-            (new GeneratorConfiguration())
-                ->setNamespacePrefix('IdenticalSubSchemaDifferentNamespace')
-                ->setOutputEnabled(false),
+            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaDifferentNamespace'),
         );
 
         $namespacePrefix = $this->lastGeneratedNamespacePrefix;
@@ -137,7 +131,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'IdenticalSubSchemaInArray',
-            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaInArray')->setOutputEnabled(false),
+            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaInArray'),
         );
 
         $namespacePrefix = $this->lastGeneratedNamespacePrefix;
@@ -152,29 +146,47 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
 
     public function testIdenticalSchemasInCompositionAreMappedToOneClass(): void
     {
-        ob_start();
+        $recordingLogger = new RecordingLogger();
 
         $this->generateDirectory(
             'IdenticalSubSchemaInComposition',
-            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaInComposition'),
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('IdenticalSubSchemaInComposition')
+                ->setLogger($recordingLogger),
         );
 
         $namespacePrefix = $this->lastGeneratedNamespacePrefix;
-        $output = ob_get_contents();
-        ob_end_clean();
+        $entries = $recordingLogger->getEntries();
 
-        // check for output warnings/messages
-        $escapedSubSchema1 = preg_quote("{$namespacePrefix}\\CompositionSubFolder1\\SubSchema", '/');
-        foreach (
-            [
-             "/(.*)Generated class {$escapedSubSchema1}(.*)/m",
-             "/(.*)Rendered class {$escapedSubSchema1}(.*)/m",
-             '/(.*)Duplicated signature (.*) for class (.*) Redirecting to(.*)/m',
-             '/(.*)Warning: empty composition for property2 may lead to unexpected results(.*)/m',
-            ] as $message
-        ) {
-            $this->assertMatchesRegularExpression($message, $output);
-        }
+        $this->assertTrue(
+            $this->hasLogEntry($entries, 'info', 'Generated class {class}', [
+                'class' => "{$namespacePrefix}\\CompositionSubFolder1\\SubSchema",
+            ]),
+            'Expected a "Generated class" log entry for CompositionSubFolder1\SubSchema.',
+        );
+        $this->assertTrue(
+            $this->hasLogEntry($entries, 'info', 'Rendered class {class}', [
+                'class' => "{$namespacePrefix}\\CompositionSubFolder1\\SubSchema",
+            ]),
+            'Expected a "Rendered class" log entry for CompositionSubFolder1\SubSchema.',
+        );
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $entries,
+                'notice',
+                'Duplicated signature {signature} for class {class}. Redirecting to {redirectClass}',
+            ),
+            'Expected a duplicated-signature log entry for the identical nested schemas.',
+        );
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $entries,
+                'warning',
+                "Empty composition for '{property}' may lead to unexpected results",
+                ['property' => 'property2'],
+            ),
+            'Expected an empty-composition warning for property2.',
+        );
 
         $subObject1 = new ("\\{$namespacePrefix}\\CompositionSubFolder1\\SubSchema")(['object1' => ['property1' => 'Hello'], 'property3' => 3]);
 
@@ -193,7 +205,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'IdenticalSubSchemaInCompositionInArray',
-            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchema')->setOutputEnabled(false),
+            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchema'),
         );
 
         $namespacePrefix = $this->lastGeneratedNamespacePrefix;
@@ -214,7 +226,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'IdenticalSubSchemaCombined1',
-            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaCombined1')->setOutputEnabled(false),
+            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaCombined1'),
         );
 
         $namespacePrefix = $this->lastGeneratedNamespacePrefix;
@@ -235,7 +247,7 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'IdenticalSubSchemaCombined2',
-            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaCombined2')->setOutputEnabled(false),
+            (new GeneratorConfiguration())->setNamespacePrefix('IdenticalSubSchemaCombined2'),
         );
 
         $namespacePrefix = $this->lastGeneratedNamespacePrefix;

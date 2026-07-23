@@ -35,11 +35,6 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\TypeConverter;
 use PHPModelGenerator\Utils\TypeIntersection;
 
-/**
- * Class PropertyFactory
- *
- * @package PHPModelGenerator\PropertyProcessor
- */
 class PropertyFactory
 {
     /**
@@ -53,6 +48,7 @@ class PropertyFactory
         string $propertyName,
         JsonSchema $propertySchema,
         bool $required = false,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $json      = $propertySchema->getJson();
         $producers = $schemaProcessor->getGeneratorConfiguration()
@@ -80,6 +76,7 @@ class PropertyFactory
                 $propertySchema,
                 $resolvedType,
                 $required,
+                $isArrayItem,
             );
         }
 
@@ -92,6 +89,7 @@ class PropertyFactory
                 $propertyName,
                 $propertySchema,
                 $required,
+                $isArrayItem,
             ),
             'base'   => $this->createBaseProperty($schemaProcessor, $schema, $propertyName, $propertySchema),
             default  => $this->createTypedProperty(
@@ -101,6 +99,7 @@ class PropertyFactory
                 $propertySchema,
                 $resolvedType,
                 $required,
+                $isArrayItem,
             ),
         };
     }
@@ -572,9 +571,17 @@ class PropertyFactory
         string $propertyName,
         JsonSchema $propertySchema,
         bool $required,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $json     = $propertySchema->getJson();
-        $property = $this->buildProperty($schemaProcessor, $propertyName, null, $propertySchema, $required);
+        $property = $this->buildProperty(
+            $schemaProcessor,
+            $propertyName,
+            null,
+            $propertySchema,
+            $required,
+            $isArrayItem,
+        );
 
         $className = $schemaProcessor->getGeneratorConfiguration()->getClassNameGenerator()->getClassName(
             $propertyName,
@@ -642,6 +649,7 @@ class PropertyFactory
         JsonSchema $propertySchema,
         string $type,
         bool $required,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $phpType  = $type !== 'any' ? TypeConverter::jsonSchemaToPHP($type) : null;
         $property = $this->buildProperty(
@@ -650,6 +658,7 @@ class PropertyFactory
             $phpType !== null ? new PropertyType($phpType) : null,
             $propertySchema,
             $required,
+            $isArrayItem,
         );
 
         $this->applyModifiers($schemaProcessor, $schema, $property, $propertySchema);
@@ -668,6 +677,7 @@ class PropertyFactory
         ?PropertyType $type,
         JsonSchema $propertySchema,
         bool $required,
+        bool $isArrayItem = false,
     ): Property {
         $json = $propertySchema->getJson();
 
@@ -681,11 +691,13 @@ class PropertyFactory
                     $propertyName,
                     $propertySchema->getFile(),
                 ),
+                $propertySchema,
             );
         }
 
         $property = (new Property($propertyName, $type, $propertySchema, $json['description'] ?? ''))
             ->setRequired($required)
+            ->setArrayItem($isArrayItem)
             ->setReadOnly($isSchemaReadOnly || $schemaProcessor->getGeneratorConfiguration()->isImmutable())
             ->setWriteOnly($isWriteOnly);
 
@@ -697,8 +709,16 @@ class PropertyFactory
             $property->setExamples($json['examples']);
         }
 
-        if ($required && !str_starts_with($propertyName, 'item of array ')) {
-            $property->addValidator(new RequiredPropertyValidator($property), 1);
+        if ($required && !$isArrayItem) {
+            // Compute the parent object schema pointer by stripping '<name>/properties' (last two
+            // path segments) from the property pointer, then appending the 'required' keyword.
+            $propertyPointer = $propertySchema->getPointer();
+            $segments = $propertyPointer !== '' ? explode('/', ltrim($propertyPointer, '/')) : [];
+            $parentPointer = count($segments) > 2 ? '/' . implode('/', array_slice($segments, 0, -2)) : '';
+            $property->addValidator(
+                (new RequiredPropertyValidator($property))->withJsonPointer($parentPointer . '/required'),
+                1,
+            );
         }
 
         $configuration = $schemaProcessor->getGeneratorConfiguration();
@@ -765,9 +785,17 @@ class PropertyFactory
         JsonSchema $propertySchema,
         array $types,
         bool $required,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $json     = $propertySchema->getJson();
-        $property = $this->buildProperty($schemaProcessor, $propertyName, null, $propertySchema, $required);
+        $property = $this->buildProperty(
+            $schemaProcessor,
+            $propertyName,
+            null,
+            $propertySchema,
+            $required,
+            $isArrayItem,
+        );
 
         $collectedTypes   = [];
         $typeHints        = [];
@@ -787,7 +815,14 @@ class PropertyFactory
 
             // For type=object, delegate to the same object path (processSchema + wireObjectProperty).
             $subProperty = $type === 'object'
-                ? $this->createObjectProperty($schemaProcessor, $schema, $propertyName, $subSchema, $required)
+                ? $this->createObjectProperty(
+                    $schemaProcessor,
+                    $schema,
+                    $propertyName,
+                    $subSchema,
+                    $required,
+                    $isArrayItem,
+                )
                 : $this->createSubTypeProperty(
                     $schemaProcessor,
                     $schema,
@@ -795,6 +830,7 @@ class PropertyFactory
                     $subSchema,
                     $type,
                     $required,
+                    $isArrayItem,
                 );
 
             $subProperty->onResolve(function () use (
@@ -860,6 +896,7 @@ class PropertyFactory
         JsonSchema $propertySchema,
         string $type,
         bool $required,
+        bool $isArrayItem = false,
     ): Property {
         $subProperty = $this->buildProperty(
             $schemaProcessor,
@@ -867,6 +904,7 @@ class PropertyFactory
             new PropertyType(TypeConverter::jsonSchemaToPHP($type)),
             $propertySchema,
             $required,
+            $isArrayItem,
         );
 
         $this->applyModifiers($schemaProcessor, $schema, $subProperty, $propertySchema, anyOnly: false, typeOnly: true);
@@ -902,7 +940,8 @@ class PropertyFactory
             && !$property->isRequired();
 
         $property->addValidator(
-            new MultiTypeCheckValidator($collectedTypes, $property, $allowImplicitNull),
+            (new MultiTypeCheckValidator($collectedTypes, $property, $allowImplicitNull))
+                ->withJsonPointer($propertySchema->getPointer() . '/type'),
             2,
         );
 
@@ -1012,7 +1051,8 @@ class PropertyFactory
                 'Invalid property type %s in file %s',
                 $type,
                 $schema->getJsonSchema()->getFile(),
-            )
+            ),
+            $schema->getJsonSchema(),
         );
     }
 }

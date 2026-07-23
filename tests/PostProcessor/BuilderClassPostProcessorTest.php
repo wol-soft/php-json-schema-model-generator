@@ -9,6 +9,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionUnionType;
@@ -30,15 +31,28 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
     public function testBuilder(): void
     {
+        $recordingLogger = new RecordingLogger();
+
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
-            (new GeneratorConfiguration())->setSerialization(true),
+            (new GeneratorConfiguration())->setSerialization(true)->setLogger($recordingLogger),
             implicitNull: false,
         );
 
         $this->assertGeneratedBuilders(1);
 
         $builderClassName = $className . 'Builder';
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'info',
+                'Rendered builder class {class}',
+                ['class' => '\\' . $builderClassName],
+            ),
+            'Expected a "Rendered builder class" log entry for the generated builder.',
+        );
+
         $builderObject = new $builderClassName();
 
         $this->assertNull($builderObject->getName());
@@ -101,8 +115,8 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $this->expectValidationErrorRegExp(
             $configuration,
             [
-                '/Value for name must not be shorter than 5/',
-                '/Value for age must not be smaller than 0/'
+                "/Value for 'name' must not be shorter than 5/",
+                "/Value for 'age' must not be smaller than 0/"
             ],
         );
 
@@ -170,7 +184,6 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
             'NestedObject',
             (new GeneratorConfiguration())
                 ->setNamespacePrefix('MyApp\\Namespace\\')
-                ->setOutputEnabled(false)
                 ->setImplicitNull(true),
         );
 
@@ -201,10 +214,16 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         $addressBuilderObject = new $addressBuilderClassName();
         $this->assertSame('string|null', $this->getParameterTypeAnnotation($addressBuilderObject, 'setStreet'));
         $this->assertSame('int|null', $this->getParameterTypeAnnotation($addressBuilderObject, 'setNumber'));
-        $this->assertSame('Address_Building|Address_BuildingBuilder|array|null', $this->getParameterTypeAnnotation($addressBuilderObject, 'setBuilding'));
+        $this->assertSame(
+            'Address_Building|Address_BuildingBuilder|array|null',
+            $this->getParameterTypeAnnotation($addressBuilderObject, 'setBuilding'),
+        );
         $this->assertSame('string|null', $this->getReturnTypeAnnotation($addressBuilderObject, 'getStreet'));
         $this->assertSame('int|null', $this->getReturnTypeAnnotation($addressBuilderObject, 'getNumber'));
-        $this->assertSame('Address_Building|Address_BuildingBuilder|array|null', $this->getReturnTypeAnnotation($addressBuilderObject, 'getBuilding'));
+        $this->assertSame(
+            'Address_Building|Address_BuildingBuilder|array|null',
+            $this->getReturnTypeAnnotation($addressBuilderObject, 'getBuilding'),
+        );
 
         $buildingBuilderClassName = "{$namespacePrefix}\\Dependencies\\Address_BuildingBuilder";
         $buildingBuilderObject = new $buildingBuilderClassName();
@@ -257,7 +276,7 @@ class BuilderClassPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 
         $nestedObjectClassName = null;
         foreach ($this->getGeneratedFiles() as $file) {
-            if (str_contains((string) $file, 'ItemOfArray')) {
+            if (str_contains((string) $file, 'AddressListItem')) {
                 $nestedObjectClassName = str_replace('.php', '', basename((string) $file));
 
                 break;

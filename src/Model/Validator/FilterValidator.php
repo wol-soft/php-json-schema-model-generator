@@ -17,11 +17,6 @@ use PHPModelGenerator\Utils\TypeCheck;
 use PHPModelGenerator\Utils\TypeConverter;
 use ReflectionException;
 
-/**
- * Class FilterValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class FilterValidator extends PropertyTemplateValidator
 {
     /**
@@ -76,6 +71,19 @@ class FilterValidator extends PropertyTemplateValidator
             IncompatibleFilterException::class,
             [$this->filter->getToken()],
         );
+    }
+
+    /**
+     * Also propagate the pointer to the embedded filterValueValidator, since
+     * InvalidFilterValueException is thrown by that nested validator, not by $this directly.
+     */
+    public function withJsonPointer(string $jsonPointer): static
+    {
+        $clone = parent::withJsonPointer($jsonPointer);
+        $clone->templateValues['filterValueValidator'] = $clone->templateValues['filterValueValidator']
+            ->withJsonPointer($jsonPointer);
+
+        return $clone;
     }
 
     /**
@@ -186,7 +194,8 @@ class FilterValidator extends PropertyTemplateValidator
                     implode('|', array_merge($typeNames, $isNullable ? ['null'] : [])),
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
-                )
+                ),
+                $property->getJsonSchema(),
             );
         }
     }
@@ -222,7 +231,8 @@ class FilterValidator extends PropertyTemplateValidator
                         $transformingFilter->getToken(),
                         $property->getName(),
                         $property->getJsonSchema()->getFile(),
-                    )
+                    ),
+                    $property->getJsonSchema(),
                 );
             }
 
@@ -255,7 +265,8 @@ class FilterValidator extends PropertyTemplateValidator
                     $typeDisplay,
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
-                )
+                ),
+                $property->getJsonSchema(),
             );
         }
     }
@@ -335,14 +346,17 @@ class FilterValidator extends PropertyTemplateValidator
             return; // Overlap exists; the filter can fire for at least some valid values.
         }
 
-        throw new SchemaException(sprintf(
-            'Filter %s on property %s in file %s can never be executed:'
-                . ' allOf type constraints (%s) exclude all input types accepted by the filter (%s)',
-            $this->filter->getToken(),
-            $property->getName(),
-            $property->getJsonSchema()->getFile(),
-            implode('|', $effectiveTypes),
-            implode('|', $acceptedTypes),
-        ));
+        throw new SchemaException(
+            sprintf(
+                'Filter %s on property %s in file %s can never be executed:'
+                    . ' allOf type constraints (%s) exclude all input types accepted by the filter (%s)',
+                $this->filter->getToken(),
+                $property->getName(),
+                $property->getJsonSchema()->getFile(),
+                implode('|', $effectiveTypes),
+                implode('|', $acceptedTypes),
+            ),
+            $property->getJsonSchema(),
+        );
     }
 }

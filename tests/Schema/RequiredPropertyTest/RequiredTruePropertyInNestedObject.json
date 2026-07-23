@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "address": {
+      "type": "object",
+      "properties": {
+        "street": true
+      },
+      "required": [
+        "street"
+      ]
+    }
+  },
+  "required": [
+    "address"
+  ]
+}

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
+use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
@@ -78,31 +80,41 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
     #[DataProvider('additionalPropertiesDataProvider')]
     public function testAdditionalPropertiesThrowAnExceptionWhenSetToFalse(array $propertyValue): void
     {
-        $this->expectException(AdditionalPropertiesException::class);
-        $this->expectExceptionMessageMatches(
-            '/Provided JSON for .* contains not allowed additional properties \[additional\]/',
-        );
-
         $className = $this->generateClassFromFileTemplate('AdditionalProperties.json', ['false']);
 
-        new $className($propertyValue);
+        try {
+            new $className($propertyValue);
+            $this->fail('Expected AdditionalPropertiesException');
+        } catch (AdditionalPropertiesException $exception) {
+            $this->assertMatchesRegularExpression(
+                "/Provided JSON for .* contains not allowed additional properties \['additional'\]/",
+                $exception->getMessage(),
+            );
+            $this->assertSame('/additionalProperties', $exception->getJsonPointer()->pointer);
+        }
     }
 
     #[DataProvider('additionalPropertiesDataProvider')]
     public function testAdditionalPropertiesThrowAnExceptionWhenNotDefinedAndDeniedByGeneratorConfiguration(
         array $propertyValue,
     ): void {
-        $this->expectException(AdditionalPropertiesException::class);
-        $this->expectExceptionMessageMatches(
-            '/Provided JSON for .* contains not allowed additional properties \[additional\]/',
-        );
-
         $className = $this->generateClassFromFile(
             'AdditionalPropertiesNotDefined.json',
             (new GeneratorConfiguration())->setDenyAdditionalProperties(true)->setCollectErrors(false),
         );
 
-        new $className($propertyValue);
+        try {
+            new $className($propertyValue);
+            $this->fail('Expected AdditionalPropertiesException');
+        } catch (AdditionalPropertiesException $exception) {
+            $this->assertMatchesRegularExpression(
+                "/Provided JSON for .* contains not allowed additional properties \['additional'\]/",
+                $exception->getMessage(),
+            );
+            // denyAdditionalProperties() synthesizes the check without a literal "additionalProperties"
+            // keyword in the schema; the pointer still points at the synthetic root location.
+            $this->assertSame('/additionalProperties', $exception->getJsonPointer()->pointer);
+        }
     }
 
     #[DataProvider('validTypedAdditionalPropertiesDataProvider')]
@@ -139,16 +151,28 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         array $propertyValue,
         string $errorMessage,
     ): void {
-        $this->expectValidationError($generatorConfiguration, $errorMessage);
         $className = $this->generateClassFromFile('AdditionalPropertiesTyped.json', $generatorConfiguration);
 
-        new $className($propertyValue);
+        try {
+            new $className($propertyValue);
+            $this->fail('Expected exception for invalid typed additional property');
+        } catch (ErrorRegistryException | InvalidAdditionalPropertiesException $exception) {
+            $this->assertStringContainsString($errorMessage, $exception->getMessage());
+
+            // collectErrors(true) wraps the additional properties exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(InvalidAdditionalPropertiesException::class, $innerException);
+            $this->assertSame('/additionalProperties', $innerException->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidTypedAdditionalPropertiesDataProvider(): array
     {
         $exception = <<<ERROR
-        contains invalid additional properties.
+        contains invalid additional properties
           - invalid additional property 'additional1'
             * %s
         ERROR;
@@ -158,39 +182,51 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
             [
                 'invalid type for additional property (null)' => [
                     ['additional1' => null, 'additional2' => 'Hello'],
-                    sprintf($exception, 'Invalid type for additional property. Requires string, got NULL')
+                    sprintf($exception, "Invalid type for 'additional property': requires 'string', got 'NULL'")
                 ],
                 'invalid type for additional property (int)' => [
                     ['additional1' => 1, 'additional2' => 'Hello'],
-                    sprintf($exception, 'Invalid type for additional property. Requires string, got int')
+                    sprintf(
+                        $exception,
+                        "Invalid type for 'additional property': requires 'string', got 'integer'",
+                    )
                 ],
                 'invalid type for additional property (float)' => [
                     ['additional1' => 0.92, 'additional2' => 'Hello'],
-                    sprintf($exception, 'Invalid type for additional property. Requires string, got double')
+                    sprintf(
+                        $exception,
+                        "Invalid type for 'additional property': requires 'string', got 'double'",
+                    )
                 ],
                 'invalid type for additional property (bool)' => [
                     ['additional1' => true, 'additional2' => 'Hello'],
-                    sprintf($exception, 'Invalid type for additional property. Requires string, got bool')
+                    sprintf(
+                        $exception,
+                        "Invalid type for 'additional property': requires 'string', got 'boolean'",
+                    )
                 ],
                 'invalid type for additional property (array)' => [
                     ['additional1' => [], 'additional2' => 'Hello'],
-                    sprintf($exception, 'Invalid type for additional property. Requires string, got array')
+                    sprintf($exception, "Invalid type for 'additional property': requires 'string', got 'array'")
                 ],
                 'invalid type for additional property (object)' => [
                     ['additional1' => new stdClass(), 'additional2' => 'Hello'],
-                    sprintf($exception, 'Invalid type for additional property. Requires string, got stdClass')
+                    sprintf(
+                        $exception,
+                        "Invalid type for 'additional property': requires 'string', got 'stdClass'",
+                    )
                 ],
                 'empty short string' => [
                     ['additional1' => '', 'additional2' => 'Hello'],
-                    sprintf($exception, 'Value for additional property must not be shorter than 2')
+                    sprintf($exception, "Value for 'additional property' must not be shorter than 2")
                 ],
                 'too short string' => [
                     ['additional1' => '1', 'additional2' => 'Hello'],
-                    sprintf($exception, 'Value for additional property must not be shorter than 2')
+                    sprintf($exception, "Value for 'additional property' must not be shorter than 2")
                 ],
                 'too long string' => [
                     ['additional1' => '12345678', 'additional2' => 'Hello'],
-                    sprintf($exception, 'Value for additional property must not be longer than 5')
+                    sprintf($exception, "Value for 'additional property' must not be longer than 5")
                 ],
             ],
         );
@@ -250,16 +286,28 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
         array $propertyValue,
         string $errorMessage,
     ): void {
-        $this->expectValidationError($generatorConfiguration, $errorMessage);
         $className = $this->generateClassFromFile('AdditionalPropertiesObject.json', $generatorConfiguration);
 
-        new $className($propertyValue);
+        try {
+            new $className($propertyValue);
+            $this->fail('Expected exception for invalid additional property object');
+        } catch (ErrorRegistryException | InvalidAdditionalPropertiesException $exception) {
+            $this->assertStringContainsString($errorMessage, $exception->getMessage());
+
+            // collectErrors(true) wraps the additional properties exception in an ErrorRegistryException.
+            $innerException = $exception instanceof ErrorRegistryException
+                ? $exception->getErrors()[0]
+                : $exception;
+
+            $this->assertInstanceOf(InvalidAdditionalPropertiesException::class, $innerException);
+            $this->assertSame('/additionalProperties', $innerException->getJsonPointer()->pointer);
+        }
     }
 
     public static function invalidAdditionalPropertiesObjectsDataProvider(): array
     {
         $exception = <<<ERROR
-        contains invalid additional properties.
+        contains invalid additional properties
           - invalid additional property 'additional1'
             * %s
         ERROR;
@@ -269,40 +317,49 @@ class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
             [
                 'invalid type for additional property (null)' => [
                     ['additional1' => null, 'additional2' => ['name' => 'AB', 'age' => 12]],
-                    sprintf($exception, 'Invalid type for additional property. Requires object, got NULL')
+                    sprintf($exception, "Invalid type for 'additional property': requires 'object', got 'NULL'")
                 ],
                 'invalid type for additional property (int)' => [
                     ['additional1' => 1, 'additional2' => ['name' => 'AB', 'age' => 12]],
-                    sprintf($exception, 'Invalid type for additional property. Requires object, got int')
+                    sprintf(
+                        $exception,
+                        "Invalid type for 'additional property': requires 'object', got 'integer'",
+                    )
                 ],
                 'invalid type for additional property (float)' => [
                     ['additional1' => 0.92, 'additional2' => ['name' => 'AB', 'age' => 12]],
-                    sprintf($exception, 'Invalid type for additional property. Requires object, got double')
+                    sprintf(
+                        $exception,
+                        "Invalid type for 'additional property': requires 'object', got 'double'",
+                    )
                 ],
                 'invalid type for additional property (bool)' => [
                     ['additional1' => true, 'additional2' => ['name' => 'AB', 'age' => 12]],
-                    sprintf($exception, 'Invalid type for additional property. Requires object, got bool')
+                    sprintf(
+                        $exception,
+                        "Invalid type for 'additional property': requires 'object', got 'boolean'",
+                    )
                 ],
                 'invalid type for additional property (object)' => [
                     ['additional1' => 'Hello', 'additional2' => ['name' => 'AB', 'age' => 12]],
-                    sprintf($exception, 'Invalid type for additional property. Requires object, got string')
+                    sprintf($exception, "Invalid type for 'additional property': requires 'object', got 'string'")
                 ],
                 'Missing required name' => [
                     ['additional1' => ['age' => 12], 'additional2' => ['name' => 'AB', 'age' => 12]],
-                    sprintf($exception, 'Missing required value for name')
+                    sprintf($exception, "Missing required value for 'name'")
                 ],
-                'Invalid type for name' => [
+                "Invalid type for 'name'" => [
                     ['additional1' => ['name' => 12], 'additional2' => ['name' => 'AB', 'age' => 12]],
-                    sprintf($exception, 'Invalid type for name. Requires string, got integer')
+                    sprintf($exception, "Invalid type for 'name': requires 'string', got 'integer'")
                 ],
                 'Multiple violations' => [
                     ['additional1' => ['name' => 12], 'additional2' => ['name' => 'AB', 'age' => '12']],
                     <<<ERROR
-                    contains invalid additional properties.
+                    contains invalid additional properties
                       - invalid additional property 'additional1'
-                        * Invalid type for name. Requires string, got integer
+                        * Invalid type for 'name': requires 'string', got 'integer'
                       - invalid additional property 'additional2'
-                        * Invalid type for age. Requires int, got string
+                        * Invalid type for 'age': requires 'int', got 'string'
                     ERROR,
                 ],
             ],

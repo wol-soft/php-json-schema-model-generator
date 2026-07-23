@@ -31,11 +31,6 @@ use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
 use PHPModelGenerator\Utils\PropertyAttributeSynthesizer;
 
-/**
- * Class SchemaProcessor
- *
- * @package PHPModelGenerator\SchemaProcessor
- */
 class SchemaProcessor
 {
     protected string $currentClassPath;
@@ -143,10 +138,14 @@ class SchemaProcessor
         $schemaSignature = $jsonSchema->getSignature();
 
         if (!$initialClass && isset($this->processedSchema[$schemaSignature])) {
-            if ($this->generatorConfiguration->isOutputEnabled()) {
-                echo "Duplicated signature $schemaSignature for class $className." .
-                    " Redirecting to {$this->processedSchema[$schemaSignature]->getClassName()}\n";
-            }
+            $this->generatorConfiguration->getLogger()->notice(
+                'Duplicated signature {signature} for class {class}. Redirecting to {redirectClass}',
+                [
+                    'signature' => $schemaSignature,
+                    'class' => $className,
+                    'redirectClass' => $this->processedSchema[$schemaSignature]->getClassName(),
+                ],
+            );
 
             return $this->processedSchema[$schemaSignature];
         }
@@ -262,10 +261,10 @@ class SchemaProcessor
     {
         $this->renderQueue->addRenderJob(new RenderJob($schema));
 
-        if ($this->generatorConfiguration->isOutputEnabled()) {
-            echo sprintf(
-                "Generated class %s\n",
-                join(
+        $this->generatorConfiguration->getLogger()->info(
+            'Generated class {class}',
+            [
+                'class' => join(
                     '\\',
                     array_filter([
                         $this->generatorConfiguration->getNamespacePrefix(),
@@ -273,8 +272,8 @@ class SchemaProcessor
                         $schema->getClassName(),
                     ]),
                 ),
-            );
-        }
+            ],
+        );
 
         $this->generatedFiles[] = $schema->getTargetFileName();
     }
@@ -584,7 +583,8 @@ class SchemaProcessor
                                 "No nested schema for composed property %s in file %s found",
                                 $property->getName(),
                                 $property->getJsonSchema()->getFile(),
-                            )
+                            ),
+                            $property->getJsonSchema(),
                         );
                     }
 
@@ -636,6 +636,7 @@ class SchemaProcessor
                                     $schema->getPropertyMerger()->checkForTotalConflict(
                                         $branchPropertyName,
                                         $totalBranches,
+                                        $schema->getJsonSchema(),
                                     );
                                 }
 
@@ -783,7 +784,8 @@ class SchemaProcessor
                         $existingDefault,
                         $branchLabel,
                         $branchDefault,
-                    )
+                    ),
+                    $branchProperty->getJsonSchema(),
                 );
             }
         }
@@ -818,7 +820,8 @@ class SchemaProcessor
                         $patternDefault,
                         $branchLabel,
                         $effectiveBranchDefault,
-                    )
+                    ),
+                    $branchProperty->getJsonSchema(),
                 );
             }
 
@@ -925,7 +928,8 @@ class SchemaProcessor
                     $keyword,
                     $compositionProperty->getJsonSchema()->getFile(),
                     implode(', ', $sites),
-                )
+                ),
+                $compositionProperty->getJsonSchema(),
             );
         }
     }

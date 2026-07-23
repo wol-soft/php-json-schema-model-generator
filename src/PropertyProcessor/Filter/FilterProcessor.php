@@ -32,11 +32,6 @@ use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeCheck;
 use ReflectionException;
 
-/**
- * Class FilterProcessor
- *
- * @package PHPModelGenerator\PropertyProcessor\Filter
- */
 class FilterProcessor
 {
     /**
@@ -64,6 +59,7 @@ class FilterProcessor
         string|array $filterList,
         GeneratorConfiguration $generatorConfiguration,
         Schema $schema,
+        string $jsonPointer,
         int $startPriority = 10,
     ): void {
         $filterList = self::normalizeFilterList($filterList);
@@ -87,7 +83,8 @@ class FilterProcessor
                         $filterToken,
                         $property->getName(),
                         $property->getJsonSchema()->getFile(),
-                    )
+                    ),
+                    $property->getJsonSchema(),
                 );
             }
 
@@ -102,7 +99,8 @@ class FilterProcessor
                             $property->getName(),
                             $property->getJsonSchema()->getFile(),
                             $exception->getMessage(),
-                        )
+                        ),
+                        $property->getJsonSchema(),
                     );
                 }
             }
@@ -116,7 +114,8 @@ class FilterProcessor
                             'Applying a transforming filter to the array property %s is not supported in file %s',
                             $property->getName(),
                             $property->getJsonSchema()->getFile(),
-                        )
+                        ),
+                        $property->getJsonSchema(),
                     );
                 }
                 if ($transformingFilter) {
@@ -125,7 +124,8 @@ class FilterProcessor
                             'Applying multiple transforming filters for property %s is not supported in file %s',
                             $property->getName(),
                             $property->getJsonSchema()->getFile(),
-                        )
+                        ),
+                        $property->getJsonSchema(),
                     );
                 }
             }
@@ -134,7 +134,13 @@ class FilterProcessor
             // filter — FilterValidator correctly receives null (no previous transforming filter).
             $actualFilterPriority = $filterPriority++;
             $property->addValidator(
-                new FilterValidator($generatorConfiguration, $filter, $property, $filterOptions, $transformingFilter),
+                (new FilterValidator(
+                    $generatorConfiguration,
+                    $filter,
+                    $property,
+                    $filterOptions,
+                    $transformingFilter,
+                ))->withJsonPointer($jsonPointer),
                 $actualFilterPriority,
             );
 
@@ -715,8 +721,8 @@ class FilterProcessor
      * Remove all validators of the given class from the property and re-add the same validation
      * logic wrapped in a new check expression, at priority 3.
      *
-     * The property name is stripped from exceptionParams before re-adding because
-     * AbstractPropertyValidator::getExceptionParams() prepends it again automatically.
+     * The property name and json pointer are stripped from exceptionParams before re-adding because
+     * AbstractPropertyValidator::getExceptionParams() prepends both automatically.
      */
     private function replaceValidatorWithGuardedCheck(
         PropertyInterface $property,
@@ -729,15 +735,16 @@ class FilterProcessor
         );
 
         $exceptionParams = $validator->getExceptionParams();
-        array_shift($exceptionParams);
+        array_shift($exceptionParams); // strip auto-prepended propertyName
+        $jsonPointer = (string) array_shift($exceptionParams); // strip auto-prepended jsonPointer
 
         $property->addValidator(
-            new PropertyValidator(
+            (new PropertyValidator(
                 $property,
                 $guardedCheck,
                 $validator->getExceptionClass(),
                 $exceptionParams,
-            ),
+            ))->withJsonPointer($jsonPointer),
             3,
         );
     }

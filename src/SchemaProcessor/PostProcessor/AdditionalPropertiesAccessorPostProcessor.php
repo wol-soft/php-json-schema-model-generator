@@ -6,6 +6,7 @@ namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
 use PHPModelGenerator\Accessor\AdditionalPropertiesAccessor;
 use PHPModelGenerator\Accessor\ImmutableAdditionalPropertiesAccessor;
+use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\Object\RegularPropertyAsAdditionalPropertyException;
@@ -149,12 +150,22 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         GeneratorConfiguration $generatorConfiguration,
         ?PropertyInterface $validationProperty,
     ): void {
+        $nonInternalProperties = array_filter(
+            $schema->getProperties(),
+            static fn(PropertyInterface $property): bool => !$property->isInternal(),
+        );
+
         $objectProperties = array_map(
             static fn(PropertyInterface $property): string => $property->getName(),
-            array_filter(
-                $schema->getProperties(),
-                static fn(PropertyInterface $property): bool => !$property->isInternal(),
-            )
+            $nonInternalProperties,
+        );
+
+        $objectPropertyPointers = array_combine(
+            array_map(static fn(PropertyInterface $property): string => $property->getName(), $nonInternalProperties),
+            array_map(
+                static fn(PropertyInterface $property): string => self::resolvePrimaryJsonPointer($property),
+                $nonInternalProperties,
+            ),
         );
 
         $hasObjectProperties = $objectProperties !== [];
@@ -172,10 +183,37 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                     'validationProperty' => $validationProperty,
                     'hasObjectProperties' => $hasObjectProperties,
                     'objectProperties' => RenderHelper::varExportArray($objectProperties),
+                    'objectPropertyPointers' => RenderHelper::varExportArray($objectPropertyPointers),
                     'schemaHookResolver' => new SchemaHookResolver($schema),
                 ],
             )
         );
+    }
+
+    /**
+     * Resolve the pointer to report when a property name collides with a regular property.
+     *
+     * A property merged from multiple composition branches (e.g. declared in both the root
+     * properties block and an allOf branch) carries one #[JsonPointer] attribute per defining
+     * location, synthesized by PropertyAttributeSynthesizer. Reading that attribute data ties
+     * this pointer to the same single source of truth used for the generated #[JsonPointer]
+     * attributes, instead of independently recomputing it from
+     * $property->getJsonSchema()->getPointer() — a second computation that would silently
+     * diverge from the attribute data if PropertyMerger's choice of JsonSchema ever changes.
+     *
+     * RegularPropertyAsAdditionalPropertyException carries a single pointer, so when a property
+     * has multiple declaration sites only the first (root-preferred) one is reported — knowing
+     * any one true location is sufficient to explain the name collision.
+     */
+    private static function resolvePrimaryJsonPointer(PropertyInterface $property): string
+    {
+        foreach ($property->getAttributes() as $attribute) {
+            if ($attribute->getFqcn() === JsonPointer::class) {
+                return (string) $attribute->getArguments()[0];
+            }
+        }
+
+        return $property->getJsonSchema()->getPointer();
     }
 
     /**
@@ -188,7 +226,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         $minPropertyValidator = null;
         $json = $schema->getJsonSchema()->getJson();
         if (isset($json['minProperties'])) {
-            $minPropertyValidator = new PropertyValidator(
+            $minPropertyValidator = (new PropertyValidator(
                 new Property($schema->getClassName(), null, $schema->getJsonSchema()),
                 sprintf(
                     '($updatedPropertiesCount = count($this->_rawModelDataInput) - 1) < %d',
@@ -196,7 +234,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                 ),
                 MinPropertiesException::class,
                 [$json['minProperties'], '&$updatedPropertiesCount'],
-            );
+            ))->withJsonPointer($schema->getJsonSchema()->getPointer() . '/minProperties');
         }
 
         $schema->addMethod(

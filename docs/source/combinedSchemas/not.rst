@@ -29,8 +29,8 @@ Possible exceptions:
 
 .. code-block:: none
 
-    Invalid value for property declined by composition constraint.
-      Requires to match none composition element but matched 1 elements.
+    Invalid value for 'example' declined by composition constraint
+      Requires to match none composition element but matched 1 element
       - Composition element #1: Valid
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\NotException* which provides the following methods to get further error details:
@@ -45,6 +45,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Not
     public function getPropertyName(): string
     // get the value provided to the property
     public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
 
 .. note::
 
