@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\PostProcessor;
 use DateTime;
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\Object\RegularPropertyAsUnevaluatedPropertyException;
 use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
 use PHPModelGenerator\Exception\ValidationException;
@@ -757,6 +758,65 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         // Second removal of the same key is a no-op.
         $this->assertFalse($accessor->remove('count'));
         $this->assertSame(['limit' => 7], $accessor->getAll());
+    }
+
+    /**
+     * `_removeUnevaluatedProperty()` guards against dropping the total property count below
+     * `minProperties`, mirroring `_removeAdditionalProperty()`'s equivalent guard but through
+     * the separate `UnevaluatedPropertiesAccessorPostProcessor` /
+     * `RemoveUnevaluatedProperty.phptpl` pair — the two accessors are structurally parallel but
+     * are independently generated methods with independent coverage.
+     *
+     * On a single instance, constructed at exactly `minProperties` (3):
+     *   - removing an extra would drop the count to 2 < 3 → rejected, and the rejected call
+     *     must roll the model state back to its pre-call values.
+     *   - the object must remain fully usable after the rollback: adding a property back above
+     *     the minimum via `set()` and then removing one (leaving exactly `minProperties`) must
+     *     succeed — proving the rejected call left no internal state (validation caches,
+     *     composition state) corrupted, not just that the getters still report the old values.
+     *   - removing a key that was never set is a no-op (`false`, no exception) even while
+     *     sitting exactly at `minProperties` — the existence check must run before the
+     *     `minProperties` guard, not after, otherwise a harmless no-op removal would be
+     *     rejected by a count check it never needed to reach.
+     */
+    public function testRemoveRejectsCountDropBelowMinPropertiesAndRollsBack(): void
+    {
+        $this->addPostProcessor();
+        $className = $this->generateClassFromFile(
+            'MinPropertiesAndUnevaluatedSchema.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className(['name' => 'Alice', 'a' => 1, 'b' => 2]);
+        $accessor = $object->unevaluatedProperties();
+
+        try {
+            $accessor->remove('a');
+            $this->fail('Expected MinPropertiesException');
+        } catch (MinPropertiesException $exception) {
+            $this->assertSame(
+                "Provided object for {$className} must not contain less than 3 properties, 2 properties provided",
+                $exception->getMessage(),
+            );
+        }
+
+        // The rejected removal must roll the model state back to its pre-call values.
+        $this->assertSame(['a' => 1, 'b' => 2], $accessor->getAll());
+        $this->assertSame(['name' => 'Alice', 'a' => 1, 'b' => 2], $object->meta()->rawInput());
+
+        // The object stays usable: adding a property pushes the count back above the minimum,
+        // so removing one now leaves exactly `minProperties` and must succeed.
+        $accessor->set('c', 3);
+        $this->assertTrue($accessor->remove('c'));
+        $this->assertSame(['a' => 1, 'b' => 2], $accessor->getAll());
+        $this->assertSame(['name' => 'Alice', 'a' => 1, 'b' => 2], $object->meta()->rawInput());
+
+        // Back at exactly `minProperties` (3). Removing a key that was never set must return
+        // false without ever consulting the minProperties guard — an existence check that ran
+        // after the count check would wrongly reject this no-op.
+        $this->assertFalse($accessor->remove('does-not-exist'));
+        $this->assertSame(['a' => 1, 'b' => 2], $accessor->getAll());
+        $this->assertSame(['name' => 'Alice', 'a' => 1, 'b' => 2], $object->meta()->rawInput());
     }
 
     /**

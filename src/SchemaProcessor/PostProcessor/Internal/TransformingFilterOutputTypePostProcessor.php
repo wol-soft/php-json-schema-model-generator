@@ -10,8 +10,11 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
+use PHPModelGenerator\Model\Validator\ArrayItemValidator;
+use PHPModelGenerator\Model\Validator\ArrayTupleValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
+use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
 use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\Utils\TypeCheck;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
@@ -31,6 +34,11 @@ use ReflectionException;
  * for filters it adds after this post-processor has already run.
  * FilterProcessor does NOT call it because the TypeCheckValidator may not yet exist at
  * filter-processing time (composition case where the type comes from a sibling allOf branch).
+ *
+ * Array items (schema-form `items`, tuple-form `items`, and `unevaluatedItems`) are widened the
+ * same way object properties are: each lives on its own validation property reachable only by
+ * recursing into ArrayItemValidator/ArrayTupleValidator/UnevaluatedItemsValidator, mirroring the
+ * recursion EnumPostProcessor already performs for the same reason.
  *
  * Output type formula:
  *   accepted       = filter callable's first-parameter types ([] = accepts all)
@@ -73,23 +81,65 @@ class TransformingFilterOutputTypePostProcessor extends PostProcessor
     }
 
     /**
+     * @param array<int, true> $seenPropertyIds Object ids of properties already visited in the
+     *                                          current recursive walk, threaded by reference so
+     *                                          a `$ref` cycle can be detected across calls.
+     *
      * @throws ReflectionException
      */
     private function processProperty(
         PropertyInterface $property,
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
+        array &$seenPropertyIds = [],
     ): void {
-        // Find the FilterValidator whose filter implements TransformingFilterInterface.
+        // A `$ref` cycle (e.g. `{type: array, items: {$ref: "#"}}`) resolves to the identical
+        // property instance on every level of the cycle, so recursing into array-item
+        // validators below would otherwise revisit it indefinitely. Required, not defensive —
+        // confirmed via MultiTypePropertyTest::testValidRecursiveMultiType's
+        // RecursiveMultiTypeProperty.json fixture, which stack-overflows without this guard.
+        $propertyId = spl_object_id($property);
+        if (isset($seenPropertyIds[$propertyId])) {
+            return;
+        }
+        $seenPropertyIds[$propertyId] = true;
+
+        // Find the FilterValidator whose filter implements TransformingFilterInterface, and
+        // recurse into any array-item validator's own validation property along the way —
+        // array items live on a separate property from the array itself (the same reason
+        // AdditionalProperties/PatternProperties/UnevaluatedProperties validation properties
+        // are picked up separately below), so they are otherwise invisible to this pass.
+        // Mirrors the recursion EnumPostProcessor already performs via
+        // ArrayItemValidator::getNestedProperty().
         $transformingFilterValidator = null;
         foreach ($property->getValidators() as $propertyValidator) {
             $validator = $propertyValidator->getValidator();
+
+            if ($validator instanceof ArrayItemValidator) {
+                $this->processProperty(
+                    $validator->getNestedProperty(),
+                    $schema,
+                    $generatorConfiguration,
+                    $seenPropertyIds,
+                );
+            } elseif ($validator instanceof ArrayTupleValidator) {
+                foreach ($validator->getTupleProperties() as $tupleProperty) {
+                    $this->processProperty($tupleProperty, $schema, $generatorConfiguration, $seenPropertyIds);
+                }
+            } elseif ($validator instanceof UnevaluatedItemsValidator) {
+                $this->processProperty(
+                    $validator->getValidationProperty(),
+                    $schema,
+                    $generatorConfiguration,
+                    $seenPropertyIds,
+                );
+            }
+
             if (
                 $validator instanceof FilterValidator
                 && $validator->getFilter() instanceof TransformingFilterInterface
             ) {
                 $transformingFilterValidator = $validator;
-                break;
             }
         }
 

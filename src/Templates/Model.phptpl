@@ -235,6 +235,13 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
              */
             protected function _validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, array $modelData)
             {
+                {% if viewHelper.hasUnevaluatedItemsValidator(property) %}
+                    // Reset before any validator runs (including compositions, which may credit
+                    // indices into this same slot during this pass) so a previous, unrelated
+                    // validation pass's credits never leak into this one.
+                    $this->_evaluatedItemIndices['{{ property.getName() }}'] = [];
+                {% endif %}
+
                 {% foreach property.getOrderedValidators() as validator %}
                     {{ viewHelper.renderValidator(validator, schema) }}
                 {% endforeach %}

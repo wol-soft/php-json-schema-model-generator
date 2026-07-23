@@ -53,14 +53,14 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
     private int $slotKeyCounter = 0;
 
     /**
-     * Object hashes of composition validators already activated in the current property
+     * Object ids of composition validators already activated in the current property
      * walk. Required (not defensive) — a self-referencing schema such as
      * `{type: array, allOf: [{$ref: "#"}], unevaluatedItems: false}` produces a composition
      * validator whose composed property's wrapped property carries the same composition
      * validator instance. Without this short-circuit, `activateArrayComposition()` would
      * recurse indefinitely.
      *
-     * @var array<string, true>
+     * @var array<int, true>
      */
     private array $activatedCompositions = [];
 
@@ -224,11 +224,11 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         AbstractComposedPropertyValidator $compositionValidator,
         PropertyInterface $parentProperty,
     ): void {
-        $compositionHash = spl_object_hash($compositionValidator);
-        if (isset($this->activatedCompositions[$compositionHash])) {
+        $compositionId = spl_object_id($compositionValidator);
+        if (isset($this->activatedCompositions[$compositionId])) {
             return;
         }
-        $this->activatedCompositions[$compositionHash] = true;
+        $this->activatedCompositions[$compositionId] = true;
 
         $compositionValidator->enableEvaluationTracking();
         $compositionValidator->setSlotKey($parentProperty->getName() . '_' . $this->slotKeyCounter++);

@@ -85,7 +85,7 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
 
     protected function initModifiedValuesMethod(): void
     {
-        $this->modifiedValuesMethod = '_getModifiedValues_' . substr(md5(spl_object_hash($this)), 0, 5);
+        $this->modifiedValuesMethod = '_getModifiedValues_' . substr(md5((string) spl_object_id($this)), 0, 5);
     }
 
     /**

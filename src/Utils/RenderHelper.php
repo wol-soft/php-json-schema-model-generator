@@ -10,6 +10,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
+use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
 
 /**
  * Class RenderHelper
@@ -180,6 +181,27 @@ if ({$validator->getCheck()}) {
     public function isMutableBaseValidator(GeneratorConfiguration $generatorConfiguration, bool $isBaseValidator): bool
     {
         return !$generatorConfiguration->isImmutable() && $isBaseValidator;
+    }
+
+    /**
+     * True when the property carries an UnevaluatedItemsValidator among its own validators.
+     *
+     * `_evaluatedItemIndices[$propertyName]` must be reset to an empty array before this
+     * property's validator chain runs (ahead of any composition validator, which may credit
+     * indices into the same slot during this same pass) — otherwise indices credited by a
+     * previous, unrelated validation pass (e.g. an earlier setter call) would incorrectly count
+     * as "already evaluated" for a completely different array value, silently skipping both
+     * validation and any transforming filter for that index.
+     */
+    public function hasUnevaluatedItemsValidator(PropertyInterface $property): bool
+    {
+        foreach ($property->getValidators() as $propertyValidator) {
+            if ($propertyValidator->getValidator() instanceof UnevaluatedItemsValidator) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static function varExportArray(array $values): string

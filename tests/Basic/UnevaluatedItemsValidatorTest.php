@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use DateTime;
 use PHPModelGenerator\Exception\Arrays\InvalidUnevaluatedItemsException;
 use PHPModelGenerator\Exception\Arrays\UniqueItemsException;
 use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
@@ -755,5 +756,185 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             );
             $this->assertSame([3], $exception->getUnevaluatedItems());
         }
+    }
+
+    /**
+     * A transforming filter (here `dateTime`) declared inside `unevaluatedItems`'s subschema
+     * behaves like a filter on any other property: the transformed value is persisted (the
+     * getter reports `DateTime` instances, not the raw strings), an already-transformed value
+     * passed directly is accepted (the type check is widened via
+     * `TransformingFilterOutputTypePostProcessor`, which recurses into
+     * `UnevaluatedItemsValidator::getValidationProperty()` the same way it already does for
+     * `UnevaluatedPropertiesValidator`), and a mixed list of raw and already-transformed values
+     * is accepted since each index is validated independently.
+     *
+     * Serialization applies the filter's outputFormat to every index credited to the
+     * unevaluatedItems validator, turning each DateTime back into the raw representation the
+     * filter accepts.
+     *
+     * An invalid date string still fails the filter's own validation.
+     */
+    public function testTransformingFilterPersistsAndAcceptsAlreadyTransformedValues(): void
+    {
+        $className = $this->generateClassFromFile(
+            'SchemaFormWithTransformingFilter.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        // Valid raw date strings pass the filter and the transformed value is persisted.
+        $accepted = new $className(['tags' => ['2020-10-10', '2020-12-12']]);
+        $this->assertEquals(
+            [new DateTime('2020-10-10'), new DateTime('2020-12-12')],
+            $accepted->getTags(),
+        );
+        $this->assertSame(['2020-10-10', '2020-12-12'], $accepted->meta()->rawInput()['tags']);
+
+        $this->assertSame(['tags' => ['20201010', '20201212']], $accepted->toArray());
+        $decoded = json_decode($accepted->toJSON(), true);
+        $this->assertSame(['tags' => ['20201010', '20201212']], $decoded);
+
+        // An already-transformed DateTime passed directly is accepted and persisted as-is.
+        $alreadyTransformed = new $className(['tags' => [new DateTime('2020-10-10')]]);
+        $this->assertEquals([new DateTime('2020-10-10')], $alreadyTransformed->getTags());
+        $this->assertEquals([new DateTime('2020-10-10')], $alreadyTransformed->meta()->rawInput()['tags']);
+
+        // A mixed list of raw and already-transformed values is accepted — each index is
+        // validated independently.
+        $mixed = new $className(['tags' => ['2020-10-10', new DateTime('2020-12-12')]]);
+        $this->assertEquals(
+            [new DateTime('2020-10-10'), new DateTime('2020-12-12')],
+            $mixed->getTags(),
+        );
+
+        // The setter must exercise the same validator chain as construction: a raw date string
+        // is transformed and persisted, and an already-transformed value is accepted directly.
+        $accepted->setTags(['2020-01-01']);
+        $this->assertEquals([new DateTime('2020-01-01')], $accepted->getTags());
+
+        $accepted->setTags([new DateTime('2020-02-02')]);
+        $this->assertEquals([new DateTime('2020-02-02')], $accepted->getTags());
+
+        // An invalid date string still fails the filter's own validation.
+        try {
+            new $className(['tags' => ['not-a-date']]);
+            $this->fail('Expected an exception for an invalid date string');
+        } catch (ErrorRegistryException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+    Invalid unevaluated items in array tags:
+      - invalid unevaluated item #0
+        * Invalid value for property unevaluated item denied by filter dateTime: Invalid Date Time value "not-a-date"
+    MSG,
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * `_evaluatedItemIndices['tags']` records which indices the unevaluatedItems validator
+     * credited so composition/serialization can read it back — but it must never leak from one
+     * validation pass into the next. Without a reset before the validator chain runs, a
+     * `setTags()` call would see stale credits from a previous pass and skip validating (and,
+     * with a transforming filter, skip re-filtering) indices whose value has since completely
+     * changed. Uses a plain type check with no filter to prove this is a general unevaluatedItems
+     * mutability issue, not something specific to the transforming-filter interaction.
+     */
+    public function testSetterRevalidatesEveryIndexRegardlessOfPriorPassCredits(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NoOtherConstraintsSchema.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $object = new $className(['tags' => ['alpha', 'beta']]);
+        $this->assertSame(['alpha', 'beta'], $object->getTags());
+
+        // A value that would have been valid at construction time must still be rejected when
+        // set later — proving the same index isn't silently exempted from validation because a
+        // previous, unrelated array happened to validate successfully at that position.
+        try {
+            $object->setTags([42]);
+            $this->fail('Expected an exception for an integer where unevaluatedItems requires a string');
+        } catch (ErrorRegistryException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+    Invalid unevaluated items in array tags:
+      - invalid unevaluated item #0
+        * Invalid type for unevaluated item. Requires string, got integer
+    MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        // The rejected setter call must leave the object's state unchanged.
+        $this->assertSame(['alpha', 'beta'], $object->getTags());
+
+        // A genuinely valid replacement is still accepted.
+        $object->setTags(['gamma']);
+        $this->assertSame(['gamma'], $object->getTags());
+    }
+
+    /**
+     * Which indices unevaluatedItems credits is only known at runtime (tracked in
+     * `_evaluatedItemIndices`) — unlike a tuple index, it can't be resolved to a static list at
+     * generation time. Index 0 is claimed by an `allOf` branch's tuple-form `items` (no filter,
+     * passes through unchanged); index 1 is left over for `unevaluatedItems` (filtered). Proves
+     * the generated serializer only transforms the indices actually credited to
+     * unevaluatedItems, not every index in the array.
+     *
+     * Uses composition-based crediting (`allOf` branch), not a direct sibling `items` tuple,
+     * because direct-sibling tuple crediting is a separately tracked, currently-broken
+     * interaction (see testSiblingTupleItemsCreditTheirEvaluatedIndices) unrelated to this test.
+     */
+    public function testSerializationOfUnevaluatedItemsWithTransformingFilterOnlyAffectsCreditedIndices(): void
+    {
+        $className = $this->generateClassFromFile(
+            'TupleItemsPlusUnevaluatedItemsWithTransformingFilter.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $object = new $className(['tags' => ['plain', '2020-10-10']]);
+
+        $this->assertSame(['tags' => ['plain', '20201010']], $object->toArray());
+
+        $decoded = json_decode($object->toJSON(), true);
+        $this->assertSame(['tags' => ['plain', '20201010']], $decoded);
+    }
+
+    /**
+     * A tuple index and unevaluatedItems on the same array property, each with their own
+     * transforming filter, must not clobber each other: `SerializationPostProcessor` generates
+     * one `_serialize{Property}()` method per property, and independently generating one from
+     * the tuple validator and another from the unevaluatedItems validator would silently
+     * overwrite whichever ran last (`Schema::addMethod()` is a plain array write, not a merge).
+     * Both filters must be reflected in the serialized output: index 0 (tuple, `Ymd`) and
+     * index 1 (unevaluatedItems, `Y-m-d`) end up in visibly different formats, proving neither
+     * one was silently dropped.
+     *
+     * Uses direct-sibling `items`/`unevaluatedItems` (not composition) because that is the only
+     * shape that reaches `SerializationPostProcessor`'s array-item recursion at all — composition
+     * branches are a separate, not-yet-covered case (the branch's own tuple validator lives on
+     * the branch's nested property, invisible to this post processor). As a side effect this
+     * also exercises the direct-sibling tuple-crediting gap tracked elsewhere
+     * (`testSiblingTupleItemsCreditTheirEvaluatedIndices`): `_evaluatedItemIndices` ends up
+     * including the tuple-covered index too, since that credit-tracking bug is unrelated to and
+     * not fixed by this test. This test still passes despite it, because the combined serializer
+     * defensively skips indices already handled by the static tuple branch before running the
+     * dynamic unevaluatedItems branch — proving that defense actually works, not just that the
+     * two "happen" not to collide.
+     */
+    public function testSerializationCombinesTupleAndUnevaluatedItemsFiltersWithoutClobbering(): void
+    {
+        $className = $this->generateClassFromFile(
+            'SiblingTupleAndUnevaluatedItemsBothWithTransformingFilter.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $object = new $className(['tags' => ['2020-10-10', '2020-12-12']]);
+
+        $this->assertSame(['tags' => ['20201010', '2020-12-12']], $object->toArray());
+
+        $decoded = json_decode($object->toJSON(), true);
+        $this->assertSame(['tags' => ['20201010', '2020-12-12']], $decoded);
     }
 }
