@@ -6,8 +6,10 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[ApplicableDrafts]
 class BooleanItemsSchemaTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testItemsTrueAcceptsAnyContent(): void

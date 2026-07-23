@@ -20,6 +20,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Tests\Support\DraftRunContext;
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -46,12 +47,18 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 
     private array $generatedFiles = [];
 
+    protected string $lastGeneratedNamespacePrefix = '';
+
     /**
      * Set up an empty directory for the tests
      */
     public function setUp(): void
     {
         parent::setUp();
+
+        if (DraftRunContext::shouldSkipMethod(static::class, $this->name())) {
+            $this->markTestSkipped('Not applicable for the requested JSON Schema draft.');
+        }
 
         (new ModelGenerator())->generateModelDirectory(TEST_BASE_DIR);
         @mkdir(TEST_BASE_DIR . '/Models');
@@ -70,11 +77,10 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
             $failedResultDir = FAILED_CLASSES_PATH . preg_replace('/[^a-z0-9]+/i', '-', $this->name());
             $dir = TEST_BASE_DIR;
 
-            foreach (
-                new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS))
-                as
-                $item
-            ) {
+            $failedDirIterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+            );
+            foreach ($failedDirIterator as $item) {
                 $file = (string) $item;
                 $nestedDir = dirname(str_replace($dir, '', $file));
 
@@ -181,18 +187,24 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         bool $implicitNull = true,
         string $schemaProviderClass = RecursiveDirectoryProvider::class,
     ): string {
-        $generatorConfiguration = ($generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false))
-            ->setImplicitNull($implicitNull);
+        $generatorConfiguration = clone (
+            $generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false)
+        );
+        $generatorConfiguration->setImplicitNull($implicitNull);
+
+        $draft = DraftRunContext::getDraftForDataName(static::class, $this->name(), (string) $this->dataName());
+        if ($draft !== null) {
+            $generatorConfiguration->setDraft($draft->createDraftInstance());
+        }
 
         $this->silenceDefaultLogger($generatorConfiguration);
 
         $baseDir = TEST_BASE_DIR;
 
-        foreach (
-            new RecursiveIteratorIterator(new RecursiveDirectoryIterator($baseDir, FilesystemIterator::SKIP_DOTS))
-            as
-            $item
-        ) {
+        $baseDirIterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($baseDir, FilesystemIterator::SKIP_DOTS),
+        );
+        foreach ($baseDirIterator as $item) {
             unlink((string) $item);
         }
 
@@ -240,7 +252,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
             case OpenAPIv3Provider::class:
                 $schemaProvider = new OpenAPIv3Provider($mainFile);
                 break;
-            default: throw new Exception("Schema provider $schemaProviderClass not supported");
+            default:
+                throw new Exception("Schema provider $schemaProviderClass not supported");
         }
 
         $generator = new ModelGenerator($generatorConfiguration);
@@ -281,6 +294,20 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
      */
     protected function generateDirectory(string $directory, GeneratorConfiguration $configuration): array
     {
+        $configuration = clone $configuration;
+
+        $draft = DraftRunContext::getDraftForDataName(static::class, $this->name(), (string) $this->dataName());
+        if ($draft !== null) {
+            $configuration->setDraft($draft->createDraftInstance());
+            $draftSuffix = preg_replace('/[^a-zA-Z0-9]/', '', $draft->label());
+            $baseNamespace = $configuration->getNamespacePrefix();
+            $newNamespace = $baseNamespace !== ''
+                ? $baseNamespace . '_' . $draftSuffix
+                : $draftSuffix;
+            $configuration->setNamespacePrefix($newNamespace);
+        }
+
+        $this->lastGeneratedNamespacePrefix = $configuration->getNamespacePrefix();
         $this->silenceDefaultLogger($configuration);
 
         $generator = new ModelGenerator($configuration);

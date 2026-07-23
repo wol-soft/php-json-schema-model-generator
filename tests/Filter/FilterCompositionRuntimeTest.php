@@ -17,6 +17,7 @@ use PHPModelGenerator\Exception\Number\MinimumException;
 use PHPModelGenerator\Exception\String\PatternException;
 use PHPModelGenerator\Format\FormatValidatorFromRegEx;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use stdClass;
 
 /**
@@ -29,6 +30,7 @@ use stdClass;
  * moved input-space validator), collect-errors mode for mixed-space allOf, non-transforming
  * filter leaving validator priority unchanged, and empty allOf branches.
  */
+#[ApplicableDrafts]
 class FilterCompositionRuntimeTest extends AbstractFilterTestCase
 {
     // -------------------------------------------------------------------------

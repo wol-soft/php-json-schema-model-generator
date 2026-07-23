@@ -9,6 +9,7 @@ use RuntimeException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 
 /**
  * Tests for filter type-guard generation and callable reflection.
@@ -21,6 +22,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
  * return types, missing return type on a transforming filter), and filters applied directly to
  * object-typed properties with nested schemas.
  */
+#[ApplicableDrafts]
 class FilterTypeCompatibilityTest extends AbstractFilterTestCase
 {
     // -------------------------------------------------------------------------

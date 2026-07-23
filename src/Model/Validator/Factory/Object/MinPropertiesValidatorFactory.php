@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator\Factory\Object;
 
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
-use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\Factory\SimpleBaseValidatorFactory;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -13,15 +12,15 @@ use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 
 class MinPropertiesValidatorFactory extends SimpleBaseValidatorFactory
 {
-    private const string COUNT_PROPERTIES =
-        'count(
+    public const string COUNT_PROPERTIES =
+        '($count = count(
             array_unique(
                 array_merge(
                     array_keys($this->_rawModelDataInput),
                     array_keys($modelData),
                 )
             ),
-        )';
+        ))';
 
     protected function isValueValid(mixed $value): bool
     {
@@ -34,7 +33,7 @@ class MinPropertiesValidatorFactory extends SimpleBaseValidatorFactory
             $property,
             sprintf('%s < %d', self::COUNT_PROPERTIES, $value),
             MinPropertiesException::class,
-            [$value],
+            [$value, '&$count'],
         );
     }
 }

@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -28,6 +29,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * composition validation for non-root `type: object` properties. The issue-#98 fix adds that
  * guard, which also resolves issue #101.
  */
+#[ApplicableDrafts]
 class Issue101Test extends AbstractIssueTestCase
 {
     // -------------------------------------------------------------------------

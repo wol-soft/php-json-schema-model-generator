@@ -8,7 +8,9 @@ use PHPModelGenerator\Exception\Arrays\InvalidItemException;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 
+#[ApplicableDrafts]
 class Issue105Test extends AbstractIssueTestCase
 {
     public function testEnumInComposition(): void

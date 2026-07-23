@@ -9,6 +9,7 @@ use Exception;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -20,6 +21,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * filters with partial type-overlap inside a chain, mixed-return transforming filters, accept-all
  * follow-up filters, and non-nullable return type incompatibility with a downstream filter.
  */
+#[ApplicableDrafts]
 class FilterChainTest extends AbstractFilterTestCase
 {
     // -------------------------------------------------------------------------

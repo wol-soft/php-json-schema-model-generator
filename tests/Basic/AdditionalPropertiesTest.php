@@ -13,6 +13,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -20,6 +21,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  *
  * @package PHPModelGenerator\Tests\Basic
  */
+#[ApplicableDrafts]
 class AdditionalPropertiesTest extends AbstractPHPModelGeneratorTestCase
 {
     #[DataProvider('additionalPropertiesDataProvider')]

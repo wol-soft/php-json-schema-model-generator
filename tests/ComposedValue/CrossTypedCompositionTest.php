@@ -10,8 +10,10 @@ use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use ReflectionUnionType;
 
+#[ApplicableDrafts]
 class CrossTypedCompositionTest extends AbstractPHPModelGeneratorTestCase
 {
     // --- oneOf cross-typed property ---

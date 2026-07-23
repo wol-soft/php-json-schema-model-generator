@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use ReflectionMethod;
 use stdClass;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -19,6 +20,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  *
  * @package PHPModelGenerator\Tests\ComposedValue
  */
+#[ApplicableDrafts]
 class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
 {
     #[DataProvider('validEmptyAllOfDataProvider')]

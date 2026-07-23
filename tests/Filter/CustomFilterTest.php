@@ -9,6 +9,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Filter\FilterInterface;
 use PHPModelGenerator\Filter\ValidateOptionsInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -19,6 +20,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * items, and custom filter option validation via ValidateOptionsInterface (both invalid
  * and valid option configurations).
  */
+#[ApplicableDrafts]
 class CustomFilterTest extends AbstractFilterTestCase
 {
     // -------------------------------------------------------------------------

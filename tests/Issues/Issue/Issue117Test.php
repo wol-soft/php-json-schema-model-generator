@@ -6,7 +6,9 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 
+#[ApplicableDrafts]
 class Issue117Test extends AbstractIssueTestCase
 {
     private function getConfig(): GeneratorConfiguration

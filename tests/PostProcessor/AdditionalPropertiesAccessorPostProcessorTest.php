@@ -20,8 +20,10 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessor
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[ApplicableDrafts]
 class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGeneratorTestCase
 {
     protected function addPostProcessor(bool $addForModelsWithoutAdditionalPropertiesDefinition): void
@@ -296,6 +298,26 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
                 '/additionalProperties',
             ],
         ];
+    }
+
+    public function testMinPropertiesExceptionExposesCount(): void
+    {
+        $this->addPostProcessor(true);
+
+        $className = $this->generateClassFromFile(
+            'AdditionalProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className(['property1' => '  Hello  ', 'property2' => 'World']);
+
+        try {
+            $object->additionalProperties()->remove('property1');
+            $this->fail('Expected MinPropertiesException was not thrown');
+        } catch (MinPropertiesException $exception) {
+            $this->assertSame(2, $exception->getMinProperties());
+            $this->assertSame(1, $exception->getCount());
+        }
     }
 
     public function testRegularPropertyMergedFromMultipleBranchesReportsFirstDeclaredPointer(): void

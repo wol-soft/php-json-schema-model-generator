@@ -6,8 +6,10 @@ namespace PHPModelGenerator\Tests\Issues\Regression;
 
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[ApplicableDrafts]
 class RegressionIssue65Test extends AbstractIssueTestCase
 {
     public function testValidInput(): void

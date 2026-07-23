@@ -11,7 +11,7 @@
         }
     ],
     "require": {
-        "wol-soft/php-json-schema-model-generator-production": "dev-master",
+        "wol-soft/php-json-schema-model-generator-production": "dev-jsonSchemaDraft2019",
         "wol-soft/php-micro-template": "^1.11.0",
         "psr/log": "^3.0",
 
@@ -33,5 +33,9 @@
             "PHPModelGenerator\\Tests\\": "tests",
             "ManualSchema\\": "tests/manual/result"
         }
+    },
+    "scripts": {
+        "test": "./vendor/bin/phpunit --no-coverage --testdox",
+        "test-full-draft-coverage": "PHPUNIT_FULL_DRAFT_COVERAGE=1 ./vendor/bin/phpunit --no-coverage --testdox"
     }
 }

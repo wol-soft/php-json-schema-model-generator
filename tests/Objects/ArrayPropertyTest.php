@@ -17,6 +17,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -25,6 +26,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  *
  * @package PHPModelGenerator\Tests\Objects
  */
+#[ApplicableDrafts]
 class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
@@ -651,6 +653,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
+
     #[DataProvider('validArrayContainsDataProvider')]
     public function testValidValuesForArrayContains(GeneratorConfiguration $configuration, array $propertyValue): void
     {
@@ -702,6 +705,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             ],
         );
     }
+
 
     /**
      * @throws FileSystemException

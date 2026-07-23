@@ -21,9 +21,9 @@ class MaxItemsValidatorFactory extends SimplePropertyValidatorFactory
     {
         return new PropertyValidator(
             $property,
-            "is_array(\$value) && count(\$value) > $value",
+            "is_array(\$value) && (\$count = count(\$value)) > $value",
             MaxItemsException::class,
-            [$value],
+            [$value, '&$count'],
         );
     }
 }

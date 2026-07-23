@@ -10,6 +10,7 @@ use PHPModelGenerator\Draft\DraftInterface;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -22,6 +23,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * (allOf type constraints exclude all inputs accepted by the filter), contradictory allOf type
  * constraints, and the full set of composition schemas that must be accepted without error.
  */
+#[ApplicableDrafts]
 class FilterCompositionStaticTest extends AbstractFilterTestCase
 {
     /** @return array<string, array{string, string}> */

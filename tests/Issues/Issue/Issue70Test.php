@@ -7,8 +7,10 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[ApplicableDrafts]
 class Issue70Test extends AbstractIssueTestCase
 {
     #[DataProvider('validInputDataProvider')]
