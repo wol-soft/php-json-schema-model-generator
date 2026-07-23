@@ -40,12 +40,10 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
 
         if (is_bool($json[$this->key])) {
             if ($json[$this->key] === false) {
-                if ($schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
-                    // @codeCoverageIgnoreStart
-                    echo "Warning: contains: false for property '{$property->getName()}'"
-                        . " can never be satisfied; any array will fail\n";
-                    // @codeCoverageIgnoreEnd
-                }
+                $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                    "contains: false for property '{property}' can never be satisfied; any array will fail",
+                    ['property' => $property->getName()],
+                );
 
                 $property->addValidator(
                     new PropertyValidator(
@@ -66,8 +64,9 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
             ->create(
                 $schemaProcessor,
                 $schema,
-                "item of array {$property->getName()}",
+                $property->getName(),
                 $propertySchema->navigate($this->key),
+                isArrayItem: true,
             );
 
         $countMatches = $this->supportMinMaxContains &&

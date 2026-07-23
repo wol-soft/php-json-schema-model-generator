@@ -75,7 +75,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
             'Invalid value' => [
                 false,
                 InvalidTypeException::class,
-                'Invalid type for name. Requires string, got boolean',
+                "Invalid type for 'name': requires 'string', got 'boolean'",
             ],
             'Valid value' => [
                 'Hannes',
@@ -165,7 +165,7 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
             'Invalid value' => [
                 -12,
                 MinimumException::class,
-                'Value for age must not be smaller than 0',
+                "Value for 'age' must not be smaller than 0",
             ],
             'Valid value' => [
                 12,
@@ -201,7 +201,8 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator) use ($schemaHook): void {
             $modelGenerator->addPostProcessor(new class ($schemaHook) extends PostProcessor {
-                public function __construct(private readonly SchemaHookInterface $schemaHook) {}
+                public function __construct(private readonly SchemaHookInterface $schemaHook)
+                {}
 
                 public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
                 {

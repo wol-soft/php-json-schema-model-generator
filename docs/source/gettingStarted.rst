@@ -32,6 +32,19 @@ RecursiveDirectoryProvider  Fetches all *.json files from the given source direc
 OpenAPIv3Provider           Fetches all objects defined in the #/components/schemas section of an Open API v3 spec file
 =========================== ===========
 
+The built-in providers pass the raw, undecoded text of each schema file into the ``JsonSchema``
+objects they yield. This is what allows a `SchemaException <#schema-errors>`__ raised while
+processing that schema to report the exact line and column of the problem. If you implement a
+custom ``SchemaProviderInterface``, you can opt into the same behaviour by passing your schema's
+raw source text as the optional fourth constructor argument when you create a ``JsonSchema``:
+
+.. code-block:: php
+
+    new JsonSchema($file, $decodedJson, rawSource: $rawFileContents);
+
+Omitting the raw source is safe — location reporting is simply skipped and ``SchemaException``
+messages fall back to naming only the file.
+
 The second parameter must point to an existing and empty directory (you may use the *generateModelDirectory* helper method to create your destination directory). This directory will contain the generated PHP classes after the generator is finished.
 
 As an optional parameter you can set up a *GeneratorConfiguration* object to configure your Generator and/or use the method *generateModelDirectory* to generate your model directory (will generate the directory if it doesn't exist; if it exists, all contained files and folders will be removed for a clean generation process):
@@ -49,6 +62,42 @@ As an optional parameter you can set up a *GeneratorConfiguration* object to con
         ->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
 
 The generator will check the given source directory recursive and convert all found \*.json files to models. All JSON-Schema files inside the source directory must provide a schema of an object.
+
+Schema errors
+^^^^^^^^^^^^^
+
+If a schema file can't be parsed as JSON, or is valid JSON but contradicts itself (e.g. an
+``allOf`` composition requiring incompatible types for the same property), the generator throws a
+**PHPModelGenerator\\Exception\\SchemaException** while processing that file. This is a
+generation-time error about the schema itself, distinct from the runtime
+``ValidationException``/``ErrorRegistryException`` thrown by generated model classes when they're
+given bad *data* (see `Collect errors vs. early return <#collect-errors-vs-early-return>`__).
+
+Whenever the location of the problem can be determined, ``getMessage()`` includes the line and
+column, and the same information is available as structured accessors:
+
+.. code-block:: php
+
+    public function getSchemaFile(): ?string;   // the JSON schema file the problem was found in
+    public function getSourceLine(): ?int;      // 1-indexed line, or null if unresolved
+    public function getSourceColumn(): ?int;    // 1-indexed column, or null if unresolved
+
+.. code-block:: php
+
+    try {
+        (new Generator())->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
+    } catch (\PHPModelGenerator\Exception\SchemaException $e) {
+        $e->getMessage();     // e.g. 'Invalid JSON-Schema file schema/Person.json at line 4, column 12'
+        $e->getSchemaFile();  // 'schema/Person.json'
+        $e->getSourceLine();  // 4
+        $e->getSourceColumn(); // 12
+    }
+
+The accessors return ``null`` when a location can't be determined — for example when the schema
+file couldn't be read at all, or when a custom ``SchemaProviderInterface`` doesn't supply the raw
+source text needed to locate the problem (see the note on custom providers above). A missing
+location never prevents the exception from being thrown; it only means the message names the file
+without a line and column.
 
 Default interface of configured classes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -97,15 +146,15 @@ Now let's have a look at the behaviour of the generated model:
 .. code-block:: php
 
     // Throws an exception as the required name isn't provided.
-    // Exception: 'Missing required value for name'
+    // Exception: "Missing required value for 'name'"
     $person = new Person([]);
 
     // Throws an exception as the name provides an invalid value.
-    // Exception: 'Invalid type for name. Requires string, got int'
+    // Exception: "Invalid type for 'name': requires 'string', got 'integer'"
     $person = new Person(['name' => 12]);
 
     // Throws an exception as the age contains an invalid value due to the minimum definition.
-    // Exception: 'Value for age must not be smaller than 0'
+    // Exception: "Value for 'age' must not be smaller than 0"
     $person = new Person(['name' => 'Albert', 'age' => -1]);
 
     // A valid example as the age isn't required
@@ -115,7 +164,7 @@ Now let's have a look at the behaviour of the generated model:
     $person->meta()->rawInput(); // returns ['name' => 'Albert']
 
     // If setters are generated the setters also perform validations.
-    // Exception: 'Value for age must not be smaller than 0'
+    // Exception: "Value for 'age' must not be smaller than 0"
     $person->setAge(-10);
 
 Each generated class will implement the interface **PHPModelGenerator\\Interfaces\\JSONModelInterface** implemented in the php-json-schema-model-generator-production repository and thus provide the method *meta()* which exposes ``rawInput()`` for access to the original data provided on instantiation.
@@ -383,22 +432,14 @@ The following example would keep the *SCHEMA_NAME* and *JSON_SCHEMA* attributes 
         ->enableAttributes(PhpAttribute::SOURCE | PhpAttribute::JSON_SCHEMA)
         ->disableAttributes(PhpAttribute::JSON_POINTER | PhpAttribute::SOURCE);
 
-Output generation process
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Logging the generation process
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: php
 
-    setOutputEnabled(bool $outputEnabled);
+    setLogger(Psr\Log\LoggerInterface $logger);
 
-Enable or disable output of the generation process to STDOUT. By default the output is enabled.
-
-.. code-block:: php
-
-    (new GeneratorConfiguration())
-        ->setOutputEnabled(false);
-
-The output contains information about generated classes, rendered classes, hints and warnings concerning the internal handling or the given schema files.
-The output of a generation process may look like:
+The generation process reports its progress (generated/rendered classes), notable events (duplicated schema signatures being redirected to an already-generated class) and warnings (schema constructs that are unreachable, unsatisfiable, or otherwise likely a mistake) through a `PSR-3 <https://www.php-fig.org/psr/psr-3/>`_ logger. By default a *GeneratorConfiguration* uses the built-in ``PHPModelGenerator\Logger\EchoLogger``, which writes every message to STDOUT:
 
 .. code-block:: none
 
@@ -407,6 +448,24 @@ The output of a generation process may look like:
     Duplicated signature 444fd086d8d1f186145a6f81a3ac3f7a for class Register_Message. Redirecting to Login_Message
     Rendered class MyApp\User\Response\Login
     Rendered class MyApp\User\Response\Register
+
+To silence the generation process, supply PSR-3's ``NullLogger``:
+
+.. code-block:: php
+
+    use Psr\Log\NullLogger;
+
+    (new GeneratorConfiguration())
+        ->setLogger(new NullLogger());
+
+To integrate the generation process with your own logging infrastructure (e.g. `Monolog <https://github.com/Seldaek/monolog>`_), pass any object implementing ``Psr\Log\LoggerInterface``:
+
+.. code-block:: php
+
+    (new GeneratorConfiguration())
+        ->setLogger($monolog);
+
+Every message is emitted as a PSR-3 message template together with a context array of the underlying values (e.g. ``$logger->warning('Property {property} ...', ['property' => $name])``) instead of a single pre-formatted string, so a structured logging backend can filter, index, and query on the individual fields rather than parsing text.
 
 JSON Schema draft version
 ^^^^^^^^^^^^^^^^^^^^^^^^^

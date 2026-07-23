@@ -9,19 +9,44 @@ use PHPModelGenerator\SchemaProvider\OpenAPIv3Provider;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class OpenAPIv3ProviderTest
- *
- * @package PHPModelGenerator\Tests\SchemaProvider
- */
 class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testInvalidJsonSchemaFileThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file (.*)\.json$/');
+        $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file (.*)\.json at line 5, column 2$/');
 
         $this->generateClassFromFile('InvalidJSONSchema.json', null, false, true, OpenAPIv3Provider::class);
+    }
+
+    /**
+     * The spec file decodes successfully (valid JSON), but its root value isn't an object/array,
+     * so there is nothing to build an Open API v3 spec from. No JsonSchema can be constructed for
+     * a non-array value, so this case has no location - it is reported by file name only.
+     */
+    #[DataProvider('nonObjectRootDataProvider')]
+    public function testNonObjectRootValueThrowsSchemaException(string $jsonContent): void
+    {
+        $tempFile = sys_get_temp_dir() . '/openApiV3ProviderTest_' . uniqid() . '.json';
+        file_put_contents($tempFile, $jsonContent);
+
+        try {
+            $this->expectException(SchemaException::class);
+            $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file .+\.json$/');
+            new OpenAPIv3Provider($tempFile);
+        } finally {
+            @unlink($tempFile);
+        }
+    }
+
+    public static function nonObjectRootDataProvider(): array
+    {
+        return [
+            'boolean' => ['true'],
+            'integer' => ['42'],
+            'string' => ['"hello"'],
+            'null' => ['null'],
+        ];
     }
 
     #[DataProvider('missingSchemasDataProvider')]
@@ -29,7 +54,7 @@ class OpenAPIv3ProviderTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Open API v3 spec file (.*)\.json doesn't contain any schemas to process$/",
+            "/^Open API v3 spec file (.*)\.json doesn't contain any schemas to process at line 1, column 1$/",
         );
 
         $this->generateClassFromFile($file, null, false, true, OpenAPIv3Provider::class);

@@ -108,8 +108,6 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
             'bool' => ['"boolean"', 'true', true],
             'array empty' => ['"array"', '[]', []],
             'array no index' => ['"array"', '["a", "b"]', ['a', 'b']],
-            'array numeric index' => ['"array"', '{"3": "b", "4": "c"}', [3 => 'b', 4 => 'c']],
-            'array associative index' => ['"array"', '{"a": 2, "b": 3}', ['a' => 2, 'b' => 3]],
             'multi type string' => ['["string", "number"]', '"Hey"', 'Hey'],
             // casted to float due to number type
             'multi type int' => ['["string", "number"]', -11, -11.],
@@ -162,6 +160,10 @@ class DefaultValueTest extends AbstractPHPModelGeneratorTestCase
             'array property float default' => ['"array"', 123.5],
             'array property string default' => ['"array"', '"Hello"'],
             'array property bool default' => ['"array"', 'true'],
+            // A JSON object and a JSON array both decode to a PHP array, so a JSON-object-
+            // shaped default is invalid for "type": "array" regardless of its keys.
+            'array property numeric-index object default' => ['"array"', '{"3": "b", "4": "c"}'],
+            'array property associative object default' => ['"array"', '{"a": 2, "b": 3}'],
             'multi type property bool default' => ['["string", "number"]', 'true'],
             'multi type property array default' => ['["string", "number"]', '[]'],
         ];

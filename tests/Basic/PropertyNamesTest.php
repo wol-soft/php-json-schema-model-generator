@@ -12,11 +12,6 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class PropertyNamesTest
- *
- * @package PHPModelGenerator\Tests\Basic
- */
 #[ApplicableDrafts]
 class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -134,11 +129,11 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
                         'abc' => 1,
                     ],
                     <<<ERROR
-                    contains properties with invalid names.
+                    contains properties with invalid names
                       - invalid property '12'
-                        * Value for property name must not be shorter than 3
+                        * Value for 'property name' must not be shorter than 3
                       - invalid property '123456'
-                        * Value for property name must not be longer than 5
+                        * Value for 'property name' must not be longer than 5
                     ERROR,
                 ],
                 'pattern violation' => [
@@ -150,13 +145,13 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
                         'test12w12' => 1,
                     ],
                     <<<ERROR
-                    contains properties with invalid names.
+                    contains properties with invalid names
                       - invalid property '12test12'
-                        * Value for property name doesn't match pattern ^test[0-9]+$
+                        * Value for 'property name' does not match pattern '^test[0-9]+$'
                       - invalid property 'test'
-                        * Value for property name doesn't match pattern ^test[0-9]+$
+                        * Value for 'property name' does not match pattern '^test[0-9]+$'
                       - invalid property 'test12w12'
-                        * Value for property name doesn't match pattern ^test[0-9]+$
+                        * Value for 'property name' does not match pattern '^test[0-9]+$'
                     ERROR,
                 ],
                 'const violation' => [
@@ -167,11 +162,11 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
                         'bla' => 3,
                     ],
                     <<<ERROR
-                    contains properties with invalid names.
+                    contains properties with invalid names
                       - invalid property 'test1'
-                        * Invalid value for property name declined by const constraint
+                        * Value for 'property name' must be "test", got "test1"
                       - invalid property 'bla'
-                        * Invalid value for property name declined by const constraint
+                        * Value for 'property name' must be "test", got "bla"
                     ERROR,
                 ],
             ],
@@ -190,11 +185,11 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
                     'test' => 1,
                 ],
                 <<<ERROR
-                contains properties with invalid names.
+                contains properties with invalid names
                   - invalid property 'test12345a'
-                    * Value for property name doesn't match pattern ^test[0-9]+$
+                    * Value for 'property name' does not match pattern '^test[0-9]+$'
                   - invalid property 'test'
-                    * Value for property name doesn't match pattern ^test[0-9]+$
+                    * Value for 'property name' does not match pattern '^test[0-9]+$'
                 ERROR,
             ],
             'Error Collection - combined multiple violations' => [
@@ -206,13 +201,13 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
                     'test' => 1,
                 ],
                 <<<ERROR
-                contains properties with invalid names.
+                contains properties with invalid names
                   - invalid property 'test12345a'
-                    * Value for property name doesn't match pattern ^test[0-9]+$
-                    * Value for property name must not be longer than 8
+                    * Value for 'property name' does not match pattern '^test[0-9]+$'
+                    * Value for 'property name' must not be longer than 8
                   - invalid property 'test'
-                    * Value for property name doesn't match pattern ^test[0-9]+$
-                    * Value for property name must not be shorter than 6
+                    * Value for 'property name' does not match pattern '^test[0-9]+$'
+                    * Value for 'property name' must not be shorter than 6
                 ERROR,
             ],
         ];
@@ -222,32 +217,41 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
     {
         return [
             // kebab-case and camelCase normalize to the same attribute
-            'foo-bar and fooBar' => ['KebabAndCamelCase.json', 'foo-bar', 'fooBar', 'fooBar'],
+            'foo-bar and fooBar' => ['KebabAndCamelCase.json', 'foo-bar', 'fooBar', 'fooBar', 69],
             // underscore_case and camelCase normalize to the same attribute
-            'foo_bar and fooBar' => ['UnderscoreAndCamelCase.json', 'foo_bar', 'fooBar', 'fooBar'],
+            'foo_bar and fooBar' => ['UnderscoreAndCamelCase.json', 'foo_bar', 'fooBar', 'fooBar', 69],
             // dot.notation and camelCase normalize to the same attribute
-            'foo.bar and fooBar' => ['DotAndCamelCase.json', 'foo.bar', 'fooBar', 'fooBar'],
+            'foo.bar and fooBar' => ['DotAndCamelCase.json', 'foo.bar', 'fooBar', 'fooBar', 69],
             // leading underscore is stripped by the normalizer
-            '_foo and foo' => ['LeadingUnderscoreAndPlain.json', '_foo', 'foo', 'foo'],
+            '_foo and foo' => ['LeadingUnderscoreAndPlain.json', '_foo', 'foo', 'foo', 63],
             // multiple separators still collapse to the same attribute as a single separator
-            'foo--bar and foo_bar' => ['MultipleSeparators.json', 'foo--bar', 'foo_bar', 'fooBar'],
+            'foo--bar and foo_bar' => ['MultipleSeparators.json', 'foo--bar', 'foo_bar', 'fooBar', 71],
         ];
     }
 
+    /**
+     * The schema fixtures are re-encoded as compact, single-line JSON (with an injected "title"
+     * key) by the test harness before generation, so every collision is reported on line 1 - the
+     * expected column for each fixture was captured from an actual generation run and is asserted
+     * exactly rather than via a generic \d+ pattern.
+     */
     #[DataProvider('collidingPropertyPairProvider')]
     public function testCollidingPropertyNamesThrowSchemaException(
         string $schemaFile,
         string $firstRawName,
         string $secondRawName,
         string $expectedAttribute,
+        int $expectedColumn,
     ): void {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
             sprintf(
-                "/^Property names '%s' and '%s' both normalize to attribute '%s' in file .+\.json$/",
+                "/^Property names '%s' and '%s' both normalize to attribute '%s' in file .+\.json"
+                    . ' at line 1, column %d$/',
                 preg_quote($firstRawName, '/'),
                 preg_quote($secondRawName, '/'),
                 preg_quote($expectedAttribute, '/'),
+                $expectedColumn,
             ),
         );
 

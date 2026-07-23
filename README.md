@@ -28,7 +28,7 @@ Simple example from a PHP application: you define and document an API with swagg
 ## Requirements ##
 
 - Requires at least PHP 8.4
-- Requires the PHP extensions ext-json and ext-mbstring
+- Requires the PHP extension ext-mbstring
 
 ## Installation ##
 
@@ -144,7 +144,7 @@ $person->setAge(-10);
 More complex exception messages eg. from a [allOf](https://json-schema.org/understanding-json-schema/reference/combining.html#allof) composition may look like:
 ```
 Invalid value for Animal declined by composition constraint.
-  Requires to match 3 composition elements but matched 1 elements.
+  Requires to match 3 composition elements but matched 1 element.
   - Composition element #1: Failed
     * Value for age must not be smaller than 0
   - Composition element #2: Valid

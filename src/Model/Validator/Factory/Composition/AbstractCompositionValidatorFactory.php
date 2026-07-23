@@ -35,11 +35,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         PropertyInterface $property,
         string $reason,
     ): void {
-        if ($schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
-            // @codeCoverageIgnoreStart
-            echo "Warning: always-unsatisfiable schema for property '{$property->getName()}': $reason\n";
-            // @codeCoverageIgnoreEnd
-        }
+        $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+            "Always-unsatisfiable schema for property '{property}': {reason}",
+            ['property' => $property->getName(), 'reason' => $reason],
+        );
     }
 
     /**
@@ -50,13 +49,11 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         PropertyInterface $property,
         JsonSchema $propertySchema,
     ): void {
-        if (
-            empty($propertySchema->getJson()[$this->key]) &&
-            $schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()
-        ) {
-            // @codeCoverageIgnoreStart
-            echo "Warning: empty composition for {$property->getName()} may lead to unexpected results\n";
-            // @codeCoverageIgnoreEnd
+        if (empty($propertySchema->getJson()[$this->key])) {
+            $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                "Empty composition for '{property}' may lead to unexpected results",
+                ['property' => $property->getName()],
+            );
         }
     }
 
@@ -104,12 +101,15 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 is_array($branch)
                 && CompositionCompatibilityChecker::branchContainsFilter($branch)
             ) {
-                throw new SchemaException(sprintf(
-                    'A filter keyword inside a not composition branch is not supported'
-                        . ' for property %s in file %s.',
-                    $property->getName(),
-                    $property->getJsonSchema()->getFile(),
-                ));
+                throw new SchemaException(
+                    sprintf(
+                        'A filter keyword inside a not composition branch is not supported'
+                            . ' for property %s in file %s.',
+                        $property->getName(),
+                        $property->getJsonSchema()->getFile(),
+                    ),
+                    $property->getJsonSchema(),
+                );
             }
             return;
         }
@@ -119,14 +119,17 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 is_array($compositionElement)
                 && CompositionCompatibilityChecker::branchContainsFilter($compositionElement)
             ) {
-                throw new SchemaException(sprintf(
-                    'A filter keyword inside a %s composition branch is not supported'
-                        . ' for property %s in file %s (branch #%d).',
-                    $this->key,
-                    $property->getName(),
-                    $property->getJsonSchema()->getFile(),
-                    $index,
-                ));
+                throw new SchemaException(
+                    sprintf(
+                        'A filter keyword inside a %s composition branch is not supported'
+                            . ' for property %s in file %s (branch #%d).',
+                        $this->key,
+                        $property->getName(),
+                        $property->getJsonSchema()->getFile(),
+                        $index,
+                    ),
+                    $property->getJsonSchema(),
+                );
             }
         }
     }
@@ -485,13 +488,16 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         )) === count($constrainingBranches);
 
         if (empty($nonNullNames) && !$allBranchesAllowNull) {
-            throw new SchemaException(sprintf(
-                "Property '%s' is defined with conflicting types in allOf composition branches"
-                    . ' (file %s). allOf requires all constraints to hold simultaneously,'
-                    . ' making this schema unsatisfiable.',
-                $property->getName(),
-                $property->getJsonSchema()->getFile(),
-            ));
+            throw new SchemaException(
+                sprintf(
+                    "Property '%s' is defined with conflicting types in allOf composition branches"
+                        . ' (file %s). allOf requires all constraints to hold simultaneously,'
+                        . ' making this schema unsatisfiable.',
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile(),
+                ),
+                $property->getJsonSchema(),
+            );
         }
 
         if (empty($nonNullNames)) {

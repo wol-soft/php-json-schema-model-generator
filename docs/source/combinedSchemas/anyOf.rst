@@ -38,12 +38,12 @@ Possible exception (if a string is provided):
 
 .. code-block:: none
 
-    Invalid value for example declined by composition constraint.
-      Requires to match at least one composition element.
+    Invalid value for 'example' declined by composition constraint
+      Requires to match at least one composition element
       - Composition element #1: Failed
-        * Invalid type for example. Requires float, got string
+        * Invalid type for 'example': requires 'float', got 'string'
       - Composition element #2: Failed
-        * Invalid type for example. Requires float, got string
+        * Invalid type for 'example': requires 'float', got 'string'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\AnyOfException* which provides the following methods to get further error details:
 

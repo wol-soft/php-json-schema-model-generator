@@ -20,11 +20,6 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class BasicSchemaGenerationTest
- *
- * @package PHPModelGenerator\Tests\Basic
- */
 #[ApplicableDrafts]
 class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -284,20 +279,20 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
                 'Too long string' => [
                     'HelloMyOldFriend',
                     [
-                        'Value for property must not be longer than 8'
+                        "Value for 'property' must not be longer than 8"
                     ]
                 ],
                 'Invalid pattern' => [
                     '123456789',
                     [
-                        'property doesn\'t match pattern ^[a-zA-Z]*$'
+                        'Value for \'property\' does not match pattern \'^[a-zA-Z]*$\''
                     ]
                 ],
                 'Too long and invalid pattern' => [
                     'HelloMyOld1234567',
                     [
-                        'property doesn\'t match pattern ^[a-zA-Z]*$',
-                        'Value for property must not be longer than 8',
+                        'Value for \'property\' does not match pattern \'^[a-zA-Z]*$\'',
+                        "Value for 'property' must not be longer than 8",
                     ]
                 ]
             ],
@@ -350,7 +345,7 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'RecursiveTest',
-            (new GeneratorConfiguration())->setNamespacePrefix('Application')->setOutputEnabled(false),
+            (new GeneratorConfiguration())->setNamespacePrefix('Application'),
         );
 
         $namespacePrefix = $this->lastGeneratedNamespacePrefix;
@@ -366,9 +361,26 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidJsonSchemaFileThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file (.*)\.json$/');
+        $this->expectExceptionMessageMatches('/^Invalid JSON-Schema file (.*)\.json at line 6, column 2$/');
 
         $this->generateClassFromFile('InvalidJSONSchema.json');
+    }
+
+    /**
+     * Malformed JSON discovered via RecursiveDirectoryProvider (the default provider used by
+     * generateClassFromFile) exposes its location through SchemaException's structured accessors,
+     * not just through the message text.
+     */
+    public function testInvalidJsonSchemaFileExposesLocationThroughAccessors(): void
+    {
+        try {
+            $this->generateClassFromFile('InvalidJSONSchema.json');
+            $this->fail('Expected a SchemaException to be thrown');
+        } catch (SchemaException $exception) {
+            $this->assertStringEndsWith('.json', $exception->getSchemaFile());
+            $this->assertSame(6, $exception->getSourceLine());
+            $this->assertSame(2, $exception->getSourceColumn());
+        }
     }
 
     public function testJsonSchemaWithInvalidPropertyTypeThrowsAnException(): void

@@ -23,9 +23,7 @@ class ClassNameGeneratorTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->generateDirectory(
             'NamingLevels',
-            (new GeneratorConfiguration())
-                ->setNamespacePrefix('ClassNameGeneratorTest')
-                ->setOutputEnabled(false),
+            (new GeneratorConfiguration())->setNamespacePrefix('ClassNameGeneratorTest'),
         );
 
         $rootFqcn        = 'ClassNameGeneratorTest\NamingLevels';

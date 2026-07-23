@@ -14,11 +14,6 @@ use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class PropertyNamesValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class PropertyNamesValidator extends PropertyTemplateValidator
 {
     /**
@@ -37,18 +32,24 @@ class PropertyNamesValidator extends PropertyTemplateValidator
             array_key_exists('const', $propertiesNames->getJson()) &&
             gettype($propertiesNames->getJson()['const']) !== 'string'
         ) {
-            throw new SchemaException("Invalid const property name in file {$propertiesNames->getFile()}");
+            throw new SchemaException(
+                "Invalid const property name in file {$propertiesNames->getFile()}",
+                $propertiesNames,
+            );
         }
 
         if (
             array_key_exists('type', $propertiesNames->getJson()) &&
             $propertiesNames->getJson()['type'] !== 'string'
         ) {
-            throw new SchemaException(sprintf(
-                "Invalid type '%s' for propertyNames schema in file %s",
-                $propertiesNames->getJson()['type'],
-                $propertiesNames->getFile(),
-            ));
+            throw new SchemaException(
+                sprintf(
+                    "Invalid type '%s' for propertyNames schema in file %s",
+                    $propertiesNames->getJson()['type'],
+                    $propertiesNames->getFile(),
+                ),
+                $propertiesNames,
+            );
         }
 
         // Property names are always strings; ensure the schema declares the type so that

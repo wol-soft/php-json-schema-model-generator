@@ -49,6 +49,7 @@ class IfValidatorFactory
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
                 ),
+                $property->getJsonSchema(),
             );
         }
 
@@ -75,13 +76,16 @@ class IfValidatorFactory
                 && is_array($json[$keyword])
                 && CompositionCompatibilityChecker::branchContainsFilter($json[$keyword])
             ) {
-                throw new SchemaException(sprintf(
-                    'A filter keyword inside an if/then/else composition branch is not supported'
-                        . ' for property %s in file %s (%s sub-schema).',
-                    $property->getName(),
-                    $property->getJsonSchema()->getFile(),
-                    $keyword,
-                ));
+                throw new SchemaException(
+                    sprintf(
+                        'A filter keyword inside an if/then/else composition branch is not supported'
+                            . ' for property %s in file %s (%s sub-schema).',
+                        $property->getName(),
+                        $property->getJsonSchema()->getFile(),
+                        $keyword,
+                    ),
+                    $property->getJsonSchema(),
+                );
             }
         }
 
@@ -221,11 +225,12 @@ class IfValidatorFactory
         if (is_bool($json['if'])) {
             if ($json['if'] === false) {
                 if (!isset($json['else'])) {
-                    if (isset($json['then']) && $schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
-                        // @codeCoverageIgnoreStart
-                        echo "Warning: if: false for property '{$property->getName()}'"
-                            . " — then branch will never apply (condition never matches); no constraint generated.\n";
-                        // @codeCoverageIgnoreEnd
+                    if (isset($json['then'])) {
+                        $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                            "if: false for property '{property}' — then branch will never apply"
+                                . " (condition never matches); no constraint generated.",
+                            ['property' => $property->getName()],
+                        );
                     }
                     return null;
                 }
@@ -261,11 +266,12 @@ class IfValidatorFactory
             }
 
             if (!isset($json['then'])) {
-                if (isset($json['else']) && $schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
-                    // @codeCoverageIgnoreStart
-                    echo "Warning: if: true for property '{$property->getName()}'"
-                        . " — else branch will never apply (condition always matches); no constraint generated.\n";
-                    // @codeCoverageIgnoreEnd
+                if (isset($json['else'])) {
+                    $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                        "if: true for property '{property}' — else branch will never apply"
+                            . " (condition always matches); no constraint generated.",
+                        ['property' => $property->getName()],
+                    );
                 }
                 return null;
             }
@@ -298,6 +304,7 @@ class IfValidatorFactory
                         $property->getName(),
                         $property->getJsonSchema()->getFile(),
                     ),
+                    $property->getJsonSchema(),
                 );
             }
 
@@ -312,6 +319,7 @@ class IfValidatorFactory
                         $property->getName(),
                         $property->getJsonSchema()->getFile(),
                     ),
+                    $property->getJsonSchema(),
                 );
             }
 
@@ -438,13 +446,16 @@ class IfValidatorFactory
             && empty(TypeIntersection::compute($parentNames, $elseTypes));
 
         if ($thenConflicts || $elseConflicts) {
-            throw new SchemaException(sprintf(
-                "Property '%s' has an if/then/else composition branch with a type incompatible"
-                    . " with the property's declared type (file %s)."
-                    . ' No value can satisfy both constraints.',
-                $property->getName(),
-                $property->getJsonSchema()->getFile(),
-            ));
+            throw new SchemaException(
+                sprintf(
+                    "Property '%s' has an if/then/else composition branch with a type incompatible"
+                        . " with the property's declared type (file %s)."
+                        . ' No value can satisfy both constraints.',
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile(),
+                ),
+                $property->getJsonSchema(),
+            );
         }
     }
 

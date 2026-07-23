@@ -130,6 +130,15 @@ interface PropertyInterface extends ResolvableInterface
 
     public function setRequired(bool $isPropertyRequired): PropertyInterface;
 
+    /**
+     * Mark the property as representing an item of an array (as opposed to an object property).
+     * Array items have no "required" keyword of their own — they are unconditionally mandatory —
+     * and must never receive a RequiredPropertyValidator.
+     */
+    public function setArrayItem(bool $isArrayItem): PropertyInterface;
+
+    public function isArrayItem(): bool;
+
     public function setReadOnly(bool $isPropertyReadOnly): PropertyInterface;
 
     public function setInternal(bool $isPropertyInternal): PropertyInterface;

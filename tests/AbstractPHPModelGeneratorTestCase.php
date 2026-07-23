@@ -8,6 +8,7 @@ use Exception;
 use FilesystemIterator;
 use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Interfaces\JSONModelInterface;
+use PHPModelGenerator\Logger\EchoLogger;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\SchemaProvider\OpenAPIv3Provider;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
@@ -22,6 +23,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Support\DraftRunContext;
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
@@ -188,12 +190,14 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         $generatorConfiguration = clone (
             $generatorConfiguration ?? (new GeneratorConfiguration())->setCollectErrors(false)
         );
-        $generatorConfiguration->setImplicitNull($implicitNull)->setOutputEnabled(false);
+        $generatorConfiguration->setImplicitNull($implicitNull);
 
         $draft = DraftRunContext::getDraftForDataName(static::class, $this->name(), (string) $this->dataName());
         if ($draft !== null) {
             $generatorConfiguration->setDraft($draft->createDraftInstance());
         }
+
+        $this->silenceDefaultLogger($generatorConfiguration);
 
         $baseDir = TEST_BASE_DIR;
 
@@ -270,6 +274,18 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     }
 
     /**
+     * Keeps the test suite silent by default without clobbering a logger a test explicitly
+     * injected (e.g. a RecordingLogger to assert on emitted log entries) — only swaps out the
+     * untouched default EchoLogger.
+     */
+    private function silenceDefaultLogger(GeneratorConfiguration $generatorConfiguration): void
+    {
+        if ($generatorConfiguration->getLogger() instanceof EchoLogger) {
+            $generatorConfiguration->setLogger(new NullLogger());
+        }
+    }
+
+    /**
      * Generate objects for all JSON-Schema files in the given directory
      *
      * @throws FileSystemException
@@ -292,6 +308,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         }
 
         $this->lastGeneratedNamespacePrefix = $configuration->getNamespacePrefix();
+        $this->silenceDefaultLogger($configuration);
 
         $generator = new ModelGenerator($configuration);
         if (is_callable($this->modifyModelGenerator)) {
@@ -375,6 +392,27 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         }
 
         return $errorRegistry;
+    }
+
+    /**
+     * Checks whether any entry recorded by a RecordingLogger matches the given level, message
+     * template, and (optionally) a subset of expected context values.
+     *
+     * @param array<int, array{level: string, message: string, context: array}> $entries
+     */
+    protected function hasLogEntry(array $entries, string $level, string $message, array $expectedContext = []): bool
+    {
+        foreach ($entries as $entry) {
+            if ($entry['level'] !== $level || $entry['message'] !== $message) {
+                continue;
+            }
+
+            if (array_intersect_key($entry['context'], $expectedContext) === $expectedContext) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

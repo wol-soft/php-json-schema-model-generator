@@ -56,17 +56,17 @@ class ObjectSizeTest extends AbstractPHPModelGeneratorTestCase
         return [
             'empty object' => [
                 [],
-                'Provided object for ObjectSizeTest_(.*) must not contain less than 2 properties',
+                "Provided object for 'ObjectSizeTest_(.*)' must not contain less than 2 properties",
                 '/minProperties',
             ],
             'too few properties' => [
                 ['b' => 2],
-                'Provided object for ObjectSizeTest_(.*) must not contain less than 2 properties',
+                "Provided object for 'ObjectSizeTest_(.*)' must not contain less than 2 properties",
                 '/minProperties',
             ],
             'too many properties' => [
                 ['a' => 1, 'b' => 2, 'c' => 3, 'd' => 4],
-                'Provided object for ObjectSizeTest_(.*) must not contain more than 3 properties',
+                "Provided object for 'ObjectSizeTest_(.*)' must not contain more than 3 properties",
                 '/maxProperties',
             ],
         ];

@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntToFloatCastDecorator;
@@ -124,13 +125,15 @@ class PropertyMerger
             $this->rootConflictCounts[$incoming->getName()] =
                 ($this->rootConflictCounts[$incoming->getName()] ?? 0) + 1;
 
-            if ($this->generatorConfiguration?->isOutputEnabled()) {
-                echo "Warning: composition branch defines property '{$incoming->getName()}' with type "
-                    . implode('|', $incomingOutput->getNames())
-                    . " which differs from root type "
-                    . implode('|', $existingOutput->getNames())
-                    . " — root definition takes precedence.\n";
-            }
+            $this->generatorConfiguration?->getLogger()->warning(
+                "Composition branch defines property '{property}' with type {incomingType} which differs"
+                    . " from root type {rootType} — root definition takes precedence.",
+                [
+                    'property' => $incoming->getName(),
+                    'incomingType' => implode('|', $incomingOutput->getNames()),
+                    'rootType' => implode('|', $existingOutput->getNames()),
+                ],
+            );
         }
 
         return true;
@@ -142,17 +145,20 @@ class PropertyMerger
      *
      * @throws SchemaException
      */
-    public function checkForTotalConflict(string $propertyName, int $branchCount): void
+    public function checkForTotalConflict(string $propertyName, int $branchCount, JsonSchema $jsonSchema): void
     {
         if (
             isset($this->rootConflictCounts[$propertyName]) &&
             $this->rootConflictCounts[$propertyName] >= $branchCount
         ) {
-            throw new SchemaException(sprintf(
-                "Property '%s' is defined in root with a type that conflicts with all composition branches, " .
-                "making this schema unsatisfiable.",
-                $propertyName,
-            ));
+            throw new SchemaException(
+                sprintf(
+                    "Property '%s' is defined in root with a type that conflicts with all composition branches, " .
+                    "making this schema unsatisfiable.",
+                    $propertyName,
+                ),
+                $jsonSchema,
+            );
         }
     }
 
@@ -260,6 +266,7 @@ class PropertyMerger
             $incomingOutput,
             $incoming->isRequired(),
             $conflictMessage,
+            $existing->getJsonSchema(),
         );
 
         if ($intersection === null) {
@@ -302,6 +309,7 @@ class PropertyMerger
             $constraintType,
             $existing->isRequired(),
             $conflictMessage,
+            $existing->getJsonSchema(),
         );
 
         if ($intersection === null) {
@@ -326,11 +334,12 @@ class PropertyMerger
         PropertyType $incomingType,
         bool $incomingIsRequired,
         string $conflictMessage,
+        JsonSchema $jsonSchema,
     ): ?array {
         $implicitNull = $this->generatorConfiguration?->isImplicitNullAllowed() ?? false;
 
         if (!TypeIntersection::compute($existingType->getNames(), $incomingType->getNames())) {
-            throw new SchemaException($conflictMessage);
+            throw new SchemaException($conflictMessage, $jsonSchema);
         }
 
         $existingEffective = $this->buildEffectiveTypeSet($existingType, $existingIsRequired, $implicitNull);

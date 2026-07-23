@@ -79,11 +79,11 @@ class BooleanPatternPropertySchemaTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(InvalidPatternPropertiesException::class);
         $this->expectExceptionMessage(
             <<<EOT
-            Provided JSON for $className contains invalid pattern properties.
+            Provided JSON for '$className' contains invalid pattern properties
               - invalid property 'secret_a' matching pattern '^secret_.*'
-                * Value for secret_a is not allowed
+                * Value for 'secret_a' is not allowed
               - invalid property 'secret_b' matching pattern '^secret_.*'
-                * Value for secret_b is not allowed
+                * Value for 'secret_b' is not allowed
             EOT,
         );
 

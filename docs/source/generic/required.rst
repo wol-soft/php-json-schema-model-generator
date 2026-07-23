@@ -68,7 +68,7 @@ Generated interface (type hints not nullable any longer):
 
 Possible exceptions:
 
-* Missing required value for example
+* Missing required value for 'example'
 
 The thrown exception will be an *PHPModelGenerator\\Exception\\Object\\RequiredValueException* which provides the following methods to get further error details:
 

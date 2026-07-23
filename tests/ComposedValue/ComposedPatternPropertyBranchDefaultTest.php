@@ -69,7 +69,7 @@ class ComposedPatternPropertyBranchDefaultTest extends AbstractPHPModelGenerator
     {
         $this->expectValidationError(
             (new GeneratorConfiguration())->setCollectErrors(false),
-            'Value for pattern property must not be smaller than 1',
+            "Value for 'pattern property' must not be smaller than 1",
         );
 
         $className = $this->generateClassFromFile(

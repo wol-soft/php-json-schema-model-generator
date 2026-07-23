@@ -30,7 +30,7 @@ Generated interface:
 
 Possible exceptions:
 
-* Invalid type for example. Requires array, got __TYPE__
+* Invalid type for 'example': requires 'array', got '__TYPE__'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTypeException* which provides the following methods to get further error details:
 
@@ -70,9 +70,9 @@ With a schema like this all items must contain a string with at least two charac
 
 .. code-block:: none
 
-    Invalid items in array example:
+    Invalid items in array 'example':
       - invalid item #3
-        * Invalid type for item of array example. Requires string, got double
+        * Invalid type for 'example': requires 'string', got 'double'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidItemException* which provides the following methods to get further error details:
 
@@ -192,11 +192,11 @@ If invalid tuples are provided a detailed exception will be thrown containing al
 
 .. code-block:: none
 
-    Invalid tuple item in array example:
+    Invalid tuple item in array 'example':
       - invalid tuple #1
-        * Invalid type for tuple item #1 of array example. Requires string, got int
+        * Invalid type for 'tuple item #1 of array example': requires 'string', got 'integer'
       - invalid tuple #1
-        * Invalid type for name. Requires string, got boolean
+        * Invalid type for 'name': requires 'string', got 'boolean'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidTupleException* which provides the following methods to get further error details:
 
@@ -251,7 +251,7 @@ Using the keyword `additionalItems` the array can be limited to not contain any 
 
 Possible exceptions:
 
-* Tuple array example contains not allowed additional items. Expected 2 items, got 3
+* Tuple array 'example' contains not allowed additional items: expected 2 items, got 3
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\AdditionalTupleItemsException* which provides the following methods to get further error details:
 
@@ -272,11 +272,11 @@ If invalid additional items are provided a detailed exception will be thrown con
 
 .. code-block:: none
 
-    Tuple array property contains invalid additional items.
+    Tuple array 'property' contains invalid additional items
       - invalid additional item '3'
-        * Invalid type for name. Requires string, got integer
+        * Invalid type for 'name': requires 'string', got 'integer'
       - invalid additional item '5'
-        * Invalid type for additional item. Requires object, got int
+        * Invalid type for 'additional item': requires 'object', got 'integer'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidAdditionalTupleItemsException* which provides the following methods to get further error details:
 
@@ -313,7 +313,7 @@ The contains check uses a schema which must match at least one of the items prov
 
 Possible exceptions:
 
-* No item in array example matches contains constraint
+* No item in array 'example' matches the 'contains' constraint
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\ContainsException* which provides the following methods to get further error details:
 
@@ -355,8 +355,8 @@ To limit the size of an array use the `minItems` and `maxItems` keywords.
 
 Possible exceptions:
 
-* Array example must not contain less than 2 items
-* Array example must not contain more than 5 items
+* Array 'example' must not contain less than 2 items
+* Array 'example' must not contain more than 5 items
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\MaxItemsException* or a *PHPModelGenerator\\Exception\\Arrays\\MinItemsException* which provides the following methods to get further error details:
 
@@ -393,7 +393,7 @@ The items of an array can be forced to be unique with the `uniqueItems` keyword.
 
 Possible exceptions:
 
-* Items of array example are not unique
+* Items of array 'example' are not unique
 
 The thrown exception will be an *PHPModelGenerator\\Exception\\Arrays\\UniqueItemsException* which provides the following methods to get further error details:
 

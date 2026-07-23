@@ -9,6 +9,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 
 /**
@@ -378,8 +379,7 @@ class BasePropertyPrecedenceTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * When outputEnabled is true and a composition branch type differs from the root type,
-     * a warning is printed to stdout.
+     * When a composition branch type differs from the root type, a warning is logged.
      *
      * @throws FileSystemException
      * @throws RenderException
@@ -387,18 +387,27 @@ class BasePropertyPrecedenceTest extends AbstractPHPModelGeneratorTestCase
      */
     public function testWarningIsEmittedWhenBranchTypeConflictsWithRootType(): void
     {
-        ob_start();
+        $recordingLogger = new RecordingLogger();
 
         $this->generateDirectory(
             'WarningSubDir',
-            (new GeneratorConfiguration())->setCollectErrors(false),
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($recordingLogger),
         );
 
-        $output = ob_get_clean();
+        $warnings = array_values(array_filter(
+            $recordingLogger->getEntries(),
+            static fn(array $entry): bool => $entry['level'] === 'warning',
+        ));
 
-        $this->assertMatchesRegularExpression(
-            '/Warning: composition branch defines property \'age\' with type string which differs from root type int — root definition takes precedence\./',
-            $output,
+        $this->assertCount(1, $warnings);
+        $this->assertSame(
+            "Composition branch defines property '{property}' with type {incomingType} which differs"
+                . " from root type {rootType} — root definition takes precedence.",
+            $warnings[0]['message'],
+        );
+        $this->assertSame(
+            ['property' => 'age', 'incomingType' => 'string', 'rootType' => 'int'],
+            $warnings[0]['context'],
         );
     }
 

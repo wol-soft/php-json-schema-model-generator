@@ -29,8 +29,8 @@ Generated interface:
 
 Possible exceptions:
 
-* Invalid type for example. Requires string, got __TYPE__
-* Invalid value for example declined by enum constraint
+* Invalid type for 'example': requires 'string', got '__TYPE__'
+* Value for 'example' must be one of ["ABC","DEF"], got "GHI"
 
 Untyped Enum
 ------------
@@ -58,7 +58,7 @@ Generated interface (no typehints are generated as it's a mixed untyped enum. If
 
 Possible exceptions:
 
-* Invalid value for example declined by enum constraint
+* Value for 'example' must be one of ["ABC",10,true,null], got "GHI"
 
 The thrown exception will be an *PHPModelGenerator\\Exception\\Generic\\EnumException* which provides the following methods to get further error details:
 

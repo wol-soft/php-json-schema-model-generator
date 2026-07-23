@@ -30,14 +30,11 @@ class DefaultValueModifier implements ModifierInterface
         // provided — but without a value there is no signal to select the branch in the
         // first place. Warn and drop rather than applying the default unconditionally.
         if ($this->isScalarInsideCompositionBranch($propertySchema)) {
-            if ($schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
-                echo sprintf(
-                    "Warning: property '%s' declares a default value inside a composition branch"
-                        . " in file '%s'. Scalar branch defaults are unreachable and will be ignored.\n",
-                    $property->getName(),
-                    $propertySchema->getFile(),
-                );
-            }
+            $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                "Property '{property}' declares a default value inside a composition branch in file"
+                    . " '{file}'. Scalar branch defaults are unreachable and will be ignored.",
+                ['property' => $property->getName(), 'file' => $propertySchema->getFile()],
+            );
 
             return;
         }
@@ -59,7 +56,15 @@ class DefaultValueModifier implements ModifierInterface
             }
 
             $typeCheckFn = 'is_' . $phpType;
-            if (function_exists($typeCheckFn) && $typeCheckFn($default)) {
+
+            // "array" additionally requires array_is_list(): a JSON object and a JSON array
+            // both decode to a PHP array, so is_array() alone cannot tell a JSON-object-shaped
+            // default apart from a genuine JSON-array default.
+            $matchesType = $phpType === 'array'
+                ? is_array($default) && array_is_list($default)
+                : (function_exists($typeCheckFn) && $typeCheckFn($default));
+
+            if ($matchesType) {
                 $property->setDefaultValue($default);
                 return;
             }
@@ -71,6 +76,7 @@ class DefaultValueModifier implements ModifierInterface
                 $property->getName(),
                 $propertySchema->getFile(),
             ),
+            $propertySchema,
         );
     }
 

@@ -264,7 +264,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         return [
             'regular object property' => [
                 RegularPropertyAsAdditionalPropertyException::class,
-                "Couldn't add regular property name as additional property to object ",
+                "Could not add regular property 'name' as an additional property of object '",
                 'add',
                 ['name' => 'Hannes'],
                 '/properties/name',
@@ -292,7 +292,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             ],
             'Invalid property value' => [
                 InvalidAdditionalPropertiesException::class,
-                "Value for additional property must not be longer than 15",
+                "Value for 'additional property' must not be longer than 15",
                 'add',
                 ['property2' => 'My much too long property value will fail the validation'],
                 '/additionalProperties',
