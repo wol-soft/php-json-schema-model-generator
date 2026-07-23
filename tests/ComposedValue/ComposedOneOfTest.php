@@ -103,20 +103,11 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     #[DataProvider('objectLevelOneOfSchemaFileDataProvider')]
-    public function testNotProvidedObjectLevelOneOfThrowsAnException(
-        string $schema,
-        int $matchedElements,
-        string $elementDetails,
-    ): void {
+    public function testNotProvidedObjectLevelOneOfThrowsAnException(string $schema, string $expectedPattern): void
+    {
         $this->expectException(ValidationException::class);
         // Direct-exception mode now enumerates each branch's outcome and its underlying reason.
-        $this->expectExceptionMessageMatches(
-            <<<ERROR
-            /^Invalid value for '(.*?)' declined by composition constraint
-              Requires to match one composition element but matched $matchedElements elements
-              $elementDetails$/
-            ERROR,
-        );
+        $this->expectExceptionMessageMatches($expectedPattern);
 
         $className = $this->generateClassFromFile($schema);
 
@@ -128,14 +119,23 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
         return [
             'ObjectLevelComposition.json' => [
                 'ObjectLevelComposition.json',
-                2,
-                '- Composition element #1: Valid\s+- Composition element #2: Valid',
+                <<<'ERROR'
+                /^Invalid value for '(.*?)' declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
+                  - Composition element #1: Valid
+                  - Composition element #2: Valid$/
+                ERROR,
             ],
             'ObjectLevelCompositionRequired.json' => [
                 'ObjectLevelCompositionRequired.json',
-                0,
-                '- Composition element #1: Failed\s+\* Missing required value for stringProperty\s+'
-                    . '- Composition element #2: Failed\s+\* Missing required value for integerProperty',
+                <<<'ERROR'
+                /^Invalid value for '(.*?)' declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
+                  - Composition element #1: Failed
+                    \* Missing required value for 'stringProperty'
+                  - Composition element #2: Failed
+                    \* Missing required value for 'integerProperty'$/
+                ERROR,
             ],
         ];
     }

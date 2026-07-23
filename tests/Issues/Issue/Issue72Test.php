@@ -17,21 +17,18 @@ use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
- * Issue #72 / PR #74: a FedEx OpenAPI schema could not be processed because of two independent
- * defects in composition handling. See .claude/issues/72/analysis.md for the full investigation
- * and .claude/issues/72/implementation-plan.md for the phased fix.
- *
- * Each test below asserts the CORRECT, desired behavior — not today's actual (buggy) behavior.
- * Tests for defects not yet fixed are therefore expected to be red until their phase lands; they
- * must not be weakened to pass against the current, broken output. Once a phase's fix lands, its
- * tests turn green with no further change needed.
+ * Issue #72 / PR #74: a schema whose object shape is only implied by composition - an allOf of
+ * object branches with no `type` of its own, or a bare `properties`/`required` branch with no
+ * `type` at all - lost its validation and instantiation once nested inside anyOf/oneOf/allOf/
+ * if-then-else/not. Such branches must behave exactly like their explicit `type: object`
+ * equivalents: matching values are instantiated and validated, non-matching values are rejected.
  */
 class Issue72Test extends AbstractIssueTestCase
 {
     /**
      * Deeply nested `allOf` compositions (a property whose `allOf` branches are themselves `$ref`s
      * to further `allOf` definitions) must instantiate the nested property as an object exposing
-     * working getters, not a raw associative array. Requires Phase 3 (not yet implemented).
+     * working getters, not a raw associative array.
      */
     public function testDeeplyNestedAllOfCompositionInstantiatesNestedObject(): void
     {
@@ -66,9 +63,8 @@ class Issue72Test extends AbstractIssueTestCase
     /**
      * Array items referencing a multi-level composition-implied definition (an allOf whose
      * branches are themselves allOf-only $refs) must instantiate each item and enforce the
-     * item constraints - like the explicit-object equivalent does, and like SINGLE-level implied
-     * items (an allOf of explicit object branches) already do today. Currently multi-level
-     * implied items stay raw arrays and their constraints are silently dropped.
+     * item constraints - like the explicit-object equivalent does, and like a single-level
+     * implied item (an allOf of explicit object branches).
      */
     public function testMultiLevelImpliedObjectArrayItemsInstantiateAndValidate(): void
     {
@@ -115,86 +111,9 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
-     * A `oneOf` composition placed directly at the schema root, with a `$ref`-based branch that
-     * resolves to only an `example` keyword (no `type`/`properties`/any validation keyword), must
-     * generate successfully and validate conforming input correctly - the example-only branch must
-     * be excluded from the composition. Fixed by Phases 1 and 2; this test is expected to pass
-     * already.
-     */
-    public function testRootLevelOneOfWithReferencedExampleOnlyBranchAcceptsConformingInput(): void
-    {
-        $className = $this->generateClassFromFile('OneOfExampleRoot.json');
-
-        $object = new $className(['label' => 'Hannes']);
-
-        $this->assertSame('Hannes', $object->getLabel());
-    }
-
-    /**
-     * The same example-only branch written inline (not via `$ref`) at the schema root must also
-     * accept conforming input - the example-only branch must be excluded from the composition so
-     * it stops over-matching. Fixed by Phase 2; this test is expected to pass already.
-     */
-    public function testRootLevelOneOfWithInlineExampleOnlyBranchAcceptsConformingInput(): void
-    {
-        $className = $this->generateClassFromFile('OneOfExampleRootInline.json');
-
-        $object = new $className(['label' => 'Hannes']);
-
-        $this->assertSame('Hannes', $object->getLabel());
-    }
-
-    /**
-     * The example-only `oneOf` branch nested inside a property must be excluded from the
-     * composition so a value that conforms to the only meaningful branch ("name") is accepted
-     * instead of being rejected for matching two branches. Fixed by Phase 2; this test is expected
-     * to pass already.
-     */
-    public function testNestedOneOfWithExampleOnlyBranchAcceptsConformingObject(): void
-    {
-        $className = $this->generateClassFromFile('OneOfExampleNested.json');
-
-        $object = new $className(['wrapper' => ['label' => 'Hannes']]);
-
-        $this->assertSame('Hannes', $object->getWrapper()->getLabel());
-    }
-
-    /**
-     * The literal scenario the linked issue reported (there, `{"body": 34}` validated against a
-     * schema whose "body" should have been an object): once the example-only branch is excluded,
-     * a bare scalar no longer satisfies anything and must be rejected. Fixed by Phase 2; this test
-     * is expected to pass already.
-     */
-    #[DataProvider('nonConformingScalarDataProvider')]
-    public function testNestedOneOfWithExampleOnlyBranchRejectsNonConformingScalarInput(
-        int|string $nonConformingValue,
-    ): void {
-        $this->expectException(OneOfException::class);
-        $this->expectExceptionMessage(
-            <<<'ERROR'
-            Invalid value for 'wrapper' declined by composition constraint
-              Requires to match one composition element but matched 0 elements
-            ERROR,
-        );
-
-        $className = $this->generateClassFromFile('OneOfExampleNested.json');
-
-        new $className(['wrapper' => $nonConformingValue]);
-    }
-
-    public static function nonConformingScalarDataProvider(): array
-    {
-        return [
-            'bare integer' => [42],
-            'bare string' => ['garbage'],
-        ];
-    }
-
-    /**
      * A genuinely contradictory `allOf` at the schema root (one branch requires an object shape,
      * the other requires a plain string - no value can ever satisfy both) must be caught at
-     * generation time with a clear diagnostic. Fixed by Phase 0 (see analysis.md §2e); this test
-     * is expected to pass already.
+     * generation time with a clear diagnostic.
      */
     public function testRootLevelAllOfWithConflictingObjectAndScalarTypesThrowsConflictingTypesException(): void
     {
@@ -210,8 +129,7 @@ class Issue72Test extends AbstractIssueTestCase
 
     /**
      * The same conflicting object/string `allOf` nested inside a property must also be caught at
-     * generation time with the same clear diagnostic. Fixed by Phase 0 (see analysis.md §2e); this
-     * test is expected to pass already.
+     * generation time with the same clear diagnostic.
      */
     public function testPropertyLevelAllOfWithConflictingObjectAndScalarTypesThrowsConflictingTypesException(): void
     {
@@ -229,8 +147,7 @@ class Issue72Test extends AbstractIssueTestCase
      * An `anyOf` whose branches are composition-implied objects - allOf-only subschemas reached
      * via $ref as well as written inline - must behave exactly like the same `anyOf` with
      * explicit object branches: a value matching a branch is accepted and instantiated as an
-     * object exposing getters for the matched properties. Verified against the explicit-object
-     * equivalent, which instantiates a merged class today.
+     * object exposing getters for the matched properties.
      */
     #[DataProvider('impliedAnyOfSchemaDataProvider')]
     public function testAnyOfWithImpliedObjectBranchesInstantiatesMatchingValue(string $schemaFile): void
@@ -259,8 +176,7 @@ class Issue72Test extends AbstractIssueTestCase
 
     /**
      * The same `anyOf` must reject values matching no branch - like the explicit-object
-     * equivalent does. Today every value is silently accepted because the composed validators of
-     * composition-implied branches are stripped, leaving the branches without any validation.
+     * equivalent does.
      */
     #[DataProvider('anyOfNonMatchingValueDataProvider')]
     public function testAnyOfWithImpliedObjectBranchesRejectsNonMatchingValue(
@@ -300,9 +216,7 @@ class Issue72Test extends AbstractIssueTestCase
     /**
      * A `oneOf` whose branches are composition-implied objects ($ref and inline variants) must
      * accept a value matching exactly one branch and instantiate it as that branch's object -
-     * like the explicit-object equivalent, which returns the matched branch's class instance
-     * today. Currently every value is rejected with "matched 2 elements" because both stripped
-     * branches trivially "match".
+     * like the explicit-object equivalent, which returns the matched branch's class instance.
      */
     #[DataProvider('impliedOneOfSchemaDataProvider')]
     public function testOneOfWithImpliedObjectBranchesInstantiatesMatchingValue(string $schemaFile): void
@@ -365,8 +279,7 @@ class Issue72Test extends AbstractIssueTestCase
     /**
      * An if/then/else whose then/else branches are composition-implied objects ($ref and inline
      * variants) must validate and instantiate the taken branch - like the explicit-object
-     * equivalent, which returns the taken branch's class instance today. Currently the taken
-     * branch enforces nothing and the value stays a raw array.
+     * equivalent, which returns the taken branch's class instance.
      */
     #[DataProvider('impliedIfThenElseSchemaDataProvider')]
     public function testIfThenElseWithImpliedObjectBranchesInstantiatesMatchingValue(string $schemaFile): void
@@ -445,9 +358,7 @@ class Issue72Test extends AbstractIssueTestCase
      * A `not` with a composition-implied object schema ($ref and inline variants) must accept
      * values not matching the forbidden schema. Unlike the other composition keywords, the value
      * legitimately stays a raw array - `not` describes what the value must NOT be, so no class
-     * represents it; verified against the explicit-object equivalent. Currently every value is
-     * rejected because the stripped forbidden-branch trivially "matches" everything, inverting
-     * into a full rejection.
+     * represents it; verified against the explicit-object equivalent.
      */
     #[DataProvider('impliedNotSchemaDataProvider')]
     public function testNotWithImpliedObjectSchemaAcceptsNonMatchingValue(string $schemaFile): void
@@ -488,8 +399,8 @@ class Issue72Test extends AbstractIssueTestCase
 
     /**
      * A mixed `anyOf` combining a composition-implied object branch with a scalar branch must
-     * behave exactly like its explicit-object equivalent (verified as working today): an object
-     * matching the implied branch is instantiated, a string takes the scalar branch unchanged.
+     * behave exactly like its explicit-object equivalent: an object matching the implied branch
+     * is instantiated, a string takes the scalar branch unchanged.
      */
     public function testAnyOfMixingImpliedObjectAndScalarBranchBehavesLikeExplicitEquivalent(): void
     {
@@ -506,8 +417,7 @@ class Issue72Test extends AbstractIssueTestCase
 
     /**
      * The same mixed `anyOf` must reject values matching neither the implied object branch nor
-     * the scalar branch. Currently every value is accepted because the stripped implied branch
-     * trivially matches everything.
+     * the scalar branch.
      */
     #[DataProvider('mixedAnyOfNonMatchingValueDataProvider')]
     public function testAnyOfMixingImpliedObjectAndScalarBranchRejectsNonMatchingValue(
@@ -536,10 +446,8 @@ class Issue72Test extends AbstractIssueTestCase
 
     /**
      * A mixed `oneOf` combining a composition-implied object branch with a scalar branch must
-     * behave exactly like its explicit-object equivalent (verified as working today). The
-     * current behavior is fully inverted: the valid string is rejected ("matched 2 elements" -
-     * the stripped implied branch matches everything) while an invalid integer is accepted
-     * (matching only the stripped branch).
+     * behave exactly like its explicit-object equivalent: an object matching the implied branch
+     * is instantiated, a string matching only the scalar branch is accepted unchanged.
      */
     public function testOneOfMixingImpliedObjectAndScalarBranchBehavesLikeExplicitEquivalent(): void
     {
@@ -574,9 +482,8 @@ class Issue72Test extends AbstractIssueTestCase
 
     /**
      * A mixed if/then/else with a composition-implied object then-branch and a scalar
-     * else-branch must behave exactly like its explicit-object equivalent (verified as working
-     * today): objects are routed into the then-branch and instantiated, non-objects into the
-     * scalar else-branch.
+     * else-branch must behave exactly like its explicit-object equivalent: objects are routed
+     * into the then-branch and instantiated, non-objects into the scalar else-branch.
      */
     public function testIfThenElseMixingImpliedObjectThenAndScalarElseBehavesLikeExplicitEquivalent(): void
     {
@@ -593,7 +500,6 @@ class Issue72Test extends AbstractIssueTestCase
 
     /**
      * The same mixed if/then/else must reject an object violating the implied then-branch.
-     * Currently the then-branch enforces nothing, so the empty object is silently accepted.
      */
     public function testIfThenElseMixingImpliedObjectThenAndScalarElseRejectsValueViolatingThenBranch(): void
     {
@@ -622,10 +528,7 @@ class Issue72Test extends AbstractIssueTestCase
      * An `allOf` mixing a composition-implied object branch with a scalar branch is
      * unsatisfiable - no value can be an object and a string simultaneously - and must be
      * rejected at generation time with the same diagnostic as the explicit object-vs-scalar
-     * conflict. Currently the conflict goes undetected (the implied branch exposes neither a
-     * nested schema nor a type, making it invisible to the conflict check) and the generated
-     * model inverts the schema's intent at runtime: it accepts plain strings (the implied branch
-     * enforces nothing) and rejects the objects the implied branch describes.
+     * conflict.
      */
     public function testAllOfMixingImpliedObjectAndScalarBranchThrowsConflictingTypesException(): void
     {
@@ -644,9 +547,7 @@ class Issue72Test extends AbstractIssueTestCase
      * type keyword must accept an object matching exactly one branch and instantiate it. The
      * accept/reject outcomes are identical under strict spec semantics (a non-object matches
      * every bare branch vacuously, so it fails oneOf by matching both) and under object-implied
-     * semantics (a non-object matches no branch) - only the failure reason differs. Currently
-     * every value is rejected because the bare branches, processed as untyped, never run their
-     * object validators and trivially "match" everything.
+     * semantics (a non-object matches no branch) - only the failure reason differs.
      */
     public function testOneOfWithBareObjectValidatorBranchesInstantiatesMatchingValue(): void
     {
@@ -711,8 +612,7 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
-     * The same bare-validator `anyOf` must reject an object matching no branch. Currently every
-     * value is accepted because the bare branches never run their object validators.
+     * The same bare-validator `anyOf` must reject an object matching no branch.
      */
     public function testAnyOfWithBareObjectValidatorBranchesRejectsObjectMatchingNoBranch(): void
     {
@@ -758,7 +658,10 @@ class Issue72Test extends AbstractIssueTestCase
      */
     public function testStandaloneObjectDescribingPropertyValidatesObjectsAndPassesNonObjects(): void
     {
-        $className = $this->generateClassFromFile('StandaloneObjectDescribingProperty.json');
+        $className = $this->generateClassFromFile(
+            'StandaloneObjectDescribingProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
 
         $objectValue = new $className(['p' => ['name' => 'Hannes']]);
         $person = $objectValue->getP();
@@ -767,6 +670,19 @@ class Issue72Test extends AbstractIssueTestCase
 
         $scalarValue = new $className(['p' => 42]);
         $this->assertSame(42, $scalarValue->getP());
+
+        // A JSON array is not a JSON object either, even though json_decode(..., true) makes both
+        // indistinguishable as a plain PHP array - the array_is_list() guard on the instantiation
+        // decorator must still pass it through unchanged rather than instantiating it.
+        $arrayValue = new $className(['p' => ['Hannes', 'Dieter']]);
+        $this->assertSame(['Hannes', 'Dieter'], $arrayValue->getP());
+
+        // The getter's and setter's type hints and annotations must stay open (mixed): a strict
+        // representation type would be violated by the passed-through non-object value.
+        $this->assertSame('mixed', $this->getReturnTypeAnnotation($className, 'getP'));
+        $this->assertSame(['mixed', 'null'], $this->getReturnTypeNames($className, 'getP'));
+        $this->assertSame('mixed', $this->getParameterTypeAnnotation($className, 'setP'));
+        $this->assertSame(['mixed', 'null'], $this->getParameterTypeNames($className, 'setP'));
     }
 
     /**
@@ -789,8 +705,8 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
-     * The vacuous-branch warning (Phase 2's broader, non-behavior-changing piece) must be driven
-     * by the Draft's own registered validator keywords, not a hardcoded list of "known safe"
+     * The vacuous-branch warning must be driven by the Draft's own registered validator keywords,
+     * not a hardcoded list of "known safe"
      * keywords - otherwise an unrecognized or misspelled key would wrongly be treated as a real
      * constraint merely because nobody anticipated it, silently defeating the warning for exactly
      * the schemas it is meant to catch. A branch containing only an unrecognized key must warn,

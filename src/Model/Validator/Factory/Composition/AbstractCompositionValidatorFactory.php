@@ -29,13 +29,6 @@ use PHPModelGenerator\Utils\TypeIntersection;
 abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFactory
 {
     /**
-     * Composition keywords whose branches are alternatives rather than joint constraints
-     * (unlike allOf) - the only keywords for which excluding a vacuous branch changes the
-     * composition's meaning rather than merely removing a no-op.
-     */
-    private const array EXCLUDABLE_COMPOSITION_KEYS = ['anyOf', 'oneOf', 'if'];
-
-    /**
      * Keywords that constrain validation but are registered on a Type via addModifier() rather
      * than addValidator() (TypeCheckModifier for 'type', ConstModifier for 'const' - see
      * Draft_07::getDefinition()), so Draft::getTypesForKeyword() cannot see them: Type::$modifiers
@@ -78,9 +71,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     /**
      * Emit a generation-time warning when a ($ref-resolved) composition branch carries no
      * validation/assertion keyword at all and therefore matches any value. This is purely
-     * informational: unlike the narrow, whitelisted exclusion in isExampleOnlyBranch(), it is not
-     * limited to the "example" shape and does not change generated behavior - a vacuous branch
-     * keeps its full (odd but spec-correct) effect on the composition regardless of this warning.
+     * informational and does not change generated behavior - a vacuous branch keeps its full
+     * (odd but spec-correct) effect on the composition regardless of this warning.
      *
      * A branch is vacuous when none of its keys is an actually-registered validation keyword -
      * driven by the Draft itself rather than a hardcoded list of "known safe" keywords, so an
@@ -111,39 +103,6 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 . ' matches any value',
             ['index' => $branchIndex, 'property' => $property->getName()],
         );
-    }
-
-    /**
-     * A branch consisting solely of the literal "example" keyword (single key, exactly
-     * "example") - the one shape explicitly reported in issue #72/PR #74. Deliberately not
-     * generalized to any other annotation keyword or combination, and not to a bare empty `{}`
-     * branch: JSON Schema does not define "annotation-only branches match nothing", so excluding a
-     * branch from a composition is an opinionated DX override of that spec meaning that must stay
-     * opt-in per keyword rather than silently expanding to every schema shape that merely lacks
-     * assertions.
-     *
-     * A companion `"type": "object"` key is also tolerated. This is not a broadening of the
-     * whitelist by concept: inheritPropertyType() mutates the raw branch JSON (injecting the
-     * parent's type into any branch that declares none of its own) before this method ever sees
-     * it, for every branch regardless of $ref usage. A $ref-based branch loses that injected
-     * sibling on resolution (Draft 7 ignores keywords sitting next to $ref), so it resolves to
-     * exactly `{"example": ...}` - but an inline branch keeps it, resolving to
-     * `{"example": ..., "type": "object"}` instead. Both are the exact same author-written
-     * "example"-only shape; only our own internal bookkeeping differs, so both must be recognized
-     * as the same whitelisted case rather than treating $ref vs inline as a real distinction.
-     *
-     * @param array<string, mixed> $resolvedBranchJson
-     */
-    private static function isExampleOnlyBranch(array $resolvedBranchJson): bool
-    {
-        $keys = array_keys($resolvedBranchJson);
-        sort($keys);
-
-        if ($keys === ['example']) {
-            return true;
-        }
-
-        return $keys === ['example', 'type'] && $resolvedBranchJson['type'] === 'object';
     }
 
     /**
@@ -293,18 +252,6 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 $resolvedBranchJson = $compositionProperty->getJsonSchema()->getJson();
 
                 $this->warnIfVacuousBranch($schemaProcessor, $property, $index, $resolvedBranchJson, $draft);
-
-                if (
-                    in_array($this->key, self::EXCLUDABLE_COMPOSITION_KEYS, true)
-                    && self::isExampleOnlyBranch($resolvedBranchJson)
-                ) {
-                    // A branch consisting solely of the OpenAPI-style "example" keyword carries no
-                    // constraint and is almost certainly leftover documentation data rather than an
-                    // intended alternative - exclude it entirely rather than letting it match any
-                    // value. See analysis.md §2d for why this must not reuse
-                    // createAlwaysTrueBranchProperty()/markAsAlwaysTrueBranch() instead.
-                    continue;
-                }
             }
 
             $compositionProperty->onResolve(function () use ($compositionProperty, $property, $merged): void {

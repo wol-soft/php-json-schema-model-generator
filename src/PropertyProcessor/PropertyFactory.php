@@ -729,10 +729,12 @@ class PropertyFactory
     /**
      * Wire the outer property for a guarded (object-describing) nested object: attach the
      * instantiation linkage but NOT the asserting object type check. The instantiation decorator
-     * only instantiates array/object values (`is_array($value) ? new X($value) : $value`), so a
-     * non-object value passes through unchanged and vacuously satisfies the schema per strict JSON
-     * Schema semantics, while an object value is instantiated and validated against the
-     * representation class.
+     * only instantiates genuine JSON-object values (`is_array($value) && !array_is_list($value)`,
+     * with an empty-array carve-out so `{}` still instantiates), so a non-object value - including
+     * a JSON array, which `json_decode(..., true)` would otherwise make indistinguishable from an
+     * object - passes through unchanged and vacuously satisfies the schema per strict JSON Schema
+     * semantics, while an object value is instantiated and validated against the representation
+     * class.
      *
      * @throws SchemaException
      */

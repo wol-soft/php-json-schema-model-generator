@@ -23,6 +23,13 @@ class ObjectShapeResolver
      * Keywords that constrain object values. Their presence without a `type` declaration makes
      * a schema ObjectDescribing - constraining objects while remaining vacuously satisfied by
      * non-object values.
+     *
+     * TODO: derive this list from the Draft instead of hardcoding it, the same way
+     * warnIfVacuousBranch() derives its "is this a real validation keyword" check from
+     * Draft::getTypesForKeyword(). Not currently possible: Draft only exposes a per-keyword
+     * lookup (which types register a given keyword), not the reverse (which keywords a given
+     * type registers), so there is no way to enumerate "every keyword registered on the object
+     * Type" without first knowing the full keyword set to probe.
      */
     private const array OBJECT_DESCRIBING_KEYWORDS = [
         'properties',
@@ -91,9 +98,14 @@ class ObjectShapeResolver
         }
 
         if (array_key_exists('type', $json)) {
-            // A multi-type declaration (e.g. ["object", "string"]) is not exclusively
-            // object-valued and therefore blocks, like any scalar type.
-            return $json['type'] === 'object' ? BranchObjectShape::Asserting : BranchObjectShape::Blocking;
+            // A multi-type array asserts object-ness only when "object" is its sole listed
+            // type - e.g. ["object"] is exactly equivalent to the bare "object" string. Any
+            // other multi-type array (even ["object", "null"]) lets a non-object value satisfy
+            // this branch, so it must not be treated as Asserting: a sibling allOf branch would
+            // then be routed through the object path on the false assumption that every value
+            // satisfying the composition is an object, silently mishandling the non-object
+            // match (e.g. instantiating null as a nested class) instead of passing it through.
+            return (array) $json['type'] === ['object'] ? BranchObjectShape::Asserting : BranchObjectShape::Blocking;
         }
 
         $componentShapes = [];

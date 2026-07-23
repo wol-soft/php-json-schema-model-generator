@@ -44,6 +44,8 @@ class ObjectShapeResolverTest extends TestCase
                 ObjectShape::NotObject,
             ],
             'multi-type including object' => [['type' => ['object', 'string']], ObjectShape::NotObject],
+            'multi-type of object and null' => [['type' => ['object', 'null']], ObjectShape::NotObject],
+            'multi-type array containing only object' => [['type' => ['object']], ObjectShape::ObjectAsserting],
 
             // Bare object validators (describing)
             'bare object validators' => [self::BARE_VALIDATORS, ObjectShape::ObjectDescribing],

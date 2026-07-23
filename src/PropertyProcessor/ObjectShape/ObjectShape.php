@@ -9,20 +9,28 @@ namespace PHPModelGenerator\PropertyProcessor\ObjectShape;
  * validates its values.
  *
  * - ObjectAsserting  — the schema requires its value to be an object: an explicit
- *                      `type: object`, or a composition whose branches jointly guarantee
- *                      object-ness (e.g. an allOf containing an asserting branch). Non-object
- *                      values fail such a schema. Only asserting schemas are eligible for
- *                      routing through the object path (generated class + instantiation +
- *                      instanceof validation).
+ *                      `type: object` (including a multi-type array whose only listed type is
+ *                      "object"), or a composition whose branches jointly guarantee object-ness
+ *                      (e.g. an allOf containing an asserting branch). Non-object values fail
+ *                      such a schema. Routed through the unconditional object path: a generated
+ *                      class is always instantiated, backed by an unconditional instanceof
+ *                      check.
  * - ObjectDescribing — the schema constrains object values without asserting object-ness:
- *                      object-targeting keywords (properties, required, ...) without a `type`
- *                      declaration. Per JSON Schema semantics such keywords are vacuously
- *                      satisfied by non-object values, so a describing schema accepts any
- *                      non-object. It must never be object-typed or routed through the object
- *                      path; its object constraints only apply guarded to object values.
- * - NotObject        — everything else: scalar/array typed schemas, multi-type declarations,
- *                      vacuous schemas, and schemas whose object-ness cannot be established
- *                      conservatively (unresolvable or cyclic $refs, filter-bearing schemas).
+ *                      object-targeting keywords (properties, required, ...) present without a
+ *                      `type` declaration of any kind (a `type` that merely permits "object"
+ *                      among others, e.g. `["object", "string"]`, is NOT describing - it still
+ *                      declares a type and is classified NotObject; see below). Per JSON Schema
+ *                      semantics such keywords are vacuously satisfied by non-object values, so
+ *                      a describing schema accepts any non-object. It is still routed through
+ *                      an object path - a generated class IS instantiated for object values,
+ *                      exactly like the asserting case - but guarded: a non-object value passes
+ *                      through unchanged instead of being instantiated or rejected. See
+ *                      PropertyFactory::wireDescribingObjectProperty() for the guarded wiring.
+ * - NotObject        — everything else: scalar/array typed schemas, multi-type declarations
+ *                      that don't reduce to "object" alone (including ones that permit object
+ *                      among other types, e.g. `["object", "null"]`), vacuous schemas, and
+ *                      schemas whose object-ness cannot be established conservatively
+ *                      (unresolvable or cyclic $refs, filter-bearing schemas).
  */
 enum ObjectShape
 {
