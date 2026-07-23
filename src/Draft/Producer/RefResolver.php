@@ -33,14 +33,29 @@ class RefResolver implements PropertyProducerInterface
         string $propertyName,
         JsonSchema $propertySchema,
         bool $required,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $json = $propertySchema->getJson();
 
         if (isset($json['type']) && $json['type'] === 'base') {
-            return $this->resolveBaseReference($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
+            return $this->resolveBaseReference(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema,
+                $required,
+                $isArrayItem,
+            );
         }
 
-        return $this->resolveReference($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
+        return $this->resolveReference(
+            $schemaProcessor,
+            $schema,
+            $propertyName,
+            $propertySchema,
+            $required,
+            $isArrayItem,
+        );
     }
 
     /**
@@ -54,6 +69,7 @@ class RefResolver implements PropertyProducerInterface
         string $propertyName,
         JsonSchema $propertySchema,
         bool $required,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $path       = [];
         $reference  = $propertySchema->getJson()['$ref'];
@@ -91,6 +107,7 @@ class RefResolver implements PropertyProducerInterface
                     implode('/', $path),
                     $required,
                     $propertySchema->getJson()['_dependencies'] ?? null,
+                    $isArrayItem,
                 );
 
                 // Use the reference site's pointer (where $ref appears in the schema) rather
@@ -104,6 +121,7 @@ class RefResolver implements PropertyProducerInterface
         } catch (Exception $exception) {
             throw new SchemaException(
                 "Unresolved Reference $reference in file {$propertySchema->getFile()}",
+                null,
                 0,
                 $exception,
             );
@@ -124,10 +142,18 @@ class RefResolver implements PropertyProducerInterface
         string $propertyName,
         JsonSchema $propertySchema,
         bool $required,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $schema->getSchemaDictionary()->setUpDefinitionDictionary($schemaProcessor, $schema);
 
-        $property = $this->resolveReference($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
+        $property = $this->resolveReference(
+            $schemaProcessor,
+            $schema,
+            $propertyName,
+            $propertySchema,
+            $required,
+            $isArrayItem,
+        );
 
         if (!$property->getNestedSchema()) {
             throw new SchemaException(

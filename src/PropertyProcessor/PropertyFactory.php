@@ -63,6 +63,7 @@ class PropertyFactory
                 $propertySchema,
                 $required,
                 $producers,
+                $isArrayItem,
             );
         }
 
@@ -134,6 +135,7 @@ class PropertyFactory
         JsonSchema $propertySchema,
         bool $required,
         array $producers,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $exclusiveKeywords = array_keys(array_filter(
             $producers,
@@ -154,7 +156,14 @@ class PropertyFactory
         if ($exclusiveKeywords) {
             $exclusiveProducer = $producers[$exclusiveKeywords[0]];
 
-            return $exclusiveProducer->produce($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
+            return $exclusiveProducer->produce(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema,
+                $required,
+                $isArrayItem,
+            );
         }
 
         // For non-exclusive producers, strip producer keywords so only sibling keywords remain.
@@ -188,6 +197,7 @@ class PropertyFactory
                 $required,
                 $producers,
                 $siblingJson,
+                $isArrayItem,
             );
         }
 
@@ -198,6 +208,7 @@ class PropertyFactory
                 $propertyName,
                 $propertySchema,
                 $required,
+                $isArrayItem,
             ),
             $producers,
         );
@@ -259,6 +270,7 @@ class PropertyFactory
         bool $required,
         array $producers,
         array $siblingJson,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $siblingSchema = $propertySchema->withJson($siblingJson);
         $targetProperty = $this->buildProperty(
@@ -267,6 +279,7 @@ class PropertyFactory
             null,
             $siblingSchema,
             $required,
+            $isArrayItem,
         );
 
         // Detect object structural siblings before producing the ref so the merged Schema can
@@ -293,6 +306,7 @@ class PropertyFactory
             $propertyName,
             $propertySchema,
             $required,
+            $isArrayItem,
         );
 
         $refProperty->onResolve(function () use (

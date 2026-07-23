@@ -31,7 +31,15 @@ final class ExclusiveProducer implements PropertyProducerInterface
         string $propertyName,
         JsonSchema $propertySchema,
         bool $required,
+        bool $isArrayItem = false,
     ): PropertyInterface {
-        return $this->producer->produce($schemaProcessor, $schema, $propertyName, $propertySchema, $required);
+        return $this->producer->produce(
+            $schemaProcessor,
+            $schema,
+            $propertyName,
+            $propertySchema,
+            $required,
+            $isArrayItem,
+        );
     }
 }

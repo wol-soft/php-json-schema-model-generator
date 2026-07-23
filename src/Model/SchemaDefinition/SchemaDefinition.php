@@ -58,7 +58,10 @@ class SchemaDefinition
 
         // if the properties point to the same definition and share identical metadata the generated property can be
         // recycled. Otherwise, a new property must be generated as diverging metadata lead to different validators.
-        $key = implode('-', [$path, $required ? '1' : '0', md5(json_encode($dependencies))]);
+        // isArrayItem IS included because array-item usage must not have the implicit-null guard that optional object
+        // properties get: the TypeCheckValidator's check string is baked in at property creation time, so a shared
+        // underlying property cannot serve both use cases correctly.
+        $key = implode('-', [$path, $required ? '1' : '0', $isArrayItem ? '1' : '0', md5(json_encode($dependencies))]);
 
         if (!$this->resolvedPaths->offsetExists($key)) {
             // create a dummy entry for the path first. If the path is used recursive the recursive usages will point
@@ -92,12 +95,7 @@ class SchemaDefinition
             }
         }
 
-        // The cache key deliberately does not include $isArrayItem: the same $ref definition can
-        // be reused as a plain property in one place and as an array item in another. Each usage
-        // gets its own proxy, so the flag is set directly on the proxy rather than shared via the
-        // cached underlying property.
         $proxy = new PropertyProxy($propertyName, $this->source, $this->resolvedPaths, $key);
-        $proxy->setArrayItem($isArrayItem);
         $this->unresolvedProxies[$key][] = $proxy;
 
         if ($this->resolvedPaths->offsetGet($key)) {

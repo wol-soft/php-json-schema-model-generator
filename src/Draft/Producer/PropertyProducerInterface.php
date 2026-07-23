@@ -27,5 +27,6 @@ interface PropertyProducerInterface
         string $propertyName,
         JsonSchema $propertySchema,
         bool $required,
+        bool $isArrayItem = false,
     ): PropertyInterface;
 }

@@ -1280,7 +1280,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
         // Violation: name is present but shorter than minLength: 3.
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessage('Value for name must not be shorter than 3');
+        $this->expectExceptionMessage("Value for 'name' must not be shorter than 3");
         new $className(['name' => 'Jo']);
     }
 
@@ -1324,7 +1324,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
         // Float value is rejected: the effective type after intersection is integer only.
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessage('Invalid type for score. Requires int, got double');
+        $this->expectExceptionMessage("Invalid type for 'score': requires 'int', got 'double'");
         new $className(['score' => 42.5]);
     }
 

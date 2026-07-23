@@ -59,7 +59,7 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         array $propertyValue,
     ): void {
-        $this->expectValidationError($configuration, 'No item in array property matches contains constraint');
+        $this->expectValidationError($configuration, "No item in array 'property' matches the 'contains' constraint");
 
         $className = $this->generateClassFromFile('Contains.json', $configuration);
 
@@ -107,7 +107,7 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected an exception for array with no matching items');
         } catch (Exception $exception) {
             $this->assertStringContainsString(
-                'No item in array property matches contains constraint',
+                "No item in array 'property' matches the 'contains' constraint",
                 $exception->getMessage(),
             );
             if ($config->collectErrors()) {
@@ -164,7 +164,7 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected ContainsException for array with no matching items');
         } catch (Exception $exception) {
             $this->assertStringContainsString(
-                'No item in array property matches contains constraint',
+                "No item in array 'property' matches the 'contains' constraint",
                 $exception->getMessage(),
             );
             if ($config->collectErrors()) {
@@ -218,7 +218,7 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected an exception for array with no matching items');
         } catch (Exception $exception) {
             $this->assertStringContainsString(
-                'No item in array property matches contains constraint',
+                "No item in array 'property' matches the 'contains' constraint",
                 $exception->getMessage(),
             );
             if ($config->collectErrors()) {
