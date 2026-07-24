@@ -813,29 +813,20 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
-     * KNOWN GAP (found during Phase 3 consumer-sweep verification, not yet fixed): a schema
-     * dependency whose value is a MULTI-LEVEL composition-implied object ($ref to an allOf-only
-     * definition whose own allOf branch is itself a $ref to another allOf-only definition) must
-     * still enforce that definition's `required`/type constraints, exactly like the single-level
-     * case (see testDependencyWithSingleLevelImpliedObjectEnforcesConstraints below).
+     * A schema dependency whose value is a MULTI-LEVEL composition-implied object ($ref to an
+     * allOf-only definition whose own allOf branch is itself a $ref to another allOf-only
+     * definition) must enforce that definition's `required`/type constraints, exactly like the
+     * single-level case (see testDependencyWithSingleLevelImpliedObjectEnforcesConstraints above).
      *
-     * Root cause: PropertiesValidatorFactory::addDependencyValidator() injects a sibling `type:
-     * object` onto the dependency's raw `{"$ref": ...}` JSON before calling
-     * SchemaProcessor::processSchema() directly - bypassing PropertyFactory::create()'s normal
-     * $ref handling. JsonSchema's constructor deliberately does NOT fold a `$ref` + `type` pair
-     * into an allOf (`SCHEMA_SIGNATURE_RELEVANT_FIELDS` diff excludes 'type' from the merge
-     * trigger), so processSchema() ends up routing through PropertyFactory::processBaseReference().
-     * That method transfers the resolved definition's *properties* onto the dependency's own
-     * schema (`$schema->addProperty(...)`), but for a property that was itself built via the
-     * multi-level composition-implied-object re-routing (P3.2), that transfer does not carry the
-     * property's validators along - the generated `..._creditCard_Dependency` class ends up with
-     * a `#[Required] protected $name;` property whose `_validateName()` body is empty, silently
-     * accepting a payload that omits `name` where the single-level case correctly rejects it.
-     *
-     * Not fixed here: the fix likely belongs in how processBaseReference (or addProperty) carries
-     * validators across a class boundary, which needs its own investigation separate from the
-     * P3.2/P3.3 routing work this phase covers - tracked as a follow-up rather than guessed at
-     * under time pressure.
+     * PropertiesValidatorFactory::addDependencyValidator() builds the dependency's own class via
+     * PropertyFactory::processBaseReference() (a bare `{"$ref": ...}` at base level). A
+     * multi-level implied-object $ref target enforces its constraints via a composition validator
+     * on its OWN schema, not via validators on its individual properties - those are merged/
+     * redirected and carry no validation of their own, exactly like transferComposedPropertiesToSchema()
+     * documents for the equivalent case where the composition sits directly on the class instead
+     * of behind a $ref. processBaseReference() transferred the resolved definition's *properties*
+     * onto the dependency's schema but not its *base validators*, so the composition validator
+     * that actually enforces `required` never ran for the dependency's generated class.
      */
     public function testDependencyWithMultiLevelImpliedObjectEnforcesConstraints(): void
     {
@@ -844,6 +835,38 @@ class Issue72Test extends AbstractIssueTestCase
         $this->expectException(InvalidSchemaDependencyException::class);
 
         new $className(['creditCard' => '1234']);
+    }
+
+    /**
+     * The same gap affects any base-level `$ref` to a multi-level composition-implied object, not
+     * just schema dependencies - e.g. a schema file whose entire top level is `{"$ref": ...}`. This
+     * mirrors the array-item and root-level-allOf coverage above but for the bare base-level $ref
+     * path (PropertyFactory::processBaseReference()), which is a separate code path from both.
+     */
+    public function testRootLevelReferenceToMultiLevelImpliedObjectInstantiatesAndValidates(): void
+    {
+        $className = $this->generateClassFromFile('RootLevelRefToMultiLevelImpliedObject.json');
+
+        $object = new $className(['name' => 'Hannes']);
+        $this->assertSame('Hannes', $object->getName());
+
+        try {
+            new $className([]);
+            $this->fail('Expected an exception for the missing required name');
+        } catch (AllOfException $exception) {
+            $this->assertSame(
+                <<<'ERROR'
+                Invalid value for '<class>' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid value for '<class>' declined by composition constraint
+                      Requires to match all composition elements but matched 0 elements
+                      - Composition element #1: Failed
+                        * Missing required value for 'name'
+                ERROR,
+                $this->normalizeCompositionClassNames($exception->getMessage()),
+            );
+        }
     }
 
     /**

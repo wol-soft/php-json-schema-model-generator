@@ -542,6 +542,19 @@ class PropertyFactory
             $schema->addProperty($propertiesOfReferencedObject);
         }
 
+        // A referenced schema that is itself a composition (e.g. an allOf of further $refs, as
+        // built by the object-shape re-routing in createObjectProperty()) enforces requiredness
+        // and cross-branch constraints via its OWN base validator, not via validators attached to
+        // the individual transferred properties - those are merged/redirected and carry no
+        // validation of their own (object merging is owned elsewhere; see
+        // transferComposedPropertiesToSchema(), which wires the same validator onto its schema
+        // when the composition sits directly on this class instead of behind a $ref). Without
+        // transferring it here too, a base-level $ref to such a schema would silently drop
+        // whatever constraint only the composition validator enforces.
+        foreach ($property->getNestedSchema()->getBaseValidators() as $baseValidator) {
+            $schema->addBaseValidator($baseValidator);
+        }
+
         return $property;
     }
 
