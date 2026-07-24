@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Issues\Issue;
 
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
 use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Exception\ComposedValue\NotException;
 use PHPModelGenerator\Exception\ComposedValue\OneOfException;
+use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\NestedObjectException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -700,6 +703,186 @@ class Issue72Test extends AbstractIssueTestCase
         );
 
         $className = $this->generateClassFromFile('StandaloneObjectDescribingProperty.json');
+
+        new $className(['p' => []]);
+    }
+
+    /**
+     * A property carrying object-constraining keywords without a `type` declaration must emit a
+     * generation-time warning that its constraints do not apply to non-object values - the same
+     * describing classification applies whether reached directly or through a composition branch,
+     * so one warning site in PropertyFactory covers both.
+     */
+    public function testObjectDescribingPropertyEmitsAGenerationTimeWarning(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $this->generateClassFromFile(
+            'StandaloneObjectDescribingProperty.json',
+            (new GeneratorConfiguration())->setLogger($recordingLogger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "Property '{property}' carries object-constraining keywords (eg. 'properties',"
+                    . " 'required') without a 'type' declaration and does not constrain non-object values",
+                ['property' => 'p'],
+            ),
+            'Expected a describing-property warning for p.',
+        );
+    }
+
+    /**
+     * A root-level `allOf` of two composition-implied-object $ref definitions must transfer both
+     * definitions' properties onto the generated root class, and promote a property to
+     * non-nullable when it is required by the branch that contributes it (P3.5 consumer sweep:
+     * required-promotion + property transfer for a re-routed root-level composition).
+     */
+    public function testRootLevelAllOfOfImpliedObjectDefinitionsTransfersPropertiesAndPromotesRequired(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RootLevelAllOfImpliedRequiredPromotion.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $object = new $className(['name' => 'Hannes', 'age' => 42]);
+        $this->assertSame('Hannes', $object->getName());
+        $this->assertSame(42, $object->getAge());
+
+        $this->assertSame(['int', 'null'], $this->getReturnTypeNames($className, 'getAge'));
+        $this->assertSame(['string'], $this->getReturnTypeNames($className, 'getName'));
+    }
+
+    /**
+     * The same root-level composition must still enforce the promoted requirement at runtime -
+     * required-promotion only changes the getter's type hint (see the test above); the actual
+     * rejection still comes from the normal composition validator on the underlying `$ref`
+     * branch. Both generated class names carry a uniqid suffix and are normalised to a stable
+     * token.
+     */
+    public function testRootLevelAllOfOfImpliedObjectDefinitionsRejectsMissingRequiredProperty(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RootLevelAllOfImpliedRequiredPromotion.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        try {
+            new $className(['age' => 42]);
+            $this->fail('Expected an exception for the missing required name');
+        } catch (ErrorRegistryException $exception) {
+            $this->assertSame(
+                <<<'ERROR'
+                Invalid value for '<class>' declined by composition constraint
+                  Requires to match all composition elements but matched 1 element
+                  - Composition element #1: Failed
+                    * Invalid value for '<class>' declined by composition constraint
+                      Requires to match all composition elements but matched 0 elements
+                      - Composition element #1: Failed
+                        * Missing required value for 'name'
+                        * Invalid type for 'name': requires 'string', got 'NULL'
+                  - Composition element #2: Valid
+                ERROR,
+                $this->normalizeCompositionClassNames($exception->getMessage()),
+            );
+        }
+    }
+
+    /**
+     * A schema dependency whose value is a single-level $ref to an explicit `type: object`
+     * definition must enforce that definition's constraints (P3.5 consumer sweep,
+     * SchemaDependencyValidator's own ObjectInstantiationDecorator wiring). Baseline for
+     * testDependencyWithMultiLevelImpliedObjectEnforcesConstraints below, which pins a gap in the
+     * same mechanism for a multi-level composition-implied-object definition.
+     */
+    public function testDependencyWithSingleLevelImpliedObjectEnforcesConstraints(): void
+    {
+        $className = $this->generateClassFromFile('DependenciesImpliedObjectSimple.json');
+
+        $this->expectException(InvalidSchemaDependencyException::class);
+        $this->expectExceptionMessage(
+            <<<'ERROR'
+            Invalid schema which is dependant on 'creditCard':
+              - Missing required value for 'name'
+            ERROR,
+        );
+
+        new $className(['creditCard' => '1234']);
+    }
+
+    /**
+     * KNOWN GAP (found during Phase 3 consumer-sweep verification, not yet fixed): a schema
+     * dependency whose value is a MULTI-LEVEL composition-implied object ($ref to an allOf-only
+     * definition whose own allOf branch is itself a $ref to another allOf-only definition) must
+     * still enforce that definition's `required`/type constraints, exactly like the single-level
+     * case (see testDependencyWithSingleLevelImpliedObjectEnforcesConstraints below).
+     *
+     * Root cause: PropertiesValidatorFactory::addDependencyValidator() injects a sibling `type:
+     * object` onto the dependency's raw `{"$ref": ...}` JSON before calling
+     * SchemaProcessor::processSchema() directly - bypassing PropertyFactory::create()'s normal
+     * $ref handling. JsonSchema's constructor deliberately does NOT fold a `$ref` + `type` pair
+     * into an allOf (`SCHEMA_SIGNATURE_RELEVANT_FIELDS` diff excludes 'type' from the merge
+     * trigger), so processSchema() ends up routing through PropertyFactory::processBaseReference().
+     * That method transfers the resolved definition's *properties* onto the dependency's own
+     * schema (`$schema->addProperty(...)`), but for a property that was itself built via the
+     * multi-level composition-implied-object re-routing (P3.2), that transfer does not carry the
+     * property's validators along - the generated `..._creditCard_Dependency` class ends up with
+     * a `#[Required] protected $name;` property whose `_validateName()` body is empty, silently
+     * accepting a payload that omits `name` where the single-level case correctly rejects it.
+     *
+     * Not fixed here: the fix likely belongs in how processBaseReference (or addProperty) carries
+     * validators across a class boundary, which needs its own investigation separate from the
+     * P3.2/P3.3 routing work this phase covers - tracked as a follow-up rather than guessed at
+     * under time pressure.
+     */
+    public function testDependencyWithMultiLevelImpliedObjectEnforcesConstraints(): void
+    {
+        $className = $this->generateClassFromFile('DependenciesImpliedObject.json');
+
+        $this->expectException(InvalidSchemaDependencyException::class);
+
+        new $className(['creditCard' => '1234']);
+    }
+
+    /**
+     * An `allOf` mixing an object-DESCRIBING branch (bare `properties`/`required`, no `type`) with
+     * a scalar branch must NOT be rejected as conflicting at generation time, unlike the
+     * object-ASSERTING case above: a describing branch is vacuously satisfied by non-object
+     * values, so a string can satisfy both the describing branch (vacuously) and the scalar
+     * branch (directly) simultaneously - the schema is satisfiable by strings, even though no
+     * object ever satisfies the scalar branch's own type constraint.
+     */
+    public function testAllOfMixingImpliedDescribingBranchAndScalarBranchAcceptsSatisfyingValue(): void
+    {
+        $className = $this->generateClassFromFile('AllOfDescribingPlusScalar.json');
+
+        $object = new $className(['p' => 'hello']);
+        $this->assertSame('hello', $object->getP());
+    }
+
+    /**
+     * The same mixed allOf must still reject a value that matches neither branch - an object
+     * fails the scalar branch's type check even where it would vacuously satisfy the describing
+     * branch, so it is rejected by the ordinary allOf composition validator at runtime, not by a
+     * generation-time conflict diagnostic.
+     */
+    public function testAllOfMixingImpliedDescribingBranchAndScalarBranchRejectsNonMatchingValue(): void
+    {
+        $this->expectException(AllOfException::class);
+        $this->expectExceptionMessage(
+            <<<'ERROR'
+            Invalid value for 'p' declined by composition constraint
+              Requires to match all composition elements but matched 0 elements
+              - Composition element #1: Failed
+                * Missing required value for 'name'
+              - Composition element #2: Failed
+                * Invalid type for 'p': requires 'string', got 'array'
+            ERROR,
+        );
+
+        $className = $this->generateClassFromFile('AllOfDescribingPlusScalar.json');
 
         new $className(['p' => []]);
     }

@@ -520,10 +520,19 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     }
 
     /**
-     * A branch resolved via a nested schema always requires the value to be an object. allOf
-     * requires every branch to hold simultaneously for the same value, so any sibling branch with
-     * an explicit scalar type (string, integer, number, boolean, array, or null) can never be
-     * satisfied at the same time as an object-shaped branch — the schema is unsatisfiable.
+     * A branch that genuinely ASSERTS object-ness always requires the value to be an object.
+     * allOf requires every branch to hold simultaneously for the same value, so any sibling
+     * branch with an explicit scalar type (string, integer, number, boolean, array, or null) can
+     * never be satisfied at the same time as an object-asserting branch — the schema is
+     * unsatisfiable.
+     *
+     * A resolved nested schema alone does not mean a branch asserts object-ness: a guarded
+     * (object-describing) branch - e.g. a bare `properties`/`required` shape with no `type` -
+     * also gets a nested schema (PropertyFactory::createObjectProperty()), but is vacuously
+     * satisfied by non-object values, so it does not conflict with a scalar sibling.
+     * wireDescribingObjectProperty() resets such a branch's type to null, while
+     * wireObjectProperty() types an asserting branch as 'object' - getType() is therefore the
+     * signal that distinguishes the two, not getNestedSchema() alone.
      *
      * This case is invisible to transferAllOfType()'s type intersection, which only inspects
      * branches with a scalar getType() and returns early whenever any branch has a nested schema.
@@ -535,12 +544,22 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      *
      * @param CompositionPropertyDecorator[] $compositionProperties
      *
-     * @throws SchemaException when a scalar-typed branch coexists with an object-shaped branch.
+     * @throws SchemaException when a scalar-typed branch coexists with an object-asserting branch.
      */
     private static function assertNoObjectScalarTypeConflict(
         PropertyInterface $property,
         array $compositionProperties,
     ): void {
+        $hasAssertingObjectBranch = array_filter(
+            $compositionProperties,
+            static fn(CompositionPropertyDecorator $compositionProperty): bool =>
+                $compositionProperty->getNestedSchema() !== null && $compositionProperty->getType() !== null,
+        ) !== [];
+
+        if (!$hasAssertingObjectBranch) {
+            return;
+        }
+
         $hasConflictingScalarBranch = array_filter(
             $compositionProperties,
             static fn(CompositionPropertyDecorator $compositionProperty): bool =>

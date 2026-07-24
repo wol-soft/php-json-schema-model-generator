@@ -134,6 +134,12 @@ class PropertyFactory
             && !array_intersect(array_keys($json), ['allOf', 'anyOf', 'oneOf', 'if', 'not', '$ref'])
             && $this->resolveObjectShape($schemaProcessor, $schema, $json) === ObjectShape::ObjectDescribing
         ) {
+            $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                "Property '{property}' carries object-constraining keywords (eg. 'properties',"
+                    . " 'required') without a 'type' declaration and does not constrain non-object values",
+                ['property' => $propertyName],
+            );
+
             $objectJson = $json;
             $objectJson['type'] = 'object';
 
