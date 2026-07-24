@@ -188,6 +188,13 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
     ``anyOf``/``oneOf``. See `Cross-typed compositions <crossTypedComposition.html>`__ for the full
     explanation.
 
+.. hint::
+
+    A ``then``/``else`` branch does not need to declare ``"type": "object"`` itself to be treated
+    as an object — the generator also detects object-ness implied by a ``$ref`` chain or nested
+    ``allOf``, and object-constraining keywords used without any ``type`` at all. See
+    `Composition-implied objects <impliedObjects.html>`__ for the full explanation.
+
 .. note::
 
     For object-level ``if``/``then``/``else`` compositions, when a property appears in the
@@ -203,7 +210,7 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
     generator applies the branch default only when the relevant branch is active — the ``then``
     default applies when the ``if`` condition is satisfied, and the ``else`` default applies when it
     is not. A user-supplied value always overrides the branch default. Branch defaults are **not**
-    included in ``getRawModelDataInput()``.
+    included in ``meta()->rawInput()``.
 
     When a ``then`` or ``else`` branch default conflicts with a root ``properties`` default or a
     ``patternProperties`` default for the same property, the generator throws a ``SchemaException``

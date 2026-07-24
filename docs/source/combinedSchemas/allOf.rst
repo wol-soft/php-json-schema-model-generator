@@ -74,6 +74,15 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
 
     When combining multiple nested objects with an `allOf` composition a `merged property <mergedProperty.html>`__ will be generated
 
+.. hint::
+
+    An ``allOf`` branch does not need to declare ``"type": "object"`` itself to be treated as an
+    object — the generator also detects object-ness implied by a ``$ref`` chain or nested
+    ``allOf``, and object-constraining keywords used without any ``type`` at all. See
+    `Composition-implied objects <impliedObjects.html>`__ for the full explanation, including why
+    an object-*describing* branch (bare ``properties``/``required``, no ``type``) does **not**
+    trigger the conflicting-types check below the way an object-*asserting* branch does.
+
 .. note::
 
     ``allOf`` branches can be the boolean literals ``true`` or ``false``.

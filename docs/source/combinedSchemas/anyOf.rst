@@ -74,6 +74,14 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
 
     When combining multiple nested objects with an `anyOf` composition a `merged property <mergedProperty.html>`__ will be generated
 
+.. hint::
+
+    An ``anyOf`` branch does not need to declare ``"type": "object"`` itself to be treated as an
+    object — the generator also detects object-ness implied by a ``$ref`` chain or nested
+    ``allOf``, and object-constraining keywords used without any ``type`` at all. See
+    `Composition-implied objects <impliedObjects.html>`__ for the full explanation, including the
+    asymmetry between ``anyOf`` and ``oneOf`` for bare-validator (object-describing) branches.
+
 .. note::
 
     When a property is also defined in the root ``properties`` section, the root type definition
@@ -98,7 +106,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
     construction time by which branches the provided data satisfies. When multiple matching branches
     define a default for the same property, those defaults must agree; the generator throws a
     ``SchemaException`` at generation time if they differ. Branch defaults are **not** included in
-    ``getRawModelDataInput()``.
+    ``meta()->rawInput()``.
 
     See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
     explanation.
