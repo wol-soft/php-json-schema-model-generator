@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -129,10 +130,19 @@ class IfValidatorFactory
             );
 
             $compositionProperty->onResolve(static function () use ($compositionProperty): void {
+                $nestedSchema = $compositionProperty->getNestedSchema();
+
+                // See AbstractCompositionValidatorFactory::getCompositionProperties() for the
+                // rationale: a branch's own nested composition/conditional validator is only
+                // redundant when the branch resolved to an explicit object schema with its own
+                // generated class that already re-validates it on instantiation.
                 $compositionProperty->filterValidators(
                     static fn(Validator $validator): bool =>
                         !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                        !is_a($validator->getValidator(), ComposedPropertyValidator::class),
+                        !(
+                            is_a($validator->getValidator(), AbstractComposedPropertyValidator::class)
+                            && $nestedSchema !== null
+                        ),
                 );
             });
 

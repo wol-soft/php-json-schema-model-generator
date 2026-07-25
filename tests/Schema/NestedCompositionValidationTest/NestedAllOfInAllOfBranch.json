@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "p": {
+      "allOf": [
+        {
+          "allOf": [
+            {
+              "type": "integer",
+              "multipleOf": 2
+            },
+            {
+              "type": "integer",
+              "multipleOf": 3
+            }
+          ]
+        },
+        {
+          "type": "integer",
+          "maximum": 100
+        }
+      ]
+    }
+  }
+}

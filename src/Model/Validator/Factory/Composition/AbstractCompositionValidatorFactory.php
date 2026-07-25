@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
@@ -199,7 +200,23 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                         if (is_a($validator->getValidator(), RequiredPropertyValidator::class)) {
                             return false;
                         }
-                        if (is_a($validator->getValidator(), ComposedPropertyValidator::class)) {
+                        // A branch's own nested composition/conditional validator (allOf, anyOf,
+                        // oneOf, not, if/then/else — see AbstractComposedPropertyValidator) is
+                        // redundant only when the branch resolved to an explicit object schema:
+                        // processSchema() then generated a nested class whose own generation
+                        // already transferred and validates that composition on instantiation
+                        // (see SchemaProcessor::transferComposedPropertiesToSchema()). A branch
+                        // with no nested schema (e.g. "allOf": [{"anyOf": [...]}], no "type") has
+                        // no such class — stripping the validator here would leave the nested
+                        // composition entirely unvalidated, which is the bug this guards against.
+                        // Keeping it is safe: ComposedPropertyValidator/ConditionalPropertyValidator
+                        // extend ExtractedMethodValidator, so RenderHelper::renderValidator() always
+                        // emits them as a call to their own extracted method (own local scope for
+                        // $succeededCompositionElements/$compositionErrorCollection), never inlined.
+                        if (
+                            is_a($validator->getValidator(), AbstractComposedPropertyValidator::class)
+                            && $nestedSchema !== null
+                        ) {
                             return false;
                         }
                         // An empty object schema ({type: object} with no declared properties)
