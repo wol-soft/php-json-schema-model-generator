@@ -213,11 +213,25 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                         // extend ExtractedMethodValidator, so RenderHelper::renderValidator() always
                         // emits them as a call to their own extracted method (own local scope for
                         // $succeededCompositionElements/$compositionErrorCollection), never inlined.
+                        //
+                        // The $nestedSchema !== null branch below is unreachable through any real
+                        // schema and exists purely to preserve this invariant if the architecture
+                        // ever changes: $nestedSchema is only ever set by
+                        // PropertyFactory::createObjectProperty(), which only runs for a branch
+                        // whose OWN schema declares "type": "object". For any such branch, this
+                        // class's shouldSkip() unconditionally blocks every composition-keyword
+                        // factory (allOf/anyOf/oneOf/not/if) from attaching a validator to that
+                        // same branch property in the first place — the object's own composition
+                        // is processed entirely inside the generated nested class instead. So a
+                        // branch can never simultaneously have $nestedSchema !== null and carry an
+                        // AbstractComposedPropertyValidator of its own.
                         if (
                             is_a($validator->getValidator(), AbstractComposedPropertyValidator::class)
                             && $nestedSchema !== null
                         ) {
+                            // @codeCoverageIgnoreStart
                             return false;
+                            // @codeCoverageIgnoreEnd
                         }
                         // An empty object schema ({type: object} with no declared properties)
                         // must accept any PHP object in composition context. The generated
