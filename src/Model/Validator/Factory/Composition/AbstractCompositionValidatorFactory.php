@@ -12,12 +12,8 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-use PHPModelGenerator\Model\Validator;
-use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
-use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
@@ -191,34 +187,12 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 ),
             );
 
+            // RequiredPropertyValidator/ComposedPropertyValidator/InstanceOfValidator-for-empty-
+            // object exclusion for this branch is handled by
+            // CompositionPropertyDecorator::getOrderedValidators() at render time, not here —
+            // see that method's docblock for why it must not be a destructive, schema-processing-
+            // time filterValidators() call.
             $compositionProperty->onResolve(function () use ($compositionProperty, $property, $merged): void {
-                $nestedSchema = $compositionProperty->getNestedSchema();
-
-                $compositionProperty->filterValidators(
-                    static function (Validator $validator) use ($nestedSchema): bool {
-                        if (is_a($validator->getValidator(), RequiredPropertyValidator::class)) {
-                            return false;
-                        }
-                        if (is_a($validator->getValidator(), ComposedPropertyValidator::class)) {
-                            return false;
-                        }
-                        // An empty object schema ({type: object} with no declared properties)
-                        // must accept any PHP object in composition context. The generated
-                        // placeholder class carries no semantic constraints, so the strict
-                        // instanceof check against it would incorrectly reject valid objects
-                        // (e.g. a DateTime produced by a transforming filter) that are perfectly
-                        // acceptable under the schema's actual semantics.
-                        if (
-                            is_a($validator->getValidator(), InstanceOfValidator::class)
-                            && $nestedSchema !== null
-                            && empty($nestedSchema->getProperties())
-                        ) {
-                            return false;
-                        }
-                        return true;
-                    },
-                );
-
                 if (!($merged && $compositionProperty->getNestedSchema())) {
                     $property->addTypeHintDecorator(new CompositionTypeHintDecorator($compositionProperty));
                 }
@@ -259,13 +233,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         $presenceCheck = "array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
 
+        // RequiredPropertyValidator/ComposedPropertyValidator exclusion for this branch is
+        // handled by CompositionPropertyDecorator::getOrderedValidators() at render time.
         $branchProperty->onResolve(
             function () use ($branchProperty, $presenceCheck): void {
-                $branchProperty->filterValidators(
-                    static fn(Validator $validator): bool =>
-                        !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                        !is_a($validator->getValidator(), ComposedPropertyValidator::class),
-                );
                 $branchProperty->addValidator(
                     new PropertyValidator(
                         $branchProperty,
@@ -308,15 +279,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         $branchProperty->markAsAlwaysTrueBranch();
 
-        $branchProperty->onResolve(function () use ($branchProperty): void {
-            $branchProperty->filterValidators(
-                static fn(Validator $validator): bool =>
-                    !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                    !is_a($validator->getValidator(), ComposedPropertyValidator::class),
-            );
-            // No validator added — true schema always succeeds.
-            // No type hint decorator — true schema contributes no type constraint.
-        });
+        // No validator added — true schema always succeeds.
+        // No type hint decorator — true schema contributes no type constraint.
+        // RequiredPropertyValidator/ComposedPropertyValidator exclusion for this branch is
+        // handled by CompositionPropertyDecorator::getOrderedValidators() at render time.
 
         return $branchProperty;
     }
