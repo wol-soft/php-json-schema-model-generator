@@ -94,10 +94,27 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
 
                 $componentDefaultValueMap[$branchIndex][] = $branchProperty->getName();
 
+                $scopeProperty = $this->scope?->getProperty($branchProperty->getName());
+
+                // Only a branch property which was actually transferred onto the containing
+                // schema (root-schema/base compositions, via
+                // SchemaProcessor::transferComposedPropertiesToSchema()) is a real attribute of
+                // $this. A composition on a named property (e.g. `target: {"oneOf": [...]}`)
+                // never transfers its branches' properties — an object-typed branch instead
+                // compiles to its own separate generated class, instantiated as a nested object.
+                // Resetting such a branch-local property (e.g. the internal
+                // `additionalProperties`/`patternProperties` bookkeeping properties) on $this
+                // would create a dynamic property on the wrong object instead of doing nothing,
+                // which is what's correct here: that nested object already initializes its own
+                // default state through its own constructor, so no external reset is needed.
+                if ($scopeProperty === null) {
+                    continue;
+                }
+
                 // Do not include properties that already have a root-level default on the
                 // parent schema — root defaults are applied unconditionally via PHP field
                 // initializers and must not be overwritten or reset by the branch mechanism.
-                if ($this->scope?->getProperty($branchProperty->getName())?->getDefaultValue() !== null) {
+                if ($scopeProperty->getDefaultValue() !== null) {
                     continue;
                 }
 
