@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "$defs": {
+    "Foo": {
+      "type": "string"
+    }
+  },
+  "properties": {
+    "warmup": {
+      "$ref": "#/$defs/Foo"
+    }
+  },
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "foo": {
+          "$ref": "#/$defs/Foo"
+        }
+      }
+    }
+  ],
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "foo": {
+          "$ref": "#/$defs/Foo"
+        }
+      },
+      "required": [
+        "foo"
+      ]
+    }
+  ]
+}

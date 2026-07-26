@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "$defs": {
+    "Foo": {
+      "type": "string"
+    }
+  },
+  "properties": {
+    "ref_one": {
+      "$ref": "#/$defs/Foo"
+    },
+    "ref_two": {
+      "$ref": "#/$defs/Foo"
+    }
+  }
+}
