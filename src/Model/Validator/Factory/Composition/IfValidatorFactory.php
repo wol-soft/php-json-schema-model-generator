@@ -13,7 +13,6 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
-use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
@@ -130,19 +129,16 @@ class IfValidatorFactory
             );
 
             $compositionProperty->onResolve(static function () use ($compositionProperty): void {
-                $nestedSchema = $compositionProperty->getNestedSchema();
-
-                // See AbstractCompositionValidatorFactory::getCompositionProperties() for the
-                // rationale: a branch's own nested composition/conditional validator is only
-                // redundant when the branch resolved to an explicit object schema with its own
-                // generated class that already re-validates it on instantiation.
+                // A branch's own nested composition/conditional validator is never stripped here:
+                // it is only ever attached to an untyped (bare) branch in the first place, since a
+                // branch declaring "type": "object" instead gets its composition validated inside
+                // its own generated nested class (AbstractCompositionValidatorFactory::shouldSkip()
+                // blocks the composition-keyword factory from attaching a validator directly to
+                // an object-typed branch property). Stripping it unconditionally would leave a
+                // nested composition on a bare branch entirely unvalidated (issue #167).
                 $compositionProperty->filterValidators(
                     static fn(Validator $validator): bool =>
-                        !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                        !(
-                            is_a($validator->getValidator(), AbstractComposedPropertyValidator::class)
-                            && $nestedSchema !== null
-                        ),
+                        !is_a($validator->getValidator(), RequiredPropertyValidator::class),
                 );
             });
 

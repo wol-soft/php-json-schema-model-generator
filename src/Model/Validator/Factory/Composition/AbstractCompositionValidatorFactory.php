@@ -13,7 +13,6 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
-use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
@@ -202,37 +201,16 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                         }
                         // A branch's own nested composition/conditional validator (allOf, anyOf,
                         // oneOf, not, if/then/else — see AbstractComposedPropertyValidator) is
-                        // redundant only when the branch resolved to an explicit object schema:
-                        // processSchema() then generated a nested class whose own generation
-                        // already transferred and validates that composition on instantiation
-                        // (see SchemaProcessor::transferComposedPropertiesToSchema()). A branch
-                        // with no nested schema (e.g. "allOf": [{"anyOf": [...]}], no "type") has
-                        // no such class — stripping the validator here would leave the nested
-                        // composition entirely unvalidated, which is the bug this guards against.
-                        // Keeping it is safe: ComposedPropertyValidator/ConditionalPropertyValidator
-                        // extend ExtractedMethodValidator, so RenderHelper::renderValidator() always
-                        // emits them as a call to their own extracted method (own local scope for
-                        // $succeededCompositionElements/$compositionErrorCollection), never inlined.
-                        //
-                        // The $nestedSchema !== null branch below is unreachable through any real
-                        // schema and exists purely to preserve this invariant if the architecture
-                        // ever changes: $nestedSchema is only ever set by
-                        // PropertyFactory::createObjectProperty(), which only runs for a branch
-                        // whose OWN schema declares "type": "object". For any such branch, this
-                        // class's shouldSkip() unconditionally blocks every composition-keyword
-                        // factory (allOf/anyOf/oneOf/not/if) from attaching a validator to that
-                        // same branch property in the first place — the object's own composition
-                        // is processed entirely inside the generated nested class instead. So a
-                        // branch can never simultaneously have $nestedSchema !== null and carry an
-                        // AbstractComposedPropertyValidator of its own.
-                        if (
-                            is_a($validator->getValidator(), AbstractComposedPropertyValidator::class)
-                            && $nestedSchema !== null
-                        ) {
-                            // @codeCoverageIgnoreStart
-                            return false;
-                            // @codeCoverageIgnoreEnd
-                        }
+                        // never stripped here: $nestedSchema is only ever set for a branch whose
+                        // OWN schema declares "type": "object" (PropertyFactory::
+                        // createObjectProperty()), and for any such branch shouldSkip() already
+                        // blocks every composition-keyword factory from attaching a validator to
+                        // that same branch property in the first place — the object's own
+                        // composition is instead processed entirely inside its generated nested
+                        // class. So a branch here never simultaneously has a nested schema and its
+                        // own composed/conditional validator; the validator, when present, always
+                        // belongs to a bare (untyped) branch and must be kept and rendered, or the
+                        // nested composition would silently accept every value (issue #167).
                         // An empty object schema ({type: object} with no declared properties)
                         // must accept any PHP object in composition context. The generated
                         // placeholder class carries no semantic constraints, so the strict
