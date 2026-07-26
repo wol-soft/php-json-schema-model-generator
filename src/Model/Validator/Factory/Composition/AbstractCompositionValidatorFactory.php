@@ -199,9 +199,18 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                         if (is_a($validator->getValidator(), RequiredPropertyValidator::class)) {
                             return false;
                         }
-                        if (is_a($validator->getValidator(), ComposedPropertyValidator::class)) {
-                            return false;
-                        }
+                        // A branch's own nested composition/conditional validator (allOf, anyOf,
+                        // oneOf, not, if/then/else — see AbstractComposedPropertyValidator) is
+                        // never stripped here: $nestedSchema is only ever set for a branch whose
+                        // OWN schema declares "type": "object" (PropertyFactory::
+                        // createObjectProperty()), and for any such branch shouldSkip() already
+                        // blocks every composition-keyword factory from attaching a validator to
+                        // that same branch property in the first place — the object's own
+                        // composition is instead processed entirely inside its generated nested
+                        // class. So a branch here never simultaneously has a nested schema and its
+                        // own composed/conditional validator; the validator, when present, always
+                        // belongs to a bare (untyped) branch and must be kept and rendered, or the
+                        // nested composition would silently accept every value (issue #167).
                         // An empty object schema ({type: object} with no declared properties)
                         // must accept any PHP object in composition context. The generated
                         // placeholder class carries no semantic constraints, so the strict

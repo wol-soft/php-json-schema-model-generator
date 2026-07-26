@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "p": {
+      "if": {
+        "type": "integer"
+      },
+      "then": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 10
+          },
+          {
+            "type": "integer",
+            "maximum": 0
+          }
+        ]
+      }
+    }
+  }
+}
