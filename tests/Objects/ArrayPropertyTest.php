@@ -210,11 +210,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         mixed $propertyValue,
     ): void {
-        $providedType = match (true) {
-            is_object($propertyValue) => $propertyValue::class,
-            is_array($propertyValue) && !array_is_list($propertyValue) => 'object',
-            default => gettype($propertyValue),
-        };
+        $providedType = is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue);
 
         $this->expectValidationError(
             $configuration,
@@ -236,10 +232,9 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 'bool' => [true],
                 'string' => ['array'],
                 'object' => [new stdClass()],
-                // A JSON object and a JSON array both decode to a PHP array via
-                // json_decode($x, true); array_is_list() is what distinguishes a real JSON
-                // array from a JSON object represented as a PHP map, even when the map is
-                // constructed directly in PHP rather than reached through JSON decoding.
+                // A JSON object and a JSON array both decode to a PHP array, and gettype()
+                // reports 'array' for both regardless of whether the PHP array is a list -
+                // it cannot itself distinguish which shape was actually provided.
                 'associative array' => [['a' => 1, 'b' => 2, 'c' => 1]],
                 'mixed array' => [['a', 'b' => 1]],
             ],

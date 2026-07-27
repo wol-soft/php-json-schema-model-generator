@@ -307,11 +307,11 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidObjectPropertyWithReferencedPersonSchemaDataProvider(): array
     {
         return [
-            'int' => [0, 'Invalid type for property. Requires object, got integer'],
-            'float' => [0.92, 'Invalid type for property. Requires object, got double'],
-            'bool' => [true, 'Invalid type for property. Requires object, got boolean'],
-            'object' => [new stdClass(), 'Invalid class for property. Requires'],
-            'string' => ['Hannes', 'Invalid type for property. Requires object, got string'],
+            'int' => [0, "Invalid type for 'property': requires 'object', got 'integer'"],
+            'float' => [0.92, "Invalid type for 'property': requires 'object', got 'double'"],
+            'bool' => [true, "Invalid type for 'property': requires 'object', got 'boolean'"],
+            'object' => [new stdClass(), "Invalid class for 'property': requires"],
+            'string' => ['Hannes', "Invalid type for 'property': requires 'object', got 'string'"],
             'one match - first option' => [['name' => 'Hannes', 'age' => 42], 'declined by composition constraint'],
             'one match - second option' => [['race' => 'Horse'], 'declined by composition constraint'],
             'one match - Missing property' => [
@@ -349,11 +349,11 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidObjectPropertyWithReferencedPetSchemaDataProvider(): array
     {
         return [
-            'int' => [0, 'Invalid type for property. Requires object, got integer'],
-            'float' => [0.92, 'Invalid type for property. Requires object, got double'],
-            'bool' => [true, 'Invalid type for property. Requires object, got boolean'],
-            'object' => [new stdClass(), 'Invalid class for property. Requires'],
-            'string' => ['Horse', 'Invalid type for property. Requires object, got string'],
+            'int' => [0, "Invalid type for 'property': requires 'object', got 'integer'"],
+            'float' => [0.92, "Invalid type for 'property': requires 'object', got 'double'"],
+            'bool' => [true, "Invalid type for 'property': requires 'object', got 'boolean'"],
+            'object' => [new stdClass(), "Invalid class for 'property': requires"],
+            'string' => ['Horse', "Invalid type for 'property': requires 'object', got 'string'"],
             'empty array' => [[], 'declined by composition constraint'],
             'Too many properties' => [['race' => 'Horse', 'alive' => true], 'declined by composition constraint'],
             'Matching object with invalid type' => [['race' => 123], 'declined by composition constraint'],
