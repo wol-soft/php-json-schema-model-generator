@@ -58,10 +58,10 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getValidatorSetUp(): string
     {
-        return '
+        return <<<'CODE'
             $succeededCompositionElements = 0;
             $compositionErrorCollection = [];
-        ';
+            CODE;
     }
 
     /**

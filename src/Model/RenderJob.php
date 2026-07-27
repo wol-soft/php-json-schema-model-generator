@@ -113,7 +113,7 @@ class RenderJob
         );
 
         try {
-            $class = (new Render(__DIR__ . '/../Templates/'))->renderTemplate(
+            $class = (new Render(__DIR__ . '/../Templates/', 4))->renderTemplate(
                 'Model.phptpl',
                 [
                     'namespace'                         => $namespace,
@@ -140,7 +140,7 @@ class RenderJob
             // @codeCoverageIgnoreEnd
         }
 
-        return $class;
+        return RenderHelper::collapseBlankLines($class);
     }
 
     /**

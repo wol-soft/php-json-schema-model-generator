@@ -8,6 +8,7 @@ use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Provides shared companion-class generation infrastructure for post-processors that
@@ -61,8 +62,10 @@ trait CompanionGeneratorTrait
 
         $result = file_put_contents(
             $filename,
-            (new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR))
-                ->renderTemplate($templatePath, $templateVars),
+            RenderHelper::collapseBlankLines(
+                (new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR, 4))
+                    ->renderTemplate($templatePath, $templateVars),
+            ),
         );
 
         if ($result === false) {

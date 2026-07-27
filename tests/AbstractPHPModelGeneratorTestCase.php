@@ -12,6 +12,7 @@ use PHPModelGenerator\Logger\EchoLogger;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\SchemaProvider\OpenAPIv3Provider;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
+use PHPModelGenerator\Tests\CodeQuality\GeneratedCodeAuditor;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
@@ -87,6 +88,10 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
                     $failedResultDir . $nestedDir . DIRECTORY_SEPARATOR . basename($file),
                 );
             }
+        }
+
+        if (GeneratedCodeAuditor::isEnabled()) {
+            GeneratedCodeAuditor::collect(TEST_BASE_DIR . '/Models', static::class . '::' . $this->name());
         }
 
         $this->names = [];

@@ -3,7 +3,7 @@
 // @codingStandardsIgnoreFile
 // @codeCoverageIgnoreStart
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 {% if namespace %}
     namespace {{ namespace }};
@@ -76,10 +76,19 @@ class {{ class }}Builder implements BuilderInterface
         {% if not property.isInternal() %}
             /**
              * Get the value of {{ property.getName() }}.
+{% if property.getDescription() %}{#
+    Standalone if, nested inside further standalone-dedented blocks (foreach/if/if): the surrounding literal
+    " *" separator lines sit at 13 source columns and land at real column 5 (those outer blocks' own dedents
+    strip 8 total). This if's body passes through that same outer strip plus one further blockIndentWidth (4)
+    dedent of its own, so it needs 13 + 8 + 4 = 17 source columns to land at that same real column 5. Confirmed
+    empirically (generate + measure), not derived by counting nesting on paper - see project conventions on why.
+    Avoids stacking a redundant unconditional " *" separator both before and after an absent description.
+#}
+                 *
+                 * {{ property.getDescription() }}
+{% endif %}
              *
-             * {% if property.getDescription() %}{{ property.getDescription() }}{% endif %}
-             *
-             * {% if viewHelper.getTypeHintAnnotation(property) %}@return {{ viewHelper.getTypeHintAnnotation(property, false, true) }}{% endif %}
+             *{% if viewHelper.getTypeHintAnnotation(property) %} @return {{ viewHelper.getTypeHintAnnotation(property, false, true) }}{% endif %}
              */
             public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(): {{ viewHelper.getType(property, false, true) }}
             {
@@ -90,15 +99,24 @@ class {{ class }}Builder implements BuilderInterface
              * Set the value of {{ property.getName() }}.
              *
              * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute(true) }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
-             *
-             * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+{% if property.getValidators() %}{#
+    Standalone if - see the getName() docblock above for why its body needs 17 source columns to land at the
+    same real column 5 as the surrounding literal " *" lines. Builder setters currently never actually carry
+    validators (BuilderClassPostProcessor strips them via filterValidators()), making this branch presently
+    unreachable, but it stays correct - and avoids stacking a redundant separator either side of it - for
+    whenever that changes.
+#}
+                 *
+                 * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
+{% endif %}
              *
              * @return static
              */
             public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
                 {{ viewHelper.getType(property) }} ${{ property.getAttribute(true) }}
             ): static {
-                if (array_key_exists('{{ property.getName() }}', $this->_rawModelDataInput)
+                if (
+                    array_key_exists('{{ property.getName() }}', $this->_rawModelDataInput)
                     && $this->_rawModelDataInput['{{ property.getName() }}'] === ${{ property.getAttribute(true) }}
                 ) {
                     return $this;
@@ -107,7 +125,7 @@ class {{ class }}Builder implements BuilderInterface
                 $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
 
                 {% foreach property.getOrderedValidators() as validator %}
-                    {{ viewHelper.renderValidator(validator, schema) }}
+                    {{ viewHelper.renderValidator(validator, schema, 2) }}
                 {% endforeach %}
 
                 {% if property.getOrderedValidators() and generatorConfiguration.collectErrors() %}

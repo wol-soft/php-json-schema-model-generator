@@ -7,7 +7,7 @@ array_key_exists('{{ property.getName() }}', $modelData) && (function () use ($m
     {% endif %}
 
     $value = $modelData;
-    {{ viewHelper.resolvePropertyDecorator(nestedProperty) }}
+    {{ viewHelper.resolvePropertyDecorator(nestedProperty, false, 1) }}
 
     {% if generatorConfiguration.collectErrors() %}
         if ($this->_errorRegistry->getErrors()) {

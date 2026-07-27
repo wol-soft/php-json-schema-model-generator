@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class AbstractComposedPropertyValidator
@@ -71,7 +72,7 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
         $this->templateValues['hasModifiedValuesMethod'] = $hasNestedSchemaWithProperties;
 
         if (!$hasNestedSchemaWithProperties) {
-            $this->templateValues['allBranchDefaultAttributeMap'] = var_export([], true);
+            $this->templateValues['allBranchDefaultAttributeMap'] = RenderHelper::varExportArray([]);
 
             return false;
         }
@@ -122,7 +123,9 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
             }
         }
 
-        $this->templateValues['allBranchDefaultAttributeMap'] = var_export($allBranchDefaultAttributeMap, true);
+        $this->templateValues['allBranchDefaultAttributeMap'] = RenderHelper::varExportArray(
+            $allBranchDefaultAttributeMap,
+        );
         $this->templateValues['modifiedValuesMethod'] = $this->modifiedValuesMethod;
 
         $this->scope->addMethod(
@@ -133,8 +136,8 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
                 'GetModifiedValues.phptpl',
                 [
                     'modifiedValuesMethod' => $this->modifiedValuesMethod,
-                    'componentDefaultValueMap' => var_export($componentDefaultValueMap, true),
-                    'propertyAccessors' => var_export($propertyAccessors, true),
+                    'componentDefaultValueMap' => RenderHelper::varExportArray($componentDefaultValueMap),
+                    'propertyAccessors' => RenderHelper::varExportArray($propertyAccessors),
                 ],
             ),
         );

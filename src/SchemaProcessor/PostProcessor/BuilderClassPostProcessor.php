@@ -62,21 +62,23 @@ class BuilderClassPostProcessor extends PostProcessor
 
             $result = file_put_contents(
                 $filename = str_replace('.php', 'Builder.php', $schema->getTargetFileName()),
-                (new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR))->renderTemplate(
-                    'BuilderClass.phptpl',
-                    [
-                        'namespace'              => $namespace,
-                        'class'                  => $schema->getClassName(),
-                        'schema'                 => $schema,
-                        'properties'             => $properties,
-                        'use'                    => $this->getBuilderClassImports(
-                            $properties,
-                            $schema->getUsedClasses(),
-                            $namespace,
-                        ),
-                        'generatorConfiguration' => $this->generatorConfiguration,
-                        'viewHelper'             => new RenderHelper($this->generatorConfiguration),
-                    ],
+                RenderHelper::collapseBlankLines(
+                    (new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR, 4))->renderTemplate(
+                        'BuilderClass.phptpl',
+                        [
+                            'namespace'              => $namespace,
+                            'class'                  => $schema->getClassName(),
+                            'schema'                 => $schema,
+                            'properties'             => $properties,
+                            'use'                    => $this->getBuilderClassImports(
+                                $properties,
+                                $schema->getUsedClasses(),
+                                $namespace,
+                            ),
+                            'generatorConfiguration' => $this->generatorConfiguration,
+                            'viewHelper'             => new RenderHelper($this->generatorConfiguration),
+                        ],
+                    ),
                 )
             );
 

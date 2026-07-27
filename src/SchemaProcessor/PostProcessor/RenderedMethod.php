@@ -55,7 +55,7 @@ class RenderedMethod implements MethodInterface
     protected function getRenderer(): Render
     {
         if (!self::$renderer) {
-            self::$renderer = new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);
+            self::$renderer = new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR, 4);
         }
 
         return self::$renderer;

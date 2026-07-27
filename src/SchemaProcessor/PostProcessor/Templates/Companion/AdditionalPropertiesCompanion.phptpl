@@ -3,7 +3,7 @@
 // @codingStandardsIgnoreFile
 // @codeCoverageIgnoreStart
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 {% if namespace %}
     namespace {{ namespace }};
@@ -16,7 +16,9 @@ declare(strict_types = 1);
 class {{ companionClassName }}
 {
     {% if immutable %}
-        public function __construct(private readonly array $additionalProperties) {}
+        public function __construct(
+            private readonly array $additionalProperties,
+        ) {}
     {% else %}
         public function __construct(
             private array &$additionalProperties,

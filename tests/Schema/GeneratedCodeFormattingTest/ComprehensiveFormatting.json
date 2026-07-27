@@ -1,0 +1,136 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ]
+      }
+    },
+    "coordinates": {
+      "type": "array",
+      "items": [
+        {
+          "type": "number",
+          "minimum": 0
+        },
+        {
+          "type": "object",
+          "properties": {
+            "label": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "label"
+          ]
+        }
+      ]
+    },
+    "primaryTag": {
+      "type": "array",
+      "contains": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ]
+      }
+    },
+    "password": {
+      "type": "string",
+      "writeOnly": true
+    },
+    "config": {
+      "if": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "advanced"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "level"
+        ]
+      },
+      "else": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 2
+          }
+        },
+        "required": [
+          "label"
+        ]
+      }
+    }
+  },
+  "patternProperties": {
+    "^x": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ]
+    },
+    "^secret_": false
+  },
+  "additionalProperties": {
+    "type": "object",
+    "properties": {
+      "value": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "value"
+    ]
+  },
+  "propertyNames": {
+    "pattern": "^[a-zA-Z]+$"
+  },
+  "dependencies": {
+    "tags": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "minLength": 2
+        }
+      },
+      "required": [
+        "category"
+      ]
+    }
+  }
+}

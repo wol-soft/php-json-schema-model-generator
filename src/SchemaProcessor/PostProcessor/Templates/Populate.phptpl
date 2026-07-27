@@ -38,7 +38,8 @@ public function populate(array $modelData): self
 
     {% foreach schema.getProperties() as property %}
         {% if not property.isInternal() %}
-            if (array_key_exists('{{ property.getName() }}', $modelData) &&
+            if (
+                array_key_exists('{{ property.getName() }}', $modelData) &&
                 $modelData['{{ property.getName() }}'] !== $this->{{ property.getAttribute(true) }}
             ) {
                 {{ schemaHookResolver.resolveSetterBeforeValidationHook(property, true) }}

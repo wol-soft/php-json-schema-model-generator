@@ -3,7 +3,7 @@
 // @codingStandardsIgnoreFile
 // @codeCoverageIgnoreStart
 
-declare(strict_types = 1);
+declare(strict_types=1);
 
 {% if namespace %}
     namespace {{ namespace }};
@@ -15,7 +15,9 @@ declare(strict_types = 1);
 
 class {{ companionClassName }}
 {
-    public function __construct(private array &$patternProperties) {}
+    public function __construct(
+        private array &$patternProperties,
+    ) {}
 
     /**
      * @return {{ getReturnAnnotation }}
