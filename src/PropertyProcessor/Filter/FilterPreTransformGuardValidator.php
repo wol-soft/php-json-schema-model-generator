@@ -97,11 +97,13 @@ final class FilterPreTransformGuardValidator extends ExtractedMethodValidator
                 ],
             );
         } catch (PHPMicroTemplateException $exception) {
+            // @codeCoverageIgnoreStart
             throw new RenderException(
                 "Can't render filter pre-transform guard {$this->getExtractedMethodName()}",
                 0,
                 $exception,
             );
+            // @codeCoverageIgnoreEnd
         }
     }
 }

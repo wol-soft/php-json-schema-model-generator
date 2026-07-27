@@ -1,8 +1,5 @@
 <?php
 
-// @codingStandardsIgnoreFile
-// @codeCoverageIgnoreStart
-
 declare(strict_types=1);
 
 {% if namespace %}
@@ -19,13 +16,9 @@ use PHPModelGenerator\Accessor\Meta;
 {% if namespace %} * @package {{ namespace }}{% endif %}
  *
 {% if schema.getDescription() %}{#
-    Standalone if: its body is dedented by 4 (blockIndentWidth), so the 5 leading spaces below (not the usual 1)
-    leave exactly " * ..." - the customary single space before the asterisk - after dedent, instead of stripping
-    it away entirely. A non-standalone inline tag (eg. "{% if namespace %} * ...{% endif %}" above) is the
-    simpler choice whenever a branch stays on one line, but this branch needs two of its own lines
-    (" * description" and a blank " *" separator); a non-standalone multi-line branch keeps its own trailing
-    newline even when the condition is false, leaving a stray blank comment line behind. The comment itself sits
-    glued to the if-tag rather than on its own line above, so stripping it doesn't leave a blank line behind too.
+    A standalone if (unlike the inline "{% if namespace %} * ...{% endif %}" tag above) is needed here since
+    this branch spans two of its own lines (the description and a blank " *" separator) rather than staying
+    inline on one.
 #}
      * {{ schema.getDescription() }}
      *
@@ -122,10 +115,17 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
             {% if not property.isWriteOnly() %}
                 /**
                  * Get the value of {{ property.getName() }}.
-                 *{% if property.getDescription() %}
-                 * {{ property.getDescription() }}{% endif %}{% if property.getComment() %}
-                 * {{ property.getComment() }}{% endif %}{% foreach property.getExamples() as example %}
-                 * @example {{ viewHelper.exportValue(example) }}{% endforeach %}
+                 {% if property.getDescription() %}
+                     *
+                     * {{ property.getDescription() }}
+                 {% endif %}
+                 {% if property.getComment() %}
+                     *
+                     * {{ property.getComment() }}
+                 {% endif %}
+                 {% foreach property.getExamples() as example %}
+                     * @example {{ viewHelper.exportValue(example) }}
+                 {% endforeach %}
                  *
                  *{% if viewHelper.getTypeHintAnnotation(property, true) %} @return {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}
                  */
@@ -142,8 +142,10 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                  * Set the value of {{ property.getName() }}.
                  *
                  * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute(true) }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
-                 *
-                 *{% if property.getValidators() %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+                 {% if property.getValidators() %}
+                     *
+                     * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
+                 {% endif %}
                  *
                  * @return static
                  */
@@ -217,5 +219,3 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
 
 {{ viewHelper.renderMethods(schema) }}
 }
-
-// @codeCoverageIgnoreEnd

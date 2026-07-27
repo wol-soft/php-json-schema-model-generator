@@ -71,11 +71,13 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
                 ],
             );
         } catch (PHPMicroTemplateException $exception) {
+            // @codeCoverageIgnoreStart
             throw new RenderException(
                 "Can't render extracted method {$this->getExtractedMethodName()}",
                 0,
                 $exception,
             );
+            // @codeCoverageIgnoreEnd
         }
     }
 

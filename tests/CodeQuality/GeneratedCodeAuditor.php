@@ -59,12 +59,7 @@ final class GeneratedCodeAuditor
             self::$fileCounter++;
             $auditPath = self::$auditDirectory . '/' . self::$fileCounter . '_' . $file->getFilename();
 
-            file_put_contents(
-                $auditPath,
-                // "@codingStandardsIgnoreFile" makes phpcs skip the file outright, which would silently exclude
-                // it from the audit rather than actually checking it
-                preg_replace('/^\/\/ @codingStandardsIgnoreFile\n/m', '', file_get_contents($file->getPathname())),
-            );
+            copy($file->getPathname(), $auditPath);
 
             self::$testLabelByAuditPath[$auditPath] = $testLabel;
         }

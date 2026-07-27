@@ -24,6 +24,6 @@ class RenderFactory
 
     public static function create(string $basePath): Render
     {
-        return self::$renderers[$basePath] ??= new Render($basePath, new RenderConfig(true));
+        return self::$renderers[$basePath] ??= new Render($basePath, new RenderConfig(autoIndent: true));
     }
 }

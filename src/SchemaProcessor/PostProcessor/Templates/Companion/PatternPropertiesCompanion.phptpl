@@ -1,8 +1,5 @@
 <?php
 
-// @codingStandardsIgnoreFile
-// @codeCoverageIgnoreStart
-
 declare(strict_types=1);
 
 {% if namespace %}
@@ -35,5 +32,3 @@ class {{ companionClassName }}
         return $this->patternProperties[$hash];
     }
 }
-
-// @codeCoverageIgnoreEnd

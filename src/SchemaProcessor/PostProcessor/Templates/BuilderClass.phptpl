@@ -1,8 +1,5 @@
 <?php
 
-// @codingStandardsIgnoreFile
-// @codeCoverageIgnoreStart
-
 declare(strict_types=1);
 
 {% if namespace %}
@@ -77,12 +74,8 @@ class {{ class }}Builder implements BuilderInterface
             /**
              * Get the value of {{ property.getName() }}.
 {% if property.getDescription() %}{#
-    Standalone if, nested inside further standalone-dedented blocks (foreach/if/if): the surrounding literal
-    " *" separator lines sit at 13 source columns and land at real column 5 (those outer blocks' own dedents
-    strip 8 total). This if's body passes through that same outer strip plus one further blockIndentWidth (4)
-    dedent of its own, so it needs 13 + 8 + 4 = 17 source columns to land at that same real column 5. Confirmed
-    empirically (generate + measure), not derived by counting nesting on paper - see project conventions on why.
-    Avoids stacking a redundant unconditional " *" separator both before and after an absent description.
+    Renders the description line only when present, avoiding a redundant blank " *" separator either side
+    of it when there's no description.
 #}
                  *
                  * {{ property.getDescription() }}
@@ -100,11 +93,9 @@ class {{ class }}Builder implements BuilderInterface
              *
              * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute(true) }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
 {% if property.getValidators() %}{#
-    Standalone if - see the getName() docblock above for why its body needs 17 source columns to land at the
-    same real column 5 as the surrounding literal " *" lines. Builder setters currently never actually carry
-    validators (BuilderClassPostProcessor strips them via filterValidators()), making this branch presently
-    unreachable, but it stays correct - and avoids stacking a redundant separator either side of it - for
-    whenever that changes.
+    Builder setters currently never carry validators (BuilderClassPostProcessor strips them via
+    filterValidators()), making this branch presently unreachable, but it stays correct - and avoids a
+    redundant blank " *" separator - for whenever that changes.
 #}
                  *
                  * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
@@ -141,5 +132,3 @@ class {{ class }}Builder implements BuilderInterface
         {% endif %}
     {% endforeach %}
 }
-
-// @codeCoverageIgnoreEnd

@@ -16,6 +16,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use ReflectionClass;
 
 /**
  * Runs the dedicated generated-code PHPCS ruleset (tests/generated_code_phpcs.xml) against classes generated
@@ -107,6 +108,12 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
      * PopulatePostProcessor's populate() method in one generation pass, since each construct is an independent
      * top-level schema keyword/property/post-processor that doesn't interact with the others.
      * setSerialization(true) is required for the writeOnly exclusion hook to be generated at all.
+     *
+     * Also asserts the exact getter/setter docblock content for the "tags" property (which carries a
+     * description, a $comment and an example) and the "config" property (which carries none of them).
+     * phpcs's ruleset doesn't flag a blank docblock line missing its "*" prefix, or a run of several blank
+     * "*" lines in a row, so a phpcs-only assertion would not catch either shape regressing - only an exact
+     * string comparison does.
      */
     public function testComprehensivePropertyTypesGenerateCodeMatchingTheCodingStandard(): void
     {
@@ -114,7 +121,7 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
             $generator->addPostProcessor(new PopulatePostProcessor());
         };
 
-        $this->generateClassFromFile(
+        $className = $this->generateClassFromFile(
             'ComprehensiveFormatting.json',
             (new GeneratorConfiguration())
                 ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
@@ -126,6 +133,41 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
         $report = $this->runPhpcs($this->getGeneratedFiles());
 
         $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+
+        $classContent = file_get_contents(
+            (new ReflectionClass('\\GeneratedCodeFormattingTest\\' . $className))->getFileName(),
+        );
+
+        // the nested item class name carries a per-run uniqid suffix, so match it as a wildcard instead of
+        // asserting an exact, unpredictable class name
+        $this->assertMatchesRegularExpression(
+            '/' . preg_quote(
+                <<<'DOCBLOCK'
+    /**
+     * Get the value of tags.
+     *
+     * The tags associated with this record
+     *
+     * internal: sourced from the tagging service
+     * @example ["urgent"]
+     *
+     * @return
+DOCBLOCK,
+                '/',
+            ) . ' \S+\[\]\|null' . preg_quote("\n     */", '/') . '/',
+            $classContent,
+        );
+
+        $this->assertStringContainsString(
+            <<<'DOCBLOCK'
+    /**
+     * Get the value of config.
+     *
+     * @return mixed
+     */
+DOCBLOCK,
+            $classContent,
+        );
     }
 
     /**
@@ -203,13 +245,13 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * AdditionalPropertiesAccessorPostProcessor's additionalProperties() method is rendered through
-     * RenderedMethod, which - unlike most other rendering paths - enables php-micro-template's block dedent
-     * (blockIndentWidth 4), stripping one level of leading whitespace from a standalone {% if %}'s body before
-     * it is embedded. AdditionalPropertiesAccessorMethod.phptpl previously wrote the "not immutable" branch's
-     * body at the same column as the {% if %} tag itself instead of one level deeper as that convention
-     * requires, so the dedent stripped real indentation instead of a no-op decorative level, under-indenting
-     * the setter/remover arguments by one level. This only surfaces with setImmutable(false), since the whole
-     * branch is empty otherwise.
+     * RenderedMethod, which renders with autoIndent enabled (like every other rendering path in this library),
+     * dedenting a standalone {% if %}'s body by one level before it is embedded.
+     * AdditionalPropertiesAccessorMethod.phptpl previously wrote the "not immutable" branch's body at the same
+     * column as the {% if %} tag itself instead of one level deeper as that convention requires, so the dedent
+     * stripped real indentation instead of a no-op decorative level, under-indenting the setter/remover
+     * arguments by one level. This only surfaces with setImmutable(false), since the whole branch is empty
+     * otherwise.
      */
     public function testAdditionalPropertiesAccessorGeneratesCodeMatchingTheCodingStandard(): void
     {
@@ -319,15 +361,13 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
      */
     private function runPhpcs(array $files): array
     {
-        $strippedFiles = array_map($this->stripIgnoreFileMarker(...), $files);
-
         // phpcs writes its "Time: ...; Memory: ..." summary to stderr even for machine-readable reports, so
         // stderr must stay separate from stdout - merging it would corrupt the JSON report on stdout
         $command = sprintf(
             '%s --standard=%s --report=json %s',
             escapeshellarg(__DIR__ . '/../../vendor/bin/phpcs'),
             escapeshellarg(__DIR__ . '/../generated_code_phpcs.xml'),
-            implode(' ', array_map('escapeshellarg', $strippedFiles)),
+            implode(' ', array_map('escapeshellarg', $files)),
         );
 
         $output = shell_exec($command);
@@ -336,24 +376,6 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
         $this->assertIsArray($report, "phpcs didn't return a valid JSON report:\n" . $output);
 
         return $report;
-    }
-
-    /**
-     * Generated classes carry "// @codingStandardsIgnoreFile", which makes phpcs skip the file entirely. Strip
-     * it from a throwaway copy so the coding standard actually gets applied for this test, without touching the
-     * original file the rest of the test run still relies on (it has already been require()d by the generator).
-     */
-    private function stripIgnoreFileMarker(string $file): string
-    {
-        // keep the .php extension so phpcs' default extension filter still picks the copy up
-        $strippedFile = preg_replace('/\.php$/', '.phpcs-check.php', $file);
-
-        file_put_contents(
-            $strippedFile,
-            preg_replace('/^\/\/ @codingStandardsIgnoreFile\n/m', '', file_get_contents($file)),
-        );
-
-        return $strippedFile;
     }
 
     /**

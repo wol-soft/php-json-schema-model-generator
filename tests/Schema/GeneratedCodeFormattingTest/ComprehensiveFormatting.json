@@ -3,6 +3,13 @@
   "properties": {
     "tags": {
       "type": "array",
+      "description": "The tags associated with this record",
+      "$comment": "internal: sourced from the tagging service",
+      "examples": [
+        [
+          "urgent"
+        ]
+      ],
       "items": {
         "type": "object",
         "properties": {
