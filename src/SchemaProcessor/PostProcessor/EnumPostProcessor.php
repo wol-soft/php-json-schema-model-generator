@@ -28,6 +28,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\Utils\ArrayHash;
 use PHPModelGenerator\Utils\NormalizedName;
+use PHPModelGenerator\Utils\RenderFactory;
 use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeCheck;
 
@@ -58,7 +59,7 @@ class EnumPostProcessor extends PostProcessor
     ) {
         (new ModelGenerator())->generateModelDirectory($targetDirectory);
 
-        $this->renderer = new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR, 4);
+        $this->renderer = RenderFactory::create(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);
         $this->namespace = trim($namespace, '\\');
         $this->targetDirectory = $targetDirectory;
         $this->enumFilterToken = (new EnumFilter())->getToken();

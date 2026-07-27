@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
-use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Utils\RenderFactory;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -63,7 +63,7 @@ trait CompanionGeneratorTrait
         $result = file_put_contents(
             $filename,
             RenderHelper::collapseBlankLines(
-                (new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR, 4))
+                RenderFactory::create(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR)
                     ->renderTemplate($templatePath, $templateVars),
             ),
         );

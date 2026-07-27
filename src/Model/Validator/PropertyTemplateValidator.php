@@ -9,6 +9,7 @@ use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Utils\RenderFactory;
 
 /**
  * Class PropertyTemplateValidator
@@ -21,8 +22,6 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
     protected $templateValues;
     /** @var Schema|null */
     protected $scope;
-
-    private static ?Render $renderer = null;
 
     /**
      * PropertyTemplateValidator constructor.
@@ -72,13 +71,8 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
 
     protected function getRenderer(): Render
     {
-        if (!self::$renderer) {
-            self::$renderer = new Render(
-                join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', 'Templates']) . DIRECTORY_SEPARATOR,
-                4,
-            );
-        }
-
-        return self::$renderer;
+        return RenderFactory::create(
+            join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', 'Templates']) . DIRECTORY_SEPARATOR,
+        );
     }
 }

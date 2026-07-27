@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model;
 
 use PHPMicroTemplate\Exception\PHPMicroTemplateException;
-use PHPMicroTemplate\Render;
 use PHPModelGenerator\Attributes\Internal;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
@@ -14,6 +13,7 @@ use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
+use PHPModelGenerator\Utils\RenderFactory;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -113,7 +113,7 @@ class RenderJob
         );
 
         try {
-            $class = (new Render(__DIR__ . '/../Templates/', 4))->renderTemplate(
+            $class = RenderFactory::create(__DIR__ . '/../Templates/')->renderTemplate(
                 'Model.phptpl',
                 [
                     'namespace'                         => $namespace,

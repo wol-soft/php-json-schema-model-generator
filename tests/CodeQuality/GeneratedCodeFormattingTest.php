@@ -13,6 +13,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 
@@ -32,6 +33,46 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
                 ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
                 ->setImmutable(false)
                 ->setCollectErrors(true),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    /**
+     * A composition directly on the schema root (as opposed to a nested property like ComposedVehicle's "specs")
+     * combined with setImmutable(false) activates RenderHelper::isMutableBaseValidator(), which wraps
+     * ComposedItem.phptpl's shared per-composition-element validation body in an extra "} else {" for a
+     * cache-check - a real nesting level deeper than the non-mutable-base-validator case covered above. Both
+     * collectErrors states are covered since ComposedItemBody.phptpl also branches on collectErrors() internally.
+     * Regression guard for the fix that extracted the shared body into its own ComposedItemBody.phptpl, rendered
+     * once per composition element and indented to the correct depth depending on isMutableBaseValidator, instead
+     * of relying on one literal indentation to be correct for both.
+     */
+    public function testRootLevelMutableCompositionGeneratesCodeMatchingTheCodingStandard(): void
+    {
+        $this->generateClassFromFile(
+            'RootLevelMutableComposition.json',
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setImmutable(false)
+                ->setCollectErrors(true),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    public function testRootLevelMutableCompositionWithoutCollectErrorsGeneratesCodeMatchingTheCodingStandard(): void
+    {
+        $this->generateClassFromFile(
+            'RootLevelMutableComposition.json',
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setImmutable(false)
+                ->setCollectErrors(false),
         );
 
         $report = $this->runPhpcs($this->getGeneratedFiles());
@@ -62,22 +103,51 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
     /**
      * Covers the indentLevel wiring of PatternProperties, AdditionalProperties, ArrayTuple, ArrayItem,
      * ArrayContains, ConditionalComposedItem (if/then/else), PropertyNames, SchemaDependency, a forbidden
-     * (patternProperties: false) pattern and a writeOnly property's serialization-exclusion hook in one
-     * generation pass, since each construct is an independent top-level schema keyword/property that doesn't
-     * interact with the others. collectErrors(true) matches the branch actually verified for SchemaDependency -
-     * its generated check has a structurally different (and separately tracked, still-imperfect) shape under
-     * collectErrors(false), which AbstractPHPModelGeneratorTestCase::generateClass() defaults to when no
-     * configuration is passed explicitly. setSerialization(true) is required for the writeOnly exclusion hook
-     * to be generated at all.
+     * (patternProperties: false) pattern, a writeOnly property's serialization-exclusion hook and
+     * PopulatePostProcessor's populate() method in one generation pass, since each construct is an independent
+     * top-level schema keyword/property/post-processor that doesn't interact with the others.
+     * setSerialization(true) is required for the writeOnly exclusion hook to be generated at all.
      */
     public function testComprehensivePropertyTypesGenerateCodeMatchingTheCodingStandard(): void
     {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
         $this->generateClassFromFile(
             'ComprehensiveFormatting.json',
             (new GeneratorConfiguration())
                 ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
                 ->setImmutable(false)
                 ->setCollectErrors(true)
+                ->setSerialization(true),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    /**
+     * SchemaDependency.phptpl's and Populate.phptpl's shared validation bodies each sit at a different real
+     * nesting depth depending on whether collectErrors() wraps them in a bare block or a try {} - the
+     * collectErrors(true) case above never exercised the collectErrors(false) shape for either. Regression guard
+     * for the fix that extracted both shared bodies into their own sub-templates (SchemaDependencyBody.phptpl,
+     * PopulateBody.phptpl), rendered once each and indented to the correct depth for each branch, instead of
+     * relying on one literal indentation to be correct for both.
+     */
+    public function testSchemaDependencyAndPopulateWithoutCollectErrorsGenerateCodeMatchingTheCodingStandard(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
+        $this->generateClassFromFile(
+            'ComprehensiveFormatting.json',
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setImmutable(false)
+                ->setCollectErrors(false)
                 ->setSerialization(true),
         );
 

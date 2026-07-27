@@ -52,55 +52,10 @@
                         throw new \Exception();
                     }
                 } else {
-            {% endif %}
-
-            {% if generatorConfiguration.collectErrors() %}
-                // collect errors for each composition element
-                $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-            {% endif %}
-
-            {% if not postPropose %}
-                $proposedValue = $proposedValue ?? $value;
-            {% endif %}
-
-            {{ viewHelper.resolvePropertyDecorator(compositionProperty, false, 2) }}
-
-            {% foreach compositionProperty.getOrderedValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema, 2) }}
-            {% endforeach %}
-
-            {% if generatorConfiguration.collectErrors() %}
-                $compositionErrorCollection[] = $this->_errorRegistry;
-
-                {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-                    if (isset($validatorIndex)) {
-                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = $this->_errorRegistry;
-                    }
-                {% endif %}
-
-                // an error inside the composed validation occurred. Throw an exception to count the validity of the
-                // composition item
-                if ($this->_errorRegistry->getErrors()) {
-                    throw new \Exception();
+                    {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 3) }}
                 }
-            {% endif %}
-
-            {% if postPropose %}
-                $proposedValue = $proposedValue ?? $value;
-            {% endif %}
-
-            {% if hasModifiedValuesMethod %}
-                if (is_object($value)) {
-                    $modifiedValues = array_merge($modifiedValues, $this->{{ modifiedValuesMethod }}($originalModelData, $value, $validatorComponentIndex));
-                }
-            {% endif %}
-            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-                {% if not generatorConfiguration.collectErrors() %}
-                    if (isset($validatorIndex)) {
-                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = true;
-                    }
-                {% endif %}
-            }
+            {% else %}
+                {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
             {% endif %}
         } catch (\Exception $e) {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
