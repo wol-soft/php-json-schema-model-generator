@@ -87,6 +87,14 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
             }
 
             foreach ($compositionProperty->getNestedSchema()->getProperties() as $branchProperty) {
+                // Internal bookkeeping properties (eg. _skipNotProvidedPropertiesMap added by
+                // SerializationPostProcessor) are never real branch data - they don't get a
+                // getter generated, and their default values must not be misread as a branch
+                // default to track.
+                if ($branchProperty->isInternal()) {
+                    continue;
+                }
+
                 $propertyAccessors[$branchProperty->getName()] = 'get' . ucfirst($branchProperty->getAttribute());
 
                 if ($branchProperty->getDefaultValue() === null) {
