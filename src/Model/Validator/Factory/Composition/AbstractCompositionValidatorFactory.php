@@ -12,12 +12,8 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-use PHPModelGenerator\Model\Validator;
-use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
-use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ClearTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
@@ -191,43 +187,11 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 ),
             );
 
+            // RequiredPropertyValidator/InstanceOfValidator-for-empty-object exclusion for this
+            // branch is handled by CompositionPropertyDecorator::getOrderedValidators() at render
+            // time, not here — see that method's docblock for why it must not be a destructive,
+            // schema-processing-time filterValidators() call.
             $compositionProperty->onResolve(function () use ($compositionProperty, $property, $merged): void {
-                $nestedSchema = $compositionProperty->getNestedSchema();
-
-                $compositionProperty->filterValidators(
-                    static function (Validator $validator) use ($nestedSchema): bool {
-                        if (is_a($validator->getValidator(), RequiredPropertyValidator::class)) {
-                            return false;
-                        }
-                        // A branch's own nested composition/conditional validator (allOf, anyOf,
-                        // oneOf, not, if/then/else — see AbstractComposedPropertyValidator) is
-                        // never stripped here: $nestedSchema is only ever set for a branch whose
-                        // OWN schema declares "type": "object" (PropertyFactory::
-                        // createObjectProperty()), and for any such branch shouldSkip() already
-                        // blocks every composition-keyword factory from attaching a validator to
-                        // that same branch property in the first place — the object's own
-                        // composition is instead processed entirely inside its generated nested
-                        // class. So a branch here never simultaneously has a nested schema and its
-                        // own composed/conditional validator; the validator, when present, always
-                        // belongs to a bare (untyped) branch and must be kept and rendered, or the
-                        // nested composition would silently accept every value (issue #167).
-                        // An empty object schema ({type: object} with no declared properties)
-                        // must accept any PHP object in composition context. The generated
-                        // placeholder class carries no semantic constraints, so the strict
-                        // instanceof check against it would incorrectly reject valid objects
-                        // (e.g. a DateTime produced by a transforming filter) that are perfectly
-                        // acceptable under the schema's actual semantics.
-                        if (
-                            is_a($validator->getValidator(), InstanceOfValidator::class)
-                            && $nestedSchema !== null
-                            && empty($nestedSchema->getProperties())
-                        ) {
-                            return false;
-                        }
-                        return true;
-                    },
-                );
-
                 if (!($merged && $compositionProperty->getNestedSchema())) {
                     $property->addTypeHintDecorator(new CompositionTypeHintDecorator($compositionProperty));
                 }
@@ -268,13 +232,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         $presenceCheck = "array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
 
+        // RequiredPropertyValidator exclusion for this branch is handled by
+        // CompositionPropertyDecorator::getOrderedValidators() at render time.
         $branchProperty->onResolve(
             function () use ($branchProperty, $presenceCheck): void {
-                $branchProperty->filterValidators(
-                    static fn(Validator $validator): bool =>
-                        !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                        !is_a($validator->getValidator(), ComposedPropertyValidator::class),
-                );
                 $branchProperty->addValidator(
                     new PropertyValidator(
                         $branchProperty,
@@ -317,15 +278,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         $branchProperty->markAsAlwaysTrueBranch();
 
-        $branchProperty->onResolve(function () use ($branchProperty): void {
-            $branchProperty->filterValidators(
-                static fn(Validator $validator): bool =>
-                    !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                    !is_a($validator->getValidator(), ComposedPropertyValidator::class),
-            );
-            // No validator added — true schema always succeeds.
-            // No type hint decorator — true schema contributes no type constraint.
-        });
+        // No validator added — true schema always succeeds.
+        // No type hint decorator — true schema contributes no type constraint.
+        // RequiredPropertyValidator exclusion for this branch is handled by
+        // CompositionPropertyDecorator::getOrderedValidators() at render time.
 
         return $branchProperty;
     }
