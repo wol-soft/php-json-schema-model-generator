@@ -144,16 +144,16 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
         $this->assertMatchesRegularExpression(
             '/' . preg_quote(
                 <<<'DOCBLOCK'
-    /**
-     * Get the value of tags.
-     *
-     * The tags associated with this record
-     *
-     * internal: sourced from the tagging service
-     * @example ["urgent"]
-     *
-     * @return
-DOCBLOCK,
+                    /**
+                     * Get the value of tags.
+                     *
+                     * The tags associated with this record
+                     *
+                     * internal: sourced from the tagging service
+                     * @example ["urgent"]
+                     *
+                     * @return
+                DOCBLOCK,
                 '/',
             ) . ' \S+\[\]\|null' . preg_quote("\n     */", '/') . '/',
             $classContent,
@@ -161,12 +161,12 @@ DOCBLOCK,
 
         $this->assertStringContainsString(
             <<<'DOCBLOCK'
-    /**
-     * Get the value of config.
-     *
-     * @return mixed
-     */
-DOCBLOCK,
+                /**
+                 * Get the value of config.
+                 *
+                 * @return mixed
+                 */
+            DOCBLOCK,
             $classContent,
         );
 
@@ -174,20 +174,20 @@ DOCBLOCK,
         // both between two schema properties and between a schema property and an always-present internal one
         $this->assertStringContainsString(
             <<<'PROPERTIES'
-    protected $tags;
+                protected $tags;
 
-    #[JsonPointer('/dependencies/tags/properties/category')]
-PROPERTIES,
+                #[JsonPointer('/dependencies/tags/properties/category')]
+            PROPERTIES,
             $classContent,
         );
         $this->assertStringContainsString(
             <<<'PROPERTIES'
-    protected array $_rawModelDataInput = [];
+                protected array $_rawModelDataInput = [];
 
-    #[Internal]
-    /** @var Meta|null */
-    private ?Meta $_metaAccessor = null;
-PROPERTIES,
+                #[Internal]
+                /** @var Meta|null */
+                private ?Meta $_metaAccessor = null;
+            PROPERTIES,
             $classContent,
         );
     }
