@@ -9,6 +9,7 @@ use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Utils\RenderFactory;
 
 /**
  * Class PropertyTemplateValidator
@@ -21,8 +22,6 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
     protected $templateValues;
     /** @var Schema|null */
     protected $scope;
-
-    private static ?Render $renderer = null;
 
     /**
      * PropertyTemplateValidator constructor.
@@ -58,11 +57,13 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
     public function getCheck(): string
     {
         try {
-            return $this->getRenderer()->renderTemplate(
+            // trailing whitespace carries no meaning for a PHP expression check, but a template ending on its own
+            // line (the common case) would otherwise leave a blank line behind wherever the check gets embedded
+            return rtrim($this->getRenderer()->renderTemplate(
                 $this->template,
                 // make sure the current bound property is available in the template
                 $this->templateValues + ['property' => $this->property],
-            );
+            ));
         } catch (PHPMicroTemplateException $exception) {
             throw new RenderException("Can't render property validation template {$this->template}", 0, $exception);
         }
@@ -70,12 +71,8 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
 
     protected function getRenderer(): Render
     {
-        if (!self::$renderer) {
-            self::$renderer = new Render(
-                join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', 'Templates']) . DIRECTORY_SEPARATOR,
-            );
-        }
-
-        return self::$renderer;
+        return RenderFactory::create(
+            join(DIRECTORY_SEPARATOR, [__DIR__, '..', '..', 'Templates']) . DIRECTORY_SEPARATOR,
+        );
     }
 }

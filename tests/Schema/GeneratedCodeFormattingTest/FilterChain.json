@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "createdAt": {
+      "type": "string",
+      "filter": [
+        "dateTime",
+        "stripTime"
+      ]
+    }
+  }
+}

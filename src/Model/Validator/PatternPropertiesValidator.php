@@ -97,9 +97,9 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
      */
     public function getValidatorSetUp(): string
     {
-        return '
+        return <<<'CODE'
             $properties = $value;
             $invalidProperties = [];
-        ';
+            CODE;
     }
 }

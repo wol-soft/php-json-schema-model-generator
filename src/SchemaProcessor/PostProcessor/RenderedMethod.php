@@ -11,6 +11,7 @@ use PHPMicroTemplate\Render;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Utils\RenderFactory;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -20,8 +21,6 @@ use PHPModelGenerator\Utils\RenderHelper;
  */
 class RenderedMethod implements MethodInterface
 {
-    private static ?Render $renderer = null;
-
     public function __construct(
         private readonly Schema $schema,
         private readonly GeneratorConfiguration $generatorConfiguration,
@@ -54,10 +53,6 @@ class RenderedMethod implements MethodInterface
 
     protected function getRenderer(): Render
     {
-        if (!self::$renderer) {
-            self::$renderer = new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);
-        }
-
-        return self::$renderer;
+        return RenderFactory::create(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);
     }
 }

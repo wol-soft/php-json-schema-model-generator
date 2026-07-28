@@ -1,7 +1,7 @@
 {% if schemaHookResolver.resolveSerializationHook() %}
     protected function _resolveSerializationHook(array $data, int $depth, array $except): array
     {
-        {{ schemaHookResolver.resolveSerializationHook() }}
+        {{ viewHelper.indent(schemaHookResolver.resolveSerializationHook(), 1) }}
 
         return $data;
     }

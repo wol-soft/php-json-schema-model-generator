@@ -1,9 +1,6 @@
 <?php
 
-// @codingStandardsIgnoreFile
-// @codeCoverageIgnoreStart
-
-declare(strict_types = 1);
+declare(strict_types=1);
 
 {% if namespace %}
     namespace {{ namespace }};
@@ -21,6 +18,7 @@ class {{ class }}Builder implements BuilderInterface
 {
     /** @var array */
     protected $_rawModelDataInput = [];
+
     /** @var Meta|null */
     private $_metaAccessor = null;
 
@@ -76,10 +74,12 @@ class {{ class }}Builder implements BuilderInterface
         {% if not property.isInternal() %}
             /**
              * Get the value of {{ property.getName() }}.
+{% if property.getDescription() %}
+                 *
+                 * {{ property.getDescription() }}
+{% endif %}
              *
-             * {% if property.getDescription() %}{{ property.getDescription() }}{% endif %}
-             *
-             * {% if viewHelper.getTypeHintAnnotation(property) %}@return {{ viewHelper.getTypeHintAnnotation(property, false, true) }}{% endif %}
+             *{% if viewHelper.getTypeHintAnnotation(property) %} @return {{ viewHelper.getTypeHintAnnotation(property, false, true) }}{% endif %}
              */
             public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(): {{ viewHelper.getType(property, false, true) }}
             {
@@ -91,14 +91,13 @@ class {{ class }}Builder implements BuilderInterface
              *
              * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute(true) }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
              *
-             * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
-             *
              * @return static
              */
             public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
                 {{ viewHelper.getType(property) }} ${{ property.getAttribute(true) }}
             ): static {
-                if (array_key_exists('{{ property.getName() }}', $this->_rawModelDataInput)
+                if (
+                    array_key_exists('{{ property.getName() }}', $this->_rawModelDataInput)
                     && $this->_rawModelDataInput['{{ property.getName() }}'] === ${{ property.getAttribute(true) }}
                 ) {
                     return $this;
@@ -107,7 +106,7 @@ class {{ class }}Builder implements BuilderInterface
                 $value = $modelData['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
 
                 {% foreach property.getOrderedValidators() as validator %}
-                    {{ viewHelper.renderValidator(validator, schema) }}
+                    {{ viewHelper.renderValidator(validator, schema, 2) }}
                 {% endforeach %}
 
                 {% if property.getOrderedValidators() and generatorConfiguration.collectErrors() %}
@@ -123,5 +122,3 @@ class {{ class }}Builder implements BuilderInterface
         {% endif %}
     {% endforeach %}
 }
-
-// @codeCoverageIgnoreEnd
