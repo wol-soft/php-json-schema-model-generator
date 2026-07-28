@@ -18,6 +18,7 @@ class {{ class }}Builder implements BuilderInterface
 {
     /** @var array */
     protected $_rawModelDataInput = [];
+
     /** @var Meta|null */
     private $_metaAccessor = null;
 

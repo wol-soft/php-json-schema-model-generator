@@ -110,10 +110,11 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
      * setSerialization(true) is required for the writeOnly exclusion hook to be generated at all.
      *
      * Also asserts the exact getter/setter docblock content for the "tags" property (which carries a
-     * description, a $comment and an example) and the "config" property (which carries none of them).
-     * phpcs's ruleset doesn't flag a blank docblock line missing its "*" prefix, or a run of several blank
-     * "*" lines in a row, so a phpcs-only assertion would not catch either shape regressing - only an exact
-     * string comparison does.
+     * description, a $comment and an example) and the "config" property (which carries none of them), and the
+     * exact blank-line spacing between declared properties (both schema properties, and a schema property
+     * followed by an always-present internal one). phpcs's ruleset doesn't flag a blank docblock line missing
+     * its "*" prefix, a run of several blank "*" lines in a row, or missing blank lines between properties, so
+     * a phpcs-only assertion would not catch any of these regressing - only an exact string comparison does.
      */
     public function testComprehensivePropertyTypesGenerateCodeMatchingTheCodingStandard(): void
     {
@@ -166,6 +167,27 @@ DOCBLOCK,
      * @return mixed
      */
 DOCBLOCK,
+            $classContent,
+        );
+
+        // exactly one blank line between each declared property, before the next property's own attributes -
+        // both between two schema properties and between a schema property and an always-present internal one
+        $this->assertStringContainsString(
+            <<<'PROPERTIES'
+    protected $tags;
+
+    #[JsonPointer('/dependencies/tags/properties/category')]
+PROPERTIES,
+            $classContent,
+        );
+        $this->assertStringContainsString(
+            <<<'PROPERTIES'
+    protected array $_rawModelDataInput = [];
+
+    #[Internal]
+    /** @var Meta|null */
+    private ?Meta $_metaAccessor = null;
+PROPERTIES,
             $classContent,
         );
     }

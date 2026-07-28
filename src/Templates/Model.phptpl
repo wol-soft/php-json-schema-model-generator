@@ -40,10 +40,12 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
         {% endforeach %}
         /**{% if viewHelper.getTypeHintAnnotation(property, true) %} @var {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
         {% if property.isInternal() %}private{% else %}protected{% endif %} ${{ property.getAttribute(true) }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
+
     {% endforeach %}
     #[Internal]
     /** @var array<string, mixed> */
     protected array $_rawModelDataInput = [];
+
     #[Internal]
     /** @var Meta|null */
     private ?Meta $_metaAccessor = null;
