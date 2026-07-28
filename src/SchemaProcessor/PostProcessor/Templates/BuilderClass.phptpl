@@ -74,10 +74,7 @@ class {{ class }}Builder implements BuilderInterface
         {% if not property.isInternal() %}
             /**
              * Get the value of {{ property.getName() }}.
-{% if property.getDescription() %}{#
-    Renders the description line only when present, avoiding a redundant blank " *" separator either side
-    of it when there's no description.
-#}
+{% if property.getDescription() %}
                  *
                  * {{ property.getDescription() }}
 {% endif %}
@@ -93,14 +90,6 @@ class {{ class }}Builder implements BuilderInterface
              * Set the value of {{ property.getName() }}.
              *
              * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute(true) }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
-{% if property.getValidators() %}{#
-    Builder setters currently never carry validators (BuilderClassPostProcessor strips them via
-    filterValidators()), making this branch presently unreachable, but it stays correct - and avoids a
-    redundant blank " *" separator - for whenever that changes.
-#}
-                 *
-                 * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
-{% endif %}
              *
              * @return static
              */
