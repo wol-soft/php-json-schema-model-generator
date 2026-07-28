@@ -187,11 +187,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 ),
             );
 
-            // RequiredPropertyValidator/ComposedPropertyValidator/InstanceOfValidator-for-empty-
-            // object exclusion for this branch is handled by
-            // CompositionPropertyDecorator::getOrderedValidators() at render time, not here —
-            // see that method's docblock for why it must not be a destructive, schema-processing-
-            // time filterValidators() call.
+            // RequiredPropertyValidator/InstanceOfValidator-for-empty-object exclusion for this
+            // branch is handled by CompositionPropertyDecorator::getOrderedValidators() at render
+            // time, not here — see that method's docblock for why it must not be a destructive,
+            // schema-processing-time filterValidators() call.
             $compositionProperty->onResolve(function () use ($compositionProperty, $property, $merged): void {
                 if (!($merged && $compositionProperty->getNestedSchema())) {
                     $property->addTypeHintDecorator(new CompositionTypeHintDecorator($compositionProperty));
@@ -233,8 +232,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         $presenceCheck = "array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
 
-        // RequiredPropertyValidator/ComposedPropertyValidator exclusion for this branch is
-        // handled by CompositionPropertyDecorator::getOrderedValidators() at render time.
+        // RequiredPropertyValidator exclusion for this branch is handled by
+        // CompositionPropertyDecorator::getOrderedValidators() at render time.
         $branchProperty->onResolve(
             function () use ($branchProperty, $presenceCheck): void {
                 $branchProperty->addValidator(
@@ -281,8 +280,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         // No validator added — true schema always succeeds.
         // No type hint decorator — true schema contributes no type constraint.
-        // RequiredPropertyValidator/ComposedPropertyValidator exclusion for this branch is
-        // handled by CompositionPropertyDecorator::getOrderedValidators() at render time.
+        // RequiredPropertyValidator exclusion for this branch is handled by
+        // CompositionPropertyDecorator::getOrderedValidators() at render time.
 
         return $branchProperty;
     }

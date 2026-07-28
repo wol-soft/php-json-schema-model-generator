@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "properties": {
+    "p": {
+      "anyOf": [
+        {
+          "type": "object",
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "A"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "value"
+            ]
+          },
+          "properties": {
+            "kind": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    }
+  }
+}

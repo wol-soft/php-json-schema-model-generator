@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInterface;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class Property
@@ -354,7 +355,9 @@ class Property extends AbstractProperty
      */
     public function setDefaultValue($defaultValue, bool $raw = false): PropertyInterface
     {
-        $this->defaultValue = $defaultValue !== null && !$raw ? var_export($defaultValue, true) : $defaultValue;
+        $this->defaultValue = $defaultValue !== null && !$raw
+            ? RenderHelper::varExportArray($defaultValue)
+            : $defaultValue;
 
         return $this;
     }

@@ -1,0 +1,23 @@
+foreach (['_additionalProperties', '_patternProperties'] as $property) {
+    if (isset($this->{$property})) {
+        $rollbackValues[$property] = $this->{$property};
+    }
+}
+
+{% if schema.getBaseValidators() %}
+    $this->_executeBaseValidators($modelData);
+{% endif %}
+
+{% foreach schema.getProperties() as property %}
+    {% if not property.isInternal() %}
+        if (
+            array_key_exists('{{ property.getName() }}', $modelData) &&
+            $modelData['{{ property.getName() }}'] !== $this->{{ property.getAttribute(true) }}
+        ) {
+            {{ schemaHookResolver.resolveSetterBeforeValidationHook(property, true) }}
+
+            $rollbackValues['{{ property.getAttribute(true) }}'] = $this->{{ property.getAttribute(true) }};
+            $this->_process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
+        }
+    {% endif %}
+{% endforeach %}

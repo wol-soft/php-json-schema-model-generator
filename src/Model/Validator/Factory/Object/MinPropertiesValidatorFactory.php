@@ -13,15 +13,16 @@ use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 
 class MinPropertiesValidatorFactory extends SimpleBaseValidatorFactory
 {
-    private const string COUNT_PROPERTIES =
-        'count(
+    private const string COUNT_PROPERTIES = <<<'CODE'
+        count(
             array_unique(
                 array_merge(
                     array_keys($this->_rawModelDataInput),
                     array_keys($modelData),
                 )
             ),
-        )';
+        )
+        CODE;
 
     protected function isValueValid(mixed $value): bool
     {

@@ -7,7 +7,6 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
-use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
@@ -91,10 +90,20 @@ class CompositionPropertyDecorator extends PropertyProxy
      *
      * A composition branch must not render validators that only make sense for the property as
      * a whole: RequiredPropertyValidator checks presence of the outer property (already checked
-     * once, outside any branch); ComposedPropertyValidator would re-run nested composition
-     * validation already handled by the nested object's own generated class; InstanceOfValidator
-     * against an empty-property placeholder class would incorrectly reject any object value that
-     * satisfies the branch's actual (unconstrained) semantics.
+     * once, outside any branch); InstanceOfValidator against an empty-property placeholder class
+     * would incorrectly reject any object value that satisfies the branch's actual (unconstrained)
+     * semantics.
+     *
+     * A branch's own nested composition/conditional validator (allOf, anyOf, oneOf, not,
+     * if/then/else — see AbstractComposedPropertyValidator) is deliberately NOT excluded here:
+     * $nestedSchema is only ever set for a branch whose own schema declares "type": "object"
+     * (PropertyFactory::createObjectProperty()), and for any such branch AbstractCompositionValidatorFactory
+     * ::shouldSkip() already blocks every composition-keyword factory from attaching a validator
+     * to that same branch property in the first place — the object's own composition is instead
+     * processed entirely inside its generated nested class. So a branch here never simultaneously
+     * has a nested schema and its own composed/conditional validator; the validator, when present,
+     * always belongs to a bare (untyped) branch and must be kept and rendered, or the nested
+     * composition would silently accept every value (issue #167).
      *
      * Filtering here — at render time, without mutating the wrapped property's own validator
      * list — keeps the exclusion branch-local. The wrapped property may be shared (via
@@ -110,10 +119,6 @@ class CompositionPropertyDecorator extends PropertyProxy
             parent::getOrderedValidators(),
             static function (PropertyValidatorInterface $validator) use ($nestedSchema): bool {
                 if (is_a($validator, RequiredPropertyValidator::class)) {
-                    return false;
-                }
-
-                if (is_a($validator, ComposedPropertyValidator::class)) {
                     return false;
                 }
 

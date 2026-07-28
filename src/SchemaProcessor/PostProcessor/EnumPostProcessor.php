@@ -28,6 +28,8 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\Utils\ArrayHash;
 use PHPModelGenerator\Utils\NormalizedName;
+use PHPModelGenerator\Utils\RenderFactory;
+use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeCheck;
 
 /**
@@ -57,7 +59,7 @@ class EnumPostProcessor extends PostProcessor
     ) {
         (new ModelGenerator())->generateModelDirectory($targetDirectory);
 
-        $this->renderer = new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);
+        $this->renderer = RenderFactory::create(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);
         $this->namespace = trim($namespace, '\\');
         $this->targetDirectory = $targetDirectory;
         $this->enumFilterToken = (new EnumFilter())->getToken();
@@ -420,7 +422,7 @@ class EnumPostProcessor extends PostProcessor
         $name = ucfirst((string) preg_replace('/\W/', '', ucwords($name, '_-. ')));
 
         foreach ($values as $value) {
-            $cases[$this->getCaseName($map, $value, $jsonSchema)] = var_export($value, true);
+            $cases[$this->getCaseName($map, $value, $jsonSchema)] = RenderHelper::varExportArray($value);
         }
 
         $backedType = null;
@@ -440,14 +442,16 @@ class EnumPostProcessor extends PostProcessor
 
         $result = file_put_contents(
             $filename = $this->targetDirectory . DIRECTORY_SEPARATOR . $name . '.php',
-            $this->renderer->renderTemplate(
-                'Enum.phptpl',
-                [
-                    'namespace' => $this->namespace,
-                    'name' => $name,
-                    'cases' => $cases,
-                    'backedType' => $backedType,
-                ],
+            RenderHelper::collapseBlankLines(
+                $this->renderer->renderTemplate(
+                    'Enum.phptpl',
+                    [
+                        'namespace' => $this->namespace,
+                        'name' => $name,
+                        'cases' => $cases,
+                        'backedType' => $backedType,
+                    ],
+                ),
             )
         );
 

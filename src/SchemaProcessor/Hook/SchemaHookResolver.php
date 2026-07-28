@@ -55,9 +55,16 @@ class SchemaHookResolver
 
     private function resolveHook(string $filterHook, mixed ...$parameters): string
     {
+        // A hook may legitimately have no code to contribute for a given call (eg. a hook which only applies to
+        // a subset of properties or configurations). Filtering those out before joining avoids the "\n\n"
+        // separator surviving as a stray leading/trailing/middle blank when mixed with a hook that does emit
+        // code, which would corrupt the embedding template's ambient indentation for the remaining code.
         return join(
             "\n\n",
-            array_map(static fn($hook): string => $hook->getCode(...$parameters), $this->getHooks($filterHook)),
+            array_filter(
+                array_map(static fn($hook): string => $hook->getCode(...$parameters), $this->getHooks($filterHook)),
+                static fn(string $code): bool => $code !== '',
+            ),
         );
     }
 }

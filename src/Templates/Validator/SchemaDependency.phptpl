@@ -2,20 +2,17 @@ array_key_exists('{{ property.getName() }}', $modelData) && (function () use ($m
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-    {% else %}
-        try {
-    {% endif %}
 
-    $value = $modelData;
-    {{ viewHelper.resolvePropertyDecorator(nestedProperty) }}
+        {{ viewHelper.indent(renderSchemaDependencyBody(), 1) }}
 
-    {% if generatorConfiguration.collectErrors() %}
         if ($this->_errorRegistry->getErrors()) {
             $dependencyException = $this->_errorRegistry;
         }
 
         $this->_errorRegistry = $originalErrorRegistry;
     {% else %}
+        try {
+            {{ viewHelper.indent(renderSchemaDependencyBody(), 2) }}
         } catch (\Exception $e) {
             $dependencyException = $e;
         }
