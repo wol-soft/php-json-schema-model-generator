@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "aOne": {
+      "type": "integer"
+    },
+    "aTwo": {
+      "type": "integer"
+    }
+  },
+  "patternProperties": {
+    "^a": {
+      "type": "integer"
+    }
+  }
+}

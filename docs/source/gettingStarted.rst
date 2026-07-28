@@ -146,15 +146,15 @@ Now let's have a look at the behaviour of the generated model:
 .. code-block:: php
 
     // Throws an exception as the required name isn't provided.
-    // Exception: 'Missing required value for name'
+    // Exception: "Missing required value for 'name'"
     $person = new Person([]);
 
     // Throws an exception as the name provides an invalid value.
-    // Exception: 'Invalid type for name. Requires string, got int'
+    // Exception: "Invalid type for 'name': requires 'string', got 'integer'"
     $person = new Person(['name' => 12]);
 
     // Throws an exception as the age contains an invalid value due to the minimum definition.
-    // Exception: 'Value for age must not be smaller than 0'
+    // Exception: "Value for 'age' must not be smaller than 0"
     $person = new Person(['name' => 'Albert', 'age' => -1]);
 
     // A valid example as the age isn't required
@@ -164,7 +164,7 @@ Now let's have a look at the behaviour of the generated model:
     $person->meta()->rawInput(); // returns ['name' => 'Albert']
 
     // If setters are generated the setters also perform validations.
-    // Exception: 'Value for age must not be smaller than 0'
+    // Exception: "Value for 'age' must not be smaller than 0"
     $person->setAge(-10);
 
 Each generated class will implement the interface **PHPModelGenerator\\Interfaces\\JSONModelInterface** implemented in the php-json-schema-model-generator-production repository and thus provide the method *meta()* which exposes ``rawInput()`` for access to the original data provided on instantiation.

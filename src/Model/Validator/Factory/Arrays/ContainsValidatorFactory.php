@@ -55,8 +55,9 @@ class ContainsValidatorFactory extends AbstractValidatorFactory
             ->create(
                 $schemaProcessor,
                 $schema,
-                "item of array {$property->getName()}",
+                $property->getName(),
                 $propertySchema->navigate($this->key),
+                isArrayItem: true,
             );
 
         $property->addValidator(

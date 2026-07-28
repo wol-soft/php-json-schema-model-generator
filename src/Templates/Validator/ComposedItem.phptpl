@@ -27,7 +27,8 @@
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
                 // check if the state of the validator is already known.
                 // If none of the properties affected by the validator are changed the validator must not be re-evaluated
-                if (isset($validatorIndex) &&
+                if (
+                    isset($validatorIndex) &&
                     isset($this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]) &&
                     !array_intersect(
                         array_keys($modifiedModelData),
@@ -51,68 +52,10 @@
                         throw new \Exception();
                     }
                 } else {
-            {% endif %}
-
-                {% if generatorConfiguration.collectErrors() %}
-                    // collect errors for each composition element
-                    $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-                {% endif %}
-
-                {% if not postPropose %}
-                    $proposedValue = $proposedValue ?? $value;
-                {% endif %}
-
-                {{ viewHelper.resolvePropertyDecorator(compositionProperty) }}
-
-                {% foreach compositionProperty.getOrderedValidators() as validator %}
-                    {{ viewHelper.renderValidator(validator, schema) }}
-                {% endforeach %}
-
-                {% if generatorConfiguration.collectErrors() %}
-                    $compositionErrorCollection[] = $this->_errorRegistry;
-
-                    {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-                        if (isset($validatorIndex)) {
-                            $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = $this->_errorRegistry;
-                        }
-                    {% endif %}
-
-                    // an error inside the composed validation occurred. Throw an exception to count the validity of the
-                    // composition item
-                    if ($this->_errorRegistry->getErrors()) {
-                        throw new \Exception();
-                    }
-                {% endif %}
-
-                {% if not generatorConfiguration.collectErrors()
-                      and not viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
-                %}
-                    // Direct-exception mode keeps no per-branch error registry, so the composition
-                    // exception would otherwise report only the matched-count summary. Record an
-                    // empty registry for a branch that validated cleanly (rendered as "Valid") so
-                    // the exception can enumerate every branch's outcome; the catch block below
-                    // records the branch's own exception on failure, keeping the underlying reason
-                    // visible in the message. Excluded for the mutable base validator, whose
-                    // state-cache fast path skips branch evaluation and would misalign the registry.
-                    $compositionErrorCollection[] = new \PHPModelGenerator\Exception\ErrorRegistryException();
-                {% endif %}
-
-                {% if postPropose %}
-                    $proposedValue = $proposedValue ?? $value;
-                {% endif %}
-
-                {% if hasModifiedValuesMethod %}
-                    if (is_object($value)) {
-                        $modifiedValues = array_merge($modifiedValues, $this->{{ modifiedValuesMethod }}($originalModelData, $value, $validatorComponentIndex));
-                    }
-                {% endif %}
-            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-                {% if not generatorConfiguration.collectErrors() %}
-                    if (isset($validatorIndex)) {
-                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = true;
-                    }
-                {% endif %}
-            }
+                    {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 3) }}
+                }
+            {% else %}
+                {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
             {% endif %}
         } catch (\Exception $e) {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
@@ -123,20 +66,6 @@
                 }
             {% endif %}
 
-            {% if not generatorConfiguration.collectErrors()
-                  and not viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
-            %}
-                // Record the failing branch's own exception (rendered as "Failed" with its
-                // message) so the composition exception surfaces the underlying reason in
-                // direct-exception mode. Control-flow exceptions used purely for counting are not
-                // ValidationExceptions and contribute no message.
-                $branchErrorRegistry = new \PHPModelGenerator\Exception\ErrorRegistryException();
-                if ($e instanceof \PHPModelGenerator\Exception\ValidationException) {
-                    $branchErrorRegistry->addError($e);
-                }
-                $compositionErrorCollection[] = $branchErrorRegistry;
-            {% endif %}
-
             $succeededCompositionElements--;
         }
 
@@ -144,22 +73,31 @@
         $validatorComponentIndex++;
     {% endforeach %}
 
+    {#
+        Only a satisfied composition may adopt a branch's (possibly decorator-transformed)
+        proposed value. If no branch succeeded, $proposedValue never advanced past its initial
+        null (each branch only reaches "$proposedValue = $proposedValue ?? $value;" once it has
+        already passed its own composition-error check), so unconditionally assigning it to $value
+        would replace the real input with null — corrupting both this validator's own reported
+        value and, since array/object items are validated by reference, the original data itself.
+    #}
+    $compositionSatisfied = {{ composedValueValidation }};
+
     {% if mergedProperty %}
-        if (is_object($proposedValue)) {
+        if ($compositionSatisfied && is_object($proposedValue)) {
             if ($modifiedValues) {
                 $value = array_merge($value, $modifiedValues);
             }
 
-            {{ viewHelper.resolvePropertyDecorator(mergedProperty) }}
-        } else {
+            {{ viewHelper.resolvePropertyDecorator(mergedProperty, false, 2) }}
+        } elseif ($compositionSatisfied) {
             $value = $proposedValue;
+        } else {
+            $value = $originalModelData;
         }
     {% else %}
-        {% if hasModifiedValuesMethod %}
-            // Branch defaults only apply to object/array inputs. In a mixed composition where the
-            // value can also be a scalar (e.g. anyOf/oneOf of an object branch and a string branch)
-            // $originalModelData may be that scalar, which array_key_exists cannot accept.
-            if (is_array($originalModelData)) {
+        if ($compositionSatisfied) {
+            {% if hasModifiedValuesMethod %}
                 foreach ({{ allBranchDefaultAttributeMap }} as $branchDefaultKey => $branchDefaultAttr) {
                     if (!array_key_exists($branchDefaultKey, $originalModelData)) {
                         $this->$branchDefaultAttr = array_key_exists($branchDefaultKey, $modifiedValues)
@@ -167,16 +105,18 @@
                             : null;
                     }
                 }
-            }
-        {% endif %}
-        $value = $proposedValue;
+            {% endif %}
+            $value = $proposedValue;
+        } else {
+            $value = $originalModelData;
+        }
     {% endif %}
 
     {% if generatorConfiguration.collectErrors() %}
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
-    $result = !({{ composedValueValidation }});
+    $result = !$compositionSatisfied;
 
     {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
         if ($result) {

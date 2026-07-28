@@ -78,6 +78,34 @@ class TypeCheck
     }
 
     /**
+     * Build a negated runtime check for a single JSON Schema type name, as used by the "type"
+     * keyword (TypeCheckValidator, and MultiTypeCheckValidator via ReflectionTypeCheckValidator -
+     * both always call this with exactly one type name per instance).
+     *
+     * Identical to negating buildCheck() except for "array": a JSON object and a JSON array both
+     * decode to a PHP array via json_decode($x, true), so "type": "array" must additionally
+     * require array_is_list($value) to reject a JSON object represented as a PHP map. No special
+     * case is needed for an empty array: array_is_list() already treats [] as a list, so an empty
+     * JSON array correctly satisfies "type": "array" here. (An empty JSON *object* satisfying
+     * "type": "array" too is the inherent, accepted {} vs [] limitation - see
+     * ObjectInstantiationDecorator.phptpl, which carries the opposite-direction carve-out so an
+     * empty object is still accepted for "type": "object".)
+     *
+     * This must NOT bleed into buildCheck()/buildCompound()/buildNegatedCompound(), which
+     * represent general PHP-type checks for filter input/output types - a filter declaring
+     * "array" as an accepted PHP type must keep accepting any PHP array, list or map, since it
+     * operates on already-decoded PHP values rather than re-deriving JSON Schema type semantics.
+     */
+    public static function buildNegatedJsonSchemaTypeCheck(string $typeName): string
+    {
+        if ($typeName !== 'array') {
+            return self::buildNegatedCompound([$typeName]);
+        }
+
+        return '!(is_array($value) && array_is_list($value))';
+    }
+
+    /**
      * Replace the property's TypeCheckValidator / MultiTypeCheckValidator with a
      * PassThroughTypeCheckValidator that also allows the given pass-through type names.
      *

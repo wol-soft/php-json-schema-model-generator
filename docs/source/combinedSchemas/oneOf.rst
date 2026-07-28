@@ -38,20 +38,20 @@ Possible exception (if a string is provided):
 
 .. code-block:: none
 
-    Invalid value for example declined by composition constraint.
-      Requires to match one composition element but matched 0 elements.
+    Invalid value for 'example' declined by composition constraint
+      Requires to match one composition element but matched 0 elements
       - Composition element #1: Failed
-        * Invalid type for example. Requires float, got string
+        * Invalid type for 'example': requires 'float', got 'string'
       - Composition element #2: Failed
-        * Invalid type for example. Requires float, got string
+        * Invalid type for 'example': requires 'float', got 'string'
 
 
 Possible exception (if eg. 15 is provided, which matches both subschemas):
 
 .. code-block:: none
 
-    Invalid value for example declined by composition constraint.
-      Requires to match one composition element but matched 2 elements.
+    Invalid value for 'example' declined by composition constraint
+      Requires to match one composition element but matched 2 elements
       - Composition element #1: Valid
       - Composition element #2: Valid
 

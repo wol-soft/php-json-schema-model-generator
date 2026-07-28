@@ -138,7 +138,7 @@ class DraftExtensibilityTest extends AbstractPHPModelGeneratorTestCase
 
         // Empty string fails (length 0 < 1).
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Value for value must not be shorter than 1');
+        $this->expectExceptionMessage("Value for 'value' must not be shorter than 1");
         new $className(['value' => '']);
     }
 
@@ -186,7 +186,7 @@ class DraftExtensibilityTest extends AbstractPHPModelGeneratorTestCase
 
         // 'ab' has length 2 < 3 → validation fails
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Value for value must not be shorter than 3');
+        $this->expectExceptionMessage("Value for 'value' must not be shorter than 3");
         new $className(['value' => 'ab']);
     }
 

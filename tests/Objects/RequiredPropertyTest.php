@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
+use PHPModelGenerator\Exception\Dependency\InvalidPropertyDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Object\NestedObjectException;
 use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Exception\RenderException;
@@ -72,7 +74,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testNotProvidedRequiredPropertyThrowsAnException(bool $implicitNull, string $file): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches("/Missing required value for property/");
+        $this->expectExceptionMessageMatches("/Missing required value for 'property'/");
 
         $className = $this->generateClassFromFile(
             $file,
@@ -131,7 +133,7 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testNullProvidedForRequiredPropertyThrowsAnException(bool $implicitNull, string $schemaFile): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches("/Invalid type for property/");
+        $this->expectExceptionMessageMatches("/Invalid type for 'property'/");
 
         $className = $this->generateClassFromFile(
             $schemaFile,
@@ -261,6 +263,98 @@ class RequiredPropertyTest extends AbstractPHPModelGeneratorTestCase
             $this->assertInstanceOf(RequiredValueException::class, $inner);
             /** @var RequiredValueException $inner */
             $this->assertSame('/properties/address/required', $inner->getJsonPointer()->pointer);
+        }
+    }
+
+    /**
+     * A required property with no entry in 'properties' gets an empty-schema stub fabricated by
+     * RequiredValidatorFactory. That stub must still pick up a 'dependencies' entry for its own
+     * name, exactly like a declared property would.
+     */
+    public function testRequiredUndeclaredPropertyStubStillPicksUpDependency(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RequiredUndeclaredPropertyWithDependency.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $object = new $className(['credit_card' => 12345, 'billing_address' => '555 Debitors Lane']);
+        $this->assertSame('555 Debitors Lane', $object->getBillingAddress());
+    }
+
+    public function testRequiredUndeclaredPropertyMissingThrowsRequiredValueException(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RequiredUndeclaredPropertyWithDependency.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $this->expectException(RequiredValueException::class);
+        $this->expectExceptionMessageMatches("/Missing required value for 'credit_card'/");
+
+        new $className(['billing_address' => '555 Debitors Lane']);
+    }
+
+    public function testRequiredUndeclaredPropertyDependencyNotSatisfiedThrowsAnException(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RequiredUndeclaredPropertyWithDependency.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        try {
+            new $className(['credit_card' => 12345]);
+            $this->fail('Expected InvalidPropertyDependencyException');
+        } catch (InvalidPropertyDependencyException $exception) {
+            $this->assertSame(
+                <<<ERROR
+                Missing required attributes which are dependants of 'credit_card':
+                  - 'billing_address'
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * 'a' and 'b' both reference the same $ref definition and are both required, so
+     * SchemaDefinition::resolveReference reuses the same underlying resolved property for 'a'
+     * and for b's allOf branch (the cache key is path+required+dependencies, and both match
+     * here). RequiredValidatorFactory attaches 'a's RequiredPropertyValidator to that shared
+     * property; it must not leak into b's allOf branch validation — which shares the same
+     * underlying property via PropertyProxy delegation — as a duplicate required check.
+     *
+     * A regression here previously showed up as the allOf branch reporting an extra, spurious
+     * RequiredValueException for 'b' (rebound to display 'b' via PropertyProxy::getOrderedValidators()
+     * even though it originated from 'a') alongside the genuine InvalidTypeException for the
+     * missing (null) value.
+     */
+    public function testRequiredPropertySharedRefDoesNotLeakIntoAllOfBranch(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RequiredPropertySharedRefInAllOfBranch.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        try {
+            new $className(['a' => 'x']);
+            $this->fail('Expected ErrorRegistryException');
+        } catch (ErrorRegistryException $registryException) {
+            $allOfException = array_values(array_filter(
+                $registryException->getErrors(),
+                static fn($error): bool => $error instanceof AllOfException,
+            ))[0] ?? null;
+            $this->assertInstanceOf(AllOfException::class, $allOfException);
+
+            $branchErrors = $allOfException->getCompositionErrorCollection()[0]->getErrors();
+            $this->assertCount(
+                1,
+                $branchErrors,
+                "The allOf branch must report only the type mismatch for the missing 'b', not a "
+                    . "duplicate required-value error leaked from the shared \$ref definition "
+                    . "used directly by 'a'",
+            );
+            $this->assertInstanceOf(InvalidTypeException::class, $branchErrors[0]);
         }
     }
 }

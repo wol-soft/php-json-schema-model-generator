@@ -37,20 +37,20 @@ Possible exception (in this case 50 was provided so the if condition succeeds bu
 
 .. code-block:: none
 
-    Invalid value for example declined by conditional composition constraint
+    Invalid value for 'example' declined by conditional composition constraint
       - Condition: Valid
       - Conditional branch failed:
-        * Value for example must not be smaller than 100
+        * Value for 'example' must not be smaller than 100
 
 Another example exception with 101 as value for the property:
 
 .. code-block:: none
 
-    Invalid value for example declined by conditional composition constraint
+    Invalid value for 'example' declined by conditional composition constraint
       - Condition: Failed
-        * Value for example must be a multiple of 5
+        * Value for 'example' must be a multiple of 5
       - Conditional branch failed:
-        * Value for example must not be larger than 100
+        * Value for 'example' must not be larger than 100
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\ConditionalException* which provides the following methods to get further error details:
 

@@ -35,7 +35,7 @@ class ArrayItemValidator extends ExtractedMethodValidator
         JsonSchema $itemStructure,
         PropertyInterface $property,
     ) {
-        $nestedPropertyName = "item of array {$property->getName()}";
+        $nestedPropertyName = $property->getName();
         $this->variableSuffix = '_' . md5($nestedPropertyName);
 
         // an item of the array behaves like a nested property to add item-level validation
@@ -45,6 +45,7 @@ class ArrayItemValidator extends ExtractedMethodValidator
                 $schema,
                 $nestedPropertyName,
                 $itemStructure,
+                isArrayItem: true,
             );
 
         $this->nestedProperty->onResolve(function () use ($property): void {

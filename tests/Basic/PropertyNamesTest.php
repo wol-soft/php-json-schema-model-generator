@@ -127,11 +127,11 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
                         'abc' => 1,
                     ],
                     <<<ERROR
-                    contains properties with invalid names.
+                    contains properties with invalid names
                       - invalid property '12'
-                        * Value for property name must not be shorter than 3
+                        * Value for 'property name' must not be shorter than 3
                       - invalid property '123456'
-                        * Value for property name must not be longer than 5
+                        * Value for 'property name' must not be longer than 5
                     ERROR,
                 ],
                 'pattern violation' => [
@@ -143,13 +143,13 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
                         'test12w12' => 1,
                     ],
                     <<<ERROR
-                    contains properties with invalid names.
+                    contains properties with invalid names
                       - invalid property '12test12'
-                        * Value for property name doesn't match pattern ^test[0-9]+$
+                        * Value for 'property name' does not match pattern '^test[0-9]+$'
                       - invalid property 'test'
-                        * Value for property name doesn't match pattern ^test[0-9]+$
+                        * Value for 'property name' does not match pattern '^test[0-9]+$'
                       - invalid property 'test12w12'
-                        * Value for property name doesn't match pattern ^test[0-9]+$
+                        * Value for 'property name' does not match pattern '^test[0-9]+$'
                     ERROR,
                 ],
                 'const violation' => [
@@ -160,11 +160,11 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
                         'bla' => 3,
                     ],
                     <<<ERROR
-                    contains properties with invalid names.
+                    contains properties with invalid names
                       - invalid property 'test1'
-                        * Invalid value for property name declined by const constraint
+                        * Value for 'property name' must be "test", got "test1"
                       - invalid property 'bla'
-                        * Invalid value for property name declined by const constraint
+                        * Value for 'property name' must be "test", got "bla"
                     ERROR,
                 ],
             ],
@@ -183,11 +183,11 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
                     'test' => 1,
                 ],
                 <<<ERROR
-                contains properties with invalid names.
+                contains properties with invalid names
                   - invalid property 'test12345a'
-                    * Value for property name doesn't match pattern ^test[0-9]+$
+                    * Value for 'property name' does not match pattern '^test[0-9]+$'
                   - invalid property 'test'
-                    * Value for property name doesn't match pattern ^test[0-9]+$
+                    * Value for 'property name' does not match pattern '^test[0-9]+$'
                 ERROR,
             ],
             'Error Collection - combined multiple violations' => [
@@ -199,13 +199,13 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
                     'test' => 1,
                 ],
                 <<<ERROR
-                contains properties with invalid names.
+                contains properties with invalid names
                   - invalid property 'test12345a'
-                    * Value for property name doesn't match pattern ^test[0-9]+$
-                    * Value for property name must not be longer than 8
+                    * Value for 'property name' does not match pattern '^test[0-9]+$'
+                    * Value for 'property name' must not be longer than 8
                   - invalid property 'test'
-                    * Value for property name doesn't match pattern ^test[0-9]+$
-                    * Value for property name must not be shorter than 6
+                    * Value for 'property name' does not match pattern '^test[0-9]+$'
+                    * Value for 'property name' must not be shorter than 6
                 ERROR,
             ],
         ];

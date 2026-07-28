@@ -216,7 +216,7 @@ Let's have a look how the generated model behaves:
     $person = new Person([]);
 
     // Throws an exception as the name provides an invalid value after being trimmed.
-    // MinLengthException: 'Value for name must not be shorter than 2'
+    // MinLengthException: "Value for 'name' must not be shorter than 2"
     $person = new Person(['name' => '   A   ']);
 
     // A valid example
@@ -226,7 +226,7 @@ Let's have a look how the generated model behaves:
     $person->meta()->rawInput(); // returns ['name' => '   Albert ']
 
     // If setters are generated the setters also execute the filter and perform validations.
-    // MinLengthException: 'Value for name must not be shorter than 2'
+    // MinLengthException: "Value for 'name' must not be shorter than 2"
     $person->setName('  D ');
 
 If trim is applied to a property whose type has zero overlap with string or null (e.g. a pure boolean property), a ``SchemaException`` is raised at generation time:

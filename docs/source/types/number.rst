@@ -31,8 +31,8 @@ Generated interface:
 
 Possible exceptions:
 
-* Invalid type for example. Requires int, got __TYPE__
-* Invalid type for example. Requires double, got __TYPE__
+* Invalid type for 'example': requires 'int', got '__TYPE__'
+* Invalid type for 'example': requires 'double', got '__TYPE__'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTypeException* which provides the following methods to get further error details:
 
@@ -73,10 +73,10 @@ To add a range validation to the property use the `minimum`, `maximum` and `excl
 
 Possible exceptions:
 
-* Value for example1 must not be smaller than 3
-* Value for example1 must not be larger than 5
-* Value for example2 must be larger than 1.0
-* Value for example2 must be smaller than 2.0
+* Value for 'example1' must not be smaller than 3
+* Value for 'example1' must not be larger than 5
+* Value for 'example2' must be larger than 1.0
+* Value for 'example2' must be smaller than 2.0
 
 The thrown exception will be one of the following, corresponding to the JSON schema keywords with the methods to get the constraint:
 
@@ -120,7 +120,7 @@ To add a multiple of validation to the property use the `multipleOf` keyword.
 
 Possible exceptions:
 
-* Value for example must be a multiple of 3
+* Value for 'example' must be a multiple of 3
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Number\\MultipleOfException* which provides the following methods to get further error details:
 

@@ -51,7 +51,7 @@ class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
         string $schemaFile,
         mixed $value,
     ): void {
-        $this->expectValidationError($configuration, 'Invalid value for value');
+        $this->expectValidationError($configuration, "Invalid value for 'value'");
 
         $className = $this->generateClassFromFile($schemaFile, $configuration);
         new $className(['value' => $value]);
@@ -163,7 +163,7 @@ class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
         bool $valid,
     ): void {
         if (!$valid) {
-            $this->expectValidationError($configuration, 'Invalid value for value');
+            $this->expectValidationError($configuration, "Invalid value for 'value'");
         }
 
         $className = $this->generateClassFromFile($schemaFile, $configuration);
@@ -216,7 +216,7 @@ class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
         bool $valid,
     ): void {
         if (!$valid) {
-            $this->expectValidationError($configuration, 'Invalid value for value');
+            $this->expectValidationError($configuration, "Invalid value for 'value'");
         }
 
         $className = $this->generateClassFromFile($schemaFile, $configuration);

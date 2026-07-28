@@ -114,7 +114,7 @@ abstract class AbstractNumericPropertyTestCase extends AbstractPHPModelGenerator
             new $className(['property' => $propertyValue]);
             $this->fail('Expected ValidationException for non-multiple value');
         } catch (ValidationException $exception) {
-            $this->assertSame("Value for property must be a multiple of $multipleOf", $exception->getMessage());
+            $this->assertSame("Value for 'property' must be a multiple of $multipleOf", $exception->getMessage());
             $this->assertSame('/properties/property/multipleOf', $exception->getJsonPointer()->pointer);
         }
     }

@@ -67,12 +67,9 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public function testNotProvidedObjectLevelAllOfNotMatchingAnyOptionThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        // Direct-exception mode now enumerates each branch's outcome and its underlying reason.
         $this->expectExceptionMessageMatches(
-            '/^Invalid value for (.*?) declined by composition constraint\.\s+' .
-            'Requires to match all composition elements but matched 0 elements\.\s+' .
-            '- Composition element #1: Failed\s+\* Missing required value for stringProperty\s+' .
-            '- Composition element #2: Failed\s+\* Missing required value for integerProperty\s*$/',
+            "/^Invalid value for '(.*?)' declined by composition constraint\s*" .
+            'Requires to match all composition elements but matched 0 elements\\s*$/',
         );
 
         $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
@@ -136,14 +133,12 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
 
         $object = new $className([]);
-        // An all-object allOf is routed through the object path, so the composed property is typed
-        // with a regular nested class named after the property rather than a _Merged_ class.
-        $regexp = '/ComposedAllOfTest[\w]*_Property[\w]*/';
+        $regexp = '/ComposedAllOfTest[\w]*_Merged_[\w]*/';
 
         $this->assertMatchesRegularExpression($regexp, $this->getPropertyTypeAnnotation($object, 'property'));
         $this->assertMatchesRegularExpression($regexp, $this->getReturnTypeAnnotation($object, 'getProperty'));
 
-        // base class, composed property class and two classes for validating the composition components
+        // base class, merged property class and two classes for validating the composition components
         $this->assertCount(4, $this->getGeneratedFiles());
     }
 
@@ -195,10 +190,10 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidComposedPropertyDataProvider(): array
     {
         return [
-            'one match - int 4' => [4, 'Invalid value for property declined by composition constraint'],
-            'one match - int 11' => [11, 'Invalid value for property declined by composition constraint'],
-            'int -1' => [-1, 'Invalid value for property declined by composition constraint'],
-            'int 20' => [20, 'Invalid value for property declined by composition constraint'],
+            'one match - int 4' => [4, "Invalid value for 'property' declined by composition constraint"],
+            'one match - int 11' => [11, "Invalid value for 'property' declined by composition constraint"],
+            'int -1' => [-1, "Invalid value for 'property' declined by composition constraint"],
+            'int 20' => [20, "Invalid value for 'property' declined by composition constraint"],
         ];
     }
 
@@ -246,16 +241,16 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidExtendedPropertyDataProvider(): array
     {
         return [
-            'one match - int 12' => [12, 'Invalid value for property declined by composition constraint'],
-            'one match - float 12.' => [12., 'Invalid value for property declined by composition constraint'],
-            'one match - int 15' => [15, 'Invalid value for property declined by composition constraint'],
-            'int 13' => [13, 'Invalid value for property declined by composition constraint'],
-            'float 9.9' => [9.9, 'Value for property must not be smaller than 10'],
-            'int 8' => [8, 'Value for property must not be smaller than 10'],
-            'bool' => [true, 'Invalid type for property'],
-            'array' => [[], 'Invalid type for property'],
-            'object' => [new stdClass(), 'Invalid type for property'],
-            'string' => ['', 'Invalid type for property'],
+            'one match - int 12' => [12, "Invalid value for 'property' declined by composition constraint"],
+            'one match - float 12.' => [12., "Invalid value for 'property' declined by composition constraint"],
+            'one match - int 15' => [15, "Invalid value for 'property' declined by composition constraint"],
+            'int 13' => [13, "Invalid value for 'property' declined by composition constraint"],
+            'float 9.9' => [9.9, "Value for 'property' must not be smaller than 10"],
+            'int 8' => [8, "Value for 'property' must not be smaller than 10"],
+            'bool' => [true, "Invalid type for 'property'"],
+            'array' => [[], "Invalid type for 'property'"],
+            'object' => [new stdClass(), "Invalid type for 'property'"],
+            'string' => ['', "Invalid type for 'property'"],
         ];
     }
 
@@ -288,13 +283,9 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     #[DataProvider('invalidObjectPropertyWithReferencedPersonSchemaDataProvider')]
     public function testNotMatchingObjectPropertyWithReferencedPersonSchemaThrowsAnException(
         mixed $propertyValue,
-        string $expectedMessageFragment,
     ): void {
         $this->expectException(ValidationException::class);
-        // The all-object allOf is routed through the object path, so a non-object value fails the
-        // object type/instance check (a clearer "requires object" message) while an object failing
-        // the composition is reported as a nested-object composition error.
-        $this->expectExceptionMessage($expectedMessageFragment);
+        $this->expectExceptionMessage("Invalid value for 'property' declined by composition constraint");
 
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
 
@@ -304,39 +295,25 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidObjectPropertyWithReferencedPersonSchemaDataProvider(): array
     {
         return [
-            'int' => [0, 'Invalid type for property. Requires object, got integer'],
-            'float' => [0.92, 'Invalid type for property. Requires object, got double'],
-            'bool' => [true, 'Invalid type for property. Requires object, got boolean'],
-            'object' => [new stdClass(), 'Invalid class for property. Requires'],
-            'string' => ['Hannes', 'Invalid type for property. Requires object, got string'],
-            'one match - first option' => [['name' => 'Hannes', 'age' => 42], 'declined by composition constraint'],
-            'one match - second option' => [['race' => 'Horse'], 'declined by composition constraint'],
-            'one match - Missing property' => [
-                ['name' => 'Hannes', 'race' => 'Horse'],
-                'declined by composition constraint',
-            ],
-            'one match - Additional properties' => [
-                ['name' => 'Hannes', 'age' => 42, 'alive' => true],
-                'declined by composition constraint',
-            ],
-            'Matching object with invalid type' => [
-                ['name' => 'Hannes', 'age' => '42', 'race' => 'Horse'],
-                'declined by composition constraint',
-            ],
-            'Matching object with invalid data' => [
-                ['name' => 'H', 'age' => 42, 'race' => 'Horse'],
-                'declined by composition constraint',
-            ],
+            'int' => [0],
+            'float' => [0.92],
+            'bool' => [true],
+            'object' => [new stdClass()],
+            'string' => ['Hannes'],
+            'one match - first option' => [['name' => 'Hannes', 'age' => 42]],
+            'one match - second option' => [['race' => 'Horse']],
+            'one match - Missing property' => [['name' => 'Hannes', 'race' => 'Horse']],
+            'one match - Additional properties' => [['name' => 'Hannes', 'age' => 42, 'alive' => true]],
+            'Matching object with invalid type' => [['name' => 'Hannes', 'age' => '42', 'race' => 'Horse']],
+            'Matching object with invalid data' => [['name' => 'H', 'age' => 42, 'race' => 'Horse']],
         ];
     }
 
     #[DataProvider('invalidObjectPropertyWithReferencedPetSchemaDataProvider')]
-    public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException(
-        mixed $propertyValue,
-        string $expectedMessageFragment,
-    ): void {
+    public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException(mixed $propertyValue): void
+    {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage($expectedMessageFragment);
+        $this->expectExceptionMessage("Invalid value for 'property' declined by composition constraint");
 
         $className = $this->generateClassFromFile('ReferencedObjectSchema.json');
 
@@ -346,15 +323,15 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidObjectPropertyWithReferencedPetSchemaDataProvider(): array
     {
         return [
-            'int' => [0, 'Invalid type for property. Requires object, got integer'],
-            'float' => [0.92, 'Invalid type for property. Requires object, got double'],
-            'bool' => [true, 'Invalid type for property. Requires object, got boolean'],
-            'object' => [new stdClass(), 'Invalid class for property. Requires'],
-            'string' => ['Horse', 'Invalid type for property. Requires object, got string'],
-            'empty array' => [[], 'declined by composition constraint'],
-            'Too many properties' => [['race' => 'Horse', 'alive' => true], 'declined by composition constraint'],
-            'Matching object with invalid type' => [['race' => 123], 'declined by composition constraint'],
-            'Matching object with invalid data' => [['race' => 'H'], 'declined by composition constraint'],
+            'int' => [0],
+            'float' => [0.92],
+            'bool' => [true],
+            'object' => [new stdClass()],
+            'string' => ['Horse'],
+            'empty array' => [[]],
+            'Too many properties' => [['race' => 'Horse', 'alive' => true]],
+            'Matching object with invalid type' => [['race' => 123]],
+            'Matching object with invalid data' => [['race' => 'H']],
         ];
     }
 
@@ -545,29 +522,29 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match all composition elements but matched 1 elements.
+                declined by composition constraint
+                  Requires to match all composition elements but matched 1 element
                   - Composition element #1: Valid
                   - Composition element #2: Failed
-                    * Value for integerProperty must not be smaller than 1
+                    * Value for 'integerProperty' must not be smaller than 1
                 ERROR,
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match all composition elements but matched 1 elements.
+                declined by composition constraint
+                  Requires to match all composition elements but matched 1 element
                   - Composition element #1: Failed
-                    * Value for stringProperty must not be shorter than 2
+                    * Value for 'stringProperty' must not be shorter than 2
                   - Composition element #2: Valid
                 ERROR,
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match all composition elements but matched 1 elements.
+                declined by composition constraint
+                  Requires to match all composition elements but matched 1 element
                 ERROR,
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match all composition elements but matched 1 elements.
+                declined by composition constraint
+                  Requires to match all composition elements but matched 1 element
                 ERROR,
             ],
         ];
@@ -609,7 +586,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             (new GeneratorConfiguration())->setImmutable(false),
         );
 
-        // main class, composed CEO/CFO class (shared via signature dedup), two referenced objects
+        // main class, merged class, two separate for referenced objects
         $this->assertCount(4, $this->getGeneratedFiles());
 
         $object = new $className([
@@ -620,11 +597,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame($object->getCEO()::class, $object->getCFO()::class);
 
-        // The identical all-object allOf composition of both CEO and CFO is routed through the
-        // object path and deduplicated by signature to a single nested class named after the
-        // property, so both properties share the same regular (non-_Merged_) class type.
         $this->assertMatchesRegularExpression(
-            '/ComposedAllOfTest_\w+_CEO\w+\|null$/',
+            '/ComposedAllOfTest_\w+_Merged_CEO\w+\|null$/',
             $this->getPropertyTypeAnnotation($className, 'ceo'),
         );
         $this->assertSame(
@@ -633,7 +607,7 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         );
 
         $this->assertMatchesRegularExpression(
-            '/ComposedAllOfTest_\w+_CEO\w+\|null$/',
+            '/ComposedAllOfTest_\w+_Merged_CEO\w+\|null$/',
             $this->getParameterTypeAnnotation($className, 'setCeo'),
         );
         $this->assertSame(

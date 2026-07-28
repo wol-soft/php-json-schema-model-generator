@@ -48,10 +48,10 @@ Possible exceptions:
 
 .. code-block:: none
 
-    * Invalid type for car. Requires object, got __TYPE__
+    * Invalid type for 'car': requires 'object', got '__TYPE__'
 
-    * Invalid nested object for property car:
-      - Invalid type for model. Requires string, got __TYPE__
+    * Invalid nested object for property 'car':
+      - Invalid type for 'model': requires 'string', got '__TYPE__'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTypeException* which provides the following methods to get further error details:
 
@@ -194,7 +194,7 @@ Using the keyword `required` a list of properties may be defined which must be p
 
 Possible exceptions:
 
-* Missing required value for name
+* Missing required value for 'name'
 
 .. hint::
 
@@ -251,8 +251,8 @@ With the keywords `minProperties` and `maxProperties` the number of allowed prop
 
 Possible exceptions:
 
-* Provided object for person must not contain less than 2 properties
-* Provided object for person must not contain more than 3 properties
+* Provided object for 'person' must not contain less than 2 properties
+* Provided object for 'person' must not contain more than 3 properties
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\MaxPropertiesException* or a *PHPModelGenerator\\Exception\\Object\\MinPropertiesException* which provides the following methods to get further error details:
 
@@ -303,7 +303,7 @@ Using the keyword `additionalProperties` the object can be limited to not contai
 
 Possible exceptions:
 
-* Provided JSON for example contains not allowed additional properties [additional1, additional2]
+* Provided JSON for 'example' contains not allowed additional properties ['additional1', 'additional2']
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\AdditionalPropertiesException* which provides the following methods to get further error details:
 
@@ -322,11 +322,11 @@ If invalid additional properties are provided a detailed exception will be throw
 
 .. code-block:: none
 
-    Provided JSON for example contains invalid additional properties.
+    Provided JSON for 'example' contains invalid additional properties
       - invalid additional property 'additional1'
-        * Invalid type for name. Requires string, got integer
+        * Invalid type for 'name': requires 'string', got 'integer'
       - invalid additional property 'additional2'
-        * Invalid type for age. Requires int, got string
+        * Invalid type for 'age': requires 'int', got 'string'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidAdditionalPropertiesException* which provides the following methods to get further error details:
 
@@ -418,12 +418,12 @@ Exceptions contain detailed information about the violations:
 
 .. code-block:: none
 
-    Provided JSON for example contains properties with invalid names.
+    Provided JSON for 'example' contains properties with invalid names
       - invalid property 'test12345a'
-        * Value for property name doesn't match pattern ^test[0-9]+$
-        * Value for property name must not be longer than 8
+        * Value for 'property name' does not match pattern '^test[0-9]+$'
+        * Value for 'property name' must not be longer than 8
       - invalid property 'test123456789'
-        * Value for property name must not be longer than 8
+        * Value for 'property name' must not be longer than 8
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidPropertyNamesException* which provides the following methods to get further error details:
 
@@ -474,8 +474,8 @@ Exceptions contain a list of all violated properties which are declared as a dep
 
 .. code-block:: none
 
-    Missing required attributes which are dependants of credit_card:
-      - billing_address
+    Missing required attributes which are dependants of 'credit_card':
+      - 'billing_address'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Dependency\\InvalidPropertyDependencyException* which provides the following methods to get further error details:
 
@@ -573,8 +573,8 @@ Possible exceptions:
 
 .. code-block:: none
 
-    Invalid schema which is dependant on credit_card:
-      - Missing required value for date_of_birth
+    Invalid schema which is dependant on 'credit_card':
+      - Missing required value for 'date_of_birth'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Dependency\\InvalidSchemaDependencyException* which provides the following methods to get further error details:
 
@@ -623,9 +623,9 @@ If invalid pattern properties are provided a detailed exception will be thrown c
 
 .. code-block:: none
 
-    Provided JSON for Example contains invalid pattern properties.
+    Provided JSON for 'Example' contains invalid pattern properties
       - invalid property 'a0' matching pattern '\^a'
-        * Invalid type for pattern property. Requires string, got integer
+        * Invalid type for 'pattern property': requires 'string', got 'integer'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidPatternPropertiesException* which provides the following methods to get further error details:
 

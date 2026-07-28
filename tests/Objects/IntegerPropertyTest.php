@@ -67,8 +67,8 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
     {
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(
-            'Invalid type for property. Requires int, got ' .
-                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)),
+            "Invalid type for 'property': requires 'int', got '" .
+                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)) . "'",
         );
 
         $className = $this->generateClassFromFile('IntegerProperty.json');
@@ -140,8 +140,8 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
     public static function invalidRangeDataProvider(): iterable
     {
         return [
-            'Too large number' => [2, 'Value for property must not be larger than 1', 'maximum'],
-            'Too small number' => [-2, 'Value for property must not be smaller than -1', 'minimum'],
+            'Too large number' => [2, "Value for 'property' must not be larger than 1", 'maximum'],
+            'Too small number' => [-2, "Value for 'property' must not be smaller than -1", 'minimum'],
         ];
     }
 
@@ -158,10 +158,10 @@ class IntegerPropertyTest extends AbstractNumericPropertyTestCase
     public static function invalidExclusiveRangeDataProvider(): iterable
     {
         return [
-            'Too large number 1' => [2, 'Value for property must be smaller than 1', 'exclusiveMaximum'],
-            'Too large number 2' => [1, 'Value for property must be smaller than 1', 'exclusiveMaximum'],
-            'Too small number 1' => [-1, 'Value for property must be larger than -1', 'exclusiveMinimum'],
-            'Too small number 2' => [-2, 'Value for property must be larger than -1', 'exclusiveMinimum'],
+            'Too large number 1' => [2, "Value for 'property' must be smaller than 1", 'exclusiveMaximum'],
+            'Too large number 2' => [1, "Value for 'property' must be smaller than 1", 'exclusiveMaximum'],
+            'Too small number 1' => [-1, "Value for 'property' must be larger than -1", 'exclusiveMinimum'],
+            'Too small number 2' => [-2, "Value for 'property' must be larger than -1", 'exclusiveMinimum'],
         ];
     }
 }
