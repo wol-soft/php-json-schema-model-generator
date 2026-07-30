@@ -106,7 +106,6 @@ class Issue72Test extends AbstractIssueTestCase
                           Requires to match all composition elements but matched 0 elements
                           - Composition element #1: Failed
                             * Missing required value for 'name'
-                      - Composition element #2: Valid
                 ERROR,
                 $this->normalizeCompositionClassNames($exception->getMessage()),
             );

@@ -67,7 +67,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public function testNotProvidedObjectLevelAllOfNotMatchingAnyOptionThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        // Direct-exception mode now enumerates each branch's outcome and its underlying reason.
+        // Direct-exception mode enumerates the failing branches and their underlying reasons;
+        // cleanly-validated branches are not listed.
         $this->expectExceptionMessageMatches(<<<'REGEX'
             /^Invalid value for '(.*?)' declined by composition constraint
               Requires to match all composition elements but matched 0 elements

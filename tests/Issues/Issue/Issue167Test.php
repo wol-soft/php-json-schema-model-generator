@@ -70,7 +70,6 @@ class Issue167Test extends AbstractIssueTestCase
                         * Invalid type for 'p': requires 'string', got 'boolean'
                       - Composition element #2: Failed
                         * Invalid type for 'p': requires 'int', got 'boolean'
-                  - Composition element #2: Valid
                 ERROR,
             ],
             // fails both nested compositions: too short for the anyOf's string branch and not an
@@ -103,8 +102,7 @@ class Issue167Test extends AbstractIssueTestCase
                 <<<ERROR
                 Invalid value for 'p' declined by composition constraint
                   Requires to match all composition elements but matched 1 element
-                  - Composition element #1: Valid
-                  - Composition element #2: Failed
+                  - Composition element #1: Failed
                     * Invalid value for 'p' declined by composition constraint
                       Requires to match one composition element but matched 0 elements
                       - Composition element #1: Failed
@@ -149,10 +147,8 @@ class Issue167Test extends AbstractIssueTestCase
                   - Composition element #1: Failed
                     * Invalid value for 'p' declined by composition constraint
                       Requires to match all composition elements but matched 1 element
-                      - Composition element #1: Valid
-                      - Composition element #2: Failed
+                      - Composition element #1: Failed
                         * Value for 'p' must be a multiple of 3
-                  - Composition element #2: Valid
                 ERROR,
                 $exception->getMessage(),
             );
@@ -188,11 +184,9 @@ class Issue167Test extends AbstractIssueTestCase
                 <<<ERROR
                 Invalid value for 'p' declined by composition constraint
                   Requires to match all composition elements but matched 1 element
-                  - Composition element #1: Valid
-                  - Composition element #2: Failed
+                  - Composition element #1: Failed
                     * Invalid value for 'p' declined by composition constraint
                       Requires to match none composition element but matched 1 element
-                      - Composition element #1: Valid
                 ERROR,
                 $exception->getMessage(),
             );
@@ -291,7 +285,6 @@ class Issue167Test extends AbstractIssueTestCase
                       - Condition: Valid
                       - Conditional branch failed:
                         * Value for 'p' must not be larger than 10
-                  - Composition element #2: Valid
                 ERROR,
                 $exception->getMessage(),
             );
