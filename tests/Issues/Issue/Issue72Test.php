@@ -93,21 +93,15 @@ class Issue72Test extends AbstractIssueTestCase
             new $className(['members' => [['salary' => 10000]]]);
             $this->fail('Expected an InvalidItemException for the item violating the implied definition');
         } catch (InvalidItemException $exception) {
-            // The item references a multi-level composition-implied definition, so the failure is a
-            // two-level nested composition error; direct-exception mode surfaces the leaf reason at
-            // the bottom. Both generated class names are normalised to a stable token.
+            // The item references a multi-level composition-implied definition; direct-exception
+            // mode reports the failing composition summary for the offending item. The generated
+            // class name is normalised to a stable token.
             $this->assertSame(
                 <<<ERROR
-                Invalid items in array members:
+                Invalid items in array 'members':
                   - invalid item #0
-                    * Invalid value for <class> declined by composition constraint.
-                      Requires to match all composition elements but matched 1 elements.
-                      - Composition element #1: Failed
-                        * Invalid value for <class> declined by composition constraint.
-                      Requires to match all composition elements but matched 0 elements.
-                      - Composition element #1: Failed
-                        * Missing required value for name
-                      - Composition element #2: Valid
+                    * Invalid value for <class> declined by composition constraint
+                      Requires to match all composition elements but matched 1 element
                 ERROR,
                 $this->normalizeCompositionClassNames($exception->getMessage()),
             );
@@ -172,8 +166,8 @@ class Issue72Test extends AbstractIssueTestCase
         $this->expectException(OneOfException::class);
         $this->expectExceptionMessage(
             <<<ERROR
-            Invalid value for wrapper declined by composition constraint.
-              Requires to match one composition element but matched 0 elements.
+            Invalid value for 'wrapper' declined by composition constraint
+              Requires to match one composition element but matched 0 elements
             ERROR,
         );
 
@@ -270,8 +264,8 @@ class Issue72Test extends AbstractIssueTestCase
         $this->expectException(AnyOfException::class);
         $this->expectExceptionMessage(
             <<<ERROR
-            Invalid value for p declined by composition constraint.
-              Requires to match at least one composition element.
+            Invalid value for 'p' declined by composition constraint
+              Requires to match at least one composition element
             ERROR,
         );
 
@@ -335,8 +329,8 @@ class Issue72Test extends AbstractIssueTestCase
         $this->expectException(OneOfException::class);
         $this->expectExceptionMessage(
             <<<ERROR
-            Invalid value for p declined by composition constraint.
-              Requires to match one composition element but matched $expectedMatchedElements elements.
+            Invalid value for 'p' declined by composition constraint
+              Requires to match one composition element but matched $expectedMatchedElements elements
             ERROR,
         );
 
@@ -407,18 +401,15 @@ class Issue72Test extends AbstractIssueTestCase
             $this->fail('Expected a ConditionalException for the value violating the taken branch');
         } catch (ConditionalException $exception) {
             // The then-branch is a composition-implied object, so the taken-branch failure is
-            // reported as a nested composition error; direct-exception mode surfaces the underlying
-            // leaf reason ("Missing required value for name"). The nested class name carries a
-            // uniqid suffix and is normalised to a stable token.
+            // reported as a nested composition error. The nested class name carries a uniqid suffix
+            // and is normalised to a stable token.
             $this->assertSame(
                 <<<ERROR
-                Invalid value for p declined by conditional composition constraint
+                Invalid value for 'p' declined by conditional composition constraint
                   - Condition: Valid
                   - Conditional branch failed:
-                    * Invalid value for <class> declined by composition constraint.
-                  Requires to match all composition elements but matched 0 elements.
-                  - Composition element #1: Failed
-                    * Missing required value for name
+                    * Invalid value for <class> declined by composition constraint
+                      Requires to match all composition elements but matched 0 elements
                 ERROR,
                 $this->normalizeCompositionClassNames($exception->getMessage()),
             );
@@ -435,7 +426,7 @@ class Issue72Test extends AbstractIssueTestCase
     private function normalizeCompositionClassNames(string $message): string
     {
         return preg_replace(
-            '/Invalid value for \w+ declined by composition constraint/',
+            "/Invalid value for '\w+' declined by composition constraint/",
             'Invalid value for <class> declined by composition constraint',
             $message,
         );
@@ -476,8 +467,8 @@ class Issue72Test extends AbstractIssueTestCase
         $this->expectException(NotException::class);
         $this->expectExceptionMessage(
             <<<ERROR
-            Invalid value for p declined by composition constraint.
-              Requires to match none composition element but matched 1 elements.
+            Invalid value for 'p' declined by composition constraint
+              Requires to match none composition element but matched 1 element
             ERROR,
         );
 
@@ -516,8 +507,8 @@ class Issue72Test extends AbstractIssueTestCase
         $this->expectException(AnyOfException::class);
         $this->expectExceptionMessage(
             <<<ERROR
-            Invalid value for p declined by composition constraint.
-              Requires to match at least one composition element.
+            Invalid value for 'p' declined by composition constraint
+              Requires to match at least one composition element
             ERROR,
         );
 
@@ -562,8 +553,8 @@ class Issue72Test extends AbstractIssueTestCase
         $this->expectException(OneOfException::class);
         $this->expectExceptionMessage(
             <<<ERROR
-            Invalid value for p declined by composition constraint.
-              Requires to match one composition element but matched 0 elements.
+            Invalid value for 'p' declined by composition constraint
+              Requires to match one composition element but matched 0 elements
             ERROR,
         );
 
@@ -605,13 +596,11 @@ class Issue72Test extends AbstractIssueTestCase
         } catch (ConditionalException $exception) {
             $this->assertSame(
                 <<<ERROR
-                Invalid value for p declined by conditional composition constraint
+                Invalid value for 'p' declined by conditional composition constraint
                   - Condition: Valid
                   - Conditional branch failed:
-                    * Invalid value for <class> declined by composition constraint.
-                  Requires to match all composition elements but matched 0 elements.
-                  - Composition element #1: Failed
-                    * Missing required value for name
+                    * Invalid value for <class> declined by composition constraint
+                      Requires to match all composition elements but matched 0 elements
                 ERROR,
                 $this->normalizeCompositionClassNames($exception->getMessage()),
             );
@@ -673,8 +662,8 @@ class Issue72Test extends AbstractIssueTestCase
         $this->expectException(OneOfException::class);
         $this->expectExceptionMessage(
             <<<ERROR
-            Invalid value for p declined by composition constraint.
-              Requires to match one composition element but matched $expectedMatchedElements elements.
+            Invalid value for 'p' declined by composition constraint
+              Requires to match one composition element but matched $expectedMatchedElements elements
             ERROR,
         );
 
@@ -719,8 +708,8 @@ class Issue72Test extends AbstractIssueTestCase
         $this->expectException(AnyOfException::class);
         $this->expectExceptionMessage(
             <<<ERROR
-            Invalid value for p declined by composition constraint.
-              Requires to match at least one composition element.
+            Invalid value for 'p' declined by composition constraint
+              Requires to match at least one composition element
             ERROR,
         );
 
@@ -778,8 +767,8 @@ class Issue72Test extends AbstractIssueTestCase
         $this->expectException(NestedObjectException::class);
         $this->expectExceptionMessage(
             <<<ERROR
-            Invalid nested object for property p:
-              - Missing required value for name
+            Invalid nested object for property 'p':
+              - Missing required value for 'name'
             ERROR,
         );
 

@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\Arrays\MaxItemsException;
 use PHPModelGenerator\Exception\Arrays\MinItemsException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
@@ -790,7 +791,16 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             new $className(['property' => $propertyValue]);
             $this->fail('Expected exception for invalid object array item');
         } catch (ErrorRegistryException | InvalidItemException $exception) {
-            $this->assertStringContainsString($message, $exception->getMessage());
+            // A combined (allOf) object item is routed through the object path and validated via a
+            // nested class whose generated name carries a uniqid suffix. Normalise that name to a
+            // stable token so the expected composition message can be asserted deterministically
+            // (a no-op for the non-combined nested/referenced cases, which have no such class).
+            $normalizedMessage = preg_replace(
+                '/\w+_PropertyItem\w+/',
+                '<PropertyItemClass>',
+                $exception->getMessage(),
+            );
+            $this->assertStringContainsString($message, $normalizedMessage);
 
             // collectErrors(true) wraps the array item exception in an ErrorRegistryException.
             $innerException = $exception instanceof ErrorRegistryException
@@ -881,12 +891,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         <<<ERROR
                         Invalid items in array 'property':
                           - invalid item #1
-                            * Invalid value for 'property' declined by composition constraint
-                              Requires to match all composition elements but matched 0 elements
-                              - Composition element #1: Failed
-                                * Invalid type for 'property': requires 'object', got 'boolean'
-                              - Composition element #2: Failed
-                                * Invalid type for 'property': requires 'object', got 'boolean'
+                            * Invalid type for 'property': requires 'object', got 'boolean'
                         ERROR,
                         function (InvalidItemException $exception): void {
                             // Regression: when a composition applied to an array item fails
@@ -904,12 +909,14 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                             Assert::assertSame(true, $exception->getProvidedValue()[1]);
                             Assert::assertSame('/property', $exception->getInstancePointer()->pointer);
 
-                            $compositionException = $exception->getInvalidItems()[1][0];
-                            Assert::assertInstanceOf(AllOfException::class, $compositionException);
-                            Assert::assertSame(true, $compositionException->getProvidedValue());
+                            // Re-routing makes the item an object property, so a scalar item fails
+                            // the object type check directly instead of an allOf composition.
+                            $itemException = $exception->getInvalidItems()[1][0];
+                            Assert::assertInstanceOf(InvalidTypeException::class, $itemException);
+                            Assert::assertSame(true, $itemException->getProvidedValue());
                             Assert::assertSame(
                                 '/property/1',
-                                $compositionException->getInstancePointer()->pointer,
+                                $itemException->getInstancePointer()->pointer,
                             );
                         },
                     ],
@@ -918,7 +925,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         <<<ERROR
                         Invalid items in array 'property':
                           - invalid item #1
-                            * Invalid value for 'property' declined by composition constraint
+                            * Invalid value for '<PropertyItemClass>' declined by composition constraint
                               Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
                                 * Missing required value for 'name'
@@ -931,7 +938,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         <<<ERROR
                         Invalid items in array 'property':
                           - invalid item #1
-                            * Invalid value for 'property' declined by composition constraint
+                            * Invalid value for '<PropertyItemClass>' declined by composition constraint
                               Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
                                 * Invalid type for 'name': requires 'string', got 'boolean'
@@ -943,27 +950,22 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         <<<ERROR
                         Invalid items in array 'property':
                           - invalid item #0
-                            * Invalid value for 'property' declined by composition constraint
+                            * Invalid value for '<PropertyItemClass>' declined by composition constraint
                               Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
                                 * Invalid type for 'name': requires 'string', got 'boolean'
                               - Composition element #2: Valid
                           - invalid item #1
-                            * Invalid value for 'property' declined by composition constraint
+                            * Invalid value for '<PropertyItemClass>' declined by composition constraint
                               Requires to match all composition elements but matched 0 elements
                               - Composition element #1: Failed
                                 * Value for 'name' must not be shorter than 2
                               - Composition element #2: Failed
                                 * Invalid type for 'age': requires 'int', got 'string'
                           - invalid item #2
-                            * Invalid value for 'property' declined by composition constraint
-                              Requires to match all composition elements but matched 0 elements
-                              - Composition element #1: Failed
-                                * Invalid type for 'property': requires 'object', got 'integer'
-                              - Composition element #2: Failed
-                                * Invalid type for 'property': requires 'object', got 'integer'
+                            * Invalid type for 'property': requires 'object', got 'integer'
                           - invalid item #3
-                            * Invalid value for 'property' declined by composition constraint
+                            * Invalid value for '<PropertyItemClass>' declined by composition constraint
                               Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
                                 * Missing required value for 'name'
