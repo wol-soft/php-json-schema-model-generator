@@ -161,6 +161,8 @@ A non-object value such as ``42`` vacuously satisfies both bare branches at once
 
     Invalid value for 'person' declined by composition constraint
       Requires to match one composition element but matched 2 elements
+      - Composition element #1: Valid
+      - Composition element #2: Valid
 
 For ``anyOf`` (which only requires *at least one* match), the same non-object value is accepted,
 since matching every branch still satisfies "at least one."
