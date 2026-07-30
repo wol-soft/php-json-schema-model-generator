@@ -33,14 +33,16 @@ class ContentValidator extends AbstractPropertyValidator
     public function getCheck(): string
     {
         return sprintf(
-            'is_string($value) && (function () use ($value, &$contentValidatorException): bool {
-                try {
-                    \%s::validate($value);
-                } catch (\Throwable $contentValidatorException) {
-                    return true;
-                }
-                return false;
-            })()',
+            <<<'CODE'
+                is_string($value) && (function () use ($value, &$contentValidatorException): bool {
+                    try {
+                        \%s::validate($value);
+                    } catch (\Throwable $contentValidatorException) {
+                        return true;
+                    }
+                    return false;
+                })()
+                CODE,
             $this->validator::class,
         );
     }

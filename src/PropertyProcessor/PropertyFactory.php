@@ -26,7 +26,6 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
-use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
@@ -364,18 +363,6 @@ class PropertyFactory
 
         if (isset($json['examples']) && is_array($json['examples'])) {
             $property->setExamples($json['examples']);
-        }
-
-        if ($required && !$isArrayItem) {
-            // Compute the parent object schema pointer by stripping '<name>/properties' (last two
-            // path segments) from the property pointer, then appending the 'required' keyword.
-            $propertyPointer = $propertySchema->getPointer();
-            $segments = $propertyPointer !== '' ? explode('/', ltrim($propertyPointer, '/')) : [];
-            $parentPointer = count($segments) > 2 ? '/' . implode('/', array_slice($segments, 0, -2)) : '';
-            $property->addValidator(
-                (new RequiredPropertyValidator($property))->withJsonPointer($parentPointer . '/required'),
-                1,
-            );
         }
 
         $configuration = $schemaProcessor->getGeneratorConfiguration();

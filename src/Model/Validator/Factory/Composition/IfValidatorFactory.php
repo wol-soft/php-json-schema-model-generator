@@ -12,11 +12,8 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-use PHPModelGenerator\Model\Validator;
-use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -128,19 +125,11 @@ class IfValidatorFactory
                 ),
             );
 
-            $compositionProperty->onResolve(static function () use ($compositionProperty): void {
-                // A branch's own nested composition/conditional validator is never stripped here:
-                // it is only ever attached to an untyped (bare) branch in the first place, since a
-                // branch declaring "type": "object" instead gets its composition validated inside
-                // its own generated nested class (AbstractCompositionValidatorFactory::shouldSkip()
-                // blocks the composition-keyword factory from attaching a validator directly to
-                // an object-typed branch property). Stripping it unconditionally would leave a
-                // nested composition on a bare branch entirely unvalidated (issue #167).
-                $compositionProperty->filterValidators(
-                    static fn(Validator $validator): bool =>
-                        !is_a($validator->getValidator(), RequiredPropertyValidator::class),
-                );
-            });
+            // RequiredPropertyValidator exclusion for this branch is handled by
+            // CompositionPropertyDecorator::getOrderedValidators() at render time — see that
+            // method's docblock for why it must not be a destructive, schema-processing-time
+            // filterValidators() call, and for why a branch's own nested composition/conditional
+            // validator (issue #167) is deliberately never excluded there.
 
             $properties[$keyword] = $compositionProperty;
         }
@@ -196,12 +185,9 @@ class IfValidatorFactory
             ),
         );
 
+        // RequiredPropertyValidator exclusion for this branch is handled by
+        // CompositionPropertyDecorator::getOrderedValidators() at render time.
         $branchProperty->onResolve(function () use ($branchProperty): void {
-            $branchProperty->filterValidators(
-                static fn(Validator $validator): bool =>
-                    !is_a($validator->getValidator(), RequiredPropertyValidator::class) &&
-                    !is_a($validator->getValidator(), ComposedPropertyValidator::class),
-            );
             $branchProperty->addValidator(
                 new PropertyValidator(
                     $branchProperty,

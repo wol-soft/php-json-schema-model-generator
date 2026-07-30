@@ -59,7 +59,7 @@ class FilterValidator extends PropertyTemplateValidator
                     : '',
                 'filterClass' => $this->filter->getFilter()[0],
                 'filterMethod' => $this->filter->getFilter()[1],
-                'filterOptions' => var_export($this->filterOptions, true),
+                'filterOptions' => RenderHelper::varExportArray($this->filterOptions),
                 'filterValueValidator' => new PropertyValidator(
                     $property,
                     '',

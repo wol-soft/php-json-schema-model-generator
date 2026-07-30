@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "properties": {
+    "specs": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "wheels": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "wheels"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "engine": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "engine"
+          ]
+        }
+      ]
+    }
+  }
+}

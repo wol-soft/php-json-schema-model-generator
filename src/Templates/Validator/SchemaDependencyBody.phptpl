@@ -1,0 +1,2 @@
+$value = $modelData;
+{{ viewHelper.resolvePropertyDecorator(nestedProperty, false, 0) }}

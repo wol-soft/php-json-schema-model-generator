@@ -16,10 +16,10 @@
                 $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
             {% endif %}
 
-            {{ viewHelper.resolvePropertyDecorator(validationProperty) }}
+            {{ viewHelper.resolvePropertyDecorator(validationProperty, false, 3) }}
 
             {% foreach validationProperty.getOrderedValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema) }}
+                {{ viewHelper.renderValidator(validator, schema, 3) }}
             {% endforeach %}
 
             {% if generatorConfiguration.collectErrors() %}

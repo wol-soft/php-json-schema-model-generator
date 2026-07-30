@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class AbstractComposedPropertyValidator
@@ -71,7 +72,7 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
         $this->templateValues['hasModifiedValuesMethod'] = $hasNestedSchemaWithProperties;
 
         if (!$hasNestedSchemaWithProperties) {
-            $this->templateValues['allBranchDefaultAttributeMap'] = var_export([], true);
+            $this->templateValues['allBranchDefaultAttributeMap'] = RenderHelper::varExportArray([]);
 
             return false;
         }
@@ -86,12 +87,14 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
             }
 
             foreach ($compositionProperty->getNestedSchema()->getProperties() as $branchProperty) {
-                // Internal machinery properties (e.g. the composition state tracker
-                // propertyValidationState of a re-routed composition branch class) are not schema
-                // properties and must never be transferred as a branch default of the outer
-                // composition - doing so both clobbers the outer schema's own internal attributes
-                // and, for a mixed object/scalar composition, feeds a non-array scalar input into
-                // the branch-default array_key_exists lookup.
+                // Internal machinery properties are never real branch data and must not be
+                // transferred as a branch default of the outer composition. This covers both the
+                // composition state tracker propertyValidationState of a re-routed composition
+                // branch class and bookkeeping properties such as _skipNotProvidedPropertiesMap
+                // added by SerializationPostProcessor - neither gets a getter generated, and
+                // misreading their default values as a branch default both clobbers the outer
+                // schema's own internal attributes and, for a mixed object/scalar composition,
+                // feeds a non-array scalar input into the branch-default array_key_exists lookup.
                 if ($branchProperty->isInternal()) {
                     continue;
                 }
@@ -132,7 +135,9 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
             }
         }
 
-        $this->templateValues['allBranchDefaultAttributeMap'] = var_export($allBranchDefaultAttributeMap, true);
+        $this->templateValues['allBranchDefaultAttributeMap'] = RenderHelper::varExportArray(
+            $allBranchDefaultAttributeMap,
+        );
         $this->templateValues['modifiedValuesMethod'] = $this->modifiedValuesMethod;
 
         $this->scope->addMethod(
@@ -143,8 +148,8 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
                 'GetModifiedValues.phptpl',
                 [
                     'modifiedValuesMethod' => $this->modifiedValuesMethod,
-                    'componentDefaultValueMap' => var_export($componentDefaultValueMap, true),
-                    'propertyAccessors' => var_export($propertyAccessors, true),
+                    'componentDefaultValueMap' => RenderHelper::varExportArray($componentDefaultValueMap),
+                    'propertyAccessors' => RenderHelper::varExportArray($propertyAccessors),
                 ],
             ),
         );
