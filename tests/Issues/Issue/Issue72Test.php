@@ -963,4 +963,60 @@ class Issue72Test extends AbstractIssueTestCase
             'A branch containing only "type" must not be treated as vacuous.',
         );
     }
+
+    /**
+     * A ROOT-LEVEL oneOf (the composition IS the file's own class-defining schema, not one
+     * nested inside a named property) with a branch that has neither a type nor a nested schema -
+     * the canonical "matches any value" shape, expressed here as a literal `true` schema element -
+     * must not crash generation with "No nested schema for composed property". The vacuous branch
+     * contributes no properties to the class and matches unconditionally.
+     *
+     * The vacuous branch is not skipped/deduplicated during validation: it matches every value,
+     * including one that also satisfies the object branch, so such a value is rejected for
+     * matching two composition elements instead of one - the same still-open gap PR #74
+     * documented for the nested-property case (see class docblock), reproduced here at root level.
+     */
+    public function testRootLevelOneOfWithVacuousBranchAcceptsOnlyValuesNotMatchingTheOtherBranch(): void
+    {
+        $className = $this->generateClassFromFile('RootLevelOneOfWithVacuousBranch.json');
+
+        // Does not satisfy the object branch (missing required 'name'), so it matches only the
+        // vacuous branch - exactly one match, valid.
+        $object = new $className([]);
+        $this->assertNull($object->getName());
+
+        // Matches the object branch AND the vacuous branch (which matches unconditionally) -
+        // two matches violates oneOf's "exactly one" requirement.
+        try {
+            new $className(['name' => 'Hannes']);
+            $this->fail('Expected a OneOfException for the value matching both branches');
+        } catch (OneOfException $exception) {
+            $this->assertSame(
+                <<<'ERROR'
+                Invalid value for '<class>' declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
+                ERROR,
+                $this->normalizeCompositionClassNames($exception->getMessage()),
+            );
+        }
+    }
+
+    /**
+     * PropertyFactory::resolveObjectShape() peeks through $ref chains to decide whether an allOf
+     * without its own type re-routes through the object path (see the reroute at the top of
+     * createProperty()). The peek's $ref resolver must not let an unresolvable reference escape
+     * as an uncaught Throwable - the peek is a speculative, side-effect-free classification, not
+     * the real reference resolution, so it must fail conservatively (blocking the re-route) and
+     * leave the genuinely broken reference to be reported by the real $ref resolution that runs
+     * afterward once the schema falls through to ordinary composition processing.
+     */
+    public function testAllOfWithUnresolvableReferenceDuringObjectShapeClassificationStillThrowsCleanly(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '~^Unresolved Reference #/definitions/DoesNotExist in file (.*)\.json$~',
+        );
+
+        $this->generateClassFromFile('AllOfWithUnresolvableReference.json');
+    }
 }

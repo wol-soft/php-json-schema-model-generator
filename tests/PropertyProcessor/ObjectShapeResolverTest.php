@@ -129,6 +129,8 @@ class ObjectShapeResolverTest extends TestCase
                 ['anyOf' => [self::PERSON_OBJECT, []]],
                 ObjectShape::NotObject,
             ],
+            'empty anyOf' => [['anyOf' => []], ObjectShape::NotObject],
+            'empty oneOf' => [['oneOf' => []], ObjectShape::NotObject],
             'oneOf of asserting branches' => [
                 ['oneOf' => [self::PERSON_OBJECT, ['type' => 'object']]],
                 ObjectShape::ObjectAsserting,

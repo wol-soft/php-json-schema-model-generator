@@ -216,4 +216,32 @@ class ComposedOneOfBranchDefaultTest extends AbstractPHPModelGeneratorTestCase
         $this->assertNull($object->getSandbox());
         $this->assertSame(['kind' => 'A'], $object->meta()->rawInput());
     }
+
+    /**
+     * A oneOf branch default declared on a NAMED property (not the root schema) never reaches
+     * the outer schema's scope: an object-typed branch compiles to its own separate nested
+     * class, so the branch-default reset mechanism (which only tracks defaults transferred onto
+     * $this via SchemaProcessor::transferComposedPropertiesToSchema()) must leave it alone and
+     * let the nested class apply its own default through its own constructor.
+     *
+     * Schema: "target" is a oneOf of an object branch (declaring a default for "value") and a
+     * plain string branch. Unlike ObjectBranchDefault.json, the oneOf here is NOT the schema's
+     * own root composition - it sits on a named property one level down.
+     */
+    public function testNamedPropertyObjectBranchDefaultIsNotTransferredToOuterScope(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ObjectBranchDefaultOnNamedProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        // Object branch matches: the nested Target class applies its own default via its own
+        // constructor field initializer.
+        $object = new $className(['target' => []]);
+        $this->assertSame('fallback', $object->getTarget()->getValue());
+
+        // String branch matches: target is a plain string, no nested class involved.
+        $stringObject = new $className(['target' => 'hello']);
+        $this->assertSame('hello', $stringObject->getTarget());
+    }
 }

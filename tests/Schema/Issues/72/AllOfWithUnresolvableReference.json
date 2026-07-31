@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "definitions": {},
+  "properties": {
+    "p": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/DoesNotExist"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
