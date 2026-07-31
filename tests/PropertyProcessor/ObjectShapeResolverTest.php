@@ -59,13 +59,44 @@ class ObjectShapeResolverTest extends TestCase
             'annotations only' => [['title' => 'x', 'example' => ['name' => 'y']], ObjectShape::NotObject],
             'scalar validators without type' => [['minLength' => 5], ObjectShape::NotObject],
             'not only' => [['not' => self::PERSON_OBJECT], ObjectShape::NotObject],
-            'if-then-else only' => [
+
+            // if/then/else (conditional) aggregation
+            'if-then-else with both branches asserting' => [
                 [
                     'if' => ['required' => ['a']],
                     'then' => self::PERSON_OBJECT,
                     'else' => self::PERSON_OBJECT,
                 ],
+                ObjectShape::ObjectAsserting,
+            ],
+            'if without else' => [
+                ['if' => ['required' => ['a']], 'then' => self::PERSON_OBJECT],
                 ObjectShape::NotObject,
+            ],
+            'if without then' => [
+                ['if' => ['required' => ['a']], 'else' => self::PERSON_OBJECT],
+                ObjectShape::NotObject,
+            ],
+            'if without then and without else' => [
+                ['if' => ['required' => ['a']]],
+                ObjectShape::NotObject,
+            ],
+            'if-then-else with describing else' => [
+                ['if' => ['required' => ['a']], 'then' => self::PERSON_OBJECT, 'else' => self::BARE_VALIDATORS],
+                ObjectShape::ObjectDescribing,
+            ],
+            'if-then-else with unsatisfiable then' => [
+                ['if' => ['required' => ['a']], 'then' => false, 'else' => self::PERSON_OBJECT],
+                ObjectShape::NotObject,
+            ],
+            'if-then-else asserting next to describing sibling keywords' => [
+                [
+                    'if' => ['required' => ['a']],
+                    'then' => self::PERSON_OBJECT,
+                    'else' => self::PERSON_OBJECT,
+                    'properties' => ['b' => ['type' => 'string']],
+                ],
+                ObjectShape::ObjectAsserting,
             ],
 
             // Filter-bearing schemas stay on the filter machinery

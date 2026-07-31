@@ -45,6 +45,8 @@ class GeneratorConfiguration
     /** @var bool */
     protected $allowImplicitNull = false;
     /** @var bool */
+    protected $allowImplicitObjectComposition = false;
+    /** @var bool */
     protected $defaultArraysToEmptyArray = false;
     /** @var bool */
     protected $denyAdditionalProperties = false;
@@ -389,6 +391,27 @@ class GeneratorConfiguration
     public function setImplicitNull(bool $allowImplicitNull): self
     {
         $this->allowImplicitNull = $allowImplicitNull;
+
+        return $this;
+    }
+
+    public function isImplicitObjectCompositionAllowed(): bool
+    {
+        return $this->allowImplicitObjectComposition;
+    }
+
+    /**
+     * By default a composition defining its own generated class (file root, array items, $ref
+     * targets, named object properties) must resolve to a definite object - a composition that
+     * only constrains object shape without ever declaring `type: object` is vacuously satisfied
+     * by non-object input too, so it cannot faithfully back a generated class and raises a
+     * SchemaException. Enabling this treats such a composition as an implicit object instead, at
+     * the cost of silently accepting non-object input into what is rendered as an object-typed
+     * class.
+     */
+    public function setImplicitObjectComposition(bool $allowImplicitObjectComposition): self
+    {
+        $this->allowImplicitObjectComposition = $allowImplicitObjectComposition;
 
         return $this;
     }

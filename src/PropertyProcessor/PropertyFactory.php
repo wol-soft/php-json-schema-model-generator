@@ -34,7 +34,6 @@ use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShape;
 use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\TypeConverter;
-use Throwable;
 
 class PropertyFactory
 {
@@ -189,24 +188,7 @@ class PropertyFactory
         Schema $schema,
         array $json,
     ): ObjectShape {
-        $dictionary = $schema->getSchemaDictionary();
-
-        $refResolver = static function (string $reference) use ($schemaProcessor, $dictionary): array|bool|null {
-            $path = [];
-
-            try {
-                $definition = $dictionary->getDefinition($reference, $schemaProcessor, $path);
-
-                return $definition?->getSource()->navigate(implode('/', $path))->getJson();
-            } catch (Throwable) {
-                // An unresolvable, malformed, or boolean-leaf reference leaves object-ness
-                // undecidable; returning null makes the resolver bail out conservatively to
-                // NotObject, keeping the schema on its current processing path.
-                return null;
-            }
-        };
-
-        return (new ObjectShapeResolver($refResolver))->resolve($json);
+        return ObjectShapeResolver::forDictionary($schemaProcessor, $schema->getSchemaDictionary())->resolve($json);
     }
 
     /**

@@ -1,6 +1,6 @@
 {
   "type": "object",
-  "allOf": [
+  "oneOf": [
     {
       "properties": {
         "name": {
@@ -9,6 +9,16 @@
       },
       "required": [
         "name"
+      ]
+    },
+    {
+      "properties": {
+        "code": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code"
       ]
     }
   ]

@@ -264,6 +264,31 @@ By setting the **denyAdditionalProperties** option each object which doesn't spe
     (new GeneratorConfiguration())
         ->setDenyAdditionalProperties(true);
 
+Implicit object composition
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A composition that defines its own generated class (a schema file's root, an array item, a
+schema ``dependencies`` target, ...) must resolve to a definite object — every value it accepts
+has to be representable by the single generated class. By default a composition that only
+*describes* object shape (bare ``properties``/``required``/... without ever declaring
+``"type": "object"``) is rejected with a **SchemaException** at generation time, since such a
+composition is per strict JSON Schema semantics vacuously satisfied by non-object values too — see
+`Composition-implied objects <combinedSchemas/impliedObjects.html#class-defining-compositions-must-resolve-to-a-definite-object>`__
+for the full explanation and examples.
+
+Setting the **implicitObjectComposition** option treats such a composition as an implicit object
+instead of rejecting it, at the cost of silently accepting non-object input into what is rendered
+as an object-typed class.
+
+.. code-block:: php
+
+    setImplicitObjectComposition(bool $allowImplicitObjectComposition);
+
+.. code-block:: php
+
+    (new GeneratorConfiguration())
+        ->setImplicitObjectComposition(true);
+
 Collect errors vs. early return
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

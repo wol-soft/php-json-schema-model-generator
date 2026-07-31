@@ -1,7 +1,7 @@
 {
-  "type": "object",
-  "allOf": [
+  "oneOf": [
     {
+      "type": "object",
       "properties": {
         "name": {
           "type": "string"
@@ -9,6 +9,12 @@
       },
       "required": [
         "name"
+      ]
+    },
+    {
+      "type": [
+        "object",
+        "string"
       ]
     }
   ]

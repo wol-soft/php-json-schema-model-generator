@@ -200,3 +200,72 @@ base-level ``$ref`` schema files all resolve object-ness the same way:
 
 Each array item is instantiated and validated exactly like an item referencing an explicit
 ``"type": "object"`` definition would be, even though ``person`` never declares its own ``type``.
+
+Class-defining compositions must resolve to a definite object
+-------------------------------------------------------------
+
+A composition that defines its own generated class — a schema file's root, a ``$ref`` target that
+is parsed as a top-level schema in its own right, and (via the re-routing above) any property,
+array item, or schema ``dependencies`` value whose composition is object-asserting or
+object-describing — must resolve to a **definite** object: every value the composition accepts has
+to be representable by the single generated class. This is stricter than the property-level
+detection above, and by default rejects what that detection alone would let through as
+object-describing:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "oneOf": [
+            { "properties": { "name": { "type": "string" } }, "required": ["name"] },
+            { "properties": { "companyName": { "type": "string" } }, "required": ["companyName"] }
+        ]
+    }
+
+Neither branch declares ``"type": "object"``, so the composition as a whole is
+object-describing, not object-asserting — per strict JSON Schema semantics a non-object value
+(e.g. a bare string) is a valid instance of this schema too, but there is no non-object
+representation this generated class could produce for it. Generation is rejected:
+
+.. code-block:: none
+
+    Composition for 'Example' in file '...' does not resolve to a definite object and cannot be
+    represented as a generated class
+
+Declaring ``"type": "object"`` on the schema itself always resolves it to a definite object
+regardless of what its branches declare — the explicit type is the assertion, and the branches
+only narrow further:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "oneOf": [
+            { "properties": { "name": { "type": "string" } }, "required": ["name"] },
+            { "properties": { "companyName": { "type": "string" } }, "required": ["companyName"] }
+        ]
+    }
+
+An ``if``/``then``/``else`` composition resolves to a definite object only when both the ``then``
+and the ``else`` branch do — every value takes exactly one of the two paths, so the whole
+composition is only guaranteed object-ness when both paths are. A missing ``then`` or ``else``
+leaves that path fully unconstrained and is treated the same as a branch that doesn't assert
+object-ness.
+
+.. note::
+
+    This check only ever has something to reject for a composition that is genuinely ambiguous on
+    its own — a schema file's root, or a ``$ref`` target parsed as its own top-level schema. A
+    named property, array item, or schema ``dependencies`` value that reaches the object path via
+    the composition-implied-object detection described above always does so with
+    ``"type": "object"`` already established for it beforehand, so it can never be rejected here
+    regardless of its own branches — it inherits the check as a no-op, not as an additional
+    restriction.
+
+By default an object-describing composition (as opposed to object-asserting, or a composition that
+doesn't resolve to an object at all) is rejected. Enable
+``setImplicitObjectComposition(true)`` (see `Configuring the generator
+<../gettingStarted.html#implicit-object-composition>`__) to treat an object-describing
+class-defining composition as an implicit object instead, at the cost of silently accepting
+non-object input into what is rendered as an object-typed class.

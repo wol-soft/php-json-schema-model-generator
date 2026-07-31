@@ -27,6 +27,8 @@ use PHPModelGenerator\PropertyProcessor\Decorator\Property\DefaultArrayToEmptyAr
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
+use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShape;
+use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
 use PHPModelGenerator\Utils\PropertyAttributeSynthesizer;
@@ -175,6 +177,12 @@ class SchemaProcessor
             $this->generatorConfiguration,
         );
 
+        // Populated here (rather than lazily inside createBaseProperty(), the only other caller)
+        // because checkObjectRepresentability() below needs it ready to resolve $ref chains.
+        // addDefinition() is idempotent, so createBaseProperty()'s own call stays a harmless no-op.
+        $dictionary->setUpDefinitionDictionary($this, $schema);
+        $this->checkObjectRepresentability($jsonSchema, $className, $dictionary);
+
         // Register by content signature (secondary dedup for content-identical inline schemas).
         $this->processedSchema[$schemaSignature] = $schema;
         // Register by canonical file path/URL (primary dedup for external $ref resolutions).
@@ -195,6 +203,69 @@ class SchemaProcessor
         $this->generateClassFile($schema);
 
         return $schema;
+    }
+
+    /**
+     * Every schema reaching this point becomes a generated PHP class, so its value must be
+     * guaranteed to be a JSON object - a composition that only sometimes resolves to an object
+     * (a vacuous branch, a branch typed to permit non-object values, ...) cannot be faithfully
+     * represented by a single generated class. Classifies the pristine schema JSON (before
+     * generateModel() overwrites `type` with the internal 'base' dispatch sentinel, which would
+     * otherwise erase whether the author declared `type: object` themselves) and rejects anything
+     * that does not resolve to a definite object.
+     *
+     * An explicit `type: object` on the schema itself always passes regardless of its composition
+     * branches - ObjectShapeResolver::classify() returns Asserting the moment it sees that,
+     * before even inspecting allOf/anyOf/oneOf/if siblings - so this is a no-op for the ordinary,
+     * non-composed case and only ever rejects the genuinely ambiguous composition-only case.
+     *
+     * A schema that is itself a `$ref` is skipped entirely here, deliberately NOT peeked through:
+     * the real (non-speculative) reference resolution that runs moments later already handles
+     * every non-representable-target case on its own, with better attribution than a peek from
+     * here ever could -
+     * - PropertyFactory::processBaseReference() rejects a resolved-but-non-object target with its
+     *   own dedicated message;
+     * - a `$ref` to a file inside the schema provider's base directory is parsed eagerly via
+     *   processTopLevelSchema(), which reaches this same check again for the target itself,
+     *   correctly attributed to the target file;
+     * - a `$ref` to a file outside the base directory never reaches processTopLevelSchema() at
+     *   all (SchemaDefinitionDictionary::parseExternalFile() falls back to an ExternalSchema
+     *   placeholder for those), so this check could not classify it as a class boundary anyway.
+     * Peeking through the reference speculatively from here was tried and reverted: it triggers
+     * that same real resolution (and, for a same-file reference, the same real registration) as a
+     * side effect of what a caller-facing peek must stay side-effect-free - and when the target
+     * legitimately fails, the peek's own conservative catch (Throwable) swallows the precise,
+     * correctly-attributed error and replaces it with a confusing one blaming the referencing
+     * wrapper instead of the actual broken target.
+     *
+     * @throws SchemaException
+     */
+    private function checkObjectRepresentability(
+        JsonSchema $jsonSchema,
+        string $className,
+        SchemaDefinitionDictionary $dictionary,
+    ): void {
+        if (array_key_exists('$ref', $jsonSchema->getJson())) {
+            return;
+        }
+
+        $shape = ObjectShapeResolver::forDictionary($this, $dictionary)->resolve($jsonSchema->getJson());
+
+        $acceptedShapes = $this->generatorConfiguration->isImplicitObjectCompositionAllowed()
+            ? [ObjectShape::ObjectAsserting, ObjectShape::ObjectDescribing]
+            : [ObjectShape::ObjectAsserting];
+
+        if (!in_array($shape, $acceptedShapes, true)) {
+            throw new SchemaException(
+                sprintf(
+                    "Composition for '%s' in file '%s' does not resolve to a definite object and"
+                        . ' cannot be represented as a generated class',
+                    $className,
+                    $jsonSchema->getFile(),
+                ),
+                $jsonSchema,
+            );
+        }
     }
 
     /**

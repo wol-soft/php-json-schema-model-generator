@@ -968,37 +968,22 @@ class Issue72Test extends AbstractIssueTestCase
      * A ROOT-LEVEL oneOf (the composition IS the file's own class-defining schema, not one
      * nested inside a named property) with a branch that has neither a type nor a nested schema -
      * the canonical "matches any value" shape, expressed here as a literal `true` schema element -
-     * must not crash generation with "No nested schema for composed property". The vacuous branch
-     * contributes no properties to the class and matches unconditionally.
-     *
-     * The vacuous branch is not skipped/deduplicated during validation: it matches every value,
-     * including one that also satisfies the object branch, so such a value is rejected for
-     * matching two composition elements instead of one - the same still-open gap PR #74
-     * documented for the nested-property case (see class docblock), reproduced here at root level.
+     * used to crash generation with "No nested schema for composed property", then (once that was
+     * fixed) silently generated a class anyway, accepting the vacuous branch as an implicit
+     * object. Neither is correct: a `true` branch matches non-object values too, so the class this
+     * generator would produce could never be instantiated for every value the schema itself
+     * accepts. Generation must reject this schema instead of producing a misleadingly narrow (or
+     * outright wrong) class.
      */
-    public function testRootLevelOneOfWithVacuousBranchAcceptsOnlyValuesNotMatchingTheOtherBranch(): void
+    public function testRootLevelOneOfWithVacuousBranchIsRejectedAsNonRepresentable(): void
     {
-        $className = $this->generateClassFromFile('RootLevelOneOfWithVacuousBranch.json');
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Composition for '.*' in file '.*\\.json' does not resolve to a definite object and cannot be"
+                . ' represented as a generated class/',
+        );
 
-        // Does not satisfy the object branch (missing required 'name'), so it matches only the
-        // vacuous branch - exactly one match, valid.
-        $object = new $className([]);
-        $this->assertNull($object->getName());
-
-        // Matches the object branch AND the vacuous branch (which matches unconditionally) -
-        // two matches violates oneOf's "exactly one" requirement.
-        try {
-            new $className(['name' => 'Hannes']);
-            $this->fail('Expected a OneOfException for the value matching both branches');
-        } catch (OneOfException $exception) {
-            $this->assertSame(
-                <<<'ERROR'
-                Invalid value for '<class>' declined by composition constraint
-                  Requires to match one composition element but matched 2 elements
-                ERROR,
-                $this->normalizeCompositionClassNames($exception->getMessage()),
-            );
-        }
+        $this->generateClassFromFile('RootLevelOneOfWithVacuousBranch.json');
     }
 
     /**

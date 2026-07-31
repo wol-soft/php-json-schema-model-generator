@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace PHPModelGenerator\PropertyProcessor\ObjectShape;
 
 use Closure;
+use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
+use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use Throwable;
 
 /**
  * Statically classifies a raw decoded schema as ObjectAsserting, ObjectDescribing, or
@@ -43,12 +46,12 @@ class ObjectShapeResolver
     ];
 
     /**
-     * Composition keywords whose branches participate in shape aggregation. `not` and
-     * `if`/`then`/`else` are deliberately excluded and treated as neutral: `not` never asserts
-     * a shape for the accepted values, and a conditional only asserts object-ness when both
-     * the then and the else branch do AND the condition covers all inputs - classifying that
-     * correctly is not required for any current consumer, so the conservative neutral fallback
-     * applies.
+     * Composition keywords whose branches participate in shape aggregation via uniform per-branch
+     * iteration. `not` is deliberately excluded: its subschema describes rejected values, not
+     * accepted ones, so it structurally cannot assert a shape for the values a schema accepts.
+     * `if`/`then`/`else` is also excluded from this array - not because it is unsupported, but
+     * because it is a single triple rather than an array of branch schemas, so it does not fit
+     * this array's uniform iteration and is classified separately by classifyIfThenElse().
      */
     private const array COMPOSITION_KEYWORDS = ['allOf', 'anyOf', 'oneOf'];
 
@@ -63,6 +66,35 @@ class ObjectShapeResolver
      */
     public function __construct(private readonly ?Closure $refResolver = null)
     {
+    }
+
+    /**
+     * Build a resolver whose `$refResolver` peeks through `$ref` chains via the given schema
+     * definition dictionary - a raw, un-processed peek, so no property is created for the target
+     * and the classification stays side-effect-free for the common same-file reference case
+     * (cross-file references may parse the external file, which the order-independent
+     * external-schema machinery would parse moments later anyway).
+     */
+    public static function forDictionary(
+        SchemaProcessor $schemaProcessor,
+        SchemaDefinitionDictionary $dictionary,
+    ): self {
+        $refResolver = static function (string $reference) use ($schemaProcessor, $dictionary): array|bool|null {
+            $path = [];
+
+            try {
+                $definition = $dictionary->getDefinition($reference, $schemaProcessor, $path);
+
+                return $definition?->getSource()->navigate(implode('/', $path))->getJson();
+            } catch (Throwable) {
+                // An unresolvable, malformed, or boolean-leaf reference leaves object-ness
+                // undecidable; returning null makes the resolver bail out conservatively to
+                // NotObject, keeping the schema on its current processing path.
+                return null;
+            }
+        };
+
+        return new self($refResolver);
     }
 
     public function resolve(array|bool $json): ObjectShape
@@ -125,6 +157,10 @@ class ObjectShapeResolver
                 : $this->combineDisjunctive($branchShapes);
         }
 
+        if (isset($json['if'])) {
+            $componentShapes[] = $this->classifyIfThenElse($json, $visitedReferences);
+        }
+
         if (array_intersect(array_keys($json), self::OBJECT_DESCRIBING_KEYWORDS) !== []) {
             $componentShapes[] = BranchObjectShape::Describing;
         }
@@ -132,6 +168,29 @@ class ObjectShapeResolver
         // All constraints of a single schema object apply simultaneously, so multiple
         // components (e.g. describing keywords next to an allOf) combine conjunctively.
         return $componentShapes === [] ? BranchObjectShape::Neutral : $this->combineConjunctive($componentShapes);
+    }
+
+    /**
+     * Classify an if/then/else conditional. Every instance takes exactly one of two paths -
+     * satisfies `if` (then `then` applies) or doesn't (then `else` applies) - so the aggregate
+     * only asserts object-ness when BOTH paths do, exactly like combineDisjunctive()'s existing
+     * "every branch must assert" rule for anyOf/oneOf applied to these two branches. A missing
+     * `then` or `else` imposes no constraint on the instances routed through it (same as a
+     * boolean `true` schema), so it classifies as Neutral, which - via combineDisjunctive -
+     * degrades the aggregate below Asserting rather than blocking it outright: `if` without full
+     * then/else coverage does not guarantee object-ness, but it also does not contradict a
+     * sibling component that does.
+     */
+    private function classifyIfThenElse(array $json, array $visitedReferences): BranchObjectShape
+    {
+        $thenShape = isset($json['then'])
+            ? $this->classify($json['then'], $visitedReferences)
+            : BranchObjectShape::Neutral;
+        $elseShape = isset($json['else'])
+            ? $this->classify($json['else'], $visitedReferences)
+            : BranchObjectShape::Neutral;
+
+        return $this->combineDisjunctive([$thenShape, $elseShape]);
     }
 
     private function classifyReference(array $json, array $visitedReferences): BranchObjectShape
