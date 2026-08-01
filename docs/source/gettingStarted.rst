@@ -276,9 +276,8 @@ composition is per strict JSON Schema semantics vacuously satisfied by non-objec
 `Composition-implied objects <combinedSchemas/impliedObjects.html#class-defining-compositions-must-resolve-to-a-definite-object>`__
 for the full explanation and examples.
 
-Setting the **implicitObjectComposition** option treats such a composition as an implicit object
-instead of rejecting it, at the cost of silently accepting non-object input into what is rendered
-as an object-typed class.
+Setting the **implicitObjectComposition** option treats such a composition exactly as if it had
+declared ``"type": "object"`` itself, instead of rejecting it.
 
 .. code-block:: php
 

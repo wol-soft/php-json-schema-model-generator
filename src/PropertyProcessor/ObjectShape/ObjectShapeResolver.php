@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\PropertyProcessor\ObjectShape;
 
 use Closure;
+use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use Throwable;
@@ -23,27 +24,18 @@ use Throwable;
 class ObjectShapeResolver
 {
     /**
-     * Keywords that constrain object values. Their presence without a `type` declaration makes
-     * a schema ObjectDescribing - constraining objects while remaining vacuously satisfied by
-     * non-object values.
-     *
-     * TODO: derive this list from the Draft instead of hardcoding it, the same way
-     * warnIfVacuousBranch() derives its "is this a real validation keyword" check from
-     * Draft::getTypesForKeyword(). Not currently possible: Draft only exposes a per-keyword
-     * lookup (which types register a given keyword), not the reverse (which keywords a given
-     * type registers), so there is no way to enumerate "every keyword registered on the object
-     * Type" without first knowing the full keyword set to probe.
+     * 'dependencies' constrains object values (a dependency on a property forces its target to
+     * exist) but, unlike every other keyword below, is never registered on the Draft's object
+     * Type via addValidator(): PropertiesValidatorFactory and RequiredValidatorFactory each read
+     * $json['dependencies'][$propertyName] as a side channel instead (see
+     * PropertyDependencyTrait), so it never appears in Type::getModifiers() and must be listed
+     * explicitly - the same reason AbstractCompositionValidatorFactory::
+     * MODIFIER_ONLY_VALIDATION_KEYWORDS lists keywords addModifier() hides from the registry.
      */
-    private const array OBJECT_DESCRIBING_KEYWORDS = [
-        'properties',
-        'required',
-        'patternProperties',
-        'additionalProperties',
-        'propertyNames',
-        'minProperties',
-        'maxProperties',
-        'dependencies',
-    ];
+    private const array UNREGISTERED_OBJECT_DESCRIBING_KEYWORDS = ['dependencies'];
+
+    /** @var string[] every keyword whose presence (without a `type` declaration) makes a schema ObjectDescribing */
+    private readonly array $objectDescribingKeywords;
 
     /**
      * Composition keywords whose branches participate in shape aggregation via uniform per-branch
@@ -56,6 +48,10 @@ class ObjectShapeResolver
     private const array COMPOSITION_KEYWORDS = ['allOf', 'anyOf', 'oneOf'];
 
     /**
+     * @param Draft                                    $draft       Used to derive the set of
+     *                                                               object-describing keywords
+     *                                                               from the object Type's own
+     *                                                               registered validators.
      * @param Closure(string): (array|bool|null)|null $refResolver Resolves a `$ref` string to
      *                                                             the raw decoded JSON of its
      *                                                             target, or null when the
@@ -64,8 +60,15 @@ class ObjectShapeResolver
      *                                                             `$ref`-bearing schema
      *                                                             classifies as NotObject.
      */
-    public function __construct(private readonly ?Closure $refResolver = null)
+    public function __construct(Draft $draft, private readonly ?Closure $refResolver = null)
     {
+        $objectType = $draft->hasType('object') ? $draft->getTypes()['object'] : null;
+        $registeredKeywords = $objectType !== null ? array_keys($objectType->getModifiers()) : [];
+
+        $this->objectDescribingKeywords = array_merge(
+            array_values(array_filter($registeredKeywords, 'is_string')),
+            self::UNREGISTERED_OBJECT_DESCRIBING_KEYWORDS,
+        );
     }
 
     /**
@@ -78,6 +81,7 @@ class ObjectShapeResolver
     public static function forDictionary(
         SchemaProcessor $schemaProcessor,
         SchemaDefinitionDictionary $dictionary,
+        Draft $draft,
     ): self {
         $refResolver = static function (string $reference) use ($schemaProcessor, $dictionary): array|bool|null {
             $path = [];
@@ -94,7 +98,7 @@ class ObjectShapeResolver
             }
         };
 
-        return new self($refResolver);
+        return new self($draft, $refResolver);
     }
 
     public function resolve(array|bool $json): ObjectShape
@@ -161,7 +165,7 @@ class ObjectShapeResolver
             $componentShapes[] = $this->classifyIfThenElse($json, $visitedReferences);
         }
 
-        if (array_intersect(array_keys($json), self::OBJECT_DESCRIBING_KEYWORDS) !== []) {
+        if (array_intersect(array_keys($json), $this->objectDescribingKeywords) !== []) {
             $componentShapes[] = BranchObjectShape::Describing;
         }
 

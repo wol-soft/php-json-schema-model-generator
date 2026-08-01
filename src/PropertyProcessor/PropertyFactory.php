@@ -104,7 +104,11 @@ class PropertyFactory
             !isset($json['type'])
             && !isset($json['filter'])
             && isset($json['allOf'])
-            && $this->resolveObjectShape($schemaProcessor, $schema, $json) === ObjectShape::ObjectAsserting
+            && ObjectShapeResolver::forDictionary(
+                $schemaProcessor,
+                $schema->getSchemaDictionary(),
+                $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($propertySchema),
+            )->resolve($json) === ObjectShape::ObjectAsserting
         ) {
             $objectJson = $json;
             $objectJson['type'] = 'object';
@@ -130,7 +134,11 @@ class PropertyFactory
             !isset($json['type'])
             && !isset($json['filter'])
             && !array_intersect(array_keys($json), ['allOf', 'anyOf', 'oneOf', 'if', 'not', '$ref'])
-            && $this->resolveObjectShape($schemaProcessor, $schema, $json) === ObjectShape::ObjectDescribing
+            && ObjectShapeResolver::forDictionary(
+                $schemaProcessor,
+                $schema->getSchemaDictionary(),
+                $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($propertySchema),
+            )->resolve($json) === ObjectShape::ObjectDescribing
         ) {
             $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
                 "Property '{property}' carries object-constraining keywords (eg. 'properties',"
@@ -174,21 +182,6 @@ class PropertyFactory
                 $isArrayItem,
             ),
         };
-    }
-
-    /**
-     * Statically classify the object shape of the given raw schema, peeking through `$ref` chains
-     * via the schema definition dictionary. Only a raw, un-processed peek happens here - no
-     * property is created for the target - so the classification stays side-effect-free for the
-     * common same-file reference case (cross-file references may parse the external file, which the
-     * order-independent external-schema machinery would parse moments later anyway).
-     */
-    private function resolveObjectShape(
-        SchemaProcessor $schemaProcessor,
-        Schema $schema,
-        array $json,
-    ): ObjectShape {
-        return ObjectShapeResolver::forDictionary($schemaProcessor, $schema->getSchemaDictionary())->resolve($json);
     }
 
     /**

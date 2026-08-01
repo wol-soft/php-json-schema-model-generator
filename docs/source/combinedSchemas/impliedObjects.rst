@@ -267,5 +267,5 @@ By default an object-describing composition (as opposed to object-asserting, or 
 doesn't resolve to an object at all) is rejected. Enable
 ``setImplicitObjectComposition(true)`` (see `Configuring the generator
 <../gettingStarted.html#implicit-object-composition>`__) to treat an object-describing
-class-defining composition as an implicit object instead, at the cost of silently accepting
-non-object input into what is rendered as an object-typed class.
+class-defining composition exactly as if it had declared ``"type": "object"`` itself, instead of
+rejecting it.

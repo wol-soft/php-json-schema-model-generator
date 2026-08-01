@@ -405,9 +405,8 @@ class GeneratorConfiguration
      * targets, named object properties) must resolve to a definite object - a composition that
      * only constrains object shape without ever declaring `type: object` is vacuously satisfied
      * by non-object input too, so it cannot faithfully back a generated class and raises a
-     * SchemaException. Enabling this treats such a composition as an implicit object instead, at
-     * the cost of silently accepting non-object input into what is rendered as an object-typed
-     * class.
+     * SchemaException. Enabling this treats such a composition exactly as if it had declared
+     * `type: object` itself.
      */
     public function setImplicitObjectComposition(bool $allowImplicitObjectComposition): self
     {

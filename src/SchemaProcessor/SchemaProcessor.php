@@ -208,35 +208,16 @@ class SchemaProcessor
     /**
      * Every schema reaching this point becomes a generated PHP class, so its value must be
      * guaranteed to be a JSON object - a composition that only sometimes resolves to an object
-     * (a vacuous branch, a branch typed to permit non-object values, ...) cannot be faithfully
-     * represented by a single generated class. Classifies the pristine schema JSON (before
-     * generateModel() overwrites `type` with the internal 'base' dispatch sentinel, which would
-     * otherwise erase whether the author declared `type: object` themselves) and rejects anything
-     * that does not resolve to a definite object.
+     * cannot be faithfully represented by a single generated class. Classifies the pristine
+     * schema JSON, before generateModel() overwrites `type` with the internal 'base' dispatch
+     * sentinel and thereby erases whether the author declared `type: object` themselves.
      *
-     * An explicit `type: object` on the schema itself always passes regardless of its composition
-     * branches - ObjectShapeResolver::classify() returns Asserting the moment it sees that,
-     * before even inspecting allOf/anyOf/oneOf/if siblings - so this is a no-op for the ordinary,
-     * non-composed case and only ever rejects the genuinely ambiguous composition-only case.
-     *
-     * A schema that is itself a `$ref` is skipped entirely here, deliberately NOT peeked through:
-     * the real (non-speculative) reference resolution that runs moments later already handles
-     * every non-representable-target case on its own, with better attribution than a peek from
-     * here ever could -
-     * - PropertyFactory::processBaseReference() rejects a resolved-but-non-object target with its
-     *   own dedicated message;
-     * - a `$ref` to a file inside the schema provider's base directory is parsed eagerly via
-     *   processTopLevelSchema(), which reaches this same check again for the target itself,
-     *   correctly attributed to the target file;
-     * - a `$ref` to a file outside the base directory never reaches processTopLevelSchema() at
-     *   all (SchemaDefinitionDictionary::parseExternalFile() falls back to an ExternalSchema
-     *   placeholder for those), so this check could not classify it as a class boundary anyway.
-     * Peeking through the reference speculatively from here was tried and reverted: it triggers
-     * that same real resolution (and, for a same-file reference, the same real registration) as a
-     * side effect of what a caller-facing peek must stay side-effect-free - and when the target
-     * legitimately fails, the peek's own conservative catch (Throwable) swallows the precise,
-     * correctly-attributed error and replaces it with a confusing one blaming the referencing
-     * wrapper instead of the actual broken target.
+     * A `$ref` schema is skipped here on purpose: the real reference resolution that runs moments
+     * later already handles every non-representable-target case with better attribution than a
+     * speculative peek from here could - and peeking was tried and reverted, since it triggers
+     * that same real (non-speculative) resolution as a side effect, and a legitimate failure from
+     * it gets swallowed by the peek's own conservative error handling, replacing a precise,
+     * correctly-attributed error with a confusing one blaming the referencing wrapper instead.
      *
      * @throws SchemaException
      */
@@ -249,7 +230,11 @@ class SchemaProcessor
             return;
         }
 
-        $shape = ObjectShapeResolver::forDictionary($this, $dictionary)->resolve($jsonSchema->getJson());
+        $shape = ObjectShapeResolver::forDictionary(
+            $this,
+            $dictionary,
+            $this->generatorConfiguration->getBuiltDraft($jsonSchema),
+        )->resolve($jsonSchema->getJson());
 
         $acceptedShapes = $this->generatorConfiguration->isImplicitObjectCompositionAllowed()
             ? [ObjectShape::ObjectAsserting, ObjectShape::ObjectDescribing]

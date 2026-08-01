@@ -40,12 +40,24 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
         $this->assertSame('Hannes', $object->getName());
     }
 
-    public function testExplicitObjectTypeAtRootAcceptsDescribingBranchesRegardlessOfConfig(): void
-    {
-        $className = $this->generateClassFromFile('RootExplicitObjectWithDescribingOneOf.json');
+    #[DataProvider('explicitObjectTypeConfigDataProvider')]
+    public function testExplicitObjectTypeAtRootAcceptsDescribingBranchesRegardlessOfConfig(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('RootExplicitObjectWithDescribingOneOf.json', $configuration);
 
         $object = new $className(['code' => 42]);
         $this->assertSame(42, $object->getCode());
+    }
+
+    public static function explicitObjectTypeConfigDataProvider(): array
+    {
+        return [
+            'default config' => [new GeneratorConfiguration()],
+            'implicit object composition allowed' => [
+                (new GeneratorConfiguration())->setImplicitObjectComposition(true),
+            ],
+        ];
     }
 
     #[DataProvider('multiTypeBranchConfigDataProvider')]

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\PropertyProcessor;
 
+use PHPModelGenerator\Draft\Draft;
+use PHPModelGenerator\Draft\Draft_07;
 use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShape;
 use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -11,6 +13,8 @@ use PHPUnit\Framework\TestCase;
 
 class ObjectShapeResolverTest extends TestCase
 {
+    private static ?Draft $draft = null;
+
     private const array PERSON_OBJECT = [
         'type' => 'object',
         'properties' => [
@@ -29,7 +33,12 @@ class ObjectShapeResolverTest extends TestCase
     #[DataProvider('objectShapeDataProvider')]
     public function testResolve(array|bool $json, ObjectShape $expectedShape): void
     {
-        $this->assertSame($expectedShape, (new ObjectShapeResolver())->resolve($json));
+        $this->assertSame($expectedShape, (new ObjectShapeResolver(self::draft()))->resolve($json));
+    }
+
+    private static function draft(): Draft
+    {
+        return self::$draft ??= (new Draft_07())->getDefinition()->build();
     }
 
     public static function objectShapeDataProvider(): array
@@ -193,6 +202,7 @@ class ObjectShapeResolverTest extends TestCase
         ObjectShape $expectedShape,
     ): void {
         $resolver = new ObjectShapeResolver(
+            self::draft(),
             static fn(string $reference): array|bool|null => $definitions[$reference] ?? null,
         );
 
