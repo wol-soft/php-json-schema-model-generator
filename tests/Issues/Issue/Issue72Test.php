@@ -987,13 +987,51 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
-     * PropertyFactory::resolveObjectShape() peeks through $ref chains to decide whether an allOf
-     * without its own type re-routes through the object path (see the reroute at the top of
-     * createProperty()). The peek's $ref resolver must not let an unresolvable reference escape
-     * as an uncaught Throwable - the peek is a speculative, side-effect-free classification, not
-     * the real reference resolution, so it must fail conservatively (blocking the re-route) and
-     * leave the genuinely broken reference to be reported by the real $ref resolution that runs
-     * afterward once the schema falls through to ordinary composition processing.
+     * The vacuous branch above is rejected before generation ever reaches
+     * SchemaProcessor::transferComposedPropertiesToSchema() - checkObjectRepresentability() sees
+     * the ambiguous root composition first. An explicit `"type": "object"` on the root schema
+     * short-circuits that check to ObjectAsserting regardless of what its branches declare (the
+     * explicit type is the assertion), so a genuinely vacuous branch - a literal `true` composition
+     * element, which inheritPropertyType() deliberately never injects a type into - still reaches
+     * transferComposedPropertiesToSchema()'s "neither a nested schema nor an explicit type"
+     * handling. It contributes no properties and does not throw, but (like the untyped-root case
+     * above) is not deduplicated during validation: a value matching the object branch also
+     * vacuously matches the `true` branch, so it is rejected for matching two composition
+     * elements instead of one.
+     */
+    public function testRootLevelOneOfWithVacuousBranchAndExplicitTypeAcceptsOnlyValuesNotMatchingTheOtherBranch(): void
+    {
+        $className = $this->generateClassFromFile('RootLevelOneOfWithVacuousBranchAndExplicitType.json');
+
+        // Does not satisfy the object branch (missing required 'name'), so it matches only the
+        // vacuous branch - exactly one match, valid.
+        $object = new $className([]);
+        $this->assertNull($object->getName());
+
+        // Matches the object branch AND the vacuous branch (which matches unconditionally) -
+        // two matches violates oneOf's "exactly one" requirement.
+        try {
+            new $className(['name' => 'Hannes']);
+            $this->fail('Expected a OneOfException for the value matching both branches');
+        } catch (OneOfException $exception) {
+            $this->assertSame(
+                <<<'ERROR'
+                Invalid value for '<class>' declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
+                ERROR,
+                $this->normalizeCompositionClassNames($exception->getMessage()),
+            );
+        }
+    }
+
+    /**
+     * PropertyFactory::create()'s allOf-without-its-own-type reroute peeks through $ref chains
+     * (via ObjectShapeResolver) to decide whether it re-routes through the object path. The
+     * peek's $ref resolver must not let an unresolvable reference escape as an uncaught
+     * Throwable - the peek is a speculative, side-effect-free classification, not the real
+     * reference resolution, so it must fail conservatively (blocking the re-route) and leave the
+     * genuinely broken reference to be reported by the real $ref resolution that runs afterward
+     * once the schema falls through to ordinary composition processing.
      */
     public function testAllOfWithUnresolvableReferenceDuringObjectShapeClassificationStillThrowsCleanly(): void
     {
