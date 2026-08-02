@@ -91,73 +91,81 @@ class PropertyFactory
             );
         }
 
-        // Re-route a composition-only schema that the composition itself guarantees to be an
-        // object (e.g. an allOf of object branches, possibly multiple $ref levels deep) through
-        // the object path, so it becomes a genuine nested class with instantiation and instanceof
-        // validation instead of a bare composed validator. Gated on allOf as the outer keyword:
-        // anyOf/oneOf deliberately keep their per-matched-branch runtime value identity and are
-        // fixed instead at the branch level (a branch that is itself an object-asserting
-        // composition re-routes here when it is created). Injecting an explicit type: object makes
-        // the implied object-ness explicit so the existing object path (which processSchema forces
-        // to a type: base nested class handling the composition internally) applies unchanged.
-        if (
-            !isset($json['type'])
-            && !isset($json['filter'])
-            && isset($json['allOf'])
-            && ObjectShapeResolver::forDictionary(
-                $schemaProcessor,
-                $schema->getSchemaDictionary(),
-                $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($propertySchema),
-            )->resolve($json) === ObjectShape::ObjectAsserting
-        ) {
-            $objectJson = $json;
-            $objectJson['type'] = 'object';
-
-            return $this->createObjectProperty(
+        // Both re-routing checks below only apply to an untyped, non-filter schema, and both need
+        // an ObjectShapeResolver to decide whether they apply. Testing the shared precondition
+        // once here - rather than repeating it in each `if` - lets the resolver be built lazily,
+        // at most once, only on the branch (if either) whose own cheap keyword check passes,
+        // instead of unconditionally on every property.
+        if (!isset($json['type']) && !isset($json['filter'])) {
+            $objectShapeResolver = null;
+            $getObjectShapeResolver = function () use (
+                &$objectShapeResolver,
                 $schemaProcessor,
                 $schema,
-                $propertyName,
-                $propertySchema->withJson($objectJson),
-                $required,
-                $isArrayItem,
-            );
-        }
+                $propertySchema,
+            ): ObjectShapeResolver {
+                return $objectShapeResolver ??= ObjectShapeResolver::forDictionary(
+                    $schemaProcessor,
+                    $schema->getSchemaDictionary(),
+                    $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($propertySchema),
+                );
+            };
 
-        // A bare object-validator schema (object-constraining keywords, no type and no composition)
-        // is object-describing: it constrains object values but is vacuously satisfied by
-        // non-objects per strict spec. Give it a guarded representation class - instantiated for
-        // object values, with non-objects passing through unchanged - so its constraints actually
-        // run (they are registered on the object Type and would otherwise never execute on an
-        // untyped property). No asserting object type check is added, preserving the strict-spec
-        // pass-through of non-object values (this is why it is NOT the ObjectAsserting path above).
-        if (
-            !isset($json['type'])
-            && !isset($json['filter'])
-            && !array_intersect(array_keys($json), ['allOf', 'anyOf', 'oneOf', 'if', 'not', '$ref'])
-            && ObjectShapeResolver::forDictionary(
-                $schemaProcessor,
-                $schema->getSchemaDictionary(),
-                $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($propertySchema),
-            )->resolve($json) === ObjectShape::ObjectDescribing
-        ) {
-            $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
-                "Property '{property}' carries object-constraining keywords (eg. 'properties',"
-                    . " 'required') without a 'type' declaration and does not constrain non-object values",
-                ['property' => $propertyName],
-            );
+            // Re-route a composition-only schema that the composition itself guarantees to be an
+            // object (e.g. an allOf of object branches, possibly multiple $ref levels deep)
+            // through the object path, so it becomes a genuine nested class with instantiation and
+            // instanceof validation instead of a bare composed validator. Gated on allOf as the
+            // outer keyword: anyOf/oneOf deliberately keep their per-matched-branch runtime value
+            // identity and are fixed instead at the branch level (a branch that is itself an
+            // object-asserting composition re-routes here when it is created). Injecting an
+            // explicit type: object makes the implied object-ness explicit so the existing object
+            // path (which processSchema forces to a type: base nested class handling the
+            // composition internally) applies unchanged.
+            if (isset($json['allOf']) && $getObjectShapeResolver()->resolve($json) === ObjectShape::ObjectAsserting) {
+                $objectJson = $json;
+                $objectJson['type'] = 'object';
 
-            $objectJson = $json;
-            $objectJson['type'] = 'object';
+                return $this->createObjectProperty(
+                    $schemaProcessor,
+                    $schema,
+                    $propertyName,
+                    $propertySchema->withJson($objectJson),
+                    $required,
+                    $isArrayItem,
+                );
+            }
 
-            return $this->createObjectProperty(
-                $schemaProcessor,
-                $schema,
-                $propertyName,
-                $propertySchema->withJson($objectJson),
-                $required,
-                $isArrayItem,
-                guarded: true,
-            );
+            // A bare object-validator schema (object-constraining keywords, no type and no
+            // composition) is object-describing: it constrains object values but is vacuously
+            // satisfied by non-objects per strict spec. Give it a guarded representation class -
+            // instantiated for object values, with non-objects passing through unchanged - so its
+            // constraints actually run (they are registered on the object Type and would otherwise
+            // never execute on an untyped property). No asserting object type check is added,
+            // preserving the strict-spec pass-through of non-object values (this is why it is NOT
+            // the ObjectAsserting path above).
+            if (
+                !array_intersect(array_keys($json), ['allOf', 'anyOf', 'oneOf', 'if', 'not', '$ref'])
+                && $getObjectShapeResolver()->resolve($json) === ObjectShape::ObjectDescribing
+            ) {
+                $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                    "Property '{property}' carries object-constraining keywords (eg. 'properties',"
+                        . " 'required') without a 'type' declaration and does not constrain non-object values",
+                    ['property' => $propertyName],
+                );
+
+                $objectJson = $json;
+                $objectJson['type'] = 'object';
+
+                return $this->createObjectProperty(
+                    $schemaProcessor,
+                    $schema,
+                    $propertyName,
+                    $propertySchema->withJson($objectJson),
+                    $required,
+                    $isArrayItem,
+                    guarded: true,
+                );
+            }
         }
 
         $this->checkType($resolvedType, $schema);

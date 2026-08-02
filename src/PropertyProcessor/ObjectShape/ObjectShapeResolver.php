@@ -20,6 +20,14 @@ use Throwable;
  * with certainty (unresolvable or cyclic references, mixed-type compositions, schemas owned by
  * other subsystems such as transforming filters), the resolver falls back to NotObject, which
  * keeps the affected schema on its current processing path.
+ *
+ * The set of object-describing keywords is derived from the injected Draft's own object Type
+ * registrations (see the constructor), so a custom Draft that adds, removes, or renames
+ * object-constraining keywords via addValidator()/addModifier() is picked up automatically -
+ * with one documented exception: UNREGISTERED_OBJECT_DESCRIBING_KEYWORDS hardcodes 'dependencies'
+ * for Draft 7, since that keyword is consumed through a side channel with no Draft-level
+ * registration to derive it from. See that constant's docblock for what a custom Draft would
+ * need to do differently.
  */
 class ObjectShapeResolver
 {
@@ -31,6 +39,16 @@ class ObjectShapeResolver
      * PropertyDependencyTrait), so it never appears in Type::getModifiers() and must be listed
      * explicitly - the same reason AbstractCompositionValidatorFactory::
      * MODIFIER_ONLY_VALIDATION_KEYWORDS lists keywords addModifier() hides from the registry.
+     *
+     * This list is Draft-7-specific, unlike the rest of $objectDescribingKeywords, which is
+     * derived from the injected Draft and therefore adapts automatically to a custom Draft. A
+     * Draft that splits 'dependencies' into 'dependentSchemas'/'dependentRequired' (as later
+     * JSON Schema drafts do) - or that reads some other keyword through an equivalent side
+     * channel invisible to Type::getModifiers() - would need its own entry here; this constant
+     * is not derived from the Draft because PropertyDependencyTrait's side-channel reads have no
+     * Draft-level registration to derive it from (see the class docblock on ObjectShapeResolver
+     * for why a general mechanism was not built for this: no second Draft exists in this repo to
+     * generalize against).
      */
     private const array UNREGISTERED_OBJECT_DESCRIBING_KEYWORDS = ['dependencies'];
 
@@ -93,7 +111,11 @@ class ObjectShapeResolver
             } catch (Throwable) {
                 // An unresolvable, malformed, or boolean-leaf reference leaves object-ness
                 // undecidable; returning null makes the resolver bail out conservatively to
-                // NotObject, keeping the schema on its current processing path.
+                // NotObject, keeping the schema on its current processing path. A boolean-valued
+                // definition is deliberately included: classifying it faithfully (true as
+                // Neutral) would let generation proceed past this check and then fail deeper in
+                // the pipeline with an uncaught TypeError, because JsonSchema cannot carry a
+                // boolean. Bailing out here keeps the failure a clean SchemaException.
                 return null;
             }
         };
