@@ -24,6 +24,7 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
@@ -458,6 +459,15 @@ class PropertyFactory
                 return $property;
             }
         } catch (Exception $exception) {
+            // A SchemaException raised while eagerly generating the referenced schema's own class
+            // (see SchemaProcessor::processTopLevelSchema()) already names the referenced file and
+            // the real cause - propagate it unchanged instead of masking it with a generic
+            // "reference is broken" message. Exceptions from actually failing to resolve/read/parse
+            // the reference (missing file, malformed JSON, ...) are not marked and stay wrapped.
+            if ($exception instanceof SchemaException && $exception->isGenericWrappingSuppressed()) {
+                throw $exception;
+            }
+
             throw new SchemaException(
                 "Unresolved Reference $reference in file {$propertySchema->getFile()}",
                 null,
@@ -497,35 +507,64 @@ class PropertyFactory
             $isArrayItem,
         );
 
-        if (!$property->getNestedSchema()) {
-            throw new SchemaException(
-                sprintf(
-                    'A referenced schema on base level must provide an object definition for property %s in file %s',
-                    $propertyName,
-                    $propertySchema->getFile(),
-                ),
-                $propertySchema,
-            );
+        if ($property->getNestedSchema()) {
+            foreach ($property->getNestedSchema()->getProperties() as $propertiesOfReferencedObject) {
+                $schema->addProperty($propertiesOfReferencedObject);
+            }
+
+            // A referenced schema that is itself a composition (e.g. an allOf of further $refs, as
+            // built by the object-shape re-routing in createObjectProperty()) enforces
+            // requiredness and cross-branch constraints via its OWN base validator, not via
+            // validators attached to the individual transferred properties - those are
+            // merged/redirected and carry no validation of their own (object merging is owned
+            // elsewhere; see transferComposedPropertiesToSchema(), which wires the same validator
+            // onto its schema when the composition sits directly on this class instead of behind a
+            // $ref). Without transferring it here too, a base-level $ref to such a schema would
+            // silently drop whatever constraint only the composition validator enforces.
+            foreach ($property->getNestedSchema()->getBaseValidators() as $baseValidator) {
+                $schema->addBaseValidator($baseValidator);
+            }
+
+            return $property;
         }
 
-        foreach ($property->getNestedSchema()->getProperties() as $propertiesOfReferencedObject) {
-            $schema->addProperty($propertiesOfReferencedObject);
+        // A referenced schema that is an anyOf/oneOf composition (or a non-object-asserting
+        // allOf) deliberately has NO single nested schema, per PropertyInterface::getNestedSchema():
+        // its object values are represented by branch-owned classes reachable through $property's
+        // own composed validator instead. Transfer that composition to $schema exactly as
+        // createBaseProperty() does when the same composition sits directly on this class instead
+        // of behind a $ref - do NOT special-case this to the allOf shape above; the mechanism is
+        // identical regardless of which composition keyword produced the validator.
+        if ($this->hasComposedPropertyValidator($property)) {
+            $schemaProcessor->transferComposedPropertiesToSchema($property, $schema);
+
+            return $property;
         }
 
-        // A referenced schema that is itself a composition (e.g. an allOf of further $refs, as
-        // built by the object-shape re-routing in createObjectProperty()) enforces requiredness
-        // and cross-branch constraints via its OWN base validator, not via validators attached to
-        // the individual transferred properties - those are merged/redirected and carry no
-        // validation of their own (object merging is owned elsewhere; see
-        // transferComposedPropertiesToSchema(), which wires the same validator onto its schema
-        // when the composition sits directly on this class instead of behind a $ref). Without
-        // transferring it here too, a base-level $ref to such a schema would silently drop
-        // whatever constraint only the composition validator enforces.
-        foreach ($property->getNestedSchema()->getBaseValidators() as $baseValidator) {
-            $schema->addBaseValidator($baseValidator);
+        throw new SchemaException(
+            sprintf(
+                'A referenced schema on base level must provide an object definition for property %s in file %s',
+                $propertyName,
+                $propertySchema->getFile(),
+            ),
+            $propertySchema,
+        );
+    }
+
+    /**
+     * Returns true when $property carries a composition validator (allOf/anyOf/oneOf/if-then-else)
+     * among its own validators - the shape a base-level $ref to a disjunctive composition takes
+     * (see PropertyInterface::getNestedSchema()).
+     */
+    private function hasComposedPropertyValidator(PropertyInterface $property): bool
+    {
+        foreach ($property->getValidators() as $validator) {
+            if (is_a($validator->getValidator(), AbstractComposedPropertyValidator::class)) {
+                return true;
+            }
         }
 
-        return $property;
+        return false;
     }
 
     /**

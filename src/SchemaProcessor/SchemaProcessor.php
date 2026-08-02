@@ -517,13 +517,23 @@ class SchemaProcessor
             false,
         );
 
-        $schema = $this->processSchema(
-            $jsonSchema,
-            $this->currentClassPath,
-            $this->currentClassName,
-            new SchemaDefinitionDictionary($jsonSchema),
-            true,
-        );
+        try {
+            $schema = $this->processSchema(
+                $jsonSchema,
+                $this->currentClassPath,
+                $this->currentClassName,
+                new SchemaDefinitionDictionary($jsonSchema),
+                true,
+            );
+        } catch (SchemaException $exception) {
+            // Any failure while eagerly generating this referenced schema's own class (e.g. the
+            // object-representability check) already names the referenced file and the real
+            // cause. Suppress PropertyFactory::processReference()'s generic "Unresolved
+            // Reference" wrapper so the correctly-attributed diagnostic reaches the caller
+            // unchanged, instead of being replaced by a message that misleadingly blames the
+            // reference site rather than the referenced content.
+            throw $exception->suppressGenericWrapping();
+        }
 
         $this->currentClassPath = $savedClassPath;
         $this->currentClassName = $savedClassName;

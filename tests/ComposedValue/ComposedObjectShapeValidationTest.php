@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
+use PHPModelGenerator\Exception\JSONModelValidationException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
@@ -35,6 +36,12 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
         $this->generateClassFromFile('RootOneOfBareDescribingBranches.json');
     }
 
+    /**
+     * Beyond the single accepted value, also exercises the reject paths (matching neither or both
+     * branches) via assertOneOfCompositionValidatesLikeInline() - this is the inline half of the
+     * inline/$ref parity pair completed by
+     * testBaseReferenceToDescribingCompositionValidatesLikeInlineWithFlagEnabled().
+     */
     public function testRootCompositionOfBareDescribingBranchesIsAcceptedWhenImplicitObjectCompositionIsAllowed(): void
     {
         $className = $this->generateClassFromFile(
@@ -42,8 +49,7 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
             (new GeneratorConfiguration())->setImplicitObjectComposition(true),
         );
 
-        $object = new $className(['name' => 'Hannes']);
-        $this->assertSame('Hannes', $object->getName());
+        $this->assertOneOfCompositionValidatesLikeInline($className);
     }
 
     #[DataProvider('explicitObjectTypeConfigDataProvider')]
@@ -165,21 +171,16 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
     }
 
     /**
-     * Ambiguous.json resolves to ObjectShape::ObjectDescribing, so the flag does rescue it - but
-     * not through the existing CrossFileReference/Wrapper.json fixture: Wrapper.json's root is a
-     * bare `$ref` to Ambiguous.json, which routes through PropertyFactory::processBaseReference(),
-     * and that method throws its own "must provide an object definition" SchemaException whenever
-     * the referenced schema has no nested Schema - independently of checkObjectRepresentability()
-     * and unaffected by the flag. Reusing that fixture with the flag enabled was tried and
-     * confirmed (via a standalone probe) to still fail, just with that unrelated message instead
-     * of a clean acceptance, so it cannot exercise what this test needs.
-     *
-     * This test uses a second fixture directory instead, where the referencing file
-     * (Consumer.json) reaches the describing target through a named property `$ref` rather than a
-     * bare root `$ref`. A named property reference resolves through
-     * PropertyFactory::processReference() alone, which has no such nested-schema requirement, so
-     * it cleanly exercises checkObjectRepresentability() accepting an ObjectDescribing cross-file
+     * Ambiguous.json resolves to ObjectShape::ObjectDescribing, so the flag does rescue it. The
+     * referencing file (Consumer.json) reaches the describing target through a named property
+     * `$ref` rather than a bare root `$ref`. A named property reference resolves through
+     * PropertyFactory::processReference() alone, which has no nested-schema requirement, so it
+     * cleanly exercises checkObjectRepresentability() accepting an ObjectDescribing cross-file
      * `$ref` target once the flag is enabled.
+     *
+     * A bare root `$ref` to the same shape (as in CrossFileReference/Wrapper.json, routed through
+     * PropertyFactory::processBaseReference()) is covered separately by
+     * testCrossFileReferenceTargetIsAcceptedViaBaseReferenceWhenImplicitObjectCompositionIsAllowed().
      */
     public function testCrossFileReferenceTargetIsAcceptedWhenImplicitObjectCompositionIsAllowed(): void
     {
@@ -196,6 +197,179 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
 
         $consumer = new $consumerClass(['target' => ['name' => 'Hannes']]);
         $this->assertSame('Hannes', $consumer->getTarget()->getName());
+    }
+
+    /**
+     * Wrapper.json's root is a bare `$ref` to Ambiguous.json (ObjectShape::ObjectDescribing),
+     * routed through PropertyFactory::processBaseReference(). Ambiguous.json sorts before
+     * Wrapper.json (RecursiveDirectoryProvider iterates in alphabetical order - see
+     * RecursiveDirectoryProvider::getSchemas()), so the provider discovers and generates
+     * Ambiguous.json as its own top-level class BEFORE Wrapper.json's `$ref` is resolved -
+     * unlike the CrossFileBaseReference* fixtures below, this ordering never exercises the
+     * eager, $ref-triggered SchemaProcessor::processTopLevelSchema() path for Ambiguous.json.
+     * It does exercise processBaseReference()'s handling of a oneOf/anyOf composition that has
+     * no single nested schema (see PropertyInterface::getNestedSchema()), which used to throw
+     * "must provide an object definition" unconditionally regardless of the flag.
+     */
+    public function testCrossFileReferenceTargetIsAcceptedViaBaseReferenceWhenImplicitObjectCompositionIsAllowed(): void
+    {
+        $namespace = 'CrossFileReferenceViaBaseReferenceTest';
+
+        $this->generateDirectory(
+            'CrossFileReference',
+            (new GeneratorConfiguration())
+                ->setImplicitObjectComposition(true)
+                ->setNamespacePrefix($namespace),
+        );
+
+        $wrapperClass = "\\{$namespace}\\Wrapper";
+
+        $matchesFirstBranch = new $wrapperClass(['name' => 'Hannes']);
+        $this->assertSame('Hannes', $matchesFirstBranch->getName());
+
+        $matchesSecondBranch = new $wrapperClass(['code' => 42]);
+        $this->assertSame(42, $matchesSecondBranch->getCode());
+
+        $this->assertRejectsAsOneOfViolation($wrapperClass, ['neither' => 'branch']);
+        $this->assertRejectsAsOneOfViolation($wrapperClass, ['name' => 'Hannes', 'code' => 42]);
+    }
+
+    /**
+     * A base-level `$ref` to a root oneOf/anyOf composition must behave identically to that same
+     * composition written inline - see PropertyFactory::processBaseReference(). Target.json
+     * (CrossFileBaseReferenceDescribing/) is the describing-branches composition
+     * RootOneOfBareDescribingBranches.json holds inline; Subject.json is a bare `$ref` to it.
+     * Subject.json sorts before Target.json (RecursiveDirectoryProvider iterates alphabetically),
+     * so the provider discovers Subject.json first and resolves its `$ref` eagerly via
+     * SchemaProcessor::processTopLevelSchema() - the ordering that exercises
+     * SchemaException::suppressGenericWrapping().
+     *
+     * Default configuration: both the inline and the `$ref` form are rejected by
+     * SchemaProcessor::checkObjectRepresentability() with the same representability diagnostic
+     * (mentioning the flag). The `$ref` form's exception must name Target.json - the file that
+     * actually carries the composition - not Subject.json, and must not be replaced by
+     * PropertyFactory::processReference()'s generic "Unresolved Reference" wrapper.
+     */
+    public function testBaseReferenceToDescribingCompositionIsRejectedNamingTheReferencedFile(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Composition for 'Target' in file"
+                . " '.*CrossFileBaseReferenceDescribing[\\/\\\\]Target\\.json' does not resolve to a definite"
+                . " object and cannot be represented as a generated class: enable"
+                . " 'GeneratorConfiguration::setImplicitObjectComposition\\(true\\)' to accept it"
+                . ' at line \\d+, column \\d+$/',
+        );
+
+        $this->generateDirectory('CrossFileBaseReferenceDescribing', new GeneratorConfiguration());
+    }
+
+    /**
+     * $ref half of the inline/$ref parity pair started by
+     * testRootCompositionOfBareDescribingBranchesIsAcceptedWhenImplicitObjectCompositionIsAllowed():
+     * CrossFileBaseReferenceDescribing/Target.json holds the exact same describing-branches
+     * composition as RootOneOfBareDescribingBranches.json, reached instead through a bare
+     * base-level `$ref` (Subject.json). Both tests share assertOneOfCompositionValidatesLikeInline()
+     * so a divergence between the inline and $ref forms fails identically in both places.
+     *
+     * generateClassFromFile() and generateDirectory() both write into the same fixed,
+     * per-test-cleared MODEL_TEMP_PATH (see AbstractPHPModelGeneratorTestCase::setUp()) and
+     * ModelGenerator::generateModels() requires that directory to be empty on entry, so the inline
+     * and $ref generations cannot share a single test method - each needs its own.
+     */
+    public function testBaseReferenceToDescribingCompositionValidatesLikeInlineWithFlagEnabled(): void
+    {
+        $namespace = 'BaseReferenceDescribingFlagTest';
+
+        $this->generateDirectory(
+            'CrossFileBaseReferenceDescribing',
+            (new GeneratorConfiguration())
+                ->setImplicitObjectComposition(true)
+                ->setNamespacePrefix($namespace),
+        );
+
+        $this->assertOneOfCompositionValidatesLikeInline("\\{$namespace}\\Subject");
+    }
+
+    /**
+     * Inline half of the asserting-branches parity pair, completed by
+     * testBaseReferenceToAssertingCompositionValidatesLikeInline(). RootOneOfAssertingBranches.json
+     * is the same composition as RootOneOfBareDescribingBranches.json above, except each branch
+     * declares its own `type: object` (ObjectShape::ObjectAsserting), so - unlike the describing
+     * fixture - it is accepted under the default configuration without the flag.
+     */
+    public function testRootCompositionOfAssertingBranchesValidatesAtRoot(): void
+    {
+        $className = $this->generateClassFromFile('RootOneOfAssertingBranches.json');
+
+        $this->assertOneOfCompositionValidatesLikeInline($className);
+    }
+
+    /**
+     * $ref half of the asserting-branches parity pair (see
+     * testRootCompositionOfAssertingBranchesValidatesAtRoot()): CrossFileBaseReferenceAsserting/
+     * holds the same asserting-branches composition reached through a bare base-level `$ref`.
+     *
+     * Default configuration only: acceptance of an ObjectAsserting composition never depends on
+     * GeneratorConfiguration::setImplicitObjectComposition() - the flag only ever widens
+     * acceptance from ObjectAsserting to ObjectAsserting|ObjectDescribing (see
+     * SchemaProcessor::checkObjectRepresentability()), and
+     * PropertyFactory::processBaseReference()'s composed-validator transfer does not consult the
+     * flag either - so a flag-enabled variant of this test would exercise the identical code path.
+     */
+    public function testBaseReferenceToAssertingCompositionValidatesLikeInline(): void
+    {
+        $namespace = 'BaseReferenceAssertingTest';
+
+        $this->generateDirectory(
+            'CrossFileBaseReferenceAsserting',
+            (new GeneratorConfiguration())->setNamespacePrefix($namespace),
+        );
+
+        $this->assertOneOfCompositionValidatesLikeInline("\\{$namespace}\\Subject");
+    }
+
+    /**
+     * Exercises a generated oneOf-composed class's runtime validation: accepts a value matching
+     * exactly one branch (via each branch's own property), rejects a value matching neither
+     * branch and a value matching both. Shared between the inline and `$ref` forms of the same
+     * composition to assert they behave identically, not merely that both generate.
+     */
+    private function assertOneOfCompositionValidatesLikeInline(string $className): void
+    {
+        $matchesFirstBranch = new $className(['name' => 'Hannes']);
+        $this->assertSame('Hannes', $matchesFirstBranch->getName());
+
+        $matchesSecondBranch = new $className(['code' => 42]);
+        $this->assertSame(42, $matchesSecondBranch->getCode());
+
+        $this->assertRejectsAsOneOfViolation($className, ['neither' => 'branch']);
+        $this->assertRejectsAsOneOfViolation($className, ['name' => 'Hannes', 'code' => 42]);
+    }
+
+    /**
+     * Asserts that constructing $className with $input is rejected because the oneOf composition
+     * constraint is violated (matching zero or more than one branch). Only the exception class is
+     * asserted, not the composition failure's own detailed per-branch message text - that wording
+     * is covered by the dedicated oneOf composition validator tests; what these parity tests need
+     * to establish is that the composed validator actually runs, not its exact wording.
+     *
+     * Catches JSONModelValidationException rather than ErrorRegistryException specifically: a
+     * class whose only properties come from composition branches (as built by
+     * SchemaProcessor::transferComposedPropertiesToSchema()) throws the composition validator's
+     * own ValidationException directly instead of collecting it into an ErrorRegistryException -
+     * both are JSONModelValidationException, so this covers either shape without depending on
+     * which one a given generated class happens to produce.
+     */
+    private function assertRejectsAsOneOfViolation(string $className, array $input): void
+    {
+        try {
+            new $className($input);
+
+            $this->fail("Expected $className to reject input " . json_encode($input));
+        } catch (JSONModelValidationException) {
+            // Composition constraint violated as expected - the $ref-transferred validator ran.
+        }
     }
 
     /**

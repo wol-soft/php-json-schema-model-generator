@@ -15,6 +15,7 @@ class SchemaException extends PHPModelGeneratorException
     private ?string $schemaFile = null;
     private ?int $sourceLine = null;
     private ?int $sourceColumn = null;
+    private bool $genericWrappingSuppressed = false;
 
     /**
      * When $jsonSchema is provided, getSchemaFile() is populated from it regardless of raw source availability.
@@ -84,6 +85,29 @@ class SchemaException extends PHPModelGeneratorException
     private function previousSchemaException(): ?self
     {
         return $this->getPrevious() instanceof self ? $this->getPrevious() : null;
+    }
+
+    /**
+     * Mark this exception as already a complete, correctly-attributed diagnostic that a caller's
+     * generic wrapper (e.g. PropertyFactory::processReference()'s "Unresolved Reference ..."
+     * around a failed $ref resolution) must not replace.
+     *
+     * Used by SchemaProcessor::processTopLevelSchema() to protect exceptions raised while eagerly
+     * generating a referenced schema's own class (e.g. the object-representability check): those
+     * exceptions already name the referenced file and the real cause, and rewrapping them would
+     * mislead the caller into believing the reference itself is broken rather than the content it
+     * points at.
+     */
+    public function suppressGenericWrapping(): self
+    {
+        $this->genericWrappingSuppressed = true;
+
+        return $this;
+    }
+
+    public function isGenericWrappingSuppressed(): bool
+    {
+        return $this->genericWrappingSuppressed;
     }
 
     private static function appendLocation(string $message, ?JsonSourcePosition $position): string
