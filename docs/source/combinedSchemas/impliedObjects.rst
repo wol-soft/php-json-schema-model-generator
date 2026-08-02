@@ -238,7 +238,8 @@ representation this generated class could produce for it. Generation is rejected
 
 Declaring ``"type": "object"`` on the schema itself always resolves it to a definite object
 regardless of what its branches declare — the explicit type is the assertion, and the branches
-only narrow further:
+only narrow further. See `Migrating existing schemas`_ below if a schema that used to generate
+now raises this exception.
 
 .. code-block:: json
 
@@ -272,3 +273,110 @@ doesn't resolve to an object at all) is rejected. Enable
 <../gettingStarted.html#implicit-object-composition>`__) to treat an object-describing
 class-defining composition exactly as if it had declared ``"type": "object"`` itself, instead of
 rejecting it.
+
+Migrating existing schemas
+-------------------------------
+
+Object-shape detection was tightened, and a gap in how a base-level ``$ref`` was validated was
+fixed, together in the same change. Both can affect schemas that generated cleanly before. This
+section lists what changed and exactly what to edit if you hit it.
+
+Schemas that used to generate now raise a SchemaException
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The "class-defining compositions must resolve to a definite object" check above is new. Two
+schema shapes that used to be accepted without complaint are now rejected because they only
+describe object shape rather than asserting it.
+
+**The common OpenAPI inheritance shape, when the base schema omits ``"type": "object"``:**
+
+.. code-block:: json
+
+    {
+        "allOf": [
+            { "$ref": "Base.json" },
+            { "properties": { "name": { "type": "string" } } }
+        ]
+    }
+
+with ``Base.json``:
+
+.. code-block:: json
+
+    {
+        "properties": { "id": { "type": "string" } }
+    }
+
+Neither the base schema nor the second branch declares ``"type": "object"``, so the composition
+as a whole is object-describing rather than object-asserting (see above), and generation is now
+rejected.
+
+**A schema file root that carries ``properties`` together with an ``if``/``then`` and no
+``else``, and no ``type`` of its own:**
+
+.. code-block:: json
+
+    {
+        "properties": { "name": { "type": "string" } },
+        "if": { "properties": { "name": { "const": "special" } } },
+        "then": { "required": ["name"] }
+    }
+
+An ``if`` without a matching ``else`` leaves the non-matching path fully unconstrained, so the
+composition does not guarantee object-ness for every value it accepts, and no longer resolves to
+a definite object either.
+
+Fix either shape one of two ways:
+
+- Add ``"type": "object"`` to the schema — preferred, since it makes the intended shape explicit
+  and is what the generator needs to resolve the composition to a definite object.
+- Enable ``setImplicitObjectComposition(true)`` (see `Configuring the generator
+  <../gettingStarted.html#implicit-object-composition>`__) to keep accepting an
+  object-describing class-defining composition as before.
+
+This is not a hypothetical concern: two schemas in this project's own test suite needed
+``"type": "object"`` added once this check landed.
+
+Composition error messages changed shape in direct-exception mode
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+With ``setCollectErrors(false)``, a failing ``allOf``/``anyOf``/``oneOf``/``if`` composition now
+lists every branch instead of just a bare header. Before:
+
+.. code-block:: none
+
+    Invalid value for 'example' declined by composition constraint
+      Requires to match all composition elements but matched 0 elements
+
+After:
+
+.. code-block:: none
+
+    Invalid value for 'example' declined by composition constraint
+      Requires to match all composition elements but matched 0 elements
+      - Composition element #1: Failed
+        * Invalid type for 'example': requires 'float', got 'string'
+      - Composition element #2: Failed
+        * Invalid type for 'example': requires 'float', got 'string'
+
+Each branch is now listed as ``- Composition element #N: Valid`` or ``- Composition element #N:
+Failed`` with its underlying reason, in schema order — the same shape ``setCollectErrors(true)``
+already produced, so the two modes now agree. If anything in your code or tests matches
+composition exception text, expect these extra lines.
+
+A base-level $ref now enforces the referenced schema's own object-level constraints
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When a schema file's entire top level is a single ``{"$ref": "..."}``, the referenced schema's
+own object-level constraints — ``additionalProperties``, ``minProperties``, ``maxProperties``,
+``propertyNames``, and any root-level composition (``allOf``/``anyOf``/``oneOf``/``if``) — were
+previously dropped while transferring the referenced properties onto the referencing schema, and
+so were never validated. They are now enforced. This is a bug fix, but it means input that used
+to be accepted may now be correctly rejected.
+
+.. note::
+
+    The sharpest case is a referenced root ``allOf``: it never ran at all before, so a class
+    could be constructed successfully from data that violated the composition, and only fail
+    later with a plain PHP ``TypeError`` from a typed getter — instead of failing at
+    construction time with a clear validation exception, as it does now.

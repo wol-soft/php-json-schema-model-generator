@@ -279,6 +279,13 @@ for the full explanation and examples.
 Setting the **implicitObjectComposition** option treats such a composition exactly as if it had
 declared ``"type": "object"`` itself, instead of rejecting it.
 
+.. hint::
+
+    Upgrading and a schema that used to generate now throws this exception? See `Migrating
+    existing schemas
+    <combinedSchemas/impliedObjects.html#migrating-existing-schemas>`__ for concrete before/after
+    examples and the two ways to fix it.
+
 .. code-block:: php
 
     setImplicitObjectComposition(bool $allowImplicitObjectComposition);
