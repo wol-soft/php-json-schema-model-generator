@@ -114,9 +114,12 @@ rejected:
     Invalid nested object for property 'person':
       - Missing required value for 'name'
 
-The generator emits a generation-time warning for every object-describing property or branch,
-since it is easy to write one by accident (forgetting ``"type": "object"``) and get silent
-pass-through instead of the intended validation:
+The generator emits a generation-time warning for a bare object-describing property or branch —
+one that carries the object-constraining keywords directly, without a ``$ref`` or an enclosing
+``allOf``/``anyOf``/``oneOf``/``if``/``not`` — since it is easy to write one by accident
+(forgetting ``"type": "object"``) and get silent pass-through instead of the intended validation.
+An object-describing schema reached through a ``$ref``, or wrapped in one of those composition
+keywords, produces no warning:
 
 .. code-block:: none
 
@@ -255,13 +258,12 @@ object-ness.
 
 .. note::
 
-    This check only ever has something to reject for a composition that is genuinely ambiguous on
-    its own — a schema file's root, or a ``$ref`` target parsed as its own top-level schema. A
-    named property, array item, or schema ``dependencies`` value that reaches the object path via
-    the composition-implied-object detection described above always does so with
-    ``"type": "object"`` already established for it beforehand, so it can never be rejected here
-    regardless of its own branches — it inherits the check as a no-op, not as an additional
-    restriction.
+    Today this check only has something to reject for a composition that is genuinely ambiguous
+    on its own — a schema file's root, or a ``$ref`` target parsed as its own top-level schema. A
+    named property, array item, or schema ``dependencies`` value reaches the object path via the
+    composition-implied-object detection described above, which forces ``"type": "object"`` onto
+    the JSON before this check runs — so by the time the check is consulted the classification
+    has already resolved to a definite object, leaving nothing for it to reject.
 
 By default an object-describing composition (as opposed to object-asserting, or a composition that
 doesn't resolve to an object at all) is rejected. Enable

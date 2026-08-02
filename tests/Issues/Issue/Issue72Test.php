@@ -106,6 +106,7 @@ class Issue72Test extends AbstractIssueTestCase
                           Requires to match all composition elements but matched 0 elements
                           - Composition element #1: Failed
                             * Missing required value for 'name'
+                      - Composition element #2: Valid
                 ERROR,
                 $this->normalizeCompositionClassNames($exception->getMessage()),
             );
@@ -1018,6 +1019,8 @@ class Issue72Test extends AbstractIssueTestCase
                 <<<'ERROR'
                 Invalid value for '<class>' declined by composition constraint
                   Requires to match one composition element but matched 2 elements
+                  - Composition element #1: Valid
+                  - Composition element #2: Valid
                 ERROR,
                 $this->normalizeCompositionClassNames($exception->getMessage()),
             );

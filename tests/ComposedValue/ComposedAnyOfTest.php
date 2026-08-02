@@ -147,8 +147,8 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
     public function testNotProvidedObjectLevelAnyOfNotMatchingAnyOptionThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        // Direct-exception mode enumerates the failing branches and their underlying reasons;
-        // cleanly-validated branches are not listed.
+        // Direct-exception mode lists every composition element in schema order, each rendered
+        // as either "Valid" or "Failed" with its underlying reason.
         $this->expectExceptionMessageMatches(<<<'REGEX'
             /^Invalid value for '(.*?)' declined by composition constraint
               Requires to match at least one composition element

@@ -67,8 +67,8 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
     public function testNotProvidedObjectLevelAllOfNotMatchingAnyOptionThrowsAnException(): void
     {
         $this->expectException(ValidationException::class);
-        // Direct-exception mode enumerates the failing branches and their underlying reasons;
-        // cleanly-validated branches are not listed.
+        // Direct-exception mode lists every composition element in schema order, each rendered
+        // as either "Valid" or "Failed" with its underlying reason.
         $this->expectExceptionMessageMatches(<<<'REGEX'
             /^Invalid value for '(.*?)' declined by composition constraint
               Requires to match all composition elements but matched 0 elements
@@ -82,6 +82,41 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFile('ObjectLevelCompositionRequired.json');
 
         new $className([]);
+    }
+
+    /**
+     * Regression test for a composition with a mix of passing and failing branches evaluated in
+     * direct-exception mode (setCollectErrors(false)). Branch #1 fails, branch #2 passes, branch
+     * #3 fails. Composition element numbering must reflect the real schema position of each
+     * branch - the position among failing branches only, which is what a naive "append on catch
+     * only" implementation would produce, would mislabel the failing branch #3 as #2 and drop the
+     * passing branch #2 from the message entirely.
+     */
+    public function testDirectExceptionModeAllOfNumbersPassingAndFailingBranchesByRealSchemaPosition(): void
+    {
+        $className = $this->generateClassFromFile(
+            'MixedPassingAndFailingAllOfBranches.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        try {
+            new $className(['property' => 'abc']);
+            $this->fail('Expected AllOfException');
+        } catch (AllOfException $exception) {
+            $this->assertSame(
+                <<<ERROR
+                Invalid value for 'property' declined by composition constraint
+                  Requires to match all composition elements but matched 1 element
+                  - Composition element #1: Failed
+                    * Value for 'property' must not be shorter than 10
+                  - Composition element #2: Valid
+                  - Composition element #3: Failed
+                    * Value for 'property' does not match pattern '^[0-9]+$'
+                ERROR,
+                $exception->getMessage(),
+            );
+            $this->assertSame('/properties/property/allOf', $exception->getJsonPointer()->pointer);
+        }
     }
 
     #[DataProvider('implicitNullDataProvider')]

@@ -106,8 +106,8 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
     public function testNotProvidedObjectLevelOneOfThrowsAnException(string $schema, string $expectedPattern): void
     {
         $this->expectException(ValidationException::class);
-        // Direct-exception mode enumerates the failing branches and their underlying reasons;
-        // cleanly-validated branches are not listed.
+        // Direct-exception mode lists every composition element in schema order, each rendered
+        // as either "Valid" or "Failed" with its underlying reason.
         $this->expectExceptionMessageMatches($expectedPattern);
 
         $className = $this->generateClassFromFile($schema);
@@ -122,7 +122,9 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
                 'ObjectLevelComposition.json',
                 <<<'ERROR'
                 /^Invalid value for '(.*?)' declined by composition constraint
-                  Requires to match one composition element but matched 2 elements$/
+                  Requires to match one composition element but matched 2 elements
+                  - Composition element #1: Valid
+                  - Composition element #2: Valid$/
                 ERROR,
             ],
             'ObjectLevelCompositionRequired.json' => [
