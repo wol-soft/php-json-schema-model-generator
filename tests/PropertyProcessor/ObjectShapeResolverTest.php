@@ -69,6 +69,17 @@ class ObjectShapeResolverTest extends TestCase
             'scalar validators without type' => [['minLength' => 5], ObjectShape::NotObject],
             'not only' => [['not' => self::PERSON_OBJECT], ObjectShape::NotObject],
 
+            // `not` is excluded from COMPOSITION_KEYWORDS, so it must classify purely from its
+            // sibling keywords, ignoring its own subschema entirely
+            'not next to describing sibling keywords' => [
+                ['not' => self::PERSON_OBJECT, 'properties' => ['name' => ['type' => 'string']]],
+                ObjectShape::ObjectDescribing,
+            ],
+            'not next to asserting allOf' => [
+                ['not' => self::PERSON_OBJECT, 'allOf' => [self::PERSON_OBJECT]],
+                ObjectShape::ObjectAsserting,
+            ],
+
             // if/then/else (conditional) aggregation
             'if-then-else with both branches asserting' => [
                 [
@@ -266,6 +277,68 @@ class ObjectShapeResolverTest extends TestCase
             'reference to scalar with describing siblings' => [
                 ['#/definitions/name' => ['type' => 'string']],
                 ['$ref' => '#/definitions/name', 'required' => ['other']],
+                ObjectShape::NotObject,
+            ],
+
+            // $ref targets that are boolean schemas - a resolver may legitimately return true or
+            // false, which classify() treats as Neutral and Blocking respectively (see the
+            // is_bool branch). Standalone, both degrade to NotObject the same way, so the
+            // distinction is only visible once a sibling allOf branch is asserting.
+            'reference to true schema' => [
+                ['#/definitions/anything' => true],
+                ['$ref' => '#/definitions/anything'],
+                ObjectShape::NotObject,
+            ],
+            'reference to false schema' => [
+                ['#/definitions/unsatisfiable' => false],
+                ['$ref' => '#/definitions/unsatisfiable'],
+                ObjectShape::NotObject,
+            ],
+            'allOf asserting plus reference to true schema' => [
+                ['#/definitions/anything' => true],
+                ['allOf' => [self::PERSON_OBJECT, ['$ref' => '#/definitions/anything']]],
+                ObjectShape::ObjectAsserting,
+            ],
+            'allOf asserting plus reference to false schema' => [
+                ['#/definitions/unsatisfiable' => false],
+                ['allOf' => [self::PERSON_OBJECT, ['$ref' => '#/definitions/unsatisfiable']]],
+                ObjectShape::NotObject,
+            ],
+
+            // A non-string `$ref` value hits classifyReference()'s explicit is_string guard and
+            // blocks before the resolver is ever consulted
+            'non-string reference value (array)' => [
+                [],
+                ['$ref' => ['not', 'a', 'string']],
+                ObjectShape::NotObject,
+            ],
+            'non-string reference value (integer)' => [
+                [],
+                ['$ref' => 5],
+                ObjectShape::NotObject,
+            ],
+
+            // then/else given as $refs - classifyIfThenElse() recurses through classify(), which
+            // resolves $ref branches exactly like any other branch
+            'if-then-else with both branches referencing asserting target' => [
+                ['#/definitions/person' => self::PERSON_OBJECT],
+                [
+                    'if' => ['required' => ['a']],
+                    'then' => ['$ref' => '#/definitions/person'],
+                    'else' => ['$ref' => '#/definitions/person'],
+                ],
+                ObjectShape::ObjectAsserting,
+            ],
+            'if-then-else with one branch referencing scalar target' => [
+                [
+                    '#/definitions/person' => self::PERSON_OBJECT,
+                    '#/definitions/name' => ['type' => 'string'],
+                ],
+                [
+                    'if' => ['required' => ['a']],
+                    'then' => ['$ref' => '#/definitions/person'],
+                    'else' => ['$ref' => '#/definitions/name'],
+                ],
                 ObjectShape::NotObject,
             ],
         ];

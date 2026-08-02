@@ -1,0 +1,16 @@
+{
+  "filter": "trim",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  ]
+}

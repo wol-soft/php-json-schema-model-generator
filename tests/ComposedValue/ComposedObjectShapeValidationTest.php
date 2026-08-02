@@ -20,10 +20,16 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
 {
     public function testRootCompositionOfBareDescribingBranchesIsRejectedByDefault(): void
     {
+        // RootOneOfBareDescribingBranches.json resolves to ObjectShape::ObjectDescribing (a oneOf
+        // of two branches that each carry only 'properties'/'required'), so the flag-mentioning
+        // suffix must be present
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Composition for '.*' in file '.*\\.json' does not resolve to a definite object and cannot be"
-                . ' represented as a generated class/',
+            "/^Composition for 'ComposedObjectShapeValidationTest_[0-9a-zA-Z]+' in file"
+                . " '.*ComposedObjectShapeValidationTest_[0-9a-zA-Z]+\\.json' does not resolve to a definite object"
+                . " and cannot be represented as a generated class: enable"
+                . " 'GeneratorConfiguration::setImplicitObjectComposition\\(true\\)' to accept it"
+                . ' at line \\d+, column \\d+$/',
         );
 
         $this->generateClassFromFile('RootOneOfBareDescribingBranches.json');
@@ -63,10 +69,15 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
     #[DataProvider('multiTypeBranchConfigDataProvider')]
     public function testRootCompositionWithMultiTypeBranchIsAlwaysRejected(GeneratorConfiguration $configuration): void
     {
+        // RootOneOfMultiTypeBranch.json resolves to ObjectShape::NotObject (one oneOf branch
+        // declares "type": ["object", "string"], which blocks rather than asserts - see
+        // ObjectShapeResolver::classify()), so the flag can never rescue it and the suffix must be
+        // absent for both configurations under test
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Composition for '.*' in file '.*\\.json' does not resolve to a definite object and cannot be"
-                . ' represented as a generated class/',
+            "/^Composition for 'ComposedObjectShapeValidationTest_[0-9a-zA-Z]+' in file"
+                . " '.*ComposedObjectShapeValidationTest_[0-9a-zA-Z]+\\.json' does not resolve to a definite object"
+                . ' and cannot be represented as a generated class at line \\d+, column \\d+$/',
         );
 
         $this->generateClassFromFile('RootOneOfMultiTypeBranch.json', $configuration);
@@ -92,10 +103,15 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
 
     public function testRootIfThenElseWithPartialBranchCoverageIsRejected(): void
     {
+        // RootIfThenElsePartialCoverage.json resolves to ObjectShape::NotObject: the missing
+        // "else" branch classifies as Neutral, and classifyIfThenElse() combines "then"/"else"
+        // disjunctively, so a Neutral "else" degrades the aggregate below Asserting regardless of
+        // "then" being object-asserting - the suffix must be absent
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Composition for '.*' in file '.*\\.json' does not resolve to a definite object and cannot be"
-                . ' represented as a generated class/',
+            "/^Composition for 'ComposedObjectShapeValidationTest_[0-9a-zA-Z]+' in file"
+                . " '.*ComposedObjectShapeValidationTest_[0-9a-zA-Z]+\\.json' does not resolve to a definite object"
+                . ' and cannot be represented as a generated class at line \\d+, column \\d+$/',
         );
 
         $this->generateClassFromFile('RootIfThenElsePartialCoverage.json');
@@ -134,12 +150,71 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
      */
     public function testCrossFileReferenceTargetIsRejectedWhenAmbiguous(): void
     {
+        // Ambiguous.json resolves to ObjectShape::ObjectDescribing (same bare-describing-branches
+        // shape as RootOneOfBareDescribingBranches.json), so with the flag left at its default
+        // (disabled) the suffix must be present
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Composition for '.*' in file '.*Ambiguous\\.json' does not resolve to a definite object and cannot"
-                . ' be represented as a generated class/',
+            "/^Composition for 'Ambiguous' in file '.*Ambiguous\\.json' does not resolve to a definite object and"
+                . " cannot be represented as a generated class: enable"
+                . " 'GeneratorConfiguration::setImplicitObjectComposition\\(true\\)' to accept it"
+                . ' at line \\d+, column \\d+$/',
         );
 
         $this->generateDirectory('CrossFileReference', new GeneratorConfiguration());
+    }
+
+    /**
+     * Ambiguous.json resolves to ObjectShape::ObjectDescribing, so the flag does rescue it - but
+     * not through the existing CrossFileReference/Wrapper.json fixture: Wrapper.json's root is a
+     * bare `$ref` to Ambiguous.json, which routes through PropertyFactory::processBaseReference(),
+     * and that method throws its own "must provide an object definition" SchemaException whenever
+     * the referenced schema has no nested Schema - independently of checkObjectRepresentability()
+     * and unaffected by the flag. Reusing that fixture with the flag enabled was tried and
+     * confirmed (via a standalone probe) to still fail, just with that unrelated message instead
+     * of a clean acceptance, so it cannot exercise what this test needs.
+     *
+     * This test uses a second fixture directory instead, where the referencing file
+     * (Consumer.json) reaches the describing target through a named property `$ref` rather than a
+     * bare root `$ref`. A named property reference resolves through
+     * PropertyFactory::processReference() alone, which has no such nested-schema requirement, so
+     * it cleanly exercises checkObjectRepresentability() accepting an ObjectDescribing cross-file
+     * `$ref` target once the flag is enabled.
+     */
+    public function testCrossFileReferenceTargetIsAcceptedWhenImplicitObjectCompositionIsAllowed(): void
+    {
+        $namespace = 'CrossFileReferenceAcceptedTest';
+
+        $this->generateDirectory(
+            'CrossFileReferenceAccepted',
+            (new GeneratorConfiguration())
+                ->setImplicitObjectComposition(true)
+                ->setNamespacePrefix($namespace),
+        );
+
+        $consumerClass = "\\{$namespace}\\Consumer";
+
+        $consumer = new $consumerClass(['target' => ['name' => 'Hannes']]);
+        $this->assertSame('Hannes', $consumer->getTarget()->getName());
+    }
+
+    /**
+     * A `filter` key makes ObjectShapeResolver::classify() return Blocking (it deliberately
+     * leaves filter-bearing schemas to the filter subsystem - see ObjectShapeResolver's own
+     * docblock), which without a filter-aware early return in checkObjectRepresentability() would
+     * surface here as a misleading "does not resolve to a definite object" verdict. The real
+     * cause - an incompatible filter - must be reported by the filter subsystem's own precise
+     * diagnostic instead, so this pins that the FILTER message (not the representability message)
+     * is what a filter-bearing root composition produces.
+     */
+    public function testRootCompositionWithFilterIsRejectedByFilterSubsystemNotRepresentabilityCheck(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Filter trim is not compatible with property type base for property .* in file"
+                . ' .*\\.json at line \\d+, column \\d+$/',
+        );
+
+        $this->generateClassFromFile('RootFilterWithAllOfComposition.json');
     }
 }

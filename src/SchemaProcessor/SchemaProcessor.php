@@ -219,6 +219,13 @@ class SchemaProcessor
      * it gets swallowed by the peek's own conservative error handling, replacing a precise,
      * correctly-attributed error with a confusing one blaming the referencing wrapper instead.
      *
+     * A filter-bearing schema is skipped for the same reason: ObjectShapeResolver deliberately
+     * classifies it as Blocking (it is owned by the filter-composition subsystem, not the object
+     * path), which would surface here as a generic "does not resolve to a definite object"
+     * verdict. The filter subsystem's own compatibility check runs moments later and reports a
+     * precise, correctly-attributed error (e.g. naming the incompatible filter and property type)
+     * - a speculative object-shape verdict from here would only mask that diagnostic.
+     *
      * @throws SchemaException
      */
     private function checkObjectRepresentability(
@@ -226,7 +233,7 @@ class SchemaProcessor
         string $className,
         SchemaDefinitionDictionary $dictionary,
     ): void {
-        if (array_key_exists('$ref', $jsonSchema->getJson())) {
+        if (array_key_exists('$ref', $jsonSchema->getJson()) || array_key_exists('filter', $jsonSchema->getJson())) {
             return;
         }
 
@@ -241,15 +248,23 @@ class SchemaProcessor
             : [ObjectShape::ObjectAsserting];
 
         if (!in_array($shape, $acceptedShapes, true)) {
-            throw new SchemaException(
-                sprintf(
-                    "Composition for '%s' in file '%s' does not resolve to a definite object and"
-                        . ' cannot be represented as a generated class',
-                    $className,
-                    $jsonSchema->getFile(),
-                ),
-                $jsonSchema,
+            $message = sprintf(
+                "Composition for '%s' in file '%s' does not resolve to a definite object and"
+                    . ' cannot be represented as a generated class',
+                $className,
+                $jsonSchema->getFile(),
             );
+
+            // The flag only ever widens acceptance from ObjectAsserting to
+            // ObjectAsserting|ObjectDescribing (see $acceptedShapes above), so it can rescue an
+            // ObjectDescribing composition but never a NotObject one - mentioning it for a
+            // NotObject rejection would point the user at an option that provably cannot help.
+            if ($shape === ObjectShape::ObjectDescribing) {
+                $message .= ": enable 'GeneratorConfiguration::setImplicitObjectComposition(true)'"
+                    . ' to accept it';
+            }
+
+            throw new SchemaException($message, $jsonSchema);
         }
     }
 

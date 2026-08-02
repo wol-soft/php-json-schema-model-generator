@@ -233,7 +233,8 @@ representation this generated class could produce for it. Generation is rejected
 .. code-block:: none
 
     Composition for 'Example' in file '...' does not resolve to a definite object and cannot be
-    represented as a generated class
+    represented as a generated class: enable 'GeneratorConfiguration::setImplicitObjectComposition(true)'
+    to accept it
 
 Declaring ``"type": "object"`` on the schema itself always resolves it to a definite object
 regardless of what its branches declare — the explicit type is the assertion, and the branches
