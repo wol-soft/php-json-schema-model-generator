@@ -381,6 +381,19 @@ to be accepted may now be correctly rejected.
     later with a plain PHP ``TypeError`` from a typed getter — instead of failing at
     construction time with a clear validation exception, as it does now.
 
+Two further consequences of the same fix, both of which turn a previous failure into a success or
+a clearer message rather than breaking anything that worked:
+
+- A base-level ``$ref`` to a schema whose root is an ``anyOf`` or ``oneOf`` now generates. It
+  previously failed with *"A referenced schema on base level must provide an object definition"*
+  even when every branch declared ``"type": "object"``. That message is now raised only when the
+  referenced schema is genuinely neither an object nor a composition — a scalar or an array.
+- When the referenced schema itself cannot be generated, the reported error is now the referenced
+  schema's own — naming that file and the real cause — instead of *"Unresolved Reference"*,
+  which blamed the referencing file. *"Unresolved Reference"* is still reported when the reference
+  truly cannot be resolved, such as a missing file or malformed JSON. Code matching on that text
+  will see the more specific message where it previously saw the generic one.
+
 A literal ``true`` composition branch now emits a generation-time warning
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
