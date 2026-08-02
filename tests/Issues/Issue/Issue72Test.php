@@ -924,6 +924,62 @@ class Issue72Test extends AbstractIssueTestCase
             ),
             'A branch containing only "type" must not be treated as vacuous.',
         );
+
+        // A literal `true` branch is the most explicit "matches any value" spelling there is and
+        // must warn exactly like the other three spellings (empty `{}`, metadata-only,
+        // annotation-only) - it must not silently skip the check via the boolean-branch fast path.
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $entries,
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+                ['index' => 1, 'property' => 'trueBranch'],
+            ),
+            'Expected a vacuous-branch warning for the trueBranch property.',
+        );
+
+        // `false` is the opposite of vacuous - it rejects everything - and must never trigger the
+        // vacuous-branch warning. It has its own diagnostic (warnIfAlwaysFalse) which does not
+        // apply here either, since the composition as a whole is still satisfiable via the real
+        // object branch.
+        $this->assertFalse(
+            $this->hasLogEntry(
+                $entries,
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+                ['property' => 'falseBranch'],
+            ),
+            'A `false` branch must not be treated as vacuous.',
+        );
+
+        // Pin all four vacuous spellings as equivalent rather than merely each independently
+        // working: a literal `true` and an empty `{}` at the same branch index must produce the
+        // identical warning message template and index.
+        $trueBranchEntry = self::findLogEntry($entries, 'trueBranch');
+        $emptyBranchEntry = self::findLogEntry($entries, 'emptyBranchParity');
+
+        $this->assertNotNull($trueBranchEntry, 'Expected a warning entry for the trueBranch property.');
+        $this->assertNotNull($emptyBranchEntry, 'Expected a warning entry for the emptyBranchParity property.');
+        $this->assertSame($trueBranchEntry['message'], $emptyBranchEntry['message']);
+        $this->assertSame($trueBranchEntry['context']['index'], $emptyBranchEntry['context']['index']);
+    }
+
+    /**
+     * @param array<int, array{level: string, message: string, context: array}> $entries
+     *
+     * @return array{level: string, message: string, context: array}|null
+     */
+    private static function findLogEntry(array $entries, string $property): ?array
+    {
+        foreach ($entries as $entry) {
+            if (($entry['context']['property'] ?? null) === $property) {
+                return $entry;
+            }
+        }
+
+        return null;
     }
 
     /**

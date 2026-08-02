@@ -215,12 +215,30 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             }
 
             if ($compositionElement === true) {
-                $compositionProperties[] = $this->createAlwaysTrueBranchProperty(
+                $trueBranchProperty = $this->createAlwaysTrueBranchProperty(
                     $schemaProcessor,
                     $schema,
                     $property,
                     $propertySchema->getJson()['propertySchema'],
                 );
+                $compositionProperties[] = $trueBranchProperty;
+
+                // A literal `true` branch is modeled as an empty-json branch (see
+                // createAlwaysTrueBranchProperty()) - byte-identical to the empty-`{}` branch shape
+                // handled below, so it is routed through the same warnIfVacuousBranch() check rather
+                // than a second, parallel warning call. `false` deliberately does NOT get this
+                // treatment: it is the opposite of vacuous (rejects everything) and already has its
+                // own diagnostic via warnIfAlwaysFalse().
+                if ($trueBranchProperty->isResolved()) {
+                    $this->warnIfVacuousBranch(
+                        $schemaProcessor,
+                        $property,
+                        $index,
+                        $trueBranchProperty->getJsonSchema()->getJson(),
+                        $draft,
+                    );
+                }
+
                 continue;
             }
 

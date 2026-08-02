@@ -380,3 +380,19 @@ to be accepted may now be correctly rejected.
     could be constructed successfully from data that violated the composition, and only fail
     later with a plain PHP ``TypeError`` from a typed getter — instead of failing at
     construction time with a clear validation exception, as it does now.
+
+A literal ``true`` composition branch now emits a generation-time warning
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A composition branch that is the boolean literal ``true`` is modeled the same way as an empty
+``{}`` branch — it carries no validation keyword and matches any value. Both shapes now emit the
+same generation-time warning; previously only ``{}`` (and other keyword-free spellings such as a
+metadata- or annotation-only branch) did, while a literal ``true`` branch silently skipped it:
+
+.. code-block:: none
+
+    Composition branch #2 for 'example' carries no validation keyword and matches any value
+
+This is a generation-time log message only — it does not change what the generated code accepts
+or rejects. A ``false`` branch is unaffected: it already has its own, unrelated warning (see the
+``allOf``/``anyOf``/``oneOf`` boolean-literal notes above) and does not gain this one.

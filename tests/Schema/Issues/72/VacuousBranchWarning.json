@@ -45,6 +45,45 @@
           "type": "integer"
         }
       ]
+    },
+    "trueBranch": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "flag": {
+              "type": "string"
+            }
+          }
+        },
+        true
+      ]
+    },
+    "falseBranch": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "flag": {
+              "type": "string"
+            }
+          }
+        },
+        false
+      ]
+    },
+    "emptyBranchParity": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "flag": {
+              "type": "string"
+            }
+          }
+        },
+        {}
+      ]
     }
   }
 }
