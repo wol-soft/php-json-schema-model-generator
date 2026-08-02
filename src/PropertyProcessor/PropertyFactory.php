@@ -23,9 +23,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
-use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
@@ -772,21 +770,7 @@ class PropertyFactory
         PropertyInterface $property,
         JsonSchema $propertySchema,
     ): void {
-        (new ObjectModifier())->modify($schemaProcessor, $schema, $property, $propertySchema);
-
-        // ObjectModifier adds an asserting InstanceOfValidator that rejects non-object values.
-        // A describing schema must accept them vacuously, so drop it - the guarded instantiation
-        // decorator remains and carries the object-value validation.
-        $property->filterValidators(
-            static fn(Validator $validator): bool => !($validator->getValidator() instanceof InstanceOfValidator),
-        );
-
-        // ObjectModifier also typed the property as the representation class. A describing property
-        // is not exclusively object-valued (a non-object passes through unchanged), so keep it
-        // untyped: the value is either an instance of the representation class or the raw
-        // non-object input. Without this a non-object value would violate the getter's object
-        // return type at read time even though it validated cleanly.
-        $property->setType(null, null, reset: true);
+        (new ObjectModifier(asserting: false))->modify($schemaProcessor, $schema, $property, $propertySchema);
     }
 
     /**
