@@ -67,27 +67,22 @@ class Issue72Test extends AbstractIssueTestCase
      * Array items referencing a multi-level composition-implied definition (an allOf whose
      * branches are themselves allOf-only $refs) must instantiate each item and enforce the
      * item constraints - like the explicit-object equivalent does, and like a single-level
-     * implied item (an allOf of explicit object branches).
+     * implied item (an allOf of explicit object branches). The same array must reject items
+     * violating the implied definition's constraints.
      */
-    public function testMultiLevelImpliedObjectArrayItemsInstantiateAndValidate(): void
+    public function testMultiLevelImpliedObjectArrayItemsInstantiatesValidItemsAndRejectsInvalidItems(): void
     {
         $className = $this->generateClassFromFile('NestedAllOfInArrayItems.json');
 
+        // a valid item matches the implied definition and is instantiated as an object
         $object = new $className(['members' => [['name' => 'Hannes', 'salary' => 10000]]]);
         $members = $object->getMembers();
         $this->assertCount(1, $members);
         $this->assertIsObject($members[0]);
         $this->assertSame('Hannes', $members[0]->getName());
         $this->assertSame(10000, $members[0]->getSalary());
-    }
 
-    /**
-     * The same array must reject items violating the implied definition's constraints.
-     */
-    public function testMultiLevelImpliedObjectArrayItemsRejectInvalidItem(): void
-    {
-        $className = $this->generateClassFromFile('NestedAllOfInArrayItems.json');
-
+        // an item violating the implied definition's constraints is rejected
         try {
             new $className(['members' => [['salary' => 10000]]]);
             $this->fail('Expected an InvalidItemException for the item violating the implied definition');
@@ -151,13 +146,17 @@ class Issue72Test extends AbstractIssueTestCase
      * An `anyOf` whose branches are composition-implied objects - allOf-only subschemas reached
      * via $ref as well as written inline - must behave exactly like the same `anyOf` with
      * explicit object branches: a value matching a branch is accepted and instantiated as an
-     * object exposing getters for the matched properties.
+     * object exposing getters for the matched properties. The same `anyOf` must reject values
+     * matching no branch - like the explicit-object equivalent does.
      */
     #[DataProvider('impliedAnyOfSchemaDataProvider')]
-    public function testAnyOfWithImpliedObjectBranchesInstantiatesMatchingValue(string $schemaFile): void
-    {
+    public function testAnyOfWithImpliedObjectBranchesInstantiatesMatchingValueAndRejectsNonMatchingValue(
+        string $schemaFile,
+    ): void {
         $className = $this->generateClassFromFile($schemaFile);
 
+        // values matching a branch are accepted and instantiated as an object exposing getters
+        // for the matched properties
         $personMatch = new $className(['p' => ['name' => 'Hannes', 'salary' => 10000]]);
         $person = $personMatch->getP();
         $this->assertIsObject($person);
@@ -168,6 +167,27 @@ class Issue72Test extends AbstractIssueTestCase
         $aged = $agedMatch->getP();
         $this->assertIsObject($aged);
         $this->assertSame(42, $aged->getAge());
+
+        // values matching no branch are rejected
+        $nonMatchingValues = [
+            'object matching no branch' => [],
+            'scalar value' => 42,
+        ];
+
+        foreach ($nonMatchingValues as $valueLabel => $nonMatchingValue) {
+            try {
+                new $className(['p' => $nonMatchingValue]);
+                $this->fail("Expected an AnyOfException for the $valueLabel");
+            } catch (AnyOfException $exception) {
+                $this->assertStringContainsString(
+                    <<<'ERROR'
+                    Invalid value for 'p' declined by composition constraint
+                      Requires to match at least one composition element
+                    ERROR,
+                    $exception->getMessage(),
+                );
+            }
+        }
     }
 
     public static function impliedAnyOfSchemaDataProvider(): array
@@ -179,58 +199,43 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
-     * The same `anyOf` must reject values matching no branch - like the explicit-object
-     * equivalent does.
-     */
-    #[DataProvider('anyOfNonMatchingValueDataProvider')]
-    public function testAnyOfWithImpliedObjectBranchesRejectsNonMatchingValue(
-        string $schemaFile,
-        array|int $nonMatchingValue,
-    ): void {
-        $this->expectException(AnyOfException::class);
-        $this->expectExceptionMessage(
-            <<<'ERROR'
-            Invalid value for 'p' declined by composition constraint
-              Requires to match at least one composition element
-            ERROR,
-        );
-
-        $className = $this->generateClassFromFile($schemaFile);
-
-        new $className(['p' => $nonMatchingValue]);
-    }
-
-    public static function anyOfNonMatchingValueDataProvider(): array
-    {
-        $nonMatchingValues = [
-            'object matching no branch' => [],
-            'scalar value' => 42,
-        ];
-
-        $cases = [];
-        foreach (self::impliedAnyOfSchemaDataProvider() as $schemaLabel => [$schemaFile]) {
-            foreach ($nonMatchingValues as $valueLabel => $nonMatchingValue) {
-                $cases["$schemaLabel - $valueLabel"] = [$schemaFile, $nonMatchingValue];
-            }
-        }
-
-        return $cases;
-    }
-
-    /**
      * A `oneOf` whose branches are composition-implied objects ($ref and inline variants) must
      * accept a value matching exactly one branch and instantiate it as that branch's object -
      * like the explicit-object equivalent, which returns the matched branch's class instance.
+     * The same `oneOf` must reject values matching both branches or neither branch.
      */
     #[DataProvider('impliedOneOfSchemaDataProvider')]
-    public function testOneOfWithImpliedObjectBranchesInstantiatesMatchingValue(string $schemaFile): void
-    {
+    public function testOneOfWithImpliedObjectBranchesInstantiatesMatchingValueAndRejectsNonMatchingValue(
+        string $schemaFile,
+    ): void {
         $className = $this->generateClassFromFile($schemaFile);
 
+        // a value matching exactly one branch is accepted and instantiated as that branch's object
         $object = new $className(['p' => ['name' => 'Hannes']]);
         $person = $object->getP();
         $this->assertIsObject($person);
         $this->assertSame('Hannes', $person->getName());
+
+        // values matching both branches or neither branch are rejected
+        $nonMatchingValues = [
+            'matches both branches' => [['name' => 'Hannes', 'companyName' => 'ACME'], 2],
+            'matches neither branch' => [[], 0],
+        ];
+
+        foreach ($nonMatchingValues as $valueLabel => [$nonMatchingValue, $expectedMatchedElements]) {
+            try {
+                new $className(['p' => $nonMatchingValue]);
+                $this->fail("Expected a OneOfException for the value that $valueLabel");
+            } catch (OneOfException $exception) {
+                $this->assertStringContainsString(
+                    <<<ERROR
+                    Invalid value for 'p' declined by composition constraint
+                      Requires to match one composition element but matched $expectedMatchedElements elements
+                    ERROR,
+                    $exception->getMessage(),
+                );
+            }
+        }
     }
 
     public static function impliedOneOfSchemaDataProvider(): array
@@ -242,54 +247,22 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
-     * The same `oneOf` must reject values matching both branches or neither branch.
-     */
-    #[DataProvider('oneOfNonMatchingValueDataProvider')]
-    public function testOneOfWithImpliedObjectBranchesRejectsNonMatchingValue(
-        string $schemaFile,
-        array $nonMatchingValue,
-        int $expectedMatchedElements,
-    ): void {
-        $this->expectException(OneOfException::class);
-        $this->expectExceptionMessage(
-            <<<ERROR
-            Invalid value for 'p' declined by composition constraint
-              Requires to match one composition element but matched $expectedMatchedElements elements
-            ERROR,
-        );
-
-        $className = $this->generateClassFromFile($schemaFile);
-
-        new $className(['p' => $nonMatchingValue]);
-    }
-
-    public static function oneOfNonMatchingValueDataProvider(): array
-    {
-        $nonMatchingValues = [
-            'matches both branches' => [['name' => 'Hannes', 'companyName' => 'ACME'], 2],
-            'matches neither branch' => [[], 0],
-        ];
-
-        $cases = [];
-        foreach (self::impliedOneOfSchemaDataProvider() as $schemaLabel => [$schemaFile]) {
-            foreach ($nonMatchingValues as $valueLabel => [$nonMatchingValue, $expectedMatchedElements]) {
-                $cases["$schemaLabel - $valueLabel"] = [$schemaFile, $nonMatchingValue, $expectedMatchedElements];
-            }
-        }
-
-        return $cases;
-    }
-
-    /**
      * An if/then/else whose then/else branches are composition-implied objects ($ref and inline
      * variants) must validate and instantiate the taken branch - like the explicit-object
-     * equivalent, which returns the taken branch's class instance.
+     * equivalent, which returns the taken branch's class instance. The same if/then/else must
+     * reject a value that satisfies the condition but violates the then branch's constraints.
+     * The `$ref` variant's then-branch class is named after its definition ("person"); the
+     * inline variant has no definition to draw a name from, so ClassNameGenerator falls back to
+     * the property name plus a content hash of the branch.
      */
-    #[DataProvider('impliedIfThenElseSchemaDataProvider')]
-    public function testIfThenElseWithImpliedObjectBranchesInstantiatesMatchingValue(string $schemaFile): void
-    {
+    #[DataProvider('impliedIfThenElseSchemaWithClassTokenDataProvider')]
+    public function testIfThenElseWithImpliedObjectBranchesInstantiatesMatchingValueAndRejectsInvalidTakenBranch(
+        string $schemaFile,
+        string $thenBranchClassToken,
+    ): void {
         $className = $this->generateClassFromFile($schemaFile);
 
+        // both branches, when satisfied and valid, are instantiated as that branch's object
         $thenMatch = new $className(['p' => ['isPerson' => true, 'name' => 'Hannes']]);
         $person = $thenMatch->getP();
         $this->assertIsObject($person);
@@ -299,29 +272,8 @@ class Issue72Test extends AbstractIssueTestCase
         $company = $elseMatch->getP();
         $this->assertIsObject($company);
         $this->assertSame('ACME', $company->getCompanyName());
-    }
 
-    public static function impliedIfThenElseSchemaDataProvider(): array
-    {
-        return [
-            '$ref branches' => ['NestedIfThenElse.json'],
-            'inline branches' => ['NestedIfThenElseInline.json'],
-        ];
-    }
-
-    /**
-     * The same if/then/else must reject a value that satisfies the condition but violates the
-     * then branch's constraints. The `$ref` variant's then-branch class is named after its
-     * definition ("person"); the inline variant has no definition to draw a name from, so
-     * ClassNameGenerator falls back to the property name plus a content hash of the branch.
-     */
-    #[DataProvider('impliedIfThenElseSchemaWithClassTokenDataProvider')]
-    public function testIfThenElseWithImpliedObjectBranchesRejectsValueViolatingTakenBranch(
-        string $schemaFile,
-        string $thenBranchClassToken,
-    ): void {
-        $className = $this->generateClassFromFile($schemaFile);
-
+        // a value that satisfies the condition but violates the then branch's constraints is rejected
         try {
             new $className(['p' => ['isPerson' => true, 'companyName' => 'ACME']]);
             $this->fail('Expected a ConditionalException for the value violating the taken branch');
@@ -402,16 +354,33 @@ class Issue72Test extends AbstractIssueTestCase
      * A `not` with a composition-implied object schema ($ref and inline variants) must accept
      * values not matching the forbidden schema. Unlike the other composition keywords, the value
      * legitimately stays a raw array - `not` describes what the value must NOT be, so no class
-     * represents it; verified against the explicit-object equivalent.
+     * represents it; verified against the explicit-object equivalent. The same `not` must reject
+     * values matching the forbidden schema.
      */
     #[DataProvider('impliedNotSchemaDataProvider')]
-    public function testNotWithImpliedObjectSchemaAcceptsNonMatchingValue(string $schemaFile): void
-    {
+    public function testNotWithImpliedObjectSchemaAcceptsNonMatchingValueAndRejectsMatchingValue(
+        string $schemaFile,
+    ): void {
         $className = $this->generateClassFromFile($schemaFile);
 
+        // a value not matching the forbidden schema is accepted, staying a raw array
         $object = new $className(['p' => ['name' => 'Hannes']]);
 
         $this->assertSame(['name' => 'Hannes'], $object->getP());
+
+        // a value matching the forbidden schema is rejected
+        try {
+            new $className(['p' => ['password' => 'secret']]);
+            $this->fail('Expected a NotException for the value matching the forbidden schema');
+        } catch (NotException $exception) {
+            $this->assertStringContainsString(
+                <<<'ERROR'
+                Invalid value for 'p' declined by composition constraint
+                  Requires to match none composition element but matched 1 element
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
     }
 
     public static function impliedNotSchemaDataProvider(): array
@@ -423,132 +392,103 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
-     * The same `not` must reject values matching the forbidden schema.
-     */
-    #[DataProvider('impliedNotSchemaDataProvider')]
-    public function testNotWithImpliedObjectSchemaRejectsMatchingValue(string $schemaFile): void
-    {
-        $this->expectException(NotException::class);
-        $this->expectExceptionMessage(
-            <<<'ERROR'
-            Invalid value for 'p' declined by composition constraint
-              Requires to match none composition element but matched 1 element
-            ERROR,
-        );
-
-        $className = $this->generateClassFromFile($schemaFile);
-
-        new $className(['p' => ['password' => 'secret']]);
-    }
-
-    /**
      * A mixed `anyOf` combining a composition-implied object branch with a scalar branch must
      * behave exactly like its explicit-object equivalent: an object matching the implied branch
-     * is instantiated, a string takes the scalar branch unchanged.
+     * is instantiated, a string takes the scalar branch unchanged. The same mixed `anyOf` must
+     * reject values matching neither the implied object branch nor the scalar branch.
      */
     public function testAnyOfMixingImpliedObjectAndScalarBranchBehavesLikeExplicitEquivalent(): void
     {
         $className = $this->generateClassFromFile('NestedAnyOfMixedScalar.json');
 
+        // an object matching the implied branch is instantiated
         $objectMatch = new $className(['p' => ['name' => 'Hannes']]);
         $person = $objectMatch->getP();
         $this->assertIsObject($person);
         $this->assertSame('Hannes', $person->getName());
 
+        // a string takes the scalar branch unchanged
         $stringMatch = new $className(['p' => 'hello']);
         $this->assertSame('hello', $stringMatch->getP());
-    }
 
-    /**
-     * The same mixed `anyOf` must reject values matching neither the implied object branch nor
-     * the scalar branch.
-     */
-    #[DataProvider('mixedAnyOfNonMatchingValueDataProvider')]
-    public function testAnyOfMixingImpliedObjectAndScalarBranchRejectsNonMatchingValue(
-        array|int $nonMatchingValue,
-    ): void {
-        $this->expectException(AnyOfException::class);
-        $this->expectExceptionMessage(
-            <<<'ERROR'
-            Invalid value for 'p' declined by composition constraint
-              Requires to match at least one composition element
-            ERROR,
-        );
-
-        $className = $this->generateClassFromFile('NestedAnyOfMixedScalar.json');
-
-        new $className(['p' => $nonMatchingValue]);
-    }
-
-    public static function mixedAnyOfNonMatchingValueDataProvider(): array
-    {
-        return [
-            'integer matching no branch' => [42],
-            'object matching no branch' => [[]],
+        // values matching neither the implied object branch nor the scalar branch are rejected
+        $nonMatchingValues = [
+            'integer matching no branch' => 42,
+            'object matching no branch' => [],
         ];
+
+        foreach ($nonMatchingValues as $valueLabel => $nonMatchingValue) {
+            try {
+                new $className(['p' => $nonMatchingValue]);
+                $this->fail("Expected an AnyOfException for the $valueLabel");
+            } catch (AnyOfException $exception) {
+                $this->assertStringContainsString(
+                    <<<'ERROR'
+                    Invalid value for 'p' declined by composition constraint
+                      Requires to match at least one composition element
+                    ERROR,
+                    $exception->getMessage(),
+                );
+            }
+        }
     }
 
     /**
      * A mixed `oneOf` combining a composition-implied object branch with a scalar branch must
      * behave exactly like its explicit-object equivalent: an object matching the implied branch
-     * is instantiated, a string matching only the scalar branch is accepted unchanged.
+     * is instantiated, a string matching only the scalar branch is accepted unchanged. The same
+     * mixed `oneOf` must reject values matching neither branch.
      */
     public function testOneOfMixingImpliedObjectAndScalarBranchBehavesLikeExplicitEquivalent(): void
     {
         $className = $this->generateClassFromFile('NestedOneOfMixedScalar.json');
 
+        // an object matching the implied branch is instantiated
         $objectMatch = new $className(['p' => ['name' => 'Hannes']]);
         $person = $objectMatch->getP();
         $this->assertIsObject($person);
         $this->assertSame('Hannes', $person->getName());
 
+        // a string matching only the scalar branch is accepted unchanged
         $stringMatch = new $className(['p' => 'hello']);
         $this->assertSame('hello', $stringMatch->getP());
-    }
 
-    /**
-     * The same mixed `oneOf` must reject values matching neither branch.
-     */
-    public function testOneOfMixingImpliedObjectAndScalarBranchRejectsNonMatchingValue(): void
-    {
-        $this->expectException(OneOfException::class);
-        $this->expectExceptionMessage(
-            <<<'ERROR'
-            Invalid value for 'p' declined by composition constraint
-              Requires to match one composition element but matched 0 elements
-            ERROR,
-        );
-
-        $className = $this->generateClassFromFile('NestedOneOfMixedScalar.json');
-
-        new $className(['p' => 42]);
+        // a value matching neither branch is rejected
+        try {
+            new $className(['p' => 42]);
+            $this->fail('Expected a OneOfException for the value matching neither branch');
+        } catch (OneOfException $exception) {
+            $this->assertStringContainsString(
+                <<<'ERROR'
+                Invalid value for 'p' declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
     }
 
     /**
      * A mixed if/then/else with a composition-implied object then-branch and a scalar
      * else-branch must behave exactly like its explicit-object equivalent: objects are routed
-     * into the then-branch and instantiated, non-objects into the scalar else-branch.
+     * into the then-branch and instantiated, non-objects into the scalar else-branch. The same
+     * mixed if/then/else must reject an object violating the implied then-branch.
      */
     public function testIfThenElseMixingImpliedObjectThenAndScalarElseBehavesLikeExplicitEquivalent(): void
     {
         $className = $this->generateClassFromFile('NestedIfThenElseMixedScalar.json');
 
+        // objects are routed into the then-branch and instantiated
         $thenMatch = new $className(['p' => ['name' => 'Hannes']]);
         $person = $thenMatch->getP();
         $this->assertIsObject($person);
         $this->assertSame('Hannes', $person->getName());
 
+        // non-objects are routed into the scalar else-branch
         $elseMatch = new $className(['p' => 'hello']);
         $this->assertSame('hello', $elseMatch->getP());
-    }
 
-    /**
-     * The same mixed if/then/else must reject an object violating the implied then-branch.
-     */
-    public function testIfThenElseMixingImpliedObjectThenAndScalarElseRejectsValueViolatingThenBranch(): void
-    {
-        $className = $this->generateClassFromFile('NestedIfThenElseMixedScalar.json');
-
+        // an object violating the implied then-branch is rejected
         try {
             new $className(['p' => []]);
             $this->fail('Expected a ConditionalException for the object violating the then branch');
@@ -593,89 +533,52 @@ class Issue72Test extends AbstractIssueTestCase
      * type keyword must accept an object matching exactly one branch and instantiate it. The
      * accept/reject outcomes are identical under strict spec semantics (a non-object matches
      * every bare branch vacuously, so it fails oneOf by matching both) and under object-implied
-     * semantics (a non-object matches no branch) - only the failure reason differs.
+     * semantics (a non-object matches no branch) - only the failure reason differs. The same
+     * bare-validator `oneOf` must reject values whose outcome is identical under strict spec and
+     * object-implied semantics: objects matching both branches, objects matching neither, and
+     * non-objects. The expected matched-counts follow the strict-spec reading (`required`/
+     * `properties` constrain only objects): a non-object matches both bare branches vacuously
+     * and is rejected for matching 2 elements, not 0.
      */
-    public function testOneOfWithBareObjectValidatorBranchesInstantiatesMatchingValue(): void
+    public function testOneOfWithBareObjectValidatorBranchesInstantiatesMatchingValueAndRejectsNonMatchingValue(): void
     {
         $className = $this->generateClassFromFile('NestedOneOfBareObjectValidators.json');
 
+        // an object matching exactly one branch is accepted and instantiated
         $object = new $className(['p' => ['name' => 'Hannes']]);
         $person = $object->getP();
         $this->assertIsObject($person);
         $this->assertSame('Hannes', $person->getName());
-    }
 
-    /**
-     * The same bare-validator `oneOf` must reject values whose outcome is identical under strict
-     * spec and object-implied semantics: objects matching both branches, objects matching
-     * neither, and non-objects. The expected matched-counts follow the strict-spec reading
-     * (`required`/`properties` constrain only objects): a non-object matches both bare branches
-     * vacuously and is rejected for matching 2 elements, not 0.
-     */
-    #[DataProvider('bareOneOfNonMatchingValueDataProvider')]
-    public function testOneOfWithBareObjectValidatorBranchesRejectsNonMatchingValue(
-        array|int $nonMatchingValue,
-        int $expectedMatchedElements,
-    ): void {
-        $this->expectException(OneOfException::class);
-        $this->expectExceptionMessage(
-            <<<ERROR
-            Invalid value for 'p' declined by composition constraint
-              Requires to match one composition element but matched $expectedMatchedElements elements
-            ERROR,
-        );
-
-        $className = $this->generateClassFromFile('NestedOneOfBareObjectValidators.json');
-
-        new $className(['p' => $nonMatchingValue]);
-    }
-
-    public static function bareOneOfNonMatchingValueDataProvider(): array
-    {
-        return [
+        // objects matching both branches, objects matching neither, and non-objects are rejected
+        $nonMatchingValues = [
             'object matching both branches' => [['name' => 'Hannes', 'companyName' => 'ACME'], 2],
             'object matching neither branch' => [[], 0],
             'non-object matching both vacuously' => [42, 2],
         ];
+
+        foreach ($nonMatchingValues as $valueLabel => [$nonMatchingValue, $expectedMatchedElements]) {
+            try {
+                new $className(['p' => $nonMatchingValue]);
+                $this->fail("Expected a OneOfException for the $valueLabel");
+            } catch (OneOfException $exception) {
+                $this->assertStringContainsString(
+                    <<<ERROR
+                    Invalid value for 'p' declined by composition constraint
+                      Requires to match one composition element but matched $expectedMatchedElements elements
+                    ERROR,
+                    $exception->getMessage(),
+                );
+            }
+        }
     }
 
     /**
      * An `anyOf` whose branches carry only object validators must accept an object matching a
      * branch and reject an object matching no branch - outcomes on which strict spec and
      * object-implied semantics agree (`required` does constrain objects, so an empty object
-     * fails both branches). The divergent case - non-object values, which strict spec accepts
-     * via vacuous branch matches but object-implied semantics reject - is intentionally NOT
-     * covered here; its intended behavior is an open design decision.
-     */
-    public function testAnyOfWithBareObjectValidatorBranchesValidatesObjectValues(): void
-    {
-        $className = $this->generateClassFromFile('NestedAnyOfBareObjectValidators.json');
-
-        $object = new $className(['p' => ['name' => 'Hannes']]);
-        $person = $object->getP();
-        $this->assertIsObject($person);
-        $this->assertSame('Hannes', $person->getName());
-    }
-
-    /**
-     * The same bare-validator `anyOf` must reject an object matching no branch.
-     */
-    public function testAnyOfWithBareObjectValidatorBranchesRejectsObjectMatchingNoBranch(): void
-    {
-        $this->expectException(AnyOfException::class);
-        $this->expectExceptionMessage(
-            <<<'ERROR'
-            Invalid value for 'p' declined by composition constraint
-              Requires to match at least one composition element
-            ERROR,
-        );
-
-        $className = $this->generateClassFromFile('NestedAnyOfBareObjectValidators.json');
-
-        new $className(['p' => []]);
-    }
-
-    /**
+     * fails both branches).
+     *
      * A NON-object value in a bare-validator `anyOf` must be ACCEPTED, following strict JSON
      * Schema semantics: `properties`/`required` only constrain objects, so a non-object matches
      * every bare branch vacuously and satisfies the anyOf. Treating the bare branches as
@@ -685,13 +588,33 @@ class Issue72Test extends AbstractIssueTestCase
      * vacuous match on BOTH branches violates "exactly one" and is rejected under the same
      * strict-spec reading.
      */
-    public function testAnyOfWithBareObjectValidatorBranchesAcceptsNonObjectValuePerSpec(): void
+    public function testAnyOfWithBareObjectValidatorBranchesValidatesObjectValuesAndAcceptsNonObjectValuePerSpec(): void
     {
         $className = $this->generateClassFromFile('NestedAnyOfBareObjectValidators.json');
 
-        $object = new $className(['p' => 42]);
+        // an object matching a branch is accepted and instantiated
+        $object = new $className(['p' => ['name' => 'Hannes']]);
+        $person = $object->getP();
+        $this->assertIsObject($person);
+        $this->assertSame('Hannes', $person->getName());
 
-        $this->assertSame(42, $object->getP());
+        // a non-object value is accepted per strict spec semantics (vacuous match on both branches)
+        $nonObjectValue = new $className(['p' => 42]);
+        $this->assertSame(42, $nonObjectValue->getP());
+
+        // an object matching no branch is rejected
+        try {
+            new $className(['p' => []]);
+            $this->fail('Expected an AnyOfException for the object matching no branch');
+        } catch (AnyOfException $exception) {
+            $this->assertStringContainsString(
+                <<<'ERROR'
+                Invalid value for 'p' declined by composition constraint
+                  Requires to match at least one composition element
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
     }
 
     /**
@@ -780,8 +703,11 @@ class Issue72Test extends AbstractIssueTestCase
     /**
      * A root-level `allOf` of two composition-implied-object $ref definitions must transfer both
      * definitions' properties onto the generated root class, and promote a property to
-     * non-nullable when it is required by the branch that contributes it (P3.5 consumer sweep:
-     * required-promotion + property transfer for a re-routed root-level composition).
+     * non-nullable when it is required by the branch that contributes it. The same root-level
+     * composition must still enforce the promoted requirement at runtime - required-promotion
+     * only changes the getter's type hint; the actual rejection still comes from the normal
+     * composition validator on the underlying `$ref` branch. Both generated class names carry a
+     * uniqid suffix and are normalised to a stable token.
      */
     public function testRootLevelAllOfOfImpliedObjectDefinitionsTransfersPropertiesAndPromotesRequired(): void
     {
@@ -790,28 +716,16 @@ class Issue72Test extends AbstractIssueTestCase
             (new GeneratorConfiguration())->setImmutable(false),
         );
 
+        // both definitions' properties are transferred onto the generated root class, and a
+        // property required by the branch that contributes it is promoted to non-nullable
         $object = new $className(['name' => 'Hannes', 'age' => 42]);
         $this->assertSame('Hannes', $object->getName());
         $this->assertSame(42, $object->getAge());
 
         $this->assertSame(['int', 'null'], $this->getReturnTypeNames($className, 'getAge'));
         $this->assertSame(['string'], $this->getReturnTypeNames($className, 'getName'));
-    }
 
-    /**
-     * The same root-level composition must still enforce the promoted requirement at runtime -
-     * required-promotion only changes the getter's type hint (see the test above); the actual
-     * rejection still comes from the normal composition validator on the underlying `$ref`
-     * branch. Both generated class names carry a uniqid suffix and are normalised to a stable
-     * token.
-     */
-    public function testRootLevelAllOfOfImpliedObjectDefinitionsRejectsMissingRequiredProperty(): void
-    {
-        $className = $this->generateClassFromFile(
-            'RootLevelAllOfImpliedRequiredPromotion.json',
-            (new GeneratorConfiguration())->setImmutable(false),
-        );
-
+        // the promoted requirement is still enforced at runtime
         try {
             new $className(['age' => 42]);
             $this->fail('Expected an exception for the missing required name');
@@ -924,39 +838,37 @@ class Issue72Test extends AbstractIssueTestCase
      * object-ASSERTING case above: a describing branch is vacuously satisfied by non-object
      * values, so a string can satisfy both the describing branch (vacuously) and the scalar
      * branch (directly) simultaneously - the schema is satisfiable by strings, even though no
-     * object ever satisfies the scalar branch's own type constraint.
+     * object ever satisfies the scalar branch's own type constraint. The same mixed allOf must
+     * still reject a value that matches neither branch - an object fails the scalar branch's
+     * type check even where it would vacuously satisfy the describing branch, so it is rejected
+     * by the ordinary allOf composition validator at runtime, not by a generation-time conflict
+     * diagnostic.
      */
-    public function testAllOfMixingImpliedDescribingBranchAndScalarBranchAcceptsSatisfyingValue(): void
+    public function testAllOfMixingImpliedDescribingBranchAndScalarBranchAcceptsSatisfyingValueAndRejectsOthers(): void
     {
         $className = $this->generateClassFromFile('AllOfDescribingPlusScalar.json');
 
+        // a string satisfies both the describing branch (vacuously) and the scalar branch (directly)
         $object = new $className(['p' => 'hello']);
         $this->assertSame('hello', $object->getP());
-    }
 
-    /**
-     * The same mixed allOf must still reject a value that matches neither branch - an object
-     * fails the scalar branch's type check even where it would vacuously satisfy the describing
-     * branch, so it is rejected by the ordinary allOf composition validator at runtime, not by a
-     * generation-time conflict diagnostic.
-     */
-    public function testAllOfMixingImpliedDescribingBranchAndScalarBranchRejectsNonMatchingValue(): void
-    {
-        $this->expectException(AllOfException::class);
-        $this->expectExceptionMessage(
-            <<<'ERROR'
-            Invalid value for 'p' declined by composition constraint
-              Requires to match all composition elements but matched 0 elements
-              - Composition element #1: Failed
-                * Missing required value for 'name'
-              - Composition element #2: Failed
-                * Invalid type for 'p': requires 'string', got 'array'
-            ERROR,
-        );
-
-        $className = $this->generateClassFromFile('AllOfDescribingPlusScalar.json');
-
-        new $className(['p' => []]);
+        // a value matching neither branch (an object fails the scalar branch's type check) is rejected
+        try {
+            new $className(['p' => []]);
+            $this->fail('Expected an AllOfException for the value matching neither branch');
+        } catch (AllOfException $exception) {
+            $this->assertSame(
+                <<<'ERROR'
+                Invalid value for 'p' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Missing required value for 'name'
+                  - Composition element #2: Failed
+                    * Invalid type for 'p': requires 'string', got 'array'
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
     }
 
     /**
