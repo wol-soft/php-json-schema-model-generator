@@ -244,4 +244,42 @@ class ComposedOneOfBranchDefaultTest extends AbstractPHPModelGeneratorTestCase
         $stringObject = new $className(['target' => 'hello']);
         $this->assertSame('hello', $stringObject->getTarget());
     }
+
+    /**
+     * Regression test for the `is_array($originalModelData)` guard in ComposedItem.phptpl: a
+     * named-property composition (not the schema's own root composition) whose satisfied branch
+     * is a scalar must not crash when the branch-default reset mechanism runs.
+     *
+     * The branch-default map is normally empty for a named-property composition, because
+     * AbstractComposedPropertyValidator::setupBranchDefaultHelpers() only records a branch
+     * property when it resolves to a REAL property on the containing schema
+     * (`$this->scope->getProperty($branchProperty->getName())`). That lookup is a plain name
+     * match, not an identity check against the branch itself - so it also matches a coincidental
+     * sibling property of the same name declared directly on the outer schema. Here the outer
+     * schema declares its own "value" property alongside "target", and "target"'s object branch
+     * also declares a "value" property with a default. That name collision populates the
+     * branch-default map for this named-property composition, even though "target" itself was
+     * never transferred onto the outer schema.
+     *
+     * When the string branch matches, $originalModelData for this validator is "target"'s own
+     * value - a plain string, not the outer model array - so without the guard,
+     * array_key_exists('value', $originalModelData) is called with a string haystack and throws
+     * a TypeError.
+     */
+    public function testNamedPropertyCompositionWithScalarBranchAndSiblingNameCollisionDoesNotCrash(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NamedPropertyBranchDefaultScalarSiblingCollision.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        // String branch of "target" matches: $originalModelData for the "target" composition
+        // validator is the plain string "hello", not an array. Must not throw a TypeError, and
+        // the unrelated sibling "value" property must not be clobbered by the branch-default
+        // reset (which is scoped to the coincidentally-named "value" property of the object
+        // branch of "target", not the outer schema's own "value" property).
+        $object = new $className(['value' => 5, 'target' => 'hello']);
+        $this->assertSame('hello', $object->getTarget());
+        $this->assertSame(5, $object->getValue());
+    }
 }

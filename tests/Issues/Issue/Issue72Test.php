@@ -94,21 +94,22 @@ class Issue72Test extends AbstractIssueTestCase
         } catch (InvalidItemException $exception) {
             // The item references a multi-level composition-implied definition, so the failure is a
             // two-level nested composition error; direct-exception mode surfaces the leaf reason at
-            // the bottom. Both generated class names are normalised to a stable token.
-            $this->assertSame(
+            // the bottom. Both nested classes are named after their $ref definition ("person",
+            // "identification") and their uniqid suffixes are pinned only by shape.
+            $this->assertCompositionExceptionMessage(
                 <<<'ERROR'
                 Invalid items in array 'members':
                   - invalid item #0
-                    * Invalid value for '<class>' declined by composition constraint
+                    * Invalid value for '%class__Person%' declined by composition constraint
                       Requires to match all composition elements but matched 1 element
                       - Composition element #1: Failed
-                        * Invalid value for '<class>' declined by composition constraint
+                        * Invalid value for '%class__Identification%' declined by composition constraint
                           Requires to match all composition elements but matched 0 elements
                           - Composition element #1: Failed
                             * Missing required value for 'name'
                       - Composition element #2: Valid
                 ERROR,
-                $this->normalizeCompositionClassNames($exception->getMessage()),
+                $exception->getMessage(),
             );
         }
     }
@@ -310,11 +311,14 @@ class Issue72Test extends AbstractIssueTestCase
 
     /**
      * The same if/then/else must reject a value that satisfies the condition but violates the
-     * then branch's constraints.
+     * then branch's constraints. The `$ref` variant's then-branch class is named after its
+     * definition ("person"); the inline variant has no definition to draw a name from, so
+     * ClassNameGenerator falls back to the property name plus a content hash of the branch.
      */
-    #[DataProvider('impliedIfThenElseSchemaDataProvider')]
+    #[DataProvider('impliedIfThenElseSchemaWithClassTokenDataProvider')]
     public function testIfThenElseWithImpliedObjectBranchesRejectsValueViolatingTakenBranch(
         string $schemaFile,
+        string $thenBranchClassToken,
     ): void {
         $className = $this->generateClassFromFile($schemaFile);
 
@@ -324,37 +328,74 @@ class Issue72Test extends AbstractIssueTestCase
         } catch (ConditionalException $exception) {
             // The then-branch is a composition-implied object, so the taken-branch failure is
             // reported as a nested composition error; direct-exception mode surfaces the underlying
-            // leaf reason ("Missing required value for name"). The nested class name carries a
-            // uniqid suffix and is normalised to a stable token.
-            $this->assertSame(
-                <<<'ERROR'
+            // leaf reason ("Missing required value for name").
+            $this->assertCompositionExceptionMessage(
+                <<<ERROR
                 Invalid value for 'p' declined by conditional composition constraint
                   - Condition: Valid
                   - Conditional branch failed:
-                    * Invalid value for '<class>' declined by composition constraint
+                    * Invalid value for '$thenBranchClassToken' declined by composition constraint
                       Requires to match all composition elements but matched 0 elements
                       - Composition element #1: Failed
                         * Missing required value for 'name'
                 ERROR,
-                $this->normalizeCompositionClassNames($exception->getMessage()),
+                $exception->getMessage(),
             );
         }
     }
 
-    /**
-     * Normalise generated nested-class names inside a composition error message to a stable token.
-     * A re-routed composition-implied object branch is validated through a generated class whose
-     * name carries a uniqid suffix, so the "Invalid value for <ClassName> declined by composition
-     * constraint" fragment cannot be asserted verbatim. The outer conditional wrapper ("declined
-     * by conditional composition constraint") is deliberately left untouched by the pattern.
-     */
-    private function normalizeCompositionClassNames(string $message): string
+    public static function impliedIfThenElseSchemaWithClassTokenDataProvider(): array
     {
-        return preg_replace(
-            "/Invalid value for '\w+' declined by composition constraint/",
-            "Invalid value for '<class>' declined by composition constraint",
-            $message,
+        return [
+            '$ref branches' => ['NestedIfThenElse.json', '%class__Person%'],
+            'inline branches' => ['NestedIfThenElseInline.json', '%inlineClass__p%'],
+        ];
+    }
+
+    /**
+     * Asserts the complete exception message against an expected message template. A re-routed
+     * composition-implied object branch is validated through a generated class whose name carries
+     * a per-run uniqid suffix, so it cannot be asserted verbatim - only its shape is pinned, via
+     * tokens:
+     *
+     * - `%rootClass%` - the file's own root class (`Issue72Test_<uniqid>`), for when the reported
+     *   composition IS the root schema itself.
+     * - `%class__<Title>%` - a nested class named after a fixed, literal `$ref` definition name
+     *   (`Issue72Test_<uniqid>_<Title><uniqid>`).
+     * - `%inlineClass__<propertyName>%` - a nested class for an inline (non-$ref) composition
+     *   branch, which has no definition name to draw on and falls through to
+     *   ClassNameGenerator's default naming: the property name plus a content hash of the branch
+     *   (`Issue72Test_<uniqid>_<PropertyName><md5><uniqid>`).
+     */
+    private function assertCompositionExceptionMessage(string $expectedMessageTemplate, string $actualMessage): void
+    {
+        $className = preg_quote($this->getStaticClassName(), '~');
+        $uniqid = '[0-9A-Za-z]{13}';
+
+        $pattern = preg_replace_callback(
+            '/%(rootClass|class__[A-Za-z]+|inlineClass__[A-Za-z]+)%/',
+            function (array $matches) use ($className, $uniqid): string {
+                $token = $matches[1];
+
+                if ($token === 'rootClass') {
+                    return "{$className}_{$uniqid}";
+                }
+
+                if (str_starts_with($token, 'class__')) {
+                    $title = preg_quote(substr($token, strlen('class__')), '~');
+
+                    return "{$className}_{$uniqid}_{$title}{$uniqid}";
+                }
+
+                // inlineClass__<propertyName>
+                $propertyName = preg_quote(ucfirst(substr($token, strlen('inlineClass__'))), '~');
+
+                return "{$className}_{$uniqid}_{$propertyName}[0-9a-f]{32}{$uniqid}";
+            },
+            preg_quote($expectedMessageTemplate, '~'),
         );
+
+        $this->assertMatchesRegularExpression("~^{$pattern}\$~", $actualMessage);
     }
 
     /**
@@ -512,17 +553,19 @@ class Issue72Test extends AbstractIssueTestCase
             new $className(['p' => []]);
             $this->fail('Expected a ConditionalException for the object violating the then branch');
         } catch (ConditionalException $exception) {
-            $this->assertSame(
+            // The then-branch resolves to the "person" $ref definition, so its nested class is
+            // named after that definition.
+            $this->assertCompositionExceptionMessage(
                 <<<'ERROR'
                 Invalid value for 'p' declined by conditional composition constraint
                   - Condition: Valid
                   - Conditional branch failed:
-                    * Invalid value for '<class>' declined by composition constraint
+                    * Invalid value for '%class__Person%' declined by composition constraint
                       Requires to match all composition elements but matched 0 elements
                       - Composition element #1: Failed
                         * Missing required value for 'name'
                 ERROR,
-                $this->normalizeCompositionClassNames($exception->getMessage()),
+                $exception->getMessage(),
             );
         }
     }
@@ -773,19 +816,22 @@ class Issue72Test extends AbstractIssueTestCase
             new $className(['age' => 42]);
             $this->fail('Expected an exception for the missing required name');
         } catch (ErrorRegistryException $exception) {
-            $this->assertSame(
+            // The failing composition IS the schema root (a root-level allOf), so its own class is
+            // used bare; the "identification" branch that actually rejects the value is a nested
+            // class named after its $ref definition.
+            $this->assertCompositionExceptionMessage(
                 <<<'ERROR'
-                Invalid value for '<class>' declined by composition constraint
+                Invalid value for '%rootClass%' declined by composition constraint
                   Requires to match all composition elements but matched 1 element
                   - Composition element #1: Failed
-                    * Invalid value for '<class>' declined by composition constraint
+                    * Invalid value for '%class__Identification%' declined by composition constraint
                       Requires to match all composition elements but matched 0 elements
                       - Composition element #1: Failed
                         * Missing required value for 'name'
                         * Invalid type for 'name': requires 'string', got 'NULL'
                   - Composition element #2: Valid
                 ERROR,
-                $this->normalizeCompositionClassNames($exception->getMessage()),
+                $exception->getMessage(),
             );
         }
     }
@@ -854,17 +900,20 @@ class Issue72Test extends AbstractIssueTestCase
             new $className([]);
             $this->fail('Expected an exception for the missing required name');
         } catch (AllOfException $exception) {
-            $this->assertSame(
+            // The bare base-level $ref resolves to the "extraRequirements" definition, which
+            // itself allOf-wraps a $ref to "identification" - both nested classes are named after
+            // their respective $ref definitions.
+            $this->assertCompositionExceptionMessage(
                 <<<'ERROR'
-                Invalid value for '<class>' declined by composition constraint
+                Invalid value for '%class__ExtraRequirements%' declined by composition constraint
                   Requires to match all composition elements but matched 0 elements
                   - Composition element #1: Failed
-                    * Invalid value for '<class>' declined by composition constraint
+                    * Invalid value for '%class__Identification%' declined by composition constraint
                       Requires to match all composition elements but matched 0 elements
                       - Composition element #1: Failed
                         * Missing required value for 'name'
                 ERROR,
-                $this->normalizeCompositionClassNames($exception->getMessage()),
+                $exception->getMessage(),
             );
         }
     }
@@ -1015,14 +1064,16 @@ class Issue72Test extends AbstractIssueTestCase
             new $className(['name' => 'Hannes']);
             $this->fail('Expected a OneOfException for the value matching both branches');
         } catch (OneOfException $exception) {
-            $this->assertSame(
+            // The failing composition IS the schema root (a root-level oneOf with an explicit
+            // `type: object`), so its own class is used bare.
+            $this->assertCompositionExceptionMessage(
                 <<<'ERROR'
-                Invalid value for '<class>' declined by composition constraint
+                Invalid value for '%rootClass%' declined by composition constraint
                   Requires to match one composition element but matched 2 elements
                   - Composition element #1: Valid
                   - Composition element #2: Valid
                 ERROR,
-                $this->normalizeCompositionClassNames($exception->getMessage()),
+                $exception->getMessage(),
             );
         }
     }

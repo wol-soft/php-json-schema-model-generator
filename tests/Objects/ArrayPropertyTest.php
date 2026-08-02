@@ -790,15 +790,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             new $className(['property' => $propertyValue]);
             $this->fail('Expected exception for invalid object array item');
         } catch (ErrorRegistryException | InvalidItemException $exception) {
-            // A combined (allOf) object item is routed through the object path and validated via a
-            // nested class whose generated name carries a uniqid suffix. Normalise that name to a
-            // stable token so the expected composition message can be asserted deterministically.
-            $normalizedMessage = preg_replace(
-                '/\w+_PropertyItem\w+/',
-                'PropertyItemClass',
-                $exception->getMessage(),
-            );
-            $this->assertStringContainsString($message, $normalizedMessage);
+            $this->assertComposedArrayItemExceptionMessage($message, $exception->getMessage());
 
             // collectErrors(true) wraps the array item exception in an ErrorRegistryException.
             $innerException = $exception instanceof ErrorRegistryException
@@ -814,65 +806,128 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
+    /**
+     * Asserts the complete exception message for an invalid array item. `$expectedMessage` may
+     * contain the `%class%` placeholder standing in for a combined (allOf) object item's nested
+     * class name - such an item is routed through the object path and validated via a generated
+     * class named `<TestClassName>_<uniqid>_PropertyItem<uniqid>`. Both uniqid segments change on
+     * every run, so only their shape - not their value - is asserted. A message without the
+     * placeholder names no generated class and is asserted verbatim.
+     */
+    private function assertComposedArrayItemExceptionMessage(string $expectedMessage, string $actualMessage): void
+    {
+        if (!str_contains($expectedMessage, '%class%')) {
+            $this->assertSame($expectedMessage, $actualMessage);
+
+            return;
+        }
+
+        $uniqid = '[0-9A-Za-z]{13}';
+        $classNamePattern = preg_quote($this->getStaticClassName(), '~') . "_{$uniqid}_PropertyItem{$uniqid}";
+
+        $pattern = str_replace(preg_quote('%class%', '~'), $classNamePattern, preg_quote($expectedMessage, '~'));
+
+        $this->assertMatchesRegularExpression("~^$pattern\$~", $actualMessage);
+    }
+
+    /**
+     * Direct-exception mode reports only the first violation it hits for a given item; error-
+     * collection mode keeps validating within the item too, so once a required property is
+     * entirely absent it also reports the type mismatch against the implicit null. A scenario
+     * whose only failure is "missing required" therefore needs a distinct expected message per
+     * mode - one is supplied wherever the two modes diverge; scenarios whose failure is a single
+     * type mismatch produce the same message under both modes and need only one.
+     */
     public static function invalidObjectArrayDataProvider(): array
     {
-        return self::combineDataProvider(
-            [
-                'nested object' => ['ArrayPropertyNestedObject.json'],
-                'referenced object' => ['ArrayPropertyReferencedObject.json'],
+        $files = [
+            'nested object' => ['ArrayPropertyNestedObject.json'],
+            'referenced object' => ['ArrayPropertyReferencedObject.json'],
+        ];
+
+        $scenarios = [
+            'null' => [
+                [null],
+                <<<ERROR
+                Invalid items in array 'property':
+                  - invalid item #0
+                    * Invalid type for 'property': requires 'object', got 'NULL'
+                ERROR,
             ],
-            self::combineDataProvider(
-                self::validationMethodDataProvider(),
-                [
-                    'null' => [
-                        [null],
-                        <<<ERROR
-                        Invalid items in array 'property':
-                          - invalid item #0
-                            * Invalid type for 'property': requires 'object', got 'NULL'
-                        ERROR,
-                    ],
-                    'invalid type bool' => [
-                        [['name' => 'Hannes'], true],
-                        <<<ERROR
-                        Invalid items in array 'property':
-                          - invalid item #1
-                            * Invalid type for 'property': requires 'object', got 'boolean'
-                        ERROR,
-                    ],
-                    'missing property name' => [
-                        [['name' => 'Hannes'], ['age' => 42]],
-                        <<<ERROR
-                        Invalid items in array 'property':
-                          - invalid item #1
-                            * Missing required value for 'name'
-                        ERROR,
-                    ],
-                    'invalid type name' => [
-                        [['name' => 'Hannes'], ['name' => false, 'age' => 42]],
-                        <<<ERROR
-                        Invalid items in array 'property':
-                          - invalid item #1
-                            * Invalid type for 'name': requires 'string', got 'boolean'
-                        ERROR,
-                    ],
-                    'multiple violations' => [
-                        [['name' => false, 'age' => 42], ['name' => 'Frida', 'age' => 'yes'], 5, []],
-                        <<<ERROR
-                        Invalid items in array 'property':
-                          - invalid item #0
-                            * Invalid type for 'name': requires 'string', got 'boolean'
-                          - invalid item #1
-                            * Invalid type for 'age': requires 'int', got 'string'
-                          - invalid item #2
-                            * Invalid type for 'property': requires 'object', got 'integer'
-                          - invalid item #3
-                            * Missing required value for 'name'
-                        ERROR,
-                    ],
-                ],
-            )
-        );
+            'invalid type bool' => [
+                [['name' => 'Hannes'], true],
+                <<<ERROR
+                Invalid items in array 'property':
+                  - invalid item #1
+                    * Invalid type for 'property': requires 'object', got 'boolean'
+                ERROR,
+            ],
+            'missing property name' => [
+                [['name' => 'Hannes'], ['age' => 42]],
+                <<<ERROR
+                Invalid items in array 'property':
+                  - invalid item #1
+                    * Missing required value for 'name'
+                ERROR,
+                <<<ERROR
+                Invalid items in array 'property':
+                  - invalid item #1
+                    * Missing required value for 'name'
+                    * Invalid type for 'name': requires 'string', got 'NULL'
+                ERROR,
+            ],
+            'invalid type name' => [
+                [['name' => 'Hannes'], ['name' => false, 'age' => 42]],
+                <<<ERROR
+                Invalid items in array 'property':
+                  - invalid item #1
+                    * Invalid type for 'name': requires 'string', got 'boolean'
+                ERROR,
+            ],
+            'multiple violations' => [
+                [['name' => false, 'age' => 42], ['name' => 'Frida', 'age' => 'yes'], 5, []],
+                <<<ERROR
+                Invalid items in array 'property':
+                  - invalid item #0
+                    * Invalid type for 'name': requires 'string', got 'boolean'
+                  - invalid item #1
+                    * Invalid type for 'age': requires 'int', got 'string'
+                  - invalid item #2
+                    * Invalid type for 'property': requires 'object', got 'integer'
+                  - invalid item #3
+                    * Missing required value for 'name'
+                ERROR,
+                <<<ERROR
+                Invalid items in array 'property':
+                  - invalid item #0
+                    * Invalid type for 'name': requires 'string', got 'boolean'
+                  - invalid item #1
+                    * Invalid type for 'age': requires 'int', got 'string'
+                  - invalid item #2
+                    * Invalid type for 'property': requires 'object', got 'integer'
+                  - invalid item #3
+                    * Missing required value for 'name'
+                    * Invalid type for 'name': requires 'string', got 'NULL'
+                ERROR,
+            ],
+        ];
+
+        $cases = [];
+        foreach ($files as $fileLabel => [$file]) {
+            foreach (self::validationMethodDataProvider() as $configLabel => [$configuration]) {
+                foreach ($scenarios as $scenarioLabel => $scenario) {
+                    [$propertyValue, $directExceptionMessage] = $scenario;
+                    $errorCollectionMessage = $scenario[2] ?? $directExceptionMessage;
+
+                    $message = $configuration->collectErrors() ? $errorCollectionMessage : $directExceptionMessage;
+
+                    $cases["$fileLabel - $configLabel - $scenarioLabel"] =
+                        [$file, $configuration, $propertyValue, $message];
+                }
+            }
+        }
+
+        return $cases;
     }
 
     public static function invalidCombinedObjectArrayDataProvider(): array
@@ -917,7 +972,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         <<<ERROR
                         Invalid items in array 'property':
                           - invalid item #1
-                            * Invalid value for 'PropertyItemClass' declined by composition constraint
+                            * Invalid value for '%class%' declined by composition constraint
                               Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
                                 * Missing required value for 'name'
@@ -930,7 +985,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         <<<ERROR
                         Invalid items in array 'property':
                           - invalid item #1
-                            * Invalid value for 'PropertyItemClass' declined by composition constraint
+                            * Invalid value for '%class%' declined by composition constraint
                               Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
                                 * Invalid type for 'name': requires 'string', got 'boolean'
@@ -942,13 +997,13 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                         <<<ERROR
                         Invalid items in array 'property':
                           - invalid item #0
-                            * Invalid value for 'PropertyItemClass' declined by composition constraint
+                            * Invalid value for '%class%' declined by composition constraint
                               Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
                                 * Invalid type for 'name': requires 'string', got 'boolean'
                               - Composition element #2: Valid
                           - invalid item #1
-                            * Invalid value for 'PropertyItemClass' declined by composition constraint
+                            * Invalid value for '%class%' declined by composition constraint
                               Requires to match all composition elements but matched 0 elements
                               - Composition element #1: Failed
                                 * Value for 'name' must not be shorter than 2
@@ -957,7 +1012,7 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                           - invalid item #2
                             * Invalid type for 'property': requires 'object', got 'integer'
                           - invalid item #3
-                            * Invalid value for 'PropertyItemClass' declined by composition constraint
+                            * Invalid value for '%class%' declined by composition constraint
                               Requires to match all composition elements but matched 1 element
                               - Composition element #1: Failed
                                 * Missing required value for 'name'

@@ -152,20 +152,25 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
     {
         $validator = clone $this;
 
+        // A branch of a class-root composition (the only case reaching this method - see the
+        // caller) can never carry its own nested composed/conditional validator while also
+        // lacking a nested schema: the class-root property is always forced to "type": "object"
+        // (PropertyFactory::createBaseProperty()), so AbstractCompositionValidatorFactory::
+        // inheritPropertyType() injects that "object" type into every untyped branch, routing it
+        // through PropertyFactory::createObjectProperty() into its own generated class - where a
+        // branch with a nested schema is never given a composed validator of its own in the first
+        // place (its composition is processed entirely inside that nested class instead). A branch
+        // that instead declares its own explicit non-object type to escape this inheritance is
+        // rejected outright by transferComposedPropertiesToSchema()'s "No nested schema for
+        // composed property" check before generation ever completes. So the strip below always
+        // targets a branch with a nested schema, and unconditionally removing its (never
+        // co-occurring) composed validator is safe.
         /** @var CompositionPropertyDecorator $composedProperty */
         foreach ($validator->composedProperties as $composedProperty) {
             $composedProperty->onResolve(static function () use ($composedProperty): void {
                 $composedProperty->filterValidators(
-                    // Strip a branch's nested composition validator only when the branch has a
-                    // generated object class that re-validates the composition on instantiation.
-                    // A scalar nested composition branch (no nested schema) has no such class, so
-                    // its validator must be kept - otherwise the nested composition validates
-                    // nothing (#167). This applies uniformly to every composition keyword
-                    // (allOf/anyOf/oneOf and if/then/else), removing the earlier accidental split
-                    // where only ConditionalPropertyValidator happened to survive.
                     static fn(Validator $validator): bool =>
-                        !is_a($validator->getValidator(), AbstractComposedPropertyValidator::class)
-                        || $composedProperty->getNestedSchema() === null,
+                        !is_a($validator->getValidator(), AbstractComposedPropertyValidator::class),
                 );
             });
         }

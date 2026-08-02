@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Attributes\SchemaName;
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Exception\FileSystemException;
@@ -810,6 +811,104 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
                 'Object with additional property' => [['name' => 'Hannes', 'age' => 42, 'stringProperty' => 'Hello']],
             ],
         );
+    }
+
+    /**
+     * A base-level $ref (the entire top-level schema is `{"$ref": "..."}`) must transfer not only
+     * the referenced object's properties but also its base validators - the validators attached to
+     * the object itself rather than to one of its properties (additionalProperties, minProperties,
+     * maxProperties). Before PropertyFactory::processBaseReference() copied getBaseValidators()
+     * onto the referencing schema, all three were silently dropped: additional properties were
+     * accepted, and neither properties count boundary was enforced.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testBaseLevelReferenceTransfersObjectBaseValidators(): void
+    {
+        $className = $this->generateClassFromFile('BaseReferenceObjectValidators.json');
+
+        // Accepted: exactly one known property satisfies minProperties = maxProperties = 1
+        $object = new $className(['name' => 'Hannes']);
+        $this->assertSame('Hannes', $object->getName());
+
+        // Rejected: additionalProperties = false must still reject a property unknown to the
+        // referenced definition, even though the property arrived via a base-level $ref.
+        // These base validators carry the referenced Person class's own generated (uniqid-suffixed)
+        // class name as their "property name" placeholder rather than the referencing class's name -
+        // the validator instance is transferred as-is, not rebuilt for the new context - so the
+        // quoted identifier is matched by pattern instead of asserted verbatim.
+        try {
+            new $className(['extra' => 1]);
+            $this->fail('Expected AdditionalPropertiesException');
+        } catch (ValidationException $exception) {
+            $this->assertMatchesRegularExpression(
+                "/^Provided JSON for '.+' contains not allowed additional properties \['extra'\]\$/",
+                $exception->getMessage(),
+            );
+        }
+
+        // Rejected: minProperties = 1 must still reject an empty object
+        try {
+            new $className([]);
+            $this->fail('Expected MinPropertiesException');
+        } catch (ValidationException $exception) {
+            $this->assertMatchesRegularExpression(
+                "/^Provided object for '.+' must not contain less than 1 properties\$/",
+                $exception->getMessage(),
+            );
+        }
+
+        // Rejected: maxProperties = 1 must still reject two known properties provided together
+        try {
+            new $className(['name' => 'Hannes', 'age' => 30]);
+            $this->fail('Expected MaxPropertiesException');
+        } catch (ValidationException $exception) {
+            $this->assertMatchesRegularExpression(
+                "/^Provided object for '.+' must not contain more than 1 properties\$/",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * A base-level $ref to a target schema which is itself a root-level composition (`allOf`) must
+     * enforce that composition at construction time. Before PropertyFactory::processBaseReference()
+     * copied getBaseValidators() onto the referencing schema, the allOf branch's own base validator
+     * never ran for the referencing class: the class still constructed successfully, and the
+     * missing required property only surfaced later as a PHP TypeError from the typed getter.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testBaseLevelReferenceToRootCompositionEnforcesCompositionAtConstruction(): void
+    {
+        $className = $this->generateClassFromFile('BaseReferenceRootComposition.json');
+
+        // Accepted: the allOf branch's required property is provided
+        $object = new $className(['name' => 'Hannes']);
+        $this->assertSame('Hannes', $object->getName());
+
+        // Rejected: the allOf branch requires 'name'; construction must fail immediately instead of
+        // succeeding and only failing later when the typed getName() getter is called. The
+        // transferred composition validator reports the referenced definition's own generated class
+        // name, which carries a per-run suffix, so only that identifier is matched by pattern.
+        try {
+            new $className([]);
+            $this->fail('Expected AllOfException');
+        } catch (AllOfException $exception) {
+            $this->assertMatchesRegularExpression(
+                <<<'REGEX'
+                /^Invalid value for '\w+_Composed\w*' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    \* Missing required value for 'name'$/
+                REGEX,
+                $exception->getMessage(),
+            );
+        }
     }
 
     // -------------------------------------------------------------------------
