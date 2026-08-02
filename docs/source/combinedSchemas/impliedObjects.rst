@@ -3,8 +3,12 @@ Composition-implied objects
 
 A property (or composition branch) can be object-shaped without ever declaring
 ``"type": "object"`` itself — either because a composition guarantees it, or because it carries
-keywords that only make sense for objects. The generator detects both cases and treats them the
-same way it treats an explicit ``"type": "object"``.
+keywords that only make sense for objects. The generator detects both cases, but treats them
+differently. A composition that *guarantees* object-ness (**object-asserting**) is treated exactly
+like an explicit ``"type": "object"``: a non-object value is rejected. A schema that only *carries
+object-constraining keywords* (**object-describing**) is merely recognized as object-shaped: a
+non-object value still passes through unchanged, and at a site that defines its own generated
+class it is rejected unless ``setImplicitObjectComposition(true)`` is set.
 
 Object-asserting: composition guarantees object-ness
 -------------------------------------------------------
@@ -114,12 +118,9 @@ rejected:
     Invalid nested object for property 'person':
       - Missing required value for 'name'
 
-The generator emits a generation-time warning for a bare object-describing property or branch —
-one that carries the object-constraining keywords directly, without a ``$ref`` or an enclosing
-``allOf``/``anyOf``/``oneOf``/``if``/``not`` — since it is easy to write one by accident
-(forgetting ``"type": "object"``) and get silent pass-through instead of the intended validation.
-An object-describing schema reached through a ``$ref``, or wrapped in one of those composition
-keywords, produces no warning:
+The generator emits a generation-time warning for every object-describing schema, wherever it
+appears — since it is easy to write one by accident (forgetting ``"type": "object"``) and get
+silent pass-through instead of the intended validation:
 
 .. code-block:: none
 
@@ -207,13 +208,12 @@ Each array item is instantiated and validated exactly like an item referencing a
 Class-defining compositions must resolve to a definite object
 -------------------------------------------------------------
 
-A composition that defines its own generated class — a schema file's root, a ``$ref`` target that
-is parsed as a top-level schema in its own right, and (via the re-routing above) any property,
-array item, or schema ``dependencies`` value whose composition is object-asserting or
-object-describing — must resolve to a **definite** object: every value the composition accepts has
-to be representable by the single generated class. This is stricter than the property-level
-detection above, and by default rejects what that detection alone would let through as
-object-describing:
+A composition that defines its own generated class — a schema file's root, or a ``$ref`` target
+that is parsed as a top-level schema in its own right — must resolve to a **definite** object:
+every value the composition accepts has to be representable by the single generated class. Unlike
+the property-level detection above, which lets an object-describing property pass non-object
+values through unchanged, a class-defining composition has no such escape hatch: by default it
+rejects an object-describing composition outright:
 
 .. code-block:: json
 
@@ -233,13 +233,12 @@ representation this generated class could produce for it. Generation is rejected
 .. code-block:: none
 
     Composition for 'Example' in file '...' does not resolve to a definite object and cannot be
-    represented as a generated class: enable 'GeneratorConfiguration::setImplicitObjectComposition(true)'
-    to accept it
+    represented as a generated class: add an explicit '"type": "object"' constraint, or enable
+    'GeneratorConfiguration::setImplicitObjectComposition(true)' to accept it
 
 Declaring ``"type": "object"`` on the schema itself always resolves it to a definite object
 regardless of what its branches declare — the explicit type is the assertion, and the branches
-only narrow further. See `Migrating existing schemas`_ below if a schema that used to generate
-now raises this exception.
+only narrow further.
 
 .. code-block:: json
 
@@ -260,12 +259,11 @@ object-ness.
 
 .. note::
 
-    Today this check only has something to reject for a composition that is genuinely ambiguous
-    on its own — a schema file's root, or a ``$ref`` target parsed as its own top-level schema. A
-    named property, array item, or schema ``dependencies`` value reaches the object path via the
-    composition-implied-object detection described above, which forces ``"type": "object"`` onto
-    the JSON before this check runs — so by the time the check is consulted the classification
-    has already resolved to a definite object, leaving nothing for it to reject.
+    This requirement applies only to a schema file's root and to a ``$ref`` target parsed as its
+    own top-level schema. A named property, array item, or schema ``dependencies`` value never
+    triggers this rejection — an object-describing schema there follows the property-level
+    behaviour described in *Object-describing: bare validation keywords, no type* above: a
+    non-object value passes through unchanged instead of being rejected.
 
 By default an object-describing composition (as opposed to object-asserting, or a composition that
 doesn't resolve to an object at all) is rejected. Enable
@@ -273,139 +271,3 @@ doesn't resolve to an object at all) is rejected. Enable
 <../gettingStarted.html#implicit-object-composition>`__) to treat an object-describing
 class-defining composition exactly as if it had declared ``"type": "object"`` itself, instead of
 rejecting it.
-
-Migrating existing schemas
--------------------------------
-
-Object-shape detection was tightened, and a gap in how a base-level ``$ref`` was validated was
-fixed, together in the same change. Both can affect schemas that generated cleanly before. This
-section lists what changed and exactly what to edit if you hit it.
-
-Schemas that used to generate now raise a SchemaException
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The "class-defining compositions must resolve to a definite object" check above is new. Two
-schema shapes that used to be accepted without complaint are now rejected because they only
-describe object shape rather than asserting it.
-
-**The common OpenAPI inheritance shape, when the base schema omits ``"type": "object"``:**
-
-.. code-block:: json
-
-    {
-        "allOf": [
-            { "$ref": "Base.json" },
-            { "properties": { "name": { "type": "string" } } }
-        ]
-    }
-
-with ``Base.json``:
-
-.. code-block:: json
-
-    {
-        "properties": { "id": { "type": "string" } }
-    }
-
-Neither the base schema nor the second branch declares ``"type": "object"``, so the composition
-as a whole is object-describing rather than object-asserting (see above), and generation is now
-rejected.
-
-**A schema file root that carries ``properties`` together with an ``if``/``then`` and no
-``else``, and no ``type`` of its own:**
-
-.. code-block:: json
-
-    {
-        "properties": { "name": { "type": "string" } },
-        "if": { "properties": { "name": { "const": "special" } } },
-        "then": { "required": ["name"] }
-    }
-
-An ``if`` without a matching ``else`` leaves the non-matching path fully unconstrained, so the
-composition does not guarantee object-ness for every value it accepts, and no longer resolves to
-a definite object either.
-
-Fix either shape one of two ways:
-
-- Add ``"type": "object"`` to the schema — preferred, since it makes the intended shape explicit
-  and is what the generator needs to resolve the composition to a definite object.
-- Enable ``setImplicitObjectComposition(true)`` (see `Configuring the generator
-  <../gettingStarted.html#implicit-object-composition>`__) to keep accepting an
-  object-describing class-defining composition as before.
-
-This is not a hypothetical concern: two schemas in this project's own test suite needed
-``"type": "object"`` added once this check landed.
-
-Composition error messages changed shape in direct-exception mode
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-With ``setCollectErrors(false)``, a failing ``allOf``/``anyOf``/``oneOf``/``if`` composition now
-lists every branch instead of just a bare header. Before:
-
-.. code-block:: none
-
-    Invalid value for 'example' declined by composition constraint
-      Requires to match all composition elements but matched 0 elements
-
-After:
-
-.. code-block:: none
-
-    Invalid value for 'example' declined by composition constraint
-      Requires to match all composition elements but matched 0 elements
-      - Composition element #1: Failed
-        * Invalid type for 'example': requires 'float', got 'string'
-      - Composition element #2: Failed
-        * Invalid type for 'example': requires 'float', got 'string'
-
-Each branch is now listed as ``- Composition element #N: Valid`` or ``- Composition element #N:
-Failed`` with its underlying reason, in schema order — the same shape ``setCollectErrors(true)``
-already produced, so the two modes now agree. If anything in your code or tests matches
-composition exception text, expect these extra lines.
-
-A base-level $ref now enforces the referenced schema's own object-level constraints
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-When a schema file's entire top level is a single ``{"$ref": "..."}``, the referenced schema's
-own object-level constraints — ``additionalProperties``, ``minProperties``, ``maxProperties``,
-``propertyNames``, and any root-level composition (``allOf``/``anyOf``/``oneOf``/``if``) — were
-previously dropped while transferring the referenced properties onto the referencing schema, and
-so were never validated. They are now enforced. This is a bug fix, but it means input that used
-to be accepted may now be correctly rejected.
-
-.. note::
-
-    The sharpest case is a referenced root ``allOf``: it never ran at all before, so a class
-    could be constructed successfully from data that violated the composition, and only fail
-    later with a plain PHP ``TypeError`` from a typed getter — instead of failing at
-    construction time with a clear validation exception, as it does now.
-
-Two further consequences of the same fix, both of which turn a previous failure into a success or
-a clearer message rather than breaking anything that worked:
-
-- A base-level ``$ref`` to a schema whose root is an ``anyOf`` or ``oneOf`` now generates. It
-  previously failed with *"A referenced schema on base level must provide an object definition"*
-  even when every branch declared ``"type": "object"``. That message is now raised only when the
-  referenced schema is genuinely neither an object nor a composition — a scalar or an array.
-- When the referenced schema itself cannot be generated, the reported error is now the referenced
-  schema's own — naming that file and the real cause — instead of *"Unresolved Reference"*,
-  which blamed the referencing file. *"Unresolved Reference"* is still reported when the reference
-  truly cannot be resolved, such as a missing file or malformed JSON. Code matching on that text
-  will see the more specific message where it previously saw the generic one.
-
-A literal ``true`` composition branch now emits a generation-time warning
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-A composition branch that is the boolean literal ``true`` is modeled the same way as an empty
-``{}`` branch — it carries no validation keyword and matches any value. Both shapes now emit the
-same generation-time warning; previously only ``{}`` (and other keyword-free spellings such as a
-metadata- or annotation-only branch) did, while a literal ``true`` branch silently skipped it:
-
-.. code-block:: none
-
-    Composition branch #2 for 'example' carries no validation keyword and matches any value
-
-This is a generation-time log message only — it does not change what the generated code accepts
-or rejects. A ``false`` branch is unaffected: it already has its own, unrelated warning (see the
-``allOf``/``anyOf``/``oneOf`` boolean-literal notes above) and does not gain this one.

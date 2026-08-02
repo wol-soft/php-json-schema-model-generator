@@ -420,8 +420,9 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     /**
      * After all composition branches resolve, derive the parent property's type from the
      * branch types and apply it. Skips when any branch has a nested schema (object merging
-     * is handled elsewhere), except that allOf still checks such branches against any sibling
-     * scalar-typed branch for an object-vs-scalar conflict — see assertNoObjectScalarTypeConflict().
+     * is handled elsewhere) - see assertNoAllOfConflict() for the allOf conflict check, which
+     * is asserted up front and unconditionally, independently of whether type transfer itself
+     * proceeds or is skipped for this reason.
      *
      * allOf: intersect all typed branch types — only values satisfying every branch simultaneously
      * are valid, so the PHP type is the intersection. Branches with no declared type impose no
@@ -449,12 +450,19 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         array $compositionProperties,
         bool $isAllOf,
     ): void {
+        // Conflict detection is a single topic regardless of branch shape, so it is asserted
+        // once, up front, from this one call site - see assertNoAllOfConflict(). This is
+        // deliberately unconditional with respect to the nested-schema early return just below:
+        // that early return is about type TRANSFER (there is nothing to compute a PHP type from
+        // when object merging owns the branch), not about conflict detection, and keeping the two
+        // concerns apart is what lets one method own the entire "are these allOf branches in
+        // conflict" question instead of it being reachable from two different places.
+        if ($isAllOf) {
+            self::assertNoAllOfConflict($property, $compositionProperties);
+        }
+
         foreach ($compositionProperties as $compositionProperty) {
             if ($compositionProperty->getNestedSchema() !== null) {
-                if ($isAllOf) {
-                    self::assertNoObjectScalarTypeConflict($property, $compositionProperties);
-                }
-
                 return;
             }
         }
@@ -494,6 +502,44 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     }
 
     /**
+     * Single entry point for "do these allOf branches contradict each other". allOf requires
+     * every branch to hold simultaneously for the same value, so a contradiction can arise in two
+     * distinct ways, depending on whether any branch resolved to a nested schema:
+     *
+     * - At least one branch has a nested schema: an object-ASSERTING branch (nested schema plus a
+     *   non-null getType()) can never be satisfied at the same time as an explicit scalar-typed
+     *   sibling branch — see assertNoObjectScalarTypeConflict(). A branch with a nested schema
+     *   that does NOT assert object-ness (an object-describing branch, vacuously satisfied by
+     *   non-objects) does not conflict with anything and is handled inside that check too.
+     * - No branch has a nested schema: every typed branch's declared type must have a non-empty
+     *   intersection with every other typed branch's — see assertScalarTypeIntersectionIsNonEmpty().
+     *
+     * These two cases are mutually exclusive, decided purely by whether any branch in
+     * $compositionProperties carries a nested schema, so exactly one of the two checks below ever
+     * runs for a given call. Unifying them behind one method - rather than reaching each
+     * independently from a different call site, as before - keeps "are these allOf branches in
+     * conflict" a single assertion topic with a single entry point.
+     *
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     *
+     * @throws SchemaException when allOf branches declare conflicting types, including an
+     *                          object-shaped branch conflicting with a scalar-typed branch.
+     */
+    private static function assertNoAllOfConflict(
+        PropertyInterface $property,
+        array $compositionProperties,
+    ): void {
+        foreach ($compositionProperties as $compositionProperty) {
+            if ($compositionProperty->getNestedSchema() !== null) {
+                self::assertNoObjectScalarTypeConflict($property, $compositionProperties);
+                return;
+            }
+        }
+
+        self::assertScalarTypeIntersectionIsNonEmpty($property, $compositionProperties);
+    }
+
+    /**
      * A branch that genuinely ASSERTS object-ness always requires the value to be an object.
      * allOf requires every branch to hold simultaneously for the same value, so any sibling
      * branch with an explicit scalar type (string, integer, number, boolean, array, or null) can
@@ -503,18 +549,20 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * A resolved nested schema alone does not mean a branch asserts object-ness: a guarded
      * (object-describing) branch - e.g. a bare `properties`/`required` shape with no `type` -
      * also gets a nested schema (PropertyFactory::createObjectProperty()), but is vacuously
-     * satisfied by non-object values, so it does not conflict with a scalar sibling.
-     * wireDescribingObjectProperty() resets such a branch's type to null, while
-     * wireObjectProperty() types an asserting branch as 'object' - getType() is therefore the
-     * signal that distinguishes the two, not getNestedSchema() alone.
+     * satisfied by non-object values, so it does not conflict with a scalar sibling. The guarded
+     * wiring PropertyFactory::createObjectProperty() applies for such a branch (an ObjectModifier
+     * built with asserting: false) resets its type to null, while PropertyFactory::wireObjectProperty()
+     * types an asserting branch as 'object' - getType() is therefore the signal that distinguishes
+     * the two, not getNestedSchema() alone.
      *
-     * This case is invisible to transferAllOfType()'s type intersection, which only inspects
-     * branches with a scalar getType() and returns early whenever any branch has a nested schema.
-     * Without this check the conflict previously went undetected: at the schema root it instead
-     * surfaced as a confusing generic "No nested schema for composed property" crash (the scalar
-     * branch has no nested schema, which SchemaProcessor::transferComposedPropertiesToSchema()
-     * requires unconditionally), and nested inside a property it produced no generation-time
-     * diagnostic at all — only an allOf validator that rejects every possible input at runtime.
+     * This case is invisible to assertScalarTypeIntersectionIsNonEmpty()'s type intersection,
+     * which only inspects branches with a scalar getType() and is only ever reached (via
+     * assertNoAllOfConflict()) when no branch has a nested schema. Without this check the
+     * conflict previously went undetected: at the schema root it instead surfaced as a confusing
+     * generic "No nested schema for composed property" crash (the scalar branch has no nested
+     * schema, which SchemaProcessor::transferComposedPropertiesToSchema() requires
+     * unconditionally), and nested inside a property it produced no generation-time diagnostic at
+     * all — only an allOf validator that rejects every possible input at runtime.
      *
      * @param CompositionPropertyDecorator[] $compositionProperties
      *
@@ -565,32 +613,61 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     }
 
     /**
-     * Derive and apply the parent property's type using allOf intersection semantics.
-     *
-     * Only typed branches (those that declare a type keyword) constrain the intersection.
-     * Untyped branches impose no type restriction and are excluded. Null is valid only when
-     * ALL typed branches allow it. An empty non-null intersection (contradictory types) throws
-     * SchemaException — no value can satisfy all branch type constraints simultaneously.
+     * Reachable only when NO branch has a nested schema — assertNoAllOfConflict() only ever
+     * delegates here for that case, the object-vs-scalar case being covered separately by
+     * assertNoObjectScalarTypeConflict(). Throws when the intersection of all typed branches'
+     * scalar types is empty and at least one branch does not allow null - i.e. no value can
+     * satisfy every branch's type constraint simultaneously.
      *
      * @param CompositionPropertyDecorator[] $compositionProperties
      *
      * @throws SchemaException
      */
-    private static function transferAllOfType(
+    private static function assertScalarTypeIntersectionIsNonEmpty(
         PropertyInterface $property,
         array $compositionProperties,
-        bool $hasBranchWithOptionalProperty,
     ): void {
-        $constrainingBranches = array_values(array_filter(
-            $compositionProperties,
-            static fn(CompositionPropertyDecorator $p): bool => $p->getType() !== null,
-        ));
+        $constrainingBranches = self::getConstrainingBranches($compositionProperties);
 
         if (empty($constrainingBranches)) {
-            // No typed branches — no type constraint to apply.
+            // No typed branches — no type constraint, so nothing can conflict.
             return;
         }
 
+        [$nonNullNames, $allBranchesAllowNull] = self::intersectAllOfBranchTypes($constrainingBranches);
+
+        if (empty($nonNullNames) && !$allBranchesAllowNull) {
+            self::throwConflictingAllOfTypesException($property);
+        }
+    }
+
+    /**
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     *
+     * @return CompositionPropertyDecorator[] The branches that declare a type keyword and
+     *                                        therefore constrain the allOf type intersection.
+     */
+    private static function getConstrainingBranches(array $compositionProperties): array
+    {
+        return array_values(array_filter(
+            $compositionProperties,
+            static fn(CompositionPropertyDecorator $p): bool => $p->getType() !== null,
+        ));
+    }
+
+    /**
+     * Intersects the non-null type names across all $constrainingBranches and reports whether
+     * every one of them also allows null. Shared by assertScalarTypeIntersectionIsNonEmpty()
+     * (which only needs to know whether the intersection came out empty) and transferAllOfType()
+     * (which needs the intersected names themselves to build the property's PropertyType), so the
+     * intersection math itself has a single implementation.
+     *
+     * @param CompositionPropertyDecorator[] $constrainingBranches Branches with getType() !== null.
+     *
+     * @return array{0: string[], 1: bool} [nonNullNames, allBranchesAllowNull]
+     */
+    private static function intersectAllOfBranchTypes(array $constrainingBranches): array
+    {
         // Intersection of non-null type names across all typed branches.
         // TypeIntersection::compute handles int ⊂ float (integer is a subtype of number in JSON Schema).
         $nonNullSets = array_map(
@@ -613,9 +690,36 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 || $p->getType()->isNullable() === true,
         )) === count($constrainingBranches);
 
-        if (empty($nonNullNames) && !$allBranchesAllowNull) {
-            self::throwConflictingAllOfTypesException($property);
+        return [$nonNullNames, $allBranchesAllowNull];
+    }
+
+    /**
+     * Derive and apply the parent property's type using allOf intersection semantics.
+     *
+     * Only typed branches (those that declare a type keyword) constrain the intersection.
+     * Untyped branches impose no type restriction and are excluded. Null is valid only when
+     * ALL typed branches allow it.
+     *
+     * Does not throw: an empty non-null intersection is already rejected by
+     * assertNoAllOfConflict(), called unconditionally before transferPropertyType() ever reaches
+     * this method, so by the time we get here an empty intersection can only mean "every branch
+     * allows null" rather than a genuine conflict.
+     *
+     * @param CompositionPropertyDecorator[] $compositionProperties
+     */
+    private static function transferAllOfType(
+        PropertyInterface $property,
+        array $compositionProperties,
+        bool $hasBranchWithOptionalProperty,
+    ): void {
+        $constrainingBranches = self::getConstrainingBranches($compositionProperties);
+
+        if (empty($constrainingBranches)) {
+            // No typed branches — no type constraint to apply.
+            return;
         }
+
+        [$nonNullNames, $allBranchesAllowNull] = self::intersectAllOfBranchTypes($constrainingBranches);
 
         if (empty($nonNullNames)) {
             // Only null survives the intersection; the null-processor path handles pure-null types.

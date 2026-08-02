@@ -24,8 +24,8 @@ namespace PHPModelGenerator\PropertyProcessor\ObjectShape;
  *                      a describing schema accepts any non-object. It is still routed through
  *                      an object path - a generated class IS instantiated for object values,
  *                      exactly like the asserting case - but guarded: a non-object value passes
- *                      through unchanged instead of being instantiated or rejected. See
- *                      PropertyFactory::wireDescribingObjectProperty() for the guarded wiring.
+ *                      through unchanged instead of being instantiated or rejected, which is
+ *                      what ObjectModifier's non-asserting mode wires up.
  * - NotObject        — everything else: scalar/array typed schemas, multi-type declarations
  *                      that don't reduce to "object" alone (including ones that permit object
  *                      among other types, e.g. `["object", "null"]`), vacuous schemas, and

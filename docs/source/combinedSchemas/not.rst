@@ -61,6 +61,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Not
     The ``not`` schema does not need to declare ``"type": "object"`` itself to be treated as an
     object — the generator also detects object-ness implied by a ``$ref`` chain or nested
     ``allOf``. Unlike the other composition keywords, a value forbidden by an implied-object
-    ``not`` schema legitimately stays a raw array/associative array rather than being instantiated
-    — ``not`` describes what the value must *not* be, so no representation class is needed for it.
+    ``not`` schema legitimately stays a raw array/associative array rather than being
+    instantiated — ``not`` describes what the value must *not* be, so no representation class
+    is needed for it.
     See `Composition-implied objects <impliedObjects.html>`__ for the full explanation.

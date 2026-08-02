@@ -243,9 +243,20 @@ class ObjectShapeResolver
         $visitedReferences[] = $reference;
         $targetShape = $this->classify($targetJson, $visitedReferences);
 
-        // Draft 7 ignores keywords next to $ref, but this generator deliberately merges them
-        // (the JsonSchema constructor rewrites `{$ref, siblings}` into an allOf of both), so
-        // the shape must reflect that merge: target and siblings combine conjunctively.
+        // Classification has to mirror how this generator will actually process the schema, not
+        // what a draft says about keywords next to $ref: a classifier that disagreed with the
+        // processing would reject schemas the generator handles fine, or route ones it cannot.
+        // The generator merges siblings into the target (JsonSchema's constructor rewrites
+        // `{$ref, siblings}` into an allOf of both), so they combine conjunctively here.
+        //
+        // That rewrite is currently draft-independent, and it skips siblings that cannot change
+        // the schema's signature - so for annotation-only siblings both rules agree, since those
+        // classify Neutral and leave the target's shape untouched. The rules diverge only for a
+        // `type` sibling, which the rewrite deliberately ignores while this merge does not; the
+        // result there is stricter, and a `$ref` to an object next to `type: string` is genuinely
+        // contradictory, so erring strict is the safe direction. Should keywords beside `$ref`
+        // ever become draft-dependent, this merge has to follow the same rule rather than grow a
+        // second, independently-maintained one.
         $siblingJson = array_diff_key($json, ['$ref' => null]);
         $siblingShape = $this->classify($siblingJson, $visitedReferences);
 

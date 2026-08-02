@@ -401,12 +401,12 @@ class GeneratorConfiguration
     }
 
     /**
-     * By default a composition defining its own generated class (file root, array items, $ref
-     * targets, named object properties) must resolve to a definite object - a composition that
-     * only constrains object shape without ever declaring `type: object` is vacuously satisfied
-     * by non-object input too, so it cannot faithfully back a generated class and raises a
-     * SchemaException. Enabling this treats such a composition exactly as if it had declared
-     * `type: object` itself.
+     * By default a composition defining its own generated class (a schema file's root, or a
+     * $ref target parsed as a top-level schema in its own right) must resolve to a definite
+     * object - a composition that only constrains object shape without ever declaring
+     * `type: object` is vacuously satisfied by non-object input too, so it cannot faithfully back
+     * a generated class and raises a SchemaException. Enabling this treats such a composition
+     * exactly as if it had declared `type: object` itself.
      */
     public function setImplicitObjectComposition(bool $allowImplicitObjectComposition): self
     {

@@ -28,7 +28,8 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
         $this->expectExceptionMessageMatches(
             "/^Composition for 'ComposedObjectShapeValidationTest_[0-9a-zA-Z]+' in file"
                 . " '.*ComposedObjectShapeValidationTest_[0-9a-zA-Z]+\\.json' does not resolve to a definite object"
-                . " and cannot be represented as a generated class: enable"
+                . " and cannot be represented as a generated class: add an explicit"
+                . " '\"type\": \"object\"' constraint, or enable"
                 . " 'GeneratorConfiguration::setImplicitObjectComposition\\(true\\)' to accept it"
                 . ' at line \\d+, column \\d+$/',
         );
@@ -162,7 +163,8 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
             "/^Composition for 'Ambiguous' in file '.*Ambiguous\\.json' does not resolve to a definite object and"
-                . " cannot be represented as a generated class: enable"
+                . " cannot be represented as a generated class: add an explicit"
+                . " '\"type\": \"object\"' constraint, or enable"
                 . " 'GeneratorConfiguration::setImplicitObjectComposition\\(true\\)' to accept it"
                 . ' at line \\d+, column \\d+$/',
         );
@@ -256,7 +258,8 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
         $this->expectExceptionMessageMatches(
             "/^Composition for 'Target' in file"
                 . " '.*CrossFileBaseReferenceDescribing[\\/\\\\]Target\\.json' does not resolve to a definite"
-                . " object and cannot be represented as a generated class: enable"
+                . " object and cannot be represented as a generated class: add an explicit"
+                . " '\"type\": \"object\"' constraint, or enable"
                 . " 'GeneratorConfiguration::setImplicitObjectComposition\\(true\\)' to accept it"
                 . ' at line \\d+, column \\d+$/',
         );

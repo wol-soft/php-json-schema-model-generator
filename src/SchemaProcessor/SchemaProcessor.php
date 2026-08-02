@@ -257,11 +257,14 @@ class SchemaProcessor
 
             // The flag only ever widens acceptance from ObjectAsserting to
             // ObjectAsserting|ObjectDescribing (see $acceptedShapes above), so it can rescue an
-            // ObjectDescribing composition but never a NotObject one - mentioning it for a
-            // NotObject rejection would point the user at an option that provably cannot help.
+            // ObjectDescribing composition but never a NotObject one - mentioning either fix for a
+            // NotObject rejection would point the user at options that provably cannot help.
+            // Declaring the type is named first because it is the better fix: it makes the
+            // author's intent explicit and is what the generator actually needs, whereas the
+            // flag is only an escape hatch that leaves the ambiguity in the schema unresolved.
             if ($shape === ObjectShape::ObjectDescribing) {
-                $message .= ": enable 'GeneratorConfiguration::setImplicitObjectComposition(true)'"
-                    . ' to accept it';
+                $message .= ': add an explicit \'"type": "object"\' constraint, or enable'
+                    . " 'GeneratorConfiguration::setImplicitObjectComposition(true)' to accept it";
             }
 
             throw new SchemaException($message, $jsonSchema);

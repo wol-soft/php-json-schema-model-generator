@@ -193,7 +193,9 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
     A ``then``/``else`` branch does not need to declare ``"type": "object"`` itself to be treated
     as an object — the generator also detects object-ness implied by a ``$ref`` chain or nested
     ``allOf``, and object-constraining keywords used without any ``type`` at all. See
-    `Composition-implied objects <impliedObjects.html>`__ for the full explanation.
+    `Composition-implied objects <impliedObjects.html>`__ for the full explanation, including why
+    an object-*describing* branch (bare ``properties``/``required``, no ``type``) does **not**
+    reject a non-object value the way an object-*asserting* branch does.
 
 .. note::
 

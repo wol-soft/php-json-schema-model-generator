@@ -267,24 +267,18 @@ By setting the **denyAdditionalProperties** option each object which doesn't spe
 Implicit object composition
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A composition that defines its own generated class (a schema file's root, an array item, a
-schema ``dependencies`` target, ...) must resolve to a definite object — every value it accepts
-has to be representable by the single generated class. By default a composition that only
+A composition that defines its own generated class (a schema file's root, or a ``$ref`` target
+parsed as a top-level schema in its own right) must resolve to a definite object — every value it
+accepts has to be representable by the single generated class. By default a composition that only
 *describes* object shape (bare ``properties``/``required``/... without ever declaring
 ``"type": "object"``) is rejected with a **SchemaException** at generation time, since such a
-composition is per strict JSON Schema semantics vacuously satisfied by non-object values too — see
+composition is per strict JSON Schema semantics vacuously satisfied by non-object values too —
+see
 `Composition-implied objects <combinedSchemas/impliedObjects.html#class-defining-compositions-must-resolve-to-a-definite-object>`__
 for the full explanation and examples.
 
 Setting the **implicitObjectComposition** option treats such a composition exactly as if it had
 declared ``"type": "object"`` itself, instead of rejecting it.
-
-.. hint::
-
-    Upgrading and a schema that used to generate now throws this exception? See `Migrating
-    existing schemas
-    <combinedSchemas/impliedObjects.html#migrating-existing-schemas>`__ for concrete before/after
-    examples and the two ways to fix it.
 
 .. code-block:: php
 
