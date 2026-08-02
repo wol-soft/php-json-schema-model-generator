@@ -464,7 +464,7 @@ class PropertyFactory
             // the real cause - propagate it unchanged instead of masking it with a generic
             // "reference is broken" message. Exceptions from actually failing to resolve/read/parse
             // the reference (missing file, malformed JSON, ...) are not marked and stay wrapped.
-            if ($exception instanceof SchemaException && $exception->isGenericWrappingSuppressed()) {
+            if ($exception instanceof SchemaException && $exception->isReferencedSchemaFailure()) {
                 throw $exception;
             }
 

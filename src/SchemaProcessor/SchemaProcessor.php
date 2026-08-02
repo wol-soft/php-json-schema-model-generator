@@ -526,13 +526,12 @@ class SchemaProcessor
                 true,
             );
         } catch (SchemaException $exception) {
-            // Any failure while eagerly generating this referenced schema's own class (e.g. the
-            // object-representability check) already names the referenced file and the real
-            // cause. Suppress PropertyFactory::processReference()'s generic "Unresolved
-            // Reference" wrapper so the correctly-attributed diagnostic reaches the caller
-            // unchanged, instead of being replaced by a message that misleadingly blames the
-            // reference site rather than the referenced content.
-            throw $exception->suppressGenericWrapping();
+            // Everything thrown here is a fault in the referenced schema itself, not a failure to
+            // reach it - this method only runs once the reference has already resolved to a file.
+            // Marking it keeps PropertyFactory::processReference() from restating it as
+            // "Unresolved Reference", which would blame the reference site for a problem in the
+            // content it points at.
+            throw $exception->markAsReferencedSchemaFailure();
         }
 
         $this->currentClassPath = $savedClassPath;

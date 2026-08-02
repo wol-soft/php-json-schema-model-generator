@@ -242,7 +242,7 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
      * Subject.json sorts before Target.json (RecursiveDirectoryProvider iterates alphabetically),
      * so the provider discovers Subject.json first and resolves its `$ref` eagerly via
      * SchemaProcessor::processTopLevelSchema() - the ordering that exercises
-     * SchemaException::suppressGenericWrapping().
+     * SchemaException::markAsReferencedSchemaFailure().
      *
      * Default configuration: both the inline and the `$ref` form are rejected by
      * SchemaProcessor::checkObjectRepresentability() with the same representability diagnostic

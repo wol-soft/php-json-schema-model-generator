@@ -15,7 +15,7 @@ class SchemaException extends PHPModelGeneratorException
     private ?string $schemaFile = null;
     private ?int $sourceLine = null;
     private ?int $sourceColumn = null;
-    private bool $genericWrappingSuppressed = false;
+    private bool $referencedSchemaFailure = false;
 
     /**
      * When $jsonSchema is provided, getSchemaFile() is populated from it regardless of raw source availability.
@@ -88,26 +88,32 @@ class SchemaException extends PHPModelGeneratorException
     }
 
     /**
-     * Mark this exception as already a complete, correctly-attributed diagnostic that a caller's
-     * generic wrapper (e.g. PropertyFactory::processReference()'s "Unresolved Reference ..."
-     * around a failed $ref resolution) must not replace.
+     * Record that this exception describes a fault inside a schema that was reached through a
+     * `$ref`, rather than a fault in reaching it.
      *
-     * Used by SchemaProcessor::processTopLevelSchema() to protect exceptions raised while eagerly
-     * generating a referenced schema's own class (e.g. the object-representability check): those
-     * exceptions already name the referenced file and the real cause, and rewrapping them would
-     * mislead the caller into believing the reference itself is broken rather than the content it
-     * points at.
+     * Resolving a `$ref` eagerly generates the referenced schema's own class, so a failure in
+     * that generation (an unrepresentable composition, conflicting allOf types, ...) surfaces at
+     * the same place as a genuine resolution failure - a missing file or malformed JSON. Only the
+     * latter means "this reference is broken", which is what
+     * PropertyFactory::processReference()'s "Unresolved Reference ..." message says. The two are
+     * indistinguishable from the exception's own state, since both are a plain SchemaException
+     * naming a file; only the point at which they were raised tells them apart, which is what
+     * this flag captures.
+     *
+     * Set by SchemaProcessor::processTopLevelSchema() around that generation. A marked exception
+     * already names the referenced file and the real cause, so it must reach the caller unchanged
+     * instead of being replaced by a message blaming the reference site.
      */
-    public function suppressGenericWrapping(): self
+    public function markAsReferencedSchemaFailure(): self
     {
-        $this->genericWrappingSuppressed = true;
+        $this->referencedSchemaFailure = true;
 
         return $this;
     }
 
-    public function isGenericWrappingSuppressed(): bool
+    public function isReferencedSchemaFailure(): bool
     {
-        return $this->genericWrappingSuppressed;
+        return $this->referencedSchemaFailure;
     }
 
     private static function appendLocation(string $message, ?JsonSourcePosition $position): string
