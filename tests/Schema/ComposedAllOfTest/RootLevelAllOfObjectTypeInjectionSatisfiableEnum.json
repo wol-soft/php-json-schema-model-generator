@@ -1,0 +1,19 @@
+{
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "enum": [
+        {
+          "name": "a"
+        }
+      ]
+    }
+  ]
+}

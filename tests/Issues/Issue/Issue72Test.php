@@ -647,37 +647,26 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
-     * The same standalone describing property must still reject an object that violates its
-     * constraints - they are not vacuous for object values.
-     */
-    public function testStandaloneObjectDescribingPropertyRejectsInvalidObject(): void
-    {
-        $this->expectException(NestedObjectException::class);
-        $this->expectExceptionMessage(
-            <<<'ERROR'
-            Invalid nested object for property 'p':
-              - Missing required value for 'name'
-            ERROR,
-        );
-
-        $className = $this->generateClassFromFile('StandaloneObjectDescribingProperty.json');
-
-        new $className(['p' => []]);
-    }
-
-    /**
      * A property carrying object-constraining keywords without a `type` declaration must emit a
      * generation-time warning that its constraints do not apply to non-object values - the same
      * describing classification applies whether reached directly or through a composition branch,
-     * so one warning site in PropertyFactory covers both.
+     * so one warning site in PropertyFactory covers both. Those constraints are nonetheless not
+     * vacuous for object values, so the same generated class must still reject an object that
+     * violates them.
+     *
+     * Attaching a recording logger does not change the generated code, so both halves share one
+     * generation pass. Direct-exception mode is set explicitly because it is this test case's
+     * default rather than GeneratorConfiguration's - passing a configuration at all opts out of
+     * the base class's default, and the rejection half asserts a single NestedObjectException
+     * rather than a collected ErrorRegistryException.
      */
-    public function testObjectDescribingPropertyEmitsAGenerationTimeWarning(): void
+    public function testStandaloneObjectDescribingPropertyWarnsAtGenerationAndRejectsInvalidObjects(): void
     {
         $recordingLogger = new RecordingLogger();
 
-        $this->generateClassFromFile(
+        $className = $this->generateClassFromFile(
             'StandaloneObjectDescribingProperty.json',
-            (new GeneratorConfiguration())->setLogger($recordingLogger),
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($recordingLogger),
         );
 
         $this->assertTrue(
@@ -690,6 +679,16 @@ class Issue72Test extends AbstractIssueTestCase
             ),
             'Expected a describing-property warning for p.',
         );
+
+        $this->expectException(NestedObjectException::class);
+        $this->expectExceptionMessage(
+            <<<'ERROR'
+            Invalid nested object for property 'p':
+              - Missing required value for 'name'
+            ERROR,
+        );
+
+        new $className(['p' => []]);
     }
 
     /**
@@ -890,7 +889,7 @@ class Issue72Test extends AbstractIssueTestCase
                 'warning',
                 "Composition branch #{index} for '{property}' carries no validation keyword and"
                     . ' matches any value',
-                ['index' => 1, 'property' => 'unknownKeyBranch'],
+                ['index' => 2, 'property' => 'unknownKeyBranch'],
             ),
             'Expected a vacuous-branch warning for the unknownKeyBranch property.',
         );
@@ -926,7 +925,7 @@ class Issue72Test extends AbstractIssueTestCase
                 'warning',
                 "Composition branch #{index} for '{property}' carries no validation keyword and"
                     . ' matches any value',
-                ['index' => 1, 'property' => 'trueBranch'],
+                ['index' => 2, 'property' => 'trueBranch'],
             ),
             'Expected a vacuous-branch warning for the trueBranch property.',
         );

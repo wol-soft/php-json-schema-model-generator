@@ -81,7 +81,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     private function warnIfVacuousBranch(
         SchemaProcessor $schemaProcessor,
         PropertyInterface $property,
-        int $branchIndex,
+        int $oneBasedBranchIndex,
         array $resolvedBranchJson,
         Draft $draft,
     ): void {
@@ -97,7 +97,76 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
             "Composition branch #{index} for '{property}' carries no validation keyword and"
                 . ' matches any value',
-            ['index' => $branchIndex, 'property' => $property->getName()],
+            ['index' => $oneBasedBranchIndex, 'property' => $property->getName()],
+        );
+    }
+
+    /**
+     * Emit a generation-time warning when a parent type of 'object' is forced onto a branch
+     * (by inheritPropertyType()/inheritIfPropertyType()) whose 'enum' or 'const' values contain
+     * no object. Once the injection forces the branch to also require an object, no value can
+     * ever satisfy both constraints simultaneously - the branch becomes silently unsatisfiable.
+     *
+     * This is the narrow, mechanically provable case: the values a branch's own 'enum'/'const'
+     * allows are fixed and enumerable, so "does the injected 'object' type conflict with them"
+     * can be answered exactly, without inspecting the rest of the branch's keywords.
+     *
+     * Deliberately does NOT throw a SchemaException here:
+     * - The unsatisfiability is manufactured by the generator's own mutation step - most visibly
+     *   at the schema root, where PropertyFactory::createBaseProperty() unconditionally forces
+     *   "type": "object" onto the outer schema, which this method then propagates into every
+     *   untyped branch - not by anything actually wrong with the schema as written. Removing that
+     *   forced injection is the real fix and is tracked as separate follow-up work landing in the
+     *   same release; until then, throwing here would reject schemas that become merely odd, not
+     *   unsatisfiable, once the injection is removed.
+     * - Genuine (non-manufactured) object/scalar enum conflicts belong with the existing allOf
+     *   conflict-detection machinery (assertNoObjectScalarTypeConflict()), not with this
+     *   injection-time check.
+     * - Broadening the trigger to "any branch that cannot be an object" was rejected: proving
+     *   that in general requires a full satisfiability analysis of arbitrary keyword
+     *   combinations. 'enum'/'const' is the one shape with a proven, mechanical failure - no
+     *   listed value can ever be an object once the branch is also forced to require one - so it
+     *   is the only shape checked.
+     *
+     * @param string               $branchLabel Rendered into the message as-is, so it arrives
+     *                                          pre-formatted: '#2' for a positional branch of an
+     *                                          allOf/anyOf/oneOf (1-based, matching both the
+     *                                          vacuous-branch warning and the runtime
+     *                                          "Composition element #N" numbering), or a quoted
+     *                                          keyword such as 'then' for the shapes whose
+     *                                          branches are named rather than numbered.
+     * @param array<string, mixed> $branchJson  The branch after the 'type' injection was applied.
+     */
+    private function warnIfInjectedObjectTypeConflictsWithEnumOrConst(
+        SchemaProcessor $schemaProcessor,
+        PropertyInterface $property,
+        string $branchLabel,
+        array $branchJson,
+    ): void {
+        if (array_key_exists('enum', $branchJson) && is_array($branchJson['enum'])) {
+            $candidateValues = $branchJson['enum'];
+        } elseif (array_key_exists('const', $branchJson)) {
+            $candidateValues = [$branchJson['const']];
+        } else {
+            return;
+        }
+
+        foreach ($candidateValues as $candidateValue) {
+            // A decoded JSON object and a decoded JSON array are both PHP arrays
+            // (json_decode(..., true)); array_is_list() distinguishes them, with an empty
+            // array treated as a possible object (same carve-out ObjectInstantiationDecorator.phptpl
+            // uses) so an ambiguous `{}`/`[]` enum value is conservatively assumed to still
+            // satisfy the injected object type rather than triggering a false-positive warning.
+            if (is_array($candidateValue) && (!array_is_list($candidateValue) || $candidateValue === [])) {
+                return;
+            }
+        }
+
+        $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+            "Composition branch {branch} for '{property}' is forced to type 'object' by the"
+                . " inherited parent type, but its 'enum'/'const' contains no object value -"
+                . ' the branch can never be satisfied',
+            ['branch' => $branchLabel, 'property' => $property->getName()],
         );
     }
 
@@ -170,7 +239,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                         $this->key,
                         $property->getName(),
                         $property->getJsonSchema()->getFile(),
-                        $index,
+                        $index + 1,
                     ),
                     $property->getJsonSchema(),
                 );
@@ -233,7 +302,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     $this->warnIfVacuousBranch(
                         $schemaProcessor,
                         $property,
-                        $index,
+                        $index + 1,
                         $trueBranchProperty->getJsonSchema()->getJson(),
                         $draft,
                     );
@@ -265,7 +334,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             if ($compositionProperty->isResolved()) {
                 $resolvedBranchJson = $compositionProperty->getJsonSchema()->getJson();
 
-                $this->warnIfVacuousBranch($schemaProcessor, $property, $index, $resolvedBranchJson, $draft);
+                $this->warnIfVacuousBranch($schemaProcessor, $property, $index + 1, $resolvedBranchJson, $draft);
             }
 
             // RequiredPropertyValidator/InstanceOfValidator-for-empty-object exclusion for this
@@ -370,8 +439,11 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     /**
      * Inherit a parent-level type into composition branches that declare no type.
      */
-    protected function inheritPropertyType(JsonSchema $propertySchema): JsonSchema
-    {
+    protected function inheritPropertyType(
+        SchemaProcessor $schemaProcessor,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): JsonSchema {
         $json = $propertySchema->getJson();
 
         if (!isset($json['type'])) {
@@ -382,14 +454,32 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             case 'not':
                 if (!isset($json[$this->key]['type'])) {
                     $json[$this->key]['type'] = $json['type'];
+
+                    if ($json['type'] === 'object') {
+                        $this->warnIfInjectedObjectTypeConflictsWithEnumOrConst(
+                            $schemaProcessor,
+                            $property,
+                            "'not'",
+                            $json[$this->key],
+                        );
+                    }
                 }
                 break;
             case 'if':
-                return $this->inheritIfPropertyType($propertySchema->withJson($json));
+                return $this->inheritIfPropertyType($schemaProcessor, $property, $propertySchema->withJson($json));
             default:
-                foreach ($json[$this->key] as &$composedElement) {
+                foreach ($json[$this->key] as $index => &$composedElement) {
                     if (!is_bool($composedElement) && !isset($composedElement['type'])) {
                         $composedElement['type'] = $json['type'];
+
+                        if ($json['type'] === 'object') {
+                            $this->warnIfInjectedObjectTypeConflictsWithEnumOrConst(
+                                $schemaProcessor,
+                                $property,
+                                '#' . ($index + 1),
+                                $composedElement,
+                            );
+                        }
                     }
                 }
         }
@@ -400,8 +490,11 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     /**
      * Inherit the parent type into all branches of an if/then/else composition.
      */
-    protected function inheritIfPropertyType(JsonSchema $propertySchema): JsonSchema
-    {
+    protected function inheritIfPropertyType(
+        SchemaProcessor $schemaProcessor,
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): JsonSchema {
         $json = $propertySchema->getJson();
 
         foreach (['if', 'then', 'else'] as $keyword) {
@@ -411,6 +504,15 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
             if (!isset($json[$keyword]['type'])) {
                 $json[$keyword]['type'] = $json['type'];
+
+                if ($json['type'] === 'object') {
+                    $this->warnIfInjectedObjectTypeConflictsWithEnumOrConst(
+                        $schemaProcessor,
+                        $property,
+                        "'$keyword'",
+                        $json[$keyword],
+                    );
+                }
             }
         }
 
@@ -483,14 +585,14 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         $hasBranchWithRequiredProperty = array_filter(
             $activeBranches,
-            static fn(CompositionPropertyDecorator $p): bool => $p->isRequired(),
+            static fn(CompositionPropertyDecorator $branch): bool => $branch->isRequired(),
         ) !== [];
 
         $hasBranchWithOptionalProperty = $isAllOf
             ? !$hasBranchWithRequiredProperty
             : array_filter(
                 $activeBranches,
-                static fn(CompositionPropertyDecorator $p): bool => !$p->isRequired(),
+                static fn(CompositionPropertyDecorator $branch): bool => !$branch->isRequired(),
             ) !== [];
 
         if ($isAllOf) {
@@ -651,7 +753,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     {
         return array_values(array_filter(
             $compositionProperties,
-            static fn(CompositionPropertyDecorator $p): bool => $p->getType() !== null,
+            static fn(CompositionPropertyDecorator $branch): bool => $branch->getType() !== null,
         ));
     }
 
@@ -671,8 +773,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         // Intersection of non-null type names across all typed branches.
         // TypeIntersection::compute handles int ⊂ float (integer is a subtype of number in JSON Schema).
         $nonNullSets = array_map(
-            static fn(CompositionPropertyDecorator $p): array => array_values(array_filter(
-                $p->getType()->getNames(),
+            static fn(CompositionPropertyDecorator $branch): array => array_values(array_filter(
+                $branch->getType()->getNames(),
                 static fn(string $typeName): bool => $typeName !== 'null',
             )),
             $constrainingBranches,
@@ -685,9 +787,9 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         // Null is valid in allOf only when ALL typed branches allow it.
         $allBranchesAllowNull = count(array_filter(
             $constrainingBranches,
-            static fn(CompositionPropertyDecorator $p): bool =>
-                in_array('null', $p->getType()->getNames(), true)
-                || $p->getType()->isNullable() === true,
+            static fn(CompositionPropertyDecorator $branch): bool =>
+                in_array('null', $branch->getType()->getNames(), true)
+                || $branch->getType()->isNullable() === true,
         )) === count($constrainingBranches);
 
         return [$nonNullNames, $allBranchesAllowNull];
@@ -771,7 +873,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         $typedBranches = array_values(array_filter(
             $compositionProperties,
-            static fn(CompositionPropertyDecorator $p): bool => $p->getType() !== null,
+            static fn(CompositionPropertyDecorator $branch): bool => $branch->getType() !== null,
         ));
 
         if (empty($typedBranches)) {
@@ -780,7 +882,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         }
 
         $allNames = array_merge(...array_map(
-            static fn(CompositionPropertyDecorator $p): array => $p->getType()->getNames(),
+            static fn(CompositionPropertyDecorator $branch): array => $branch->getType()->getNames(),
             $typedBranches,
         ));
 

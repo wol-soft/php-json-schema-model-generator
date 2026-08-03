@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use ReflectionMethod;
 use stdClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -769,5 +770,51 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
 
         $object->setProperty(null);
         $this->assertNull($object->getProperty());
+    }
+
+    /**
+     * A schema root always has `type: object` forced onto it before its composition is processed,
+     * and that type is then inherited by every branch declaring none of its own. A branch whose
+     * `enum` lists only non-object values becomes unsatisfiable the moment it is also required to
+     * be an object, so the composition can never be satisfied by any input at all - the generated
+     * class is silently uninstantiable.
+     *
+     * Removing the inheritance is the real fix and is tracked separately; until then the generator
+     * must at least say so rather than emit a class that rejects everything without explanation.
+     * The warning is deliberately narrow, so the satisfiable counterpart must stay silent: an
+     * `enum` listing an object value is still satisfiable once the branch is forced to be one.
+     */
+    public function testInheritedObjectTypeConflictingWithAnEnumBranchIsWarnedAbout(): void
+    {
+        $unsatisfiableLogger = new RecordingLogger();
+
+        $this->generateClassFromFile(
+            'RootLevelAllOfObjectTypeInjectionUnsatisfiableEnum.json',
+            (new GeneratorConfiguration())->setLogger($unsatisfiableLogger),
+        );
+
+        $expectedMessage = "Composition branch {branch} for '{property}' is forced to type 'object'"
+            . " by the inherited parent type, but its 'enum'/'const' contains no object value -"
+            . ' the branch can never be satisfied';
+
+        $this->assertTrue(
+            $this->hasLogEntry($unsatisfiableLogger->getEntries(), 'warning', $expectedMessage, ['branch' => '#2']),
+            'Expected a warning naming the enum branch forced to an unsatisfiable object type.',
+        );
+
+        // An enum containing an object value stays satisfiable under the injected type, so the
+        // same schema shape must not warn - this is what keeps the check from firing on every
+        // untyped enum branch at a root.
+        $satisfiableLogger = new RecordingLogger();
+
+        $this->generateClassFromFile(
+            'RootLevelAllOfObjectTypeInjectionSatisfiableEnum.json',
+            (new GeneratorConfiguration())->setLogger($satisfiableLogger),
+        );
+
+        $this->assertFalse(
+            $this->hasLogEntry($satisfiableLogger->getEntries(), 'warning', $expectedMessage),
+            'An enum listing an object value is satisfiable under the injected type and must not warn.',
+        );
     }
 }

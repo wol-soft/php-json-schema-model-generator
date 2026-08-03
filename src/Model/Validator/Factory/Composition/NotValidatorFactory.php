@@ -48,7 +48,7 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
         // Inherit the parent type into the not branch before wrapping in array.
         // inheritPropertyType for 'not' treats $json['not'] as a single schema object,
         // so it must run before we wrap it in an array for iteration.
-        $propertySchema = $this->inheritPropertyType($propertySchema);
+        $propertySchema = $this->inheritPropertyType($schemaProcessor, $property, $propertySchema);
         // Check for filter keywords after type inheritance so that branches that inherit
         // 'object' from the parent are correctly treated as object-typed (their properties
         // are processed as a nested schema and are not subject to ComposedItem $value reset).
