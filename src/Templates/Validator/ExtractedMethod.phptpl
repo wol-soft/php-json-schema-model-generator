@@ -1,0 +1,10 @@
+private function {{ methodName }}(&$value, $modelData): void
+{
+    {% if setUp %}
+        {{ viewHelper.indent(setUp, 1) }}
+
+    {% endif %}
+    if {{ viewHelper.formatCondition(check, 1) }} {
+        {{ viewHelper.indent(errorHandling, 2) }}
+    }
+}

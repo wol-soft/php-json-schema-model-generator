@@ -14,10 +14,10 @@
     {% endif %}
 
     try {
-        {{ viewHelper.resolvePropertyDecorator(ifProperty) }}
+        {{ viewHelper.resolvePropertyDecorator(ifProperty, false, 2) }}
 
         {% foreach ifProperty.getOrderedValidators() as validator %}
-            {{ viewHelper.renderValidator(validator, schema) }}
+            {{ viewHelper.renderValidator(validator, schema, 2) }}
         {% endforeach %}
 
         {% if generatorConfiguration.collectErrors() %}
@@ -37,10 +37,10 @@
     if (!$ifException) {
         {% if thenProperty %}
             try {
-                {{ viewHelper.resolvePropertyDecorator(thenProperty) }}
+                {{ viewHelper.resolvePropertyDecorator(thenProperty, false, 3) }}
 
                 {% foreach thenProperty.getOrderedValidators() as validator %}
-                    {{ viewHelper.renderValidator(validator, schema) }}
+                    {{ viewHelper.renderValidator(validator, schema, 3) }}
                 {% endforeach %}
 
                 {% if generatorConfiguration.collectErrors() %}
@@ -55,10 +55,10 @@
     } else {
         {% if elseProperty %}
             try {
-                {{ viewHelper.resolvePropertyDecorator(elseProperty) }}
+                {{ viewHelper.resolvePropertyDecorator(elseProperty, false, 3) }}
 
                 {% foreach elseProperty.getOrderedValidators() as validator %}
-                    {{ viewHelper.renderValidator(validator, schema) }}
+                    {{ viewHelper.renderValidator(validator, schema, 3) }}
                 {% endforeach %}
 
                 {% if generatorConfiguration.collectErrors() %}

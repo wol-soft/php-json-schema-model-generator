@@ -8,7 +8,8 @@ private function {{ modifiedValuesMethod }}(
     $branchDefaultProps = $componentDefaultValueMap[$componentIndex] ?? [];
 
     foreach ({{ propertyAccessors }} as $key => $accessor) {
-        if ((isset($originalModelData[$key]) || in_array($key, $branchDefaultProps))
+        if (
+            (isset($originalModelData[$key]) || in_array($key, $branchDefaultProps))
             && method_exists($nestedCompositionObject, $accessor)
             && ($modifiedValue = $nestedCompositionObject->$accessor())
                 !== ($originalModelData[$key] ?? !$modifiedValue)

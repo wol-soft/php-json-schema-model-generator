@@ -8,6 +8,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class ComposedPropertyValidator
@@ -27,11 +28,47 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         $this->initModifiedValuesMethod();
         $this->isResolved = true;
 
+        $schema = $validatorVariables['schema'];
+
         parent::__construct(
             $generatorConfiguration,
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
-            array_merge($validatorVariables, ['modifiedValuesMethod' => $this->modifiedValuesMethod]),
+            array_merge($validatorVariables, [
+                'modifiedValuesMethod' => $this->modifiedValuesMethod,
+                // Rendered as its own template and embedded via viewHelper.indent() instead of being inlined
+                // directly: the shared per-composition-element validation body sits at a different real nesting
+                // depth depending on whether isMutableBaseValidator holds (it wraps the body in an extra
+                // "} else {" for its cache-check) - one literal indentation can't be correct for both, so the
+                // body is written once, at its own canonical depth, and the two call sites in ComposedItem.phptpl
+                // each indent the rendered result to their own real depth. Rendered once per composition
+                // property, so it must be a closure invoked from inside the {% foreach %} loop rather than a
+                // value precomputed here.
+                'renderComposedItemBody' => function (
+                    $compositionProperty,
+                    $isMutableBaseValidator,
+                    $hasModifiedValuesMethod,
+                    $modifiedValuesMethod,
+                    $postPropose,
+                ) use (
+                    $schema,
+                    $generatorConfiguration,
+                ): string {
+                    return $this->getRenderer()->renderTemplate(
+                        DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItemBody.phptpl',
+                        [
+                            'compositionProperty' => $compositionProperty,
+                            'schema' => $schema,
+                            'generatorConfiguration' => $generatorConfiguration,
+                            'viewHelper' => new RenderHelper($generatorConfiguration),
+                            'isMutableBaseValidator' => $isMutableBaseValidator,
+                            'hasModifiedValuesMethod' => $hasModifiedValuesMethod,
+                            'modifiedValuesMethod' => $modifiedValuesMethod,
+                            'postPropose' => $postPropose,
+                        ],
+                    );
+                },
+            ]),
             $exceptionClass,
             ['&$succeededCompositionElements', '&$compositionErrorCollection'],
         );
@@ -58,10 +95,10 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getValidatorSetUp(): string
     {
-        return '
+        return <<<'CODE'
             $succeededCompositionElements = 0;
             $compositionErrorCollection = [];
-        ';
+            CODE;
     }
 
     /**

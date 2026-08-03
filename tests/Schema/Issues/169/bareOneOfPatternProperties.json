@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "target": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "patternProperties": {
+            "^x-": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

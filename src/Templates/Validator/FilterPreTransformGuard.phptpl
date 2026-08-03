@@ -1,0 +1,8 @@
+private function {{ guardMethodName }}(&$value, $modelData): void
+{
+    if {{ viewHelper.formatCondition(skipCheck, 1) }} {
+        return;
+    }
+
+    $this->{{ innerMethodName }}($value, $modelData);
+}

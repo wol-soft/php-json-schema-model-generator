@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
+use PHPMicroTemplate\Exception\PHPMicroTemplateException;
+use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Wraps an input-space composition validator with a skip guard that bypasses the entire
@@ -67,26 +70,40 @@ final class FilterPreTransformGuardValidator extends ExtractedMethodValidator
      */
     public function getMethod(): MethodInterface
     {
-        $guardMethodName = $this->getExtractedMethodName();
-        $innerMethodName = $this->inner->getExtractedMethodName();
-        $skipCheck = $this->skipCheck;
-
-        return new class ($guardMethodName, $innerMethodName, $skipCheck) implements MethodInterface {
-            public function __construct(
-                private readonly string $guardMethodName,
-                private readonly string $innerMethodName,
-                private readonly string $skipCheck,
-            ) {}
+        return new class ($this) implements MethodInterface {
+            public function __construct(private readonly FilterPreTransformGuardValidator $validator)
+            {}
 
             public function getCode(): string
             {
-                return "private function {$this->guardMethodName}(&\$value, \$modelData): void {
-                    if ({$this->skipCheck}) {
-                        return;
-                    }
-                    \$this->{$this->innerMethodName}(\$value, \$modelData);
-                }";
+                return $this->validator->renderGuardMethod();
             }
         };
+    }
+
+    /**
+     * @throws RenderException
+     */
+    public function renderGuardMethod(): string
+    {
+        try {
+            return $this->getRenderer()->renderTemplate(
+                DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'FilterPreTransformGuard.phptpl',
+                [
+                    'guardMethodName' => $this->getExtractedMethodName(),
+                    'innerMethodName' => $this->inner->getExtractedMethodName(),
+                    'skipCheck' => $this->skipCheck,
+                    'viewHelper' => new RenderHelper($this->generatorConfiguration),
+                ],
+            );
+        } catch (PHPMicroTemplateException $exception) {
+            // @codeCoverageIgnoreStart
+            throw new RenderException(
+                "Can't render filter pre-transform guard {$this->getExtractedMethodName()}",
+                0,
+                $exception,
+            );
+            // @codeCoverageIgnoreEnd
+        }
     }
 }

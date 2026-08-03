@@ -13,10 +13,10 @@ is_array($value) && (function (&$items){% if countMatches %} use (&$containsMatc
                 $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
             {% endif %}
 
-            {{ viewHelper.resolvePropertyDecorator(property) }}
+            {{ viewHelper.resolvePropertyDecorator(property, false, 3) }}
 
             {% foreach property.getOrderedValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema) }}
+                {{ viewHelper.renderValidator(validator, schema, 3) }}
             {% endforeach %}
 
             {% if generatorConfiguration.collectErrors() %}

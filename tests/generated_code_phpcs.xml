@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<ruleset name="php-json-schema-model-generator-generated-code">
+    <description>
+        PSR-12 based coding standard for asserting the formatting of generated model code. Extends the main
+        ruleset but relaxes three rules that flag deliberate properties of generated code rather than accidental
+        style violations: the underscore-prefix naming rules (internal properties/methods like $_errorRegistry,
+        _validateSpecs are prefixed with an underscore to guarantee no collision with user-defined or
+        schema-derived names), the soft line-length limit (exception constructors embed class names, property
+        names and JSON pointers verbatim, routinely pushing lines past 120 characters - unavoidable given what
+        the line documents, not a wrapping omission), and the mandatory-namespace rule (generating classes with
+        no namespace is an intentionally supported configuration - GeneratorConfiguration::setNamespacePrefix()
+        is optional - not a defect in the generated code).
+    </description>
+
+    <rule ref="../phpcs.xml">
+        <exclude name="PSR2.Classes.PropertyDeclaration.Underscore"/>
+        <exclude name="PSR2.Methods.MethodDeclaration.Underscore"/>
+        <exclude name="Generic.Files.LineLength.TooLong"/>
+        <exclude name="PSR1.Classes.ClassDeclaration.MissingNamespace"/>
+    </rule>
+</ruleset>

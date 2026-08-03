@@ -35,6 +35,7 @@ use PHPModelGenerator\Model\Validator\Factory\Object\MaxPropertiesValidatorFacto
 use PHPModelGenerator\Model\Validator\Factory\Object\MinPropertiesValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Object\PatternPropertiesValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Object\PropertyNamesValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Object\RequiredValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\String\FormatValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\String\MaxLengthValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\String\MinLengthPropertyValidatorFactory;
@@ -47,6 +48,7 @@ class Draft_07 implements DraftInterface
         return (new DraftBuilder())
             ->addType((new Type('object', false))
                 ->addValidator('properties', new PropertiesValidatorFactory())
+                ->addValidator('required', new RequiredValidatorFactory())
                 ->addValidator('propertyNames', new PropertyNamesValidatorFactory())
                 ->addValidator('patternProperties', new PatternPropertiesValidatorFactory())
                 ->addValidator('additionalProperties', new AdditionalPropertiesValidatorFactory())
