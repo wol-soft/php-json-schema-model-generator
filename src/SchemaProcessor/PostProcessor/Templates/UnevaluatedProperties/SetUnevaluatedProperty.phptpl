@@ -31,24 +31,66 @@ private function _setUnevaluatedProperty(
 
     {% if validationProperty %}{{ schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) }}{% endif %}
 
-    // _executePostCompositionValidators runs the unevaluatedProperties validator against the
-    // candidate pair, which writes the value into $this->_unevaluatedProperties on success.
-    // The schema's base + composition validators don't apply to a single dynamic key (the key
-    // isn't a declared property), so only the post-composition phase needs to run here.
+    // Snapshot the state a rejected call has to give back. In collect-errors mode a later phase
+    // can succeed and store its result while an earlier one has already registered an error, so
+    // the stores are unwound before the registry is thrown rather than left half-applied.
     //
+    // _propertyValidationState is deliberately not snapshotted: the composition cache is only
+    // read for branches whose outcome no undeclared key can change, and those branches are the
+    // ones a dynamic key leaves untouched. Every entry this call can rewrite belongs to a
+    // key-sensitive branch, which never reads the cache back.
+    $rollbackUnevaluatedProperties = $this->_unevaluatedProperties;
+    {% if schema.getCompositionValidatorKeys() %}
+        // A branch can flip from failing to succeeding once the new key is present (its
+        // minProperties is met, its required name arrives, ...). Leaving that slot behind after
+        // a rejection would credit the branch's claims to a state that never had them.
+        $rollbackCompositionEvaluations = $this->_compositionEvaluations;
+    {% endif %}
+
     // In collect-errors mode each call needs an isolated error registry — without resetting it,
     // a previous setter that failed and was caught by the caller would leave stale errors that
     // make every subsequent setter throw spuriously when its own validation actually succeeded.
     {% if generatorConfiguration.collectErrors() %}
         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+    {% else %}
+        try {
     {% endif %}
 
     $addedProperty = [$key => $value];
+
+    {% if schema.getCompositionValidatorKeys() %}
+        // Cross-state composition revalidation: a branch keyword that reaches keys the branch
+        // does not declare — additionalProperties, patternProperties, unevaluatedProperties,
+        // propertyNames, min/maxProperties — decides whether the new key is admissible at all,
+        // and rejects it when its value violates the branch's claim. The compositions merge
+        // $addedProperty over _rawModelDataInput themselves, so the candidate state is visible
+        // to them without committing anything.
+        {% foreach schema.getCompositionValidatorKeys() as compositionValidatorKey %}
+            $this->_validateComposition_{{ compositionValidatorKey }}($addedProperty);
+        {% endforeach %}
+    {% endif %}
+
+    // _executePostCompositionValidators runs the unevaluatedProperties validator against the
+    // candidate pair, which writes the value into $this->_unevaluatedProperties on success.
     $this->_executePostCompositionValidators($addedProperty);
 
     {% if generatorConfiguration.collectErrors() %}
         if (count($this->_errorRegistry->getErrors())) {
+            $this->_unevaluatedProperties = $rollbackUnevaluatedProperties;
+            {% if schema.getCompositionValidatorKeys() %}
+                $this->_compositionEvaluations = $rollbackCompositionEvaluations;
+            {% endif %}
+
             throw $this->_errorRegistry;
+        }
+    {% else %}
+        } catch (\Throwable $rejection) {
+            $this->_unevaluatedProperties = $rollbackUnevaluatedProperties;
+            {% if schema.getCompositionValidatorKeys() %}
+                $this->_compositionEvaluations = $rollbackCompositionEvaluations;
+            {% endif %}
+
+            throw $rejection;
         }
     {% endif %}
 

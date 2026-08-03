@@ -9,14 +9,26 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class CompositionPropertyDecorator
- *
- * @package PHPModelGenerator\Model\Property
- */
 class CompositionPropertyDecorator extends PropertyProxy
 {
     private const string PROPERTY_KEY = 'composition';
+
+    /**
+     * Object keywords whose outcome is decided by the shape or the count of the instance's keys
+     * rather than by the names listed in `properties`. A branch declaring any of them reacts to
+     * keys it never names, so no static name list can describe which mutations affect it.
+     */
+    private const array UNDECLARED_KEY_SENSITIVE_KEYWORDS = [
+        'additionalProperties',
+        'patternProperties',
+        'unevaluatedProperties',
+        'propertyNames',
+        'minProperties',
+        'maxProperties',
+        'dependencies',
+        'dependentRequired',
+        'dependentSchemas',
+    ];
 
     /**
      * Store all properties from nested schemas of the composed property validator. If the composition validator fails
@@ -161,6 +173,36 @@ class CompositionPropertyDecorator extends PropertyProxy
     {
         return $this->branchHasNonFalseAdditionalProperties()
             || ($this->jsonSchema->getJson()['unevaluatedProperties'] ?? null) === true;
+    }
+
+    /**
+     * True when a key the branch does not declare in `properties` can still flip the branch's
+     * outcome.
+     *
+     * The setter-side validation cache decides "nothing relevant changed" by intersecting the
+     * mutated keys with this branch's declared property names. That test is only sound while
+     * every keyword in the branch reacts to names it declares. A branch carrying
+     * `additionalProperties`, `patternProperties`, `minProperties`, ... is decided by keys it
+     * never names, so the intersection reports "no change" for a mutation that does change the
+     * outcome and the branch is wrongly skipped.
+     *
+     * `required` is deliberately absent from the list even though a required name need not
+     * appear in `properties`: the schema processor materialises every required name as a
+     * property of the branch's nested schema, so such a name is already part of the declared
+     * set the cache tests against. Adding `required` here would disable the cache for a large
+     * share of real schemas without closing any gap.
+     */
+    public function branchEvaluationDependsOnUndeclaredKeys(): bool
+    {
+        $branchJson = $this->jsonSchema->getJson();
+
+        foreach (self::UNDECLARED_KEY_SENSITIVE_KEYWORDS as $keyword) {
+            if (array_key_exists($keyword, $branchJson)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

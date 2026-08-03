@@ -46,14 +46,23 @@
                 // If none of the properties affected by the validator are changed the validator must not be re-evaluated
                 if (isset($validatorIndex) &&
                     isset($this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]) &&
-                    !array_intersect(
-                        array_keys($modifiedModelData),
-                        [
-                            {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
-                                '{{ affectedObjectProperty.getName() }}',
-                            {% endforeach %}
-                        ]
-                    )
+                    {% if compositionProperty.branchEvaluationDependsOnUndeclaredKeys() %}
+                        // Never cached: this branch carries a keyword decided by the shape or
+                        // count of the instance's keys (additionalProperties, patternProperties,
+                        // minProperties, ...), so a key it does not declare can still flip its
+                        // outcome. A declared-name test cannot see such a key and would wrongly
+                        // report "nothing relevant changed", skipping a branch that now fails.
+                        false
+                    {% else %}
+                        !array_intersect(
+                            array_keys($modifiedModelData),
+                            [
+                                {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
+                                    '{{ affectedObjectProperty.getName() }}',
+                                {% endforeach %}
+                            ]
+                        )
+                    {% endif %}
                 ) {
                     {% if compositionValidator.hasEvaluationTrackingEnabled() %}
                         // Cache hit: validators are not re-run, so $value still holds the

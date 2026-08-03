@@ -126,6 +126,11 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
      * same AllOfException the constructor raises for `{kind: "a", extra: "not-an-integer"}`.
      * In direct-exception mode the composition summary carries no per-element details, so the
      * message is fully constructible.
+     *
+     * The fixture declares `kind` twice on purpose. `additionalProperties` only exempts the
+     * `properties` of the schema object it sits in, so without the branch's own `kind`
+     * declaration the branch would treat the string `kind` as an additional property, fail its
+     * `type: integer` claim, and reject the constructor call this test needs to succeed.
      */
     public function testSetRejectsValueViolatingASuccessfulBranchClaim(): void
     {
@@ -399,7 +404,7 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         try {
             $accessor->set('bad', 999); // exceeds maximum: 100
             $this->fail('First set() was expected to throw');
-        } catch (\PHPModelGenerator\Exception\ErrorRegistryException) {
+        } catch (ErrorRegistryException) {
             // expected — collect-errors mode wraps validation failures in this exception
         }
 
@@ -633,7 +638,7 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
 
     /**
      * `additionalProperties: true` + sibling `unevaluatedProperties: {type: integer}` is a
-     * dead-code cell in the §4.1 matrix: additionalProperties claims every extra at runtime,
+     * dead-code combination: additionalProperties claims every extra at runtime,
      * so the unevaluated validator and accessor are both suppressed at codegen. The user can
      * therefore call `$model->additionalProperties()->set(...)` with a value of any type —
      * the unevaluated schema's `type: integer` constraint never runs, and a string value
@@ -885,7 +890,7 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
      *     in the registry. PatternProperties.phptpl rolls `_patternProperties` back so the
      *     storage no longer records `x_foo` for this call's value.
      *   - post-composition phase: collectUnevaluatedKeys correlates the pattern claim against
-     *     `_patternProperties` to honour per-key validity (decision 0.5); the rolled-back
+     *     `_patternProperties` to honour per-key validity; the rolled-back
      *     storage means `x_foo` is *not* credited as evaluated, and unevaluatedProperties: false
      *     rejects → UnevaluatedPropertiesException in the registry.
      *
@@ -1015,7 +1020,7 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         $this->assertFalse(method_exists($object, 'unevaluatedProperties'));
 
         // Constructing with an extra throws on the additionalProperties: false validator.
-        $this->expectException(\PHPModelGenerator\Exception\ValidationException::class);
+        $this->expectException(ValidationException::class);
         new $className(['name' => 'Alice', 'extra' => 42]);
     }
 }
