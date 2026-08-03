@@ -76,7 +76,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\One
 
     - ``true`` branch — treated as an empty schema; always satisfies the branch. The generator
       emits a generation-time warning that the branch carries no validation keyword and matches
-      any value — the same warning an equivalent empty ``{}`` branch would produce.
+      any value.
     - ``false`` branch — can never be satisfied; always-failing branches participate in the
       composition but never succeed. If all branches are ``false``, any provided value raises a
       ``OneOfException`` at runtime, and the generator emits a warning at generation time.

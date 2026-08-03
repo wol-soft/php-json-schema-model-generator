@@ -407,6 +407,12 @@ class GeneratorConfiguration
      * `type: object` is vacuously satisfied by non-object input too, so it cannot faithfully back
      * a generated class and raises a SchemaException. Enabling this treats such a composition
      * exactly as if it had declared `type: object` itself.
+     *
+     * Scoped to compositions on purpose, and this flag does not widen that scope: a root carrying
+     * only object keywords (e.g. a bare `properties`/`required` schema) with no composition
+     * keyword, no `$ref` and no `type` is not a composition at all. SchemaProcessor's own gate
+     * skips such a root before the representability check ever sees it, so it produces no class
+     * and no diagnostic under either setting of this flag.
      */
     public function setImplicitObjectComposition(bool $allowImplicitObjectComposition): self
     {

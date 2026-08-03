@@ -271,3 +271,11 @@ doesn't resolve to an object at all) is rejected. Enable
 <../gettingStarted.html#implicit-object-composition>`__) to treat an object-describing
 class-defining composition exactly as if it had declared ``"type": "object"`` itself, instead of
 rejecting it.
+
+.. note::
+
+    Both the requirement and the flag apply to *compositions*. A schema file whose root carries
+    only object keywords — a bare ``properties``/``required`` schema with no ``allOf``/``anyOf``/
+    ``oneOf``/``if``, no ``$ref`` and no ``type`` — is not a composition, and is skipped before
+    this check runs: it produces no generated class and no message, whether or not the flag is
+    enabled. Add ``"type": "object"`` to such a root to have a class generated for it.

@@ -89,11 +89,19 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
 
     - ``true`` branch — treated as an empty schema; any value satisfies it and it adds no constraint.
       The generator emits a generation-time warning that the branch carries no validation keyword
-      and matches any value — the same warning an equivalent empty ``{}`` branch would produce.
+      and matches any value.
     - ``false`` branch — makes the whole composition unsatisfiable; any provided value raises an
       ``AllOfException`` at runtime (the false branch is represented as an always-failing composition
       element). The generator also emits a warning at generation time. Absent optional properties
       are still allowed.
+
+    An empty ``{}`` branch, and a branch carrying only annotation keywords such as ``example``,
+    behave identically to ``true`` at runtime — they impose no constraint either. They are also
+    warned about, but only where the branch does not inherit a ``type`` from the enclosing schema:
+    a branch that declares no ``type`` of its own inherits the outer one, which counts as a
+    constraint and suppresses the warning. Since a schema root always has ``"type": "object"``
+    applied to it, an empty branch in a root-level composition does not currently warn, while a
+    ``true`` branch there does (boolean branches are not subject to the inheritance).
 
 .. note::
 
