@@ -212,15 +212,10 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         mixed $propertyValue,
     ): void {
-        $providedType = match (true) {
-            is_object($propertyValue) => $propertyValue::class,
-            is_array($propertyValue) && !array_is_list($propertyValue) => 'object',
-            default => gettype($propertyValue),
-        };
-
         $this->expectValidationError(
             $configuration,
-            "Invalid type for 'property': requires 'array', got '{$providedType}'",
+            "Invalid type for 'property': requires 'array', got '" .
+                (is_object($propertyValue) ? $propertyValue::class : gettype($propertyValue)) . "'",
         );
 
         $className = $this->generateClassFromFile('ArrayProperty.json', $configuration);

@@ -104,18 +104,18 @@ class Issue168Test extends AbstractIssueTestCase
      * from arrayOrObjectTypeMismatchDataProvider() above because it targets a differently-named
      * property ("tags", declared as "array" rather than "object") in its own schema file.
      *
-     * The resulting message reports "got 'object'": `InvalidTypeException` uses
-     * `array_is_list($providedValue)` - the same signal used at every array/object type guard - to
-     * tell a JSON object apart from a JSON array once both have decoded to a PHP array, instead of
-     * relying on `gettype()` alone (which reports "array" for both and previously produced the
-     * uninformative "requires 'array', got 'array'").
+     * The resulting message ("requires 'array', got 'array'") is not very informative - `gettype()`
+     * reports "array" for both a JSON array and a JSON object once decoded, so it cannot itself
+     * distinguish which shape was actually provided. That is an existing message-formatting
+     * limitation shared with every other `InvalidTypeException`, not something this fix
+     * introduces; improving it is a separate, unstarted concern.
      */
     public function testArrayTypePropertyRejectsAJsonObject(): void
     {
         $className = $this->generateClassFromFile('ArrayTypeAcceptsObject.json');
 
         $this->expectException(InvalidTypeException::class);
-        $this->expectExceptionMessage("Invalid type for 'tags': requires 'array', got 'object'");
+        $this->expectExceptionMessage("Invalid type for 'tags': requires 'array', got 'array'");
 
         new $className(['tags' => ['a' => 'x', 'b' => 'y']]);
     }
