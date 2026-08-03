@@ -9,17 +9,23 @@ use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use Throwable;
+use TypeError;
 
 /**
- * Statically classifies a raw decoded schema as ObjectAsserting, ObjectDescribing, or
- * NotObject (see ObjectShape for the semantics of each), resolving `$ref` chains through an
+ * Statically classifies a raw decoded schema as ObjectAsserting, ObjectDescribing, NotObject, or
+ * Undecidable (see ObjectShape for the semantics of each), resolving `$ref` chains through an
  * injected resolver callable so the classification works on definitions, external files, and
  * inline subschemas alike.
  *
- * The classification is deliberately conservative: whenever object-ness cannot be established
- * with certainty (unresolvable or cyclic references, mixed-type compositions, schemas owned by
- * other subsystems such as transforming filters), the resolver falls back to NotObject, which
- * keeps the affected schema on its current processing path.
+ * The classification is deliberately conservative: a mixed-type composition that cannot assert
+ * object-ness classifies as NotObject, and a component whose object-ness genuinely cannot be
+ * established (unresolvable or cyclic references, schemas owned by other subsystems such as
+ * transforming filters) classifies as Undecidable. Both keep the affected schema on its current
+ * processing path via ObjectShapeResolver::resolve() (see BranchObjectShape::Blocking and
+ * ::Undecidable respectively), but only Undecidable is exempted from
+ * SchemaProcessor::checkObjectRepresentability()'s rejection, since a genuinely unknown shape
+ * must be left to the subsystem that owns it to report precisely, rather than be reported here
+ * as a confident "not an object" verdict.
  *
  * The set of object-describing keywords is derived from the injected Draft's own object Type
  * registrations (see the constructor), so a custom Draft that adds, removes, or renames
@@ -76,7 +82,7 @@ class ObjectShapeResolver
      *                                                             reference cannot be resolved.
      *                                                             Without a resolver every
      *                                                             `$ref`-bearing schema
-     *                                                             classifies as NotObject.
+     *                                                             classifies as Undecidable.
      */
     public function __construct(Draft $draft, private readonly ?Closure $refResolver = null)
     {
@@ -108,14 +114,29 @@ class ObjectShapeResolver
                 $definition = $dictionary->getDefinition($reference, $schemaProcessor, $path);
 
                 return $definition?->getSource()->navigate(implode('/', $path))->getJson();
+            } catch (TypeError) {
+                // A $ref that resolves to a boolean-valued definition (`true` or `false`) hits
+                // JsonSchema::navigate(), which assigns the resolved leaf into a property typed
+                // `array` and throws a TypeError for a boolean leaf. Unlike an unresolvable
+                // reference, this is NOT undecidable - the target is known and is definitely not
+                // representable as an object - so it must keep mapping to
+                // BranchObjectShape::Blocking, not ::Undecidable. Returning false (rather than
+                // null) achieves that: classify() already treats a literal `false` json value as
+                // Blocking via its own is_bool() branch, so this reuses that path instead of
+                // adding a second one. The true/false distinction of the actual definition is
+                // deliberately not preserved (both collapse to `false` here): classifying `true`
+                // faithfully as Neutral was tried and reverted, because it lets generation
+                // proceed past checkObjectRepresentability() and then fail deeper in the pipeline
+                // with this exact same uncaught TypeError once the real (non-speculative) $ref
+                // resolution reaches JsonSchema::navigate() - trading a clean SchemaException for
+                // an uncaught TypeError is a regression, not an improvement.
+                return false;
             } catch (Throwable) {
-                // An unresolvable, malformed, or boolean-leaf reference leaves object-ness
-                // undecidable; returning null makes the resolver bail out conservatively to
-                // NotObject, keeping the schema on its current processing path. A boolean-valued
-                // definition is deliberately included: classifying it faithfully (true as
-                // Neutral) would let generation proceed past this check and then fail deeper in
-                // the pipeline with an uncaught TypeError, because JsonSchema cannot carry a
-                // boolean. Bailing out here keeps the failure a clean SchemaException.
+                // An unresolvable, malformed, or cyclic reference leaves object-ness genuinely
+                // undecidable - the target might turn out to be an object; returning null makes
+                // the resolver bail out to BranchObjectShape::Undecidable, keeping the schema on
+                // its current processing path and deferring to the real $ref resolution's own,
+                // more precise error.
                 return null;
             }
         };
@@ -129,6 +150,7 @@ class ObjectShapeResolver
             BranchObjectShape::Asserting => ObjectShape::ObjectAsserting,
             BranchObjectShape::Describing => ObjectShape::ObjectDescribing,
             BranchObjectShape::Blocking, BranchObjectShape::Neutral => ObjectShape::NotObject,
+            BranchObjectShape::Undecidable => ObjectShape::Undecidable,
         };
     }
 
@@ -146,9 +168,13 @@ class ObjectShapeResolver
 
         // Filter-bearing schemas are owned by the filter-composition subsystem (input/output
         // type-space classification); classifying them as object-shaped would pull them out of
-        // that machinery, so they block conservatively.
+        // that machinery. This is genuinely undecidable rather than a "not an object" verdict -
+        // the filter subsystem's own compatibility check runs moments later and reports a
+        // precise, correctly-attributed error (e.g. naming the incompatible filter and property
+        // type), which SchemaProcessor::checkObjectRepresentability() must not preempt with a
+        // generic representability failure.
         if (array_key_exists('filter', $json)) {
-            return BranchObjectShape::Blocking;
+            return BranchObjectShape::Undecidable;
         }
 
         if (array_key_exists('$ref', $json)) {
@@ -223,21 +249,26 @@ class ObjectShapeResolver
     {
         $reference = $json['$ref'];
 
-        // Unresolvable and cyclic references block: without seeing the target, claiming
-        // object-ness (or even neutrality, which would let sibling branches assert it) is
-        // unsound - a hidden scalar target would make the aggregate unsatisfiable.
+        // Unresolvable and cyclic references are undecidable, not decidably non-object: without
+        // seeing the target, claiming object-ness (or even neutrality, which would let sibling
+        // branches assert it) is unsound - a hidden scalar target would make the aggregate
+        // unsatisfiable - but the target might just as well turn out to be an object. The real
+        // $ref resolution that runs moments later reports a precise, correctly-attributed error
+        // (e.g. naming the missing reference), which
+        // SchemaProcessor::checkObjectRepresentability() must not preempt with a generic
+        // representability failure.
         if (
             !is_string($reference)
             || $this->refResolver === null
             || in_array($reference, $visitedReferences, true)
         ) {
-            return BranchObjectShape::Blocking;
+            return BranchObjectShape::Undecidable;
         }
 
         $targetJson = ($this->refResolver)($reference);
 
         if ($targetJson === null) {
-            return BranchObjectShape::Blocking;
+            return BranchObjectShape::Undecidable;
         }
 
         $visitedReferences[] = $reference;
@@ -268,11 +299,23 @@ class ObjectShapeResolver
      * of one schema object): one unsatisfiable-with-object component poisons the aggregate;
      * otherwise a single asserting component makes the whole aggregate object-asserting.
      *
+     * Undecidable is checked BEFORE Blocking, even though a Blocking component alone would
+     * already be enough to fail the composition. A definite Blocking verdict cannot be derived
+     * from an aggregate that also contains a component whose own shape is unknown - the unknown
+     * component might resolve to something that changes the picture, and more importantly the
+     * subsystem that owns it ($ref resolution, the filter machinery) reports its own precise,
+     * correctly-attributed error moments later. Checking Blocking first was considered and
+     * rejected: it would let e.g. `allOf: [{type: string}, {$ref: '#/definitions/missing'}]`
+     * report the generic "does not resolve to a definite object" message from
+     * SchemaProcessor::checkObjectRepresentability() instead of the unresolved-reference error
+     * the real $ref resolution produces for the same schema.
+     *
      * @param BranchObjectShape[] $shapes
      */
     private function combineConjunctive(array $shapes): BranchObjectShape
     {
         return match (true) {
+            in_array(BranchObjectShape::Undecidable, $shapes, true) => BranchObjectShape::Undecidable,
             in_array(BranchObjectShape::Blocking, $shapes, true) => BranchObjectShape::Blocking,
             in_array(BranchObjectShape::Asserting, $shapes, true) => BranchObjectShape::Asserting,
             in_array(BranchObjectShape::Describing, $shapes, true) => BranchObjectShape::Describing,
@@ -292,12 +335,18 @@ class ObjectShapeResolver
      * it would route a cross-typed nested composition through the object path, which is
      * deliberately out of the conservative initial scope).
      *
+     * Undecidable is checked BEFORE Blocking here too, for the same reason as in
+     * combineConjunctive(): a branch whose own shape is unknown must not let a sibling Blocking
+     * branch produce a confident aggregate verdict, since the subsystem that owns the unknown
+     * branch reports its own precise error moments later.
+     *
      * @param BranchObjectShape[] $shapes
      */
     private function combineDisjunctive(array $shapes): BranchObjectShape
     {
         return match (true) {
             $shapes === [] => BranchObjectShape::Neutral,
+            in_array(BranchObjectShape::Undecidable, $shapes, true) => BranchObjectShape::Undecidable,
             in_array(BranchObjectShape::Blocking, $shapes, true) => BranchObjectShape::Blocking,
             in_array(BranchObjectShape::Neutral, $shapes, true) => BranchObjectShape::Neutral,
             in_array(BranchObjectShape::Describing, $shapes, true) => BranchObjectShape::Describing,

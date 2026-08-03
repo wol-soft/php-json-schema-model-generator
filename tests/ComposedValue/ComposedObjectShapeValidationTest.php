@@ -66,6 +66,17 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
             // combine disjunctively, so it degrades the aggregate however object-asserting the
             // "then" branch is.
             'if/then/else with partial coverage' => 'RootIfThenElsePartialCoverage.json',
+            // A root "type" listing object alongside another type permits a non-object value, so
+            // the single generated class could not represent every value the schema accepts. The
+            // generated constructor only ever takes an array, so this was never representable -
+            // it merely used to generate a class that could not accept its own schema's null.
+            'multi-type object-or-null root' => 'RootMultiTypeObjectAndNull.json',
+            // A $ref to a boolean-valued definition. JsonSchema::$json is typed `array`, so a
+            // boolean target cannot round-trip through it - the target IS known and is decidably
+            // unrepresentable, which is why it stays a clean rejection here rather than being
+            // treated as undecidable and handed back to the pipeline (where it would resurface as
+            // an uncaught TypeError from JsonSchema::navigate()).
+            'reference to a boolean definition' => 'RootAllOfReferenceToBooleanDefinition.json',
         ];
 
         foreach ($alwaysRejected as $label => $schemaFile) {
@@ -391,5 +402,116 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
         );
 
         $this->generateClassFromFile('RootFilterWithAllOfComposition.json');
+    }
+
+    /**
+     * A root composition whose object-ness cannot be classified at all - because a component is
+     * owned by another subsystem, or simply cannot be seen - must NOT be reported as a
+     * representability failure. The representability check runs before any property processing, so
+     * a verdict of "does not resolve to a definite object" would pre-empt the far more precise
+     * error the owning subsystem raises moments later, naming the wrong cause and offering no fix.
+     *
+     * These are exactly the diagnostics the check regressed while an undecidable classification
+     * was indistinguishable from a decided "not an object" one, so each row asserts the owning
+     * subsystem's own message rather than the representability message.
+     */
+    #[DataProvider('undecidableRootCompositionDataProvider')]
+    public function testUndecidableRootCompositionDefersToTheSubsystemThatOwnsIt(
+        string $schemaFile,
+        string $expectedMessagePattern,
+    ): void {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches($expectedMessagePattern);
+
+        $this->generateClassFromFile($schemaFile);
+    }
+
+    public static function undecidableRootCompositionDataProvider(): array
+    {
+        return [
+            // The classifier cannot see the target, so it cannot rule object-ness out either. The
+            // real $ref resolution names the reference that could not be resolved.
+            'unresolvable reference inside the composition' => [
+                'RootAllOfUnresolvableReference.json',
+                '/^Unresolved Reference #\\/definitions\\/DoesNotExist in file .*\\.json$/',
+            ],
+            // A filter nested inside a composition branch has no top-level 'filter' key, so the
+            // exemption that covers a filter-bearing root could never have covered this shape -
+            // it relies entirely on the branch classifying as undecidable.
+            'filter inside a composition branch' => [
+                'RootAllOfFilterInBranch.json',
+                '/^A filter keyword inside a allOf composition branch is not supported for property'
+                    . ' [0-9a-zA-Z_]+ in file .*\\.json \\(branch #1\\)\\. at line \\d+, column \\d+$/',
+            ],
+        ];
+    }
+
+    /**
+     * In direct-exception mode a failing composition enumerates every branch with its own reason,
+     * matching what collect-errors mode has always produced - but only when the composition is not
+     * a MUTABLE base validator. Both composition templates gate the enumeration on
+     * `not isMutableBaseValidator(...)`, so a root composition generated with setImmutable(false)
+     * still produces only the bare summary.
+     *
+     * Pinned rather than fixed: closing the gap means giving the mutable base-validator template
+     * path its own per-branch error registry, which is follow-up work. Asserting the divergence
+     * here keeps it from being mistaken for a regression, and makes the eventual fix show up as a
+     * failure in a test that names the exact scenario.
+     */
+    public function testBranchEnumerationInDirectExceptionModeSkipsMutableBaseValidators(): void
+    {
+        $matchingBothBranches = ['name' => 'Hannes', 'code' => 42];
+        $summaryFor = static fn(string $className): string => sprintf(
+            "Invalid value for '%s' declined by composition constraint\n"
+                . '  Requires to match one composition element but matched 2 elements',
+            substr($className, (int) strrpos('\\' . $className, '\\')),
+        );
+
+        $immutableClassName = $this->generateClassFromFile(
+            'RootExplicitObjectWithDescribingOneOf.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        try {
+            new $immutableClassName($matchingBothBranches);
+            $this->fail('Expected the immutable class to reject a value matching both branches.');
+        } catch (JSONModelValidationException $exception) {
+            $this->assertSame(
+                $summaryFor($immutableClassName)
+                    . "\n  - Composition element #1: Valid\n  - Composition element #2: Valid",
+                $exception->getMessage(),
+            );
+        }
+
+        $mutableClassName = $this->generateClassFromFile(
+            'RootExplicitObjectWithDescribingOneOf.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        try {
+            new $mutableClassName($matchingBothBranches);
+            $this->fail('Expected the mutable class to reject a value matching both branches.');
+        } catch (JSONModelValidationException $exception) {
+            $this->assertSame($summaryFor($mutableClassName), $exception->getMessage());
+        }
+    }
+
+    /**
+     * The `$ref` exemption in checkObjectRepresentability() only ever fires for a bare `{"$ref":
+     * "..."}` root: JsonSchema::__construct() rewrites a `$ref` carrying schema-relevant siblings
+     * into an `allOf` of the reference and the siblings, so by the time the check runs there is no
+     * top-level `$ref` key left to exempt. Such a root therefore has to reach the same unresolved
+     * reference error through the undecidable classification instead.
+     *
+     * Needs generateDirectory(): the point of the case is a reference to a second file.
+     */
+    public function testReferenceWithSiblingsToMissingFileReportsTheUnresolvedReference(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^Unresolved Reference DoesNotExist\\.json in file .*Subject\\.json$/',
+        );
+
+        $this->generateDirectory('CrossFileReferenceWithSiblingsToMissingTarget', new GeneratorConfiguration());
     }
 }

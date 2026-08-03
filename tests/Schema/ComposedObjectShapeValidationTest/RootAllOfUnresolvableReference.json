@@ -1,0 +1,8 @@
+{
+  "definitions": {},
+  "allOf": [
+    {
+      "$ref": "#/definitions/DoesNotExist"
+    }
+  ]
+}

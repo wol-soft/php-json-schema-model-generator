@@ -212,19 +212,31 @@ class SchemaProcessor
      * schema JSON, before generateModel() overwrites `type` with the internal 'base' dispatch
      * sentinel and thereby erases whether the author declared `type: object` themselves.
      *
-     * A `$ref` schema is skipped here on purpose: the real reference resolution that runs moments
-     * later already handles every non-representable-target case with better attribution than a
-     * speculative peek from here could - and peeking was tried and reverted, since it triggers
-     * that same real (non-speculative) resolution as a side effect, and a legitimate failure from
-     * it gets swallowed by the peek's own conservative error handling, replacing a precise,
-     * correctly-attributed error with a confusing one blaming the referencing wrapper instead.
+     * A bare `$ref` schema (no siblings) is skipped here on purpose: the real reference
+     * resolution that runs moments later already handles every non-representable-target case
+     * with better attribution than a speculative peek from here could - and peeking was tried and
+     * reverted, since it triggers that same real (non-speculative) resolution as a side effect,
+     * and a legitimate failure from it gets swallowed by the peek's own conservative error
+     * handling, replacing a precise, correctly-attributed error with a confusing one blaming the
+     * referencing wrapper instead. This exemption only ever fires for a bare `$ref` root, i.e.
+     * `{"$ref": "..."}` with no other keys: JsonSchema::__construct() rewrites any `$ref` that
+     * has schema-signature-relevant siblings into an `allOf` of the reference and the siblings
+     * before this method (or anything else) ever sees the raw JSON, so a sibling-bearing `$ref`
+     * root never has a top-level `$ref` key by the time it reaches here. Such roots are not
+     * exempted by this early return; instead they are classified below like everything else and
+     * fall out as ObjectShape::Undecidable (see the guard just after the shape is resolved),
+     * reaching the same real reference resolution via a different route.
      *
-     * A filter-bearing schema is skipped for the same reason: ObjectShapeResolver deliberately
-     * classifies it as Blocking (it is owned by the filter-composition subsystem, not the object
-     * path), which would surface here as a generic "does not resolve to a definite object"
-     * verdict. The filter subsystem's own compatibility check runs moments later and reports a
-     * precise, correctly-attributed error (e.g. naming the incompatible filter and property type)
-     * - a speculative object-shape verdict from here would only mask that diagnostic.
+     * A filter-bearing schema is not exempted by an early return at all (a filter nested inside a
+     * composition branch, e.g. an `allOf` branch, has no top-level `filter` key to check for, so
+     * an early return here could never have covered that shape anyway). It is instead classified
+     * below like everything else: ObjectShapeResolver deliberately classifies filter-bearing
+     * schemas as Undecidable (they are owned by the filter-composition subsystem, not the object
+     * path), and the guard just after the shape is resolved lets that verdict through without
+     * throwing here, so the filter subsystem's own compatibility check - which runs moments later
+     * and reports a precise, correctly-attributed error (e.g. naming the incompatible filter and
+     * property type) - is not preempted by a generic "does not resolve to a definite object"
+     * verdict from this method.
      *
      * @throws SchemaException
      */
@@ -233,7 +245,7 @@ class SchemaProcessor
         string $className,
         SchemaDefinitionDictionary $dictionary,
     ): void {
-        if (array_key_exists('$ref', $jsonSchema->getJson()) || array_key_exists('filter', $jsonSchema->getJson())) {
+        if (array_key_exists('$ref', $jsonSchema->getJson())) {
             return;
         }
 
@@ -242,6 +254,14 @@ class SchemaProcessor
             $dictionary,
             $this->generatorConfiguration->getBuiltDraft($jsonSchema),
         )->resolve($jsonSchema->getJson());
+
+        // Object-ness could not be determined at all (an unresolvable/cyclic $ref, or a
+        // filter-bearing branch owned by another subsystem); let the real pipeline run and
+        // produce its own precise, correctly-attributed error rather than rejecting here with a
+        // generic representability message that would name the wrong cause.
+        if ($shape === ObjectShape::Undecidable) {
+            return;
+        }
 
         $acceptedShapes = $this->generatorConfiguration->isImplicitObjectCompositionAllowed()
             ? [ObjectShape::ObjectAsserting, ObjectShape::ObjectDescribing]

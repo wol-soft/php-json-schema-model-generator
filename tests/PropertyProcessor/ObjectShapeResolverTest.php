@@ -119,10 +119,13 @@ class ObjectShapeResolverTest extends TestCase
                 ObjectShape::ObjectAsserting,
             ],
 
-            // Filter-bearing schemas stay on the filter machinery
+            // Filter-bearing schemas stay on the filter machinery. Undecidable, not NotObject:
+            // the filter subsystem's own compatibility check reports a precise,
+            // correctly-attributed error moments later; a confident NotObject verdict here would
+            // preempt it with a generic representability message instead.
             'filter without type' => [
                 ['filter' => 'dateTime', 'allOf' => [['type' => 'object']]],
-                ObjectShape::NotObject,
+                ObjectShape::Undecidable,
             ],
 
             // allOf (conjunctive) aggregation
@@ -190,6 +193,42 @@ class ObjectShapeResolverTest extends TestCase
                 ['oneOf' => [self::BARE_VALIDATORS, ['required' => ['other']]]],
                 ObjectShape::ObjectDescribing,
             ],
+            // A boolean `true` branch is Neutral, and combineDisjunctive() degrades the aggregate
+            // to Neutral (hence NotObject) rather than letting the asserting sibling carry it:
+            // `true` matches every value, so the union accepts non-objects too. The conjunctive
+            // twin ('allOf asserting plus true branch' above) resolves the other way, which is
+            // exactly why both directions need their own row.
+            'anyOf asserting plus true branch' => [
+                ['anyOf' => [self::PERSON_OBJECT, true]],
+                ObjectShape::NotObject,
+            ],
+            'oneOf asserting plus true branch' => [
+                ['oneOf' => [self::PERSON_OBJECT, true]],
+                ObjectShape::NotObject,
+            ],
+            // A `false` branch is Blocking, which outranks Neutral in combineDisjunctive(), so an
+            // anyOf that can still be satisfied through its asserting branch nevertheless does not
+            // classify as object-asserting.
+            'anyOf asserting plus false branch' => [
+                ['anyOf' => [self::PERSON_OBJECT, false]],
+                ObjectShape::NotObject,
+            ],
+
+            // 'dependencies' is the single entry in UNREGISTERED_OBJECT_DESCRIBING_KEYWORDS: it is
+            // consumed through a side channel and never registered on the Draft's object Type, so
+            // it cannot be derived from Type::getModifiers() the way every other describing
+            // keyword is. Without its hardcoded entry these rows would classify NotObject.
+            'dependencies only' => [
+                ['dependencies' => ['creditCard' => ['billingAddress']]],
+                ObjectShape::ObjectDescribing,
+            ],
+            'dependencies next to asserting allOf' => [
+                [
+                    'dependencies' => ['creditCard' => ['billingAddress']],
+                    'allOf' => [self::PERSON_OBJECT],
+                ],
+                ObjectShape::ObjectAsserting,
+            ],
 
             // Combined components on one schema object
             'describing keywords next to asserting allOf' => [
@@ -201,8 +240,33 @@ class ObjectShapeResolverTest extends TestCase
                 ObjectShape::NotObject,
             ],
 
-            // $ref without a resolver
-            'reference without resolver' => [['$ref' => '#/definitions/person'], ObjectShape::NotObject],
+            // $ref without a resolver - genuinely undecidable, not a confident NotObject verdict:
+            // without a resolver the classifier cannot even attempt to look at the target.
+            'reference without resolver' => [['$ref' => '#/definitions/person'], ObjectShape::Undecidable],
+
+            // Undecidable takes precedence over Blocking in both combine methods: a definite
+            // verdict cannot be derived from an aggregate that also contains a component whose
+            // own shape is unknown, and the filter subsystem that owns the Undecidable branch
+            // reports its own precise error moments later - see ObjectShapeResolver's
+            // combineConjunctive()/combineDisjunctive() docblocks for the full rationale.
+            'allOf: undecidable filter branch beats blocking scalar branch' => [
+                [
+                    'allOf' => [
+                        ['filter' => 'dateTime', 'type' => 'string'],
+                        ['type' => 'string'],
+                    ],
+                ],
+                ObjectShape::Undecidable,
+            ],
+            'anyOf: undecidable filter branch beats blocking scalar branch' => [
+                [
+                    'anyOf' => [
+                        ['filter' => 'dateTime', 'type' => 'string'],
+                        ['type' => 'string'],
+                    ],
+                ],
+                ObjectShape::Undecidable,
+            ],
         ];
     }
 
@@ -249,12 +313,16 @@ class ObjectShapeResolverTest extends TestCase
             'unresolvable reference' => [
                 [],
                 ['$ref' => '#/definitions/missing'],
-                ObjectShape::NotObject,
+                ObjectShape::Undecidable,
             ],
-            'unresolvable reference blocks sibling assertion' => [
+            // Undecidable, not NotObject: an unresolvable reference does not decidably rule out
+            // object-ness (the target simply could not be located), and takes precedence over the
+            // sibling Asserting branch so the real $ref resolution's own "unresolved reference"
+            // error surfaces instead of a generic representability rejection here.
+            'unresolvable reference wins over sibling assertion' => [
                 [],
                 ['allOf' => [self::PERSON_OBJECT, ['$ref' => '#/definitions/missing']]],
-                ObjectShape::NotObject,
+                ObjectShape::Undecidable,
             ],
             'cyclic reference' => [
                 [
@@ -262,7 +330,7 @@ class ObjectShapeResolverTest extends TestCase
                     '#/definitions/b' => ['allOf' => [['$ref' => '#/definitions/a']]],
                 ],
                 ['$ref' => '#/definitions/a'],
-                ObjectShape::NotObject,
+                ObjectShape::Undecidable,
             ],
             'reference with asserting sibling keywords' => [
                 ['#/definitions/bare' => self::BARE_VALIDATORS],
@@ -283,7 +351,12 @@ class ObjectShapeResolverTest extends TestCase
             // $ref targets that are boolean schemas - a resolver may legitimately return true or
             // false, which classify() treats as Neutral and Blocking respectively (see the
             // is_bool branch). Standalone, both degrade to NotObject the same way, so the
-            // distinction is only visible once a sibling allOf branch is asserting.
+            // distinction is only visible once a sibling allOf branch is asserting. Note this is
+            // a genuinely DECIDABLE Blocking, unlike the Undecidable cases above: the resolver
+            // did resolve the reference and the target is definitely not object-shaped, so it
+            // correctly still wins over a sibling Asserting branch (see the next case) - contrast
+            // with 'unresolvable reference wins over sibling assertion' above, where the resolver
+            // could not determine the target at all.
             'reference to true schema' => [
                 ['#/definitions/anything' => true],
                 ['$ref' => '#/definitions/anything'],
@@ -299,6 +372,13 @@ class ObjectShapeResolverTest extends TestCase
                 ['allOf' => [self::PERSON_OBJECT, ['$ref' => '#/definitions/anything']]],
                 ObjectShape::ObjectAsserting,
             ],
+            // This case also stands in for ObjectShapeResolver::forDictionary()'s real $ref
+            // resolver, which cannot let a boolean-valued *definition* (e.g.
+            // `"definitions": {"x": false}`) round-trip through JsonSchema, whose $json property
+            // is typed `array`: it translates that failure into this same literal `false` return
+            // (see the TypeError catch in forDictionary()) rather than null, precisely so a
+            // boolean-leaf definition stays a decidable Blocking instead of degrading to
+            // Undecidable.
             'allOf asserting plus reference to false schema' => [
                 ['#/definitions/unsatisfiable' => false],
                 ['allOf' => [self::PERSON_OBJECT, ['$ref' => '#/definitions/unsatisfiable']]],
@@ -306,16 +386,16 @@ class ObjectShapeResolverTest extends TestCase
             ],
 
             // A non-string `$ref` value hits classifyReference()'s explicit is_string guard and
-            // blocks before the resolver is ever consulted
+            // is undecidable before the resolver is ever consulted
             'non-string reference value (array)' => [
                 [],
                 ['$ref' => ['not', 'a', 'string']],
-                ObjectShape::NotObject,
+                ObjectShape::Undecidable,
             ],
             'non-string reference value (integer)' => [
                 [],
                 ['$ref' => 5],
-                ObjectShape::NotObject,
+                ObjectShape::Undecidable,
             ],
 
             // then/else given as $refs - classifyIfThenElse() recurses through classify(), which

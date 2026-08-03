@@ -26,15 +26,26 @@ namespace PHPModelGenerator\PropertyProcessor\ObjectShape;
  *                      exactly like the asserting case - but guarded: a non-object value passes
  *                      through unchanged instead of being instantiated or rejected, which is
  *                      what ObjectModifier's non-asserting mode wires up.
- * - NotObject        — everything else: scalar/array typed schemas, multi-type declarations
- *                      that don't reduce to "object" alone (including ones that permit object
- *                      among other types, e.g. `["object", "null"]`), vacuous schemas, and
- *                      schemas whose object-ness cannot be established conservatively
- *                      (unresolvable or cyclic $refs, filter-bearing schemas).
+ * - NotObject        — everything else that is decidably not an object: scalar/array typed
+ *                      schemas, multi-type declarations that don't reduce to "object" alone
+ *                      (including ones that permit object among other types, e.g.
+ *                      `["object", "null"]`), and vacuous schemas.
+ * - Undecidable      — object-ness genuinely cannot be established, one way or the other: an
+ *                      unresolvable or cyclic `$ref` (or a `$ref` string that isn't even a
+ *                      string), no `$ref` resolver available, or a filter-bearing schema (owned
+ *                      by the filter-composition subsystem's input/output type-space
+ *                      classification, not the object path). Unlike NotObject, this is not a
+ *                      verdict that the schema fails to describe an object - it is an admission
+ *                      that the classifier cannot tell, so callers must not treat it as a
+ *                      confident rejection (see SchemaProcessor::checkObjectRepresentability(),
+ *                      which lets the subsystem that actually owns the undecidable part produce
+ *                      its own precise, correctly-attributed error instead of reporting this as
+ *                      a generic representability failure).
  */
 enum ObjectShape
 {
     case NotObject;
     case ObjectDescribing;
     case ObjectAsserting;
+    case Undecidable;
 }
