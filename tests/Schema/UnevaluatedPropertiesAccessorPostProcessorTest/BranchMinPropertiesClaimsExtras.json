@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "minProperties": 3
+    }
+  ],
+  "unevaluatedProperties": {
+    "type": "string"
+  }
+}

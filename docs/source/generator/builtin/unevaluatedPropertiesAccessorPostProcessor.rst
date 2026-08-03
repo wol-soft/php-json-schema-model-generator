@@ -94,8 +94,11 @@ into the coverage of another sibling applicator (or vice versa) is rejected up f
 schema property.
 
 **remove**: Removes an existing unevaluated property from the model. Returns true if the property
-was removed, false if it did not exist. May throw a *MinPropertiesException* if removal would
-produce an invalid model state.
+was removed, false if it did not exist. Re-runs the enclosing schema's validation against the
+post-removal state — including composition re-evaluation — and throws a *ValidationException* if
+the removal would produce an invalid model (for example dropping below a ``minProperties``
+constraint or flipping a composition branch that a remaining key depended on), leaving the model
+unchanged.
 
 Serialization
 ~~~~~~~~~~~~~

@@ -35,7 +35,18 @@ class CompositionValidationPostProcessor extends PostProcessor
         $this->addValidationMethods($schema, $generatorConfiguration, $compositionValidatorKeys);
 
         // if the generator is immutable no validation on value updates are required
-        if ($generatorConfiguration->isImmutable() || empty($validatorPropertyMap)) {
+        if ($generatorConfiguration->isImmutable()) {
+            return;
+        }
+
+        // The composition template caches each branch's outcome in _propertyValidationState for
+        // every mutable base composition — even one whose branches declare no properties (e.g.
+        // allOf: [{minProperties: 3}]) and thus produce an empty map. Declare the field whenever
+        // the model is mutable and carries a composition so those writes never create a dynamic
+        // property, which PHP 8.4 deprecates.
+        $this->addPropertyValidationStateField($schema, $validatorPropertyMap);
+
+        if (empty($validatorPropertyMap)) {
             return;
         }
 
@@ -56,7 +67,18 @@ class CompositionValidationPostProcessor extends PostProcessor
                 continue;
             }
 
+            $dependsOnUndeclaredKeys = false;
+
             foreach ($validator->getComposedProperties() as $composedProperty) {
+                // A branch keyword decided by the shape or count of the instance's keys
+                // (additionalProperties, patternProperties, min/maxProperties, ...) can flip its
+                // outcome when a key the branch does not declare changes. No declared-name list
+                // describes which mutations affect it, so every setter must re-run the whole
+                // composition — see the mapping to all schema properties below.
+                if ($composedProperty->branchEvaluationDependsOnUndeclaredKeys()) {
+                    $dependsOnUndeclaredKeys = true;
+                }
+
                 // Every schema-level composition branch has a nested schema at this point:
                 // SchemaProcessor::transferComposedPropertiesToSchema() throws SchemaException
                 // for any branch that lacks one, and inheritPropertyType() forces branches to
@@ -66,36 +88,67 @@ class CompositionValidationPostProcessor extends PostProcessor
                 // for inline oneOf/anyOf/if-then-else discriminators without a separate
                 // harvest path.
                 foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
-                    if (!isset($validatorPropertyMap[$property->getName()])) {
-                        $validatorPropertyMap[$property->getName()] = [];
-                    }
+                    $this->mapPropertyToValidator($validatorPropertyMap, $property->getName(), $validatorIndex);
+                }
+            }
 
-                    $validatorPropertyMap[$property->getName()][] = $validatorIndex;
+            if (!$dependsOnUndeclaredKeys) {
+                continue;
+            }
+
+            // A key-sensitive branch reacts to keys no branch declares, so mapping the validator
+            // only to branch-declared names would leave a plain setter for a sibling property
+            // (declared on the outer schema but on no branch) without a revalidation call — that
+            // setter could then commit a value the branch rejects. Map the validator to every
+            // declared property so all of them revalidate the composition.
+            foreach ($schema->getProperties() as $property) {
+                if (!$property->isInternal()) {
+                    $this->mapPropertyToValidator($validatorPropertyMap, $property->getName(), $validatorIndex);
                 }
             }
         }
 
-        if (!empty($validatorPropertyMap)) {
-            $schema->addProperty(
-                (new Property(
-                    'propertyValidationState',
-                    new PropertyType('array'),
-                    new JsonSchema(__FILE__, []),
-                    'Track the internal validation state of composed validations',
-                ))
-                    ->setInternal(true)
-                    ->setDefaultValue(
-                        array_fill_keys(
-                            array_unique(
-                                array_merge(...array_values($validatorPropertyMap)),
-                            ),
-                            [],
-                        )
-                    ),
-            );
+        return $validatorPropertyMap;
+    }
+
+    /**
+     * Append $validatorIndex to the property's entry in the map, creating the entry when absent.
+     * Duplicate indexes are tolerated: every consumer dedups (the setter hook via array_unique,
+     * the field default via array_unique).
+     */
+    private function mapPropertyToValidator(
+        array &$validatorPropertyMap,
+        string $propertyName,
+        int $validatorIndex,
+    ): void {
+        if (!isset($validatorPropertyMap[$propertyName])) {
+            $validatorPropertyMap[$propertyName] = [];
         }
 
-        return $validatorPropertyMap;
+        $validatorPropertyMap[$propertyName][] = $validatorIndex;
+    }
+
+    /**
+     * Declare the _propertyValidationState cache field. The default seeds one empty slot per
+     * composition validator index that appears in the map; the composition template auto-vivifies
+     * any further index it writes, so an empty default (empty map) is valid too.
+     */
+    private function addPropertyValidationStateField(Schema $schema, array $validatorPropertyMap): void
+    {
+        $seededValidatorIndexes = $validatorPropertyMap === []
+            ? []
+            : array_unique(array_merge(...array_values($validatorPropertyMap)));
+
+        $schema->addProperty(
+            (new Property(
+                'propertyValidationState',
+                new PropertyType('array'),
+                new JsonSchema(__FILE__, []),
+                'Track the internal validation state of composed validations',
+            ))
+                ->setInternal(true)
+                ->setDefaultValue(array_fill_keys($seededValidatorIndexes, [])),
+        );
     }
 
     /**

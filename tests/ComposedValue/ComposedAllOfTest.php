@@ -10,9 +10,11 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use ReflectionClass;
 use ReflectionMethod;
 use stdClass;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -706,5 +708,96 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
 
         $object->setProperty(null);
         $this->assertNull($object->getProperty());
+    }
+
+    /**
+     * A mutable object-level allOf whose branch declares no `properties` (here it carries only
+     * `minProperties`) still runs through the composition template, which caches each branch's
+     * outcome in `_propertyValidationState`. The composition post processor used to declare that
+     * field only when at least one branch declared a property, so a branch like this one left the
+     * field undeclared and the template's write created it dynamically — a deprecation as of PHP
+     * 8.4. The field must be declared for every mutable composition regardless of branch shape.
+     *
+     * Draft-pinned: the behaviour is a property of the composition post processor and does not
+     * vary by draft, so one run is sufficient.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testMutableCompositionBranchWithoutDeclaredPropertiesDeclaresValidationStateField(): void
+    {
+        $className = $this->generateClassFromFile(
+            'MutableCompositionBranchWithoutDeclaredProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        // The cache field is declared, so the template's write targets a real property.
+        $this->assertTrue((new ReflectionClass($className))->hasProperty('_propertyValidationState'));
+
+        // Constructing a valid instance exercises the write path; capture any deprecation the
+        // write would raise if the field were only created dynamically.
+        $deprecations = [];
+        set_error_handler(
+            static function (int $severity, string $message) use (&$deprecations): bool {
+                $deprecations[] = $message;
+
+                return true;
+            },
+            E_DEPRECATED,
+        );
+
+        try {
+            $object = new $className(['name' => 'Alice']);
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame([], $deprecations);
+        $this->assertSame(['name' => 'Alice'], $object->meta()->rawInput());
+    }
+
+    /**
+     * A declared property that no composition branch declares must still revalidate a branch
+     * whose outcome depends on keys the branch does not name — here `maxProperties: 1`. Setting
+     * `other` raises the key count to 2, which the branch rejects, so the setter must throw and
+     * roll the model back rather than commit a state its own constructor would refuse.
+     *
+     * The composition post processor previously mapped a validator only to the properties its
+     * branches declared; this branch declares none, so `setOther` received no revalidation call
+     * and silently accepted the second key. A key-sensitive branch now maps to every declared
+     * property.
+     *
+     * Draft-pinned: the setter-side revalidation mapping does not vary by draft.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09, until: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testSetterRevalidatesBranchThatReactsToUndeclaredKeys(): void
+    {
+        $className = $this->generateClassFromFile(
+            'BranchMaxPropertiesReactsToUndeclaredKeys.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        // One key: the branch's maxProperties: 1 is satisfied.
+        $object = new $className(['kind' => 'a']);
+
+        try {
+            // `other` is a valid string, but adding it makes two keys — the branch rejects it.
+            $object->setOther('second');
+            $this->fail('Expected the branch maxProperties claim to reject the second key');
+        } catch (AllOfException $exception) {
+            $this->assertSame(
+                <<<MSG
+                Invalid value for {$className} declined by composition constraint.
+                  Requires to match all composition elements but matched 0 elements.
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        // Rollback discipline: the rejected setter left the model at its pre-call state.
+        $this->assertNull($object->getOther());
+        $this->assertSame(['kind' => 'a'], $object->meta()->rawInput());
+
+        // The constructor refuses the same two-key state, proving the setter now agrees with it.
+        $this->expectException(AllOfException::class);
+        new $className(['kind' => 'a', 'other' => 'second']);
     }
 }

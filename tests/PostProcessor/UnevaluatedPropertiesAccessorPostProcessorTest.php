@@ -825,6 +825,55 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
     }
 
     /**
+     * remove() must revalidate the post-removal state, not just delete the key. A composition
+     * branch here requires `minProperties: 3`; removing one of three keys drops the count to 2
+     * and the branch fails, so the removal must throw and roll the model back. Without the
+     * revalidation the shim deleted the key and left a model its own constructor would reject.
+     *
+     * The remove shim previously ran only its local `minProperties` check (absent here, since
+     * the constraint lives inside the branch) and performed no composition revalidation at all,
+     * unlike the additionalProperties remove path it should mirror.
+     */
+    public function testRemoveRevalidatesCompositionAndRollsBackOnRejection(): void
+    {
+        $this->addPostProcessor();
+        $className = $this->generateClassFromFile(
+            'BranchMinPropertiesClaimsExtras.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        // Three keys: the branch's minProperties: 3 is satisfied; the two extras are unevaluated.
+        $object = new $className(['kind' => 'a', 'first' => 'x', 'second' => 'y']);
+        $accessor = $object->unevaluatedProperties();
+        $this->assertSame(['first' => 'x', 'second' => 'y'], $accessor->getAll());
+
+        try {
+            // Removing one extra drops the count to 2 — the branch's minProperties: 3 fails.
+            $accessor->remove('first');
+            $this->fail('Expected the branch minProperties claim to reject the removal');
+        } catch (AllOfException $exception) {
+            $this->assertSame(
+                <<<MSG
+                Invalid value for {$className} declined by composition constraint.
+                  Requires to match all composition elements but matched 0 elements.
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        // Rollback discipline: both the backing field and the raw input are unchanged.
+        $this->assertSame(['first' => 'x', 'second' => 'y'], $accessor->getAll());
+        $this->assertSame(
+            ['kind' => 'a', 'first' => 'x', 'second' => 'y'],
+            $object->meta()->rawInput(),
+        );
+
+        // The constructor refuses the same post-removal state, proving remove() agrees with it.
+        $this->expectException(AllOfException::class);
+        new $className(['kind' => 'a', 'second' => 'y']);
+    }
+
+    /**
      * A key claimed via the unevaluated accessor stays in `_unevaluatedProperties` even after
      * a later mutation makes a composition branch claim the same key. The accumulator-rebuild
      * model treats the bucket as a write-once view from the accessor's perspective: keys move
