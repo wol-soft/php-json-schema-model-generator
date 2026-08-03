@@ -448,6 +448,19 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         ];
     }
 
+    /**
+     * Both settings of setImplicitObjectComposition(), for behaviour that must not depend on it.
+     */
+    public static function implicitObjectCompositionDataProvider(): array
+    {
+        return [
+            'implicit object composition denied' => [new GeneratorConfiguration()],
+            'implicit object composition allowed' => [
+                (new GeneratorConfiguration())->setImplicitObjectComposition(true),
+            ],
+        ];
+    }
+
     public static function namespaceDataProvider(): array
     {
         return [

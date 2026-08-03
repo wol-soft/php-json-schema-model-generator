@@ -19,22 +19,87 @@ use PHPUnit\Framework\Attributes\DataProvider;
  */
 class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCase
 {
-    public function testRootCompositionOfBareDescribingBranchesIsRejectedByDefault(): void
-    {
-        // RootOneOfBareDescribingBranches.json resolves to ObjectShape::ObjectDescribing (a oneOf
-        // of two branches that each carry only 'properties'/'required'), so the flag-mentioning
-        // suffix must be present
+    /**
+     * A schema file whose root composition cannot back a single generated class is rejected at
+     * generation time. Which of the two message variants it produces says whether the opt-in flag
+     * could rescue it: an object-describing composition can be accepted by enabling the flag, a
+     * composition that resolves to no object at all can never be.
+     */
+    #[DataProvider('nonRepresentableRootSchemaDataProvider')]
+    public function testNonRepresentableRootCompositionIsRejected(
+        string $schemaFile,
+        bool $flagCouldRescue,
+        GeneratorConfiguration $configuration,
+    ): void {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            "/^Composition for 'ComposedObjectShapeValidationTest_[0-9a-zA-Z]+' in file"
-                . " '.*ComposedObjectShapeValidationTest_[0-9a-zA-Z]+\\.json' does not resolve to a definite object"
-                . " and cannot be represented as a generated class: add an explicit"
-                . " '\"type\": \"object\"' constraint, or enable"
-                . " 'GeneratorConfiguration::setImplicitObjectComposition\\(true\\)' to accept it"
-                . ' at line \\d+, column \\d+$/',
-        );
+        $this->expectExceptionMessageMatches(self::representabilityMessagePattern(
+            "ComposedObjectShapeValidationTest_[0-9a-zA-Z]+",
+            '.*ComposedObjectShapeValidationTest_[0-9a-zA-Z]+\\.json',
+            $flagCouldRescue,
+        ));
 
-        $this->generateClassFromFile('RootOneOfBareDescribingBranches.json');
+        $this->generateClassFromFile($schemaFile, $configuration);
+    }
+
+    public static function nonRepresentableRootSchemaDataProvider(): array
+    {
+        // A oneOf of two branches carrying only 'properties'/'required' is object-describing, so
+        // enabling the flag genuinely fixes it - which is why this case is rejected under the
+        // default configuration only, and why its message offers the flag as one of two fixes. The
+        // flag-enabled counterpart is a separate acceptance test.
+        $rows = [
+            'bare describing branches' => [
+                'RootOneOfBareDescribingBranches.json',
+                true,
+                new GeneratorConfiguration(),
+            ],
+        ];
+
+        // Neither of these resolves to an object under any configuration, so both are rejected with
+        // the short message under BOTH settings of the flag - together they pin that the flag
+        // widens acceptance from asserting to describing and no further.
+        $alwaysRejected = [
+            // A branch declaring "type": ["object", "string"] permits a non-object value, so it
+            // blocks rather than asserts.
+            'multi-type branch' => 'RootOneOfMultiTypeBranch.json',
+            // A missing "else" leaves that path unconstrained, and the two conditional paths
+            // combine disjunctively, so it degrades the aggregate however object-asserting the
+            // "then" branch is.
+            'if/then/else with partial coverage' => 'RootIfThenElsePartialCoverage.json',
+        ];
+
+        foreach ($alwaysRejected as $label => $schemaFile) {
+            foreach (self::implicitObjectCompositionDataProvider() as $configLabel => [$configuration]) {
+                $rows["$label - $configLabel"] = [$schemaFile, false, $configuration];
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Build the complete expected representability message, anchored at both ends. The two
+     * variants share a prefix, so an unanchored pattern stopping at "generated class" would match
+     * either - anchoring is what makes each row assert the variant it actually expects.
+     *
+     * @param string $classNamePattern Regex fragment matching the rejected schema's class name
+     * @param string $filePattern      Regex fragment matching the file the composition lives in
+     * @param bool   $flagCouldRescue  Whether the message offers the two fixes (object-describing)
+     */
+    private static function representabilityMessagePattern(
+        string $classNamePattern,
+        string $filePattern,
+        bool $flagCouldRescue,
+    ): string {
+        $message = "^Composition for '$classNamePattern' in file '$filePattern' does not resolve to"
+            . ' a definite object and cannot be represented as a generated class';
+
+        if ($flagCouldRescue) {
+            $message .= ": add an explicit '\"type\": \"object\"' constraint, or enable"
+                . " 'GeneratorConfiguration::setImplicitObjectComposition\\(true\\)' to accept it";
+        }
+
+        return '/' . $message . ' at line \\d+, column \\d+$/';
     }
 
     /**
@@ -53,7 +118,7 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
         $this->assertOneOfCompositionValidatesLikeInline($className);
     }
 
-    #[DataProvider('explicitObjectTypeConfigDataProvider')]
+    #[DataProvider('implicitObjectCompositionDataProvider')]
     public function testExplicitObjectTypeAtRootAcceptsDescribingBranchesRegardlessOfConfig(
         GeneratorConfiguration $configuration,
     ): void {
@@ -63,65 +128,12 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
         $this->assertSame(42, $object->getCode());
     }
 
-    public static function explicitObjectTypeConfigDataProvider(): array
-    {
-        return [
-            'default config' => [new GeneratorConfiguration()],
-            'implicit object composition allowed' => [
-                (new GeneratorConfiguration())->setImplicitObjectComposition(true),
-            ],
-        ];
-    }
-
-    #[DataProvider('multiTypeBranchConfigDataProvider')]
-    public function testRootCompositionWithMultiTypeBranchIsAlwaysRejected(GeneratorConfiguration $configuration): void
-    {
-        // RootOneOfMultiTypeBranch.json resolves to ObjectShape::NotObject (one oneOf branch
-        // declares "type": ["object", "string"], which blocks rather than asserts - see
-        // ObjectShapeResolver::classify()), so the flag can never rescue it and the suffix must be
-        // absent for both configurations under test
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            "/^Composition for 'ComposedObjectShapeValidationTest_[0-9a-zA-Z]+' in file"
-                . " '.*ComposedObjectShapeValidationTest_[0-9a-zA-Z]+\\.json' does not resolve to a definite object"
-                . ' and cannot be represented as a generated class at line \\d+, column \\d+$/',
-        );
-
-        $this->generateClassFromFile('RootOneOfMultiTypeBranch.json', $configuration);
-    }
-
-    public static function multiTypeBranchConfigDataProvider(): array
-    {
-        return [
-            'default config' => [new GeneratorConfiguration()],
-            'implicit object composition allowed' => [
-                (new GeneratorConfiguration())->setImplicitObjectComposition(true),
-            ],
-        ];
-    }
-
     public function testRootIfThenElseWithFullBranchCoverageIsAccepted(): void
     {
         $className = $this->generateClassFromFile('RootIfThenElseFullCoverage.json');
 
         $object = new $className(['name' => 'Hannes']);
         $this->assertSame('Hannes', $object->getName());
-    }
-
-    public function testRootIfThenElseWithPartialBranchCoverageIsRejected(): void
-    {
-        // RootIfThenElsePartialCoverage.json resolves to ObjectShape::NotObject: the missing
-        // "else" branch classifies as Neutral, and classifyIfThenElse() combines "then"/"else"
-        // disjunctively, so a Neutral "else" degrades the aggregate below Asserting regardless of
-        // "then" being object-asserting - the suffix must be absent
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            "/^Composition for 'ComposedObjectShapeValidationTest_[0-9a-zA-Z]+' in file"
-                . " '.*ComposedObjectShapeValidationTest_[0-9a-zA-Z]+\\.json' does not resolve to a definite object"
-                . ' and cannot be represented as a generated class at line \\d+, column \\d+$/',
-        );
-
-        $this->generateClassFromFile('RootIfThenElsePartialCoverage.json');
     }
 
     /**
@@ -146,30 +158,47 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
     }
 
     /**
-     * A $ref to a file within the schema provider's base directory makes that file its own
-     * class-defining schema, parsed eagerly via SchemaProcessor::processTopLevelSchema() - the
-     * same choke point as the referencing file's own root, and (unlike createObjectProperty())
-     * with no caller forcing `type: object` first. An ambiguous composition in that file must be
-     * rejected there, not silently accepted. Uses generateDirectory() rather than
-     * generateClassFromFile(): the latter only ever writes a single schema file into the base
-     * directory, which cannot exercise the "reference to a file the provider will also discover
-     * on its own" path this test targets.
+     * A `$ref` to a file inside the provider's base directory makes that file a class-defining
+     * schema in its own right, with no caller establishing `type: object` for it first, so an
+     * ambiguous composition there must be rejected rather than silently accepted. The rejection
+     * has to name the file that actually carries the composition, not the file that referenced it.
+     *
+     * Needs generateDirectory(): generateClassFromFile() writes a single schema file into the base
+     * directory, which cannot produce a reference to a second file the provider also discovers.
      */
-    public function testCrossFileReferenceTargetIsRejectedWhenAmbiguous(): void
-    {
-        // Ambiguous.json resolves to ObjectShape::ObjectDescribing (same bare-describing-branches
-        // shape as RootOneOfBareDescribingBranches.json), so with the flag left at its default
-        // (disabled) the suffix must be present
+    #[DataProvider('nonRepresentableReferencedSchemaDataProvider')]
+    public function testNonRepresentableCrossFileReferenceTargetIsRejectedNamingThatFile(
+        string $directory,
+        string $className,
+        string $filePattern,
+    ): void {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Composition for 'Ambiguous' in file '.*Ambiguous\\.json' does not resolve to a definite object and"
-                . " cannot be represented as a generated class: add an explicit"
-                . " '\"type\": \"object\"' constraint, or enable"
-                . " 'GeneratorConfiguration::setImplicitObjectComposition\\(true\\)' to accept it"
-                . ' at line \\d+, column \\d+$/',
+            self::representabilityMessagePattern($className, $filePattern, true),
         );
 
-        $this->generateDirectory('CrossFileReference', new GeneratorConfiguration());
+        $this->generateDirectory($directory, new GeneratorConfiguration());
+    }
+
+    public static function nonRepresentableReferencedSchemaDataProvider(): array
+    {
+        return [
+            // The referenced file sorts FIRST, so the provider generates it as its own top-level
+            // class before the reference is ever resolved.
+            'target discovered before the referencing file' => [
+                'CrossFileReference',
+                'Ambiguous',
+                '.*Ambiguous\\.json',
+            ],
+            // The referencing file sorts first, so the reference resolves eagerly and the target is
+            // generated from inside that resolution - the ordering where a failure could be
+            // mistaken for an unresolvable reference and reported against the wrong file.
+            'target reached through eager reference resolution' => [
+                'CrossFileBaseReferenceDescribing',
+                'Target',
+                '.*CrossFileBaseReferenceDescribing[\\/\\\\]Target\\.json',
+            ],
+        ];
     }
 
     /**
@@ -234,37 +263,6 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
 
         $this->assertRejectsAsOneOfViolation($wrapperClass, ['neither' => 'branch']);
         $this->assertRejectsAsOneOfViolation($wrapperClass, ['name' => 'Hannes', 'code' => 42]);
-    }
-
-    /**
-     * A base-level `$ref` to a root oneOf/anyOf composition must behave identically to that same
-     * composition written inline - see PropertyFactory::processBaseReference(). Target.json
-     * (CrossFileBaseReferenceDescribing/) is the describing-branches composition
-     * RootOneOfBareDescribingBranches.json holds inline; Subject.json is a bare `$ref` to it.
-     * Subject.json sorts before Target.json (RecursiveDirectoryProvider iterates alphabetically),
-     * so the provider discovers Subject.json first and resolves its `$ref` eagerly via
-     * SchemaProcessor::processTopLevelSchema() - the ordering that exercises
-     * SchemaException::markAsReferencedSchemaFailure().
-     *
-     * Default configuration: both the inline and the `$ref` form are rejected by
-     * SchemaProcessor::checkObjectRepresentability() with the same representability diagnostic
-     * (mentioning the flag). The `$ref` form's exception must name Target.json - the file that
-     * actually carries the composition - not Subject.json, and must not be replaced by
-     * PropertyFactory::processReference()'s generic "Unresolved Reference" wrapper.
-     */
-    public function testBaseReferenceToDescribingCompositionIsRejectedNamingTheReferencedFile(): void
-    {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            "/^Composition for 'Target' in file"
-                . " '.*CrossFileBaseReferenceDescribing[\\/\\\\]Target\\.json' does not resolve to a definite"
-                . " object and cannot be represented as a generated class: add an explicit"
-                . " '\"type\": \"object\"' constraint, or enable"
-                . " 'GeneratorConfiguration::setImplicitObjectComposition\\(true\\)' to accept it"
-                . ' at line \\d+, column \\d+$/',
-        );
-
-        $this->generateDirectory('CrossFileBaseReferenceDescribing', new GeneratorConfiguration());
     }
 
     /**

@@ -110,36 +110,46 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
-     * A genuinely contradictory `allOf` at the schema root (one branch requires an object shape,
-     * the other requires a plain string - no value can ever satisfy both) must be caught at
-     * generation time with a clear diagnostic.
+     * An `allOf` that requires its value to be an object and, in another branch, to be a plain
+     * string can never be satisfied, and must be rejected at generation time rather than producing
+     * a class no input can instantiate. The diagnostic is the same wherever the composition sits
+     * and however the object branch establishes its object-ness.
      */
-    public function testRootLevelAllOfWithConflictingObjectAndScalarTypesThrowsConflictingTypesException(): void
-    {
+    #[DataProvider('conflictingAllOfTypesDataProvider')]
+    public function testAllOfWithConflictingObjectAndScalarTypesThrowsConflictingTypesException(
+        string $schemaFile,
+        string $propertyNamePattern,
+        string $columnPattern,
+    ): void {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            "/^Property '\\w+' is defined with conflicting types in allOf composition branches"
-                . ' \\(file (.*)\\.json\\)\\. allOf requires all constraints to hold simultaneously,'
-                . ' making this schema unsatisfiable\\. at line 1, column 1$/',
+            "/^Property '$propertyNamePattern' is defined with conflicting types in allOf composition"
+                . ' branches \\(file (.*)\\.json\\)\\. allOf requires all constraints to hold'
+                . " simultaneously, making this schema unsatisfiable\\. at line 1, column $columnPattern$/",
         );
 
-        $this->generateClassFromFile('AllOfConflictingObjectAndScalar.json');
+        $this->generateClassFromFile($schemaFile);
     }
 
-    /**
-     * The same conflicting object/string `allOf` nested inside a property must also be caught at
-     * generation time with the same clear diagnostic.
-     */
-    public function testPropertyLevelAllOfWithConflictingObjectAndScalarTypesThrowsConflictingTypesException(): void
+    public static function conflictingAllOfTypesDataProvider(): array
     {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            "/^Property 'property' is defined with conflicting types in allOf composition branches"
-                . ' \\(file (.*)\\.json\\)\\. allOf requires all constraints to hold simultaneously,'
-                . ' making this schema unsatisfiable\\. at line 1, column \\d+$/',
-        );
-
-        $this->generateClassFromFile('PropertyLevelAllOfConflictingObjectAndScalar.json');
+        return [
+            // At the schema root the conflicting composition is the class itself, so the property
+            // named in the message is the generated class.
+            'root level, explicit object branch' => ['AllOfConflictingObjectAndScalar.json', '\\w+', '1'],
+            'property level, explicit object branch' => [
+                'PropertyLevelAllOfConflictingObjectAndScalar.json',
+                'property',
+                '\\d+',
+            ],
+            // The object branch here never declares `type: object` - its object-ness is implied by
+            // the composition - which must not change the verdict or the message.
+            'property level, composition-implied object branch' => [
+                'NestedAllOfMixedScalarConflict.json',
+                'p',
+                '\\d+',
+            ],
+        ];
     }
 
     /**
@@ -508,24 +518,6 @@ class Issue72Test extends AbstractIssueTestCase
                 $exception->getMessage(),
             );
         }
-    }
-
-    /**
-     * An `allOf` mixing a composition-implied object branch with a scalar branch is
-     * unsatisfiable - no value can be an object and a string simultaneously - and must be
-     * rejected at generation time with the same diagnostic as the explicit object-vs-scalar
-     * conflict.
-     */
-    public function testAllOfMixingImpliedObjectAndScalarBranchThrowsConflictingTypesException(): void
-    {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            "/^Property 'p' is defined with conflicting types in allOf composition branches"
-                . ' \\(file (.*)\\.json\\)\\. allOf requires all constraints to hold simultaneously,'
-                . ' making this schema unsatisfiable\\. at line 1, column \\d+$/',
-        );
-
-        $this->generateClassFromFile('NestedAllOfMixedScalarConflict.json');
     }
 
     /**
