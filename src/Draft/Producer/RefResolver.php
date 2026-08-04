@@ -76,7 +76,7 @@ class RefResolver implements PropertyProducerInterface
         $dictionary = $schema->getSchemaDictionary();
 
         try {
-            $definition = $dictionary->getDefinition($reference, $schemaProcessor, $path);
+            $definition = $dictionary->getDefinition($reference, $schemaProcessor, $path, $propertySchema->getBaseId());
 
             if ($definition) {
                 $definitionSchema = $definition->getSchema();
@@ -144,6 +144,23 @@ class RefResolver implements PropertyProducerInterface
         bool $required,
         bool $isArrayItem = false,
     ): PropertyInterface {
+        $reference = $propertySchema->getJson()['$ref'];
+
+        // '' and '#' both resolve (RFC 3986 §5.2.2: empty path/fragment) to the enclosing
+        // document's own root. On base level that means the schema would be merged with itself -
+        // there is no fixed point to compute, so PropertyProxy::getNestedSchema() below would
+        // recurse into resolving the same schema forever instead of converging. Reject it
+        // explicitly rather than looping until the interpreter's guard aborts the process.
+        if ($reference === '' || $reference === '#') {
+            throw new SchemaException(
+                sprintf(
+                    "A referenced schema on base level must not reference itself for property '%s' in file %s",
+                    $propertyName,
+                    $propertySchema->getFile(),
+                ),
+            );
+        }
+
         $schema->getSchemaDictionary()->setUpDefinitionDictionary($schemaProcessor, $schema);
 
         $property = $this->resolveReference(

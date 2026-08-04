@@ -46,11 +46,19 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         return [
             'Internal path reference'  => ['#/definitions/person'],
             'Internal direct reference' => ['#person'],
-            // Empty string: getDefinition('') returns null (not via exception) because an empty
-            // JSON schema file path is falsy — exercises the throw at the end of resolveReference
-            // rather than the catch-rethrow path above it.
-            'Empty string reference'   => [''],
         ];
+    }
+
+    /**
+     * internalReferenceProvider() plus the empty-string $ref form, for use at a position nested
+     * inside the "person" $id scope (e.g. the "children" array's items). There, an empty $ref
+     * resolves to the enclosing "#person" scope (RFC 3986 base-URI scoping) and is a real,
+     * spec-valid recursive-schema idiom - unlike at the document's own top level (see
+     * internalReferenceProvider()), it is not a stand-in for a named reference.
+     */
+    public static function recursiveInternalReferenceProvider(): array
+    {
+        return self::internalReferenceProvider() + ['Empty string reference' => ['']];
     }
 
     public static function externalReferenceProvider(): array
@@ -133,6 +141,30 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
                 'Null' => [null, 'null'],
             ],
         );
+    }
+
+    /**
+     * A property-level $ref: "" resolves to the enclosing document's own root (RFC 3986
+     * §5.2.2's empty path/fragment case), not to a named "person" definition living elsewhere in
+     * the same file - "person" ends up typed as another instance of the outer schema itself
+     * (which only has a "person" property), not as the definitions.person shape (which has
+     * name/age). This is a distinct, legitimate recursive pattern, not an alias for the named
+     * forms covered by validReferenceObjectInputProvider() above.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testPropertyReferencingDocumentRootIsValid(): void
+    {
+        $className = $this->generateClassFromFileTemplate('ObjectReference.json', ['']);
+
+        $object = new $className([]);
+        $this->assertNull($object->getPerson());
+
+        $object = new $className(['person' => ['person' => null]]);
+        $this->assertInstanceOf($className, $object->getPerson());
+        $this->assertNull($object->getPerson()->getPerson());
     }
 
     /**
@@ -288,7 +320,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function combinedReferenceProvider(): array
     {
         return array_merge(
-            self::combineDataProvider(self::internalReferenceProvider(), self::internalReferenceProvider()),
+            self::combineDataProvider(self::recursiveInternalReferenceProvider(), self::internalReferenceProvider()),
             self::combineDataProvider(static::recursiveExternalReferenceProvider(), self::internalReferenceProvider()),
             self::combineDataProvider(
                 static::recursiveExternalReferenceProvider(),
@@ -393,7 +425,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         // external definition the internal definition is never used and thus can be ignored
         return array_merge(
             self::combineDataProvider(
-                self::internalReferenceProvider(),
+                self::recursiveInternalReferenceProvider(),
                 self::invalidInternalReferenceObjectPropertyTypeDataProvider(),
             ),
             self::combineDataProvider(
@@ -401,7 +433,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
                 self::invalidInternalReferenceObjectPropertyTypeDataProvider(),
             ),
             self::combineDataProvider(
-                self::internalReferenceProvider(),
+                self::recursiveInternalReferenceProvider(),
                 self::combineDataProvider(
                     static::recursiveExternalReferenceProvider(),
                     static::invalidObjectPropertyTypeDataProvider(),
@@ -752,12 +784,69 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
+    /**
+     * An absolute external $ref written inside a $id-scoped subschema (here: definitions.person)
+     * resolves against that scope's own $id, not the document's top-level $id (there is none in
+     * this schema) - proving SchemaDefinitionDictionary::parseExternalFile() picks up
+     * JsonSchema::getBaseId() (the nearest enclosing $id) rather than always the document root's.
+     * An absolute-style ref is used deliberately (mirroring
+     * testNestedExternalReference()'s "absolute path to full URL $id" case): it can never
+     * coincidentally resolve via the local-file fallback the way a relative ref could, since
+     * getLocalRefPath() would need a matching ancestor directory literally named "wol-soft" -
+     * this makes success possible only via the network URL built from the correct $id.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNestedIdScopedExternalReferenceIsResolvedAgainstItsOwnId(): void
+    {
+        $baseURL = 'https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/';
+
+        $className = $this->generateClassFromFileTemplate(
+            'NestedIdScopedExternalReference.json',
+            [$baseURL . 'ReferencePropertyTest/NestedExternalReference.json'],
+        );
+
+        $object = new $className(['person' => ['colleague' => ['name' => 'Hannes', 'age' => 42]]]);
+
+        $this->assertSame('Hannes', $object->getPerson()->getColleague()->getName());
+        $this->assertSame(42, $object->getPerson()->getColleague()->getAge());
+    }
+
     public function testInvalidBaseReferenceThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage('A referenced schema on base level must provide an object definition');
 
         $this->generateClassFromFile('InvalidBaseReference.json');
+    }
+
+    /**
+     * '' and '#' both resolve to the schema's own document root (RFC 3986 §5.2.2's empty
+     * path/fragment case). Referencing it at the base level would merge the schema with itself,
+     * which has no fixed point - PropertyProxy::getNestedSchema() would need to fully resolve the
+     * schema in order to build the schema. Unlike the same forms at a nested property position
+     * (see testPropertyReferencingDocumentRootIsValid()), there is no containment boundary here
+     * to give instance data a way to terminate, so this is rejected outright.
+     */
+    #[DataProvider('baseReferenceSelfReferenceProvider')]
+    public function testBaseReferenceSelfReferenceThrowsAnException(string $reference): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^A referenced schema on base level must not reference itself for property '.+' in file .+\.json$/",
+        );
+
+        $this->generateClassFromFileTemplate('BaseReference.json', [$reference]);
+    }
+
+    public static function baseReferenceSelfReferenceProvider(): array
+    {
+        return [
+            'Empty string reference' => [''],
+            'Root fragment reference' => ['#'],
+        ];
     }
 
     /**

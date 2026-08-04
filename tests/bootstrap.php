@@ -25,11 +25,16 @@ register_shutdown_function(static function (): void {
         RecursiveIteratorIterator::CHILD_FIRST,
     );
 
+    // Suppressed: this runs after the last test has finished, so no TestCase is on the call
+    // stack. Since PHPUnit 13.2.0, an unsuppressed warning raised outside of a running test
+    // (e.g. a locked file that can't be deleted yet) makes PHPUnit's error handler throw
+    // NoTestCaseObjectOnCallStackException, crashing the whole run instead of just leaving the
+    // temp directory behind.
     foreach ($iterator as $file) {
-        $file->isDir() ? rmdir($file->getRealPath()) : unlink($file->getRealPath());
+        $file->isDir() ? @rmdir($file->getRealPath()) : @unlink($file->getRealPath());
     }
 
-    rmdir(TEST_BASE_DIR);
+    @rmdir(TEST_BASE_DIR);
 });
 
 require_once __DIR__ . '/../vendor/autoload.php';

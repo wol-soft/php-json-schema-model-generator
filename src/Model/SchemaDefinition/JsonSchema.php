@@ -32,6 +32,15 @@ class JsonSchema
     protected array $json;
 
     /**
+     * The nearest enclosing $id, normalized to always start with '#' (matching
+     * SchemaDefinitionDictionary's dictionary key format). Defaults to the document root ('#')
+     * and is updated by navigate() whenever it descends into a node carrying its own $id. Used to
+     * resolve an empty/fragment-only $ref (RFC 3986 §5.2.2: "" and "#" both resolve to the
+     * current base) against the correct scope instead of always the top-level document.
+     */
+    private string $baseId = '#';
+
+    /**
      * JsonSchema constructor.
      *
      * @param string $file the source file for the schema
@@ -48,6 +57,10 @@ class JsonSchema
         private ?string $rawSource = null,
     ) {
         $this->json = $json;
+
+        if (isset($json['$id'])) {
+            $this->baseId = self::normalizeId((string) $json['$id']);
+        }
     }
 
     public function getJson(): array
@@ -107,9 +120,23 @@ class JsonSchema
             }
 
             $jsonSchema->json = $jsonSchema->json[$decodedPathSegment];
+
+            if (is_array($jsonSchema->json) && isset($jsonSchema->json['$id'])) {
+                $jsonSchema->baseId = self::normalizeId((string) $jsonSchema->json['$id']);
+            }
         }
 
         return $jsonSchema;
+    }
+
+    public function getBaseId(): string
+    {
+        return $this->baseId;
+    }
+
+    public static function normalizeId(string $id): string
+    {
+        return str_starts_with($id, '#') ? $id : "#$id";
     }
 
     public function getFile(): string
