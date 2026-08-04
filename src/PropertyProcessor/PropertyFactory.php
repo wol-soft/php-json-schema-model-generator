@@ -481,8 +481,7 @@ class PropertyFactory
         // Transfer any validators from the $ref'd definition that were not covered by the
         // type-specific modifier passes above (e.g. enum, const, or filter validators on
         // the referenced definition). TypeCheck validators are skipped (one is already added
-        // above with the effective type); RequiredPropertyValidator is also skipped (added
-        // by buildProperty). Type-specific validators transferred here may duplicate those
+        // above with the effective type). Type-specific validators transferred here may duplicate those
         // added by the ref modifier pass, but the duplicates are harmless: the ones with
         // wrong type-check functions (e.g. is_float on a narrowed int property) silently
         // skip at runtime because the type-guard condition never matches.
@@ -541,9 +540,6 @@ class PropertyFactory
      * all validators including TypeCheck are transferred (used for truly-untyped ref
      * properties where no separate type resolution step ran).
      *
-     * RequiredPropertyValidator is always excluded: it is added to the target property by
-     * buildProperty() and must not be duplicated.
-     *
      * Decorators are deliberately excluded here: type-conversion decorators on the ref
      * property (e.g. IntToFloatCastDecorator on a number $ref) target the produced type and
      * must not be applied after the type has been narrowed to a different effective type.
@@ -555,10 +551,6 @@ class PropertyFactory
     ): void {
         foreach ($refProperty->getValidators() as $validatorWrapper) {
             $validator = $validatorWrapper->getValidator();
-
-            if ($validator instanceof RequiredPropertyValidator) {
-                continue;
-            }
 
             if ($skipTypeCheck && $validator instanceof TypeCheckInterface) {
                 continue;

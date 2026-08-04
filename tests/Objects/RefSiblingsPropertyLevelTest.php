@@ -106,6 +106,68 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
     }
 
     // -------------------------------------------------------------------------
+    // Property-level object×object merge with colliding property name (Draft 2019-09+)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Draft 2019-09+: when a property-level $ref→object and sibling 'properties' both declare
+     * a property with the same name ('street'), they are merged with allOf semantics. The
+     * result is a class that enforces both the ref's type constraint (string) and the sibling's
+     * additional constraints (minLength: 3).
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testPropertyLevelObjectMergeWithCollidingPropertyName(): void
+    {
+        $className = $this->generateClassFromFile('PropertyLevelObjectCollision.json');
+
+        $object = new $className(['address' => ['street' => 'Oak', 'city' => 'Berlin']]);
+
+        $address = $object->getAddress();
+        $this->assertSame('Oak', $address->getStreet());
+        $this->assertNull($address->getZip());
+        $this->assertSame('Berlin', $address->getCity());
+    }
+
+    /**
+     * Draft 2019-09+: the allOf intersection for the colliding 'street' property enforces
+     * the sibling's minLength: 3 constraint.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testPropertyLevelObjectCollisionEnforcesMergedConstraints(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelObjectCollision.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        $this->expectException(ErrorRegistryException::class);
+
+        // 'AB' is 2 chars — violates sibling minLength: 3
+        new $className(['address' => ['street' => 'AB', 'city' => 'Berlin']]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Structural siblings require $ref to resolve to object — SchemaException
+    // -------------------------------------------------------------------------
+
+    /**
+     * Draft 2019-09+: when a property-level schema has structural sibling keywords
+     * ('properties') alongside a $ref that resolves to a non-object type (string),
+     * schema generation must fail with a SchemaException: these are contradictory constraints.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testPropertyLevelStructuralSiblingWithNonObjectRefThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/Property 'person' in file '.*': sibling structural object keywords"
+            . ".*require the \\\$ref to resolve to an object/s",
+        );
+
+        $this->generateClassFromFile('PropertyLevelStructuralSiblingNonObjectRef.json');
+    }
+
+    // -------------------------------------------------------------------------
     // Property-level object ref with structural siblings — Draft 07 ignores siblings
     // -------------------------------------------------------------------------
 

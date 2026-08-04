@@ -8,6 +8,7 @@ use PHPModelGenerator\Draft\AutoDetectionDraft;
 use PHPModelGenerator\Draft\Draft_07;
 use PHPModelGenerator\Draft\Draft_2019_09;
 use PHPModelGenerator\Draft\Element\Type;
+use PHPModelGenerator\Draft\Producer\PropertyProducerInterface;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -21,6 +22,22 @@ use PHPUnit\Framework\TestCase;
 
 class DraftTest extends TestCase
 {
+    // --- Draft::getProducerForKeyword ---
+
+    public function testGetProducerForKeywordReturnsRegisteredProducer(): void
+    {
+        $draft = (new Draft_07())->getDefinition()->build();
+
+        $this->assertInstanceOf(PropertyProducerInterface::class, $draft->getProducerForKeyword('$ref'));
+    }
+
+    public function testGetProducerForKeywordReturnsNullForUnknownKeyword(): void
+    {
+        $draft = (new Draft_07())->getDefinition()->build();
+
+        $this->assertNull($draft->getProducerForKeyword('nonexistent'));
+    }
+
     // --- DraftBuilder::getType ---
 
     public function testDraftBuilderGetTypeReturnsExistingType(): void

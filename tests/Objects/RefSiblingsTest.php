@@ -598,6 +598,55 @@ class RefSiblingsTest extends AbstractPHPModelGeneratorTestCase
     }
 
     // -------------------------------------------------------------------------
+    // Object-level multi-type collision — reapplyTypeSpecificRefConstraints no-op
+    // -------------------------------------------------------------------------
+
+    /**
+     * Draft 2019-09+: when a property is declared by both the root schema and the $ref'd
+     * object with identical multi-type arrays (["string", "integer"]), the type intersection
+     * equals the existing type — no narrowing occurs. reapplyTypeSpecificRefConstraints returns
+     * early because the effective type is multi-type (not a single scalar), so the property
+     * continues to accept both string and integer values.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testObjectLevelMultiTypeCollisionPreservesMultiType(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ObjectLevelMultiTypeCollision.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $objectWithString = new $className(['count' => 'hello']);
+        $this->assertSame('hello', $objectWithString->getCount());
+
+        $objectWithInt = new $className(['count' => 42]);
+        $this->assertSame(42, $objectWithInt->getCount());
+    }
+
+    // -------------------------------------------------------------------------
+    // Untyped $ref with scalar sibling — applyScalarSiblingMerge early return
+    // -------------------------------------------------------------------------
+
+    /**
+     * Draft 2019-09+: when a $ref definition carries no 'type' keyword and the property also
+     * has scalar sibling keywords (minLength), the effective type cannot be determined from the
+     * ref. The scalar merge path transfers the ref's own validators (none, since an untyped ref
+     * does not produce type-specific validators) and returns without applying the sibling's
+     * type-specific constraints. Generation must succeed without error.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testUntypedRefWithScalarSiblingGeneratesSuccessfully(): void
+    {
+        $className = $this->generateClassFromFile(
+            'UntypedRefWithScalarSibling.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $object = new $className(['name' => 'hello']);
+        $this->assertSame('hello', $object->getName());
+    }
+
+    // -------------------------------------------------------------------------
     // #[JsonSchema] attribute reflects authored schema, not synthetic allOf
     // -------------------------------------------------------------------------
 

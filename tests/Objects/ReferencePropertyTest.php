@@ -44,8 +44,12 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function internalReferenceProvider(): array
     {
         return [
-            'Internal path reference' => ['#/definitions/person'],
+            'Internal path reference'  => ['#/definitions/person'],
             'Internal direct reference' => ['#person'],
+            // Empty string: getDefinition('') returns null (not via exception) because an empty
+            // JSON schema file path is falsy — exercises the throw at the end of resolveReference
+            // rather than the catch-rethrow path above it.
+            'Empty string reference'   => [''],
         ];
     }
 
