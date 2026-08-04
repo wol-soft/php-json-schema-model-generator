@@ -172,6 +172,8 @@ During the execution the tests will create a session-unique directory `PHPModelG
 
 If a test which creates a PHP class from a JSON-Schema fails the JSON-Schema and the generated class(es) will be dumped to the directory `./failed-classes`
 
+For details on the base test class helpers, built-in data providers, and the multi-draft test expansion system see the [test infrastructure docs](https://php-json-schema-model-generator.readthedocs.io/en/latest/development/testInfrastructure.html).
+
 ## Docs ##
 
 The [docs](https://php-json-schema-model-generator.readthedocs.io/en/latest/) for the library is generated with [Sphinx](https://www.sphinx-doc.org/en/master/).

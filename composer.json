@@ -11,7 +11,7 @@
         }
     ],
     "require": {
-        "wol-soft/php-json-schema-model-generator-production": "dev-jsonSchemaDraft2019",
+        "wol-soft/php-json-schema-model-generator-production": "dev-master",
         "wol-soft/php-micro-template": "^1.12.0",
         "psr/log": "^3.0",
 
