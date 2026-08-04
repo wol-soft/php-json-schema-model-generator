@@ -178,7 +178,7 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                     <<<ERROR
                     Invalid tuple item in array 'property':
                       - invalid tuple #1
-                        * Invalid type for 'tuple item #0 of array property': requires 'int', got 'array'
+                        * Invalid type for 'tuple item #0 of array property': requires 'int', got 'object'
                       - invalid tuple #3
                         * Invalid type for 'tuple item #2 of array property': requires 'object', got 'integer'
                     ERROR,

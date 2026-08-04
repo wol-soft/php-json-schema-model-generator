@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Attributes;
 
+use PHPModelGenerator\Utils\RenderHelper;
+
 final class PhpAttribute
 {
     public const int JSON_POINTER = 1;
@@ -53,7 +55,7 @@ final class PhpAttribute
 
         $args = [];
         foreach ($this->arguments as $key => $value) {
-            $value = var_export($value, true);
+            $value = RenderHelper::varExportArray($value);
             $args[] = is_string($key) ? "$key: $value" : $value;
         }
 

@@ -3,15 +3,15 @@
  *
  * @param array $modifiedModelData An array containing all updated data as key-value pairs
  *
- * {% if not generatorConfiguration.collectErrors() %}@throws ValidationException{% endif %}
+ *{% if not generatorConfiguration.collectErrors() %} @throws ValidationException{% endif %}
  */
 private function _validateComposition_{{ index }}(array &$modifiedModelData): void
 {
     $validatorIndex = {{ index }};
     $value = $modelData = array_merge($this->_rawModelDataInput, $modifiedModelData);
 
-    {{ validator.getValidatorSetUp() }}
-    if ({{ validator.getCheck() }}) {
+    {{ viewHelper.indent(validator.getValidatorSetUp(), 1) }}
+    if {{ viewHelper.formatCondition(validator.getCheck(), 1) }} {
         {{ viewHelper.validationError(validator) }}
     }
 
