@@ -7,7 +7,9 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\EnumPostProcessor;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 
+#[ApplicableDrafts]
 class Issue114Test extends AbstractIssueTestCase
 {
     public function testEnumWithConstConditionalGeneratesClass(): void

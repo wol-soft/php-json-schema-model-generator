@@ -9,12 +9,14 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Interfaces\SerializationInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 
 /**
  * Class WriteOnlyTest
  *
  * @package PHPModelGenerator\Tests\Basic
  */
+#[ApplicableDrafts]
 class WriteOnlyTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testWriteOnlyPropertyDoesntGenerateGetter(): void

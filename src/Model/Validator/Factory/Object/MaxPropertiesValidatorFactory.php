@@ -12,17 +12,6 @@ use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 
 class MaxPropertiesValidatorFactory extends SimpleBaseValidatorFactory
 {
-    private const string COUNT_PROPERTIES = <<<'CODE'
-        count(
-            array_unique(
-                array_merge(
-                    array_keys($this->_rawModelDataInput),
-                    array_keys($modelData),
-                )
-            ),
-        )
-        CODE;
-
     protected function isValueValid(mixed $value): bool
     {
         return is_int($value) && $value >= 0;
@@ -32,9 +21,9 @@ class MaxPropertiesValidatorFactory extends SimpleBaseValidatorFactory
     {
         return new PropertyValidator(
             $property,
-            sprintf('%s > %d', self::COUNT_PROPERTIES, $value),
+            sprintf('%s > %d', MinPropertiesValidatorFactory::COUNT_PROPERTIES, $value),
             MaxPropertiesException::class,
-            [$value],
+            [$value, '&$count'],
         );
     }
 }

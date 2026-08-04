@@ -243,7 +243,7 @@ class GeneratorConfiguration
 
     public function getClassNameGenerator(): ClassNameGeneratorInterface
     {
-        return $this->classNameGenerator;
+        return $this->classNameGenerator ??= new ClassNameGenerator();
     }
 
     public function setClassNameGenerator(ClassNameGeneratorInterface $classNameGenerator): self
@@ -351,7 +351,7 @@ class GeneratorConfiguration
 
     public function getDraft(): DraftInterface | DraftFactoryInterface
     {
-        return $this->draft;
+        return $this->draft ??= new AutoDetectionDraft();
     }
 
     public function setDraft(DraftInterface | DraftFactoryInterface $draft): self

@@ -9,6 +9,7 @@ use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use stdClass;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -16,6 +17,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  *
  * @package PHPModelGenerator\Tests\Objects
  */
+#[ApplicableDrafts]
 class IntegerPropertyTest extends AbstractNumericPropertyTestCase
 {
     /**

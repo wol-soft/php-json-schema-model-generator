@@ -17,8 +17,10 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[ApplicableDrafts]
 class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
 {
     /**
@@ -346,13 +348,12 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
             (new GeneratorConfiguration())->setNamespacePrefix('Application'),
         );
 
-        $mainClassFQCN = '\\Application\\MainClass';
-        $mainObject = new $mainClassFQCN(['property' => 'Hello']);
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $mainObject = new ("\\{$namespacePrefix}\\MainClass")(['property' => 'Hello']);
 
         $this->assertSame('Hello', $mainObject->getProperty());
 
-        $subClassFQCN = '\\Application\\SubFolder\\SubClass';
-        $subObject = new $subClassFQCN(['property' => 3]);
+        $subObject = new ("\\{$namespacePrefix}\\SubFolder\\SubClass")(['property' => 3]);
 
         $this->assertSame(3, $subObject->getProperty());
     }

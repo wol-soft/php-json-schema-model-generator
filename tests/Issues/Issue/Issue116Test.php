@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 
 /**
  * Issue #116: When an external schema file contains a $ref pointing to another schema file and
@@ -16,6 +17,7 @@ use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
  * The bug only manifests when the referencing schema is discovered (and processed) before the
  * referenced schema — i.e. it is order-dependent.
  */
+#[ApplicableDrafts]
 class Issue116Test extends AbstractIssueTestCase
 {
     private function config(string $namespace): GeneratorConfiguration
@@ -38,8 +40,9 @@ class Issue116Test extends AbstractIssueTestCase
     {
         $this->generateDirectory('ExternalRefOrderAB', $this->config('Ns116RefAB'));
 
-        $pointClass = '\\Ns116RefAB\\ForecastPoint';
-        $rangeClass = '\\Ns116RefAB\\ForecastRange';
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $pointClass = "\\{$namespacePrefix}\\ForecastPoint";
+        $rangeClass = "\\{$namespacePrefix}\\ForecastRange";
 
         // Return type must be the canonical ForecastRange, not a nested duplicate
         $this->assertContains(
@@ -66,8 +69,9 @@ class Issue116Test extends AbstractIssueTestCase
     {
         $this->generateDirectory('ExternalRefOrderBA', $this->config('Ns116RefBA'));
 
-        $pointClass = '\\Ns116RefBA\\ZZForecastPoint';
-        $rangeClass = '\\Ns116RefBA\\AAForecastRange';
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $pointClass = "\\{$namespacePrefix}\\ZZForecastPoint";
+        $rangeClass = "\\{$namespacePrefix}\\AAForecastRange";
 
         $this->assertContains(
             ltrim($rangeClass, '\\'),
@@ -94,8 +98,9 @@ class Issue116Test extends AbstractIssueTestCase
         $namespace = 'AdditionalPropertiesRef116';
         $this->generateDirectory('AdditionalPropertiesRef', $this->config($namespace));
 
-        $pointClass = "\\{$namespace}\\ForecastPoint";
-        $rangeClass = "\\{$namespace}\\ForecastRange";
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $pointClass = "\\{$namespacePrefix}\\ForecastPoint";
+        $rangeClass = "\\{$namespacePrefix}\\ForecastRange";
 
         // Instantiation must succeed — validates that the generated class is usable
         $point = new $pointClass(['metrics' => ['q1' => ['mid' => 2.0], 'q2' => ['mid' => 4.0]]]);
@@ -143,9 +148,10 @@ class Issue116Test extends AbstractIssueTestCase
         $namespace = 'MultipleReferrers116';
         $this->generateDirectory('MultipleReferrers', $this->config($namespace));
 
-        $pointClass   = "\\{$namespace}\\ForecastPoint";
-        $summaryClass = "\\{$namespace}\\WeatherSummary";
-        $rangeClass   = "\\{$namespace}\\ForecastRange";
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $pointClass   = "\\{$namespacePrefix}\\ForecastPoint";
+        $summaryClass = "\\{$namespacePrefix}\\WeatherSummary";
+        $rangeClass   = "\\{$namespacePrefix}\\ForecastRange";
 
         $point   = new $pointClass(['baseline' => ['mid' => 1.5]]);
         $summary = new $summaryClass(['current' => ['mid' => 2.5]]);
@@ -170,8 +176,9 @@ class Issue116Test extends AbstractIssueTestCase
         $namespace = 'ArrayItemsRef116';
         $this->generateDirectory('ArrayItemsRef', $this->config($namespace));
 
-        $collectionClass = "\\{$namespace}\\ForecastCollection";
-        $rangeClass      = "\\{$namespace}\\ForecastRange";
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $collectionClass = "\\{$namespacePrefix}\\ForecastCollection";
+        $rangeClass      = "\\{$namespacePrefix}\\ForecastRange";
 
         $collection = new $collectionClass([
             'forecasts' => [
@@ -200,7 +207,7 @@ class Issue116Test extends AbstractIssueTestCase
         $namespace = 'FragmentRef116';
         $this->generateDirectory('FragmentRef', $this->config($namespace));
 
-        $pointClass = "\\{$namespace}\\ForecastPoint";
+        $pointClass = "\\{$this->lastGeneratedNamespacePrefix}\\ForecastPoint";
 
         $point = new $pointClass([
             'baseline' => ['mid' => 1.0],
@@ -219,7 +226,7 @@ class Issue116Test extends AbstractIssueTestCase
         $namespace = 'FragmentRef116b';
         $this->generateDirectory('FragmentRef', $this->config($namespace));
 
-        $pointClass = "\\{$namespace}\\ForecastPoint";
+        $pointClass = "\\{$this->lastGeneratedNamespacePrefix}\\ForecastPoint";
 
         $point = new $pointClass([
             'baseline' => ['mid' => 1.5],

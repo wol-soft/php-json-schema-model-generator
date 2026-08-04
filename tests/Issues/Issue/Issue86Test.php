@@ -8,8 +8,10 @@ use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[ApplicableDrafts]
 class Issue86Test extends AbstractIssueTestCase
 {
     #[DataProvider('validRefDataProvider')]

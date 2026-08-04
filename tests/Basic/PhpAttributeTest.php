@@ -15,6 +15,7 @@ use PHPModelGenerator\Attributes\WriteOnlyProperty;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
 use ReflectionProperty;
@@ -24,6 +25,7 @@ use ReflectionProperty;
  *
  * @package PHPModelGenerator\Tests\Basic
  */
+#[ApplicableDrafts]
 class PhpAttributeTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testDefaultAttributes(): void

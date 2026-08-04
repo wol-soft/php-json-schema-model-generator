@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -17,6 +18,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  *
  * @package PHPModelGenerator\Tests\ComposedValue
  */
+#[ApplicableDrafts]
 class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testNullProvidedForEmptyOptionalOneOfIsValid(): void

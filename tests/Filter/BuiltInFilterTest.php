@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\Filter;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -18,6 +19,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * regression guard confirming that a non-transforming filter does not trigger the
  * validator-priority reassignment that only applies to transforming filters.
  */
+#[ApplicableDrafts]
 class BuiltInFilterTest extends AbstractFilterTestCase
 {
     #[DataProvider('validBuiltInFilterDataProvider')]

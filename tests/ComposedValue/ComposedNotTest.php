@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Exception\ValidationException;
 use stdClass;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -22,6 +23,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  *
  * @package PHPModelGenerator\Tests\ComposedValue
  */
+#[ApplicableDrafts]
 class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
 {
     #[DataProvider('emptyNotDataProvider')]

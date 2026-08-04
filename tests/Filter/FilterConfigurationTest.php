@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Filter\Trim;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -17,6 +18,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * rejecting filter registrations with invalid callbacks, and the SchemaException
  * thrown when a schema references a filter token that has not been registered.
  */
+#[ApplicableDrafts]
 class FilterConfigurationTest extends AbstractFilterTestCase
 {
     public function testGetFilterReturnsAnExistingFilter(): void

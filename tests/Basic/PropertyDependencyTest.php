@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\Dependency\InvalidPropertyDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -15,6 +16,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  *
  * @package PHPModelGenerator\Tests\Basic
  */
+#[ApplicableDrafts]
 class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
     #[DataProvider('validPropertyDependencyDataProvider')]
