@@ -442,6 +442,45 @@ class RefSiblingsTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('World', $object->getName());
     }
 
+    /**
+     * Draft 2019-09+: PropertyMerger::merge() reconciles defaults on every path that can merge a
+     * $ref'd property into a sibling-declared slot, not just the typed intersection path exercised
+     * by testDefaultValuesConflictThrowsSchemaException() above. When the $ref'd definition's
+     * property carries no type keyword at all (genuinely untyped, not an explicit "type":"null"
+     * branch), it still merges via the same allOf-style path and its default must still be
+     * reconciled against the sibling's.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testDefaultValuesConflictWithUntypedRefPropertyThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches('/Conflicting default values for property .name./');
+
+        $this->generateClassFromFile('DefaultValuesConflictUntypedRef.json');
+    }
+
+    /**
+     * Draft 2019-09+: analogous to testDefaultValuePropagatedFromRef() above, but for the
+     * null-type-sibling merge path — the sibling declares "name" as an explicit "type":"null"
+     * with no default, which is merged via PropertyMerger::mergeIntoExistingNull() rather than
+     * the typed-intersection path, and must still propagate the ref's default onto the merged
+     * (now nullable-string) property. A true conflict can't be constructed for this path: a
+     * "type":"null" property is rejected earlier in the pipeline if it declares any non-null
+     * default, so the only reachable pairing is "no default" vs "a default" — propagation.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testDefaultValuePropagatedFromRefWithNullTypedSibling(): void
+    {
+        $className = $this->generateClassFromFile(
+            'DefaultValuePropagationWithNullTypedSibling.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        // Ref's default 'Alice' propagated even though the null-typed sibling had none.
+        $object = new $className([]);
+        $this->assertSame('Alice', $object->getName());
+    }
+
     // -------------------------------------------------------------------------
     // Root-level pointer assertions (no /allOf/ segment)
     // -------------------------------------------------------------------------
