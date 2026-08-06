@@ -21,7 +21,11 @@ class AutoDetectionDraft implements DraftFactoryInterface
 
     public function getDraftForSchema(JsonSchema $jsonSchema): DraftInterface
     {
-        $schemaUri = $jsonSchema->getJson()['$schema'] ?? null;
+        // getSchemaUri() reflects the $schema declared by the node's document root, not the
+        // current node's own JSON -- $schema only ever appears on a document root, so a
+        // property-level or navigated node would otherwise always read null here and silently
+        // fall back to Draft_07 regardless of what the document declared (issue #186).
+        $schemaUri = $jsonSchema->getSchemaUri();
 
         // Detect draft 2019-09 by its declared $schema URI. Every other case --
         // an absent $schema keyword, the draft-07 URI, or any unrecognised URI --

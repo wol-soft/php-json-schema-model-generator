@@ -291,6 +291,46 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => [1, 2, 3]]);
     }
 
+    // --- AutoDetectionDraft: property-level $ref+sibling merge (regression test for #186) ---
+
+    /**
+     * AutoDetectionDraft must resolve the draft for EVERY schema node from the declared root
+     * $schema, not only for the document root itself. "tags" is reached via
+     * properties -> allOf -> $ref (into $defs), so its JsonSchema node never carries the
+     * root-level $schema key directly — this is the scenario that regressed in #186, where
+     * AutoDetectionDraft re-derived $schema from the current node instead of the node's own
+     * document root and silently fell back to Draft 07, dropping minContains/maxContains.
+     */
+    public function testAutoDetectionDraftAppliesRootDraftToPropertyLevelRefSiblingMerge(): void
+    {
+        $className = $this->generateClassFromFile('AutoDetectionRefSiblingMinMaxContains.json');
+
+        // 3 matching strings is within minContains=2 .. maxContains=4
+        $object = new $className(['tags' => ['a', 'b', 1]]);
+        $this->assertSame(['a', 'b', 1], $object->getTags());
+
+        // 1 match < minContains=2 → MinContainsException only reachable when Draft 2019-09 was
+        // actually applied; under the pre-fix Draft-07 fallback no exception is thrown at all
+        try {
+            new $className(['tags' => ['a', 1, 2]]);
+            $this->fail('Expected MinContainsException for array with one matching item');
+        } catch (Exception $exception) {
+            $this->assertInstanceOf(MinContainsException::class, $exception);
+            $this->assertSame(2, $exception->getMinContains());
+            $this->assertSame(1, $exception->getMatches());
+        }
+
+        // 5 matches > maxContains=4 → MaxContainsException
+        try {
+            new $className(['tags' => ['a', 'b', 'c', 'd', 'e']]);
+            $this->fail('Expected MaxContainsException for array with five matching items');
+        } catch (Exception $exception) {
+            $this->assertInstanceOf(MaxContainsException::class, $exception);
+            $this->assertSame(4, $exception->getMaxContains());
+            $this->assertSame(5, $exception->getMatches());
+        }
+    }
+
     // --- Schema-level validation: invalid minContains / maxContains values ---
 
     #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
