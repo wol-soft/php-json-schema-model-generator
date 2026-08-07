@@ -44,4 +44,69 @@ class JsonSchemaTest extends TestCase
         $this->assertSame(['type' => 'integer'], $navigated->getJson());
         $this->assertSame('/properties/age', $navigated->getPointer());
     }
+
+    // --- $schema inheritance/override (regression coverage for #186) ---
+
+    public function testGetSchemaUriIsNullWhenNeitherTheNodeNorAnyAncestorDeclaresOne(): void
+    {
+        $jsonSchema = new JsonSchema('/path/to/schema.json', ['properties' => ['age' => ['type' => 'integer']]]);
+
+        $this->assertNull($jsonSchema->navigate('/properties/age')->getSchemaUri());
+    }
+
+    public function testNavigateInheritsSchemaUriFromTheDocumentRootWhenTheNodeDeclaresNone(): void
+    {
+        $jsonSchema = new JsonSchema('/path/to/schema.json', [
+            '$schema' => 'https://json-schema.org/draft/2019-09/schema',
+            'properties' => ['age' => ['type' => 'integer']],
+        ]);
+
+        $this->assertSame(
+            'https://json-schema.org/draft/2019-09/schema',
+            $jsonSchema->navigate('/properties/age')->getSchemaUri(),
+        );
+    }
+
+    /**
+     * Per the JSON Schema core spec, $schema MAY be re-declared on the root schema object of an
+     * embedded schema resource (a subschema with its own $id) to opt that resource into a
+     * different dialect than the enclosing document. A node that does this must win locally, and
+     * the override must keep propagating to ITS OWN descendants rather than reverting to the
+     * document root's value one level down.
+     */
+    public function testNavigateOverridesSchemaUriForAnEmbeddedResourceAndPropagatesToItsDescendants(): void
+    {
+        $jsonSchema = new JsonSchema('/path/to/schema.json', [
+            '$schema' => 'https://json-schema.org/draft/2019-09/schema',
+            '$defs' => [
+                'legacy' => [
+                    '$id' => '#legacy',
+                    '$schema' => 'http://json-schema.org/draft-07/schema#',
+                    'properties' => ['age' => ['type' => 'integer']],
+                ],
+            ],
+        ]);
+
+        $legacyResource = $jsonSchema->navigate('/$defs/legacy');
+        $this->assertSame('http://json-schema.org/draft-07/schema#', $legacyResource->getSchemaUri());
+
+        $legacyDescendant = $legacyResource->navigate('/properties/age');
+        $this->assertSame('http://json-schema.org/draft-07/schema#', $legacyDescendant->getSchemaUri());
+    }
+
+    public function testWithJsonAlsoHonoursALocalSchemaOverrideAndOtherwiseInherits(): void
+    {
+        $jsonSchema = new JsonSchema('/path/to/schema.json', [
+            '$schema' => 'https://json-schema.org/draft/2019-09/schema',
+        ]);
+
+        $this->assertSame(
+            'https://json-schema.org/draft/2019-09/schema',
+            $jsonSchema->withJson(['type' => 'integer'])->getSchemaUri(),
+        );
+        $this->assertSame(
+            'http://json-schema.org/draft-07/schema#',
+            $jsonSchema->withJson(['$schema' => 'http://json-schema.org/draft-07/schema#'])->getSchemaUri(),
+        );
+    }
 }
