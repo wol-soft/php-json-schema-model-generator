@@ -9,6 +9,7 @@ use PHPModelGenerator\Draft\Draft_07;
 use PHPModelGenerator\Exception\Arrays\ContainsException;
 use PHPModelGenerator\Exception\Arrays\MaxContainsException;
 use PHPModelGenerator\Exception\Arrays\MinContainsException;
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -300,34 +301,70 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
      * root-level $schema key directly — this is the scenario that regressed in #186, where
      * AutoDetectionDraft re-derived $schema from the current node instead of the node's own
      * document root and silently fell back to Draft 07, dropping minContains/maxContains.
+     *
+     * Errors are collected (rather than fail-fast) because an allOf branch failure is reported
+     * as a generic AllOfException in fail-fast mode — the underlying MinContainsException /
+     * MaxContainsException is only preserved in the branch's error collection when collecting.
      */
     public function testAutoDetectionDraftAppliesRootDraftToPropertyLevelRefSiblingMerge(): void
     {
-        $className = $this->generateClassFromFile('AutoDetectionRefSiblingMinMaxContains.json');
+        $configuration = (new GeneratorConfiguration())->setCollectErrors(true);
+        $className = $this->generateClassFromFile('AutoDetectionRefSiblingMinMaxContains.json', $configuration);
 
         // 3 matching strings is within minContains=2 .. maxContains=4
         $object = new $className(['tags' => ['a', 'b', 1]]);
         $this->assertSame(['a', 'b', 1], $object->getTags());
 
-        // 1 match < minContains=2 → MinContainsException only reachable when Draft 2019-09 was
-        // actually applied; under the pre-fix Draft-07 fallback no exception is thrown at all
-        try {
-            new $className(['tags' => ['a', 1, 2]]);
-            $this->fail('Expected MinContainsException for array with one matching item');
-        } catch (Exception $exception) {
-            $this->assertInstanceOf(MinContainsException::class, $exception);
-            $this->assertSame(2, $exception->getMinContains());
-            $this->assertSame(1, $exception->getMatches());
-        }
+        // 1 match < minContains=2: only reachable if Draft 2019-09 was actually applied to the
+        // allOf branch reached via $ref — under the pre-fix Draft-07 fallback minContains is an
+        // unknown keyword and no validator is emitted for it at all, so no exception is thrown
+        $minContainsException = $this->getCompositionBranchError(
+            $className,
+            ['tags' => ['a', 1, 2]],
+            MinContainsException::class,
+        );
+        $this->assertSame(2, $minContainsException->getMinContains());
+        $this->assertSame(1, $minContainsException->getMatches());
 
-        // 5 matches > maxContains=4 → MaxContainsException
+        // 5 matches > maxContains=4
+        $maxContainsException = $this->getCompositionBranchError(
+            $className,
+            ['tags' => ['a', 'b', 'c', 'd', 'e']],
+            MaxContainsException::class,
+        );
+        $this->assertSame(4, $maxContainsException->getMaxContains());
+        $this->assertSame(5, $maxContainsException->getMatches());
+    }
+
+    /**
+     * Instantiate $className with $modelData (expected to fail collected validation), locate the
+     * AllOfException among the top-level collected errors, and return the first error of type
+     * $expectedErrorClass found across its composition branches.
+     */
+    private function getCompositionBranchError(
+        string $className,
+        array $modelData,
+        string $expectedErrorClass,
+    ): Exception {
         try {
-            new $className(['tags' => ['a', 'b', 'c', 'd', 'e']]);
-            $this->fail('Expected MaxContainsException for array with five matching items');
-        } catch (Exception $exception) {
-            $this->assertInstanceOf(MaxContainsException::class, $exception);
-            $this->assertSame(4, $exception->getMaxContains());
-            $this->assertSame(5, $exception->getMatches());
+            new $className($modelData);
+            $this->fail("Expected an $expectedErrorClass validation error");
+        } catch (ErrorRegistryException $registryException) {
+            $allOfException = array_values(array_filter(
+                $registryException->getErrors(),
+                static fn($error): bool => $error instanceof AllOfException,
+            ))[0] ?? null;
+            $this->assertInstanceOf(AllOfException::class, $allOfException);
+
+            foreach ($allOfException->getCompositionErrorCollection() as $branchErrors) {
+                foreach ($branchErrors->getErrors() as $error) {
+                    if ($error instanceof $expectedErrorClass) {
+                        return $error;
+                    }
+                }
+            }
+
+            $this->fail("No $expectedErrorClass found in the allOf branch error collection");
         }
     }
 
