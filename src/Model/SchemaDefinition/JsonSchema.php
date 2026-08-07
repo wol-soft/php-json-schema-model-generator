@@ -33,6 +33,21 @@ class JsonSchema
     protected array $json;
 
     /**
+     * The $schema URI in effect for this node: the current node's own $schema if it declares one,
+     * otherwise inherited from the nearest ancestor that did. Per the JSON Schema core spec,
+     * $schema SHOULD appear on the document root and MAY additionally appear on the root schema
+     * object of an embedded schema resource (a subschema with its own $id, e.g. a $defs entry) to
+     * declare a different dialect for that resource; it MUST NOT appear elsewhere. $schema is
+     * therefore absent from most nodes, so without inheritance draft detection (see
+     * AutoDetectionDraft) would only ever work for literal document-root-level properties.
+     * navigate()/withJson() below both clone $this (which copies this property) and then
+     * re-derive it via deriveSchemaUri(), so a local override on an embedded resource wins there
+     * and continues to propagate to ITS descendants, while every other node keeps inheriting the
+     * ancestor value undisturbed.
+     */
+    private ?string $schemaUri = null;
+
+    /**
      * JsonSchema constructor.
      *
      * @param string $file the source file for the schema
@@ -48,6 +63,8 @@ class JsonSchema
         private string $pointer = '',
         private ?string $rawSource = null,
     ) {
+        $this->schemaUri = $this->deriveSchemaUri($json);
+
         // wrap in an allOf to pass the processing to multiple handlers - ugly hack to be removed after rework
         if (
             isset($json['$ref']) &&
@@ -79,6 +96,24 @@ class JsonSchema
     }
 
     /**
+     * The $schema URI in effect for this node — see the $schemaUri property doc.
+     */
+    public function getSchemaUri(): ?string
+    {
+        return $this->schemaUri;
+    }
+
+    /**
+     * The node's own $schema if declared, otherwise whatever this instance already inherited.
+     * $json is mixed (not array) because navigate() can land on a non-object JSON value (e.g. a
+     * "dependencies" entry that is a plain list of property names rather than a schema object).
+     */
+    private function deriveSchemaUri(mixed $json): ?string
+    {
+        return (is_array($json) ? $json['$schema'] ?? null : null) ?? $this->schemaUri;
+    }
+
+    /**
      * create the signature from all fields which are directly relevant for the created object. Additional fields
      * can be ignored as the resulting code will be identical
      */
@@ -91,6 +126,7 @@ class JsonSchema
     {
         $jsonSchema = clone $this;
         $jsonSchema->json = $json;
+        $jsonSchema->schemaUri = $jsonSchema->deriveSchemaUri($json);
 
         return $jsonSchema;
     }
@@ -131,6 +167,8 @@ class JsonSchema
 
             $jsonSchema->json = $jsonSchema->json[$decodedPathSegment];
         }
+
+        $jsonSchema->schemaUri = $jsonSchema->deriveSchemaUri($jsonSchema->json);
 
         return $jsonSchema;
     }
