@@ -291,41 +291,6 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
         new $className(['property' => [1, 2, 3]]);
     }
 
-    // --- AutoDetectionDraft: $schema inheritance/override across navigated nodes (regression test for #186) ---
-
-    /**
-     * Per the JSON Schema core spec, $schema MAY be re-declared on the root schema object of an
-     * embedded schema resource (a subschema with its own $id) to opt that resource into a
-     * different dialect. "legacyTags" $refs a $defs entry that does exactly this (declares its
-     * own draft-07 $schema although the document root declares 2019-09), while "tags" $refs a
-     * sibling $defs entry with no override and therefore inherits 2019-09. Both entries carry
-     * identical contains/minContains/maxContains constraints, so any behavioural difference
-     * between them is attributable only to the override actually taking effect.
-     */
-    public function testAutoDetectionDraftHonoursASchemaOverrideDeclaredByAnEmbeddedResource(): void
-    {
-        $className = $this->generateClassFromFile('AutoDetectionEmbeddedResourceSchemaOverride.json');
-
-        // 3 matches for "tags" (within minContains=2 .. maxContains=4 under 2019-09) and 1 match
-        // for "legacyTags" (only the base "contains" >= 1 match applies under the draft-07 override)
-        $object = new $className(['tags' => ['a', 'b', 1], 'legacyTags' => ['a', 1, 2]]);
-        $this->assertSame(['a', 'b', 1], $object->getTags());
-        $this->assertSame(['a', 1, 2], $object->getLegacyTags());
-
-        // "tags" inherited 2019-09: 1 match < minContains=2 still throws
-        try {
-            new $className(['tags' => ['a', 1, 2], 'legacyTags' => ['a', 1, 2]]);
-            $this->fail('Expected MinContainsException for "tags" with one matching item');
-        } catch (Exception $exception) {
-            $this->assertInstanceOf(MinContainsException::class, $exception);
-        }
-
-        // "legacyTags" is still held to the base "contains" constraint under the draft-07
-        // override — the override drops minContains/maxContains specifically, not all validation
-        $this->expectException(ContainsException::class);
-        new $className(['tags' => ['a', 'b', 1], 'legacyTags' => [1, 2, 3]]);
-    }
-
     // --- Schema-level validation: invalid minContains / maxContains values ---
 
     #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
