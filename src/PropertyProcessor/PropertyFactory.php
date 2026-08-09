@@ -31,6 +31,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecor
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\PropertyMerger;
 use PHPModelGenerator\Utils\TypeConverter;
 use PHPModelGenerator\Utils\TypeIntersection;
 
@@ -320,12 +321,20 @@ class PropertyFactory
             if ($refProperty->getNestedSchema() !== null) {
                 if ($mergedSchema !== null) {
                     // Object×object merge path (path 1): transfer ref properties into the
-                    // pre-created merged Schema with allOf semantics for collisions.
+                    // pre-created merged Schema with allOf semantics for collisions. Pass the ref
+                    // property's own JsonSchema as the constraint-reapplication source (see
+                    // PropertyMerger::merge()) so a colliding property that narrows type doesn't
+                    // silently lose the ref's type-specific constraints (minimum, maximum, …).
                     foreach ($refProperty->getNestedSchema()->getProperties() as $refProp) {
                         $compositionProcessor = $mergedSchema->getProperty($refProp->getName()) !== null
                             ? AllOfValidatorFactory::class
                             : null;
-                        $mergedSchema->addProperty($refProp, $compositionProcessor);
+                        $mergedSchema->addProperty(
+                            $refProp,
+                            $compositionProcessor,
+                            $refProp->getJsonSchema(),
+                            $schemaProcessor,
+                        );
                     }
 
                     // Ensure the merged Schema's class can resolve all types used by the
@@ -379,13 +388,23 @@ class PropertyFactory
      * determined by the producer ($ref).
      *
      * Steps:
-     * 1. Resolve the effective PHP type as the intersection of the produced type and any
-     *    explicit sibling 'type' keyword. An empty intersection is a schema error.
-     * 2. Set that type on the target property.
-     * 3. Apply type-specific sibling modifiers (minLength, minimum, pattern, …).
-     * 4. Apply 'any' sibling modifiers (default, enum, const).
-     * 5. Transfer non-TypeCheck, non-Required validators from the ref property so that
-     *    constraints from the $ref definition are preserved.
+     * 1. Populate $targetProperty (built as a blank placeholder by the caller — see
+     *    mergeProducedPropertyWithSiblings) with the sibling's own declared type, if it declares
+     *    a single concrete one, and 'any' sibling modifiers (default, enum, const). PropertyMerger
+     *    below merges two fully-built sides; without this step $targetProperty would still be the
+     *    blank placeholder, and the merge would have nothing of the sibling's own to merge the
+     *    ref's contribution into — including no default of its own to compare the ref's against,
+     *    which would silently defeat PropertyMerger's default-conflict detection in step 3.
+     * 2. Pre-validate the sibling's declared type (if any) against the ref's produced type,
+     *    for a SchemaException naming both sides' declared JSON Schema type names.
+     * 3. Delegate the actual type-intersection, type-specific-validator rebuild, and
+     *    default-conflict reconciliation to PropertyMerger — the same mechanism the base-level
+     *    and object×object property-level $ref+sibling merge paths use, so a colliding type or
+     *    default doesn't silently drop the ref's constraints in this path specifically.
+     * 4. Re-apply the sibling's own type-specific modifiers (minLength, pattern, …) against the
+     *    merged effective type, so a sibling that never declared "type" itself still gets them.
+     * 5. Transfer non-TypeCheck validators from the ref property that PropertyMerger didn't
+     *    already cover (e.g. enum, const, or filter validators on the referenced definition).
      *
      * @throws SchemaException
      */
@@ -407,118 +426,106 @@ class PropertyFactory
             return;
         }
 
-        $producedPhpTypeNames  = $producedType->getNames();
-        $effectivePhpTypeNames = $this->resolveEffectiveSiblingType(
-            $producedPhpTypeNames,
-            $siblingSchema,
-            $propertyName,
-        );
+        $siblingJson = $siblingSchema->getJson();
+        $siblingType = $siblingJson['type'] ?? null;
 
-        // A concrete (non-array) sibling type that does not include null narrows away the
-        // ref's nullability — the intersection of "string|null" and "string" is "string".
-        // When no sibling type is present or the sibling type is an array, the ref's
-        // nullable is preserved unchanged.
-        $siblingJson      = $siblingSchema->getJson();
-        $effectiveNullable = $producedType->isNullable();
-
-        if (isset($siblingJson['type']) && !is_array($siblingJson['type']) && $siblingJson['type'] !== 'null') {
-            $effectiveNullable = false;
+        if (is_string($siblingType)) {
+            // Sibling declares a concrete type: assign it directly (mirrors
+            // createTypedProperty()). PropertyMerger below then narrows it to the intersection
+            // with the ref's type.
+            $siblingPhpType = new PropertyType(TypeConverter::jsonSchemaToPHP($siblingType));
+            $targetProperty->setType($siblingPhpType, $siblingPhpType);
+        } else {
+            // No sibling type (or a multi-type sibling — not resolvable to one concrete PHP type
+            // here, and the ref's own type is used as-is in that case too, same as this path
+            // always did). There is nothing of the sibling's own to narrow against, so start
+            // from the ref's own type instead of leaving $targetProperty genuinely untyped:
+            // PropertyMerger's existing-has-no-type handling treats a genuinely-untyped existing
+            // as intentionally unbounded ("any") and deliberately leaves it untouched, which is
+            // wrong here — $targetProperty is a blank placeholder, not a schema that actually
+            // declares no type constraint.
+            $targetProperty->setType($producedType, $producedType);
         }
 
-        $targetProperty->setType(
-            new PropertyType($effectivePhpTypeNames, $effectiveNullable),
-            new PropertyType($effectivePhpTypeNames, $effectiveNullable),
-        );
+        // Apply any-type sibling keywords (default, enum, const) before merging: PropertyMerger's
+        // default-conflict reconciliation compares $existing's (this property's) own default
+        // against the ref's, so $existing needs its default set from the sibling's JSON first —
+        // applying it after the merge instead would silently overwrite whatever the merge
+        // resolved rather than ever being compared against it.
+        $this->applyModifiers($schemaProcessor, $schema, $targetProperty, $siblingSchema, anyOnly: true);
 
-        if (count($effectivePhpTypeNames) === 1) {
-            $effectiveTypeJsonSchemaName = TypeConverter::phpToJsonSchema($effectivePhpTypeNames[0]);
+        $this->assertSiblingTypeCompatibleWithRef($producedType->getNames(), $siblingSchema, $propertyName);
 
-            // Apply type-specific validators from the ref's definition with the effective
-            // (narrowed) type substituted. This re-derives range validators (minimum, maximum,
-            // etc.) using the correct PHP type-check function for the effective type (e.g.,
-            // is_int instead of is_float when narrowing from number to integer). TypeCheck
-            // deduplication in TypeCheckModifier ensures only one TypeCheck is added.
-            $refJsonWithEffectiveType = array_merge(
-                $refProperty->getJsonSchema()->getJson(),
-                ['type' => $effectiveTypeJsonSchemaName],
-            );
-            $this->applyModifiers(
-                $schemaProcessor,
-                $schema,
-                $targetProperty,
-                $siblingSchema->withJson($refJsonWithEffectiveType),
-                anyOnly: false,
-                typeOnly: true,
-            );
-
-            // Apply type-specific validators from the sibling schema. TypeCheck is already
-            // present (dedup no-op); sibling constraints like minLength, pattern, and
-            // additional range bounds are added here.
-            $siblingWithType = array_merge(
-                $siblingJson,
-                ['type' => $effectiveTypeJsonSchemaName],
-            );
-            $this->applyModifiers(
-                $schemaProcessor,
-                $schema,
-                $targetProperty,
-                $siblingSchema->withJson($siblingWithType),
-                anyOnly: false,
-                typeOnly: true,
-            );
-        }
-
-        // Apply any-type sibling keywords (default, enum, const) that were not yet applied
-        // during the type-specific modifier pass above.
-        $this->applyModifiers(
+        (new PropertyMerger($schemaProcessor->getGeneratorConfiguration()))->merge(
+            $targetProperty,
+            $refProperty,
+            true,
+            false,
+            $refProperty->getJsonSchema(),
             $schemaProcessor,
             $schema,
-            $targetProperty,
-            $siblingSchema,
-            anyOnly: true,
         );
 
-        // Transfer any validators from the $ref'd definition that were not covered by the
-        // type-specific modifier passes above (e.g. enum, const, or filter validators on
-        // the referenced definition). TypeCheck validators are skipped (one is already added
-        // above with the effective type). Type-specific validators transferred here may duplicate those
-        // added by the ref modifier pass, but the duplicates are harmless: the ones with
-        // wrong type-check functions (e.g. is_float on a narrowed int property) silently
-        // skip at runtime because the type-guard condition never matches.
-        // Decorators are intentionally NOT transferred: type-conversion decorators on the
-        // ref property (e.g. IntToFloatCastDecorator on a number $ref) target the produced
-        // type, not the narrowed effective type. Transferring them would corrupt the value
-        // before the effective-type TypeCheck can inspect it.
+        // Re-apply the sibling's own type-specific constraints (minLength, pattern, additional
+        // range bounds, …) against the merged effective type. Needed even for a sibling that
+        // never declared "type" itself (only, say, "minLength"): applyModifiers() dispatches by
+        // the JSON's own "type" keyword, so without this override a type-less sibling's range
+        // keywords are never interpreted as belonging to any type and silently do nothing -
+        // mirrors PropertyMerger's own reapply step, which does the equivalent for the ref side.
+        $effectiveType = $targetProperty->getType(true);
+
+        if ($effectiveType !== null && count($effectiveType->getNames()) === 1) {
+            $effectiveTypeJsonSchemaName = TypeConverter::phpToJsonSchema($effectiveType->getNames()[0]);
+            $this->applyModifiers(
+                $schemaProcessor,
+                $schema,
+                $targetProperty,
+                $siblingSchema->withJson(array_merge($siblingJson, ['type' => $effectiveTypeJsonSchemaName])),
+                typeOnly: true,
+            );
+        }
+
+        // Transfer any validators from the $ref'd definition that PropertyMerger's constraint
+        // reapplication didn't already cover (e.g. enum, const, or filter validators on the
+        // referenced definition). TypeCheck validators are skipped (PropertyMerger already added
+        // one with the effective type). Type-specific validators transferred here may duplicate
+        // those PropertyMerger added, but the duplicates are harmless: the ones with wrong
+        // type-check functions (e.g. is_float on a narrowed int property) silently skip at
+        // runtime because the type-guard condition never matches.
+        // Decorators are intentionally NOT transferred: type-conversion decorators on the ref
+        // property (e.g. IntToFloatCastDecorator on a number $ref) target the produced type, not
+        // the narrowed effective type. Transferring them would corrupt the value before the
+        // effective-type TypeCheck can inspect it.
         $this->transferProducedValidators($targetProperty, $refProperty, skipTypeCheck: true);
     }
 
     /**
-     * Resolve the effective PHP type set for a property-level sibling merge.
+     * Pre-validate a property-level sibling merge's declared type against the ref's produced
+     * type, before PropertyMerger performs the actual (equivalent) intersection check. This
+     * exists only to name both sides' declared JSON Schema type names in the exception message —
+     * PropertyMerger's own conflict message is generic and has no access to the sibling's raw
+     * JSON Schema type keyword.
      *
-     * If the sibling specifies no 'type' keyword, the produced type is used as-is.
-     * If the sibling specifies a 'type', its PHP equivalent is intersected with the produced
-     * type set (JSON Schema: integer is a subtype of number). An empty intersection means the
-     * sibling type and the $ref type are incompatible; SchemaException is thrown.
+     * If the sibling specifies no 'type' keyword, or specifies an array of types, there is
+     * nothing to pre-validate — PropertyMerger's own (name-set) intersection check covers it.
      *
      * @param string[] $producedPhpTypeNames
-     * @return string[]
      *
      * @throws SchemaException
      */
-    private function resolveEffectiveSiblingType(
+    private function assertSiblingTypeCompatibleWithRef(
         array $producedPhpTypeNames,
         JsonSchema $siblingSchema,
         string $propertyName,
-    ): array {
+    ): void {
         $siblingJson = $siblingSchema->getJson();
         if (!isset($siblingJson['type']) || is_array($siblingJson['type'])) {
-            return $producedPhpTypeNames;
+            return;
         }
 
         $siblingPhpTypeName = TypeConverter::jsonSchemaToPHP($siblingJson['type']);
-        $intersection       = TypeIntersection::compute([$siblingPhpTypeName], $producedPhpTypeNames);
 
-        if (empty($intersection)) {
+        if (empty(TypeIntersection::compute([$siblingPhpTypeName], $producedPhpTypeNames))) {
             throw new SchemaException(sprintf(
                 "Property '%s' in file '%s': \$ref resolves to type '%s' but sibling 'type' "
                     . "declares '%s'; the types are incompatible",
@@ -528,8 +535,6 @@ class PropertyFactory
                 $siblingJson['type'],
             ));
         }
-
-        return $intersection;
     }
 
     /**

@@ -1,0 +1,24 @@
+{
+  "definitions": {
+    "location": {
+      "type": "object",
+      "properties": {
+        "zip": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "address": {
+      "$ref": "#/definitions/location",
+      "properties": {
+        "zip": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

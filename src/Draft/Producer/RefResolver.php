@@ -11,11 +11,9 @@ use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
-use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
-use PHPModelGenerator\Utils\TypeConverter;
 
 /**
  * Resolves a $ref by looking it up in the definition dictionary and returning the referenced
@@ -184,68 +182,19 @@ class RefResolver implements PropertyProducerInterface
 
         foreach ($property->getNestedSchema()->getProperties() as $refProperty) {
             // Use allOf semantics when a sibling has already registered this property name so
-            // that type-intersection narrowing and default-conflict detection apply. For
-            // properties that only the ref defines, plain registration (null compositionProcessor)
-            // is correct — they become root-registered with no merge needed.
+            // that type-intersection narrowing and default-conflict detection apply, and pass
+            // the ref property's own JsonSchema as the constraint-reapplication source (see
+            // PropertyMerger::merge()) so narrowing doesn't silently drop the ref's type-specific
+            // constraints (minimum, maximum, …). For properties that only the ref defines, plain
+            // registration (null compositionProcessor) is correct — they become root-registered
+            // with no merge needed.
             $existingProperty     = $schema->getProperty($refProperty->getName());
             $compositionProcessor = $existingProperty !== null
                 ? AllOfValidatorFactory::class
                 : null;
-            $schema->addProperty($refProperty, $compositionProcessor);
-
-            if ($existingProperty !== null) {
-                $this->reapplyTypeSpecificRefConstraints($schemaProcessor, $schema, $existingProperty, $refProperty);
-            }
+            $schema->addProperty($refProperty, $compositionProcessor, $refProperty->getJsonSchema(), $schemaProcessor);
         }
 
         return $property;
-    }
-
-    /**
-     * After allOf-style type narrowing, re-apply type-specific modifiers from the ref
-     * property's JSON using the merged effective type. This restores the TypeCheckValidator
-     * (stripped by narrowToIntersection) and transfers constraints such as minimum/maximum
-     * using the correct type-check function for the narrowed type (e.g. is_int after
-     * narrowing from number to integer).
-     *
-     * Only operates for single scalar types. Multi-type and untyped results use different
-     * validation paths and are left untouched.
-     */
-    private function reapplyTypeSpecificRefConstraints(
-        SchemaProcessor $schemaProcessor,
-        Schema $schema,
-        PropertyInterface $existing,
-        PropertyInterface $refProperty,
-    ): void {
-        $effectiveType = $existing->getType(true);
-
-        if ($effectiveType === null || count($effectiveType->getNames()) !== 1) {
-            return;
-        }
-
-        $effectiveTypeName           = $effectiveType->getNames()[0];
-        $effectiveTypeJsonSchemaName = TypeConverter::phpToJsonSchema($effectiveTypeName);
-        $refJsonWithEffectiveType    = $refProperty->getJsonSchema()->withJson(
-            array_merge($refProperty->getJsonSchema()->getJson(), ['type' => $effectiveTypeJsonSchemaName]),
-        );
-
-        $builtDraft = $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($refJsonWithEffectiveType);
-
-        foreach ($builtDraft->getCoveredTypes($effectiveTypeJsonSchemaName) as $coveredType) {
-            if ($coveredType->getType() === 'any') {
-                continue;
-            }
-
-            foreach ($coveredType->getModifiers() as $modifier) {
-                $countBefore = count($existing->getValidators());
-                $modifier->modify($schemaProcessor, $schema, $existing, $refJsonWithEffectiveType);
-
-                if ($modifier instanceof AbstractValidatorFactory && ($modifierKey = $modifier->getKey()) !== null) {
-                    foreach (array_slice($existing->getValidators(), $countBefore) as $validatorWrapper) {
-                        $validatorWrapper->setSourceKey($modifierKey);
-                    }
-                }
-            }
-        }
     }
 }

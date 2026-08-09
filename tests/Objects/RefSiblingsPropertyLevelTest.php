@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
@@ -144,6 +145,40 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
 
         // 'AB' is 2 chars — violates sibling minLength: 3
         new $className(['address' => ['street' => 'AB', 'city' => 'Berlin']]);
+    }
+
+    /**
+     * Draft 2019-09+: when the colliding property's type narrows (ref: number, sibling:
+     * integer), the ref's own range constraint (minimum: 0) must still be enforced against the
+     * narrowed type — narrowing must not silently drop constraints the ref side declared.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testPropertyLevelObjectCollisionTypeNarrowingPreservesRefConstraints(): void
+    {
+        $className = $this->generateClassFromFile('PropertyLevelObjectCollisionTypeNarrowing.json');
+
+        $object = new $className(['address' => ['zip' => 5]]);
+        $this->assertSame(5, $object->getAddress()->getZip());
+
+        // float not accepted after narrowing to integer
+        $this->expectException(ValidationException::class);
+
+        new $className(['address' => ['zip' => 1.5]]);
+    }
+
+    /**
+     * Draft 2019-09+: the ref's minimum: 0 constraint is preserved after the integer
+     * narrowing above — a separate test since testPropertyLevelObjectCollisionTypeNarrowingPreservesRefConstraints()
+     * already asserts on the type-check exception and can't also assert on the minimum one.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testPropertyLevelObjectCollisionTypeNarrowingEnforcesRefMinimum(): void
+    {
+        $className = $this->generateClassFromFile('PropertyLevelObjectCollisionTypeNarrowing.json');
+
+        $this->expectException(ValidationException::class);
+
+        new $className(['address' => ['zip' => -1]]); // violates ref minimum: 0
     }
 
     // -------------------------------------------------------------------------

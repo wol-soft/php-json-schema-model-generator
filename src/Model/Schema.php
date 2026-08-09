@@ -22,6 +22,7 @@ use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookInterface;
+use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\PropertyMerger;
 
 class Schema
@@ -179,11 +180,17 @@ class Schema
     /**
      * @param string|null $compositionProcessor The FQCN of the composition processor transferring this property,
      *                                           or null when not called from a composition context.
+     * @param JsonSchema|null $rebuildFrom See PropertyMerger::merge()'s docblock. Only meaningful together with
+     *                                     $schemaProcessor; both are forwarded as-is.
      *
      * @throws SchemaException
      */
-    public function addProperty(PropertyInterface $property, ?string $compositionProcessor = null): self
-    {
+    public function addProperty(
+        PropertyInterface $property,
+        ?string $compositionProcessor = null,
+        ?JsonSchema $rebuildFrom = null,
+        ?SchemaProcessor $schemaProcessor = null,
+    ): self {
         if (!isset($this->properties[$property->getName()])) {
             // Register by name immediately — the name is always held locally on the property
             // or proxy, independent of whether the proxy's target is resolved yet.
@@ -239,6 +246,9 @@ class Schema
             $property,
             is_a($compositionProcessor, AllOfValidatorFactory::class, true),
             $this->isRootRegistered($property->getName()),
+            $rebuildFrom,
+            $schemaProcessor,
+            $this,
         );
 
         return $this;

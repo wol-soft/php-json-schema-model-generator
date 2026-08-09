@@ -481,6 +481,21 @@ class RefSiblingsTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('Alice', $object->getName());
     }
 
+    /**
+     * Draft 2019-09+: analogous to testDefaultValuesConflictThrowsSchemaException() above, but
+     * for a plain (non-structural, scalar) property-level $ref+sibling merge instead of a
+     * base-level one — both the ref's definition and the sibling declare conflicting defaults
+     * for the same scalar property, which must be detected the same way at this merge path too.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testPropertyLevelDefaultValuesConflictThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches('/Conflicting default values for property .name./');
+
+        $this->generateClassFromFile('PropertyLevelDefaultValuesConflict.json');
+    }
+
     // -------------------------------------------------------------------------
     // Root-level pointer assertions (no /allOf/ segment)
     // -------------------------------------------------------------------------

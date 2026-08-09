@@ -253,8 +253,11 @@ The generated class exposes ``name`` and ``age`` (from the ref) together with ``
 
 When a property is declared by **both** the ``$ref``'d object and the sibling ``properties``
 block, the two declarations are merged with ``allOf`` semantics: types narrow to their
-intersection (for example, ``number`` ∩ ``integer`` → ``int``), and conflicting default
-values cause a generation-time ``SchemaException``.
+intersection (for example, ``number`` ∩ ``integer`` → ``int``), narrowing never drops the
+``$ref``'d side's own constraints (e.g. ``minimum``) — they're re-applied against the narrowed
+type — and conflicting default values cause a generation-time ``SchemaException``. This merge
+behavior is uniform across every ``$ref``+sibling position: base level, a property-level
+``$ref`` to an object, and a property-level ``$ref`` to a scalar all merge the same way.
 
 **Example — property-level $ref + sibling constraint (Draft 2019-09+)**
 
