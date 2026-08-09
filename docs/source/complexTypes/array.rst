@@ -11,7 +11,7 @@ A simple array without further restrictions can be defined using `array`.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -53,7 +53,7 @@ The items of a list can be restricted with a nested schema. All items of the sch
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -92,14 +92,14 @@ A more complex array may contain a nested object.
 .. code-block:: json
 
     {
-        "$id": "example",
-        "type": "family",
+        "title": "Family",
+        "type": "object",
         "properties": {
             "members": {
                 "type": "array",
                 "items": {
                     "type": "object",
-                    "$id": "member",
+                    "title": "Member",
                     "properties": {
                         "name": {
                             "type": "string"
@@ -165,7 +165,7 @@ Items
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -223,7 +223,7 @@ Using the keyword `additionalItems` the array can be limited to not contain any 
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -235,7 +235,7 @@ Using the keyword `additionalItems` the array can be limited to not contain any 
                     },
                     {
                         "type": "integer"
-                    },
+                    }
                 ],
                 "additionalItems": {
                     "type": "object",
@@ -299,7 +299,7 @@ The contains check uses a schema which must match at least one of the items prov
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -334,6 +334,69 @@ any element satisfies the constraint).
 ``contains: false`` — no element could ever satisfy the constraint; any array value raises a
 ``ContainsException`` at runtime. The generator also emits a warning at generation time.
 
+.. note::
+
+    ``minContains`` and ``maxContains`` require `Draft 2019-09 or later <../gettingStarted.html#json-schema-draft-version>`__.
+    Under ``Draft_07`` (the default when no ``$schema`` is declared, or when ``$schema`` names a
+    draft ``AutoDetectionDraft`` doesn't recognise) both keywords are silently ignored, and only a
+    plain ``contains`` check (at least one match) is generated.
+
+Number of matches (minContains / maxContains)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The keywords ``minContains`` and ``maxContains`` refine ``contains`` to require a minimum and/or
+maximum number of items matching the ``contains`` schema, instead of just "at least one".
+
+.. code-block:: json
+
+    {
+        "title": "Example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "contains": {
+                    "type": "string"
+                },
+                "minContains": 2,
+                "maxContains": 3
+            }
+        }
+    }
+
+Possible exceptions:
+
+* Array 'example' must not contain less than 2 items matching the contains constraint, 1 matching items provided
+* Array 'example' must not contain more than 3 items matching the contains constraint, 4 matching items provided
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\MinContainsException* or a
+*PHPModelGenerator\\Exception\\Arrays\\MaxContainsException* which provides the following methods
+to get further error details:
+
+.. code-block:: php
+
+    // for a MinContainsException: get the minimum amount of required matching items
+    public function getMinContains(): int
+    // for a MaxContainsException: get the maximum amount of allowed matching items
+    public function getMaxContains(): int
+    // get the amount of items which actually matched the contains constraint
+    public function getMatches(): int
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
+
+.. hint::
+
+    A ``minContains`` of ``0`` makes the plain ``contains`` check optional: an array with zero
+    matching items is valid as long as ``maxContains`` (if set) isn't violated either.
+
+Setting ``minContains`` to a negative number, or ``maxContains`` to a number smaller than ``1``, or
+a ``minContains`` greater than ``maxContains``, is rejected with a ``SchemaException`` at
+generation time.
+
 Size validation
 ---------------
 
@@ -342,7 +405,7 @@ To limit the size of an array use the `minItems` and `maxItems` keywords.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -381,7 +444,7 @@ The items of an array can be forced to be unique with the `uniqueItems` keyword.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {

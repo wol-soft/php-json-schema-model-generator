@@ -9,7 +9,7 @@ By default all classes are immutable. If the GeneratorConfiguration option for i
 .. code-block:: json
 
     {
-        "$id": "person",
+        "title": "Person",
         "type": "object",
         "properties": {
             "name": {
@@ -28,7 +28,7 @@ Generated interface (with immutability disabled):
 
     public function getName(): ?string;
 
-    public function setAge(int $example): static;
+    public function setAge(int $age): static;
     public function getAge(): ?int;
 
 writeOnly
@@ -39,7 +39,7 @@ Properties marked with ``writeOnly: true`` suppress getter generation. The prope
 .. code-block:: json
 
     {
-        "$id": "credentials",
+        "title": "Credentials",
         "type": "object",
         "properties": {
             "username": {

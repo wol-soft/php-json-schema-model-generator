@@ -11,7 +11,7 @@ The **PopulatePostProcessor** adds a populate method to your generated model. Th
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -34,27 +34,27 @@ Now let's have a look at the behaviour of the generated model:
 .. code-block:: php
 
     // initialize the model with a valid value
-    $example = new Example(['value' => 'Hello World']);
-    $example->meta()->rawInput(); // returns ['value' => 'Hello World']
+    $example = new Example(['example' => 'Hello World']);
+    $example->meta()->rawInput(); // returns ['example' => 'Hello World']
 
     // add an additional property to the model.
     // if additional property constraints are defined in your JSON-Schema
     // each additional property will be validated against the defined constraints.
     $example->populate(['additionalValue' => 12]);
-    $example->meta()->rawInput(); // returns ['value' => 'Hello World', 'additionalValue' => 12]
+    $example->meta()->rawInput(); // returns ['example' => 'Hello World', 'additionalValue' => 12]
 
     // update an existing property with a valid value
-    $example->populate(['value' => 'Good night!']);
-    $example->meta()->rawInput(); // returns ['value' => 'Good night!', 'additionalValue' => 12]
+    $example->populate(['example' => 'Good night!']);
+    $example->meta()->rawInput(); // returns ['example' => 'Good night!', 'additionalValue' => 12]
 
     // update an existing property with an invalid value which will throw an exception
     try {
-        $example->populate(['value' => false]);
+        $example->populate(['example' => false]);
     } catch (Exception $e) {
         // perform error handling
     }
     // if the update of the model fails no values will be updated
-    $example->meta()->rawInput(); // returns ['value' => 'Good night!', 'additionalValue' => 12]
+    $example->meta()->rawInput(); // returns ['example' => 'Good night!', 'additionalValue' => 12]
 
 .. warning::
 

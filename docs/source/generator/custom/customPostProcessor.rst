@@ -42,7 +42,7 @@ What can you do inside your custom post processor?
 
     If a setter for a property is called with the same value which is already stored internally (consequently no update of the property is required), the setters will return directly and as a result of that the setter hooks will not be executed.
 
-    This behaviour also applies also to properties changed via the *populate* method added by the `PopulatePostProcessor <#populatepostprocessor>`__ and the *additionalProperties().set()* method added by the `AdditionalPropertiesAccessorPostProcessor <#additionalpropertiesaccessorpostprocessor>`__
+    This behaviour also applies also to properties changed via the *populate* method added by the `PopulatePostProcessor <../builtin/populatePostProcessor.html>`__ and the *additionalProperties().set()* method added by the `AdditionalPropertiesAccessorPostProcessor <../builtin/additionalPropertiesAccessorPostProcessor.html>`__
 
 To execute code before/after the processing of the schemas override the methods **preProcess** and **postProcess** inside your custom post processor.
 
@@ -106,4 +106,4 @@ The constructor of **PhpAttribute** accepts:
 
 .. hint::
 
-    The library implements a set of attributes which can be configured via the `attribute configuration <../../gettingStarted.html#serialization-methods>`__ on the **GeneratorConfiguration**
+    The library implements a set of attributes which can be configured via the `attribute configuration <../../gettingStarted.html#attributes>`__ on the **GeneratorConfiguration**

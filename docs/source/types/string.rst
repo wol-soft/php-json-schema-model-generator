@@ -6,7 +6,7 @@ Used for properties containing characters. Converted to the PHP type `string`.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -48,7 +48,7 @@ To add a length validation to the property use the `minLength` and `maxLength` k
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -91,7 +91,7 @@ To add a pattern validation to the property use the `pattern` keyword.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -126,7 +126,7 @@ To add a format validation to the property use the `format` keyword.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -208,7 +208,7 @@ You can implement custom format validators and use them in your schema files. Yo
 
 .. code-block:: php
 
-    $generator = new Generator(
+    $generator = new ModelGenerator(
         (new GeneratorConfiguration())
             ->addFormat('customFormat', new MyCustomFormat())
     );
@@ -219,7 +219,7 @@ If your custom format is representable by a regular expression you can bypass im
 
 .. code-block:: php
 
-    $generator = new Generator(
+    $generator = new ModelGenerator(
         (new GeneratorConfiguration())
             ->addFormat('numeric', new FormatValidatorFromRegEx('/^\d*$/'))
     );
@@ -241,7 +241,7 @@ metadata.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "avatar": {

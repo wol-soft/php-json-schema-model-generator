@@ -82,7 +82,7 @@ The directory `./tests/manual` contains some easy examples which show the usage.
 Let's have a look into an easy example. We create a simple model for a person with a name and an optional age. Our resulting JSON-Schema:
 ```json
 {
-  "$id": "Person",
+  "title": "Person",
   "type": "object",
   "properties": {
     "name": {
@@ -112,22 +112,22 @@ public function getName(): string;
 public function getAge(): ?int;
 
 // setters to change the values of the model after instantiation (only generated if immutability is disabled)
-public function setName(string $name): Person;
-public function setAge(?int $age): Person;
+public function setName(string $name): static;
+public function setAge(?int $age): static;
 ```
 
 Now let's have a look at the behaviour of the generated model:
 ```php
 // Throws an exception as the required name isn't provided.
-// Exception: 'Missing required value for name'
+// Exception: "Missing required value for 'name'"
 $person = new Person([]);
 
 // Throws an exception as the name provides an invalid value.
-// Exception: 'Invalid type for name. Requires string, got int'
+// Exception: "Invalid type for 'name': requires 'string', got 'integer'"
 $person = new Person(['name' => 12]);
 
 // Throws an exception as the age contains an invalid value due to the minimum definition.
-// Exception: 'Value for age must not be smaller than 0'
+// Exception: "Value for 'age' must not be smaller than 0"
 $person = new Person(['name' => 'Albert', 'age' => -1]);
 
 // A valid example as the age isn't required
@@ -137,20 +137,20 @@ $person->getAge(); // returns NULL
 $person->meta()->rawInput(); // returns ['name' => 'Albert']
 
 // If setters are generated the setters also perform validations.
-// Exception: 'Value for age must not be smaller than 0'
+// Exception: "Value for 'age' must not be smaller than 0"
 $person->setAge(-10);
 ```
 
 More complex exception messages eg. from a [allOf](https://json-schema.org/understanding-json-schema/reference/combining.html#allof) composition may look like:
 ```
-Invalid value for Animal declined by composition constraint.
-  Requires to match 3 composition elements but matched 1 element.
+Invalid value for 'Animal' declined by composition constraint
+  Requires to match all composition elements but matched 1 element
   - Composition element #1: Failed
-    * Value for age must not be smaller than 0
+    * Value for 'age' must not be smaller than 0
   - Composition element #2: Valid
   - Composition element #3: Failed
-    * Value for legs must not be smaller than 2
-    * Value for legs must be a multiple of 2
+    * Value for 'legs' must not be smaller than 2
+    * Value for 'legs' must be a multiple of 2
 ```
 
 ## How the heck does this work? ##

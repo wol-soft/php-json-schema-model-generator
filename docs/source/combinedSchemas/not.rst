@@ -6,7 +6,7 @@ Used to validate a provided schema or property doesn't match the given schema. I
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {

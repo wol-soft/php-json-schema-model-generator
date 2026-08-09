@@ -1,10 +1,14 @@
 Meta data
 =========
 
-ID
---
+Class naming
+------------
 
-The ID of a schema is used to generate the class name. If no ID is present the filename of the JSON-Schema file will be used as class name
+The class name generated for the main object of a JSON-Schema file is derived from ``title`` if
+present, otherwise from the basename of ``$id`` if present, and finally falls back to the
+filename of the JSON-Schema file. See
+`Naming of classes <../complexTypes/object.html#naming-of-classes>`__ for the full priority
+order, including how nested (non-root) classes are named.
 
 .. code-block:: json
 
@@ -13,12 +17,13 @@ The ID of a schema is used to generate the class name. If no ID is present the f
         "type": "object",
         "properties": {
             "example": {
-                "type": "string",
+                "type": "string"
             }
         }
     }
 
-The generated class will be **MyObject** in *MyObject.php*
+As no ``title`` is present, the ``$id`` is used and the generated class will be **MyObject** in
+*MyObject.php*.
 
 $comment
 --------
@@ -29,7 +34,7 @@ in the getter's PHPDoc and is not used for validation.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -61,7 +66,7 @@ as an ``@example`` line in the getter's PHPDoc and is not used for validation.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "status": {
@@ -95,7 +100,7 @@ If a property provides a description this description will be adopted into the g
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {

@@ -6,7 +6,7 @@ By providing an array with types for a property multiple types can be allowed.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -48,7 +48,7 @@ For each type given in the allowed types array additional validators may be adde
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {

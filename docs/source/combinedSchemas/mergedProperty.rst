@@ -10,11 +10,11 @@ For example we combine two objects with `allOf` for an object property:
 .. code-block:: json
 
     {
-        "$id": "company",
+        "title": "Company",
         "type": "object",
         "properties": {
             "ceo": {
-                "$id": "CEO",
+                "title": "CEO",
                 "allOf": [
                     {
                         "type": "object",
@@ -45,7 +45,7 @@ As the subschemas don't contain IDs they will be named with uniqIds (compare the
 * Company_Ceo5e4a82e39fe37.php
 * Company_Merged_CEO.php
 
-If the allOf doesn't contain an $id field the merged class will also contain an uniqId. So if you want to use the class with a reproducible class name you must set the $id field.
+If the property holding the allOf doesn't carry a ``title`` (or ``$id``) the merged class will also contain a uniqId. So if you want to use the class with a reproducible class name you must set ``title`` (or ``$id``) on the property.
 The classes Company_Ceo5e4a82e39edc3 and Company_Ceo5e4a82e39fe37 are only used for internal validation and can't be accessed via the generated interface of Company.
 
 Generated interface:
@@ -53,7 +53,7 @@ Generated interface:
 .. code-block:: php
 
     # class Company
-    public function setCeo(Company_Merged_CEO $example): static;
+    public function setCeo(Company_Merged_CEO $ceo): static;
     public function getCeo(): ?Company_Merged_CEO;
 
     # class Company_Merged_CEO
@@ -67,7 +67,7 @@ If your composition is defined on object level the object will gain access to al
 .. code-block:: json
 
     {
-        "$id": "CEO",
+        "title": "CEO",
         "type": "object",
         "allOf": [
             {

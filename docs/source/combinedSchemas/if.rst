@@ -6,7 +6,7 @@ The keywords `if`, `then` and `else` can be used to conditionally combine multip
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -77,7 +77,7 @@ An object level composition will result in an object which contains all properti
 .. code-block:: json
 
     {
-        "$id": "customer",
+        "title": "Customer",
         "type": "object",
         "properties": {
             "country": {
@@ -117,7 +117,7 @@ Generated interface:
     public function setCountry(string $country): static;
     public function getCountry(): ?string;
 
-    public function setPostalCode(string $country): static;
+    public function setPostalCode(string $postalCode): static;
     public function getPostalCode(): ?string;
 
 When the ``then`` and ``else`` branches define the same property with **different types**, the generator produces a union type hint — consistent with the behaviour of ``anyOf``/``oneOf``:
@@ -125,7 +125,7 @@ When the ``then`` and ``else`` branches define the same property with **differen
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "if": {
             "properties": {
@@ -203,7 +203,7 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
     generator applies the branch default only when the relevant branch is active — the ``then``
     default applies when the ``if`` condition is satisfied, and the ``else`` default applies when it
     is not. A user-supplied value always overrides the branch default. Branch defaults are **not**
-    included in ``getRawModelDataInput()``.
+    included in ``meta()->rawInput()``.
 
     When a ``then`` or ``else`` branch default conflicts with a root ``properties`` default or a
     ``patternProperties`` default for the same property, the generator throws a ``SchemaException``

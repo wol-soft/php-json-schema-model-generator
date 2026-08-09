@@ -15,7 +15,7 @@ property type to the union of all branch types.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "anyOf": [
             {
@@ -74,7 +74,7 @@ For example, with a two-branch ``oneOf`` where ``age`` is required in both branc
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "oneOf": [
             {
@@ -147,4 +147,4 @@ widen the property type.
 
     The same intersection behaviour also applies to properties defined via
     ``patternProperties`` when their names match declared properties. See
-    `Pattern properties <../object/patternProperties.html>`__ for details.
+    `Pattern properties <../complexTypes/object.html#pattern-properties>`__ for details.

@@ -18,7 +18,7 @@ Added methods
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -34,8 +34,8 @@ Generated interface with the **AdditionalPropertiesAccessorPostProcessor**:
 
 .. code-block:: php
 
-    public function setExample(float $example): static;
-    public function getExample(): float;
+    public function setExample(string $example): static;
+    public function getExample(): ?string;
 
     public function meta(): Meta;
     public function additionalProperties(): AdditionalPropertiesAccessor;

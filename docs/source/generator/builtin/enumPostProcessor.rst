@@ -22,7 +22,7 @@ Let's have a look at the most simple case of a string-only enum:
 .. code-block:: json
 
     {
-        "$id": "offer",
+        "title": "Offer",
         "type": "object",
         "properties": {
             "state": {
@@ -59,7 +59,7 @@ Each enum which is not a string-only enum must provide a mapping in the **enum-m
 .. code-block:: json
 
     {
-        "$id": "offer",
+        "title": "Offer",
         "type": "object",
         "properties": {
             "state": {

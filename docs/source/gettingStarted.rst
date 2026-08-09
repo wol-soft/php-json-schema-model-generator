@@ -16,11 +16,11 @@ To avoid adding all dependencies of the php-json-model-generator to your product
 Generating classes
 ------------------
 
-The base object for generating models is the *Generator*. After you have created a Generator you can use the object to generate your model classes without any further configuration:
+The base object for generating models is the *ModelGenerator*. After you have created a ModelGenerator you can use the object to generate your model classes without any further configuration:
 
 .. code-block:: php
 
-    (new Generator())
+    (new ModelGenerator())
         ->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
 
 The first parameter of the *generateModels* method must be a class implementing the *SchemaProviderInterface*. The provider fetches the JSON schema files and provides them for the generator. The following providers are available:
@@ -51,7 +51,7 @@ As an optional parameter you can set up a *GeneratorConfiguration* object to con
 
 .. code-block:: php
 
-    $generator = new Generator(
+    $generator = new ModelGenerator(
         (new GeneratorConfiguration())
             ->setNamespacePrefix('MyApp\Model')
             ->setImmutable(false)
@@ -85,7 +85,7 @@ column, and the same information is available as structured accessors:
 .. code-block:: php
 
     try {
-        (new Generator())->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
+        (new ModelGenerator())->generateModels(new RecursiveDirectoryProvider(__DIR__ . '/schema'), __DIR__ . '/result');
     } catch (\PHPModelGenerator\Exception\SchemaException $e) {
         $e->getMessage();     // e.g. 'Invalid JSON-Schema file schema/Person.json at line 4, column 12'
         $e->getSchemaFile();  // 'schema/Person.json'
@@ -107,7 +107,7 @@ The constructor of a generated model takes an array as argument. The array must 
 .. code-block:: json
 
     {
-        "$id": "person",
+        "title": "Person",
         "type": "object",
         "properties": {
             "name": {
@@ -135,8 +135,8 @@ After generating a class with this JSON-Schema our class with the name `Person` 
     public function getAge(): ?int;
 
     // setters to change the values of the model after instantiation
-    public function setName(string $name): Person;
-    public function setAge(?int $age): Person;
+    public function setName(string $name): static;
+    public function setAge(?int $age): static;
 
     // meta()->rawInput() always delivers the raw input which was provided on instantiation
     public function meta(): Meta;
@@ -479,17 +479,27 @@ draft instance (``DraftInterface``) to pin all schemas to one draft, or a factor
 (``DraftFactoryInterface``) to select the draft per schema file.
 
 By default ``AutoDetectionDraft`` is used. It implements ``DraftFactoryInterface`` and inspects
-the ``$schema`` keyword of each schema file to select the appropriate draft automatically. When
-the keyword is absent or unrecognised, it falls back to JSON Schema Draft 7 behaviour, so schemas
-with different ``$schema`` declarations in the same generation run can use different drafts.
+the ``$schema`` keyword of each schema file to select the appropriate draft automatically. It only
+recognises the Draft 2019-09 ``$schema`` URI (``https://json-schema.org/draft/2019-09/schema``,
+with or without a trailing ``#``, ``http`` or ``https``); when the keyword is absent or any other
+value (including the Draft 2020-12 URI), it falls back to JSON Schema Draft 7 behaviour. Schemas
+with different ``$schema`` declarations in the same generation run can therefore use different
+drafts.
 
 Available draft classes:
 
-============= ================================
-Draft class   Description
-============= ================================
-``Draft_07``  JSON Schema Draft 7 (default)
-============= ================================
+``Draft_07``
+    JSON Schema Draft 7 (default; used by auto-detection for any schema without a recognised
+    ``$schema`` URI).
+
+``Draft_2019_09``
+    JSON Schema Draft 2019-09; adds ``minContains``/``maxContains`` support for the ``contains``
+    keyword on top of ``Draft_07``. Selected automatically by ``AutoDetectionDraft`` via the
+    ``$schema`` URI.
+
+``Draft_2020_12``
+    JSON Schema Draft 2020-12; currently behaves identically to ``Draft_2019_09``. Not
+    auto-detected — pass it explicitly via ``setDraft(new Draft_2020_12())``.
 
 .. seealso::
 

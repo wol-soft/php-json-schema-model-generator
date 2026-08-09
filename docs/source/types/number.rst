@@ -6,7 +6,7 @@ Used for properties containing numeric values. Properties with the type `integer
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example1": {
@@ -22,11 +22,11 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setExample1(int $example): static;
+    public function setExample1(int $example1): static;
     // As the property is not required it may be initialized with null. Consequently the return value is nullable
     public function getExample1(): ?int;
 
-    public function setExample2(float $example): static;
+    public function setExample2(float $example2): static;
     public function getExample2(): ?float;
 
 Possible exceptions:
@@ -55,7 +55,7 @@ To add a range validation to the property use the `minimum`, `maximum` and `excl
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example1": {
@@ -108,7 +108,7 @@ To add a multiple of validation to the property use the `multipleOf` keyword.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -126,7 +126,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Number\\MultipleOf
 
 .. code-block:: php
 
-    // returns the multipleOd constraint
+    // returns the multipleOf constraint
     public function getMultipleOf()
     // get the name of the property which failed
     public function getPropertyName(): string

@@ -6,7 +6,7 @@ Used for properties which only accept a single value.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -20,7 +20,7 @@ Generated interface (the typehint is auto-detected from the given constant value
 .. code-block:: php
 
     public function setExample(int $example): static;
-    public function getExample(): int;
+    public function getExample(): ?int;
 
 Possible exceptions:
 

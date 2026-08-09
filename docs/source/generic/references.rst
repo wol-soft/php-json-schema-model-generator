@@ -45,12 +45,12 @@ An example for properties referring to a definition inside the same schema (Draf
                 }
             }
         },
-        "$id": "team",
+        "$id": "https://example.com/schemas/team",
         "type": "object",
         "properties": {
             "leader": {
                 "$ref": "#person"
-            }
+            },
             "members": {
                 "type": "array",
                 "items": {
@@ -77,7 +77,7 @@ Draft 2019-09 introduced ``$defs`` as the standard replacement for ``definitions
                 }
             }
         },
-        "$id": "team",
+        "$id": "https://example.com/schemas/team",
         "type": "object",
         "properties": {
             "leader": {
