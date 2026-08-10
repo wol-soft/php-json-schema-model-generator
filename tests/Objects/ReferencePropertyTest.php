@@ -1486,7 +1486,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         // but 'single' (an optional plain property) must keep its own nullable getter type hint
         // rather than inheriting the array item's non-nullable one.
         $itemClass = $object->getList()[0]::class;
-        $returnType = (new ReflectionClass($className))->getMethod('getSingle')->getReturnType();
-        $this->assertSame('?' . $itemClass, (string) $returnType);
+        $this->assertSame([$itemClass, 'null'], $this->getReturnTypeNames($className, 'getSingle'));
     }
 }
