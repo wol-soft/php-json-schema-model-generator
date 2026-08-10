@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\SchemaDefinition;
 
-use PHPModelGenerator\Exception\GeneratorException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Utils\ArrayHash;
 
@@ -31,6 +30,15 @@ class JsonSchema
     ];
 
     protected array $json;
+
+    /**
+     * The nearest enclosing $id, normalized to always start with '#' (matching
+     * SchemaDefinitionDictionary's dictionary key format). Defaults to the document root ('#')
+     * and is updated by navigate() whenever it descends into a node carrying its own $id. Used to
+     * resolve an empty/fragment-only $ref (RFC 3986 §5.2.2: "" and "#" both resolve to the
+     * current base) against the correct scope instead of always the top-level document.
+     */
+    private string $baseId = '#';
 
     /**
      * The $schema URI in effect for this node: the current node's own $schema if it declares one,
@@ -64,30 +72,11 @@ class JsonSchema
         private ?string $rawSource = null,
     ) {
         $this->schemaUri = $this->deriveSchemaUri($json);
-
-        // wrap in an allOf to pass the processing to multiple handlers - ugly hack to be removed after rework
-        if (
-            isset($json['$ref']) &&
-            count(array_diff(
-                array_intersect(array_keys($json), self::SCHEMA_SIGNATURE_RELEVANT_FIELDS),
-                ['$ref', 'type'],
-            ))
-        ) {
-            $json = array_merge(
-                array_diff_key($json, array_fill_keys(self::SCHEMA_SIGNATURE_RELEVANT_FIELDS, null)),
-                [
-                    'allOf' => [
-                        ['$ref' => $json['$ref']],
-                        array_intersect_key(
-                            $json,
-                            array_fill_keys(array_diff(self::SCHEMA_SIGNATURE_RELEVANT_FIELDS, ['$ref']), null),
-                        ),
-                    ],
-                ],
-            );
-        }
-
         $this->json = $json;
+
+        if (isset($json['$id'])) {
+            $this->baseId = self::normalizeId((string) $json['$id']);
+        }
     }
 
     public function getJson(): array
@@ -166,11 +155,25 @@ class JsonSchema
             }
 
             $jsonSchema->json = $jsonSchema->json[$decodedPathSegment];
+
+            if (is_array($jsonSchema->json) && isset($jsonSchema->json['$id'])) {
+                $jsonSchema->baseId = self::normalizeId((string) $jsonSchema->json['$id']);
+            }
         }
 
         $jsonSchema->schemaUri = $jsonSchema->deriveSchemaUri($jsonSchema->json);
 
         return $jsonSchema;
+    }
+
+    public function getBaseId(): string
+    {
+        return $this->baseId;
+    }
+
+    public static function normalizeId(string $id): string
+    {
+        return str_starts_with($id, '#') ? $id : "#$id";
     }
 
     public function getFile(): string

@@ -7,8 +7,10 @@ namespace PHPModelGenerator\Model;
 use Exception;
 use InvalidArgumentException;
 use PHPModelGenerator\Draft\AutoDetectionDraft;
+use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\DraftInterface;
+use PHPModelGenerator\Draft\DraftResolver;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
@@ -25,6 +27,7 @@ use PHPModelGenerator\Format\UriTemplateFormatValidator;
 use PHPModelGenerator\Logger\EchoLogger;
 use PHPModelGenerator\MediaString\ContentValidatorInterface;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\ImmutableMediaStringFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\MediaStringFilter;
@@ -63,6 +66,8 @@ class GeneratorConfiguration
     /** @var DraftInterface | DraftFactoryInterface */
     protected $draft;
 
+    private DraftResolver $draftResolver;
+
     /** @var ClassNameGeneratorInterface */
     protected $classNameGenerator;
 
@@ -79,6 +84,7 @@ class GeneratorConfiguration
     public function __construct()
     {
         $this->draft = new AutoDetectionDraft();
+        $this->draftResolver = new DraftResolver();
         $this->classNameGenerator = new ClassNameGenerator();
         $this->logger = new EchoLogger();
 
@@ -359,6 +365,18 @@ class GeneratorConfiguration
         $this->draft = $draft;
 
         return $this;
+    }
+
+    /**
+     * Resolve the active draft for the given schema (via DraftFactoryInterface::getDraftForSchema
+     * when a factory is configured) and build its immutable Draft registry, caching the result by
+     * draft class so repeated calls for the same draft don't rebuild it. The cache and the branch
+     * resolution live in DraftResolver, a private implementation detail not otherwise exposed on
+     * this class's public surface.
+     */
+    public function getBuiltDraft(JsonSchema $propertySchema): Draft
+    {
+        return $this->draftResolver->getBuiltDraft($this->getDraft(), $propertySchema);
     }
 
     public function isImplicitNullAllowed(): bool

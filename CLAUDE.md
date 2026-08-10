@@ -403,6 +403,17 @@ priority ordering, etc.), that is precisely the issue that needs solving. Open i
 topic if it cannot be addressed immediately, but keep the test in place and marked as expected to
 fail (`@expectedExceptionMessage`, `$this->expectException(...)`) until the fix lands.
 
+This applies equally to throwaway probes and exploratory reproduction scripts, not just formal
+in-suite tests. When a probe built to investigate one question triggers an unexpected result,
+resist the pull to edit the probe until the inconvenient result goes away. First determine whether
+the input was valid: if it's valid JSON Schema (or otherwise legitimate input) and the tool
+misbehaves, that is a real bug — document it with the exact reproduction and its output before
+moving on, even if it's unrelated to what you set out to investigate. Only revise the probe when
+the *input itself* was invalid or didn't match what you intended to test (e.g. malformed JSON, a
+typo, a config flag that doesn't mean what you assumed) — and say so explicitly, with the specific
+reason the original input was invalid, not just "adjusted the probe." A silently adjusted probe
+erases the evidence that a bug exists.
+
 #### No implementation-plan references in code
 
 Do not embed references to implementation-plan phases, issue numbers, or source-code line numbers

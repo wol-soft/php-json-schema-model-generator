@@ -1,0 +1,26 @@
+{
+  "definitions": {
+    "numberDef": {
+      "type": "number",
+      "minimum": 0
+    },
+    "nullableString": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    }
+  },
+  "type": "object",
+  "properties": {
+    "count": {
+      "$ref": "#/definitions/numberDef",
+      "type": "integer"
+    },
+    "label": {
+      "$ref": "#/definitions/nullableString",
+      "type": "string"
+    }
+  }
+}

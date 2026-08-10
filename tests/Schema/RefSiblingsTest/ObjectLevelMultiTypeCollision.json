@@ -1,0 +1,28 @@
+{
+  "definitions": {
+    "base": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": [
+            "string",
+            "integer"
+          ]
+        }
+      },
+      "required": [
+        "count"
+      ]
+    }
+  },
+  "$ref": "#/definitions/base",
+  "type": "object",
+  "properties": {
+    "count": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    }
+  }
+}

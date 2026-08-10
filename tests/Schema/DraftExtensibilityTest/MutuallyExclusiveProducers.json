@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "value": {
+      "$ref": "#/definitions/Foo",
+      "$secondRef": "#/definitions/Foo"
+    }
+  },
+  "definitions": {
+    "Foo": {
+      "type": "string"
+    }
+  }
+}

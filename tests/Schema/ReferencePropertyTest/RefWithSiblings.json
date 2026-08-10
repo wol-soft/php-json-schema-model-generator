@@ -1,0 +1,30 @@
+{
+  "definitions": {
+    "address": {
+      "type": "object",
+      "properties": {
+        "street": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "street"
+      ]
+    }
+  },
+  "$ref": "#/definitions/address",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "zip": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

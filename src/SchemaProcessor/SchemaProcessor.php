@@ -198,6 +198,63 @@ class SchemaProcessor
     }
 
     /**
+     * Create the merged Schema for a property-level $ref+object-sibling merge (Draft 2019-09+).
+     *
+     * Processes the sibling structural keywords (properties, required, additionalProperties, …)
+     * directly into the merged Schema via a base-property pass. The caller is responsible for
+     * transferring the $ref's nested Schema's properties into the merged Schema (with allOf
+     * semantics for name collisions) inside an onResolve callback, and for calling
+     * generateClassFile() once the ref has resolved.
+     *
+     * @throws SchemaException
+     */
+    public function createObjectRefSiblingMergedSchema(
+        Schema $parentSchema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        array $siblingJson,
+    ): Schema {
+        $mergedClassName = $this->generatorConfiguration->getClassNameGenerator()->getClassName(
+            $propertyName,
+            $propertySchema,
+            true,
+            $this->currentClassName,
+        );
+
+        // Exclude keywords that belong to the outer property (not the merged class body).
+        // Mirrors the exclusions that createObjectProperty() applies before passing the schema
+        // to processSchema().
+        $mergedBaseJson = $siblingJson;
+        unset($mergedBaseJson['filter'], $mergedBaseJson['enum'], $mergedBaseJson['default']);
+        $mergedBaseJson['type'] = 'base';
+
+        $mergedSchemaJson = $propertySchema->withJson($mergedBaseJson);
+
+        $mergedSchema = new Schema(
+            $this->getTargetFileName($parentSchema->getClassPath(), $mergedClassName),
+            $parentSchema->getClassPath(),
+            $mergedClassName,
+            $mergedSchemaJson,
+            $parentSchema->getSchemaDictionary(),
+            false,
+            $this->generatorConfiguration,
+        );
+
+        // Process the sibling structural keywords directly into the merged Schema as a base
+        // property. This registers sibling-defined properties (via PropertiesValidatorFactory,
+        // RequiredPropertyValidator, etc.) on the merged Schema before the $ref's properties
+        // are wired in with allOf semantics.
+        (new PropertyFactory())->create(
+            $this,
+            $mergedSchema,
+            $mergedClassName,
+            $mergedSchemaJson,
+        );
+
+        return $mergedSchema;
+    }
+
+    /**
      * Attach a new class file render job to the render proxy
      */
     public function generateClassFile(Schema $schema): void

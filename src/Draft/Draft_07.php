@@ -7,6 +7,8 @@ namespace PHPModelGenerator\Draft;
 use PHPModelGenerator\Draft\Element\Type;
 use PHPModelGenerator\Draft\Modifier\DefaultArrayToEmptyArrayModifier;
 use PHPModelGenerator\Draft\Modifier\MediaStringModifier;
+use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
+use PHPModelGenerator\Draft\Producer\RefResolver;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\IfValidatorFactory;
@@ -46,6 +48,7 @@ class Draft_07 implements DraftInterface
     public function getDefinition(): DraftBuilder
     {
         return (new DraftBuilder())
+            ->addProducer('$ref', new ExclusiveProducer(new RefResolver()))
             ->addType((new Type('object', false))
                 ->addValidator('properties', new PropertiesValidatorFactory())
                 ->addValidator('required', new RequiredValidatorFactory())

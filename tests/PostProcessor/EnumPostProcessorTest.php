@@ -635,6 +635,27 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
+    /**
+     * When two anyOf branches both point to the same $ref definition carrying an enum, the
+     * branches share a single underlying Property via the SchemaDefinition cache. The first
+     * branch has the EnumFilter applied; when the post-processor reaches the second branch,
+     * hasEnumFilterAlreadyApplied() returns true and skips re-conversion. Exactly one enum
+     * class must be generated and the property must accept valid enum values.
+     */
+    public function testEnumFilterNotAppliedTwiceWhenTwoBranchesShareSameRef(): void
+    {
+        $this->addPostProcessor();
+
+        $className = $this->generateClassFromFile('EnumRefSharedByTwoBranches.json');
+
+        $this->assertGeneratedEnums(1);
+
+        // Both branches share the same $ref and therefore the same enum definition.
+        // Generation must succeed and valid enum values must be accepted.
+        $object = new $className(['state' => 'active']);
+        $this->assertNotNull($object->getState());
+    }
+
     private function draftAwareEnumConfig(): array
     {
         $draft = DraftRunContext::getDraftForDataName(static::class, $this->name(), (string) $this->dataName());

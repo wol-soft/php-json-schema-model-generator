@@ -25,7 +25,6 @@ class PropertyProxy extends AbstractProperty
 {
     private ?JsonSchema $overrideJsonSchema = null;
     private ?PhpAttribute $overrideJsonPointer = null;
-    private bool $isProxyArrayItem = false;
 
     /**
      * PropertyProxy constructor.
@@ -222,20 +221,15 @@ class PropertyProxy extends AbstractProperty
      */
     public function isRequired(): bool
     {
-        return $this->isProxyArrayItem || $this->getProperty()->isRequired();
+        return $this->getProperty()->isRequired();
     }
 
     /**
      * @inheritdoc
-     *
-     * Stores the array-item flag locally rather than delegating: the same $ref-resolved
-     * property can be reused as a plain property in one place and as an array item in
-     * another (each usage gets its own PropertyProxy), so the flag must not be shared via
-     * the underlying property.
      */
     public function setArrayItem(bool $isArrayItem): PropertyInterface
     {
-        $this->isProxyArrayItem = $isArrayItem;
+        $this->getProperty()->setArrayItem($isArrayItem);
 
         return $this;
     }
@@ -245,7 +239,7 @@ class PropertyProxy extends AbstractProperty
      */
     public function isArrayItem(): bool
     {
-        return $this->isProxyArrayItem;
+        return $this->getProperty()->isArrayItem();
     }
 
     /**

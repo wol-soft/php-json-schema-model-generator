@@ -1,0 +1,19 @@
+{
+  "definitions": {
+    "name": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "type": "object",
+  "properties": {
+    "person": {
+      "$ref": "#/definitions/name",
+      "properties": {
+        "firstName": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
