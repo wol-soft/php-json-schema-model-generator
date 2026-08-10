@@ -149,8 +149,9 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * Draft 2019-09+: when the colliding property's type narrows (ref: number, sibling:
-     * integer), the ref's own range constraint (minimum: 0) must still be enforced against the
-     * narrowed type — narrowing must not silently drop constraints the ref side declared.
+     * integer), both the narrowed type itself and the ref's own range constraint (minimum: 0)
+     * must still be enforced — narrowing must not silently drop constraints the ref side
+     * declared. The narrowed type must also be reflected in the generated getter's type hint.
      */
     #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
     public function testPropertyLevelObjectCollisionTypeNarrowingPreservesRefConstraints(): void
@@ -158,27 +159,37 @@ class RefSiblingsPropertyLevelTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFile('PropertyLevelObjectCollisionTypeNarrowing.json');
 
         $object = new $className(['address' => ['zip' => 5]]);
-        $this->assertSame(5, $object->getAddress()->getZip());
+        $address = $object->getAddress();
+        $this->assertSame(5, $address->getZip());
 
-        // float not accepted after narrowing to integer
+        // the merged getter is typed as the narrowed integer, not the ref's original number
+        $this->assertSame(['int', 'null'], $this->getReturnTypeNames($address, 'getZip'));
+
+        // float not accepted after narrowing to integer — checked here (not test-ending) so the
+        // ref's minimum constraint can still be asserted below on the same generated class
+        try {
+            new $className(['address' => ['zip' => 1.5]]);
+            $this->fail('Expected a ValidationException for a float value after integer narrowing');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                <<<'MESSAGE'
+                Invalid nested object for property 'address':
+                  - Invalid type for 'zip': requires 'int', got 'double'
+                MESSAGE,
+                $exception->getMessage(),
+            );
+        }
+
+        // the ref's minimum: 0 constraint is preserved after the integer narrowing above
         $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage(
+            <<<'MESSAGE'
+            Invalid nested object for property 'address':
+              - Value for 'zip' must not be smaller than 0
+            MESSAGE,
+        );
 
-        new $className(['address' => ['zip' => 1.5]]);
-    }
-
-    /**
-     * Draft 2019-09+: the ref's minimum: 0 constraint is preserved after the integer
-     * narrowing above — a separate test since testPropertyLevelObjectCollisionTypeNarrowingPreservesRefConstraints()
-     * already asserts on the type-check exception and can't also assert on the minimum one.
-     */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
-    public function testPropertyLevelObjectCollisionTypeNarrowingEnforcesRefMinimum(): void
-    {
-        $className = $this->generateClassFromFile('PropertyLevelObjectCollisionTypeNarrowing.json');
-
-        $this->expectException(ValidationException::class);
-
-        new $className(['address' => ['zip' => -1]]); // violates ref minimum: 0
+        new $className(['address' => ['zip' => -1]]);
     }
 
     // -------------------------------------------------------------------------

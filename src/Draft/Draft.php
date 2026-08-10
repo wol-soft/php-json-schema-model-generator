@@ -82,6 +82,19 @@ final class Draft
     }
 
     /**
+     * Returns the schema keywords registered as validator factories for the given type (e.g.
+     * 'properties', 'required', 'additionalProperties', … for 'object'). Modifiers added via
+     * addModifier() (not keyed by keyword) are excluded, so this only surfaces keywords that
+     * actually drive validation for the type.
+     *
+     * @return string[]
+     */
+    public function getKeywordsForType(string $type): array
+    {
+        return array_values(array_filter(array_keys($this->types[$type]->getModifiers()), 'is_string'));
+    }
+
+    /**
      * Returns the Type entries whose modifiers apply to a property of the given type(s).
      * The special type 'any' always applies to every property; passing 'any' returns all types.
      *

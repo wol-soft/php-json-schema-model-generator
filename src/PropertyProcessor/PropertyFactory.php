@@ -217,25 +217,6 @@ class PropertyFactory
     }
 
     /**
-     * Keywords that, when present in the sibling JSON alongside a $ref, indicate that the
-     * $ref's resolved type must be an object and the two should be merged into a new nested
-     * class (object×object merge). Non-structural siblings (default, enum, const, …) take
-     * the scalar/array merge path or the object-with-any-only-modifiers fallback instead.
-     */
-    private const OBJECT_STRUCTURAL_KEYWORDS = [
-        'properties',
-        'required',
-        'additionalProperties',
-        'patternProperties',
-        'propertyNames',
-        'minProperties',
-        'maxProperties',
-        'unevaluatedProperties',
-        'dependentSchemas',
-        'dependentRequired',
-    ];
-
-    /**
      * Produce the property from the producer keyword ($ref), then merge it with any sibling
      * keywords present on the same schema node.
      *
@@ -284,9 +265,13 @@ class PropertyFactory
 
         // Detect object structural siblings before producing the ref so the merged Schema can
         // be created synchronously (avoiding processSchema() inside an onResolve callback).
-        $hasObjectStructuralSiblings = !empty(
-            array_intersect(array_keys($siblingJson), self::OBJECT_STRUCTURAL_KEYWORDS)
-        );
+        // The structural keyword list is derived from the draft's own 'object' validator
+        // registrations rather than hardcoded, so it stays in sync as drafts add keywords.
+        $objectStructuralKeywords = $schemaProcessor->getGeneratorConfiguration()
+            ->getBuiltDraft($propertySchema)
+            ->getKeywordsForType('object');
+
+        $hasObjectStructuralSiblings = !empty(array_intersect(array_keys($siblingJson), $objectStructuralKeywords));
 
         // Pre-create the merged Schema when siblings contain structural object keywords.
         // Sibling content is processed into the Schema now; ref properties are added later

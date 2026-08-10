@@ -10,6 +10,7 @@ use PHPModelGenerator\Draft\AutoDetectionDraft;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\DraftInterface;
+use PHPModelGenerator\Draft\DraftResolver;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
@@ -65,8 +66,7 @@ class GeneratorConfiguration
     /** @var DraftInterface | DraftFactoryInterface */
     protected $draft;
 
-    /** @var Draft[] Built (immutable) Draft registries, keyed by draft class name */
-    private array $builtDraftCache = [];
+    private DraftResolver $draftResolver;
 
     /** @var ClassNameGeneratorInterface */
     protected $classNameGenerator;
@@ -84,6 +84,7 @@ class GeneratorConfiguration
     public function __construct()
     {
         $this->draft = new AutoDetectionDraft();
+        $this->draftResolver = new DraftResolver();
         $this->classNameGenerator = new ClassNameGenerator();
         $this->logger = new EchoLogger();
 
@@ -369,17 +370,13 @@ class GeneratorConfiguration
     /**
      * Resolve the active draft for the given schema (via DraftFactoryInterface::getDraftForSchema
      * when a factory is configured) and build its immutable Draft registry, caching the result by
-     * draft class so repeated calls for the same draft don't rebuild it.
+     * draft class so repeated calls for the same draft don't rebuild it. The cache and the branch
+     * resolution live in DraftResolver, a private implementation detail not otherwise exposed on
+     * this class's public surface.
      */
     public function getBuiltDraft(JsonSchema $propertySchema): Draft
     {
-        $configDraft = $this->getDraft();
-
-        $draftInterface = $configDraft instanceof DraftFactoryInterface
-            ? $configDraft->getDraftForSchema($propertySchema)
-            : $configDraft;
-
-        return $this->builtDraftCache[$draftInterface::class] ??= $draftInterface->getDefinition()->build();
+        return $this->draftResolver->getBuiltDraft($this->getDraft(), $propertySchema);
     }
 
     public function isImplicitNullAllowed(): bool

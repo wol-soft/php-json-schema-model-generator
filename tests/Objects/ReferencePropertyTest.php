@@ -1462,4 +1462,31 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $this->generateClassFromFile('RefWithPropertyLevelTypeConflict.json');
     }
+
+    /**
+     * The same $ref used both as an array's `items` and as a plain optional object property must
+     * not share metadata (isArrayItem, isRequired) between the two usages, even when implicit
+     * null is disabled (the default). SchemaDefinition::resolveReference() caches the resolved
+     * property per (path, required, isArrayItem, dependencies); dropping isArrayItem from that
+     * key whenever implicit null is off would collide these two usages onto one shared property,
+     * silently flipping the optional 'single' property's generated getter from nullable to
+     * non-nullable because RenderHelper::isPropertyNullable() bases output-type nullability on
+     * !isRequired() regardless of the implicit-null setting. Implicit null is explicitly disabled
+     * here since that is precisely the condition under which such a gated key would collide.
+     */
+    public function testSharedRefAsArrayItemAndObjectPropertyKeepIndependentNullability(): void
+    {
+        $className = $this->generateClassFromFile('SharedRefAsArrayItemAndObjectProperty.json', implicitNull: false);
+
+        $object = new $className(['list' => [['name' => 'Alice']]]);
+        $this->assertNull($object->getSingle());
+        $this->assertSame('Alice', $object->getList()[0]->getName());
+
+        // 'list' items and 'single' resolve the same $ref and must share one generated class,
+        // but 'single' (an optional plain property) must keep its own nullable getter type hint
+        // rather than inheriting the array item's non-nullable one.
+        $itemClass = $object->getList()[0]::class;
+        $returnType = (new ReflectionClass($className))->getMethod('getSingle')->getReturnType();
+        $this->assertSame('?' . $itemClass, (string) $returnType);
+    }
 }
