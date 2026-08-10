@@ -6,6 +6,7 @@ namespace PHPModelGenerator\PropertyProcessor\ObjectShape;
 
 use Closure;
 use PHPModelGenerator\Draft\Draft;
+use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use Throwable;
@@ -62,6 +63,12 @@ class ObjectShapeResolver
     private readonly array $objectDescribingKeywords;
 
     /**
+     * Whether the injected Draft ignores keywords sitting next to `$ref` (Draft 07 and earlier)
+     * rather than applying them alongside the reference (Draft 2019-09 and later).
+     */
+    private readonly bool $referenceSuppressesSiblings;
+
+    /**
      * Composition keywords whose branches participate in shape aggregation via uniform per-branch
      * iteration. `not` is deliberately excluded: its subschema describes rejected values, not
      * accepted ones, so it structurally cannot assert a shape for the values a schema accepts.
@@ -93,6 +100,13 @@ class ObjectShapeResolver
             array_values(array_filter($registeredKeywords, 'is_string')),
             self::UNREGISTERED_OBJECT_DESCRIBING_KEYWORDS,
         );
+
+        // Read the draft's own `$ref` producer rather than hardcoding a sibling policy, so the
+        // classification always agrees with what the generator will actually do (see
+        // classifyReference()). An ExclusiveProducer means the draft suppresses every keyword
+        // sitting next to `$ref`.
+        $this->referenceSuppressesSiblings =
+            $draft->getProducerForKeyword('$ref') instanceof ExclusiveProducer;
     }
 
     /**
@@ -274,20 +288,23 @@ class ObjectShapeResolver
         $visitedReferences[] = $reference;
         $targetShape = $this->classify($targetJson, $visitedReferences);
 
-        // Classification has to mirror how this generator will actually process the schema, not
-        // what a draft says about keywords next to $ref: a classifier that disagreed with the
-        // processing would reject schemas the generator handles fine, or route ones it cannot.
-        // The generator merges siblings into the target (JsonSchema's constructor rewrites
-        // `{$ref, siblings}` into an allOf of both), so they combine conjunctively here.
+        // Classification has to mirror how the generator will actually process the schema: a
+        // classifier that disagreed would reject schemas the generator handles fine, or route ones
+        // it cannot. Sibling handling is draft-dependent, so this follows the draft's own `$ref`
+        // producer rather than reimplementing the policy.
         //
-        // That rewrite is currently draft-independent, and it skips siblings that cannot change
-        // the schema's signature - so for annotation-only siblings both rules agree, since those
-        // classify Neutral and leave the target's shape untouched. The rules diverge only for a
-        // `type` sibling, which the rewrite deliberately ignores while this merge does not; the
-        // result there is stricter, and a `$ref` to an object next to `type: string` is genuinely
-        // contradictory, so erring strict is the safe direction. Should keywords beside `$ref`
-        // ever become draft-dependent, this merge has to follow the same rule rather than grow a
-        // second, independently-maintained one.
+        // Draft 07 and earlier suppress every keyword next to `$ref` (an ExclusiveProducer), so
+        // the target's shape IS the node's shape and siblings must not be merged. Merging them
+        // anyway is not a harmlessly stricter reading: `allOf: [{$ref: <object>, type: string}]`
+        // generates fine under Draft 07 because the `type` is ignored, and merging it conjunctively
+        // would classify the branch Blocking and reject a schema the generator supports.
+        //
+        // Draft 2019-09 and later apply siblings alongside the reference, so they genuinely
+        // constrain the same value and combine conjunctively here.
+        if ($this->referenceSuppressesSiblings) {
+            return $targetShape;
+        }
+
         $siblingJson = array_diff_key($json, ['$ref' => null]);
         $siblingShape = $this->classify($siblingJson, $visitedReferences);
 

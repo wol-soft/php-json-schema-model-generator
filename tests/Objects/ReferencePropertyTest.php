@@ -17,8 +17,11 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use ReflectionClass;
 use stdClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\WithoutErrorHandler;
 
+#[ApplicableDrafts]
 class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 {
     protected const EXTERNAL_JSON_DIRECTORIES = ['../ReferencePropertyTest_external'];
@@ -42,9 +45,21 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function internalReferenceProvider(): array
     {
         return [
-            'Internal path reference' => ['#/definitions/person'],
+            'Internal path reference'  => ['#/definitions/person'],
             'Internal direct reference' => ['#person'],
         ];
+    }
+
+    /**
+     * internalReferenceProvider() plus the empty-string $ref form, for use at a position nested
+     * inside the "person" $id scope (e.g. the "children" array's items). There, an empty $ref
+     * resolves to the enclosing "#person" scope (RFC 3986 base-URI scoping) and is a real,
+     * spec-valid recursive-schema idiom - unlike at the document's own top level (see
+     * internalReferenceProvider()), it is not a stand-in for a named reference.
+     */
+    public static function recursiveInternalReferenceProvider(): array
+    {
+        return self::internalReferenceProvider() + ['Empty string reference' => ['']];
     }
 
     public static function externalReferenceProvider(): array
@@ -127,6 +142,30 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
                 'Null' => [null, 'null'],
             ],
         );
+    }
+
+    /**
+     * A property-level $ref: "" resolves to the enclosing document's own root (RFC 3986
+     * §5.2.2's empty path/fragment case), not to a named "person" definition living elsewhere in
+     * the same file - "person" ends up typed as another instance of the outer schema itself
+     * (which only has a "person" property), not as the definitions.person shape (which has
+     * name/age). This is a distinct, legitimate recursive pattern, not an alias for the named
+     * forms covered by validReferenceObjectInputProvider() above.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testPropertyReferencingDocumentRootIsValid(): void
+    {
+        $className = $this->generateClassFromFileTemplate('ObjectReference.json', ['']);
+
+        $object = new $className([]);
+        $this->assertNull($object->getPerson());
+
+        $object = new $className(['person' => ['person' => null]]);
+        $this->assertInstanceOf($className, $object->getPerson());
+        $this->assertNull($object->getPerson()->getPerson());
     }
 
     /**
@@ -282,7 +321,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function combinedReferenceProvider(): array
     {
         return array_merge(
-            self::combineDataProvider(self::internalReferenceProvider(), self::internalReferenceProvider()),
+            self::combineDataProvider(self::recursiveInternalReferenceProvider(), self::internalReferenceProvider()),
             self::combineDataProvider(static::recursiveExternalReferenceProvider(), self::internalReferenceProvider()),
             self::combineDataProvider(
                 static::recursiveExternalReferenceProvider(),
@@ -387,7 +426,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         // external definition the internal definition is never used and thus can be ignored
         return array_merge(
             self::combineDataProvider(
-                self::internalReferenceProvider(),
+                self::recursiveInternalReferenceProvider(),
                 self::invalidInternalReferenceObjectPropertyTypeDataProvider(),
             ),
             self::combineDataProvider(
@@ -395,7 +434,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
                 self::invalidInternalReferenceObjectPropertyTypeDataProvider(),
             ),
             self::combineDataProvider(
-                self::internalReferenceProvider(),
+                self::recursiveInternalReferenceProvider(),
                 self::combineDataProvider(
                     static::recursiveExternalReferenceProvider(),
                     static::invalidObjectPropertyTypeDataProvider(),
@@ -746,12 +785,69 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
+    /**
+     * An absolute external $ref written inside a $id-scoped subschema (here: definitions.person)
+     * resolves against that scope's own $id, not the document's top-level $id (there is none in
+     * this schema) - proving SchemaDefinitionDictionary::parseExternalFile() picks up
+     * JsonSchema::getBaseId() (the nearest enclosing $id) rather than always the document root's.
+     * An absolute-style ref is used deliberately (mirroring
+     * testNestedExternalReference()'s "absolute path to full URL $id" case): it can never
+     * coincidentally resolve via the local-file fallback the way a relative ref could, since
+     * getLocalRefPath() would need a matching ancestor directory literally named "wol-soft" -
+     * this makes success possible only via the network URL built from the correct $id.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNestedIdScopedExternalReferenceIsResolvedAgainstItsOwnId(): void
+    {
+        $baseURL = 'https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/';
+
+        $className = $this->generateClassFromFileTemplate(
+            'NestedIdScopedExternalReference.json',
+            [$baseURL . 'ReferencePropertyTest/NestedExternalReference.json'],
+        );
+
+        $object = new $className(['person' => ['colleague' => ['name' => 'Hannes', 'age' => 42]]]);
+
+        $this->assertSame('Hannes', $object->getPerson()->getColleague()->getName());
+        $this->assertSame(42, $object->getPerson()->getColleague()->getAge());
+    }
+
     public function testInvalidBaseReferenceThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessage('A referenced schema on base level must provide an object definition');
 
         $this->generateClassFromFile('InvalidBaseReference.json');
+    }
+
+    /**
+     * '' and '#' both resolve to the schema's own document root (RFC 3986 §5.2.2's empty
+     * path/fragment case). Referencing it at the base level would merge the schema with itself,
+     * which has no fixed point - PropertyProxy::getNestedSchema() would need to fully resolve the
+     * schema in order to build the schema. Unlike the same forms at a nested property position
+     * (see testPropertyReferencingDocumentRootIsValid()), there is no containment boundary here
+     * to give instance data a way to terminate, so this is rejected outright.
+     */
+    #[DataProvider('baseReferenceSelfReferenceProvider')]
+    public function testBaseReferenceSelfReferenceThrowsAnException(string $reference): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^A referenced schema on base level must not reference itself for property '.+' in file .+\.json$/",
+        );
+
+        $this->generateClassFromFileTemplate('BaseReference.json', [$reference]);
+    }
+
+    public static function baseReferenceSelfReferenceProvider(): array
+    {
+        return [
+            'Empty string reference' => [''],
+            'Root fragment reference' => ['#'],
+        ];
     }
 
     /**
@@ -923,8 +1019,9 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T1OutOfBaseDirRef';
         $this->generateDirectory('OutOfBaseDirFragmentRefMultipleReferrers', $this->directoryConfig($namespace));
 
-        $schemaAClass = "\\{$namespace}\\SchemaA";
-        $schemaBClass = "\\{$namespace}\\SchemaB";
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $schemaAClass = "\\{$namespacePrefix}\\SchemaA";
+        $schemaBClass = "\\{$namespacePrefix}\\SchemaB";
 
         $objectA = new $schemaAClass(['person' => ['name' => 'Alice', 'age' => 30]]);
         $objectB = new $schemaBClass(['person' => ['name' => 'Bob', 'age' => 25]]);
@@ -951,9 +1048,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T2SharedInBaseDirRef';
         $this->generateDirectory('MultipleReferrersSharedInBaseDirFile', $this->directoryConfig($namespace));
 
-        $schemaAClass = "\\{$namespace}\\SchemaA";
-        $schemaBClass = "\\{$namespace}\\SchemaB";
-        $personClass  = "\\{$namespace}\\Person";
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $schemaAClass = "\\{$namespacePrefix}\\SchemaA";
+        $schemaBClass = "\\{$namespacePrefix}\\SchemaB";
+        $personClass  = "\\{$namespacePrefix}\\Person";
 
         $objectA = new $schemaAClass(['person' => ['name' => 'Alice']]);
         $objectB = new $schemaBClass(['person' => ['name' => 'Bob']]);
@@ -979,8 +1077,9 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T3TopLevelAndFragment';
         $this->generateDirectory('TopLevelAndFragmentRef', $this->directoryConfig($namespace));
 
-        $employeeClass = "\\{$namespace}\\Employee";
-        $personClass   = "\\{$namespace}\\PersonWithHistory";
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $employeeClass = "\\{$namespacePrefix}\\Employee";
+        $personClass   = "\\{$namespacePrefix}\\PersonWithHistory";
 
         $employee = new $employeeClass([
             'profile' => ['name' => 'Alice', 'age' => 30],
@@ -1007,7 +1106,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T5BaseDirBaseRef';
         $this->generateDirectory('BaseDirBaseRef', $this->directoryConfig($namespace));
 
-        $locationClass = "\\{$namespace}\\Location";
+        $locationClass = "\\{$this->lastGeneratedNamespacePrefix}\\Location";
 
         $location = new $locationClass(['street' => '42 Elm St', 'city' => 'Shelbyville']);
 
@@ -1024,7 +1123,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T5BaseDirBaseRefRequired';
         $this->generateDirectory('BaseDirBaseRef', $this->directoryConfig($namespace));
 
-        $locationClass = "\\{$namespace}\\Location";
+        $locationClass = "\\{$this->lastGeneratedNamespacePrefix}\\Location";
         new $locationClass(['city' => 'Shelbyville']);
     }
 
@@ -1038,7 +1137,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T6AllOfRef';
         $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
 
-        $allOfClass = "\\{$namespace}\\AllOfRef";
+        $allOfClass = "\\{$this->lastGeneratedNamespacePrefix}\\AllOfRef";
         $object = new $allOfClass(['label' => 'urgent']);
 
         // allOf with $ref Tag.json: label property must be merged in and required
@@ -1053,7 +1152,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T6AllOfRefValidation';
         $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
 
-        $allOfClass = "\\{$namespace}\\AllOfRef";
+        $allOfClass = "\\{$this->lastGeneratedNamespacePrefix}\\AllOfRef";
         new $allOfClass([]);
     }
 
@@ -1062,8 +1161,9 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T6AnyOfRef';
         $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
 
-        $anyOfClass = "\\{$namespace}\\AnyOfRef";
-        $tagClass   = "\\{$namespace}\\Tag";
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $anyOfClass = "\\{$namespacePrefix}\\AnyOfRef";
+        $tagClass   = "\\{$namespacePrefix}\\Tag";
 
         $object = new $anyOfClass(['tag' => ['label' => 'feature']]);
 
@@ -1076,8 +1176,9 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $namespace = 'T6OneOfRef';
         $this->generateDirectory('CompositionInBaseDirRef', $this->directoryConfig($namespace));
 
-        $oneOfClass = "\\{$namespace}\\OneOfRef";
-        $tagClass   = "\\{$namespace}\\Tag";
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $oneOfClass = "\\{$namespacePrefix}\\OneOfRef";
+        $tagClass   = "\\{$namespacePrefix}\\Tag";
 
         $object = new $oneOfClass(['tag' => ['label' => 'bugfix']]);
 
@@ -1235,5 +1336,255 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className([]);
         $this->assertPropertyHasJsonPointer($object, 'label', '/properties/label');
         $this->assertPropertyHasJsonPointer($object, 'child', '/properties/child');
+    }
+
+    // Draft 2019-09+: $ref and sibling keywords apply simultaneously (conjunction).
+
+    /**
+     * Draft 2019-09+: both ref properties and sibling properties appear on the generated class;
+     * pointers reflect the authored schema locations without a synthetic /allOf/ segment.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRefWithSiblingsBothApplyForDraft201909(): void
+    {
+        $className = $this->generateClassFromFile('RefWithSiblings.json');
+
+        $object = new $className(['name' => 'Alice', 'street' => 'Main St']);
+
+        // Both ref properties (street, city) and sibling properties (name, zip) are present.
+        $this->assertSame('Alice', $object->getName());
+        $this->assertSame('Main St', $object->getStreet());
+        $this->assertNull($object->getZip());
+        $this->assertNull($object->getCity());
+
+        // Sibling properties point to where they appear in the authored schema.
+        $this->assertPropertyHasJsonPointer($object, 'name', '/properties/name');
+        $this->assertPropertyHasJsonPointer($object, 'zip', '/properties/zip');
+
+        // Ref properties point into the referenced definition, not into a synthetic /allOf.
+        $this->assertPropertyHasJsonPointer($object, 'street', '/definitions/address/properties/street');
+        $this->assertPropertyHasJsonPointer($object, 'city', '/definitions/address/properties/city');
+    }
+
+    /**
+     * Draft 2019-09+: missing required fields (from either the ref or the sibling) trigger a
+     * validation error.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('invalidRefWithSiblingsDataProvider')]
+    public function testRefWithSiblingsMissingRequiredThrowsForDraft201909(array $data): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefWithSiblings.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        $this->expectException(ErrorRegistryException::class);
+
+        new $className($data);
+    }
+
+    public static function invalidRefWithSiblingsDataProvider(): array
+    {
+        return [
+            // Sibling-required field missing
+            'missing sibling-required name' => [['street' => 'Main St']],
+            // Ref-required field missing
+            'missing ref-required street'   => [['name' => 'Alice']],
+            // Both required fields missing
+            'missing both required'         => [[]],
+            // Sibling property with wrong type
+            'invalid zip type'              => [['name' => 'Alice', 'street' => 'Main St', 'zip' => 'ABC']],
+            // Ref property with wrong type
+            'invalid city type'             => [['name' => 'Alice', 'street' => 'Main St', 'city' => 42]],
+        ];
+    }
+
+    /**
+     * Draft 07: $ref siblings are silently ignored — only the referenced schema's properties
+     * appear on the generated class and only the ref's required constraint is enforced.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testRefWithSiblingsSilentlyDroppedForDraft07(): void
+    {
+        // Section 1: sibling properties (name, zip) and sibling-required (name) are absent.
+        $className = $this->generateClassFromFile('RefWithSiblings.json');
+
+        $object = new $className(['street' => 'Main St']);
+
+        $this->assertSame('Main St', $object->getStreet());
+        $this->assertNull($object->getCity());
+        $this->assertFalse(method_exists($object, 'getName'));
+        $this->assertFalse(method_exists($object, 'getZip'));
+
+        // Section 2: with error collection — sibling-required (name) is dropped, but
+        // ref-required (street) is still enforced.
+        $className = $this->generateClassFromFile(
+            'RefWithSiblings.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        // name is a sibling-required field, so providing no name is valid under Draft 07.
+        $object = new $className(['street' => 'Main St']);
+        $this->assertSame('Main St', $object->getStreet());
+
+        // Ref-required constraint on street still fires.
+        $this->expectException(ErrorRegistryException::class);
+        new $className([]);
+    }
+
+    // Draft 2019-09+: $ref with scalar/array sibling constraints.
+
+    /**
+     * Draft 2019-09+: a sibling minLength alongside a string $ref is enforced. The property
+     * accepts any string when the constraint is met and rejects strings that are too short.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRefWithPropertyLevelScalarSiblingsApplyForDraft201909(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefWithPropertyLevelScalarSiblings.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        // Happy path: name is absent (optional) or at least 3 characters long.
+        $object = new $className([]);
+        $this->assertNull($object->getName());
+
+        $object = new $className(['name' => 'Alice']);
+        $this->assertSame('Alice', $object->getName());
+
+        // Violation: name is present but shorter than minLength: 3.
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage("Value for 'name' must not be shorter than 3");
+        new $className(['name' => 'Jo']);
+    }
+
+    /**
+     * Draft 07: a sibling minLength alongside a string $ref is silently ignored. Short strings
+     * that would violate the sibling constraint are accepted.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testRefWithPropertyLevelScalarSiblingsIgnoredForDraft07(): void
+    {
+        $className = $this->generateClassFromFile('RefWithPropertyLevelScalarSiblings.json');
+
+        // The sibling minLength is not applied under Draft 07, so short strings are accepted.
+        $object = new $className(['name' => 'Jo']);
+        $this->assertSame('Jo', $object->getName());
+    }
+
+    /**
+     * Draft 2019-09+: a sibling 'type: integer' alongside a 'number' $ref narrows the
+     * effective type to integer. Float values are rejected by the TypeCheck validator.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRefWithPropertyLevelTypeNarrowingForDraft201909(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefWithPropertyLevelTypeNarrowing.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        // Integer value satisfies both the $ref number type and the sibling integer type.
+        $object = new $className(['score' => 42]);
+        $this->assertSame(42, $object->getScore());
+
+        // Float value is rejected: the effective type after intersection is integer only.
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage("Invalid type for 'score': requires 'int', got 'double'");
+        new $className(['score' => 42.5]);
+    }
+
+    /**
+     * Draft 07: a sibling 'type' alongside a $ref is silently ignored. The effective type
+     * remains the $ref type (number), so float values are accepted.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testRefWithPropertyLevelTypeNarrowingIgnoredForDraft07(): void
+    {
+        $className = $this->generateClassFromFile('RefWithPropertyLevelTypeNarrowing.json');
+
+        // Under Draft 07 the sibling type is ignored: the $ref number type accepts floats.
+        $object = new $className(['score' => 42.5]);
+        $this->assertSame(42.5, $object->getScore());
+    }
+
+    /**
+     * Draft 2019-09+: a sibling 'type' that is incompatible with the $ref type produces a
+     * SchemaException at generation time.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRefWithPropertyLevelTypeConflictThrowsForDraft201909(): void
+    {
+        $this->expectException(SchemaException::class);
+        // The exception is thrown against the temp-copy of the schema (the test harness
+        // copies schemas to a session temp directory before processing). The file path
+        // in the message is the temp-copy path, so match only the invariant parts.
+        $this->expectExceptionMessageMatches(
+            '/Property \'name\' in file \'.*\':'
+            . ' \$ref resolves to type \'string\' but sibling \'type\' declares \'integer\';'
+            . ' the types are incompatible/',
+        );
+
+        $this->generateClassFromFile('RefWithPropertyLevelTypeConflict.json');
+    }
+
+    /**
+     * The same $ref used both as an array's `items` and as a plain optional object property must
+     * not share metadata (isArrayItem, isRequired) between the two usages, even when implicit
+     * null is disabled (the default). SchemaDefinition::resolveReference() caches the resolved
+     * property per (path, required, isArrayItem, dependencies); dropping isArrayItem from that
+     * key whenever implicit null is off would collide these two usages onto one shared property,
+     * silently flipping the optional 'single' property's generated getter from nullable to
+     * non-nullable because RenderHelper::isPropertyNullable() bases output-type nullability on
+     * !isRequired() regardless of the implicit-null setting. Implicit null is explicitly disabled
+     * here since that is precisely the condition under which such a gated key would collide.
+     */
+    public function testSharedRefAsArrayItemAndObjectPropertyKeepIndependentNullability(): void
+    {
+        $className = $this->generateClassFromFile('SharedRefAsArrayItemAndObjectProperty.json', implicitNull: false);
+
+        $object = new $className(['list' => [['name' => 'Alice']]]);
+        $this->assertNull($object->getSingle());
+        $this->assertSame('Alice', $object->getList()[0]->getName());
+
+        // 'list' items and 'single' resolve the same $ref and must share one generated class,
+        // but 'single' (an optional plain property) must keep its own nullable getter type hint
+        // rather than inheriting the array item's non-nullable one.
+        $itemClass = $object->getList()[0]::class;
+        $this->assertSame([$itemClass, 'null'], $this->getReturnTypeNames($className, 'getSingle'));
     }
 }

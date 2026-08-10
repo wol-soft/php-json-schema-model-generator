@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "list": {
+      "type": "array",
+      "contains": {
+        "type": "string"
+      },
+      "maxContains": %s
+    }
+  }
+}

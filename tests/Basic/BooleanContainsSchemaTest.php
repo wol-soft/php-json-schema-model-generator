@@ -7,8 +7,10 @@ namespace PHPModelGenerator\Tests\Basic;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[ApplicableDrafts]
 class BooleanContainsSchemaTest extends AbstractPHPModelGeneratorTestCase
 {
     public function testContainsFalseAllowsAbsentProperty(): void

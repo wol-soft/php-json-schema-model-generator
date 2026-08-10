@@ -6,7 +6,9 @@ namespace PHPModelGenerator\Tests\Issues\Issue;
 
 use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Tests\Issues\AbstractIssueTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 
+#[ApplicableDrafts]
 class Issue113Test extends AbstractIssueTestCase
 {
     public function testIfThenWithoutElseGeneratesClass(): void

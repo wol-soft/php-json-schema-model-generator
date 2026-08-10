@@ -1,0 +1,24 @@
+{
+  "definitions": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "state": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/status"
+        },
+        {
+          "$ref": "#/definitions/status"
+        }
+      ]
+    }
+  }
+}

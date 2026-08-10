@@ -1,0 +1,16 @@
+{
+  "definitions": {
+    "nameDef": {
+      "type": "string",
+      "default": "Alice"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "name": {
+      "$ref": "#/definitions/nameDef",
+      "type": "string",
+      "default": "Bob"
+    }
+  }
+}

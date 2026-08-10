@@ -1,0 +1,14 @@
+{
+  "definitions": {
+    "score": {
+      "type": "number"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "score": {
+      "$ref": "#/definitions/score",
+      "type": "integer"
+    }
+  }
+}

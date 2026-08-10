@@ -447,6 +447,24 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
     }
 
     /**
+     * Whether keywords next to a `$ref` apply is the draft's decision, and the representability
+     * classification must follow it rather than assume one. Under Draft 07 a `$ref` suppresses its
+     * siblings entirely, so the `"type": "string"` sitting beside a reference to an object
+     * definition is ignored and the composition really is a definite object.
+     *
+     * A classifier that merged the sibling regardless would call the branch unsatisfiable and
+     * reject a schema the generator builds without complaint.
+     */
+    public function testDraft07RootCompositionIgnoresKeywordsBesideAReference(): void
+    {
+        $className = $this->generateClassFromFile('RootAllOfReferenceWithIgnoredTypeSibling.json');
+
+        $object = new $className(['name' => 'Hannes']);
+
+        $this->assertSame('Hannes', $object->getName());
+    }
+
+    /**
      * In direct-exception mode a failing composition enumerates every branch with its own reason,
      * matching what collect-errors mode has always produced - but only when the composition is not
      * a MUTABLE base validator. Both composition templates gate the enumeration on

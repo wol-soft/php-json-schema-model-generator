@@ -8,8 +8,10 @@ use PHPModelGenerator\Exception\Object\InvalidPatternPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[ApplicableDrafts]
 class BooleanPatternPropertySchemaTest extends AbstractPHPModelGeneratorTestCase
 {
     #[DataProvider('falsePatternMatchingKeyDataProvider')]

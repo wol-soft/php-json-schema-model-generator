@@ -5,15 +5,48 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Draft;
 
 use PHPModelGenerator\Draft\Element\Type;
+use PHPModelGenerator\Draft\Producer\PropertyProducerInterface;
 use PHPModelGenerator\Exception\SchemaException;
 
 final class Draft
 {
     /**
-     * @param Type[] $types
+     * @param Type[]                      $types
+     * @param PropertyProducerInterface[] $producers Keyed by keyword, in registry order
      */
-    public function __construct(private readonly array $types)
+    public function __construct(
+        private readonly array $types,
+        private readonly array $producers = [],
+    ) {
+    }
+
+    public function getProducerForKeyword(string $keyword): ?PropertyProducerInterface
     {
+        return $this->producers[$keyword] ?? null;
+    }
+
+    /**
+     * Returns every registered producer whose keyword is present in the given schema node, keyed
+     * by keyword and in registry order. With only the $ref producer registered today this yields
+     * 0 or 1 element, but the contract is N-producer capable for future co-occurring reference
+     * keywords. Keeping the keyword as the key lets callers name the offending keyword(s) when
+     * reporting a conflict (e.g. multiple mutually exclusive producers present on one node).
+     *
+     * @param array<string, mixed> $json
+     *
+     * @return array<string, PropertyProducerInterface>
+     */
+    public function getProducersForSchema(array $json): array
+    {
+        $producers = [];
+
+        foreach ($this->producers as $keyword => $producer) {
+            if (array_key_exists($keyword, $json)) {
+                $producers[$keyword] = $producer;
+            }
+        }
+
+        return $producers;
     }
 
     /**
@@ -46,6 +79,19 @@ final class Draft
         }
 
         return $typeNames;
+    }
+
+    /**
+     * Returns the schema keywords registered as validator factories for the given type (e.g.
+     * 'properties', 'required', 'additionalProperties', … for 'object'). Modifiers added via
+     * addModifier() (not keyed by keyword) are excluded, so this only surfaces keywords that
+     * actually drive validation for the type.
+     *
+     * @return string[]
+     */
+    public function getKeywordsForType(string $type): array
+    {
+        return array_values(array_filter(array_keys($this->types[$type]->getModifiers()), 'is_string'));
     }
 
     /**

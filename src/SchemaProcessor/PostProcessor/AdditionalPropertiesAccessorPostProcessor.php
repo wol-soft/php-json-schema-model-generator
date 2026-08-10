@@ -229,12 +229,11 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             $minPropertyValidator = (new PropertyValidator(
                 new Property($schema->getClassName(), null, $schema->getJsonSchema()),
                 sprintf(
-                    '%s < %d',
-                    'count($this->_rawModelDataInput) - 1',
+                    '($updatedPropertiesCount = count($this->_rawModelDataInput) - 1) < %d',
                     $json['minProperties'],
                 ),
                 MinPropertiesException::class,
-                [$json['minProperties']],
+                [$json['minProperties'], '&$updatedPropertiesCount'],
             ))->withJsonPointer($schema->getJsonSchema()->getPointer() . '/minProperties');
         }
 

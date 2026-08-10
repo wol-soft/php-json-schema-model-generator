@@ -8,10 +8,13 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntToFloatCastDecorator;
+use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
  * Merges an incoming property into an already-registered slot on a Schema.
@@ -20,7 +23,7 @@ use PHPModelGenerator\PropertyProcessor\Decorator\Property\IntToFloatCastDecorat
  *  - Root-precedence guard (anyOf/oneOf must not widen a root-registered property)
  *  - Nullable-branch merge (incoming has no scalar type)
  *  - Existing-null promotion (existing slot is a null/untyped placeholder)
- *  - allOf intersection (narrow to the common type set)
+ *  - allOf intersection (narrow to the common type set) + default reconciliation
  *  - anyOf/oneOf union (widen to the combined type set)
  */
 class PropertyMerger
@@ -45,13 +48,25 @@ class PropertyMerger
      * - Either property has a nested schema (object merging is handled elsewhere)
      * - Root-precedence guard blocks a non-allOf composition branch
      *
-     * @throws SchemaException when allOf branches define conflicting types
+     * $rebuildFrom, $schemaProcessor, and $schema are only needed for $ref-driven allOf merges
+     * (base-level and property-level $ref+sibling merging): whenever a branch below strips
+     * $existing's type-check validator because the merge changed its effective type,
+     * $rebuildFrom's JSON (typically $incoming's own JsonSchema) is re-run through the draft's
+     * type-specific modifiers to rebuild it and re-transfer range constraints (minimum, maximum,
+     * …) using the narrowed type's own comparison function. Leave all three null for merges with
+     * no such single, re-derivable source (composition-branch arrays validate each branch
+     * independently at runtime instead, so they don't need this).
+     *
+     * @throws SchemaException when allOf branches define conflicting types or conflicting defaults
      */
     public function merge(
         PropertyInterface $existing,
         PropertyInterface $incoming,
         bool $isAllOf,
         bool $isRootRegistered = false,
+        ?JsonSchema $rebuildFrom = null,
+        ?SchemaProcessor $schemaProcessor = null,
+        ?Schema $schema = null,
     ): void {
         // Nested-object merging is owned by the merged-property system; don't interfere.
         if (
@@ -68,16 +83,27 @@ class PropertyMerger
         // For allOf: a truly-untyped incoming branch (no type keyword, not an explicit null-type
         // branch) adds no type constraint — all allOf branches apply simultaneously, so the
         // existing type is unaffected. Skip mergeNullableBranch in that case to avoid wrongly
-        // wiping the existing type.
+        // wiping the existing type. Defaults still need reconciliation even for untyped branches.
+        // reapplyTypeSpecificConstraintsIfNeeded() is still called here (even though $existing's
+        // type-check validator itself is untouched): $incoming may carry range constraints
+        // (minimum, minLength, …) that $existing never received, since $existing was built
+        // independently from the sibling's own JSON with no knowledge of $incoming's. Its own
+        // effective-type guard makes this a no-op whenever there's nothing to reapply.
         if (
             $isAllOf
             && $incoming->getType(true) === null
             && !str_contains($incoming->getTypeHint(), 'null')
         ) {
+            $this->reconcileAllOfDefaults($existing, $incoming);
+            $this->reapplyTypeSpecificConstraintsIfNeeded($existing, $rebuildFrom, $schemaProcessor, $schema);
             return;
         }
 
         if ($this->mergeNullableBranch($existing, $incoming) || $this->mergeIntoExistingNull($existing, $incoming)) {
+            if ($isAllOf) {
+                $this->reconcileAllOfDefaults($existing, $incoming);
+                $this->reapplyTypeSpecificConstraintsIfNeeded($existing, $rebuildFrom, $schemaProcessor, $schema);
+            }
             return;
         }
 
@@ -90,11 +116,55 @@ class PropertyMerger
                     "allOf requires all constraints to hold simultaneously, making this schema unsatisfiable.",
                     $incoming->getName(),
                 ),
+                $rebuildFrom,
+                $schemaProcessor,
+                $schema,
             );
+            $this->reconcileAllOfDefaults($existing, $incoming);
             return;
         }
 
         $this->applyAnyOfOneOfUnion($existing, $incoming);
+    }
+
+    /**
+     * Detect and reconcile default values for direct allOf-style property merges.
+     *
+     * For composition-branch merges via SchemaProcessor::transferComposedPropertiesToSchema,
+     * branch property defaults are cleared to null before addProperty is called (so this
+     * check is a no-op for those paths — the composition validator handles branch defaults
+     * separately). This method has effect only for direct allOf merges that bypass the
+     * composition machinery: $ref + sibling at base level and object×object property-level
+     * merges in PropertyFactory.
+     *
+     * When both sides declare non-identical non-null defaults the schema is contradictory.
+     * When only the incoming side carries a default it is propagated to the existing slot.
+     *
+     * @throws SchemaException when both sides declare non-identical non-null defaults
+     */
+    private function reconcileAllOfDefaults(
+        PropertyInterface $existing,
+        PropertyInterface $incoming,
+    ): void {
+        $existingDefault = $existing->getDefaultValue();
+        $incomingDefault = $incoming->getDefaultValue();
+
+        if ($existingDefault !== null && $incomingDefault !== null && $existingDefault !== $incomingDefault) {
+            throw new SchemaException(sprintf(
+                "Conflicting default values for property '%s': '%s' declared at '%s'"
+                    . " conflicts with '%s' declared at '%s' in file '%s'",
+                $existing->getName(),
+                $existingDefault,
+                $existing->getJsonSchema()->getPointer(),
+                $incomingDefault,
+                $incoming->getJsonSchema()->getPointer(),
+                $existing->getJsonSchema()->getFile(),
+            ));
+        }
+
+        if ($existingDefault === null && $incomingDefault !== null) {
+            $existing->setDefaultValue($incomingDefault, true);
+        }
     }
 
     /**
@@ -250,12 +320,17 @@ class PropertyMerger
      * Throws SchemaException with $conflictMessage when the declared intersection is empty
      * (the schema is unsatisfiable).
      *
+     * See merge()'s docblock for $rebuildFrom/$schemaProcessor/$schema.
+     *
      * @throws SchemaException
      */
     public function narrowToIntersection(
         PropertyInterface $existing,
         PropertyInterface $incoming,
         string $conflictMessage,
+        ?JsonSchema $rebuildFrom = null,
+        ?SchemaProcessor $schemaProcessor = null,
+        ?Schema $schema = null,
     ): void {
         $existingOutput = $existing->getType(true);
         $incomingOutput = $incoming->getType(true);
@@ -269,7 +344,15 @@ class PropertyMerger
             $existing->getJsonSchema(),
         );
 
+        // Reapply even when the intersection is a no-op (returns null: the effective type set
+        // is already correct, nothing to narrow): $incoming may still carry range constraints
+        // (minimum, minLength, …) that were never transferred onto $existing, since $existing
+        // was built independently from its own JSON with no knowledge of $incoming's. Guarded by
+        // reapplyTypeSpecificConstraints()'s own effective-type check, so this is a no-op
+        // whenever there's genuinely nothing to reapply.
         if ($intersection === null) {
+            $this->reapplyTypeSpecificConstraintsIfNeeded($existing, $rebuildFrom, $schemaProcessor, $schema);
+
             return;
         }
 
@@ -282,6 +365,7 @@ class PropertyMerger
         }
 
         $this->applyNarrowedType($existing, $existingOutput, $intersection, $hasNull);
+        $this->reapplyTypeSpecificConstraintsIfNeeded($existing, $rebuildFrom, $schemaProcessor, $schema);
     }
 
     /**
@@ -389,6 +473,68 @@ class PropertyMerger
             $existing->filterDecorators(
                 static fn($decorator): bool => !($decorator instanceof IntToFloatCastDecorator),
             );
+        }
+    }
+
+    private function reapplyTypeSpecificConstraintsIfNeeded(
+        PropertyInterface $existing,
+        ?JsonSchema $rebuildFrom,
+        ?SchemaProcessor $schemaProcessor,
+        ?Schema $schema,
+    ): void {
+        if ($rebuildFrom === null || $schemaProcessor === null || $schema === null) {
+            return;
+        }
+
+        $this->reapplyTypeSpecificConstraints($existing, $rebuildFrom, $schemaProcessor, $schema);
+    }
+
+    /**
+     * After allOf-style type narrowing strips $existing's TypeCheckValidator (it no longer
+     * reflects the merged, possibly-narrower type), re-run the draft's type-specific modifiers
+     * from $rebuildFrom's JSON with 'type' overridden to $existing's merged effective type. This
+     * rebuilds the TypeCheckValidator and re-transfers range constraints (minimum, maximum, …)
+     * using the correct type-check function for the effective type (e.g. is_int after narrowing
+     * from number to integer).
+     *
+     * Only operates for single scalar types. Multi-type and untyped results use different
+     * validation paths and are left untouched.
+     */
+    private function reapplyTypeSpecificConstraints(
+        PropertyInterface $existing,
+        JsonSchema $rebuildFrom,
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+    ): void {
+        $effectiveType = $existing->getType(true);
+
+        if ($effectiveType === null || count($effectiveType->getNames()) !== 1) {
+            return;
+        }
+
+        $effectiveTypeName           = $effectiveType->getNames()[0];
+        $effectiveTypeJsonSchemaName = TypeConverter::phpToJsonSchema($effectiveTypeName);
+        $rebuildFromWithEffectiveType = $rebuildFrom->withJson(
+            array_merge($rebuildFrom->getJson(), ['type' => $effectiveTypeJsonSchemaName]),
+        );
+
+        $builtDraft = $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($rebuildFromWithEffectiveType);
+
+        foreach ($builtDraft->getCoveredTypes($effectiveTypeJsonSchemaName) as $coveredType) {
+            if ($coveredType->getType() === 'any') {
+                continue;
+            }
+
+            foreach ($coveredType->getModifiers() as $modifier) {
+                $countBefore = count($existing->getValidators());
+                $modifier->modify($schemaProcessor, $schema, $existing, $rebuildFromWithEffectiveType);
+
+                if ($modifier instanceof AbstractValidatorFactory && ($modifierKey = $modifier->getKey()) !== null) {
+                    foreach (array_slice($existing->getValidators(), $countBefore) as $validatorWrapper) {
+                        $validatorWrapper->setSourceKey($modifierKey);
+                    }
+                }
+            }
         }
     }
 

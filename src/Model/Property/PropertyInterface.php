@@ -216,7 +216,7 @@ interface PropertyInterface extends ResolvableInterface
 
     /**
      * Replace the JsonPointer attribute with one carrying the given pointer value.
-     * Used by processReference to set the reference site's pointer on a resolved property
+     * Used by the $ref resolver to set the reference site's pointer on a resolved property
      * rather than the definition's pointer.
      */
     public function overrideJsonPointer(PhpAttribute $attribute): static;

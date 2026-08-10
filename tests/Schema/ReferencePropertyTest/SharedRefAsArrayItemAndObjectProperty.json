@@ -1,0 +1,24 @@
+{
+  "definitions": {
+    "item": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "list": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/item"
+      }
+    },
+    "single": {
+      "$ref": "#/definitions/item"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "definitions": {
+    "flexible": {
+      "minLength": 1
+    }
+  },
+  "type": "object",
+  "properties": {
+    "name": {
+      "$ref": "#/definitions/flexible",
+      "minLength": 3
+    }
+  }
+}

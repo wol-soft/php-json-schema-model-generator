@@ -11,6 +11,7 @@ use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -23,6 +24,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * (enum check applied or skipped depending on whether the value is pre-transformed),
  * default-value transformation, and self/static return types on transforming filter callables.
  */
+#[ApplicableDrafts]
 class TransformingFilterTest extends AbstractFilterTestCase
 {
     // -------------------------------------------------------------------------

@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "properties": {
+    "address": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/location",
+          "properties": {
+            "city": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "location": {
+      "type": "object",
+      "properties": {
+        "street": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

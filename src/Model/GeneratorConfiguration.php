@@ -10,6 +10,7 @@ use PHPModelGenerator\Draft\AutoDetectionDraft;
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\DraftInterface;
+use PHPModelGenerator\Draft\DraftResolver;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
@@ -67,8 +68,7 @@ class GeneratorConfiguration
     /** @var DraftInterface | DraftFactoryInterface */
     protected $draft;
 
-    /** @var array<string, Draft> keyed by the concrete DraftInterface class name */
-    private array $builtDraftCache = [];
+    private DraftResolver $draftResolver;
 
     /** @var ClassNameGeneratorInterface */
     protected $classNameGenerator;
@@ -86,6 +86,7 @@ class GeneratorConfiguration
     public function __construct()
     {
         $this->draft = new AutoDetectionDraft();
+        $this->draftResolver = new DraftResolver();
         $this->classNameGenerator = new ClassNameGenerator();
         $this->logger = new EchoLogger();
 
@@ -250,7 +251,7 @@ class GeneratorConfiguration
 
     public function getClassNameGenerator(): ClassNameGeneratorInterface
     {
-        return $this->classNameGenerator;
+        return $this->classNameGenerator ??= new ClassNameGenerator();
     }
 
     public function setClassNameGenerator(ClassNameGeneratorInterface $classNameGenerator): self
@@ -358,7 +359,7 @@ class GeneratorConfiguration
 
     public function getDraft(): DraftInterface | DraftFactoryInterface
     {
-        return $this->draft;
+        return $this->draft ??= new AutoDetectionDraft();
     }
 
     public function setDraft(DraftInterface | DraftFactoryInterface $draft): self
@@ -369,18 +370,15 @@ class GeneratorConfiguration
     }
 
     /**
-     * Resolve and build the Draft instance in effect for the given schema, cached per concrete
-     * DraftInterface class for the lifetime of this GeneratorConfiguration (one instance per
-     * generation run, shared by every caller) so the registry is built at most once per Draft
-     * class regardless of how many properties or schemas are processed.
+     * Resolve the active draft for the given schema (via DraftFactoryInterface::getDraftForSchema
+     * when a factory is configured) and build its immutable Draft registry, caching the result by
+     * draft class so repeated calls for the same draft don't rebuild it. The cache and the branch
+     * resolution live in DraftResolver, a private implementation detail not otherwise exposed on
+     * this class's public surface.
      */
     public function getBuiltDraft(JsonSchema $propertySchema): Draft
     {
-        $draftInterface = $this->draft instanceof DraftFactoryInterface
-            ? $this->draft->getDraftForSchema($propertySchema)
-            : $this->draft;
-
-        return $this->builtDraftCache[$draftInterface::class] ??= $draftInterface->getDefinition()->build();
+        return $this->draftResolver->getBuiltDraft($this->getDraft(), $propertySchema);
     }
 
     public function isImplicitNullAllowed(): bool

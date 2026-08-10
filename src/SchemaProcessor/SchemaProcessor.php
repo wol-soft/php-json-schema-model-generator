@@ -212,20 +212,20 @@ class SchemaProcessor
      * schema JSON, before generateModel() overwrites `type` with the internal 'base' dispatch
      * sentinel and thereby erases whether the author declared `type: object` themselves.
      *
-     * A bare `$ref` schema (no siblings) is skipped here on purpose: the real reference
-     * resolution that runs moments later already handles every non-representable-target case
-     * with better attribution than a speculative peek from here could - and peeking was tried and
-     * reverted, since it triggers that same real (non-speculative) resolution as a side effect,
-     * and a legitimate failure from it gets swallowed by the peek's own conservative error
-     * handling, replacing a precise, correctly-attributed error with a confusing one blaming the
-     * referencing wrapper instead. This exemption only ever fires for a bare `$ref` root, i.e.
-     * `{"$ref": "..."}` with no other keys: JsonSchema::__construct() rewrites any `$ref` that
-     * has schema-signature-relevant siblings into an `allOf` of the reference and the siblings
-     * before this method (or anything else) ever sees the raw JSON, so a sibling-bearing `$ref`
-     * root never has a top-level `$ref` key by the time it reaches here. Such roots are not
-     * exempted by this early return; instead they are classified below like everything else and
-     * fall out as ObjectShape::Undecidable (see the guard just after the shape is resolved),
-     * reaching the same real reference resolution via a different route.
+     * A `$ref` schema is skipped here on purpose: the real reference resolution that runs moments
+     * later already handles every non-representable-target case with better attribution than a
+     * speculative peek from here could - and peeking was tried and reverted, since it triggers
+     * that same real (non-speculative) resolution as a side effect, and a legitimate failure from
+     * it gets swallowed by the peek's own conservative error handling, replacing a precise,
+     * correctly-attributed error with a confusing one blaming the referencing wrapper instead.
+     *
+     * The check is on the raw top-level key, so it covers a `$ref` root whether or not it carries
+     * siblings. That is deliberate for both: whether siblings apply at all is the draft's
+     * decision (Draft 07 suppresses them, Draft 2019-09 applies them), and the reference
+     * resolution that follows implements whichever rule is in force, so deferring to it keeps this
+     * method out of a policy it would otherwise have to duplicate. A `$ref` nested inside a
+     * composition has no top-level `$ref` key and is therefore still classified below, where
+     * ObjectShapeResolver applies the same draft-derived sibling rule.
      *
      * A filter-bearing schema is not exempted by an early return at all (a filter nested inside a
      * composition branch, e.g. an `allOf` branch, has no top-level `filter` key to check for, so
@@ -289,6 +289,63 @@ class SchemaProcessor
 
             throw new SchemaException($message, $jsonSchema);
         }
+    }
+
+    /**
+     * Create the merged Schema for a property-level $ref+object-sibling merge (Draft 2019-09+).
+     *
+     * Processes the sibling structural keywords (properties, required, additionalProperties, …)
+     * directly into the merged Schema via a base-property pass. The caller is responsible for
+     * transferring the $ref's nested Schema's properties into the merged Schema (with allOf
+     * semantics for name collisions) inside an onResolve callback, and for calling
+     * generateClassFile() once the ref has resolved.
+     *
+     * @throws SchemaException
+     */
+    public function createObjectRefSiblingMergedSchema(
+        Schema $parentSchema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        array $siblingJson,
+    ): Schema {
+        $mergedClassName = $this->generatorConfiguration->getClassNameGenerator()->getClassName(
+            $propertyName,
+            $propertySchema,
+            true,
+            $this->currentClassName,
+        );
+
+        // Exclude keywords that belong to the outer property (not the merged class body).
+        // Mirrors the exclusions that createObjectProperty() applies before passing the schema
+        // to processSchema().
+        $mergedBaseJson = $siblingJson;
+        unset($mergedBaseJson['filter'], $mergedBaseJson['enum'], $mergedBaseJson['default']);
+        $mergedBaseJson['type'] = 'base';
+
+        $mergedSchemaJson = $propertySchema->withJson($mergedBaseJson);
+
+        $mergedSchema = new Schema(
+            $this->getTargetFileName($parentSchema->getClassPath(), $mergedClassName),
+            $parentSchema->getClassPath(),
+            $mergedClassName,
+            $mergedSchemaJson,
+            $parentSchema->getSchemaDictionary(),
+            false,
+            $this->generatorConfiguration,
+        );
+
+        // Process the sibling structural keywords directly into the merged Schema as a base
+        // property. This registers sibling-defined properties (via PropertiesValidatorFactory,
+        // RequiredPropertyValidator, etc.) on the merged Schema before the $ref's properties
+        // are wired in with allOf semantics.
+        (new PropertyFactory())->create(
+            $this,
+            $mergedSchema,
+            $mergedClassName,
+            $mergedSchemaJson,
+        );
+
+        return $mergedSchema;
     }
 
     /**

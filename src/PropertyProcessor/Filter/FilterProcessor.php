@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
 use Exception;
-use LogicException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\Object\InvalidInstanceOfException;
 use PHPModelGenerator\Exception\SchemaException;

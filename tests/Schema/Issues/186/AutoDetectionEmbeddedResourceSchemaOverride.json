@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "$defs": {
+    "ModernArray": {
+      "type": "array",
+      "contains": {
+        "type": "string"
+      },
+      "minContains": 2,
+      "maxContains": 4
+    },
+    "LegacyArray": {
+      "$id": "#legacyArray",
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "array",
+      "contains": {
+        "type": "string"
+      },
+      "minContains": 2,
+      "maxContains": 4
+    }
+  },
+  "type": "object",
+  "properties": {
+    "tags": {
+      "$ref": "#/$defs/ModernArray"
+    },
+    "legacyTags": {
+      "$ref": "#/$defs/LegacyArray"
+    }
+  }
+}

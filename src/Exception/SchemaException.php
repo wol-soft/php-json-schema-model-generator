@@ -95,7 +95,7 @@ class SchemaException extends PHPModelGeneratorException
      * that generation (an unrepresentable composition, conflicting allOf types, ...) surfaces at
      * the same place as a genuine resolution failure - a missing file or malformed JSON. Only the
      * latter means "this reference is broken", which is what
-     * PropertyFactory::processReference()'s "Unresolved Reference ..." message says. The two are
+     * RefResolver::resolveReference()'s "Unresolved Reference ..." message says. The two are
      * indistinguishable from the exception's own state, since both are a plain SchemaException
      * naming a file; only the point at which they were raised tells them apart, which is what
      * this flag captures.

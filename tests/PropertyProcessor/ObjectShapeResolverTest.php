@@ -6,6 +6,8 @@ namespace PHPModelGenerator\Tests\PropertyProcessor;
 
 use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\Draft_07;
+use PHPModelGenerator\Draft\Draft_2019_09;
+use PHPModelGenerator\Draft\DraftInterface;
 use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShape;
 use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -270,6 +272,67 @@ class ObjectShapeResolverTest extends TestCase
         ];
     }
 
+    /**
+     * Whether keywords sitting next to a `$ref` constrain the same value is decided by the draft,
+     * not by this classifier: Draft 07 and earlier ignore them entirely (their `$ref` producer is
+     * an ExclusiveProducer), Draft 2019-09 and later apply them alongside the reference. The
+     * classification has to follow whichever rule the generator will actually apply, because a
+     * disagreement rejects schemas the generator handles fine.
+     *
+     * The concrete regression this pins: under Draft 07 the `type` sibling below is ignored, so
+     * `allOf: [{$ref: <object>, type: string}]` generates - a classifier that merged the sibling
+     * would call the branch Blocking and reject it.
+     */
+    #[DataProvider('referenceSiblingPolicyDataProvider')]
+    public function testReferenceSiblingPolicyFollowsTheDraft(
+        DraftInterface $draft,
+        array $json,
+        ObjectShape $expectedShape,
+    ): void {
+        $definitions = [
+            '#/definitions/person' => self::PERSON_OBJECT,
+            '#/definitions/bare' => self::BARE_VALIDATORS,
+        ];
+
+        $resolver = new ObjectShapeResolver(
+            $draft->getDefinition()->build(),
+            static fn(string $reference): array|bool|null => $definitions[$reference] ?? null,
+        );
+
+        $this->assertSame($expectedShape, $resolver->resolve($json));
+    }
+
+    public static function referenceSiblingPolicyDataProvider(): array
+    {
+        // A contradictory `type` sibling: merging it would block, ignoring it keeps the target.
+        $contradictingType = ['$ref' => '#/definitions/person', 'type' => 'string'];
+        // A sibling that would UPGRADE a describing target to asserting if it were applied.
+        $assertingType = ['$ref' => '#/definitions/bare', 'type' => 'object'];
+
+        return [
+            'draft 07 ignores a contradicting type sibling' => [
+                new Draft_07(),
+                $contradictingType,
+                ObjectShape::ObjectAsserting,
+            ],
+            'draft 2019-09 applies a contradicting type sibling' => [
+                new Draft_2019_09(),
+                $contradictingType,
+                ObjectShape::NotObject,
+            ],
+            'draft 07 ignores an asserting type sibling' => [
+                new Draft_07(),
+                $assertingType,
+                ObjectShape::ObjectDescribing,
+            ],
+            'draft 2019-09 applies an asserting type sibling' => [
+                new Draft_2019_09(),
+                $assertingType,
+                ObjectShape::ObjectAsserting,
+            ],
+        ];
+    }
+
     #[DataProvider('referenceShapeDataProvider')]
     public function testResolveWithReferences(
         array $definitions,
@@ -332,11 +395,10 @@ class ObjectShapeResolverTest extends TestCase
                 ['$ref' => '#/definitions/a'],
                 ObjectShape::Undecidable,
             ],
-            'reference with asserting sibling keywords' => [
-                ['#/definitions/bare' => self::BARE_VALIDATORS],
-                ['$ref' => '#/definitions/bare', 'type' => 'object'],
-                ObjectShape::ObjectAsserting,
-            ],
+            // Sibling keywords next to a $ref are draft-dependent and are covered by
+            // testReferenceSiblingPolicyFollowsTheDraft() below. These two rows belong here
+            // because they resolve the same way under either policy: the target alone already
+            // decides them, so no sibling can change the verdict.
             'reference with describing sibling keywords' => [
                 ['#/definitions/person' => self::PERSON_OBJECT],
                 ['$ref' => '#/definitions/person', 'required' => ['other']],

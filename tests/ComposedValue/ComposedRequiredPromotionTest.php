@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use ReflectionMethod;
 
 /**
@@ -21,6 +22,7 @@ use ReflectionMethod;
  * Verifies that properties transferred from composition branches are promoted to non-nullable
  * when every code path that could guarantee presence of the property is present in the schema.
  */
+#[ApplicableDrafts]
 class ComposedRequiredPromotionTest extends AbstractPHPModelGeneratorTestCase
 {
     // -------------------------------------------------------------------------
