@@ -14,7 +14,7 @@ Added methods
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -26,9 +26,9 @@ Added methods
                 "type": "string"
             },
             "^b": {
-                "key": "numbers"
+                "key": "numbers",
                 "type": "integer"
-            },
+            }
         }
     }
 
@@ -36,8 +36,8 @@ Generated interface with the **PatternPropertiesAccessorPostProcessor**:
 
 .. code-block:: php
 
-    public function setExample(float $example): static;
-    public function getExample(): float;
+    public function setExample(string $example): static;
+    public function getExample(): ?string;
 
     public function patternProperties(): PatternPropertiesAccessor;
 

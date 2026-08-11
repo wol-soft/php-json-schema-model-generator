@@ -20,7 +20,7 @@ Let's have a look at a simple object and the generated classes:
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -37,13 +37,13 @@ In this case the model generator will generate two classes: **Example** and **Ex
 .. code-block:: php
 
     // class ExampleBuilder
-    public function setExample(string $members): static;
+    public function setExample(string $example): static;
     public function getExample(): ?string;
 
     public function validate(): Example;
 
     // class Example
-    public function setExample(string $members): static;
+    public function setExample(string $example): static;
     public function getExample(): string;
 
 Note, that the *getExample* method of the **ExampleBuilder** can return null.
@@ -76,11 +76,11 @@ As a third option, you can simply pass an array with the values for the nested o
 .. code-block:: json
 
     {
-        "$id": "location",
+        "title": "Location",
         "type": "object",
         "properties": {
             "coordinates": {
-                "$id": "coordinates",
+                "title": "Coordinates",
                 "type": "object",
                 "properties": {
                     "latitude": {
@@ -88,7 +88,7 @@ As a third option, you can simply pass an array with the values for the nested o
                     },
                     "longitude": {
                         "type": "string"
-                    },
+                    }
                 },
                 "required": [
                     "latitude",

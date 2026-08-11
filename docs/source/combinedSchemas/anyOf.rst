@@ -6,7 +6,7 @@ The `anyOf` keyword can be used to combine multiple subschemas. The provided val
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -31,7 +31,7 @@ Generated interface:
 .. code-block:: php
 
     public function setExample(float $example): static;
-    public function getExample(): float;
+    public function getExample(): ?float;
 
 
 Possible exception (if a string is provided):
@@ -98,7 +98,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
     construction time by which branches the provided data satisfies. When multiple matching branches
     define a default for the same property, those defaults must agree; the generator throws a
     ``SchemaException`` at generation time if they differ. Branch defaults are **not** included in
-    ``getRawModelDataInput()``.
+    ``meta()->rawInput()``.
 
     See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
     explanation.

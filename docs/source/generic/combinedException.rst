@@ -21,7 +21,7 @@ Our example schema provides an array of people. The people object is combined vi
                 ]
             }
         },
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "people": {

@@ -6,7 +6,7 @@ The `allOf` keyword can be used to combine multiple subschemas. The provided val
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -31,7 +31,7 @@ Generated interface:
 .. code-block:: php
 
     public function setExample(float $example): static;
-    public function getExample(): float;
+    public function getExample(): ?float;
 
 
 Possible exception (eg. if a string is provided):

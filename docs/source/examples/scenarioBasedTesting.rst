@@ -50,7 +50,7 @@ To define our **scenario-schema** we look at our entities and add them to our sc
 .. code-block:: json
 
     {
-      "$id": "Scenario",
+      "title": "Scenario",
       "type": "object",
       "additionalProperties": false,
       "description": "This schema describes the structure of a test scenario which can be set up via the ScenarioBuilder",
@@ -61,7 +61,7 @@ To define our **scenario-schema** we look at our entities and add them to our sc
         "users": {
           "type": "array",
           "items": {
-            "$id": "user",
+            "title": "User",
             "type": "object",
             "properties": {
               "username": {
@@ -83,7 +83,7 @@ To define our **scenario-schema** we look at our entities and add them to our sc
         "pets": {
           "type": "array",
           "items": {
-            "$id": "pet",
+            "title": "Pet",
             "type": "object",
             "properties": {
               "name": {
@@ -102,12 +102,12 @@ To define our **scenario-schema** we look at our entities and add them to our sc
         "orders": {
           "type": "array",
           "items": {
-            "$id": "order",
+            "title": "Order",
             "type": "object",
             "properties": {
               "id": {
                 "type": "integer"
-              }
+              },
               "user": {
                 "type": "string"
               },
@@ -313,7 +313,7 @@ To start using our **ScenarioBuilder** we now write our first **scenario**. As a
           "user": "Bob",
           "pet": "doggie"
         }
-      ],
+      ]
     }
 
 .. hint::

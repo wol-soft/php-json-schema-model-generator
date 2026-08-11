@@ -6,14 +6,14 @@ Properties which contain an object will result in an additional PHP class. The P
 .. code-block:: json
 
     {
-        "$id": "person",
+        "title": "Person",
         "type": "object",
         "properties": {
             "name": {
                 "type": "string"
             },
             "car": {
-                "$id": "car",
+                "title": "Car",
                 "type": "object",
                 "properties": {
                     "model": {
@@ -35,13 +35,13 @@ Generated interface:
     public function setName(string $name): static;
     // As the property is not required it may be initialized with null. Consequently the return value is nullable
     public function getName(): ?string;
-    public function setCar(Car $name): static;
+    public function setCar(Car $car): static;
     public function getCar(): ?Car;
 
     // class Car
-    public function setModel(string $name): static;
+    public function setModel(string $model): static;
     public function getModel(): ?string;
-    public function setPs(int $name): static;
+    public function setPs(int $ps): static;
     public function getPs(): ?int;
 
 Possible exceptions:
@@ -66,7 +66,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTy
     // get the JSON pointer to the schema keyword that rejected the value
     public function getJsonPointer(): JsonPointer
 
-The nested object will be validated in the nested class Car which may throw additional exceptions if invalid data is provided. If the internal validation of a nested object fails a *PHPModelGenerator\\Exception\\Generic\\NestedObjectException* will be thrown which provides the following methods to get further error details:
+The nested object will be validated in the nested class Car which may throw additional exceptions if invalid data is provided. If the internal validation of a nested object fails a *PHPModelGenerator\\Exception\\Object\\NestedObjectException* will be thrown which provides the following methods to get further error details:
 
 .. code-block:: php
 
@@ -98,7 +98,8 @@ Naming of classes
 ^^^^^^^^^^^^^^^^^
 
 If the given main object in a JSON-Schema file contains a `title`, the title will be used as class name.
-Otherwise, if an `$id` is present, the basename of the $id and as a last fallback the name of the file will be used.
+Otherwise, if an `$id` is present, the basename of the ``$id`` is used. Otherwise, if an ``$anchor`` is
+present (Draft 2019-09 and later), its value is used. As a last fallback the name of the file will be used.
 
 Naming of nested classes
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -161,9 +162,9 @@ Generated interface:
 
 .. code-block:: php
 
-    public function setUnderscorePropertyMinus(string $name): static;
+    public function setUnderscorePropertyMinus(string $underscorePropertyMinus): static;
     public function getUnderscorePropertyMinus(): ?string;
-    public function setCapsAndSpace100(string $name): static;
+    public function setCapsAndSpace100(string $capsAndSpace100): static;
     public function getCapsAndSpace100(): ?string;
 
 If the name normalization results in an empty attribute name (eg. '__ -- __') an exception will be thrown.
@@ -177,7 +178,7 @@ Using the keyword `required` a list of properties may be defined which must be p
 .. code-block:: json
 
     {
-        "$id": "person",
+        "title": "Person",
         "type": "object",
         "properties": {
             "name": {
@@ -238,7 +239,7 @@ With the keywords `minProperties` and `maxProperties` the number of allowed prop
 .. code-block:: json
 
     {
-        "$id": "person",
+        "title": "Person",
         "type": "object",
         "properties": {
             "name": {
@@ -251,8 +252,8 @@ With the keywords `minProperties` and `maxProperties` the number of allowed prop
 
 Possible exceptions:
 
-* Provided object for 'person' must not contain less than 2 properties
-* Provided object for 'person' must not contain more than 3 properties
+* Provided object for 'Person' must not contain less than 2 properties
+* Provided object for 'Person' must not contain more than 3 properties
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\MaxPropertiesException* or a *PHPModelGenerator\\Exception\\Object\\MinPropertiesException* which provides the following methods to get further error details:
 
@@ -281,7 +282,7 @@ Using the keyword `additionalProperties` the object can be limited to not contai
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -303,7 +304,7 @@ Using the keyword `additionalProperties` the object can be limited to not contai
 
 Possible exceptions:
 
-* Provided JSON for 'example' contains not allowed additional properties ['additional1', 'additional2']
+* Provided JSON for 'Example' contains not allowed additional properties ['additional1', 'additional2']
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\AdditionalPropertiesException* which provides the following methods to get further error details:
 
@@ -322,7 +323,7 @@ If invalid additional properties are provided a detailed exception will be throw
 
 .. code-block:: none
 
-    Provided JSON for 'example' contains invalid additional properties
+    Provided JSON for 'Example' contains invalid additional properties
       - invalid additional property 'additional1'
         * Invalid type for 'name': requires 'string', got 'integer'
       - invalid additional property 'additional2'
@@ -355,7 +356,7 @@ If objects are defined recursive the recursion will be resolved into a single cl
     {
         "definitions": {
             "person": {
-                "$id": "person",
+                "title": "Person",
                 "type": "object",
                 "properties": {
                     "name": {
@@ -370,7 +371,7 @@ If objects are defined recursive the recursion will be resolved into a single cl
                 }
             }
         },
-        "$id": "family",
+        "title": "Family",
         "type": "object",
         "properties": {
             "members": {
@@ -393,7 +394,7 @@ Generated interface:
     // class Person, arrays type hinted in docblocks with Family_Person[]
     public function setName(string $name): static;
     public function getName(): ?string;
-    public function setChildren(array $name): static;
+    public function setChildren(array $children): static;
     public function getChildren(): ?array;
 
 Property Names
@@ -404,7 +405,7 @@ With the keyword `propertyNames` rules can be defined which must be fulfilled by
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "propertyNames": {
             "pattern": "^test[0-9]+$",
@@ -418,7 +419,7 @@ Exceptions contain detailed information about the violations:
 
 .. code-block:: none
 
-    Provided JSON for 'example' contains properties with invalid names
+    Provided JSON for 'Example' contains properties with invalid names
       - invalid property 'test12345a'
         * Value for 'property name' does not match pattern '^test[0-9]+$'
         * Value for 'property name' must not be longer than 8
@@ -524,7 +525,7 @@ Schema dependencies allow you to define a schema which must be fulfilled if a gi
 
     {
         "type": "object",
-        "$id": "CreditCardOwner"
+        "title": "CreditCardOwner",
         "properties": {
             "credit_card": {
                 "type": "integer"
@@ -603,7 +604,7 @@ Using the keyword `patternProperties` further restrictions for properties matchi
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {

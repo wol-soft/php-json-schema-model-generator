@@ -8,7 +8,7 @@ Filters can be either supplied as a string or as a list of filters (multiple fil
 .. code-block:: json
 
     {
-        "$id": "person",
+        "title": "Person",
         "type": "object",
         "properties": {
             "firstname": {
@@ -197,7 +197,7 @@ The trim filter accepts string and null values. Applied to a property that also 
 .. code-block:: json
 
     {
-        "$id": "person",
+        "title": "Person",
         "type": "object",
         "properties": {
             "name": {
@@ -241,7 +241,7 @@ The notEmpty filter is only valid for array and null properties.
 .. code-block:: json
 
     {
-        "$id": "family",
+        "title": "Family",
         "type": "object",
         "properties": {
             "members": {
@@ -274,7 +274,7 @@ With the type of your property, you can limit the possible inputs, e.g. to accep
 .. code-block:: json
 
     {
-        "$id": "car",
+        "title": "Car",
         "type": "object",
         "properties": {
             "productionDate": {
@@ -344,7 +344,7 @@ You can implement custom filter and use them in your schema files. You must add 
 
 .. code-block:: php
 
-    $generator = new Generator(
+    $generator = new ModelGenerator(
         (new GeneratorConfiguration())
             ->addFilter(new UppercaseFilter())
     );
@@ -389,7 +389,7 @@ If the custom filter is added to the generator configuration you can now use the
 .. code-block:: json
 
     {
-        "$id": "person",
+        "title": "Person",
         "type": "object",
         "properties": {
             "name": {
@@ -429,7 +429,7 @@ The option will be available if your JSON-Schema uses the object-notation for th
 .. code-block:: json
 
     {
-        "$id": "person",
+        "title": "Person",
         "type": "object",
         "properties": {
             "name": {

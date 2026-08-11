@@ -8,7 +8,7 @@ Test output directories
 
 During a test run two directories are used automatically:
 
-* **Temp directory** — generated JSON Schema files and PHP classes are written to ``{sys_get_temp_dir()}/PHPModelGeneratorTest/Models/``. Each test method gets its own uniquely-named subdirectory so parallel runs do not collide.
+* **Temp directory** — generated JSON Schema files and PHP classes are written to ``{sys_get_temp_dir()}/PHPModelGeneratorTest_<uniqid>/Models/``. The ``<uniqid>`` suffix is generated once per test *process* (in ``tests/bootstrap.php``), so concurrent test runs/processes don't collide; within a single process, every test method shares that same directory, which ``setUp()`` wipes and regenerates before each test so each test still starts from a clean, empty directory.
 * ``./failed-classes/`` — when a test fails, all JSON Schema files and the generated PHP classes produced by that test are copied here for post-mortem inspection. The directory is cleaned automatically on bootstrap.
 
 Running the tests

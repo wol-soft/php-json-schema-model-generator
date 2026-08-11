@@ -6,7 +6,7 @@ Used for properties which only accept `null`.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -26,7 +26,7 @@ Possible exceptions:
 
 * Invalid type for 'example': requires 'null', got '__TYPE__'
 
-The main use case for the **null** type is a property with `multiple types <complexTypes/multiType.html>`__ accepting for example a string and null values when using explicit null types.
+The main use case for the **null** type is a property with `multiple types <../complexTypes/multiType.html>`__ accepting for example a string and null values when using explicit null types.
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Generic\\InvalidTypeException* which provides the following methods to get further error details:
 

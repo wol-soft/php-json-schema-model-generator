@@ -6,7 +6,7 @@ The `oneOf` keyword can be used to combine multiple subschemas. The provided val
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -31,7 +31,7 @@ Generated interface:
 .. code-block:: php
 
     public function setExample(float $example): static;
-    public function getExample(): float;
+    public function getExample(): ?float;
 
 
 Possible exception (if a string is provided):
@@ -106,7 +106,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\One
     Properties in object-level ``oneOf`` branches may carry a ``"default"`` value. The generator
     applies the branch default only when that branch is the active one — determined at construction
     time by which branch the provided data satisfies. A user-supplied value always overrides the
-    branch default. Branch defaults are **not** included in ``getRawModelDataInput()``.
+    branch default. Branch defaults are **not** included in ``meta()->rawInput()``.
 
     When two ``oneOf`` branches define a default for the same property, or when a branch default
     conflicts with a root ``properties`` default or a ``patternProperties`` default, the generator

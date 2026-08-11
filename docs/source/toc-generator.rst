@@ -3,4 +3,3 @@
     :maxdepth: 2
 
     generator/postProcessor
-    generator/custom/customDraft

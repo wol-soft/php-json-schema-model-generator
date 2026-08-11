@@ -6,7 +6,7 @@ Default values are set inside the model if a property which is not required isn'
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "example": {
@@ -54,7 +54,7 @@ precedence over the branch default.
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "oneOf": [
             {
@@ -96,13 +96,13 @@ precedence over the branch default.
     $example = new Example(['kind' => 'B', 'timeout' => 60]);
     $example->getTimeout();   // returns 60
 
-Branch defaults are **not** included in ``getRawModelDataInput()``. Only values explicitly
+Branch defaults are **not** included in ``meta()->rawInput()``. Only values explicitly
 supplied by the caller appear in the raw input:
 
 .. code-block:: php
 
     $example = new Example(['kind' => 'B']);
-    $example->getRawModelDataInput();   // returns ['kind' => 'B']
+    $example->meta()->rawInput();   // returns ['kind' => 'B']
 
 **allOf**
 
@@ -134,7 +134,7 @@ key matches the pattern:
 .. code-block:: json
 
     {
-        "$id": "example",
+        "title": "Example",
         "type": "object",
         "properties": {
             "retry_count": {
