@@ -1,0 +1,18 @@
+{
+  "definitions": {
+    "anything": true
+  },
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "$ref": "#/definitions/anything"
+    }
+  ]
+}

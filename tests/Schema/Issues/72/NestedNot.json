@@ -1,0 +1,25 @@
+{
+  "definitions": {
+    "forbidden": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "password": {
+              "type": "string"
+            }
+          },
+          "required": ["password"]
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "p": {
+      "not": {
+        "$ref": "#/definitions/forbidden"
+      }
+    }
+  }
+}

@@ -30,6 +30,8 @@ use PHPModelGenerator\Model\Validator\TypeCheckInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
+use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShape;
+use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\PropertyMerger;
 use PHPModelGenerator\Utils\TypeConverter;
@@ -81,6 +83,51 @@ class PropertyFactory
             );
         }
 
+        // Both re-routing checks below only apply to an untyped, non-filter schema, and both need
+        // an ObjectShapeResolver to decide whether they apply. Testing the shared precondition
+        // once here - rather than repeating it in each reroute - lets the resolver be built
+        // lazily, at most once, only for the reroute (if either) whose own cheap keyword check
+        // passes, instead of unconditionally on every property.
+        if (!isset($json['type']) && !isset($json['filter'])) {
+            $objectShapeResolver = null;
+            $getObjectShapeResolver = function () use (
+                &$objectShapeResolver,
+                $schemaProcessor,
+                $schema,
+                $propertySchema,
+            ): ObjectShapeResolver {
+                return $objectShapeResolver ??= ObjectShapeResolver::forDictionary(
+                    $schemaProcessor,
+                    $schema->getSchemaDictionary(),
+                    $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($propertySchema),
+                );
+            };
+
+            $reroutedProperty = $this->rerouteAllOfObjectShape(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema,
+                $json,
+                $required,
+                $isArrayItem,
+                $getObjectShapeResolver,
+            ) ?? $this->rerouteBareObjectValidator(
+                $schemaProcessor,
+                $schema,
+                $propertyName,
+                $propertySchema,
+                $json,
+                $required,
+                $isArrayItem,
+                $getObjectShapeResolver,
+            );
+
+            if ($reroutedProperty !== null) {
+                return $reroutedProperty;
+            }
+        }
+
         $this->checkType($resolvedType, $schema);
 
         return match ($resolvedType) {
@@ -103,6 +150,102 @@ class PropertyFactory
                 $isArrayItem,
             ),
         };
+    }
+
+    /**
+     * Re-route a composition-only schema that the composition itself guarantees to be an
+     * object (e.g. an allOf of object branches, possibly multiple $ref levels deep)
+     * through the object path, so it becomes a genuine nested class with instantiation and
+     * instanceof validation instead of a bare composed validator. Gated on allOf as the
+     * outer keyword: anyOf/oneOf deliberately keep their per-matched-branch runtime value
+     * identity and are fixed instead at the branch level (a branch that is itself an
+     * object-asserting composition re-routes here when it is created). Injecting an
+     * explicit type: object makes the implied object-ness explicit so the existing object
+     * path (which processSchema forces to a type: base nested class handling the
+     * composition internally) applies unchanged.
+     *
+     * Returns null (declining to reroute) when the guard does not apply, in which case
+     * create() falls through to its other reroute / the regular type dispatch.
+     *
+     * @throws SchemaException
+     */
+    private function rerouteAllOfObjectShape(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        array $json,
+        bool $required,
+        bool $isArrayItem,
+        callable $getObjectShapeResolver,
+    ): ?PropertyInterface {
+        if (!isset($json['allOf']) || $getObjectShapeResolver()->resolve($json) !== ObjectShape::ObjectAsserting) {
+            return null;
+        }
+
+        $objectJson = $json;
+        $objectJson['type'] = 'object';
+
+        return $this->createObjectProperty(
+            $schemaProcessor,
+            $schema,
+            $propertyName,
+            $propertySchema->withJson($objectJson),
+            $required,
+            $isArrayItem,
+        );
+    }
+
+    /**
+     * A bare object-validator schema (object-constraining keywords, no type and no
+     * composition) is object-describing: it constrains object values but is vacuously
+     * satisfied by non-objects per strict spec. Give it a guarded representation class -
+     * instantiated for object values, with non-objects passing through unchanged - so its
+     * constraints actually run (they are registered on the object Type and would otherwise
+     * never execute on an untyped property). No asserting object type check is added,
+     * preserving the strict-spec pass-through of non-object values (this is why it is NOT
+     * the ObjectAsserting path handled by rerouteAllOfObjectShape()).
+     *
+     * Returns null (declining to reroute) when the guard does not apply, in which case
+     * create() falls through to the regular type dispatch.
+     *
+     * @throws SchemaException
+     */
+    private function rerouteBareObjectValidator(
+        SchemaProcessor $schemaProcessor,
+        Schema $schema,
+        string $propertyName,
+        JsonSchema $propertySchema,
+        array $json,
+        bool $required,
+        bool $isArrayItem,
+        callable $getObjectShapeResolver,
+    ): ?PropertyInterface {
+        if (
+            array_intersect(array_keys($json), ['allOf', 'anyOf', 'oneOf', 'if', 'not', '$ref'])
+            || $getObjectShapeResolver()->resolve($json) !== ObjectShape::ObjectDescribing
+        ) {
+            return null;
+        }
+
+        $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+            "Property '{property}' carries object-constraining keywords (eg. 'properties',"
+                . " 'required') without a 'type' declaration and does not constrain non-object values",
+            ['property' => $propertyName],
+        );
+
+        $objectJson = $json;
+        $objectJson['type'] = 'object';
+
+        return $this->createObjectProperty(
+            $schemaProcessor,
+            $schema,
+            $propertyName,
+            $propertySchema->withJson($objectJson),
+            $required,
+            $isArrayItem,
+            guarded: true,
+        );
     }
 
     /**
@@ -567,6 +710,7 @@ class PropertyFactory
         JsonSchema $propertySchema,
         bool $required,
         bool $isArrayItem = false,
+        bool $guarded = false,
     ): PropertyInterface {
         $json     = $propertySchema->getJson();
         $property = $this->buildProperty(
@@ -599,7 +743,20 @@ class PropertyFactory
 
         if ($nestedSchema !== null) {
             $property->setNestedSchema($nestedSchema);
-            $this->wireObjectProperty($schemaProcessor, $schema, $property, $propertySchema);
+
+            if ($guarded) {
+                // Attach the instantiation linkage but NOT the asserting object type check: the
+                // instantiation decorator only instantiates genuine JSON-object values
+                // (`is_array($value) && !array_is_list($value)`, with an empty-array carve-out so
+                // `{}` still instantiates), so a non-object value - including a JSON array, which
+                // `json_decode(..., true)` would otherwise make indistinguishable from an object -
+                // passes through unchanged and vacuously satisfies the schema per strict JSON
+                // Schema semantics, while an object value is instantiated and validated against
+                // the representation class.
+                (new ObjectModifier(asserting: false))->modify($schemaProcessor, $schema, $property, $propertySchema);
+            } else {
+                $this->wireObjectProperty($schemaProcessor, $schema, $property, $propertySchema);
+            }
         }
 
         // Universal modifiers (filter, enum, default, const) run on the outer property.

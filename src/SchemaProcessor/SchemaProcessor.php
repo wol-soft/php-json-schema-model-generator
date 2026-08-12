@@ -27,6 +27,8 @@ use PHPModelGenerator\PropertyProcessor\Decorator\Property\DefaultArrayToEmptyAr
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\CompositionTypeHintDecorator;
+use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShape;
+use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
 use PHPModelGenerator\Utils\PropertyAttributeSynthesizer;
@@ -175,13 +177,34 @@ class SchemaProcessor
             $this->generatorConfiguration,
         );
 
+        // Populated here (rather than lazily inside createBaseProperty(), the only other caller)
+        // because checkObjectRepresentability() below needs it ready to resolve $ref chains.
+        // addDefinition() is idempotent, so createBaseProperty()'s own call stays a harmless no-op.
+        $dictionary->setUpDefinitionDictionary($this, $schema);
+
         // Register by content signature (secondary dedup for content-identical inline schemas).
         $this->processedSchema[$schemaSignature] = $schema;
         // Register by canonical file path/URL (primary dedup for external $ref resolutions).
         // Registering here — before property processing — ensures that any $ref back to this
         // file encountered while processing the referencing schema finds this canonical schema
         // immediately, regardless of which schema was discovered first by the provider.
+        //
+        // Both registrations must happen BEFORE checkObjectRepresentability(), not after: its
+        // classification peeks through $ref chains, and for a cross-file reference that peek runs
+        // the real SchemaDefinitionDictionary::parseExternalFile(), which processes the target
+        // eagerly via processTopLevelSchema(). If this schema were still unregistered at that
+        // point, a reference cycle back to it would not hit parseExternalFile()'s
+        // getProcessedFileSchema() short-circuit: two mutually referencing files would recurse
+        // until the stack is exhausted, and a target whose own properties reference this file back
+        // would build a second, duplicate render job for it ("File X.php already exists").
+        // ObjectShapeResolver's own $visitedReferences guard cannot cover either case - it is
+        // local to a single classify() call and cannot see re-entrancy through the SchemaProcessor.
+        // Registering a schema whose check then fails is harmless: the SchemaException aborts
+        // generation entirely.
         $this->registerProcessedFileSchema($jsonSchema->getFile(), $schema);
+
+        $this->checkObjectRepresentability($jsonSchema, $className, $dictionary);
+
         $json = $jsonSchema->getJson();
         $json['type'] = 'base';
 
@@ -195,6 +218,102 @@ class SchemaProcessor
         $this->generateClassFile($schema);
 
         return $schema;
+    }
+
+    /**
+     * Every schema reaching this point becomes a generated PHP class, so its value must be
+     * guaranteed to be a JSON object - a composition that only sometimes resolves to an object
+     * cannot be faithfully represented by a single generated class. Classifies the pristine
+     * schema JSON, before generateModel() overwrites `type` with the internal 'base' dispatch
+     * sentinel and thereby erases whether the author declared `type: object` themselves.
+     *
+     * A `$ref` schema is skipped here on purpose: the real reference resolution that runs moments
+     * later already handles every non-representable-target case with better attribution than a
+     * speculative peek from here could - and peeking was tried and reverted, since it triggers
+     * that same real (non-speculative) resolution as a side effect, and a legitimate failure from
+     * it gets swallowed by the peek's own conservative error handling, replacing a precise,
+     * correctly-attributed error with a confusing one blaming the referencing wrapper instead.
+     *
+     * The check is on the raw top-level key, so it covers a `$ref` root whether or not it carries
+     * siblings. That is deliberate for both: whether siblings apply at all is the draft's
+     * decision (Draft 07 suppresses them, Draft 2019-09 applies them), and the reference
+     * resolution that follows implements whichever rule is in force, so deferring to it keeps this
+     * method out of a policy it would otherwise have to duplicate. A `$ref` nested inside a
+     * composition has no top-level `$ref` key and is therefore still classified below, where
+     * ObjectShapeResolver applies the same draft-derived sibling rule.
+     *
+     * A filter-bearing schema is not exempted by an early return at all (a filter nested inside a
+     * composition branch, e.g. an `allOf` branch, has no top-level `filter` key to check for, so
+     * an early return here could never have covered that shape anyway). It is instead classified
+     * below like everything else: ObjectShapeResolver deliberately classifies filter-bearing
+     * schemas as Undecidable (they are owned by the filter-composition subsystem, not the object
+     * path), and the guard just after the shape is resolved lets that verdict through without
+     * throwing here, so the filter subsystem's own compatibility check - which runs moments later
+     * and reports a precise, correctly-attributed error (e.g. naming the incompatible filter and
+     * property type) - is not preempted by a generic "does not resolve to a definite object"
+     * verdict from this method.
+     *
+     * @throws SchemaException
+     */
+    private function checkObjectRepresentability(
+        JsonSchema $jsonSchema,
+        string $className,
+        SchemaDefinitionDictionary $dictionary,
+    ): void {
+        if (array_key_exists('$ref', $jsonSchema->getJson())) {
+            return;
+        }
+
+        $shape = ObjectShapeResolver::forDictionary(
+            $this,
+            $dictionary,
+            $this->generatorConfiguration->getBuiltDraft($jsonSchema),
+        )->resolve($jsonSchema->getJson());
+
+        // Object-ness could not be determined at all (an unresolvable/cyclic $ref, or a
+        // filter-bearing branch owned by another subsystem); let the real pipeline run and
+        // produce its own precise, correctly-attributed error rather than rejecting here with a
+        // generic representability message that would name the wrong cause.
+        if ($shape === ObjectShape::Undecidable) {
+            return;
+        }
+
+        $acceptedShapes = $this->generatorConfiguration->isImplicitObjectCompositionAllowed()
+            ? [ObjectShape::ObjectAsserting, ObjectShape::ObjectDescribing]
+            : [ObjectShape::ObjectAsserting];
+
+        if (!in_array($shape, $acceptedShapes, true)) {
+            $message = sprintf(
+                "Composition for '%s' in file '%s' does not resolve to a definite object and"
+                    . ' cannot be represented as a generated class',
+                $className,
+                $jsonSchema->getFile(),
+            );
+
+            // Both variants name the explicit type as the fix, because declaring it always
+            // resolves the schema to ObjectAsserting - classify() short-circuits on `type` before
+            // it ever looks at the branches. Only the flag is withheld for NotObject: it widens
+            // acceptance from ObjectAsserting to ObjectAsserting|ObjectDescribing and no further
+            // (see $acceptedShapes above), so offering it there would point at an option that
+            // provably cannot help.
+            //
+            // The two wordings differ deliberately. An ObjectDescribing schema has no `type` at
+            // all, so "add" is exact, and its keywords already constrain nothing but objects -
+            // declaring the type merely states what the schema already means, which is why it is
+            // named unconditionally and first (it makes the intent explicit, where the flag only
+            // leaves the ambiguity in place). A NotObject schema genuinely accepts non-object
+            // values - a scalar branch, a multi-type declaration, a vacuous branch - so declaring
+            // the type CHANGES what it accepts rather than clarifying it. That is the right fix
+            // only if the author meant objects throughout, which the generator cannot know, so the
+            // suggestion is stated conditionally rather than as an instruction.
+            $message .= $shape === ObjectShape::ObjectDescribing
+                ? ': add an explicit \'"type": "object"\' constraint, or enable'
+                    . " 'GeneratorConfiguration::setImplicitObjectComposition(true)' to accept it"
+                : ': if every value it accepts is meant to be an object, declare'
+                    . ' \'"type": "object"\' on the schema itself';
+
+            throw new SchemaException($message, $jsonSchema);
+        }
     }
 
     /**
@@ -503,13 +622,22 @@ class SchemaProcessor
             false,
         );
 
-        $schema = $this->processSchema(
-            $jsonSchema,
-            $this->currentClassPath,
-            $this->currentClassName,
-            new SchemaDefinitionDictionary($jsonSchema),
-            true,
-        );
+        try {
+            $schema = $this->processSchema(
+                $jsonSchema,
+                $this->currentClassPath,
+                $this->currentClassName,
+                new SchemaDefinitionDictionary($jsonSchema),
+                true,
+            );
+        } catch (SchemaException $exception) {
+            // Everything thrown here is a fault in the referenced schema itself, not a failure to
+            // reach it - this method only runs once the reference has already resolved to a file.
+            // Marking it keeps RefResolver::resolveReference() from restating it as
+            // "Unresolved Reference", which would blame the reference site for a problem in the
+            // content it points at.
+            throw $exception->markAsReferencedSchemaFailure();
+        }
 
         $this->currentClassPath = $savedClassPath;
         $this->currentClassName = $savedClassName;
@@ -578,14 +706,33 @@ class SchemaProcessor
                     &$seenBranchPropertyNames,
                 ): void {
                     if (!$composedProperty->getNestedSchema()) {
-                        throw new SchemaException(
-                            sprintf(
-                                "No nested schema for composed property %s in file %s found",
-                                $property->getName(),
-                                $property->getJsonSchema()->getFile(),
-                            ),
-                            $property->getJsonSchema(),
+                        if ($composedProperty->getType() !== null) {
+                            throw new SchemaException(
+                                sprintf(
+                                    "No nested schema for composed property %s in file %s found",
+                                    $property->getName(),
+                                    $property->getJsonSchema()->getFile(),
+                                ),
+                                $property->getJsonSchema(),
+                            );
+                        }
+
+                        // A branch with neither a nested schema nor an explicit type (e.g. a $ref
+                        // to a definition carrying only annotation keywords such as example)
+                        // matches any value and contributes no named properties to transfer -
+                        // this is not a schema error, unlike a branch with an explicit type that
+                        // still lacks a nested schema (a genuine type conflict, handled above).
+                        $this->finalizeComposedBranchResolution(
+                            in_array($composedProperty, $branchesForValidator, true),
+                            $totalBranches,
+                            $resolvedPropertiesCallbacks,
+                            $seenBranchPropertyNames,
+                            $validator,
+                            $property,
+                            $schema,
                         );
+
+                        return;
                     }
 
                     $isBranchForValidator = in_array($composedProperty, $branchesForValidator, true);
@@ -631,28 +778,54 @@ class SchemaProcessor
                                 $seenBranchPropertyNames[$branchProperty->getName()] = true;
                             }
 
-                            if ($isBranchForValidator && ++$resolvedPropertiesCallbacks === $totalBranches) {
-                                foreach (array_keys($seenBranchPropertyNames) as $branchPropertyName) {
-                                    $schema->getPropertyMerger()->checkForTotalConflict(
-                                        $branchPropertyName,
-                                        $totalBranches,
-                                        $schema->getJsonSchema(),
-                                    );
-                                }
-
-                                $this->checkCrossBranchDefaultConflicts($validator, $property);
-
-                                $this->propertyAttributeSynthesizer->synthesiseForValidator(
-                                    $validator,
-                                    $schema,
-                                    $seenBranchPropertyNames,
-                                );
-                            }
+                            $this->finalizeComposedBranchResolution(
+                                $isBranchForValidator,
+                                $totalBranches,
+                                $resolvedPropertiesCallbacks,
+                                $seenBranchPropertyNames,
+                                $validator,
+                                $property,
+                                $schema,
+                            );
                         },
                     );
                 });
             }
         }
+    }
+
+    /**
+     * Run the once-per-composition cross-branch checks and property-attribute synthesis after the
+     * final branch of a composed property has finished contributing its properties to the schema -
+     * whether by transferring named properties from a nested schema, or by contributing none
+     * because the branch has neither a nested schema nor an explicit type.
+     *
+     * @param array<string, true> $seenBranchPropertyNames
+     */
+    private function finalizeComposedBranchResolution(
+        bool $isBranchForValidator,
+        int $totalBranches,
+        int &$resolvedPropertiesCallbacks,
+        array $seenBranchPropertyNames,
+        AbstractComposedPropertyValidator $validator,
+        PropertyInterface $property,
+        Schema $schema,
+    ): void {
+        if (!$isBranchForValidator || ++$resolvedPropertiesCallbacks !== $totalBranches) {
+            return;
+        }
+
+        foreach (array_keys($seenBranchPropertyNames) as $branchPropertyName) {
+            $schema->getPropertyMerger()->checkForTotalConflict(
+                $branchPropertyName,
+                $totalBranches,
+                $schema->getJsonSchema(),
+            );
+        }
+
+        $this->checkCrossBranchDefaultConflicts($validator, $property);
+
+        $this->propertyAttributeSynthesizer->synthesiseForValidator($validator, $schema, $seenBranchPropertyNames);
     }
 
     /**
@@ -693,9 +866,16 @@ class SchemaProcessor
             if ($this->exclusiveBranchPropertyNeedsWidening($property->getName(), $sourceBranch, $wideningBranches)) {
                 $transferredProperty->setType(null, null, reset: true);
             }
-        }
 
-        $transferredProperty->setJsonSchema($transferredProperty->getJsonSchema()->withJson([]));
+            // Blank the branch schema for disjunctive compositions (anyOf/oneOf/if): a constraint
+            // declared on one branch (e.g. an enum on a single oneOf branch while another branch
+            // accepts free-form values) must not leak onto the outer merged property, which a
+            // value may satisfy via a different branch. For allOf every branch constraint applies
+            // to the same value, so the schema is preserved instead - keeping representation-level
+            // information such as enum sub-schemas visible to post processors on the merged
+            // property, matching the dedicated _Merged_ class path.
+            $transferredProperty->setJsonSchema($transferredProperty->getJsonSchema()->withJson([]));
+        }
 
         return $transferredProperty;
     }

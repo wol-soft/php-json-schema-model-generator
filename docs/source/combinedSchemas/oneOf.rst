@@ -74,7 +74,9 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\One
 
     ``oneOf`` branches can be the boolean literals ``true`` or ``false``.
 
-    - ``true`` branch — treated as an empty schema; always satisfies the branch.
+    - ``true`` branch — treated as an empty schema; always satisfies the branch. The generator
+      emits a generation-time warning that the branch carries no validation keyword and matches
+      any value.
     - ``false`` branch — can never be satisfied; always-failing branches participate in the
       composition but never succeed. If all branches are ``false``, any provided value raises a
       ``OneOfException`` at runtime, and the generator emits a warning at generation time.
@@ -82,7 +84,16 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\One
 
 .. hint::
 
-    When combining multiple nested objects with an `oneOf` composition a `merged property <mergedProperty.html>`__ will be generated
+    When combining multiple nested objects with a `oneOf` composition no `merged property <mergedProperty.html>`__ is generated: exactly one branch matches, so the value keeps that branch's own class. The property stays `mixed` and its annotation lists the branch classes as a union.
+
+.. hint::
+
+    A ``oneOf`` branch does not need to declare ``"type": "object"`` itself to be treated as an
+    object — the generator also detects object-ness implied by a ``$ref`` chain or nested
+    ``allOf``, and object-constraining keywords used without any ``type`` at all. See
+    `Composition-implied objects <impliedObjects.html>`__ for the full explanation, including why
+    a non-object value is rejected by two or more bare-validator (object-describing) branches even
+    though each one individually would vacuously accept it.
 
 .. note::
 
@@ -106,7 +117,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\One
     Properties in object-level ``oneOf`` branches may carry a ``"default"`` value. The generator
     applies the branch default only when that branch is the active one — determined at construction
     time by which branch the provided data satisfies. A user-supplied value always overrides the
-    branch default. Branch defaults are **not** included in ``getRawModelDataInput()``.
+    branch default. Branch defaults are **not** included in ``meta()->rawInput()``.
 
     When two ``oneOf`` branches define a default for the same property, or when a branch default
     conflicts with a root ``properties`` default or a ``patternProperties`` default, the generator

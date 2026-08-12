@@ -66,6 +66,22 @@
                 }
             {% endif %}
 
+            {% if not generatorConfiguration.collectErrors()
+                  and not viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
+            %}
+                {#
+                    Record the failing branch's own exception (rendered as "Failed" with its
+                    message) so the composition exception surfaces the underlying reason in
+                    direct-exception mode. Control-flow exceptions used purely for counting are not
+                    ValidationExceptions and contribute no message.
+                #}
+                $branchErrorRegistry = new \PHPModelGenerator\Exception\ErrorRegistryException();
+                if ($e instanceof \PHPModelGenerator\Exception\ValidationException) {
+                    $branchErrorRegistry->addError($e);
+                }
+                $compositionErrorCollection[] = $branchErrorRegistry;
+            {% endif %}
+
             $succeededCompositionElements--;
         }
 
@@ -98,11 +114,18 @@
     {% else %}
         if ($compositionSatisfied) {
             {% if hasModifiedValuesMethod %}
-                foreach ({{ allBranchDefaultAttributeMap }} as $branchDefaultKey => $branchDefaultAttr) {
-                    if (!array_key_exists($branchDefaultKey, $originalModelData)) {
-                        $this->$branchDefaultAttr = array_key_exists($branchDefaultKey, $modifiedValues)
-                            ? $modifiedValues[$branchDefaultKey]
-                            : null;
+                {#
+                    Branch defaults only apply to object/array inputs. In a mixed composition where
+                    the value can also be a scalar (e.g. anyOf/oneOf of an object branch and a string
+                    branch) $originalModelData may be that scalar, which array_key_exists cannot accept.
+                #}
+                if (is_array($originalModelData)) {
+                    foreach ({{ allBranchDefaultAttributeMap }} as $branchDefaultKey => $branchDefaultAttr) {
+                        if (!array_key_exists($branchDefaultKey, $originalModelData)) {
+                            $this->$branchDefaultAttr = array_key_exists($branchDefaultKey, $modifiedValues)
+                                ? $modifiedValues[$branchDefaultKey]
+                                : null;
+                        }
                     }
                 }
             {% endif %}

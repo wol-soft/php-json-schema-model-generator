@@ -1,0 +1,58 @@
+{
+  "type": "object",
+  "properties": {
+    "namedObject": {
+      "type": "object",
+      "oneOf": [
+        {
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "properties": {
+            "code": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "code"
+          ]
+        }
+      ]
+    },
+    "arrayOfObjects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "oneOf": [
+          {
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "properties": {
+              "code": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "parent": {
+      "$ref": "A.json"
+    },
+    "name": {
+      "type": "string"
+    }
+  }
+}

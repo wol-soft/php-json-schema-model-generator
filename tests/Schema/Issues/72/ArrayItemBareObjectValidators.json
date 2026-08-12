@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "members": {
+      "type": "array",
+      "items": {
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["name"]
+      }
+    }
+  }
+}

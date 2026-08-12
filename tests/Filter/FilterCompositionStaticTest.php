@@ -67,14 +67,14 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
             'filter inside allOf branch (with outer filter)' => [
                 'FilterCompositionFilterInBranch.json',
                 '/A filter keyword inside a allOf composition branch is not supported'
-                    . ' for property filteredProperty.*branch #0/',
+                    . ' for property filteredProperty.*branch #1/',
             ],
             // Same as above; the rejection applies regardless of whether the property itself also
             // declares an outer filter.
             'filter inside allOf branch (no outer filter)' => [
                 'FilterCompositionFilterInBranchNoOuterFilter.json',
                 '/A filter keyword inside a allOf composition branch is not supported'
-                    . ' for property filteredProperty.*branch #0/',
+                    . ' for property filteredProperty.*branch #1/',
             ],
             // Root-level allOf constrains the filtered subproperty with output-type-space keywords.
             'root-level allOf constrains filtered subproperty with output-type constraint' => [
@@ -116,7 +116,7 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
             'filter inside if sub-schema within allOf branch' => [
                 'FilterCompositionFilterInNestedIfBranch.json',
                 '/A filter keyword inside a allOf composition branch is not supported'
-                    . ' for property filteredProperty.*branch #0/',
+                    . ' for property filteredProperty.*branch #1/',
             ],
             // Filter inside a not branch: same $value-reset issue as for array composition keywords.
             'filter inside not branch' => [
@@ -128,13 +128,13 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
             'filter inside anyOf branch' => [
                 'FilterCompositionFilterInAnyOfBranch.json',
                 '/A filter keyword inside a anyOf composition branch is not supported'
-                    . ' for property filteredProperty.*branch #0/',
+                    . ' for property filteredProperty.*branch #1/',
             ],
             // Filter inside a oneOf branch: same $value-reset issue.
             'filter inside oneOf branch' => [
                 'FilterCompositionFilterInOneOfBranch.json',
                 '/A filter keyword inside a oneOf composition branch is not supported'
-                    . ' for property filteredProperty.*branch #0/',
+                    . ' for property filteredProperty.*branch #1/',
             ],
             // Filter inside an if/then/else sub-schema: same $value-reset issue.
             'filter inside if\/then\/else branch' => [
@@ -146,14 +146,14 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
             'filter inside nested allOf\/anyOf branch' => [
                 'FilterCompositionFilterInNestedBranch.json',
                 '/A filter keyword inside a allOf composition branch is not supported'
-                    . ' for property filteredProperty.*branch #0/',
+                    . ' for property filteredProperty.*branch #1/',
             ],
             // Filter inside a not sub-schema within an allOf branch: the recursive scan for
             // SINGLE_COMPOSITION_KEYWORDS descends into not and finds the filter keyword.
             'filter inside not sub-schema within allOf branch' => [
                 'FilterCompositionFilterInNestedNotBranch.json',
                 '/A filter keyword inside a allOf composition branch is not supported'
-                    . ' for property filteredProperty.*branch #0/',
+                    . ' for property filteredProperty.*branch #1/',
             ],
             // anyOf branch spanning both input and output type-spaces is ambiguous.
             'anyOf with single Mixed branch' => [
@@ -166,7 +166,7 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
             'filter in properties of non-object-typed allOf branch' => [
                 'FilterCompositionFilterInNonObjectBranchProperty.json',
                 '/A filter keyword inside a allOf composition branch is not supported'
-                    . ' for property filteredProperty.*branch #0/',
+                    . ' for property filteredProperty.*branch #1/',
             ],
         ];
     }

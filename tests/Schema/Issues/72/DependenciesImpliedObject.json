@@ -1,0 +1,35 @@
+{
+  "definitions": {
+    "identification": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": ["name"]
+        }
+      ]
+    },
+    "extraRequirements": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/identification"
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "creditCard": {
+      "type": "string"
+    }
+  },
+  "dependencies": {
+    "creditCard": {
+      "$ref": "#/definitions/extraRequirements"
+    }
+  }
+}

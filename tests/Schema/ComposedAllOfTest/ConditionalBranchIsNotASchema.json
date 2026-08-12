@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "if": {
+        "type": "string"
+      },
+      "then": "notASchema"
+    }
+  }
+}

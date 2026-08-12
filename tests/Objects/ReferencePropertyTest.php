@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Attributes\SchemaName;
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Exception\FileSystemException;
@@ -906,6 +907,178 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
                 'Object with additional property' => [['name' => 'Hannes', 'age' => 42, 'stringProperty' => 'Hello']],
             ],
         );
+    }
+
+    /**
+     * A base-level $ref (the entire top-level schema is `{"$ref": "..."}`) must transfer not only
+     * the referenced object's properties but also its base validators - the validators attached to
+     * the object itself rather than to one of its properties (additionalProperties, minProperties,
+     * maxProperties). Before RefResolver::resolveBaseReference() copied getBaseValidators()
+     * onto the referencing schema, all three were silently dropped: additional properties were
+     * accepted, and neither properties count boundary was enforced.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testBaseLevelReferenceTransfersObjectBaseValidators(): void
+    {
+        $className = $this->generateClassFromFile('BaseReferenceObjectValidators.json');
+
+        // Accepted: exactly one known property satisfies minProperties = maxProperties = 1
+        $object = new $className(['name' => 'Hannes']);
+        $this->assertSame('Hannes', $object->getName());
+
+        // Rejected: additionalProperties = false must still reject a property unknown to the
+        // referenced definition, even though the property arrived via a base-level $ref.
+        // These base validators carry the referenced Person class's own generated (uniqid-suffixed)
+        // class name as their "property name" placeholder rather than the referencing class's name -
+        // the validator instance is transferred as-is, not rebuilt for the new context - so the
+        // quoted identifier is matched by pattern instead of asserted verbatim.
+        try {
+            new $className(['extra' => 1]);
+            $this->fail('Expected AdditionalPropertiesException');
+        } catch (ValidationException $exception) {
+            $this->assertMatchesRegularExpression(
+                "/^Provided JSON for '.+' contains not allowed additional properties \['extra'\]\$/",
+                $exception->getMessage(),
+            );
+        }
+
+        // Rejected: minProperties = 1 must still reject an empty object
+        try {
+            new $className([]);
+            $this->fail('Expected MinPropertiesException');
+        } catch (ValidationException $exception) {
+            $this->assertMatchesRegularExpression(
+                "/^Provided object for '.+' must not contain less than 1 properties\$/",
+                $exception->getMessage(),
+            );
+        }
+
+        // Rejected: maxProperties = 1 must still reject two known properties provided together
+        try {
+            new $className(['name' => 'Hannes', 'age' => 30]);
+            $this->fail('Expected MaxPropertiesException');
+        } catch (ValidationException $exception) {
+            $this->assertMatchesRegularExpression(
+                "/^Provided object for '.+' must not contain more than 1 properties\$/",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * A base-level $ref to a target schema which is itself a root-level composition (`allOf`) must
+     * enforce that composition at construction time. Before RefResolver::resolveBaseReference()
+     * copied getBaseValidators() onto the referencing schema, the allOf branch's own base validator
+     * never ran for the referencing class: the class still constructed successfully, and the
+     * missing required property only surfaced later as a PHP TypeError from the typed getter.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testBaseLevelReferenceToRootCompositionEnforcesCompositionAtConstruction(): void
+    {
+        $className = $this->generateClassFromFile('BaseReferenceRootComposition.json');
+
+        // Accepted: the allOf branch's required property is provided
+        $object = new $className(['name' => 'Hannes']);
+        $this->assertSame('Hannes', $object->getName());
+
+        // Rejected: the allOf branch requires 'name'; construction must fail immediately instead of
+        // succeeding and only failing later when the typed getName() getter is called. The
+        // transferred composition validator reports the referenced definition's own generated class
+        // name, which carries a per-run suffix, so only that identifier is matched by pattern.
+        try {
+            new $className([]);
+            $this->fail('Expected AllOfException');
+        } catch (AllOfException $exception) {
+            $this->assertMatchesRegularExpression(
+                <<<'REGEX'
+                /^Invalid value for '\w+_Composed\w*' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    \* Missing required value for 'name'$/
+                REGEX,
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * Two schema files whose ROOT compositions reference each other must still generate.
+     *
+     * SchemaProcessor::checkObjectRepresentability() classifies the root before any property is
+     * processed, and that classification peeks through `$ref` chains - for a cross-file reference
+     * the peek runs the real SchemaDefinitionDictionary::parseExternalFile(), which processes the
+     * target eagerly. The peek therefore re-enters the SchemaProcessor, which
+     * ObjectShapeResolver's own $visitedReferences cycle guard cannot see: it is local to one
+     * classify() call. Only the file-path registration performed before the check stops the
+     * mutual references from recursing until the stack is exhausted.
+     *
+     * Neither file declares any property, so the pair is deliberately degenerate - what is being
+     * asserted is that generation terminates and yields one class per file.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testMutuallyReferencingRootCompositionsGenerateWithoutRecursingInfinitely(): void
+    {
+        $namespace = 'MutuallyReferencingRootCompositions';
+        $this->generateDirectory('MutuallyReferencingRootCompositions', $this->directoryConfig($namespace));
+
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $aClass = "\\{$namespacePrefix}\\A";
+        $bClass = "\\{$namespacePrefix}\\B";
+
+        $this->assertInstanceOf($aClass, new $aClass([]));
+        $this->assertInstanceOf($bClass, new $bClass([]));
+    }
+
+    /**
+     * A recursive cross-file schema pair - A's root is an `allOf` of a `$ref` to B, and B has a
+     * property referencing A back - must produce exactly one class per file.
+     *
+     * The reference from B back to A is resolved while A's own representability check is still
+     * running (that check's `$ref` peek is what triggers B's eager processing in the first place),
+     * so A must already be registered in processedFileSchemas by then. Otherwise
+     * parseExternalFile()'s dedup short-circuit misses and A is processed a second time,
+     * failing with "File A.php already exists. Make sure object IDs are unique."
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testMutuallyRecursiveCrossFileSchemasProduceOneClassPerFile(): void
+    {
+        $namespace = 'MutuallyRecursiveCrossFileSchemas';
+        $this->generateDirectory('MutuallyRecursiveCrossFileSchemas', $this->directoryConfig($namespace));
+
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $aClass = "\\{$namespacePrefix}\\A";
+
+        // A's root $ref transfers B's properties onto A, so A exposes both of them directly.
+        $object = new $aClass([
+            'name' => 'Hannes',
+            'parent' => ['name' => 'Dieter'],
+        ]);
+
+        $this->assertSame('Hannes', $object->getName());
+
+        // Both files plus the single nested class the recursive property resolves to - three
+        // classes, not a second copy of A.
+        $this->assertCount(3, $this->getGeneratedFiles());
+
+        // The class closing the cycle carries the referenced composition but no accessors of its
+        // own. That is a pre-existing limitation of recursive cross-file references (master
+        // generates the identical class), asserted here so that this test pins only the
+        // one-class-per-file guarantee and any future improvement surfaces as a named failure
+        // rather than silently changing what this test appears to cover.
+        $this->assertIsObject($object->getParent());
+        $this->assertFalse(method_exists($object->getParent(), 'getName'));
     }
 
     // -------------------------------------------------------------------------

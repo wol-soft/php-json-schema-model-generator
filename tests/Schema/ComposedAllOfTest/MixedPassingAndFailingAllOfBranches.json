@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": "string",
+      "allOf": [
+        {
+          "minLength": 10
+        },
+        {
+          "maxLength": 5
+        },
+        {
+          "pattern": "^[0-9]+$"
+        }
+      ]
+    }
+  }
+}

@@ -46,6 +46,8 @@ class GeneratorConfiguration
     /** @var bool */
     protected $allowImplicitNull = false;
     /** @var bool */
+    protected $allowImplicitObjectComposition = false;
+    /** @var bool */
     protected $defaultArraysToEmptyArray = false;
     /** @var bool */
     protected $denyAdditionalProperties = false;
@@ -387,6 +389,32 @@ class GeneratorConfiguration
     public function setImplicitNull(bool $allowImplicitNull): self
     {
         $this->allowImplicitNull = $allowImplicitNull;
+
+        return $this;
+    }
+
+    public function isImplicitObjectCompositionAllowed(): bool
+    {
+        return $this->allowImplicitObjectComposition;
+    }
+
+    /**
+     * By default a composition defining its own generated class (a schema file's root, or a
+     * $ref target parsed as a top-level schema in its own right) must resolve to a definite
+     * object - a composition that only constrains object shape without ever declaring
+     * `type: object` is vacuously satisfied by non-object input too, so it cannot faithfully back
+     * a generated class and raises a SchemaException. Enabling this treats such a composition
+     * exactly as if it had declared `type: object` itself.
+     *
+     * Scoped to compositions on purpose, and this flag does not widen that scope: a root carrying
+     * only object keywords (e.g. a bare `properties`/`required` schema) with no composition
+     * keyword, no `$ref` and no `type` is not a composition at all. SchemaProcessor's own gate
+     * skips such a root before the representability check ever sees it, so it produces no class
+     * and no diagnostic under either setting of this flag.
+     */
+    public function setImplicitObjectComposition(bool $allowImplicitObjectComposition): self
+    {
+        $this->allowImplicitObjectComposition = $allowImplicitObjectComposition;
 
         return $this;
     }

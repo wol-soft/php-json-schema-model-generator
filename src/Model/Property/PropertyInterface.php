@@ -162,14 +162,40 @@ interface PropertyInterface extends ResolvableInterface
     public function isInternal(): bool;
 
     /**
-     * Set a nested schema
+     * Attach the single generated PHP class whose instances represent this property's value
+     * whenever the value is an object.
+     *
+     * Contract: the nested schema is an identity/representation link, not a validation
+     * container - it names which class represents object values, it does not by itself assert
+     * that the value must be an object. A non-null nested schema alone is therefore NOT proof
+     * that the property is definitively object-typed: PropertyFactory::createObjectProperty()
+     * also sets a nested schema on a guarded, object-*describing* property (a bare
+     * `properties`/`required` shape with no `type`), which is deliberately built to let
+     * non-object values pass through unchanged (see `ObjectModifier(asserting: false)`) - the
+     * value can vacuously satisfy such a branch without being an object at all.
+     *
+     * "Definitively object-typed with exactly one representing class" is signaled by the
+     * COMBINATION of a non-null nested schema and a non-null `getType()`: the guarded/describing
+     * wiring above resets the property's type to null precisely because it does not assert
+     * object-ness, while an asserting branch (an explicit `type: object` schema, or a
+     * composition that asserts object-ness) carries both a nested schema and a non-null,
+     * object-only type. Consumers that need the "definitively an object" guarantee - e.g.
+     * assertNoObjectScalarTypeConflict() in AbstractCompositionValidatorFactory - must check
+     * both signals together, not `getNestedSchema() !== null` alone.
      *
      * @return PropertyInterface
      */
     public function setNestedSchema(Schema $schema);
 
     /**
-     * Get a nested schema if a schema was appended to the property
+     * Get the single generated class representing this property's object values.
+     *
+     * `null` means no single class represents the property's object values: the property is
+     * either not exclusively object-valued, or (anyOf/oneOf compositions) its object values
+     * are represented by branch-owned classes - each reachable via the corresponding branch
+     * property of the property's composed validator, which is deliberately NOT flattened into
+     * a list here: a multi-class accessor would break the "non-null implies exactly one
+     * representing class" inference consumers depend on.
      */
     public function getNestedSchema(): ?Schema;
 

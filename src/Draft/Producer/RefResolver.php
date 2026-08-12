@@ -11,6 +11,7 @@ use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
@@ -117,6 +118,15 @@ class RefResolver implements PropertyProducerInterface
                 return $property;
             }
         } catch (Exception $exception) {
+            // A failure raised while eagerly generating the REFERENCED schema's own class already
+            // names that schema and the real cause, so replacing it with "Unresolved Reference"
+            // would blame the reference site for a fault in its target - the reference resolved
+            // perfectly well. Only a genuine resolution failure (missing file, malformed JSON)
+            // means the reference itself is broken, which is what the message below says.
+            if ($exception instanceof SchemaException && $exception->isReferencedSchemaFailure()) {
+                throw $exception;
+            }
+
             throw new SchemaException(
                 "Unresolved Reference $reference in file {$propertySchema->getFile()}",
                 null,
@@ -171,6 +181,21 @@ class RefResolver implements PropertyProducerInterface
         );
 
         if (!$property->getNestedSchema()) {
+            // A referenced schema that is an anyOf/oneOf composition (or a non-object-asserting
+            // allOf) deliberately has NO single nested schema, per
+            // PropertyInterface::getNestedSchema(): its object values are represented by
+            // branch-owned classes reachable through $property's own composed validator instead.
+            // Transfer that composition to $schema exactly as a composition sitting directly on
+            // this class would be - do NOT special-case this to the allOf shape below; the
+            // mechanism is identical regardless of which composition keyword produced the
+            // validator. Without this, a base-level $ref to such a schema is refused outright even
+            // though the same composition written inline generates fine.
+            if ($this->hasComposedPropertyValidator($property)) {
+                $schemaProcessor->transferComposedPropertiesToSchema($property, $schema);
+
+                return $property;
+            }
+
             throw new SchemaException(
                 sprintf(
                     'A referenced schema on base level must provide an object definition for property %s in file %s',
@@ -178,6 +203,18 @@ class RefResolver implements PropertyProducerInterface
                     $propertySchema->getFile(),
                 )
             );
+        }
+
+        // A referenced schema that is itself a composition (e.g. an allOf of further $refs, as
+        // built by the object-shape re-routing) enforces requiredness and cross-branch constraints
+        // via its OWN base validator, not via validators attached to the individual transferred
+        // properties - those are merged/redirected and carry no validation of their own. The same
+        // holds for object-level keywords (additionalProperties, minProperties, propertyNames),
+        // which live on the referenced schema's base validators rather than on any property.
+        // Without transferring them here, a base-level $ref silently drops every constraint that
+        // is not attached to an individual property.
+        foreach ($property->getNestedSchema()->getBaseValidators() as $baseValidator) {
+            $schema->addBaseValidator($baseValidator);
         }
 
         foreach ($property->getNestedSchema()->getProperties() as $refProperty) {
@@ -196,5 +233,21 @@ class RefResolver implements PropertyProducerInterface
         }
 
         return $property;
+    }
+
+    /**
+     * Returns true when $property carries a composition validator (allOf/anyOf/oneOf/if-then-else)
+     * among its own validators - the shape a base-level $ref to a disjunctive composition takes
+     * (see PropertyInterface::getNestedSchema()).
+     */
+    private function hasComposedPropertyValidator(PropertyInterface $property): bool
+    {
+        foreach ($property->getValidators() as $validator) {
+            if (is_a($validator->getValidator(), AbstractComposedPropertyValidator::class)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

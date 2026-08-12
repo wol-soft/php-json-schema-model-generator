@@ -29,6 +29,18 @@
     }
 {% endif %}
 
+{% if not generatorConfiguration.collectErrors() and not isMutableBaseValidator %}
+    {#
+        Mirror the collect-errors path: every branch - not just failing ones - must contribute an
+        entry to $compositionErrorCollection so InvalidComposedValueException::getErrorMessage()
+        numbers elements by their real schema position instead of by position among failures. A
+        branch reaching this point ran to completion without throwing, so it is valid; an empty
+        ErrorRegistryException renders as "Valid". The failing counterpart is appended in the
+        catch block in ComposedItem.phptpl.
+    #}
+    $compositionErrorCollection[] = new \PHPModelGenerator\Exception\ErrorRegistryException();
+{% endif %}
+
 {% if postPropose %}
     $proposedValue = $proposedValue ?? $value;
 {% endif %}

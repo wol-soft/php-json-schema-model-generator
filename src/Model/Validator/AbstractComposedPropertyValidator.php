@@ -87,10 +87,14 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
             }
 
             foreach ($compositionProperty->getNestedSchema()->getProperties() as $branchProperty) {
-                // Internal bookkeeping properties (eg. _skipNotProvidedPropertiesMap added by
-                // SerializationPostProcessor) are never real branch data - they don't get a
-                // getter generated, and their default values must not be misread as a branch
-                // default to track.
+                // Internal machinery properties are never real branch data and must not be
+                // transferred as a branch default of the outer composition. This covers both the
+                // composition state tracker propertyValidationState of a re-routed composition
+                // branch class and bookkeeping properties such as _skipNotProvidedPropertiesMap
+                // added by SerializationPostProcessor - neither gets a getter generated, and
+                // misreading their default values as a branch default both clobbers the outer
+                // schema's own internal attributes and, for a mixed object/scalar composition,
+                // feeds a non-array scalar input into the branch-default array_key_exists lookup.
                 if ($branchProperty->isInternal()) {
                     continue;
                 }
