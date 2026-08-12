@@ -27,6 +27,8 @@ class AllOfValidatorFactory
             return;
         }
 
+        $this->assertCompositionBranchesAreWellFormed($property, $propertySchema);
+
         if (in_array(false, $propertySchema->getJson()[$this->key], true)) {
             $this->warnIfAlwaysFalse(
                 $schemaProcessor,

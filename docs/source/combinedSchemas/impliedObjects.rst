@@ -118,14 +118,22 @@ rejected:
     Invalid nested object for property 'person':
       - Missing required value for 'name'
 
-The generator emits a generation-time warning for every object-describing schema, wherever it
-appears — since it is easy to write one by accident (forgetting ``"type": "object"``) and get
-silent pass-through instead of the intended validation:
+The generator emits a generation-time warning for an object-describing property, array item or
+composition branch — since it is easy to write one by accident (forgetting ``"type": "object"``)
+and get silent pass-through instead of the intended validation:
 
 .. code-block:: none
 
     Property 'person' carries object-constraining keywords (eg. 'properties', 'required')
     without a 'type' declaration and does not constrain non-object values
+
+.. note::
+
+    A schema ``dependencies`` value is the one site that does **not** take part in this: an
+    untyped dependency schema has ``"type": "object"`` forced onto it before any classification
+    happens, so it is treated as object-*asserting* — a non-object value is rejected rather than
+    passed through — and no warning is emitted. Declare ``"type": "object"`` explicitly there to
+    make what you get match what you wrote.
 
 .. note::
 
@@ -176,7 +184,8 @@ Array items and other schema-creation contexts
 
 Composition-implied object detection applies everywhere a subschema is turned into a property or
 class, not just to named object properties — array ``items``, schema ``dependencies`` values, and
-base-level ``$ref`` schema files all resolve object-ness the same way:
+base-level ``$ref`` schema files all resolve *composition-implied* object-ness the same way (the
+object-describing case is the exception noted above: ``dependencies`` force-asserts it):
 
 .. code-block:: json
 
@@ -235,6 +244,22 @@ representation this generated class could produce for it. Generation is rejected
     Composition for 'Example' in file '...' does not resolve to a definite object and cannot be
     represented as a generated class: add an explicit '"type": "object"' constraint, or enable
     'GeneratorConfiguration::setImplicitObjectComposition(true)' to accept it
+
+A composition that resolves to no object at all — one containing a scalar-typed branch, a vacuous
+branch such as ``true`` or ``{}``, no branches at all, or a root ``type`` listing more than just
+``"object"`` — is rejected too, but with the second half of the message replaced:
+
+.. code-block:: none
+
+    Composition for 'Example' in file '...' does not resolve to a definite object and cannot be
+    represented as a generated class: if every value it accepts is meant to be an object, declare
+    '"type": "object"' on the schema itself
+
+The opt-in flag is deliberately not offered there: it widens acceptance from object-asserting to
+object-describing and no further, so it cannot rescue a composition that genuinely accepts
+non-object values. Declaring the type does resolve it, but unlike the object-describing case it
+*changes* which values the schema accepts rather than stating what it already means — which is why
+the message makes it conditional rather than an instruction.
 
 Declaring ``"type": "object"`` on the schema itself always resolves it to a definite object
 regardless of what its branches declare — the explicit type is the assertion, and the branches

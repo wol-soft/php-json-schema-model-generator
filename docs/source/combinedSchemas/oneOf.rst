@@ -84,7 +84,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\One
 
 .. hint::
 
-    When combining multiple nested objects with an `oneOf` composition a `merged property <mergedProperty.html>`__ will be generated
+    When combining multiple nested objects with a `oneOf` composition no `merged property <mergedProperty.html>`__ is generated: exactly one branch matches, so the value keeps that branch's own class. The property stays `mixed` and its annotation lists the branch classes as a union.
 
 .. hint::
 

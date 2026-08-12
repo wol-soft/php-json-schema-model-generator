@@ -122,6 +122,70 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
+    /**
+     * A composition keyword whose value is not a list of branch schemas must be rejected at
+     * generation time rather than reaching the branch processing that assumes it is one.
+     *
+     * Both defects otherwise surface only as a raw PHP error from deep inside the pipeline: object
+     * branch keys make every branch-numbering site compute `$index + 1` on a string, and a branch
+     * that is not a schema is indexed into as an array. The keyword is varied across the rows so
+     * the guard is pinned as wired into all three list-shaped composition factories, not just the
+     * one it is implemented for.
+     */
+    #[DataProvider('malformedCompositionKeywordDataProvider')]
+    public function testMalformedCompositionKeywordIsRejectedAtGenerationTime(
+        string $schemaFile,
+        string $expectedMessagePattern,
+    ): void {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches($expectedMessagePattern);
+
+        $this->generateClassFromFile($schemaFile);
+    }
+
+    public static function malformedCompositionKeywordDataProvider(): array
+    {
+        return [
+            // A JSON object instead of an array: the branches carry string keys. This row's branch
+            // is object-asserting, so the property is first re-routed through the object path and
+            // the malformed keyword is only reached inside the generated nested class - which is
+            // why the reported identifier is that class rather than 'property'. Worth keeping in
+            // that shape: the re-route runs ObjectShapeResolver over the same malformed keyword
+            // first, so it also pins that the classifier tolerates it instead of raising a
+            // TypeError of its own before the guard below is ever reached.
+            'allOf given as an object' => [
+                'CompositionKeywordAsObject.json',
+                "/^Composition keyword 'allOf' for property '\\w+' in file .*\\.json must be a list of"
+                    . ' branch schemas at line \\d+, column \\d+$/',
+            ],
+            'oneOf given as an object' => [
+                'CompositionKeywordAsObjectOneOf.json',
+                "/^Composition keyword 'oneOf' for property 'property' in file .*\\.json must be a list of"
+                    . ' branch schemas at line \\d+, column \\d+$/',
+            ],
+            // A list, but one entry is a bare string rather than a schema or a boolean. The branch
+            // is reported 1-based, matching the composition element numbering everywhere else.
+            'anyOf branch is not a schema' => [
+                'CompositionBranchIsNotASchema.json',
+                "/^Branch #2 of composition keyword 'anyOf' for property 'property' in file .*\\.json must be"
+                    . ' a schema or a boolean, got string at line \\d+, column \\d+$/',
+            ],
+            // The single-schema keywords take one branch rather than a list, so they carry no
+            // branch index - but a scalar there is the same defect and must not reach the type
+            // inheritance that indexes into it.
+            'not is not a schema' => [
+                'SingleBranchKeywordIsNotASchema.json',
+                "/^Composition keyword 'not' for property 'property' in file .*\\.json must be a schema or a"
+                    . ' boolean, got string at line \\d+, column \\d+$/',
+            ],
+            'conditional then is not a schema' => [
+                'ConditionalBranchIsNotASchema.json',
+                "/^Composition keyword 'then' for property 'property' in file .*\\.json must be a schema or a"
+                    . ' boolean, got string at line \\d+, column \\d+$/',
+            ],
+        ];
+    }
+
     #[DataProvider('implicitNullDataProvider')]
     public function testCompositionTypes(bool $implicitNull): void
     {

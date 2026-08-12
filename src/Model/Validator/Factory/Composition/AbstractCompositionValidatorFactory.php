@@ -49,6 +49,97 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     }
 
     /**
+     * Reject a composition keyword whose value is not a list of branch schemas before anything
+     * downstream indexes into it.
+     *
+     * Both defects are otherwise only noticed as a raw PHP error deep inside the pipeline, which
+     * the "reject invalid schemas at generation time" contract rules out:
+     *
+     * - a keyword given as a JSON object rather than an array (`{"allOf": {"first": {...}}}`)
+     *   yields string branch keys, and every branch-numbering site computes `$index + 1` on them
+     *   ("Unsupported operand types: string + int");
+     * - a branch that is not a schema at all (`{"allOf": ["notASchema"]}`) is indexed into as an
+     *   array by the branch processing that follows.
+     *
+     * Only the list-shaped keywords (allOf/anyOf/oneOf) call this. `not` and `if`/`then`/`else`
+     * take a single branch schema rather than an array, so neither defect applies to them.
+     *
+     * @throws SchemaException
+     */
+    protected function assertCompositionBranchesAreWellFormed(
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+    ): void {
+        $branches = $propertySchema->getJson()[$this->key];
+
+        if (!is_array($branches) || !array_is_list($branches)) {
+            throw new SchemaException(
+                sprintf(
+                    "Composition keyword '%s' for property '%s' in file %s must be a list of branch schemas",
+                    $this->key,
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile(),
+                ),
+                $property->getJsonSchema(),
+            );
+        }
+
+        foreach ($branches as $index => $branch) {
+            if (!is_array($branch) && !is_bool($branch)) {
+                throw new SchemaException(
+                    sprintf(
+                        "Branch #%d of composition keyword '%s' for property '%s' in file %s must be a schema"
+                            . ' or a boolean, got %s',
+                        $index + 1,
+                        $this->key,
+                        $property->getName(),
+                        $property->getJsonSchema()->getFile(),
+                        gettype($branch),
+                    ),
+                    $property->getJsonSchema(),
+                );
+            }
+        }
+    }
+
+    /**
+     * Reject a single-schema composition keyword whose value is neither a schema nor a boolean.
+     *
+     * The array-shaped counterpart of assertCompositionBranchesAreWellFormed(), for the keywords
+     * that take one branch instead of a list: `not`, and `if`/`then`/`else`. A scalar there is
+     * indexed into as an array by the type inheritance that follows, which surfaces as a raw
+     * TypeError from JsonSchema rather than a schema error naming the offending keyword.
+     *
+     * @param string[] $keywords
+     *
+     * @throws SchemaException
+     */
+    protected function assertSingleBranchSchemasAreWellFormed(
+        PropertyInterface $property,
+        JsonSchema $propertySchema,
+        array $keywords,
+    ): void {
+        $json = $propertySchema->getJson();
+
+        foreach ($keywords as $keyword) {
+            if (!array_key_exists($keyword, $json) || is_array($json[$keyword]) || is_bool($json[$keyword])) {
+                continue;
+            }
+
+            throw new SchemaException(
+                sprintf(
+                    "Composition keyword '%s' for property '%s' in file %s must be a schema or a boolean, got %s",
+                    $keyword,
+                    $property->getName(),
+                    $property->getJsonSchema()->getFile(),
+                    gettype($json[$keyword]),
+                ),
+                $property->getJsonSchema(),
+            );
+        }
+    }
+
+    /**
      * Emit a warning when the composition array for the current keyword is empty.
      */
     protected function warnIfEmpty(
@@ -689,12 +780,47 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             static fn(CompositionPropertyDecorator $compositionProperty): bool =>
                 $compositionProperty->getNestedSchema() === null
                 && $compositionProperty->getType() !== null
-                && !$compositionProperty->isAlwaysTrueBranch(),
+                && !$compositionProperty->isAlwaysTrueBranch()
+                && !self::branchPermitsObjectValues($compositionProperty),
         ) !== [];
 
         if ($hasConflictingScalarBranch) {
             self::throwConflictingAllOfTypesException($property);
         }
+    }
+
+    /**
+     * Whether $branch's own declared `type` lists "object" among the types it accepts.
+     *
+     * A branch reaching assertNoObjectScalarTypeConflict()'s scalar filter has no nested schema,
+     * which for a single-typed branch does mean it is scalar - but a MULTI-type declaration such
+     * as `["object", "null"]` has none either: PropertyFactory::createMultiTypeProperty() sets the
+     * nested schema on the object SUB-property it builds, and that sub-property is reachable only
+     * through a PropertyTransferDecorator, never from the branch. Reading the declared type is
+     * therefore the only way to tell a genuinely scalar branch from one that accepts objects too.
+     * Without it, `allOf: [<object branch>, {"type": ["object", "null"]}]` - satisfiable by any
+     * object, and the canonical "referenced type, but nullable" shape - is rejected as
+     * unsatisfiable.
+     *
+     * Deliberately NOT decided via ObjectShapeResolver: that answers "does this branch ASSERT
+     * object-ness", which a multi-type branch deliberately does not (it classifies as Blocking
+     * there, precisely so a sibling is not routed through the object path on its account). The
+     * question here is the weaker "can an object satisfy this branch at all", and conflating the
+     * two is what produces the false rejection above.
+     *
+     * Both schemas are consulted because they carry the declaration for different branch shapes:
+     * getBranchSchema() holds an inline `type`, while getJsonSchema() proxies to the resolved
+     * target of a `$ref` branch, which is where that branch's `type` actually lives.
+     */
+    private static function branchPermitsObjectValues(CompositionPropertyDecorator $branch): bool
+    {
+        foreach ([$branch->getBranchSchema(), $branch->getJsonSchema()] as $branchSchema) {
+            if (in_array('object', (array) ($branchSchema->getJson()['type'] ?? []), true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

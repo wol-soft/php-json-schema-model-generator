@@ -913,7 +913,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
      * A base-level $ref (the entire top-level schema is `{"$ref": "..."}`) must transfer not only
      * the referenced object's properties but also its base validators - the validators attached to
      * the object itself rather than to one of its properties (additionalProperties, minProperties,
-     * maxProperties). Before PropertyFactory::processBaseReference() copied getBaseValidators()
+     * maxProperties). Before RefResolver::resolveBaseReference() copied getBaseValidators()
      * onto the referencing schema, all three were silently dropped: additional properties were
      * accepted, and neither properties count boundary was enforced.
      *
@@ -970,7 +970,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * A base-level $ref to a target schema which is itself a root-level composition (`allOf`) must
-     * enforce that composition at construction time. Before PropertyFactory::processBaseReference()
+     * enforce that composition at construction time. Before RefResolver::resolveBaseReference()
      * copied getBaseValidators() onto the referencing schema, the allOf branch's own base validator
      * never ran for the referencing class: the class still constructed successfully, and the
      * missing required property only surfaced later as a PHP TypeError from the typed getter.
@@ -1005,6 +1005,80 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
                 $exception->getMessage(),
             );
         }
+    }
+
+    /**
+     * Two schema files whose ROOT compositions reference each other must still generate.
+     *
+     * SchemaProcessor::checkObjectRepresentability() classifies the root before any property is
+     * processed, and that classification peeks through `$ref` chains - for a cross-file reference
+     * the peek runs the real SchemaDefinitionDictionary::parseExternalFile(), which processes the
+     * target eagerly. The peek therefore re-enters the SchemaProcessor, which
+     * ObjectShapeResolver's own $visitedReferences cycle guard cannot see: it is local to one
+     * classify() call. Only the file-path registration performed before the check stops the
+     * mutual references from recursing until the stack is exhausted.
+     *
+     * Neither file declares any property, so the pair is deliberately degenerate - what is being
+     * asserted is that generation terminates and yields one class per file.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testMutuallyReferencingRootCompositionsGenerateWithoutRecursingInfinitely(): void
+    {
+        $namespace = 'MutuallyReferencingRootCompositions';
+        $this->generateDirectory('MutuallyReferencingRootCompositions', $this->directoryConfig($namespace));
+
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $aClass = "\\{$namespacePrefix}\\A";
+        $bClass = "\\{$namespacePrefix}\\B";
+
+        $this->assertInstanceOf($aClass, new $aClass([]));
+        $this->assertInstanceOf($bClass, new $bClass([]));
+    }
+
+    /**
+     * A recursive cross-file schema pair - A's root is an `allOf` of a `$ref` to B, and B has a
+     * property referencing A back - must produce exactly one class per file.
+     *
+     * The reference from B back to A is resolved while A's own representability check is still
+     * running (that check's `$ref` peek is what triggers B's eager processing in the first place),
+     * so A must already be registered in processedFileSchemas by then. Otherwise
+     * parseExternalFile()'s dedup short-circuit misses and A is processed a second time,
+     * failing with "File A.php already exists. Make sure object IDs are unique."
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testMutuallyRecursiveCrossFileSchemasProduceOneClassPerFile(): void
+    {
+        $namespace = 'MutuallyRecursiveCrossFileSchemas';
+        $this->generateDirectory('MutuallyRecursiveCrossFileSchemas', $this->directoryConfig($namespace));
+
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $aClass = "\\{$namespacePrefix}\\A";
+
+        // A's root $ref transfers B's properties onto A, so A exposes both of them directly.
+        $object = new $aClass([
+            'name' => 'Hannes',
+            'parent' => ['name' => 'Dieter'],
+        ]);
+
+        $this->assertSame('Hannes', $object->getName());
+
+        // Both files plus the single nested class the recursive property resolves to - three
+        // classes, not a second copy of A.
+        $this->assertCount(3, $this->getGeneratedFiles());
+
+        // The class closing the cycle carries the referenced composition but no accessors of its
+        // own. That is a pre-existing limitation of recursive cross-file references (master
+        // generates the identical class), asserted here so that this test pins only the
+        // one-class-per-file guarantee and any future improvement surfaces as a named failure
+        // rather than silently changing what this test appears to cover.
+        $this->assertIsObject($object->getParent());
+        $this->assertFalse(method_exists($object->getParent(), 'getName'));
     }
 
     // -------------------------------------------------------------------------

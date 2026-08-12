@@ -11,7 +11,6 @@ use PHPModelGenerator\Attributes\ReadOnlyProperty;
 use PHPModelGenerator\Attributes\Required;
 use PHPModelGenerator\Attributes\SchemaName;
 use PHPModelGenerator\Attributes\WriteOnlyProperty;
-use Exception;
 use PHPModelGenerator\Draft\Modifier\ObjectType\ObjectModifier;
 use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
 use PHPModelGenerator\Draft\Producer\PropertyProducerInterface;

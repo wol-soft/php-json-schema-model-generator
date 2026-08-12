@@ -1,11 +1,18 @@
 Merged Property
 ===============
 
-If multiple subschemas are combined with `oneOf`, `anyOf` or `allOf` and the subschemas contain multiple nested objects all properties of the nested objects will be merged together in a single object representing all composition elements.
+If multiple subschemas are combined with `anyOf` and the subschemas contain multiple nested objects all properties of the nested objects will be merged together in a single object representing all composition elements.
 
 If the composition is used on object level no merged property will be generated as the object itself works as a merged property holding all properties of the nested objects from the composition subschemas.
 
-For example we combine two objects with `allOf` for an object property:
+.. note::
+
+    `anyOf` is the only composition keyword that produces a merged property. The other two reach a single class by a different route, or not at all:
+
+    - `allOf` of object branches guarantees that every valid value is an object, so the property is routed through the ordinary object path and typed with a regular nested class instead — see `Composition-implied objects <impliedObjects.html>`__ and the comparison below.
+    - `oneOf` matches exactly one branch, so the value keeps that branch's own class; the property stays `mixed` and its annotation lists the branch classes as a union.
+
+For example we combine two objects with `anyOf` for an object property:
 
 .. code-block:: json
 
@@ -14,8 +21,7 @@ For example we combine two objects with `allOf` for an object property:
         "type": "object",
         "properties": {
             "ceo": {
-                "$id": "CEO",
-                "allOf": [
+                "anyOf": [
                     {
                         "type": "object",
                         "properties": {
@@ -37,30 +43,44 @@ For example we combine two objects with `allOf` for an object property:
         }
     }
 
-This schema will generate four classes. The main class will be `Company`, two classes to validate the subschemas combined with the `allOf` independent and one merged class containing all properties of the CEO (name and age in this example).
-As the subschemas don't contain IDs they will be named with uniqIds (compare the `naming of classes <../complexTypes/object.html#naming>`__):
+This schema will generate four classes. The main class will be `Company`, two classes to validate the subschemas combined with the `anyOf` independent and one merged class containing all properties of the CEO (name and age in this example).
+As the subschemas don't contain IDs they will be named with a hash of their content (compare the `naming of classes <../complexTypes/object.html#naming>`__):
 
 * Company.php
-* Company_Ceo5e4a82e39edc3.php
-* Company_Ceo5e4a82e39fe37.php
-* Company_Merged_CEO.php
+* Company_Ceo91970cbb844ec1beb624eaa26295bd8d.php
+* Company_Ceoc51f76a84e24113bdb256d8bab180156.php
+* Company_Merged_Ceo.php
 
-If the allOf doesn't contain an $id field the merged class will also contain an uniqId. So if you want to use the class with a reproducible class name you must set the $id field.
-The classes Company_Ceo5e4a82e39edc3 and Company_Ceo5e4a82e39fe37 are only used for internal validation and can't be accessed via the generated interface of Company.
+The classes Company_Ceo91970cbb844ec1beb624eaa26295bd8d and Company_Ceoc51f76a84e24113bdb256d8bab180156 are only used for internal validation and can't be accessed via the generated interface of Company.
 
 Generated interface:
 
 .. code-block:: php
 
     # class Company
-    public function setCeo(Company_Merged_CEO $example): static;
-    public function getCeo(): ?Company_Merged_CEO;
+    public function setCeo(mixed $ceo): static;
 
-    # class Company_Merged_CEO
+    /** @return Company_Merged_Ceo|null */
+    public function getCeo(): mixed;
+
+    # class Company_Merged_Ceo
     public function getName(): ?string
     public function setName(string $name): static
     public function getAge(): ?int
     public function setAge(int $age): static
+
+The accessors stay ``mixed`` — an `anyOf` does not guarantee that a matching value is an object — so the merged class is named in the annotation instead of the signature. Combine the same two objects with `allOf` and no merged class is created at all: the composition does guarantee an object, so it is routed through the object path and the property is typed with a single regular nested class:
+
+* Company.php
+* Company_Ceo.php
+* Company_Company_Ceo91970cbb844ec1beb624eaa26295bd8d.php
+* Company_Company_Ceoc51f76a84e24113bdb256d8bab180156.php
+
+.. code-block:: php
+
+    # class Company
+    public function setCeo(Company_Ceo $ceo): static;
+    public function getCeo(): ?Company_Ceo;
 
 If your composition is defined on object level the object will gain access to all properties of the combined schemas:
 
@@ -91,9 +111,9 @@ If your composition is defined on object level the object will gain access to al
 
 This schema will generate three classes as no merged property is created. The main class will be `CEO` and two classes will be generated to validate the subschemas combined with the `allOf` independent:
 
-* Ceo.php
-* Ceo_Ceo5e4a82e39edc3.php
-* Ceo_Ceo5e4a82e39fe37.php
+* CEO.php
+* CEO_CEO91970cbb844ec1beb624eaa26295bd8d.php
+* CEO_CEOc51f76a84e24113bdb256d8bab180156.php
 
 .. code-block:: php
 

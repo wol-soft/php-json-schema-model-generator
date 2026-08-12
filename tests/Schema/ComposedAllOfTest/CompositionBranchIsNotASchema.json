@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        "notASchema"
+      ]
+    }
+  }
+}

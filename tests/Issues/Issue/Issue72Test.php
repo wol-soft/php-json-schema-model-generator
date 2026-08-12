@@ -764,18 +764,66 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
+     * A schema `dependencies` value carrying only object-constraining keywords is the one site that
+     * does NOT get the object-describing treatment a property or array item gets:
+     * PropertyDependencyTrait::addDependencyValidator() forces `type: object` onto an untyped
+     * dependency schema before any classification runs, so the schema is treated as
+     * object-ASSERTING (its constraints are enforced outright) and no describing warning is
+     * emitted.
+     *
+     * Asserted rather than fixed: routing this site through the same classification is the
+     * follow-up's job, and it is a default-behaviour change of its own. Pinning both halves - the
+     * enforcement AND the absent warning - makes that change show up here as a named failure
+     * instead of silently altering what this file already covers for dependencies.
+     */
+    public function testBareObjectDependencyValueIsForceAssertedWithoutADescribingWarning(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'DependenciesBareObjectValue.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($recordingLogger),
+        );
+
+        $this->assertFalse(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "Property '{property}' carries object-constraining keywords (eg. 'properties',"
+                    . " 'required') without a 'type' declaration and does not constrain non-object values",
+                ['property' => 'creditCard'],
+            ),
+            'A dependencies value is force-typed before classification, so it must not warn.',
+        );
+
+        // Without the dependency trigger the dependent schema never applies.
+        $this->assertNull((new $className([]))->getCreditCard());
+
+        // With the trigger the forced object type makes the dependency's constraints binding.
+        $this->expectException(InvalidSchemaDependencyException::class);
+        $this->expectExceptionMessage(
+            <<<'ERROR'
+            Invalid schema which is dependant on 'creditCard':
+              - Missing required value for 'billingAddress'
+            ERROR,
+        );
+
+        new $className(['creditCard' => '1234']);
+    }
+
+    /**
      * A schema dependency whose value is a MULTI-LEVEL composition-implied object ($ref to an
      * allOf-only definition whose own allOf branch is itself a $ref to another allOf-only
      * definition) must enforce that definition's `required`/type constraints, exactly like the
      * single-level case (see testDependencyWithSingleLevelImpliedObjectEnforcesConstraints above).
      *
-     * PropertiesValidatorFactory::addDependencyValidator() builds the dependency's own class via
-     * PropertyFactory::processBaseReference() (a bare `{"$ref": ...}` at base level). A
+     * PropertyDependencyTrait::addDependencyValidator() builds the dependency's own class via
+     * RefResolver::resolveBaseReference() (a bare `{"$ref": ...}` at base level). A
      * multi-level implied-object $ref target enforces its constraints via a composition validator
      * on its OWN schema, not via validators on its individual properties - those are merged/
      * redirected and carry no validation of their own, exactly like transferComposedPropertiesToSchema()
      * documents for the equivalent case where the composition sits directly on the class instead
-     * of behind a $ref. processBaseReference() transferred the resolved definition's *properties*
+     * of behind a $ref. resolveBaseReference() transferred the resolved definition's *properties*
      * onto the dependency's schema but not its *base validators*, so the composition validator
      * that actually enforces `required` never ran for the dependency's generated class.
      */
@@ -792,7 +840,7 @@ class Issue72Test extends AbstractIssueTestCase
      * The same gap affects any base-level `$ref` to a multi-level composition-implied object, not
      * just schema dependencies - e.g. a schema file whose entire top level is `{"$ref": ...}`. This
      * mirrors the array-item and root-level-allOf coverage above but for the bare base-level $ref
-     * path (PropertyFactory::processBaseReference()), which is a separate code path from both.
+     * path (RefResolver::resolveBaseReference()), which is a separate code path from both.
      */
     public function testRootLevelReferenceToMultiLevelImpliedObjectInstantiatesAndValidates(): void
     {
@@ -860,6 +908,98 @@ class Issue72Test extends AbstractIssueTestCase
                 $exception->getMessage(),
             );
         }
+    }
+
+    /**
+     * A branch whose declared type is a LIST containing "object" accepts object values, so it does
+     * not conflict with an object-asserting sibling branch in the same `allOf` - the composition is
+     * satisfied by any object. Covers both spellings of the branch that asserts object-ness: an
+     * inline `type: object` schema and a `$ref` to one.
+     *
+     * The conflict check cannot decide this from the branch's nested schema, which is what makes
+     * the case worth its own test: a multi-type branch has none (only the object sub-property built
+     * by PropertyFactory::createMultiTypeProperty() carries it, and that sub-property is not
+     * reachable from the branch), so it is indistinguishable from a genuinely scalar branch unless
+     * the declared type is consulted. Rejecting it would break the ordinary "referenced type, but
+     * nullable" shape that `referencedNullable` below spells out.
+     */
+    public function testAllOfWithMultiTypeBranchIncludingObjectIsNotTreatedAsConflicting(): void
+    {
+        $className = $this->generateClassFromFile('AllOfMultiTypeBranchIncludingObject.json');
+
+        // An object satisfies the object-asserting branch and the multi-type branch simultaneously.
+        $object = new $className([
+            'inlineNullable' => ['name' => 'Hannes'],
+            'referencedNullable' => ['name' => 'Dieter'],
+        ]);
+
+        $this->assertSame('Hannes', $object->getInlineNullable()->getName());
+        $this->assertSame('Dieter', $object->getReferencedNullable()->getName());
+
+        // An object missing the required 'name' satisfies only the multi-type branch, so the allOf
+        // still rejects it - accepting the branch at generation time does not weaken the
+        // composition at runtime.
+        foreach (['inlineNullable', 'referencedNullable'] as $propertyName) {
+            try {
+                new $className([$propertyName => ['age' => 42]]);
+                $this->fail("Expected an AllOfException for an object without 'name' in '$propertyName'");
+            } catch (AllOfException $exception) {
+                $this->assertStringContainsString(
+                    'Requires to match all composition elements but matched 1 element',
+                    $exception->getMessage(),
+                );
+            }
+        }
+    }
+
+    /**
+     * An array item carrying only object-constraining keywords without a `type` is object-describing
+     * exactly like a named property is: the item is instantiated and validated when it is an object,
+     * and passes through unchanged when it is not. Before implied-object detection reached array
+     * items no item class was generated at all and the item constraints were silently dropped, so
+     * this pins that the constraints now actually run.
+     */
+    public function testArrayItemWithBareObjectValidatorsValidatesObjectItemsAndPassesNonObjectItems(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'ArrayItemBareObjectValidators.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($recordingLogger),
+        );
+
+        // The describing classification warns at the item site just as it does at a property site.
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                "Property '{property}' carries object-constraining keywords (eg. 'properties',"
+                    . " 'required') without a 'type' declaration and does not constrain non-object values",
+                ['property' => 'members'],
+            ),
+            'Expected a describing-property warning for the array item.',
+        );
+
+        // An object item is instantiated and exposes the item schema's accessors.
+        $object = new $className(['members' => [['name' => 'Hannes']]]);
+        $this->assertIsObject($object->getMembers()[0]);
+        $this->assertSame('Hannes', $object->getMembers()[0]->getName());
+
+        // A non-object item vacuously satisfies the describing item schema and survives unchanged.
+        $this->assertSame(42, (new $className(['members' => [42]]))->getMembers()[0]);
+
+        // An OBJECT item violating the item constraints is rejected - the constraints are not
+        // vacuous just because non-objects escape them.
+        $this->expectException(InvalidItemException::class);
+        $this->expectExceptionMessage(
+            <<<'ERROR'
+            Invalid items in array 'members':
+              - invalid item #0
+                * Missing required value for 'name'
+            ERROR,
+        );
+
+        new $className(['members' => [[]]]);
     }
 
     /**
@@ -974,39 +1114,22 @@ class Issue72Test extends AbstractIssueTestCase
     }
 
     /**
-     * A ROOT-LEVEL oneOf (the composition IS the file's own class-defining schema, not one
-     * nested inside a named property) with a branch that has neither a type nor a nested schema -
-     * the canonical "matches any value" shape, expressed here as a literal `true` schema element -
-     * used to crash generation with "No nested schema for composed property", then (once that was
-     * fixed) silently generated a class anyway, accepting the vacuous branch as an implicit
-     * object. Neither is correct: a `true` branch matches non-object values too, so the class this
-     * generator would produce could never be instantiated for every value the schema itself
-     * accepts. Generation must reject this schema instead of producing a misleadingly narrow (or
-     * outright wrong) class.
-     */
-    public function testRootLevelOneOfWithVacuousBranchIsRejectedAsNonRepresentable(): void
-    {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches(
-            "/^Composition for '.*' in file '.*\\.json' does not resolve to a definite object and cannot be"
-                . ' represented as a generated class/',
-        );
-
-        $this->generateClassFromFile('RootLevelOneOfWithVacuousBranch.json');
-    }
-
-    /**
-     * The vacuous branch above is rejected before generation ever reaches
-     * SchemaProcessor::transferComposedPropertiesToSchema() - checkObjectRepresentability() sees
-     * the ambiguous root composition first. An explicit `"type": "object"` on the root schema
-     * short-circuits that check to ObjectAsserting regardless of what its branches declare (the
-     * explicit type is the assertion), so a genuinely vacuous branch - a literal `true` composition
-     * element, which inheritPropertyType() deliberately never injects a type into - still reaches
-     * transferComposedPropertiesToSchema()'s "neither a nested schema nor an explicit type"
-     * handling. It contributes no properties and does not throw, but (like the untyped-root case
-     * above) is not deduplicated during validation: a value matching the object branch also
-     * vacuously matches the `true` branch, so it is rejected for matching two composition
-     * elements instead of one.
+     * A ROOT-LEVEL oneOf (the composition IS the file's own class-defining schema, not one nested
+     * inside a named property) with a vacuous branch - here a literal `true` element, which matches
+     * every value - used to crash generation with "No nested schema for composed property", then
+     * (once that was fixed) silently generated a class anyway, accepting the vacuous branch as an
+     * implicit object. It is now rejected as non-representable instead; the rejection itself, with
+     * its complete message and under both settings of the implicit-object flag, is asserted by
+     * ComposedObjectShapeValidationTest's non-representable-root matrix, which owns that message.
+     *
+     * What this test adds is the other half: an explicit `"type": "object"` on the root
+     * short-circuits the representability check to ObjectAsserting regardless of what its branches
+     * declare (the explicit type is the assertion), so the vacuous branch - which
+     * inheritPropertyType() deliberately never injects a type into, unlike a `{}` branch - still
+     * reaches transferComposedPropertiesToSchema()'s "neither a nested schema nor an explicit type"
+     * handling. It contributes no properties and does not throw, but is not deduplicated during
+     * validation: a value matching the object branch also vacuously matches the `true` branch, so
+     * it is rejected for matching two composition elements instead of one.
      */
     public function testRootLevelOneOfWithVacuousBranchAndExplicitTypeAcceptsOnlyValuesNotMatchingTheOtherBranch(): void
     {

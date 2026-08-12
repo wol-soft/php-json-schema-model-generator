@@ -169,11 +169,23 @@ class ObjectShapeResolver
     }
 
     /**
+     * Accepts `mixed` rather than `array|bool` because it is applied to raw, unvalidated schema
+     * fragments: a composition branch, a `then`/`else` value or a `$ref` target can be any JSON
+     * value in a malformed schema (e.g. `{"allOf": ["notASchema"]}`). Such a fragment is
+     * Undecidable rather than a TypeError - the composition factory's own well-formedness check
+     * (AbstractCompositionValidatorFactory::assertCompositionBranchesAreWellFormed()) rejects it
+     * moments later with a message naming the actual defect, which a confident verdict from here
+     * would preempt with an unrelated "does not resolve to a definite object".
+     *
      * @param string[] $visitedReferences `$ref` strings on the current resolution path,
      *                                    used to bail out of reference cycles
      */
-    private function classify(array|bool $json, array $visitedReferences): BranchObjectShape
+    private function classify(mixed $json, array $visitedReferences): BranchObjectShape
     {
+        if (!is_array($json) && !is_bool($json)) {
+            return BranchObjectShape::Undecidable;
+        }
+
         if (is_bool($json)) {
             // true imposes nothing (neutral); false is unsatisfiable, so it must block a
             // sibling object branch from claiming a re-routable object assertion.
@@ -214,7 +226,7 @@ class ObjectShapeResolver
             }
 
             $branchShapes = array_map(
-                fn(array|bool $branchJson): BranchObjectShape => $this->classify($branchJson, $visitedReferences),
+                fn(mixed $branchJson): BranchObjectShape => $this->classify($branchJson, $visitedReferences),
                 $json[$compositionKeyword],
             );
 

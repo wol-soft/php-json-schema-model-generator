@@ -37,6 +37,8 @@ class IfValidatorFactory
             return;
         }
 
+        $this->assertSingleBranchSchemasAreWellFormed($property, $propertySchema, ['if', 'then', 'else']);
+
         $json = $propertySchema->getJson();
 
         if (!isset($json['then']) && !isset($json['else'])) {

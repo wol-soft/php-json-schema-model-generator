@@ -181,7 +181,6 @@ class SchemaProcessor
         // because checkObjectRepresentability() below needs it ready to resolve $ref chains.
         // addDefinition() is idempotent, so createBaseProperty()'s own call stays a harmless no-op.
         $dictionary->setUpDefinitionDictionary($this, $schema);
-        $this->checkObjectRepresentability($jsonSchema, $className, $dictionary);
 
         // Register by content signature (secondary dedup for content-identical inline schemas).
         $this->processedSchema[$schemaSignature] = $schema;
@@ -189,7 +188,23 @@ class SchemaProcessor
         // Registering here — before property processing — ensures that any $ref back to this
         // file encountered while processing the referencing schema finds this canonical schema
         // immediately, regardless of which schema was discovered first by the provider.
+        //
+        // Both registrations must happen BEFORE checkObjectRepresentability(), not after: its
+        // classification peeks through $ref chains, and for a cross-file reference that peek runs
+        // the real SchemaDefinitionDictionary::parseExternalFile(), which processes the target
+        // eagerly via processTopLevelSchema(). If this schema were still unregistered at that
+        // point, a reference cycle back to it would not hit parseExternalFile()'s
+        // getProcessedFileSchema() short-circuit: two mutually referencing files would recurse
+        // until the stack is exhausted, and a target whose own properties reference this file back
+        // would build a second, duplicate render job for it ("File X.php already exists").
+        // ObjectShapeResolver's own $visitedReferences guard cannot cover either case - it is
+        // local to a single classify() call and cannot see re-entrancy through the SchemaProcessor.
+        // Registering a schema whose check then fails is harmless: the SchemaException aborts
+        // generation entirely.
         $this->registerProcessedFileSchema($jsonSchema->getFile(), $schema);
+
+        $this->checkObjectRepresentability($jsonSchema, $className, $dictionary);
+
         $json = $jsonSchema->getJson();
         $json['type'] = 'base';
 
@@ -275,17 +290,27 @@ class SchemaProcessor
                 $jsonSchema->getFile(),
             );
 
-            // The flag only ever widens acceptance from ObjectAsserting to
-            // ObjectAsserting|ObjectDescribing (see $acceptedShapes above), so it can rescue an
-            // ObjectDescribing composition but never a NotObject one - mentioning either fix for a
-            // NotObject rejection would point the user at options that provably cannot help.
-            // Declaring the type is named first because it is the better fix: it makes the
-            // author's intent explicit and is what the generator actually needs, whereas the
-            // flag is only an escape hatch that leaves the ambiguity in the schema unresolved.
-            if ($shape === ObjectShape::ObjectDescribing) {
-                $message .= ': add an explicit \'"type": "object"\' constraint, or enable'
-                    . " 'GeneratorConfiguration::setImplicitObjectComposition(true)' to accept it";
-            }
+            // Both variants name the explicit type as the fix, because declaring it always
+            // resolves the schema to ObjectAsserting - classify() short-circuits on `type` before
+            // it ever looks at the branches. Only the flag is withheld for NotObject: it widens
+            // acceptance from ObjectAsserting to ObjectAsserting|ObjectDescribing and no further
+            // (see $acceptedShapes above), so offering it there would point at an option that
+            // provably cannot help.
+            //
+            // The two wordings differ deliberately. An ObjectDescribing schema has no `type` at
+            // all, so "add" is exact, and its keywords already constrain nothing but objects -
+            // declaring the type merely states what the schema already means, which is why it is
+            // named unconditionally and first (it makes the intent explicit, where the flag only
+            // leaves the ambiguity in place). A NotObject schema genuinely accepts non-object
+            // values - a scalar branch, a multi-type declaration, a vacuous branch - so declaring
+            // the type CHANGES what it accepts rather than clarifying it. That is the right fix
+            // only if the author meant objects throughout, which the generator cannot know, so the
+            // suggestion is stated conditionally rather than as an instruction.
+            $message .= $shape === ObjectShape::ObjectDescribing
+                ? ': add an explicit \'"type": "object"\' constraint, or enable'
+                    . " 'GeneratorConfiguration::setImplicitObjectComposition(true)' to accept it"
+                : ': if every value it accepts is meant to be an object, declare'
+                    . ' \'"type": "object"\' on the schema itself';
 
             throw new SchemaException($message, $jsonSchema);
         }
@@ -608,7 +633,7 @@ class SchemaProcessor
         } catch (SchemaException $exception) {
             // Everything thrown here is a fault in the referenced schema itself, not a failure to
             // reach it - this method only runs once the reference has already resolved to a file.
-            // Marking it keeps PropertyFactory::processReference() from restating it as
+            // Marking it keeps RefResolver::resolveReference() from restating it as
             // "Unresolved Reference", which would blame the reference site for a problem in the
             // content it points at.
             throw $exception->markAsReferencedSchemaFailure();

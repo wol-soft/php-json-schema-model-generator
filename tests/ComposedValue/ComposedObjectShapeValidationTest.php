@@ -77,6 +77,16 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
             // treated as undecidable and handed back to the pipeline (where it would resurface as
             // an uncaught TypeError from JsonSchema::navigate()).
             'reference to a boolean definition' => 'RootAllOfReferenceToBooleanDefinition.json',
+            // A composition with no branches at all constrains nothing, so every value - object or
+            // not - satisfies it. Both keywords are listed because they reach the verdict by
+            // different routes: an empty allOf combines conjunctively, an empty anyOf disjunctively.
+            'empty allOf' => 'RootEmptyAllOf.json',
+            'empty anyOf' => 'RootEmptyAnyOf.json',
+            // A vacuous branch (here a literal `true`) matches every value, so the composition
+            // accepts non-objects however object-asserting its other branches are. Declaring
+            // "type": "object" on the root accepts the same schema instead - covered by
+            // Issue72Test, which also records that this shape used to crash generation outright.
+            'vacuous branch in a root oneOf' => 'RootOneOfWithVacuousBranch.json',
         ];
 
         foreach ($alwaysRejected as $label => $schemaFile) {
@@ -93,9 +103,16 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
      * variants share a prefix, so an unanchored pattern stopping at "generated class" would match
      * either - anchoring is what makes each row assert the variant it actually expects.
      *
+     * Both variants name the explicit type as the fix; only the object-describing one also offers
+     * the opt-in flag, which cannot rescue a NotObject schema. The wordings differ because a
+     * describing schema has no `type` to begin with (so declaring it only states what the schema
+     * already means), while a NotObject schema really does accept non-object values (so declaring
+     * it changes the accepted set, and is suggested conditionally).
+     *
      * @param string $classNamePattern Regex fragment matching the rejected schema's class name
      * @param string $filePattern      Regex fragment matching the file the composition lives in
-     * @param bool   $flagCouldRescue  Whether the message offers the two fixes (object-describing)
+     * @param bool   $flagCouldRescue  Whether the schema is object-describing, which is exactly
+     *                                 when the flag is offered alongside the type
      */
     private static function representabilityMessagePattern(
         string $classNamePattern,
@@ -105,10 +122,11 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
         $message = "^Composition for '$classNamePattern' in file '$filePattern' does not resolve to"
             . ' a definite object and cannot be represented as a generated class';
 
-        if ($flagCouldRescue) {
-            $message .= ": add an explicit '\"type\": \"object\"' constraint, or enable"
-                . " 'GeneratorConfiguration::setImplicitObjectComposition\\(true\\)' to accept it";
-        }
+        $message .= $flagCouldRescue
+            ? ": add an explicit '\"type\": \"object\"' constraint, or enable"
+                . " 'GeneratorConfiguration::setImplicitObjectComposition\\(true\\)' to accept it"
+            : ": if every value it accepts is meant to be an object, declare '\"type\": \"object\"'"
+                . ' on the schema itself';
 
         return '/' . $message . ' at line \\d+, column \\d+$/';
     }
@@ -216,12 +234,12 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
      * Ambiguous.json resolves to ObjectShape::ObjectDescribing, so the flag does rescue it. The
      * referencing file (Consumer.json) reaches the describing target through a named property
      * `$ref` rather than a bare root `$ref`. A named property reference resolves through
-     * PropertyFactory::processReference() alone, which has no nested-schema requirement, so it
+     * RefResolver::resolveReference() alone, which has no nested-schema requirement, so it
      * cleanly exercises checkObjectRepresentability() accepting an ObjectDescribing cross-file
      * `$ref` target once the flag is enabled.
      *
      * A bare root `$ref` to the same shape (as in CrossFileReference/Wrapper.json, routed through
-     * PropertyFactory::processBaseReference()) is covered separately by
+     * RefResolver::resolveBaseReference()) is covered separately by
      * testCrossFileReferenceTargetIsAcceptedViaBaseReferenceWhenImplicitObjectCompositionIsAllowed().
      */
     public function testCrossFileReferenceTargetIsAcceptedWhenImplicitObjectCompositionIsAllowed(): void
@@ -243,13 +261,13 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
 
     /**
      * Wrapper.json's root is a bare `$ref` to Ambiguous.json (ObjectShape::ObjectDescribing),
-     * routed through PropertyFactory::processBaseReference(). Ambiguous.json sorts before
+     * routed through RefResolver::resolveBaseReference(). Ambiguous.json sorts before
      * Wrapper.json (RecursiveDirectoryProvider iterates in alphabetical order - see
      * RecursiveDirectoryProvider::getSchemas()), so the provider discovers and generates
      * Ambiguous.json as its own top-level class BEFORE Wrapper.json's `$ref` is resolved -
      * unlike the CrossFileBaseReference* fixtures below, this ordering never exercises the
      * eager, $ref-triggered SchemaProcessor::processTopLevelSchema() path for Ambiguous.json.
-     * It does exercise processBaseReference()'s handling of a oneOf/anyOf composition that has
+     * It does exercise resolveBaseReference()'s handling of a oneOf/anyOf composition that has
      * no single nested schema (see PropertyInterface::getNestedSchema()), which used to throw
      * "must provide an object definition" unconditionally regardless of the flag.
      */
@@ -264,16 +282,7 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
                 ->setNamespacePrefix($namespace),
         );
 
-        $wrapperClass = "\\{$namespace}\\Wrapper";
-
-        $matchesFirstBranch = new $wrapperClass(['name' => 'Hannes']);
-        $this->assertSame('Hannes', $matchesFirstBranch->getName());
-
-        $matchesSecondBranch = new $wrapperClass(['code' => 42]);
-        $this->assertSame(42, $matchesSecondBranch->getCode());
-
-        $this->assertRejectsAsOneOfViolation($wrapperClass, ['neither' => 'branch']);
-        $this->assertRejectsAsOneOfViolation($wrapperClass, ['name' => 'Hannes', 'code' => 42]);
+        $this->assertOneOfCompositionValidatesLikeInline("\\{$namespace}\\Wrapper");
     }
 
     /**
@@ -326,7 +335,7 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
      * GeneratorConfiguration::setImplicitObjectComposition() - the flag only ever widens
      * acceptance from ObjectAsserting to ObjectAsserting|ObjectDescribing (see
      * SchemaProcessor::checkObjectRepresentability()), and
-     * PropertyFactory::processBaseReference()'s composed-validator transfer does not consult the
+     * RefResolver::resolveBaseReference()'s composed-validator transfer does not consult the
      * flag either - so a flag-enabled variant of this test would exercise the identical code path.
      */
     public function testBaseReferenceToAssertingCompositionValidatesLikeInline(): void
@@ -385,13 +394,17 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
     }
 
     /**
-     * A `filter` key makes ObjectShapeResolver::classify() return Blocking (it deliberately
+     * A `filter` key makes ObjectShapeResolver::classify() return Undecidable (it deliberately
      * leaves filter-bearing schemas to the filter subsystem - see ObjectShapeResolver's own
-     * docblock), which without a filter-aware early return in checkObjectRepresentability() would
-     * surface here as a misleading "does not resolve to a definite object" verdict. The real
-     * cause - an incompatible filter - must be reported by the filter subsystem's own precise
-     * diagnostic instead, so this pins that the FILTER message (not the representability message)
-     * is what a filter-bearing root composition produces.
+     * docblock). Were it to return a confident Blocking verdict instead, this would surface as a
+     * misleading "does not resolve to a definite object" rejection. The real cause - an
+     * incompatible filter - must be reported by the filter subsystem's own precise diagnostic
+     * instead, so this pins that the FILTER message (not the representability message) is what a
+     * filter-bearing root composition produces.
+     *
+     * Note checkObjectRepresentability() has no filter-specific early return to rely on: the
+     * Undecidable verdict is the entire mechanism, which is why it also covers a filter nested in
+     * a composition branch (see undecidableRootCompositionDataProvider()).
      */
     public function testRootCompositionWithFilterIsRejectedByFilterSubsystemNotRepresentabilityCheck(): void
     {

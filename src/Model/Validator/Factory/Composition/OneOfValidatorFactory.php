@@ -27,6 +27,8 @@ class OneOfValidatorFactory
             return;
         }
 
+        $this->assertCompositionBranchesAreWellFormed($property, $propertySchema);
+
         $branches = $propertySchema->getJson()[$this->key];
         if (!empty($branches) && array_filter($branches, static fn($branch) => $branch !== false) === []) {
             $this->warnIfAlwaysFalse(

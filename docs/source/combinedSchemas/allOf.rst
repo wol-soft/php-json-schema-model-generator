@@ -72,7 +72,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
 
 .. hint::
 
-    When combining multiple nested objects with an `allOf` composition a `merged property <mergedProperty.html>`__ will be generated
+    When combining multiple nested objects with an `allOf` composition the property is typed with a single generated class holding all of their properties. Unlike `anyOf`/`oneOf` this is a regular nested class rather than a `merged property <mergedProperty.html>`__: an `allOf` of object branches guarantees that every valid value is an object, so it is routed through the ordinary object path — see `Composition-implied objects <impliedObjects.html>`__.
 
 .. hint::
 

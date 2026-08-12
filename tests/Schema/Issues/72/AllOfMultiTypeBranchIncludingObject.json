@@ -1,0 +1,42 @@
+{
+  "type": "object",
+  "definitions": {
+    "person": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["name"]
+    }
+  },
+  "properties": {
+    "inlineNullable": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": ["name"]
+        },
+        {
+          "type": ["object", "null"]
+        }
+      ]
+    },
+    "referencedNullable": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/person"
+        },
+        {
+          "type": ["object", "null"]
+        }
+      ]
+    }
+  }
+}

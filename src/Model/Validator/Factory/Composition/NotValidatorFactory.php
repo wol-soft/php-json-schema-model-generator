@@ -30,6 +30,8 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
             return;
         }
 
+        $this->assertSingleBranchSchemasAreWellFormed($property, $propertySchema, [$this->key]);
+
         $notSchema = $propertySchema->getJson()[$this->key];
         if (is_bool($notSchema)) {
             if ($notSchema === true) {
