@@ -1,5 +1,5 @@
 /**
- * {% if minPropertyValidator or schema.getCompositionValidatorKeys() or schema.getPostCompositionValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+ *{% if minPropertyValidator or schema.getCompositionValidatorKeys() or schema.getPostCompositionValidators() %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
  */
 private function _removeAdditionalProperty(string $key): bool
 {
