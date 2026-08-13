@@ -634,6 +634,32 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * A composition nested inside a composition branch on an array-typed property is
+     * silently dropped during generation — not just its unevaluatedItems keyword, the
+     * entire nested composition and everything inside it. Confirmed independent of
+     * unevaluatedItems: the same fixture shape with a plain `minItems` in place of
+     * `unevaluatedItems` inside the inner branch produces identical output (the inner
+     * `oneOf` never renders at all, no error, no warning). The object-typed equivalent
+     * (`{type: object, allOf: [{oneOf: [{minProperties: ...}]}]}`) generates correctly —
+     * each composition level gets its own nested class — so the gap is specific to array
+     * properties, which never carry a nested schema for a branch's own composition to
+     * attach to. This is a pre-existing generation-pipeline gap, not introduced by the
+     * unevaluatedItems work; fixing it belongs to the composition rendering path, not to
+     * this feature's post processor or validators (deferred bug; tracked in the
+     * implementation plan).
+     */
+    public function testCompositionNestedInsideArrayBranchIsNotSilentlyDropped(): void
+    {
+        $this->markTestIncomplete(
+            'A composition nested inside a composition branch on an array-typed property '
+            . 'is silently dropped during generation (confirmed independent of '
+            . 'unevaluatedItems — a plain minItems in the same position is dropped too). '
+            . 'The object-typed equivalent generates correctly, so the gap is array-specific '
+            . '(deferred bug; tracked in the implementation plan).',
+        );
+    }
+
+    /**
      * Spec propagation: a nested `unevaluatedItems` schema-form validator inside a
      * successful `allOf` branch must contribute its claimed indices to the enclosing
      * `unevaluatedItems` accumulator. The inner validator writes
