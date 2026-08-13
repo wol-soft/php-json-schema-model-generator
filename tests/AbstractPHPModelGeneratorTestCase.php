@@ -8,9 +8,11 @@ use Exception;
 use FilesystemIterator;
 use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Interfaces\JSONModelInterface;
+use PHPModelGenerator\Logger\EchoLogger;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\SchemaProvider\OpenAPIv3Provider;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
+use PHPModelGenerator\Tests\CodeQuality\GeneratedCodeAuditor;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
@@ -22,6 +24,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Support\DraftRunContext;
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
@@ -91,6 +94,10 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
                     $failedResultDir . $nestedDir . DIRECTORY_SEPARATOR . basename($file),
                 );
             }
+        }
+
+        if (GeneratedCodeAuditor::isEnabled()) {
+            GeneratedCodeAuditor::collect(TEST_BASE_DIR . '/Models', static::class . '::' . $this->name());
         }
 
         $this->names = [];
@@ -188,7 +195,6 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         $generatorConfiguration = clone (
             $generatorConfiguration ?? (new GeneratorConfiguration())
                 ->setCollectErrors(false)
-                ->setOutputEnabled(false)
         );
         $generatorConfiguration->setImplicitNull($implicitNull);
 
@@ -196,6 +202,8 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         if ($draft !== null) {
             $generatorConfiguration->setDraft($draft->createDraftInstance());
         }
+
+        $this->silenceDefaultLogger($generatorConfiguration);
 
         $baseDir = TEST_BASE_DIR;
 
@@ -272,6 +280,18 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     }
 
     /**
+     * Keeps the test suite silent by default without clobbering a logger a test explicitly
+     * injected (e.g. a RecordingLogger to assert on emitted log entries) — only swaps out the
+     * untouched default EchoLogger.
+     */
+    private function silenceDefaultLogger(GeneratorConfiguration $generatorConfiguration): void
+    {
+        if ($generatorConfiguration->getLogger() instanceof EchoLogger) {
+            $generatorConfiguration->setLogger(new NullLogger());
+        }
+    }
+
+    /**
      * Generate objects for all JSON-Schema files in the given directory
      *
      * @throws FileSystemException
@@ -294,6 +314,7 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         }
 
         $this->lastGeneratedNamespacePrefix = $configuration->getNamespacePrefix();
+        $this->silenceDefaultLogger($configuration);
 
         $generator = new ModelGenerator($configuration);
         if (is_callable($this->modifyModelGenerator)) {
@@ -380,6 +401,27 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     }
 
     /**
+     * Checks whether any entry recorded by a RecordingLogger matches the given level, message
+     * template, and (optionally) a subset of expected context values.
+     *
+     * @param array<int, array{level: string, message: string, context: array}> $entries
+     */
+    protected function hasLogEntry(array $entries, string $level, string $message, array $expectedContext = []): bool
+    {
+        foreach ($entries as $entry) {
+            if ($entry['level'] !== $level || $entry['message'] !== $message) {
+                continue;
+            }
+
+            if (array_intersect_key($entry['context'], $expectedContext) === $expectedContext) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Check if the given error registry exception contains the requested exception.
      *
      * @throws AssertionFailedError
@@ -431,6 +473,19 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         return [
             'implicit null enabled' => [true],
             'implicit null disabled' => [false],
+        ];
+    }
+
+    /**
+     * Both settings of setImplicitObjectComposition(), for behaviour that must not depend on it.
+     */
+    public static function implicitObjectCompositionDataProvider(): array
+    {
+        return [
+            'implicit object composition denied' => [new GeneratorConfiguration()],
+            'implicit object composition allowed' => [
+                (new GeneratorConfiguration())->setImplicitObjectComposition(true),
+            ],
         ];
     }
 

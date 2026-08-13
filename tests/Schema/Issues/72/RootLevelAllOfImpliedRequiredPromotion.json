@@ -1,0 +1,37 @@
+{
+  "definitions": {
+    "identification": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": ["name"]
+        }
+      ]
+    },
+    "employment": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "age": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/identification"
+    },
+    {
+      "$ref": "#/definitions/employment"
+    }
+  ]
+}

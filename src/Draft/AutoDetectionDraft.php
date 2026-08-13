@@ -9,17 +9,15 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 /**
  * Resolves the JSON Schema draft to apply to a document from its `$schema` URI.
  *
- * The `$schema` keyword is a document-level declaration: only the document root carries it, and
- * it fixes the dialect for every subschema of that document. `getDraftForSchema()` is queried
- * once per (sub)schema, so the resolved draft is cached per source file — the document root is
- * always resolved before its subschemas (the root's modifiers run before the ObjectModifier
- * descends into properties, and `$ref` targets are processed root-first), so the cached entry a
- * subschema reads back is the dialect the root declared. A subschema that declares its own
- * `$schema` (a resource root) resolves directly and refreshes the file's cached dialect.
+ * The `$schema` keyword is a document-level declaration: only the document root (or an embedded
+ * resource root) carries it, and it fixes the dialect for every subschema beneath it.
+ * `JsonSchema::getSchemaUri()` propagates the effective URI down through every node via
+ * clone/navigate(), so this class only has to look at that single accessor per (sub)schema — no
+ * caching of its own is needed.
  *
  * When no recognised `$schema` URI is declared anywhere in a document, the current default
  * dialect (Draft 2020-12) applies. Support for additional drafts is added by extending
- * self::DRAFT_URIS.
+ * self::DRAFT_BY_IDENTIFIER.
  */
 class AutoDetectionDraft implements DraftFactoryInterface
 {
@@ -42,36 +40,30 @@ class AutoDetectionDraft implements DraftFactoryInterface
     /** @var array<class-string<DraftInterface>, DraftInterface> Keyed by draft class name; reused across schemas */
     private array $draftInstances = [];
 
-    /** @var array<string, DraftInterface> Resolved dialect keyed by source file */
-    private array $draftPerFile = [];
-
     public function getDraftForSchema(JsonSchema $jsonSchema): DraftInterface
     {
-        $file = $jsonSchema->getFile();
-        $schemaUri = $jsonSchema->getJson()['$schema'] ?? null;
+        // getSchemaUri() reflects the $schema declared by the node's nearest ancestor (or its
+        // own), not just the current node's own JSON -- $schema only ever appears on a document
+        // root or an embedded resource root, so reading $jsonSchema->getJson()['$schema'] directly
+        // would return null for every other node and silently fall back to the default draft
+        // regardless of what the document declared (issue #186). JsonSchema propagates this value
+        // through clone/navigate(), so a nested resource root's own $schema correctly overrides it
+        // for that resource's descendants without leaking into its siblings -- no per-file caching
+        // needed here, and none that could cache the wrong dialect across independently-dialected
+        // embedded resources in the same file.
+        $schemaUri = $jsonSchema->getSchemaUri();
 
-        // A (sub)schema that declares $schema itself is resolved to that dialect directly. Only
-        // the first declaration seen for a file — the document root, always resolved before its
-        // subschemas — seeds the file-level dialect that subschemas inherit. A later declaration
-        // (e.g. a nested resource root with its own $schema) never overwrites that seed, so its
-        // dialect cannot leak into the root's sibling subschemas.
         if ($schemaUri !== null) {
             $draftClass = self::DRAFT_BY_IDENTIFIER[$this->normalizeSchemaUri($schemaUri)] ?? null;
 
             if ($draftClass !== null) {
-                $draft = $this->draft($draftClass);
-                $this->draftPerFile[$file] ??= $draft;
-
-                return $draft;
+                return $this->draft($draftClass);
             }
         }
 
-        // Subschemas do not repeat $schema; they inherit the dialect resolved for the document
-        // root. Fall back to the default dialect when the document declared no recognised $schema
-        // anywhere — this also covers an unrecognised $schema URI. (A nested resource root's own
-        // subschemas likewise inherit the document dialect rather than the nested $schema; that
-        // embedded-resource case is not modelled.)
-        return $this->draftPerFile[$file] ??= $this->draft(self::DEFAULT_DRAFT);
+        // Fall back to the default dialect when the document declares no recognised $schema
+        // anywhere — this also covers an unrecognised $schema URI.
+        return $this->draft(self::DEFAULT_DRAFT);
     }
 
     /**

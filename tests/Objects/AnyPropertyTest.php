@@ -46,7 +46,7 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
     #[DataProvider('validationMethodDataProvider')]
     public function testNotProvidedRequiredAnyPropertyThrowsAnException(GeneratorConfiguration $configuration): void
     {
-        $this->expectValidationError($configuration, 'Missing required value for property');
+        $this->expectValidationError($configuration, "Missing required value for 'property'");
         $className = $this->generateClassFromFile('RequiredAnyProperty.json', $configuration);
 
         new $className([]);
@@ -108,7 +108,7 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
             new $className(['property' => 'ab']);
             $this->fail('A string shorter than minLength must be rejected on an untyped property');
         } catch (MinLengthException $exception) {
-            $this->assertSame('Value for property must not be shorter than 3', $exception->getMessage());
+            $this->assertSame("Value for 'property' must not be shorter than 3", $exception->getMessage());
             $this->assertSame('/properties/property/minLength', $exception->getJsonPointer()->pointer);
         }
     }
@@ -139,7 +139,7 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('An array shorter than minItems must be rejected on an untyped property');
         } catch (MinItemsException $exception) {
             $this->assertSame(
-                'Array property must not contain less than 2 items, 1 items provided',
+                "Array 'property' must not contain less than 2 items",
                 $exception->getMessage(),
             );
             $this->assertSame('/properties/property/minItems', $exception->getJsonPointer()->pointer);
@@ -183,7 +183,7 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
             new $className(['property' => 'ab']);
             $this->fail('minLength must reject a short string even alongside object applicators');
         } catch (MinLengthException $exception) {
-            $this->assertSame('Value for property must not be shorter than 3', $exception->getMessage());
+            $this->assertSame("Value for 'property' must not be shorter than 3", $exception->getMessage());
             $this->assertSame('/properties/property/minLength', $exception->getJsonPointer()->pointer);
         }
 
@@ -194,8 +194,8 @@ class AnyPropertyTest extends AbstractPHPModelGeneratorTestCase
         } catch (NestedObjectException $exception) {
             $this->assertMatchesRegularExpression(
                 <<<'REGEX'
-                /^Invalid nested object for property property:
-                  - Provided JSON for .+ contains not allowed additional properties \[extra\]$/
+                /^Invalid nested object for property 'property':
+                  - Provided JSON for '.+' contains not allowed additional properties \['extra'\]$/
                 REGEX,
                 $exception->getMessage(),
             );

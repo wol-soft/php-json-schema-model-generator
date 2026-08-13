@@ -1,9 +1,6 @@
 <?php
 
-// @codingStandardsIgnoreFile
-// @codeCoverageIgnoreStart
-
-declare(strict_types = 1);
+declare(strict_types=1);
 
 {% if namespace %}
     namespace {{ namespace }};
@@ -16,10 +13,16 @@ use PHPModelGenerator\Accessor\Meta;
 
 /**
  * Class {{ schema.getClassName() }}
-{% if namespace %} * @package {{ namespace }} {% endif %}
+{% if namespace %} * @package {{ namespace }}{% endif %}
  *
-{% if schema.getDescription() %} * {{ schema.getDescription() }}
- *{% endif %}
+{% if schema.getDescription() %}{#
+    A standalone if (unlike the inline "{% if namespace %} * ...{% endif %}" tag above) is needed here since
+    this branch spans two of its own lines (the description and a blank " *" separator) rather than staying
+    inline on one.
+#}
+     * {{ schema.getDescription() }}
+     *
+{% endif %}
  * This is an auto-implemented class implemented by the php-json-schema-model-generator.
  * If you need to implement something in this class use inheritance. Else you will lose your changes if the classes
  * are re-generated.
@@ -27,7 +30,7 @@ use PHPModelGenerator\Accessor\Meta;
 {% foreach schema.getAttributes() as attribute %}
 #[{{ attribute.render() }}]
 {% endforeach %}
-class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ viewHelper.joinClassNames(schema.getInterfaces()) }}{% endif %}
+class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ viewHelper.joinClassNames(schema.getInterfaces()) }}{% endif %}
 {
     {% if schema.getTraits() %}use {{ viewHelper.joinClassNames(schema.getTraits()) }};{% endif %}
 
@@ -37,10 +40,12 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
         {% endforeach %}
         /**{% if viewHelper.getTypeHintAnnotation(property, true) %} @var {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %} */
         {% if property.isInternal() %}private{% else %}protected{% endif %} ${{ property.getAttribute(true) }}{% if not viewHelper.isNull(property.getDefaultValue()) %} = {{ property.getDefaultValue() }}{% endif %};
+
     {% endforeach %}
     #[Internal]
     /** @var array<string, mixed> */
     protected array $_rawModelDataInput = [];
+
     #[Internal]
     /** @var Meta|null */
     private ?Meta $_metaAccessor = null;
@@ -64,7 +69,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
             $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
 
-        {{ schemaHookResolver.resolveConstructorBeforeValidationHook() }}
+        {{ viewHelper.indent(schemaHookResolver.resolveConstructorBeforeValidationHook(), 2) }}
 
         {% if schema.getBaseValidators() %}
             $this->_executeBaseValidators($rawModelDataInput);
@@ -103,7 +108,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
             $value = &$modelData;
 
             {% foreach baseValidatorsWithoutCompositions as validator %}
-                {{ viewHelper.renderValidator(validator, schema) }}
+                {{ viewHelper.renderValidator(validator, schema, 2) }}
             {% endforeach %}
 
             {% foreach schema.getCompositionValidatorKeys() as compositionValidatorKey %}
@@ -140,12 +145,19 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
             {% if not property.isWriteOnly() %}
                 /**
                  * Get the value of {{ property.getName() }}.
-                 *{% if property.getDescription() %}
-                 * {{ property.getDescription() }}{% endif %}{% if property.getComment() %}
-                 * {{ property.getComment() }}{% endif %}{% foreach property.getExamples() as example %}
-                 * @example {{ viewHelper.exportValue(example) }}{% endforeach %}
+                 {% if property.getDescription() %}
+                     *
+                     * {{ property.getDescription() }}
+                 {% endif %}
+                 {% if property.getComment() %}
+                     *
+                     * {{ property.getComment() }}
+                 {% endif %}
+                 {% foreach property.getExamples() as example %}
+                     * @example {{ viewHelper.exportValue(example) }}
+                 {% endforeach %}
                  *
-                 * {% if viewHelper.getTypeHintAnnotation(property, true) %}@return {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}
+                 *{% if viewHelper.getTypeHintAnnotation(property, true) %} @return {{ viewHelper.getTypeHintAnnotation(property, true) }}{% endif %}
                  */
                 public function get{{ viewHelper.ucfirst(property.getAttribute()) }}(): {{ viewHelper.getType(property, true) }}
                 {
@@ -160,8 +172,10 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
                  * Set the value of {{ property.getName() }}.
                  *
                  * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute(true) }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
-                 *
-                 * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+                 {% if property.getValidators() %}
+                     *
+                     * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
+                 {% endif %}
                  *
                  * @return static
                  */
@@ -213,7 +227,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
              *
              * @param array $modelData
              *
-             * {% if property.getValidators() %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+             *{% if property.getValidators() %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
              */
             protected function _process{{ viewHelper.ucfirst(property.getAttribute()) }}(array $modelData): void
             {
@@ -225,7 +239,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
 
                 $value = array_key_exists('{{ property.getName() }}', $modelData) ? $modelData['{{ property.getName() }}'] : $this->{{ property.getAttribute(true) }};
 
-                {{ viewHelper.resolvePropertyDecorator(property, true) }}
+                {{ viewHelper.resolvePropertyDecorator(property, true, 2) }}
 
                 $this->{{ property.getAttribute(true) }} = $this->_validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
             }
@@ -243,7 +257,7 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
                 {% endif %}
 
                 {% foreach property.getOrderedValidators() as validator %}
-                    {{ viewHelper.renderValidator(validator, schema) }}
+                    {{ viewHelper.renderValidator(validator, schema, 2) }}
                 {% endforeach %}
 
                 return $value;
@@ -251,7 +265,5 @@ class {{ schema.getClassName() }} {% if schema.getInterfaces() %}implements {{ v
         {% endif %}
     {% endforeach %}
 
-    {{ viewHelper.renderMethods(schema) }}
+{{ viewHelper.renderMethods(schema) }}
 }
-
-// @codeCoverageIgnoreEnd

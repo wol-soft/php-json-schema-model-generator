@@ -8,6 +8,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class ComposedPropertyValidator
@@ -27,11 +28,47 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         $this->initModifiedValuesMethod();
         $this->isResolved = true;
 
+        $schema = $validatorVariables['schema'];
+
         parent::__construct(
             $generatorConfiguration,
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
-            array_merge($validatorVariables, ['modifiedValuesMethod' => $this->modifiedValuesMethod]),
+            array_merge($validatorVariables, [
+                'modifiedValuesMethod' => $this->modifiedValuesMethod,
+                // Rendered as its own template and embedded via viewHelper.indent() instead of being inlined
+                // directly: the shared per-composition-element validation body sits at a different real nesting
+                // depth depending on whether isMutableBaseValidator holds (it wraps the body in an extra
+                // "} else {" for its cache-check) - one literal indentation can't be correct for both, so the
+                // body is written once, at its own canonical depth, and the two call sites in ComposedItem.phptpl
+                // each indent the rendered result to their own real depth. Rendered once per composition
+                // property, so it must be a closure invoked from inside the {% foreach %} loop rather than a
+                // value precomputed here.
+                'renderComposedItemBody' => function (
+                    $compositionProperty,
+                    $isMutableBaseValidator,
+                    $hasModifiedValuesMethod,
+                    $modifiedValuesMethod,
+                    $postPropose,
+                ) use (
+                    $schema,
+                    $generatorConfiguration,
+                ): string {
+                    return $this->getRenderer()->renderTemplate(
+                        DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItemBody.phptpl',
+                        [
+                            'compositionProperty' => $compositionProperty,
+                            'schema' => $schema,
+                            'generatorConfiguration' => $generatorConfiguration,
+                            'viewHelper' => new RenderHelper($generatorConfiguration),
+                            'isMutableBaseValidator' => $isMutableBaseValidator,
+                            'hasModifiedValuesMethod' => $hasModifiedValuesMethod,
+                            'modifiedValuesMethod' => $modifiedValuesMethod,
+                            'postPropose' => $postPropose,
+                        ],
+                    );
+                },
+            ]),
             $exceptionClass,
             ['&$succeededCompositionElements', '&$compositionErrorCollection'],
         );
@@ -62,10 +99,10 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getValidatorSetUp(): string
     {
-        return '
+        return <<<'CODE'
             $succeededCompositionElements = 0;
             $compositionErrorCollection = [];
-        ';
+            CODE;
     }
 
     /**
@@ -119,12 +156,25 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
     {
         $validator = clone $this;
 
+        // A branch of a class-root composition (the only case reaching this method - see the
+        // caller) can never carry its own nested composed/conditional validator while also
+        // lacking a nested schema: the class-root property is always forced to "type": "object"
+        // (PropertyFactory::createBaseProperty()), so AbstractCompositionValidatorFactory::
+        // inheritPropertyType() injects that "object" type into every untyped branch, routing it
+        // through PropertyFactory::createObjectProperty() into its own generated class - where a
+        // branch with a nested schema is never given a composed validator of its own in the first
+        // place (its composition is processed entirely inside that nested class instead). A branch
+        // that instead declares its own explicit non-object type to escape this inheritance is
+        // rejected outright by transferComposedPropertiesToSchema()'s "No nested schema for
+        // composed property" check before generation ever completes. So the strip below always
+        // targets a branch with a nested schema, and unconditionally removing its (never
+        // co-occurring) composed validator is safe.
         /** @var CompositionPropertyDecorator $composedProperty */
         foreach ($validator->composedProperties as $composedProperty) {
             $composedProperty->onResolve(static function () use ($composedProperty): void {
                 $composedProperty->filterValidators(
                     static fn(Validator $validator): bool =>
-                        !is_a($validator->getValidator(), AbstractComposedPropertyValidator::class)
+                        !is_a($validator->getValidator(), AbstractComposedPropertyValidator::class),
                 );
             });
         }

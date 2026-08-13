@@ -38,22 +38,22 @@ Possible exception (eg. if a string is provided):
 
 .. code-block:: none
 
-    Invalid value for example declined by composition constraint.
-      Requires to match all composition elements but matched 0 elements.
+    Invalid value for 'example' declined by composition constraint
+      Requires to match all composition elements but matched 0 elements
       - Composition element #1: Failed
-        * Invalid type for example. Requires float, got string
+        * Invalid type for 'example': requires 'float', got 'string'
       - Composition element #2: Failed
-        * Invalid type for example. Requires float, got string
+        * Invalid type for 'example': requires 'float', got 'string'
 
 Possible exception (if eg. 5 is provided, which matches only one subschema):
 
 .. code-block:: none
 
-    Invalid value for example declined by composition constraint.
-      Requires to match all composition elements but matched 1 elements.
+    Invalid value for 'example' declined by composition constraint
+      Requires to match all composition elements but matched 1 element
       - Composition element #1: Valid
       - Composition element #2: Failed
-        * Value for example must be a multiple of 3
+        * Value for 'example' must be a multiple of 3
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\AllOfException* which provides the following methods to get further error details:
 
@@ -72,17 +72,36 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
 
 .. hint::
 
-    When combining multiple nested objects with an `allOf` composition a `merged property <mergedProperty.html>`__ will be generated
+    When combining multiple nested objects with an `allOf` composition the property is typed with a single generated class holding all of their properties. Unlike `anyOf`/`oneOf` this is a regular nested class rather than a `merged property <mergedProperty.html>`__: an `allOf` of object branches guarantees that every valid value is an object, so it is routed through the ordinary object path — see `Composition-implied objects <impliedObjects.html>`__.
+
+.. hint::
+
+    An ``allOf`` branch does not need to declare ``"type": "object"`` itself to be treated as an
+    object — the generator also detects object-ness implied by a ``$ref`` chain or nested
+    ``allOf``, and object-constraining keywords used without any ``type`` at all. See
+    `Composition-implied objects <impliedObjects.html>`__ for the full explanation, including why
+    an object-*describing* branch (bare ``properties``/``required``, no ``type``) does **not**
+    trigger the conflicting-types check below the way an object-*asserting* branch does.
 
 .. note::
 
     ``allOf`` branches can be the boolean literals ``true`` or ``false``.
 
     - ``true`` branch — treated as an empty schema; any value satisfies it and it adds no constraint.
+      The generator emits a generation-time warning that the branch carries no validation keyword
+      and matches any value.
     - ``false`` branch — makes the whole composition unsatisfiable; any provided value raises an
       ``AllOfException`` at runtime (the false branch is represented as an always-failing composition
       element). The generator also emits a warning at generation time. Absent optional properties
       are still allowed.
+
+    An empty ``{}`` branch, and a branch carrying only annotation keywords such as ``example``,
+    behave identically to ``true`` at runtime — they impose no constraint either. They are also
+    warned about, but only where the branch does not inherit a ``type`` from the enclosing schema:
+    a branch that declares no ``type`` of its own inherits the outer one, which counts as a
+    constraint and suppresses the warning. Since a schema root always has ``"type": "object"``
+    applied to it, an empty branch in a root-level composition does not currently warn, while a
+    ``true`` branch there does (boolean branches are not subject to the inheritance).
 
 .. note::
 

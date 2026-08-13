@@ -17,6 +17,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessor
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PatternPropertiesAccessorPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\UnevaluatedPropertiesAccessorPostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -148,8 +149,8 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         } catch (AllOfException $exception) {
             $this->assertSame(
                 <<<MSG
-                Invalid value for {$className} declined by composition constraint.
-                  Requires to match all composition elements but matched 0 elements.
+                Invalid value for '{$className}' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
                 MSG,
                 $exception->getMessage(),
             );
@@ -183,7 +184,7 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             $this->fail('Expected RegularPropertyAsUnevaluatedPropertyException');
         } catch (RegularPropertyAsUnevaluatedPropertyException $exception) {
             $this->assertSame(
-                "Couldn't add regular property name as unevaluated property to object {$className}",
+                "Could not add regular property 'name' as an unevaluated property of object '{$className}'",
                 $exception->getMessage(),
             );
             // `name` is declared directly in `properties`, so the pointer identifies the
@@ -374,7 +375,7 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             $this->fail('Expected RegularPropertyAsUnevaluatedPropertyException');
         } catch (RegularPropertyAsUnevaluatedPropertyException $exception) {
             $this->assertSame(
-                "Couldn't add regular property branchOwned as unevaluated property to object {$className}",
+                "Could not add regular property 'branchOwned' as an unevaluated property of object '{$className}'",
                 $exception->getMessage(),
             );
             // The composition-branch harvest resolves the pointer to the declaration site
@@ -605,7 +606,7 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             $this->fail('Expected construction to reject the orphan key');
         } catch (UnevaluatedPropertiesException $constructorException) {
             $this->assertSame(
-                "Provided JSON for {$className} contains not allowed unevaluated properties [foo]",
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['foo']",
                 $constructorException->getMessage(),
             );
             $this->assertSame(['foo'], $constructorException->getUnevaluatedProperties());
@@ -624,7 +625,7 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             $this->fail('Expected unevaluatedProperties: false to reject the orphan key');
         } catch (UnevaluatedPropertiesException $setterException) {
             $this->assertSame(
-                "Provided JSON for {$className} contains not allowed unevaluated properties [foo]",
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['foo']",
                 $setterException->getMessage(),
             );
             $this->assertSame(['foo'], $setterException->getUnevaluatedProperties());
@@ -644,10 +645,9 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
      * the unevaluated schema's `type: integer` constraint never runs, and a string value
      * lands unobserved.
      *
-     * The factory also emits a generation-time warning via the standard `echo` channel so the
+     * The factory also emits a generation-time warning via the configured logger so the
      * developer gets a hint that the unevaluatedProperties keyword cannot affect validation at
-     * this schema level. The assertion below pins both the warning text and the offending
-     * class name.
+     * this schema level. The assertion below pins the warning entry.
      */
     public function testAdditionalAccessorSetUnderSuppressedUnevaluatedIsPermitted(): void
     {
@@ -656,14 +656,24 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             $generator->addPostProcessor(new UnevaluatedPropertiesAccessorPostProcessor());
         };
 
-        $this->expectOutputRegex(
-            '/Warning: unevaluatedProperties on \S+ is dead code — sibling additionalProperties: '
-            . 'true accepts every extra without crediting the unevaluated accumulator/',
-        );
+        $logger = new RecordingLogger();
 
         $className = $this->generateClassFromFile(
             'AdditionalTrueWithUnevaluatedSchema.json',
-            (new GeneratorConfiguration())->setImmutable(false)->setOutputEnabled(true),
+            (new GeneratorConfiguration())->setImmutable(false)->setLogger($logger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                'unevaluatedProperties on {class} is dead code — {reason}',
+                [
+                    'reason' => 'sibling additionalProperties: true accepts every extra without'
+                        . ' crediting the unevaluated accumulator',
+                ],
+            ),
+            'Expected a warning naming the dead unevaluatedProperties keyword',
         );
 
         $object = new $className(['name' => 'Alice']);
@@ -725,7 +735,7 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             $this->fail('Expected RegularPropertyAsUnevaluatedPropertyException');
         } catch (RegularPropertyAsUnevaluatedPropertyException $exception) {
             $this->assertSame(
-                "Couldn't add regular property s/~2 as unevaluated property to object {$className}",
+                "Could not add regular property 's/~2' as an unevaluated property of object '{$className}'",
                 $exception->getMessage(),
             );
             $this->assertSame(
@@ -800,7 +810,7 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             $this->fail('Expected MinPropertiesException');
         } catch (MinPropertiesException $exception) {
             $this->assertSame(
-                "Provided object for {$className} must not contain less than 3 properties, 2 properties provided",
+                "Provided object for '{$className}' must not contain less than 3 properties",
                 $exception->getMessage(),
             );
         }
@@ -854,8 +864,8 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         } catch (AllOfException $exception) {
             $this->assertSame(
                 <<<MSG
-                Invalid value for {$className} declined by composition constraint.
-                  Requires to match all composition elements but matched 0 elements.
+                Invalid value for '{$className}' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
                 MSG,
                 $exception->getMessage(),
             );
@@ -969,10 +979,10 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         } catch (ErrorRegistryException $registry) {
             $this->assertSame(
                 <<<MSG
-                Provided JSON for {$className} contains invalid pattern properties.
+                Provided JSON for '{$className}' contains invalid pattern properties
                   - invalid property 'x_foo' matching pattern '^x_'
-                    * Invalid type for pattern property. Requires int, got string
-                Provided JSON for {$className} contains not allowed unevaluated properties [x_foo]
+                    * Invalid type for 'pattern property': requires 'int', got 'string'
+                Provided JSON for '{$className}' contains not allowed unevaluated properties ['x_foo']
                 MSG,
                 $registry->getMessage(),
             );
@@ -1032,8 +1042,8 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         } catch (ErrorRegistryException $registry) {
             $this->assertSame(
                 <<<MSG
-                Provided object for {$className} must not contain less than 3 properties, 2 properties provided
-                Provided JSON for {$className} contains not allowed unevaluated properties [q_marker]
+                Provided object for '{$className}' must not contain less than 3 properties
+                Provided JSON for '{$className}' contains not allowed unevaluated properties ['q_marker']
                 MSG,
                 $registry->getMessage(),
             );

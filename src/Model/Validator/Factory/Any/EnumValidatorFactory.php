@@ -41,6 +41,7 @@ class EnumValidatorFactory extends AbstractValidatorFactory
                     $property->getName(),
                     $propertySchema->getFile(),
                 ),
+                $propertySchema,
             );
         }
 
@@ -55,6 +56,7 @@ class EnumValidatorFactory extends AbstractValidatorFactory
                         $property->getName(),
                         $propertySchema->getFile(),
                     ),
+                    $propertySchema,
                 );
             }
         }

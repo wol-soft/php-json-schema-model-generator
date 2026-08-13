@@ -1,0 +1,89 @@
+{
+  "type": "object",
+  "properties": {
+    "unknownKeyBranch": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "label": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "someNonStandardKey": "whatever"
+        }
+      ]
+    },
+    "constOnlyBranch": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "const": "fixed-value"
+        }
+      ]
+    },
+    "typeOnlyBranch": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "flag": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
+    "trueBranch": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "flag": {
+              "type": "string"
+            }
+          }
+        },
+        true
+      ]
+    },
+    "falseBranch": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "flag": {
+              "type": "string"
+            }
+          }
+        },
+        false
+      ]
+    },
+    "emptyBranchParity": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "flag": {
+              "type": "string"
+            }
+          }
+        },
+        {}
+      ]
+    }
+  }
+}

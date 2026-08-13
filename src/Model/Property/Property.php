@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecoratorInterface;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class Property
@@ -25,6 +26,8 @@ class Property extends AbstractProperty
     protected $outputType;
     /** @var bool */
     protected $isPropertyRequired = true;
+    /** @var bool */
+    protected $isPropertyArrayItem = false;
     /** @var bool */
     protected $isPropertyReadOnly = false;
     /** @var bool */
@@ -312,6 +315,24 @@ class Property extends AbstractProperty
     /**
      * @inheritdoc
      */
+    public function setArrayItem(bool $isArrayItem): PropertyInterface
+    {
+        $this->isPropertyArrayItem = $isArrayItem;
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function isArrayItem(): bool
+    {
+        return $this->isPropertyArrayItem;
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function setReadOnly(bool $isPropertyReadOnly): PropertyInterface
     {
         $this->isPropertyReadOnly = $isPropertyReadOnly;
@@ -334,7 +355,9 @@ class Property extends AbstractProperty
      */
     public function setDefaultValue($defaultValue, bool $raw = false): PropertyInterface
     {
-        $this->defaultValue = $defaultValue !== null && !$raw ? var_export($defaultValue, true) : $defaultValue;
+        $this->defaultValue = $defaultValue !== null && !$raw
+            ? RenderHelper::varExportArray($defaultValue)
+            : $defaultValue;
 
         return $this;
     }
@@ -352,7 +375,7 @@ class Property extends AbstractProperty
      */
     public function isRequired(): bool
     {
-        return $this->isPropertyRequired || str_starts_with($this->name, 'item of array ');
+        return $this->isPropertyRequired || $this->isPropertyArrayItem;
     }
 
     /**

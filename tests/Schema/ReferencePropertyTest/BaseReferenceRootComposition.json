@@ -1,0 +1,21 @@
+{
+  "definitions": {
+    "composed": {
+      "type": "object",
+      "allOf": [
+        {
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$ref": "#/definitions/composed"
+}

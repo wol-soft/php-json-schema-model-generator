@@ -1,0 +1,59 @@
+{% if generatorConfiguration.collectErrors() %}
+    // collect errors for each composition element
+    $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+{% endif %}
+
+{% if not postPropose %}
+    $proposedValue = $proposedValue ?? $value;
+{% endif %}
+
+{{ viewHelper.resolvePropertyDecorator(compositionProperty, false, 0) }}
+
+{% foreach compositionProperty.getOrderedValidators() as validator %}
+    {{ viewHelper.renderValidator(validator, schema, 0) }}
+{% endforeach %}
+
+{% if generatorConfiguration.collectErrors() %}
+    $compositionErrorCollection[] = $this->_errorRegistry;
+
+    {% if isMutableBaseValidator %}
+        if (isset($validatorIndex)) {
+            $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = $this->_errorRegistry;
+        }
+    {% endif %}
+
+    // an error inside the composed validation occurred. Throw an exception to count the validity of the
+    // composition item
+    if ($this->_errorRegistry->getErrors()) {
+        throw new \Exception();
+    }
+{% endif %}
+
+{% if not generatorConfiguration.collectErrors() and not isMutableBaseValidator %}
+    {#
+        Mirror the collect-errors path: every branch - not just failing ones - must contribute an
+        entry to $compositionErrorCollection so InvalidComposedValueException::getErrorMessage()
+        numbers elements by their real schema position instead of by position among failures. A
+        branch reaching this point ran to completion without throwing, so it is valid; an empty
+        ErrorRegistryException renders as "Valid". The failing counterpart is appended in the
+        catch block in ComposedItem.phptpl.
+    #}
+    $compositionErrorCollection[] = new \PHPModelGenerator\Exception\ErrorRegistryException();
+{% endif %}
+
+{% if postPropose %}
+    $proposedValue = $proposedValue ?? $value;
+{% endif %}
+
+{% if hasModifiedValuesMethod %}
+    if (is_object($value)) {
+        $modifiedValues = array_merge($modifiedValues, $this->{{ modifiedValuesMethod }}($originalModelData, $value, $validatorComponentIndex));
+    }
+{% endif %}
+{% if isMutableBaseValidator %}
+    {% if not generatorConfiguration.collectErrors() %}
+        if (isset($validatorIndex)) {
+            $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = true;
+        }
+    {% endif %}
+{% endif %}

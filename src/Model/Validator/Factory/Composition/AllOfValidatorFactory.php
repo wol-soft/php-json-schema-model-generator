@@ -27,6 +27,8 @@ class AllOfValidatorFactory
             return;
         }
 
+        $this->assertCompositionBranchesAreWellFormed($property, $propertySchema);
+
         if (in_array(false, $propertySchema->getJson()[$this->key], true)) {
             $this->warnIfAlwaysFalse(
                 $schemaProcessor,
@@ -36,7 +38,7 @@ class AllOfValidatorFactory
         }
 
         $this->warnIfEmpty($schemaProcessor, $property, $propertySchema);
-        $propertySchema = $this->inheritPropertyType($propertySchema);
+        $propertySchema = $this->inheritPropertyType($schemaProcessor, $property, $propertySchema);
         $this->checkForFilterInBranches($property, $propertySchema);
 
         $wrappedSchema = $propertySchema->withJson([

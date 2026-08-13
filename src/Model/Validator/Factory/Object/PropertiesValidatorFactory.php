@@ -11,16 +11,15 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
-use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
-use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 
 class PropertiesValidatorFactory extends AbstractValidatorFactory
 {
+    use PropertyDependencyTrait;
+
     /**
      * @throws SchemaException
      */
@@ -35,11 +34,6 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
         $propertyFactory = new PropertyFactory();
 
         $json[$this->key] ??= [];
-        // Setup empty properties for required properties which aren't defined in the properties section
-        $json[$this->key] += array_fill_keys(
-            array_diff($json['required'] ?? [], array_keys($json[$this->key])),
-            [],
-        );
 
         $propertySchema = $propertySchema->withJson($json);
 
@@ -52,6 +46,7 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
                             $propertyName,
                             $propertySchema->getFile(),
                         ),
+                        $propertySchema,
                     );
                 }
 
@@ -62,6 +57,7 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
                             $propertyName,
                             $propertySchema->getFile(),
                         ),
+                        $propertySchema,
                     );
                 }
 
@@ -122,68 +118,6 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
             }
 
             $schema->addProperty($nestedProperty);
-        }
-    }
-
-    /**
-     * @throws SchemaException
-     */
-    private function addDependencyValidator(
-        PropertyInterface $property,
-        JsonSchema $dependencyJsonSchema,
-        SchemaProcessor $schemaProcessor,
-        Schema $schema,
-    ): void {
-        $propertyDependency = true;
-
-        foreach ($dependencyJsonSchema->getJson() as $index => $dependency) {
-            if (!is_int($index) || !is_string($dependency)) {
-                $propertyDependency = false;
-                break;
-            }
-        }
-
-        $dependencyPointer = $dependencyJsonSchema->getPointer();
-
-        if ($propertyDependency) {
-            $property->addValidator(
-                (new PropertyDependencyValidator($property, $dependencyJsonSchema->getJson()))
-                    ->withJsonPointer($dependencyPointer),
-            );
-
-            return;
-        }
-
-        $json = $dependencyJsonSchema->getJson();
-        if (!isset($json['type'])) {
-            $dependencyJsonSchema = $dependencyJsonSchema->withJson($json + ['type' => 'object']);
-        }
-
-        $dependencySchema = $schemaProcessor->processSchema(
-            $dependencyJsonSchema,
-            $schema->getClassPath(),
-            "{$schema->getClassName()}_{$property->getName()}_Dependency",
-            $schema->getSchemaDictionary(),
-        );
-
-        $property->addValidator(
-            (new SchemaDependencyValidator($schemaProcessor, $property, $dependencySchema))
-                ->withJsonPointer($dependencyPointer),
-        );
-        $schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
-
-        $this->transferDependentPropertiesToBaseSchema($dependencySchema, $schema);
-    }
-
-    private function transferDependentPropertiesToBaseSchema(Schema $dependencySchema, Schema $schema): void
-    {
-        foreach ($dependencySchema->getProperties() as $dependencyProperty) {
-            $schema->addProperty(
-                (clone $dependencyProperty)
-                    ->setRequired(false)
-                    ->setType(null)
-                    ->filterValidators(static fn(): bool => false),
-            );
         }
     }
 }

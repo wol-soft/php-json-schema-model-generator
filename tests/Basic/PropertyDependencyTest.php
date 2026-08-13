@@ -91,8 +91,8 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         } catch (ErrorRegistryException | InvalidPropertyDependencyException $exception) {
             $this->assertSame(
                 <<<ERROR
-                Missing required attributes which are dependants of credit_card:
-                  - billing_address
+                Missing required attributes which are dependants of 'credit_card':
+                  - 'billing_address'
                 ERROR,
                 $exception->getMessage(),
             );
@@ -128,23 +128,23 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
                 'no required attribute provided' => [
                     ['credit_card' => 12345],
                     <<<ERROR
-                    Missing required attributes which are dependants of credit_card:
-                      - billing_address
-                      - name
+                    Missing required attributes which are dependants of 'credit_card':
+                      - 'billing_address'
+                      - 'name'
                     ERROR,
                 ],
                 'only one required attribute provided 1' => [
                     ['credit_card' => 12345, 'billing_address' => '555 Debitors Lane'],
                     <<<ERROR
-                    Missing required attributes which are dependants of credit_card:
-                      - name
+                    Missing required attributes which are dependants of 'credit_card':
+                      - 'name'
                     ERROR,
                 ],
                 'only one required attribute provided 2' => [
                     ['credit_card' => 12345, 'name' => 'John'],
                     <<<ERROR
-                    Missing required attributes which are dependants of credit_card:
-                      - billing_address
+                    Missing required attributes which are dependants of 'credit_card':
+                      - 'billing_address'
                     ERROR,
                 ],
             ],
@@ -172,15 +172,15 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
                 [
                     ['credit_card' => 12345],
                     <<<ERROR
-                    Missing required attributes which are dependants of credit_card:
-                      - billing_address
+                    Missing required attributes which are dependants of 'credit_card':
+                      - 'billing_address'
                     ERROR,
                 ],
                 [
                     ['billing_address' => '555 Debitors Lane'],
                     <<<ERROR
-                    Missing required attributes which are dependants of billing_address:
-                      - credit_card
+                    Missing required attributes which are dependants of 'billing_address':
+                      - 'credit_card'
                     ERROR,
                 ],
             ],

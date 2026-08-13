@@ -28,7 +28,7 @@ Simple example from a PHP application: you define and document an API with swagg
 ## Requirements ##
 
 - Requires at least PHP 8.4
-- Requires the PHP extensions ext-json and ext-mbstring
+- Requires the PHP extension ext-mbstring
 
 ## Installation ##
 
@@ -144,7 +144,7 @@ $person->setAge(-10);
 More complex exception messages eg. from a [allOf](https://json-schema.org/understanding-json-schema/reference/combining.html#allof) composition may look like:
 ```
 Invalid value for Animal declined by composition constraint.
-  Requires to match 3 composition elements but matched 1 elements.
+  Requires to match 3 composition elements but matched 1 element.
   - Composition element #1: Failed
     * Value for age must not be smaller than 0
   - Composition element #2: Valid
@@ -171,6 +171,8 @@ After installing the dependencies of the library via `composer update` you can e
 During the execution the tests will create a session-unique directory `PHPModelGeneratorTest_<id>` in tmp where JSON-Schema files and PHP classes will be written to. The directory is removed automatically when the test process exits, so concurrent test sessions do not interfere with each other.
 
 If a test which creates a PHP class from a JSON-Schema fails the JSON-Schema and the generated class(es) will be dumped to the directory `./failed-classes`
+
+For details on the base test class helpers, built-in data providers, and the multi-draft test expansion system see the [test infrastructure docs](https://php-json-schema-model-generator.readthedocs.io/en/latest/development/testInfrastructure.html).
 
 ## Docs ##
 

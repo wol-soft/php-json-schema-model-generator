@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPMicroTemplate\Exception\PHPMicroTemplateException;
+use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -45,16 +47,38 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
 
             public function getCode(): string
             {
-                $renderHelper = new RenderHelper($this->generatorConfiguration);
-                return "private function {$this->validator->getExtractedMethodName()}(&\$value, \$modelData): void {
-                    {$this->validator->getValidatorSetUp()}
-                    
-                    if ({$this->validator->getCheck()}) {
-                        {$renderHelper->validationError($this->validator)}
-                    }
-                }";
+                return $this->validator->renderExtractedMethod($this->generatorConfiguration);
             }
         };
+    }
+
+    /**
+     * @throws RenderException
+     */
+    public function renderExtractedMethod(GeneratorConfiguration $generatorConfiguration): string
+    {
+        $renderHelper = new RenderHelper($generatorConfiguration);
+
+        try {
+            return $this->getRenderer()->renderTemplate(
+                DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ExtractedMethod.phptpl',
+                [
+                    'methodName' => $this->getExtractedMethodName(),
+                    'setUp' => $this->getValidatorSetUp(),
+                    'check' => $this->getCheck(),
+                    'errorHandling' => $renderHelper->validationError($this),
+                    'viewHelper' => $renderHelper,
+                ],
+            );
+        } catch (PHPMicroTemplateException $exception) {
+            // @codeCoverageIgnoreStart
+            throw new RenderException(
+                "Can't render extracted method {$this->getExtractedMethodName()}",
+                0,
+                $exception,
+            );
+            // @codeCoverageIgnoreEnd
+        }
     }
 
     public function getExtractedMethodName(): string

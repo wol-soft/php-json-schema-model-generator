@@ -36,7 +36,7 @@ class Validator
     /**
      * The schema keyword (e.g. 'pattern', 'minimum') that caused this validator to be added,
      * as determined by the Draft modifier registry. Null for validators not produced by a
-     * Draft AbstractValidatorFactory (e.g. TypeCheckValidator, RequiredPropertyValidator).
+     * Draft AbstractValidatorFactory (e.g. TypeCheckValidator).
      */
     public function getSourceKey(): ?string
     {

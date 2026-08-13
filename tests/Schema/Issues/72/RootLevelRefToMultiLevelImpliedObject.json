@@ -1,0 +1,25 @@
+{
+  "definitions": {
+    "identification": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": ["name"]
+        }
+      ]
+    },
+    "extraRequirements": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/identification"
+        }
+      ]
+    }
+  },
+  "$ref": "#/definitions/extraRequirements"
+}

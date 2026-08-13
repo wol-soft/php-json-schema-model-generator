@@ -70,7 +70,7 @@ class SchemaDefinitionDictionary extends ArrayObject
 
         if (isset($json['$id'])) {
             $this->addDefinition(
-                str_starts_with((string) $json['$id'], '#') ? $json['$id'] : "#{$json['$id']}",
+                JsonSchema::normalizeId((string) $json['$id']),
                 new SchemaDefinition($jsonSchema, $schemaProcessor, $schema),
             );
         }
@@ -107,8 +107,20 @@ class SchemaDefinitionDictionary extends ArrayObject
     /**
      * @throws SchemaException
      */
-    public function getDefinition(string $key, SchemaProcessor $schemaProcessor, array &$path = []): ?SchemaDefinition
-    {
+    public function getDefinition(
+        string $key,
+        SchemaProcessor $schemaProcessor,
+        array &$path = [],
+        string $baseId = '#',
+    ): ?SchemaDefinition {
+        // An empty $ref is a URI-Reference with an empty path, which RFC 3986 §5.2.2 resolves
+        // against the current base URI to the base URI's own path. $baseId carries that base:
+        // the document root ('#') by default, or the nearest enclosing $id when the $ref is
+        // written inside a $id-scoped subschema (JsonSchema::getBaseId()).
+        if ($key === '') {
+            $key = $baseId;
+        }
+
         if (str_starts_with($key, '#') && strpos($key, '/')) {
             $path = explode('/', $key);
             array_shift($path);
@@ -133,7 +145,7 @@ class SchemaDefinitionDictionary extends ArrayObject
             }
 
             return $jsonSchemaFile
-                ? $this->parseExternalFile($jsonSchemaFile, "#$externalKey", $schemaProcessor, $path)
+                ? $this->parseExternalFile($jsonSchemaFile, "#$externalKey", $schemaProcessor, $path, $baseId)
                 : null;
         }
 
@@ -148,14 +160,22 @@ class SchemaDefinitionDictionary extends ArrayObject
         string $externalKey,
         SchemaProcessor $schemaProcessor,
         array &$path,
+        string $baseId = '#',
     ): ?SchemaDefinition {
         // Resolve the ref to obtain the canonical file path or URL via the provider.
         // Using $jsonSchema->getFile() as the key (not the raw $jsonSchemaFile argument) ensures
         // that relative refs from different directories pointing to the same file share one entry,
         // and that network URLs resolved via $id are handled correctly.
+        //
+        // $baseId (the nearest enclosing $id, see JsonSchema::getBaseId()) rather than always
+        // this file's own top-level $id: a relative $ref written inside a $id-scoped subschema
+        // resolves against that scope's own $id, not the document's. Strip the '#' normalization
+        // prefix back off - getRef() only builds a network URL from it when it's itself a full
+        // URL, so a plain internal id (e.g. '#person') falls through to local-path resolution
+        // exactly as no $id at all would.
         $jsonSchema = $schemaProcessor->getSchemaProvider()->getRef(
             $this->schema->getFile(),
-            $this->schema->getJson()['$id'] ?? null,
+            $baseId === '#' ? null : substr($baseId, 1),
             $jsonSchemaFile,
         );
 

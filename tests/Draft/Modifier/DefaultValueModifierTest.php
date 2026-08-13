@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\SchemaProcessor\RenderQueue;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\SchemaProvider\RecursiveDirectoryProvider;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -21,13 +22,16 @@ class DefaultValueModifierTest extends TestCase
 {
     private SchemaProcessor $schemaProcessor;
     private Schema $schema;
+    private RecordingLogger $recordingLogger;
 
     protected function setUp(): void
     {
+        $this->recordingLogger = new RecordingLogger();
+
         $this->schemaProcessor = new SchemaProcessor(
             new RecursiveDirectoryProvider(__DIR__),
             '',
-            new GeneratorConfiguration(),
+            (new GeneratorConfiguration())->setLogger($this->recordingLogger),
             new RenderQueue(),
         );
 
@@ -142,14 +146,18 @@ class DefaultValueModifierTest extends TestCase
         $jsonSchema = new JsonSchema('test.json', ['type' => 'boolean', 'default' => true], $pointer);
         $property = new Property('flag', new PropertyType('boolean'), $jsonSchema);
 
-        ob_start();
         $this->modifier()->modify($this->schemaProcessor, $this->schema, $property, $jsonSchema);
-        $output = ob_get_clean();
 
         $this->assertSame(
-            "Warning: property 'flag' declares a default value inside a composition branch"
-                . " in file 'test.json'. Scalar branch defaults are unreachable and will be ignored.\n",
-            $output,
+            [
+                [
+                    'level' => 'warning',
+                    'message' => "Property '{property}' declares a default value inside a composition branch in"
+                        . " file '{file}'. Scalar branch defaults are unreachable and will be ignored.",
+                    'context' => ['property' => 'flag', 'file' => 'test.json'],
+                ],
+            ],
+            $this->recordingLogger->getEntries(),
         );
         $this->assertNull($property->getDefaultValue(), 'Default must not be applied for scalar branch schemas.');
     }
@@ -165,31 +173,13 @@ class DefaultValueModifierTest extends TestCase
         );
         $property = new Property('sandbox', new PropertyType('boolean'), $jsonSchema);
 
-        ob_start();
         $this->modifier()->modify($this->schemaProcessor, $this->schema, $property, $jsonSchema);
-        $output = ob_get_clean();
 
-        $this->assertSame('', $output, 'No warning for named properties inside object branches.');
-        $this->assertSame('true', $property->getDefaultValue(), 'Default must apply for object-branch properties.');
-    }
-
-    public function testScalarBranchDefaultIsDroppedSilentlyWhenOutputDisabled(): void
-    {
-        $silentProcessor = new SchemaProcessor(
-            new RecursiveDirectoryProvider(__DIR__),
-            '',
-            (new GeneratorConfiguration())->setOutputEnabled(false),
-            new RenderQueue(),
+        $this->assertSame(
+            [],
+            $this->recordingLogger->getEntries(),
+            'No warning for named properties inside object branches.',
         );
-
-        $jsonSchema = new JsonSchema('test.json', ['type' => 'string', 'default' => 'hello'], '/oneOf/0');
-        $property = new Property('name', new PropertyType('string'), $jsonSchema);
-
-        ob_start();
-        $this->modifier()->modify($silentProcessor, $this->schema, $property, $jsonSchema);
-        $output = ob_get_clean();
-
-        $this->assertSame('', $output, 'No output must be emitted when output is disabled.');
-        $this->assertNull($property->getDefaultValue(), 'Default must still be dropped even when output is disabled.');
+        $this->assertSame('true', $property->getDefaultValue(), 'Default must apply for object-branch properties.');
     }
 }

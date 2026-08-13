@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "value": {
+      "type": "integer"
+    },
+    "target": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string",
+              "default": "fallback"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "string"
+        }
+      ]
+    }
+  }
+}

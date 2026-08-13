@@ -79,14 +79,17 @@ class CompositionValidationPostProcessor extends PostProcessor
                     $dependsOnUndeclaredKeys = true;
                 }
 
-                // Every schema-level composition branch has a nested schema at this point:
-                // SchemaProcessor::transferComposedPropertiesToSchema() throws SchemaException
-                // for any branch that lacks one, and inheritPropertyType() forces branches to
-                // adopt the parent's object type so PropertyFactory routes them through
-                // createObjectProperty(). The branch's declared properties are thus visible
-                // via getNestedSchema()->getProperties(), covering setter-side revalidation
-                // for inline oneOf/anyOf/if-then-else discriminators without a separate
-                // harvest path.
+                // A schema-level composition branch usually has a nested schema at this point
+                // (inheritPropertyType() forces branches to adopt the parent's object type, so
+                // PropertyFactory routes them through createObjectProperty()), but not always: a
+                // self-referencing or mutually-recursive $ref branch can resolve to a placeholder
+                // with no nested schema of its own. Skip mapping declared properties for such a
+                // branch — branchEvaluationDependsOnUndeclaredKeys() above already ensures a
+                // key-sensitive branch still gets full setter coverage regardless.
+                if ($composedProperty->getNestedSchema() === null) {
+                    continue;
+                }
+
                 foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
                     $this->mapPropertyToValidator($validatorPropertyMap, $property->getName(), $validatorIndex);
                 }

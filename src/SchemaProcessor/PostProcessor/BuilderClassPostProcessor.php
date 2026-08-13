@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 
-use PHPMicroTemplate\Render;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Interfaces\BuilderInterface;
@@ -15,6 +14,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintTransferDecorator;
+use PHPModelGenerator\Utils\RenderFactory;
 use PHPModelGenerator\Utils\RenderHelper;
 use ReflectionClass;
 
@@ -62,21 +62,24 @@ class BuilderClassPostProcessor extends PostProcessor
 
             $result = file_put_contents(
                 $filename = str_replace('.php', 'Builder.php', $schema->getTargetFileName()),
-                (new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR))->renderTemplate(
-                    'BuilderClass.phptpl',
-                    [
-                        'namespace'              => $namespace,
-                        'class'                  => $schema->getClassName(),
-                        'schema'                 => $schema,
-                        'properties'             => $properties,
-                        'use'                    => $this->getBuilderClassImports(
-                            $properties,
-                            $schema->getUsedClasses(),
-                            $namespace,
+                RenderHelper::collapseBlankLines(
+                    RenderFactory::create(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR)
+                        ->renderTemplate(
+                            'BuilderClass.phptpl',
+                            [
+                                'namespace'              => $namespace,
+                                'class'                  => $schema->getClassName(),
+                                'schema'                 => $schema,
+                                'properties'             => $properties,
+                                'use'                    => $this->getBuilderClassImports(
+                                    $properties,
+                                    $schema->getUsedClasses(),
+                                    $namespace,
+                                ),
+                                'generatorConfiguration' => $this->generatorConfiguration,
+                                'viewHelper'             => new RenderHelper($this->generatorConfiguration),
+                            ],
                         ),
-                        'generatorConfiguration' => $this->generatorConfiguration,
-                        'viewHelper'             => new RenderHelper($this->generatorConfiguration),
-                    ],
                 )
             );
 
@@ -90,11 +93,7 @@ class BuilderClassPostProcessor extends PostProcessor
 
             require $filename;
 
-            if ($this->generatorConfiguration->isOutputEnabled()) {
-                // @codeCoverageIgnoreStart
-                echo "Rendered builder class $fqcn\n";
-                // @codeCoverageIgnoreEnd
-            }
+            $this->generatorConfiguration->getLogger()->info('Rendered builder class {class}', ['class' => $fqcn]);
         }
     }
 

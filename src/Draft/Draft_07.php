@@ -7,6 +7,8 @@ namespace PHPModelGenerator\Draft;
 use PHPModelGenerator\Draft\Element\Type;
 use PHPModelGenerator\Draft\Modifier\DefaultArrayToEmptyArrayModifier;
 use PHPModelGenerator\Draft\Modifier\MediaStringModifier;
+use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
+use PHPModelGenerator\Draft\Producer\RefResolver;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\IfValidatorFactory;
@@ -35,6 +37,7 @@ use PHPModelGenerator\Model\Validator\Factory\Object\MaxPropertiesValidatorFacto
 use PHPModelGenerator\Model\Validator\Factory\Object\MinPropertiesValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Object\PatternPropertiesValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Object\PropertyNamesValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Object\RequiredValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\String\FormatValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\String\MaxLengthValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\String\MinLengthPropertyValidatorFactory;
@@ -45,8 +48,10 @@ class Draft_07 implements DraftInterface
     public function getDefinition(): DraftBuilder
     {
         return (new DraftBuilder())
+            ->addProducer('$ref', new ExclusiveProducer(new RefResolver()))
             ->addType((new Type('object', false))
                 ->addValidator('properties', new PropertiesValidatorFactory())
+                ->addValidator('required', new RequiredValidatorFactory())
                 ->addValidator('propertyNames', new PropertyNamesValidatorFactory())
                 ->addValidator('patternProperties', new PatternPropertiesValidatorFactory())
                 ->addValidator('additionalProperties', new AdditionalPropertiesValidatorFactory())

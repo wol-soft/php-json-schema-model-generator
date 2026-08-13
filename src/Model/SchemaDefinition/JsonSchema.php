@@ -4,16 +4,10 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\SchemaDefinition;
 
-use PHPModelGenerator\Exception\GeneratorException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Utils\ArrayHash;
 use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 
-/**
- * Class JsonSchema
- *
- * @package PHPModelGenerator\Model\SchemaDefinition
- */
 class JsonSchema
 {
     private const array SCHEMA_SIGNATURE_RELEVANT_FIELDS = [
@@ -39,42 +33,74 @@ class JsonSchema
     protected array $json;
 
     /**
+     * The nearest enclosing $id, normalized to always start with '#' (matching
+     * SchemaDefinitionDictionary's dictionary key format). Defaults to the document root ('#')
+     * and is updated by navigate() whenever it descends into a node carrying its own $id. Used to
+     * resolve an empty/fragment-only $ref (RFC 3986 §5.2.2: "" and "#" both resolve to the
+     * current base) against the correct scope instead of always the top-level document.
+     */
+    private string $baseId = '#';
+
+    /**
+     * The $schema URI in effect for this node: the current node's own $schema if it declares one,
+     * otherwise inherited from the nearest ancestor that did. Per the JSON Schema core spec,
+     * $schema SHOULD appear on the document root and MAY additionally appear on the root schema
+     * object of an embedded schema resource (a subschema with its own $id, e.g. a $defs entry) to
+     * declare a different dialect for that resource; it MUST NOT appear elsewhere. $schema is
+     * therefore absent from most nodes, so without inheritance draft detection (see
+     * AutoDetectionDraft) would only ever work for literal document-root-level properties.
+     * navigate()/withJson() below both clone $this (which copies this property) and then
+     * re-derive it via deriveSchemaUri(), so a local override on an embedded resource wins there
+     * and continues to propagate to ITS descendants, while every other node keeps inheriting the
+     * ancestor value undisturbed.
+     */
+    private ?string $schemaUri = null;
+
+    /**
      * JsonSchema constructor.
      *
      * @param string $file the source file for the schema
      * @param array $json Decoded json schema
      * @param string $pointer The JSON pointer inside the $file leading to the schema provided in $json
+     * @param string|null $rawSource The raw, undecoded text of $file, if the provider retained it. Populating this
+     *                               enables SchemaException to report the line/column a validation error occurred
+     *                               at; providers that don't have the raw text on hand may omit it.
      */
-    public function __construct(private string $file, array $json, private string $pointer = '')
-    {
-        // wrap in an allOf to pass the processing to multiple handlers - ugly hack to be removed after rework
-        if (
-            isset($json['$ref']) &&
-            count(array_diff(
-                array_intersect(array_keys($json), self::SCHEMA_SIGNATURE_RELEVANT_FIELDS),
-                ['$ref', 'type'],
-            ))
-        ) {
-            $json = array_merge(
-                array_diff_key($json, array_fill_keys(self::SCHEMA_SIGNATURE_RELEVANT_FIELDS, null)),
-                [
-                    'allOf' => [
-                        ['$ref' => $json['$ref']],
-                        array_intersect_key(
-                            $json,
-                            array_fill_keys(array_diff(self::SCHEMA_SIGNATURE_RELEVANT_FIELDS, ['$ref']), null),
-                        ),
-                    ],
-                ],
-            );
-        }
-
+    public function __construct(
+        private string $file,
+        array $json,
+        private string $pointer = '',
+        private ?string $rawSource = null,
+    ) {
+        $this->schemaUri = $this->deriveSchemaUri($json);
         $this->json = $json;
+
+        if (isset($json['$id'])) {
+            $this->baseId = self::normalizeId((string) $json['$id']);
+        }
     }
 
     public function getJson(): array
     {
         return $this->json;
+    }
+
+    /**
+     * The $schema URI in effect for this node — see the $schemaUri property doc.
+     */
+    public function getSchemaUri(): ?string
+    {
+        return $this->schemaUri;
+    }
+
+    /**
+     * The node's own $schema if declared, otherwise whatever this instance already inherited.
+     * $json is mixed (not array) because navigate() can land on a non-object JSON value (e.g. a
+     * "dependencies" entry that is a plain list of property names rather than a schema object).
+     */
+    private function deriveSchemaUri(mixed $json): ?string
+    {
+        return (is_array($json) ? $json['$schema'] ?? null : null) ?? $this->schemaUri;
     }
 
     /**
@@ -90,6 +116,7 @@ class JsonSchema
     {
         $jsonSchema = clone $this;
         $jsonSchema->json = $json;
+        $jsonSchema->schemaUri = $jsonSchema->deriveSchemaUri($json);
 
         return $jsonSchema;
     }
@@ -125,18 +152,39 @@ class JsonSchema
             $decodedPathSegment = JsonSchemaUtil::decodePointer($pathSegment);
 
             if (!array_key_exists($decodedPathSegment, $jsonSchema->json)) {
-                throw new SchemaException("Unresolved path segment $pathSegment in file $this->file");
+                throw new SchemaException("Unresolved path segment $pathSegment in file $this->file", $jsonSchema);
             }
 
             $jsonSchema->json = $jsonSchema->json[$decodedPathSegment];
+
+            if (is_array($jsonSchema->json) && isset($jsonSchema->json['$id'])) {
+                $jsonSchema->baseId = self::normalizeId((string) $jsonSchema->json['$id']);
+            }
         }
 
+        $jsonSchema->schemaUri = $jsonSchema->deriveSchemaUri($jsonSchema->json);
+
         return $jsonSchema;
+    }
+
+    public function getBaseId(): string
+    {
+        return $this->baseId;
+    }
+
+    public static function normalizeId(string $id): string
+    {
+        return str_starts_with($id, '#') ? $id : "#$id";
     }
 
     public function getFile(): string
     {
         return $this->file;
+    }
+
+    public function getRawSource(): ?string
+    {
+        return $this->rawSource;
     }
 
     public function getPointer(): string

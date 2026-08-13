@@ -58,13 +58,10 @@ class UnevaluatedPropertiesValidatorFactory extends AbstractValidatorFactory
         //                    any keys.
         $deadCodeReason = $this->deadCodeReason($schemaProcessor, $json);
         if ($deadCodeReason !== null) {
-            if ($schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
-                echo sprintf(
-                    "Warning: unevaluatedProperties on %s is dead code — %s\n",
-                    $schema->getClassName(),
-                    $deadCodeReason,
-                );
-            }
+            $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                'unevaluatedProperties on {class} is dead code — {reason}',
+                ['class' => $schema->getClassName(), 'reason' => $deadCodeReason],
+            );
 
             return;
         }

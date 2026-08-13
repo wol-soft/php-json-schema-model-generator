@@ -59,7 +59,7 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
         GeneratorConfiguration $configuration,
         array $propertyValue,
     ): void {
-        $this->expectValidationError($configuration, 'No item in array property matches contains constraint');
+        $this->expectValidationError($configuration, "No item in array 'property' matches the 'contains' constraint");
 
         $className = $this->generateClassFromFile('Contains.json', $configuration);
 
@@ -107,7 +107,7 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected an exception for array with no matching items');
         } catch (Exception $exception) {
             $this->assertStringContainsString(
-                'No item in array property matches contains constraint',
+                "No item in array 'property' matches the 'contains' constraint",
                 $exception->getMessage(),
             );
             if ($config->collectErrors()) {
@@ -126,7 +126,7 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected MinContainsException for array with one matching item');
         } catch (Exception $exception) {
             $this->assertStringContainsString(
-                'Array property must not contain less than 2 items matching the contains constraint,'
+                "Array 'property' must not contain less than 2 items matching the contains constraint,"
                     . ' 1 matching items provided',
                 $exception->getMessage(),
             );
@@ -164,7 +164,7 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected ContainsException for array with no matching items');
         } catch (Exception $exception) {
             $this->assertStringContainsString(
-                'No item in array property matches contains constraint',
+                "No item in array 'property' matches the 'contains' constraint",
                 $exception->getMessage(),
             );
             if ($config->collectErrors()) {
@@ -180,7 +180,7 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected MaxContainsException for array with four matching items');
         } catch (Exception $exception) {
             $this->assertStringContainsString(
-                'Array property must not contain more than 3 items matching the contains constraint,'
+                "Array 'property' must not contain more than 3 items matching the contains constraint,"
                     . ' 4 matching items provided',
                 $exception->getMessage(),
             );
@@ -218,7 +218,7 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected an exception for array with no matching items');
         } catch (Exception $exception) {
             $this->assertStringContainsString(
-                'No item in array property matches contains constraint',
+                "No item in array 'property' matches the 'contains' constraint",
                 $exception->getMessage(),
             );
             if ($config->collectErrors()) {
@@ -235,7 +235,7 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected MinContainsException for array with one matching item');
         } catch (Exception $exception) {
             $this->assertStringContainsString(
-                'Array property must not contain less than 2 items matching the contains constraint',
+                "Array 'property' must not contain less than 2 items matching the contains constraint",
                 $exception->getMessage(),
             );
         }
@@ -243,7 +243,7 @@ class ArrayContainsTest extends AbstractPHPModelGeneratorTestCase
         // 5 matches > maxContains=4 → MaxContainsException (terminal assertion)
         $this->expectValidationError(
             $config,
-            'Array property must not contain more than 4 items matching the contains constraint,'
+            "Array 'property' must not contain more than 4 items matching the contains constraint,"
                 . ' 5 matching items provided',
         );
         new $className(['property' => ['a', 'b', 'c', 'd', 'e']]);

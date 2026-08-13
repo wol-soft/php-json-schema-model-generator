@@ -17,10 +17,10 @@ is_array($value) && (function (&$items){% if countMatches or trackBranchMatches 
                 $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
             {% endif %}
 
-            {{ viewHelper.resolvePropertyDecorator(property) }}
+            {{ viewHelper.resolvePropertyDecorator(property, false, 3) }}
 
             {% foreach property.getOrderedValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema) }}
+                {{ viewHelper.renderValidator(validator, schema, 3) }}
             {% endforeach %}
 
             {% if generatorConfiguration.collectErrors() %}
@@ -58,13 +58,13 @@ is_array($value) && (function (&$items){% if countMatches or trackBranchMatches 
             ($this->_evaluatedItemIndices['{{ trackEvaluatedItemsProperty }}'] ?? []) + $branchContainsMatches;
     {% endif %}
 
-    return {% if countMatches %}
-            {% if allowNoMatch %}false{% else %}$containsMatches === 0{% endif %}
+    {% if countMatches %}
+        return {% if allowNoMatch %}false{% else %}$containsMatches === 0{% endif %};
+    {% else %}
+        {% if trackBranchMatches or trackEvaluatedItems %}
+            return empty($branchContainsMatches);
         {% else %}
-            {% if trackBranchMatches or trackEvaluatedItems %}
-                empty($branchContainsMatches)
-            {% else %}
-                true
-            {% endif %}
-        {% endif %};
+            return true;
+        {% endif %}
+    {% endif %}
 })($value)

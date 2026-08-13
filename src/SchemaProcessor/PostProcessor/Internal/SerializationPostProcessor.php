@@ -25,6 +25,7 @@ use PHPModelGenerator\SchemaProcessor\Hook\SerializationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Traits\SerializableTrait;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class SerializationPostProcessor
@@ -112,7 +113,7 @@ class SerializationPostProcessor extends PostProcessor
                                 'property' => $property,
                                 'serializerClass' => $serializerClass,
                                 'serializerMethod' => $serializerMethod,
-                                'serializerOptions' => var_export($validator->getFilterOptions(), true),
+                                'serializerOptions' => RenderHelper::varExportArray($validator->getFilterOptions()),
                             ],
                         )
                     );
@@ -164,7 +165,9 @@ class SerializationPostProcessor extends PostProcessor
                                     'key' => $validator->getKey(),
                                     'serializerClass' => $serializerClass,
                                     'serializerMethod' => $serializerMethod,
-                                    'serializerOptions' => var_export($filterValidator->getFilterOptions(), true),
+                                    'serializerOptions' => RenderHelper::varExportArray(
+                                        $filterValidator->getFilterOptions(),
+                                    ),
                                 ],
                             )
                         );
@@ -367,7 +370,9 @@ class SerializationPostProcessor extends PostProcessor
                 [
                     'serializerClass' => $serializerClass,
                     'serializerMethod' => $serializerMethod,
-                    'serializerOptions' => var_export($transformingFilterValidator->getFilterOptions(), true),
+                    'serializerOptions' => RenderHelper::varExportArray(
+                        $transformingFilterValidator->getFilterOptions(),
+                    ),
                 ],
             )
         );
@@ -447,7 +452,7 @@ class SerializationPostProcessor extends PostProcessor
             return;
         }
 
-        $keysExport = var_export(array_values($writeOnlyAttributes), true);
+        $keysExport = RenderHelper::varExportArray(array_values($writeOnlyAttributes));
 
         $schema->addSchemaHook(
             new class ($keysExport) implements SerializationHookInterface
@@ -458,7 +463,11 @@ class SerializationPostProcessor extends PostProcessor
                 public function getCode(): string
                 {
                     return sprintf(
-                        'foreach (%s as $_writeOnlyKey) { unset($data[$_writeOnlyKey]); }',
+                        <<<'CODE'
+                        foreach (%s as $_writeOnlyKey) {
+                            unset($data[$_writeOnlyKey]);
+                        }
+                        CODE,
                         $this->keysExport,
                     );
                 }

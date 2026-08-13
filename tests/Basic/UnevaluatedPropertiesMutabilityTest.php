@@ -63,7 +63,7 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
             $this->fail('Expected setKind to throw because alphaOnly becomes unevaluated');
         } catch (UnevaluatedPropertiesException $exception) {
             $this->assertSame(
-                "Provided JSON for {$className} contains not allowed unevaluated properties [alphaOnly]",
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['alphaOnly']",
                 $exception->getMessage(),
             );
             $this->assertSame(['alphaOnly'], $exception->getUnevaluatedProperties());
@@ -93,7 +93,7 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
             $this->fail('Expected setMode to throw because onlyWhenOn becomes unevaluated');
         } catch (UnevaluatedPropertiesException $exception) {
             $this->assertSame(
-                "Provided JSON for {$className} contains not allowed unevaluated properties [onlyWhenOn]",
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['onlyWhenOn']",
                 $exception->getMessage(),
             );
             $this->assertSame(['onlyWhenOn'], $exception->getUnevaluatedProperties());
@@ -137,7 +137,7 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
             $this->fail('Expected setKind to throw because xOnly loses its sole coverer');
         } catch (UnevaluatedPropertiesException $exception) {
             $this->assertSame(
-                "Provided JSON for {$className} contains not allowed unevaluated properties [xOnly]",
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['xOnly']",
                 $exception->getMessage(),
             );
             $this->assertSame(['xOnly'], $exception->getUnevaluatedProperties());
@@ -166,7 +166,7 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
             $this->fail('constructor must reject the stray key claimed by no branch');
         } catch (UnevaluatedPropertiesException $exception) {
             $this->assertSame(
-                "Provided JSON for {$className} contains not allowed unevaluated properties [stray]",
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['stray']",
                 $exception->getMessage(),
             );
             $this->assertSame(['stray'], $exception->getUnevaluatedProperties());
@@ -202,7 +202,7 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
             $this->fail('Expected populate to throw because alphaOnly becomes unevaluated');
         } catch (UnevaluatedPropertiesException $exception) {
             $this->assertSame(
-                "Provided JSON for {$className} contains not allowed unevaluated properties [alphaOnly]",
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['alphaOnly']",
                 $exception->getMessage(),
             );
             $this->assertSame(['alphaOnly'], $exception->getUnevaluatedProperties());
@@ -266,11 +266,11 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
                     array_map(static fn(\Throwable $e): string => $e->getMessage(), $errors),
                 ),
             );
-            $this->assertSame('Value for kind must not be shorter than 3', $minLengthErrors[0]->getMessage());
+            $this->assertSame("Value for 'kind' must not be shorter than 3", $minLengthErrors[0]->getMessage());
 
             $this->assertCount(1, $unevaluatedErrors, 'expected one UnevaluatedPropertiesException');
             $this->assertSame(
-                "Provided JSON for {$className} contains not allowed unevaluated properties [alphaOnly]",
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['alphaOnly']",
                 $unevaluatedErrors[0]->getMessage(),
             );
             $this->assertSame(['alphaOnly'], $unevaluatedErrors[0]->getUnevaluatedProperties());

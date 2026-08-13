@@ -36,8 +36,8 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage(
             <<<ERROR
-            Invalid value for property declined by composition constraint.
-              Requires to match one composition element but matched 0 elements.
+            Invalid value for 'property' declined by composition constraint
+              Requires to match one composition element but matched 0 elements
             ERROR,
         );
 
@@ -105,15 +105,12 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
     }
 
     #[DataProvider('objectLevelOneOfSchemaFileDataProvider')]
-    public function testNotProvidedObjectLevelOneOfThrowsAnException(string $schema, int $matchedElements): void
+    public function testNotProvidedObjectLevelOneOfThrowsAnException(string $schema, string $expectedPattern): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessageMatches(
-            <<<ERROR
-            /^Invalid value for (.*?) declined by composition constraint.
-              Requires to match one composition element but matched $matchedElements elements.$/
-            ERROR,
-        );
+        // Direct-exception mode lists every composition element in schema order, each rendered
+        // as either "Valid" or "Failed" with its underlying reason.
+        $this->expectExceptionMessageMatches($expectedPattern);
 
         $className = $this->generateClassFromFile($schema);
 
@@ -123,8 +120,26 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
     public static function objectLevelOneOfSchemaFileDataProvider(): array
     {
         return [
-            'ObjectLevelComposition.json' => ['ObjectLevelComposition.json', 2],
-            'ObjectLevelCompositionRequired.json' => ['ObjectLevelCompositionRequired.json', 0],
+            'ObjectLevelComposition.json' => [
+                'ObjectLevelComposition.json',
+                <<<'ERROR'
+                /^Invalid value for '(.*?)' declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
+                  - Composition element #1: Valid
+                  - Composition element #2: Valid$/
+                ERROR,
+            ],
+            'ObjectLevelCompositionRequired.json' => [
+                'ObjectLevelCompositionRequired.json',
+                <<<'ERROR'
+                /^Invalid value for '(.*?)' declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
+                  - Composition element #1: Failed
+                    \* Missing required value for 'stringProperty'
+                  - Composition element #2: Failed
+                    \* Missing required value for 'integerProperty'$/
+                ERROR,
+            ],
         ];
     }
 
@@ -167,7 +182,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidProvidedOneOfTypePropertyThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage("Invalid value for 'property' declined by composition constraint");
 
         $className = $this->generateClassFromFile('OneOfType.json');
 
@@ -211,7 +226,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidProvidedRequiredOneOfTypePropertyThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage("Invalid value for 'property' declined by composition constraint");
 
         $className = $this->generateClassFromFile('OneOfTypeRequired.json');
 
@@ -268,30 +283,30 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
         return [
             'int 10' => [
                 10,
-                'Invalid value for property declined by composition constraint',
+                "Invalid value for 'property' declined by composition constraint",
                 '/properties/property/oneOf',
             ],
             'int 13' => [
                 13,
-                'Invalid value for property declined by composition constraint',
+                "Invalid value for 'property' declined by composition constraint",
                 '/properties/property/oneOf',
             ],
             'int 20' => [
                 20,
-                'Invalid value for property declined by composition constraint',
+                "Invalid value for 'property' declined by composition constraint",
                 '/properties/property/oneOf',
             ],
             'float 10.' => [
                 10.,
-                'Invalid value for property declined by composition constraint',
+                "Invalid value for 'property' declined by composition constraint",
                 '/properties/property/oneOf',
             ],
-            'float 9.9' => [9.9, 'Value for property must not be smaller than 10', '/properties/property/minimum'],
-            'int 8' => [8, 'Value for property must not be smaller than 10', '/properties/property/minimum'],
-            'bool' => [true, 'Invalid type for property', '/properties/property/type'],
-            'array' => [[], 'Invalid type for property', '/properties/property/type'],
-            'object' => [new stdClass(), 'Invalid type for property', '/properties/property/type'],
-            'string' => ['', 'Invalid type for property', '/properties/property/type'],
+            'float 9.9' => [9.9, "Value for 'property' must not be smaller than 10", '/properties/property/minimum'],
+            'int 8' => [8, "Value for 'property' must not be smaller than 10", '/properties/property/minimum'],
+            'bool' => [true, "Invalid type for 'property'", '/properties/property/type'],
+            'array' => [[], "Invalid type for 'property'", '/properties/property/type'],
+            'object' => [new stdClass(), "Invalid type for 'property'", '/properties/property/type'],
+            'string' => ['', "Invalid type for 'property'", '/properties/property/type'],
         ];
     }
 
@@ -348,7 +363,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
         mixed $propertyValue,
     ): void {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage("Invalid value for 'property' declined by composition constraint");
 
         $className = $this->generateClassFromFile($schema);
 
@@ -379,7 +394,7 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
     public function testNotMatchingObjectPropertyWithReferencedPetSchemaThrowsAnException(mixed $propertyValue): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for property declined by composition constraint');
+        $this->expectExceptionMessage("Invalid value for 'property' declined by composition constraint");
 
         $className = $this->generateClassFromFile('ReferencedObjectSchema2.json');
 
@@ -561,29 +576,29 @@ class ComposedOneOfTest extends AbstractPHPModelGeneratorTestCase
             'Exception Collection' => [
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match one composition element but matched 2 elements.
+                declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
                   - Composition element #1: Valid
                   - Composition element #2: Valid
                 ERROR,
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match one composition element but matched 0 elements.
+                declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
                   - Composition element #1: Failed
-                    * Invalid type for stringProperty. Requires string, got NULL
+                    * Invalid type for 'stringProperty': requires 'string', got 'NULL'
                   - Composition element #2: Failed
-                    * Invalid type for integerProperty. Requires int, got NULL
+                    * Invalid type for 'integerProperty': requires 'int', got 'NULL'
                 ERROR,
             ],
             'Direct Exception' => [
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match one composition element but matched 2 elements.
+                declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
                 ERROR,
                 <<<ERROR
-                declined by composition constraint.
-                  Requires to match one composition element but matched 0 elements.
+                declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
                 ERROR,
             ],
         ];

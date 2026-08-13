@@ -7,8 +7,10 @@ namespace PHPModelGenerator\Model;
 use Exception;
 use InvalidArgumentException;
 use PHPModelGenerator\Draft\AutoDetectionDraft;
+use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Draft\DraftInterface;
+use PHPModelGenerator\Draft\DraftResolver;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Filter\FilterInterface;
@@ -22,21 +24,19 @@ use PHPModelGenerator\Format\RegexFormatValidator;
 use PHPModelGenerator\Format\UriFormatValidator;
 use PHPModelGenerator\Format\UriReferenceFormatValidator;
 use PHPModelGenerator\Format\UriTemplateFormatValidator;
+use PHPModelGenerator\Logger\EchoLogger;
+use PHPModelGenerator\MediaString\ContentValidatorInterface;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\PropertyProcessor\Filter\DateTimeFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\ImmutableMediaStringFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\MediaStringFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\NotEmptyFilter;
 use PHPModelGenerator\PropertyProcessor\Filter\TrimFilter;
-use PHPModelGenerator\MediaString\ContentValidatorInterface;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Utils\ClassNameGeneratorInterface;
+use Psr\Log\LoggerInterface;
 
-/**
- * Class GeneratorConfiguration
- *
- * @package PHPModelGenerator\Model
- */
 class GeneratorConfiguration
 {
     /** @var string */
@@ -46,11 +46,12 @@ class GeneratorConfiguration
     /** @var bool */
     protected $allowImplicitNull = false;
     /** @var bool */
+    protected $allowImplicitObjectComposition = false;
+    /** @var bool */
     protected $defaultArraysToEmptyArray = false;
     /** @var bool */
     protected $denyAdditionalProperties = false;
-    /** @var bool */
-    protected $outputEnabled = true;
+    protected LoggerInterface $logger;
     /** @var bool */
     protected $collectErrors = true;
     /** @var string */
@@ -67,6 +68,8 @@ class GeneratorConfiguration
     /** @var DraftInterface | DraftFactoryInterface */
     protected $draft;
 
+    private DraftResolver $draftResolver;
+
     /** @var ClassNameGeneratorInterface */
     protected $classNameGenerator;
 
@@ -82,6 +85,12 @@ class GeneratorConfiguration
      */
     public function __construct()
     {
+        $this->draft = new AutoDetectionDraft();
+        $this->draftResolver = new DraftResolver();
+        $this->classNameGenerator = new ClassNameGenerator();
+        $this->logger = new EchoLogger();
+
+        // add all built-in filter and format validators
         $this->initFilter();
         $this->initFormatValidator();
     }
@@ -312,16 +321,16 @@ class GeneratorConfiguration
         return $this;
     }
 
-    public function setOutputEnabled(bool $outputEnabled): self
+    public function setLogger(LoggerInterface $logger): self
     {
-        $this->outputEnabled = $outputEnabled;
+        $this->logger = $logger;
 
         return $this;
     }
 
-    public function isOutputEnabled(): bool
+    public function getLogger(): LoggerInterface
     {
-        return $this->outputEnabled;
+        return $this->logger;
     }
 
     public function collectErrors(): bool
@@ -360,6 +369,18 @@ class GeneratorConfiguration
         return $this;
     }
 
+    /**
+     * Resolve the active draft for the given schema (via DraftFactoryInterface::getDraftForSchema
+     * when a factory is configured) and build its immutable Draft registry, caching the result by
+     * draft class so repeated calls for the same draft don't rebuild it. The cache and the branch
+     * resolution live in DraftResolver, a private implementation detail not otherwise exposed on
+     * this class's public surface.
+     */
+    public function getBuiltDraft(JsonSchema $propertySchema): Draft
+    {
+        return $this->draftResolver->getBuiltDraft($this->getDraft(), $propertySchema);
+    }
+
     public function isImplicitNullAllowed(): bool
     {
         return $this->allowImplicitNull;
@@ -368,6 +389,32 @@ class GeneratorConfiguration
     public function setImplicitNull(bool $allowImplicitNull): self
     {
         $this->allowImplicitNull = $allowImplicitNull;
+
+        return $this;
+    }
+
+    public function isImplicitObjectCompositionAllowed(): bool
+    {
+        return $this->allowImplicitObjectComposition;
+    }
+
+    /**
+     * By default a composition defining its own generated class (a schema file's root, or a
+     * $ref target parsed as a top-level schema in its own right) must resolve to a definite
+     * object - a composition that only constrains object shape without ever declaring
+     * `type: object` is vacuously satisfied by non-object input too, so it cannot faithfully back
+     * a generated class and raises a SchemaException. Enabling this treats such a composition
+     * exactly as if it had declared `type: object` itself.
+     *
+     * Scoped to compositions on purpose, and this flag does not widen that scope: a root carrying
+     * only object keywords (e.g. a bare `properties`/`required` schema) with no composition
+     * keyword, no `$ref` and no `type` is not a composition at all. SchemaProcessor's own gate
+     * skips such a root before the representability check ever sees it, so it produces no class
+     * and no diagnostic under either setting of this flag.
+     */
+    public function setImplicitObjectComposition(bool $allowImplicitObjectComposition): self
+    {
+        $this->allowImplicitObjectComposition = $allowImplicitObjectComposition;
 
         return $this;
     }

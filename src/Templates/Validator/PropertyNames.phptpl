@@ -13,7 +13,7 @@
             {% endif %}
 
             {% foreach nameValidationProperty.getOrderedValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema) }}
+                {{ viewHelper.renderValidator(validator, schema, 3) }}
             {% endforeach %}
 
             {% if generatorConfiguration.collectErrors() %}

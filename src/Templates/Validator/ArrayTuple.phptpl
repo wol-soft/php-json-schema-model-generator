@@ -16,10 +16,10 @@ is_array($value) && (function (&$items) use (&$invalidTuples, $modelData) {
             {% endif %}
 
             $value = &$items[$index++];
-            {{ viewHelper.resolvePropertyDecorator(tuple) }}
+            {{ viewHelper.resolvePropertyDecorator(tuple, false, 2) }}
 
             {% foreach tuple.getOrderedValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema) }}
+                {{ viewHelper.renderValidator(validator, schema, 2) }}
             {% endforeach %}
 
             {% if generatorConfiguration.collectErrors() %}

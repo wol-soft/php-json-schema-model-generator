@@ -49,7 +49,7 @@ class UnevaluatedItemsMutabilityTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected setTags to throw because index 2 is unevaluated');
         } catch (UnevaluatedItemsException $exception) {
             $this->assertSame(
-                'Provided JSON for tags contains not allowed unevaluated items [#2]',
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
                 $exception->getMessage(),
             );
             $this->assertSame([2], $exception->getUnevaluatedItems());
@@ -87,7 +87,7 @@ class UnevaluatedItemsMutabilityTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected populate to throw because index 2 is unevaluated');
         } catch (UnevaluatedItemsException $exception) {
             $this->assertSame(
-                'Provided JSON for tags contains not allowed unevaluated items [#2]',
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
                 $exception->getMessage(),
             );
             $this->assertSame([2], $exception->getUnevaluatedItems());

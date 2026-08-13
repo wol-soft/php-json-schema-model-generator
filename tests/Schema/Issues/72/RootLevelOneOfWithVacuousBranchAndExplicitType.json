@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    true
+  ]
+}

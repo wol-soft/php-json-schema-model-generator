@@ -16,6 +16,7 @@ use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -104,9 +105,9 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     public static function rejectionProvider(): array
     {
         $notAllowed = static fn(string $propertyName): string =>
-            '/^Provided JSON for .* contains not allowed unevaluated properties \['
+            "/^Provided JSON for '.*' contains not allowed unevaluated properties \['"
                 . preg_quote($propertyName, '/')
-                . '\]$/';
+                . "'\]$/";
 
         return [
             'undeclared property at top level' => [
@@ -219,7 +220,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             $this->fail('Expected the unevaluated check to surface in direct-exception mode');
         } catch (UnevaluatedPropertiesException $exception) {
             $this->assertSame(
-                "Provided JSON for {$directClassName} contains not allowed unevaluated properties [extra]",
+                "Provided JSON for '{$directClassName}' contains not allowed unevaluated properties ['extra']",
                 $exception->getMessage(),
             );
             $this->assertSame(['extra'], $exception->getUnevaluatedProperties());
@@ -250,11 +251,11 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             ));
 
             $this->assertCount(1, $requiredErrors, 'expected one RequiredValueException');
-            $this->assertSame('Missing required value for name', $requiredErrors[0]->getMessage());
+            $this->assertSame("Missing required value for 'name'", $requiredErrors[0]->getMessage());
 
             $this->assertCount(1, $unevaluatedErrors, 'expected one UnevaluatedPropertiesException');
             $this->assertSame(
-                "Provided JSON for {$collectClassName} contains not allowed unevaluated properties [extra]",
+                "Provided JSON for '{$collectClassName}' contains not allowed unevaluated properties ['extra']",
                 $unevaluatedErrors[0]->getMessage(),
             );
             $this->assertSame('/unevaluatedProperties', $unevaluatedErrors[0]->getJsonPointer()->pointer);
@@ -311,7 +312,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             $this->fail('Empty allOf must not rescue extras from unevaluatedProperties: false');
         } catch (UnevaluatedPropertiesException $exception) {
             $this->assertSame(
-                "Provided JSON for {$className} contains not allowed unevaluated properties [extra]",
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['extra']",
                 $exception->getMessage(),
             );
             $this->assertSame(['extra'], $exception->getUnevaluatedProperties());
@@ -366,13 +367,13 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             // branches.
             $this->assertSame(
                 <<<MSG
-                Invalid value for {$className} declined by composition constraint.
-                  Requires to match all composition elements but matched 0 elements.
+                Invalid value for '{$className}' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
                   - Composition element #1: Failed
-                    * Provided JSON for {$nestedClassName} contains invalid unevaluated properties.
+                    * Provided JSON for '{$nestedClassName}' contains invalid unevaluated properties
                       - invalid unevaluated property 'bar'
-                        * Invalid type for unevaluated property. Requires int, got string
-                Provided JSON for {$className} contains not allowed unevaluated properties [foo, bar]
+                        * Invalid type for 'unevaluated property': requires 'int', got 'string'
+                Provided JSON for '{$className}' contains not allowed unevaluated properties ['foo', 'bar']
                 MSG,
                 $registry->getMessage(),
             );
@@ -411,7 +412,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             );
         } catch (UnevaluatedPropertiesException $exception) {
             $this->assertSame(
-                "Provided JSON for {$className} contains not allowed unevaluated properties [extra]",
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['extra']",
                 $exception->getMessage(),
             );
             $this->assertSame(['extra'], $exception->getUnevaluatedProperties());
@@ -456,7 +457,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             $this->fail('Expected UnevaluatedPropertiesException for a key no branch pattern matches');
         } catch (UnevaluatedPropertiesException $exception) {
             $this->assertSame(
-                "Provided JSON for {$className} contains not allowed unevaluated properties [other]",
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['other']",
                 $exception->getMessage(),
             );
             $this->assertSame(['other'], $exception->getUnevaluatedProperties());
@@ -484,12 +485,11 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         // untouched even though `child` declares object applicators.
         $this->assertSame('a string', (new $className(['child' => 'a string']))->getChild());
 
-        // The getter stays permissive: the value may be the generated nested object OR any other
-        // type the untyped schema accepts, so the annotated return type is `<NestedClass>|mixed`.
-        $this->assertMatchesRegularExpression(
-            '/^\w+\|mixed$/',
-            $this->getReturnTypeAnnotation($className, 'getChild'),
-        );
+        // A schema carrying only object-constraining keywords (no sibling scalar-type
+        // applicator) is object-describing (see docs/source/combinedSchemas/impliedObjects.rst):
+        // a non-object value passes through unconditionally, so the getter stays untyped `mixed`
+        // rather than naming the nested class.
+        $this->assertSame('mixed', $this->getReturnTypeAnnotation($className, 'getChild'));
 
         // `extra` is claimed by nothing inside `child` and must be rejected by unevaluatedProperties.
         try {
@@ -498,8 +498,8 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         } catch (NestedObjectException $exception) {
             $this->assertMatchesRegularExpression(
                 <<<'REGEX'
-                /^Invalid nested object for property child:
-                  - Provided JSON for .+ contains not allowed unevaluated properties \[extra\]$/
+                /^Invalid nested object for property 'child':
+                  - Provided JSON for '.+' contains not allowed unevaluated properties \['extra'\]$/
                 REGEX,
                 $exception->getMessage(),
             );
@@ -528,9 +528,9 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         } catch (InvalidUnevaluatedPropertiesException $exception) {
             $this->assertSame(
                 <<<MSG
-                Provided JSON for {$className} contains invalid unevaluated properties.
+                Provided JSON for '{$className}' contains invalid unevaluated properties
                   - invalid unevaluated property 'count'
-                    * Invalid type for unevaluated property. Requires int, got string
+                    * Invalid type for 'unevaluated property': requires 'int', got 'string'
                 MSG,
                 $exception->getMessage(),
             );
@@ -562,7 +562,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             $this->fail('An undeclared key must be rejected by unevaluatedProperties: false');
         } catch (UnevaluatedPropertiesException $exception) {
             $this->assertSame(
-                "Provided JSON for {$className} contains not allowed unevaluated properties [stray]",
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['stray']",
                 $exception->getMessage(),
             );
             $this->assertSame(['stray'], $exception->getUnevaluatedProperties());
@@ -627,8 +627,8 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
 
             $this->assertSame(
                 <<<MSG
-                Invalid nested object for property root:
-                  - Provided JSON for {$nodeClassName} contains not allowed unevaluated properties [stray]
+                Invalid nested object for property 'root':
+                  - Provided JSON for '{$nodeClassName}' contains not allowed unevaluated properties ['stray']
                 MSG,
                 $exception->getMessage(),
             );
@@ -661,9 +661,9 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
 
             $this->assertSame(
                 <<<MSG
-                Invalid nested object for property root:
-                  - Invalid nested object for property child:
-                      - Provided JSON for {$nodeClassName} contains not allowed unevaluated properties [stray]
+                Invalid nested object for property 'root':
+                  - Invalid nested object for property 'child':
+                      - Provided JSON for '{$nodeClassName}' contains not allowed unevaluated properties ['stray']
                 MSG,
                 $exception->getMessage(),
             );
@@ -698,9 +698,9 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         $this->expectException(InvalidPatternPropertiesException::class);
         $this->expectExceptionMessage(
             <<<MSG
-            Provided JSON for {$className} contains invalid pattern properties.
+            Provided JSON for '{$className}' contains invalid pattern properties
               - invalid property 'p_alpha' matching pattern '^p_'
-                * Provided JSON for {$nestedClassName} contains not allowed unevaluated properties [stray]
+                * Provided JSON for '{$nestedClassName}' contains not allowed unevaluated properties ['stray']
             MSG,
         );
         new $className(['p_alpha' => ['known' => 'hi', 'stray' => 1]]);
@@ -733,9 +733,9 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         $this->expectException(InvalidAdditionalPropertiesException::class);
         $this->expectExceptionMessage(
             <<<MSG
-            Provided JSON for {$className} contains invalid additional properties.
+            Provided JSON for '{$className}' contains invalid additional properties
               - invalid additional property 'dyn'
-                * Provided JSON for {$nestedClassName} contains not allowed unevaluated properties [stray]
+                * Provided JSON for '{$nestedClassName}' contains not allowed unevaluated properties ['stray']
             MSG,
         );
         new $className(['id' => 1, 'dyn' => ['known' => 'hi', 'stray' => 1]]);
@@ -781,7 +781,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     public static function deadCodeProvider(): array
     {
         $baseConfig = static fn(): GeneratorConfiguration =>
-            (new GeneratorConfiguration())->setOutputEnabled(true);
+            (new GeneratorConfiguration())->setLogger(new RecordingLogger());
 
         return [
             // additionalProperties: true accepts every extra unchecked; without a matching
@@ -825,22 +825,28 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
-     * Each dead-cell shape emits the factory warning under the `echo` channel and skips
+     * Each dead-cell shape emits the factory warning through the configured logger and skips
      * emitting the unevaluated validator. Where an assertion on the resulting class is
      * meaningful (extras still land where their governing keyword expects them), the test
-     * exercises the runtime path after checking the warning text.
+     * exercises the runtime path after checking the warning entry.
      */
     #[DataProvider('deadCodeProvider')]
     public function testDeadCellShapesEmitWarningAndSkipValidator(
         string $schemaFile,
-        string $reasonFragment,
+        string $reason,
         GeneratorConfiguration $config,
     ): void {
-        $this->expectOutputRegex(
-            '/Warning: unevaluatedProperties on \S+ is dead code — ' . preg_quote($reasonFragment, '/') . '/',
-        );
-
         $className = $this->generateClassFromFile($schemaFile, $config);
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $config->getLogger()->getEntries(),
+                'warning',
+                'unevaluatedProperties on {class} is dead code — {reason}',
+                ['reason' => $reason],
+            ),
+            'Expected a warning naming the dead unevaluatedProperties keyword',
+        );
 
         // Constructing with just the declared property must always succeed — the suppressed
         // unevaluated validator can never contribute a false negative here.
@@ -862,7 +868,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
 
         $this->expectException(AdditionalPropertiesException::class);
         $this->expectExceptionMessage(
-            "Provided JSON for {$className} contains not allowed additional properties [count]",
+            "Provided JSON for '{$className}' contains not allowed additional properties ['count']",
         );
 
         new $className(['name' => 'Alice', 'count' => 42]);
@@ -881,7 +887,8 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         $this->expectExceptionMessageMatches(
             "/^Property 'unevaluated property' is defined with conflicting types in allOf"
                 . ' composition branches \\(file \\S+\\)\\. allOf requires all constraints to'
-                . ' hold simultaneously, making this schema unsatisfiable\\.$/',
+                . ' hold simultaneously, making this schema unsatisfiable\\.'
+                . ' at line \\d+, column \\d+$/',
         );
 
         $this->generateClassFromFile('ContradictoryUnevaluatedSchema.json');
@@ -912,9 +919,9 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 (new GeneratorConfiguration())->setCollectErrors(false),
                 InvalidPropertyNamesException::class,
                 <<<'MSG'
-                Provided JSON for {className} contains properties with invalid names.
+                Provided JSON for '{className}' contains properties with invalid names
                   - invalid property 'FOO'
-                    * Value for property name doesn't match pattern ^[a-z]+$
+                    * Value for 'property name' does not match pattern '^[a-z]+$'
                 MSG,
             ],
             // Error-collection mode: ErrorRegistryException joins each collected error with a
@@ -927,12 +934,12 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 (new GeneratorConfiguration())->setCollectErrors(true),
                 ErrorRegistryException::class,
                 <<<'MSG'
-                Provided JSON for {className} contains properties with invalid names.
+                Provided JSON for '{className}' contains properties with invalid names
                   - invalid property 'FOO'
-                    * Value for property name doesn't match pattern ^[a-z]+$
-                Provided JSON for {className} contains invalid unevaluated properties.
+                    * Value for 'property name' does not match pattern '^[a-z]+$'
+                Provided JSON for '{className}' contains invalid unevaluated properties
                   - invalid unevaluated property 'FOO'
-                    * Invalid type for unevaluated property. Requires int, got string
+                    * Invalid type for 'unevaluated property': requires 'int', got 'string'
                 MSG,
             ],
         ];
@@ -989,7 +996,7 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         // actually declares.
         $this->expectException(UnevaluatedPropertiesException::class);
         $this->expectExceptionMessage(
-            "Provided JSON for {$className} contains not allowed unevaluated properties [stray]",
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['stray']",
         );
         new $className(['kind' => 'X', 'stray' => 5]);
     }

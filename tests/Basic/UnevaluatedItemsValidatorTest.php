@@ -14,6 +14,7 @@ use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -84,13 +85,13 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             // Single-element array — minimal case for the bracket+prefix render.
             'rejects single item' => [
                 ['tags' => ['only']],
-                'Provided JSON for tags contains not allowed unevaluated items [#0]',
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#0]",
             ],
             // Three-element array — exercises the comma-separated list path so a future change
             // to the joiner shows up here.
             'reports every offending index' => [
                 ['tags' => ['a', 'b', 'c']],
-                'Provided JSON for tags contains not allowed unevaluated items [#0, #1, #2]',
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#0, #1, #2]",
             ],
         ];
     }
@@ -151,11 +152,11 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         } catch (InvalidUnevaluatedItemsException $exception) {
             $this->assertSame(
                 <<<'MSG'
-                Invalid unevaluated items in array tags:
+                Invalid unevaluated items in array 'tags':
                   - invalid unevaluated item #1
-                    * Invalid type for unevaluated item. Requires string, got integer
+                    * Invalid type for 'unevaluated item': requires 'string', got 'integer'
                   - invalid unevaluated item #3
-                    * Invalid type for unevaluated item. Requires string, got boolean
+                    * Invalid type for 'unevaluated item': requires 'string', got 'boolean'
                 MSG,
                 $exception->getMessage(),
             );
@@ -177,7 +178,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             $integerFailure = $invalidItems[1][0];
             $this->assertInstanceOf(InvalidTypeException::class, $integerFailure);
             $this->assertSame(
-                'Invalid type for unevaluated item. Requires string, got integer',
+                "Invalid type for 'unevaluated item': requires 'string', got 'integer'",
                 $integerFailure->getMessage(),
             );
             $this->assertSame('string', $integerFailure->getExpectedType());
@@ -185,7 +186,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             $booleanFailure = $invalidItems[3][0];
             $this->assertInstanceOf(InvalidTypeException::class, $booleanFailure);
             $this->assertSame(
-                'Invalid type for unevaluated item. Requires string, got boolean',
+                "Invalid type for 'unevaluated item': requires 'string', got 'boolean'",
                 $booleanFailure->getMessage(),
             );
             $this->assertSame('string', $booleanFailure->getExpectedType());
@@ -213,7 +214,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected UnevaluatedItemsException for the index past the tuple');
         } catch (UnevaluatedItemsException $exception) {
             $this->assertSame(
-                'Provided JSON for tags contains not allowed unevaluated items [#1]',
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#1]",
                 $exception->getMessage(),
             );
             $this->assertSame([1], $exception->getUnevaluatedItems());
@@ -242,7 +243,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected UnevaluatedItemsException for the index contains did not match');
         } catch (UnevaluatedItemsException $exception) {
             $this->assertSame(
-                'Provided JSON for tags contains not allowed unevaluated items [#1]',
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#1]",
                 $exception->getMessage(),
             );
             $this->assertSame([1], $exception->getUnevaluatedItems());
@@ -271,8 +272,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
      *
      * The rejection surfaces through the property-level composition wrapping: the inner
      * unevaluatedItems failure is swallowed by the branch's try/catch and the composition
-     * reports the failed branch. In direct-exception mode the composition summary carries no
-     * per-element details, so the message is fully static.
+     * reports the failed branch, including the branch's own per-element failure detail.
      */
     public function testBranchOnlyUnevaluatedItemsValidatesEveryIndex(): void
     {
@@ -287,8 +287,8 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(AllOfException::class);
         $this->expectExceptionMessage(
             <<<'MSG'
-            Invalid value for tags declined by composition constraint.
-              Requires to match all composition elements but matched 0 elements.
+            Invalid value for 'tags' declined by composition constraint
+              Requires to match all composition elements but matched 0 elements
             MSG,
         );
 
@@ -303,7 +303,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     public function testUniqueItemsExceptionIdentityIsPreserved(): void
     {
         $this->expectException(UniqueItemsException::class);
-        $this->expectExceptionMessage('Items of array tags are not unique');
+        $this->expectExceptionMessage("Items of array 'tags' are not unique");
 
         $className = $this->generateClassFromFile('UnevaluatedFalseWithUniqueItems.json');
         new $className(['tags' => ['dup', 'dup']]);
@@ -346,15 +346,23 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     }
 
     #[DataProvider('deadCodeProvider')]
-    public function testDeadCodeShapesWarn(string $schemaFile, string $reasonFragment): void
+    public function testDeadCodeShapesWarn(string $schemaFile, string $reason): void
     {
-        $this->expectOutputRegex(
-            '/Warning: unevaluatedItems on \S+::tags is dead code — ' . preg_quote($reasonFragment, '/') . '/',
-        );
+        $logger = new RecordingLogger();
 
         $className = $this->generateClassFromFile(
             $schemaFile,
-            (new GeneratorConfiguration())->setOutputEnabled(true),
+            (new GeneratorConfiguration())->setLogger($logger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                'unevaluatedItems on {class}::{property} is dead code — {reason}',
+                ['property' => 'tags', 'reason' => $reason],
+            ),
+            'Expected a warning naming the dead unevaluatedItems keyword on tags',
         );
 
         // Each warned shape still compiles into a working class — an empty tags array
@@ -417,7 +425,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected UnevaluatedItemsException for tail index past union');
         } catch (UnevaluatedItemsException $exception) {
             $this->assertSame(
-                'Provided JSON for tags contains not allowed unevaluated items [#2]',
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
                 $exception->getMessage(),
             );
             $this->assertSame([2], $exception->getUnevaluatedItems());
@@ -450,19 +458,19 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         } catch (ErrorRegistryException $exception) {
             $this->assertSame(
                 <<<'MSG'
-                Invalid value for tags declined by composition constraint.
-                  Requires to match all composition elements but matched 0 elements.
+                Invalid value for 'tags' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
                   - Composition element #1: Failed
-                    * Invalid tuple item in array tags:
+                    * Invalid tuple item in array 'tags':
                       - invalid tuple #1
-                        * Invalid type for tuple item #0 of array tags. Requires string, got integer
+                        * Invalid type for 'tuple item #0 of array tags': requires 'string', got 'integer'
                   - Composition element #2: Failed
-                    * Invalid tuple item in array tags:
+                    * Invalid tuple item in array 'tags':
                       - invalid tuple #1
-                        * Invalid type for tuple item #0 of array tags. Requires string, got integer
+                        * Invalid type for 'tuple item #0 of array tags': requires 'string', got 'integer'
                       - invalid tuple #2
-                        * Invalid type for tuple item #1 of array tags. Requires string, got integer
-                Provided JSON for tags contains not allowed unevaluated items [#0, #1]
+                        * Invalid type for 'tuple item #1 of array tags': requires 'string', got 'integer'
+                Provided JSON for 'tags' contains not allowed unevaluated items [#0, #1]
                 MSG,
                 $exception->getMessage(),
             );
@@ -493,7 +501,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         $className = $this->generateClassFromFile('ArrayAndObjectPropertyCompositionsCoexist.json');
 
         $this->expectException(UnevaluatedItemsException::class);
-        $this->expectExceptionMessage('Provided JSON for tags contains not allowed unevaluated items [#1]');
+        $this->expectExceptionMessage("Provided JSON for 'tags' contains not allowed unevaluated items [#1]");
 
         new $className([
             'tags' => ['head', 'tail'],
@@ -525,7 +533,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected UnevaluatedItemsException for tail past widest tuple');
         } catch (UnevaluatedItemsException $exception) {
             $this->assertSame(
-                'Provided JSON for tags contains not allowed unevaluated items [#2]',
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
                 $exception->getMessage(),
             );
             $this->assertSame([2], $exception->getUnevaluatedItems());
@@ -559,7 +567,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected UnevaluatedItemsException for non-matching indices');
         } catch (UnevaluatedItemsException $exception) {
             $this->assertSame(
-                'Provided JSON for tags contains not allowed unevaluated items [#0, #2]',
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#0, #2]",
                 $exception->getMessage(),
             );
             $this->assertSame([0, 2], $exception->getUnevaluatedItems());
@@ -586,7 +594,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected UnevaluatedItemsException for unclaimed index');
         } catch (UnevaluatedItemsException $exception) {
             $this->assertSame(
-                'Provided JSON for tags contains not allowed unevaluated items [#2]',
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
                 $exception->getMessage(),
             );
             $this->assertSame([2], $exception->getUnevaluatedItems());
@@ -673,13 +681,13 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         } catch (ErrorRegistryException $exception) {
             $this->assertSame(
                 <<<'MSG'
-                Invalid value for tags declined by composition constraint.
-                  Requires to match all composition elements but matched 0 elements.
+                Invalid value for 'tags' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
                   - Composition element #1: Failed
-                    * Invalid unevaluated items in array tags:
+                    * Invalid unevaluated items in array 'tags':
                       - invalid unevaluated item #1
-                        * Invalid type for unevaluated item. Requires string, got integer
-                Provided JSON for tags contains not allowed unevaluated items [#0, #1, #2]
+                        * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+                Provided JSON for 'tags' contains not allowed unevaluated items [#0, #1, #2]
                 MSG,
                 $exception->getMessage(),
             );
@@ -714,7 +722,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected UnevaluatedItemsException for the two non-matching indices');
         } catch (UnevaluatedItemsException $exception) {
             $this->assertSame(
-                'Provided JSON for tags contains not allowed unevaluated items [#1, #3]',
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#1, #3]",
                 $exception->getMessage(),
             );
             $this->assertSame([1, 3], $exception->getUnevaluatedItems());
@@ -751,7 +759,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
             $this->fail('Expected UnevaluatedItemsException for index 3 past widest surviving tuple');
         } catch (UnevaluatedItemsException $exception) {
             $this->assertSame(
-                'Provided JSON for tags contains not allowed unevaluated items [#3]',
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#3]",
                 $exception->getMessage(),
             );
             $this->assertSame([3], $exception->getUnevaluatedItems());
@@ -821,9 +829,9 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         } catch (ErrorRegistryException $exception) {
             $this->assertSame(
                 <<<'MSG'
-    Invalid unevaluated items in array tags:
+    Invalid unevaluated items in array 'tags':
       - invalid unevaluated item #0
-        * Invalid value for property unevaluated item denied by filter dateTime: Invalid Date Time value "not-a-date"
+        * Invalid value for property 'unevaluated item' denied by filter 'dateTime': Invalid Date Time value "not-a-date"
     MSG,
                 $exception->getMessage(),
             );
@@ -858,9 +866,9 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         } catch (ErrorRegistryException $exception) {
             $this->assertSame(
                 <<<'MSG'
-    Invalid unevaluated items in array tags:
+    Invalid unevaluated items in array 'tags':
       - invalid unevaluated item #0
-        * Invalid type for unevaluated item. Requires string, got integer
+        * Invalid type for 'unevaluated item': requires 'string', got 'integer'
     MSG,
                 $exception->getMessage(),
             );

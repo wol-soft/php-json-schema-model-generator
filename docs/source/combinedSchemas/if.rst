@@ -37,20 +37,20 @@ Possible exception (in this case 50 was provided so the if condition succeeds bu
 
 .. code-block:: none
 
-    Invalid value for example declined by conditional composition constraint
+    Invalid value for 'example' declined by conditional composition constraint
       - Condition: Valid
       - Conditional branch failed:
-        * Value for example must not be smaller than 100
+        * Value for 'example' must not be smaller than 100
 
 Another example exception with 101 as value for the property:
 
 .. code-block:: none
 
-    Invalid value for example declined by conditional composition constraint
+    Invalid value for 'example' declined by conditional composition constraint
       - Condition: Failed
-        * Value for example must be a multiple of 5
+        * Value for 'example' must be a multiple of 5
       - Conditional branch failed:
-        * Value for example must not be larger than 100
+        * Value for 'example' must not be larger than 100
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\ConditionalException* which provides the following methods to get further error details:
 
@@ -188,6 +188,15 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
     ``anyOf``/``oneOf``. See `Cross-typed compositions <crossTypedComposition.html>`__ for the full
     explanation.
 
+.. hint::
+
+    A ``then``/``else`` branch does not need to declare ``"type": "object"`` itself to be treated
+    as an object — the generator also detects object-ness implied by a ``$ref`` chain or nested
+    ``allOf``, and object-constraining keywords used without any ``type`` at all. See
+    `Composition-implied objects <impliedObjects.html>`__ for the full explanation, including why
+    an object-*describing* branch (bare ``properties``/``required``, no ``type``) does **not**
+    reject a non-object value the way an object-*asserting* branch does.
+
 .. note::
 
     For object-level ``if``/``then``/``else`` compositions, when a property appears in the
@@ -203,7 +212,7 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
     generator applies the branch default only when the relevant branch is active — the ``then``
     default applies when the ``if`` condition is satisfied, and the ``else`` default applies when it
     is not. A user-supplied value always overrides the branch default. Branch defaults are **not**
-    included in ``getRawModelDataInput()``.
+    included in ``meta()->rawInput()``.
 
     When a ``then`` or ``else`` branch default conflicts with a root ``properties`` default or a
     ``patternProperties`` default for the same property, the generator throws a ``SchemaException``

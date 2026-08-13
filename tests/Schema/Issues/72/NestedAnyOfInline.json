@@ -1,0 +1,43 @@
+{
+  "type": "object",
+  "properties": {
+    "p": {
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": ["name"]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "salary": {
+                  "type": "integer"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "type": "object",
+              "properties": {
+                "age": {
+                  "type": "integer"
+                }
+              },
+              "required": ["age"]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

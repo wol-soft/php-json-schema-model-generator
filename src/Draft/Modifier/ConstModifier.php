@@ -34,19 +34,21 @@ class ConstModifier implements ModifierInterface
 
         $check = match (true) {
             $property->isRequired()
-                => '$value !== ' . var_export($json['const'], true),
+                => '$value !== ' . RenderHelper::varExportArray($json['const']),
             $schemaProcessor->getGeneratorConfiguration()->isImplicitNullAllowed() && !$property->isRequired()
                 => '!in_array($value, ' . RenderHelper::varExportArray([$json['const'], null]) . ', true)',
             default
                 => "array_key_exists('" . addslashes($property->getName()) . "', \$modelData) && \$value !== "
-                    . var_export($json['const'], true),
+                    . RenderHelper::varExportArray($json['const']),
         };
 
-        $property->addValidator(new PropertyValidator(
-            $property,
-            $check,
-            InvalidConstException::class,
-            [$json['const']],
-        ));
+        $property->addValidator(
+            (new PropertyValidator(
+                $property,
+                $check,
+                InvalidConstException::class,
+                [$json['const']],
+            ))->withJsonPointer($propertySchema->getPointer() . '/const'),
+        );
     }
 }

@@ -265,7 +265,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         return [
             'regular object property' => [
                 RegularPropertyAsAdditionalPropertyException::class,
-                "Couldn't add regular property name as additional property to object ",
+                "Could not add regular property 'name' as an additional property of object '",
                 'add',
                 ['name' => 'Hannes'],
                 '/properties/name',
@@ -293,7 +293,7 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             ],
             'Invalid property value' => [
                 InvalidAdditionalPropertiesException::class,
-                "Value for additional property must not be longer than 15",
+                "Value for 'additional property' must not be longer than 15",
                 'add',
                 ['property2' => 'My much too long property value will fail the validation'],
                 '/additionalProperties',
@@ -399,8 +399,8 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         } catch (AllOfException $exception) {
             $this->assertSame(
                 <<<MSG
-                Invalid value for {$className} declined by composition constraint.
-                  Requires to match all composition elements but matched 0 elements.
+                Invalid value for '{$className}' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
                 MSG,
                 $exception->getMessage(),
             );

@@ -157,8 +157,8 @@ class Issue133Test extends AbstractIssueTestCase
         } catch (ValidationException $exception) {
             $this->assertMatchesRegularExpression(
                 <<<'REGEX'
-                /^Invalid value for \S+ declined by composition constraint\.
-                  Requires to match all composition elements but matched 1 elements\.$/m
+                /^Invalid value for '\S+' declined by composition constraint
+                  Requires to match all composition elements but matched 1 element$/m
                 REGEX,
                 $exception->getMessage(),
             );
@@ -168,8 +168,8 @@ class Issue133Test extends AbstractIssueTestCase
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessageMatches(
             <<<'REGEX'
-            /^Invalid value for \S+ declined by composition constraint\.
-              Requires to match all composition elements but matched 1 elements\.$/m
+            /^Invalid value for '\S+' declined by composition constraint
+              Requires to match all composition elements but matched 1 element$/m
             REGEX,
         );
         new $className(['name' => str_repeat('a', 65)]);

@@ -40,8 +40,8 @@ class AutoDetectedDraftSubschemaTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(NestedObjectException::class);
         $this->expectExceptionMessage(
             <<<MSG
-            Invalid nested object for property child:
-              - Provided JSON for {$nestedClassName} contains not allowed unevaluated properties [extra]
+            Invalid nested object for property 'child':
+              - Provided JSON for '{$nestedClassName}' contains not allowed unevaluated properties ['extra']
             MSG,
         );
 
@@ -62,7 +62,7 @@ class AutoDetectedDraftSubschemaTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(['tags' => []], $accepted->meta()->rawInput());
 
         $this->expectException(UnevaluatedItemsException::class);
-        $this->expectExceptionMessage('Provided JSON for tags contains not allowed unevaluated items [#0]');
+        $this->expectExceptionMessage("Provided JSON for 'tags' contains not allowed unevaluated items [#0]");
 
         new $className(['tags' => ['surplus']]);
     }

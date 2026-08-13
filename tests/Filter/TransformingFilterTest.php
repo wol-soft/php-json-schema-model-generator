@@ -130,8 +130,8 @@ class TransformingFilterTest extends AbstractFilterTestCase
         } catch (ErrorRegistryException $exception) {
             $this->assertSame(
                 <<<ERROR
-                Invalid value for property created denied by filter dateTime: Invalid Date Time value "Hello"
-                Invalid type for name. Requires string, got integer
+                Invalid value for property 'created' denied by filter 'dateTime': Invalid Date Time value "Hello"
+                Invalid type for 'name': requires 'string', got 'integer'
                 ERROR,
                 $exception->getMessage(),
             );
@@ -155,7 +155,7 @@ class TransformingFilterTest extends AbstractFilterTestCase
             $this->fail('Expected exception for invalid type on a transforming-filtered property');
         } catch (ErrorRegistryException | InvalidTypeException $exception) {
             $this->assertStringContainsString(
-                'Invalid type for created. Requires [DateTime, string], got integer',
+                "Invalid type for 'created': requires ['DateTime', 'string'], got 'integer'",
                 $exception->getMessage(),
             );
 
@@ -279,7 +279,7 @@ class TransformingFilterTest extends AbstractFilterTestCase
 
         if (!$implicitNull) {
             $this->expectException(ErrorRegistryException::class);
-            $this->expectExceptionMessage('Invalid type for value. Requires [string, int], got NULL');
+            $this->expectExceptionMessage("Invalid type for 'value': requires ['string', 'int'], got 'NULL'");
             new $fqcn(['value' => null]);
         }
     }
@@ -300,7 +300,9 @@ class TransformingFilterTest extends AbstractFilterTestCase
         );
 
         $this->expectException(\PHPModelGenerator\Exception\ValidationException::class);
-        $this->expectExceptionMessage('Invalid value for filteredProperty declined by enum constraint');
+        $this->expectExceptionMessage(
+            'Value for \'filteredProperty\' must be one of ["2020-12-12","2019-12-12",null], got "1999-12-12"',
+        );
 
         new $className(['filteredProperty' => '1999-12-12']);
     }

@@ -28,6 +28,8 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use PHPModelGenerator\Utils\ArrayHash;
 use PHPModelGenerator\Utils\NormalizedName;
+use PHPModelGenerator\Utils\RenderFactory;
+use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeCheck;
 
 /**
@@ -57,7 +59,7 @@ class EnumPostProcessor extends PostProcessor
     ) {
         (new ModelGenerator())->generateModelDirectory($targetDirectory);
 
-        $this->renderer = new Render(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);
+        $this->renderer = RenderFactory::create(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);
         $this->namespace = trim($namespace, '\\');
         $this->targetDirectory = $targetDirectory;
         $this->enumFilterToken = (new EnumFilter())->getToken();
@@ -159,12 +161,14 @@ class EnumPostProcessor extends PostProcessor
                 ),
             ];
         } else {
-            if ($generatorConfiguration->isOutputEnabled()) {
-                // @codeCoverageIgnoreStart
-                echo "Duplicated signature $enumSignature for enum $enumName." .
-                    " Redirecting to {$this->generatedEnums[$enumSignature]['name']}\n";
-                // @codeCoverageIgnoreEnd
-            }
+            $generatorConfiguration->getLogger()->notice(
+                'Duplicated signature {signature} for enum {enum}. Redirecting to {redirectEnum}',
+                [
+                    'signature' => $enumSignature,
+                    'enum' => $enumName,
+                    'redirectEnum' => $this->generatedEnums[$enumSignature]['name'],
+                ],
+            );
         }
 
         $fqcn = $this->generatedEnums[$enumSignature]['fqcn'];
@@ -254,11 +258,14 @@ class EnumPostProcessor extends PostProcessor
                 $validator instanceof FilterValidator
                 && $validator->getFilter() instanceof TransformingFilterInterface
             ) {
-                throw new SchemaException(sprintf(
-                    "Can't apply enum filter to an already transformed value on property %s in file %s",
-                    $property->getName(),
-                    $property->getJsonSchema()->getFile(),
-                ));
+                throw new SchemaException(
+                    sprintf(
+                        "Can't apply enum filter to an already transformed value on property %s in file %s",
+                        $property->getName(),
+                        $property->getJsonSchema()->getFile(),
+                    ),
+                    $property->getJsonSchema(),
+                );
             }
         }
     }
@@ -281,7 +288,8 @@ class EnumPostProcessor extends PostProcessor
                     $message,
                     $property->getName(),
                     $property->getJsonSchema()->getFile(),
-                )
+                ),
+                $property->getJsonSchema(),
             );
         };
 
@@ -373,20 +381,22 @@ class EnumPostProcessor extends PostProcessor
             }
         }
 
-        if (!empty($removedValues) && $generatorConfiguration->isOutputEnabled()) {
+        if (!empty($removedValues)) {
             $typeLabel   = implode('|', $declaredTypes);
             $removedList = implode(', ', array_map(
                 static fn($value): string => var_export($value, true),
                 $removedValues,
             ));
 
-            echo sprintf(
-                "Warning: enum property '%s' in file %s declares type '%s' but contains incompatible values: %s."
-                    . " These values have been removed from the generated enum.\n",
-                $property->getName(),
-                $property->getJsonSchema()->getFile(),
-                $typeLabel,
-                $removedList,
+            $generatorConfiguration->getLogger()->warning(
+                "Enum property '{property}' in file {file} declares type '{type}' but contains incompatible"
+                    . " values: {removedValues}. These values have been removed from the generated enum.",
+                [
+                    'property' => $property->getName(),
+                    'file' => $property->getJsonSchema()->getFile(),
+                    'type' => $typeLabel,
+                    'removedValues' => $removedList,
+                ],
             );
         }
 
@@ -412,7 +422,7 @@ class EnumPostProcessor extends PostProcessor
         $name = ucfirst((string) preg_replace('/\W/', '', ucwords($name, '_-. ')));
 
         foreach ($values as $value) {
-            $cases[$this->getCaseName($map, $value, $jsonSchema)] = var_export($value, true);
+            $cases[$this->getCaseName($map, $value, $jsonSchema)] = RenderHelper::varExportArray($value);
         }
 
         $backedType = null;
@@ -432,14 +442,16 @@ class EnumPostProcessor extends PostProcessor
 
         $result = file_put_contents(
             $filename = $this->targetDirectory . DIRECTORY_SEPARATOR . $name . '.php',
-            $this->renderer->renderTemplate(
-                'Enum.phptpl',
-                [
-                    'namespace' => $this->namespace,
-                    'name' => $name,
-                    'cases' => $cases,
-                    'backedType' => $backedType,
-                ],
+            RenderHelper::collapseBlankLines(
+                $this->renderer->renderTemplate(
+                    'Enum.phptpl',
+                    [
+                        'namespace' => $this->namespace,
+                        'name' => $name,
+                        'cases' => $cases,
+                        'backedType' => $backedType,
+                    ],
+                ),
             )
         );
 
@@ -453,11 +465,7 @@ class EnumPostProcessor extends PostProcessor
 
         require $filename;
 
-        if ($generatorConfiguration->isOutputEnabled()) {
-            // @codeCoverageIgnoreStart
-            echo "Rendered enum $fqcn\n";
-            // @codeCoverageIgnoreEnd
-        }
+        $generatorConfiguration->getLogger()->info('Rendered enum {enum}', ['enum' => $fqcn]);
 
         return $fqcn;
     }

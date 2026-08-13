@@ -44,7 +44,8 @@
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
                 // check if the state of the validator is already known.
                 // If none of the properties affected by the validator are changed the validator must not be re-evaluated
-                if (isset($validatorIndex) &&
+                if (
+                    isset($validatorIndex) &&
                     isset($this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]) &&
                     {% if compositionProperty.branchEvaluationDependsOnUndeclaredKeys() %}
                         // Never cached: this branch carries a keyword decided by the shape or
@@ -84,60 +85,18 @@
                         throw new \Exception();
                     }
                 } else {
-            {% endif %}
+                    {% if compositionValidator.getSlotKey() and compositionProperty.branchHasContains() %}
+                        $branchContainsMatches = [];
+                    {% endif %}
 
-            {% if generatorConfiguration.collectErrors() %}
-                // collect errors for each composition element
-                $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-            {% endif %}
-
-            {% if not postPropose %}
-                $proposedValue = $proposedValue ?? $value;
-            {% endif %}
-
-            {% if compositionValidator.getSlotKey() and compositionProperty.branchHasContains() %}
-                $branchContainsMatches = [];
-            {% endif %}
-
-            {{ viewHelper.resolvePropertyDecorator(compositionProperty) }}
-
-            {% foreach compositionProperty.getOrderedValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema) }}
-            {% endforeach %}
-
-            {% if generatorConfiguration.collectErrors() %}
-                $compositionErrorCollection[] = $this->_errorRegistry;
-
-                {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-                    if (isset($validatorIndex)) {
-                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = $this->_errorRegistry;
-                    }
+                    {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 3) }}
+                }
+            {% else %}
+                {% if compositionValidator.getSlotKey() and compositionProperty.branchHasContains() %}
+                    $branchContainsMatches = [];
                 {% endif %}
 
-                // an error inside the composed validation occurred. Throw an exception to count the validity of the
-                // composition item
-                if ($this->_errorRegistry->getErrors()) {
-                    throw new \Exception();
-                }
-            {% endif %}
-
-            {% if postPropose %}
-                $proposedValue = $proposedValue ?? $value;
-            {% endif %}
-
-            {% if hasModifiedValuesMethod %}
-                if (is_object($value)) {
-                    $modifiedValues = array_merge($modifiedValues, $this->{{ modifiedValuesMethod }}($originalModelData, $value, $validatorComponentIndex));
-                }
-            {% endif %}
-
-            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-                {% if not generatorConfiguration.collectErrors() %}
-                    if (isset($validatorIndex)) {
-                        $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = true;
-                    }
-                {% endif %}
-            }
+                {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
             {% endif %}
 
             {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and compositionProperty.branchIsArrayKind() %}
@@ -181,7 +140,7 @@
                     {% endif %}
                 }
             {% endif %}
-        } catch (\Exception) {
+        } catch (\Exception $e) {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) and not generatorConfiguration.collectErrors() %}
                 if (isset($validatorIndex)) {
                     $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = false;
@@ -190,6 +149,22 @@
 
             {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
                 $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = null;
+            {% endif %}
+
+            {% if not generatorConfiguration.collectErrors()
+                  and not viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
+            %}
+                {#
+                    Record the failing branch's own exception (rendered as "Failed" with its
+                    message) so the composition exception surfaces the underlying reason in
+                    direct-exception mode. Control-flow exceptions used purely for counting are not
+                    ValidationExceptions and contribute no message.
+                #}
+                $branchErrorRegistry = new \PHPModelGenerator\Exception\ErrorRegistryException();
+                if ($e instanceof \PHPModelGenerator\Exception\ValidationException) {
+                    $branchErrorRegistry->addError($e);
+                }
+                $compositionErrorCollection[] = $branchErrorRegistry;
             {% endif %}
 
             $succeededCompositionElements--;
@@ -206,40 +181,63 @@
         $validatorComponentIndex++;
     {% endforeach %}
 
+    {#
+        Only a satisfied composition may adopt a branch's (possibly decorator-transformed)
+        proposed value. If no branch succeeded, $proposedValue never advanced past its initial
+        null (each branch only reaches "$proposedValue = $proposedValue ?? $value;" once it has
+        already passed its own composition-error check), so unconditionally assigning it to $value
+        would replace the real input with null — corrupting both this validator's own reported
+        value and, since array/object items are validated by reference, the original data itself.
+    #}
+    $compositionSatisfied = {{ composedValueValidation }};
+
     {% if mergedProperty %}
-        if (is_object($proposedValue)) {
+        if ($compositionSatisfied && is_object($proposedValue)) {
             if ($modifiedValues) {
                 $value = array_merge($value, $modifiedValues);
             }
 
-            {{ viewHelper.resolvePropertyDecorator(mergedProperty) }}
-        } else {
+            {{ viewHelper.resolvePropertyDecorator(mergedProperty, false, 2) }}
+        } elseif ($compositionSatisfied) {
             $value = $proposedValue;
+        } else {
+            $value = $originalModelData;
         }
     {% else %}
-        {% if hasModifiedValuesMethod %}
-            foreach ({{ allBranchDefaultAttributeMap }} as $branchDefaultKey => $branchDefaultAttr) {
-                if (!array_key_exists($branchDefaultKey, $originalModelData)) {
-                    $this->$branchDefaultAttr = array_key_exists($branchDefaultKey, $modifiedValues)
-                        ? $modifiedValues[$branchDefaultKey]
-                        : null;
+        if ($compositionSatisfied) {
+            {% if hasModifiedValuesMethod %}
+                {#
+                    Branch defaults only apply to object/array inputs. In a mixed composition where
+                    the value can also be a scalar (e.g. anyOf/oneOf of an object branch and a string
+                    branch) $originalModelData may be that scalar, which array_key_exists cannot accept.
+                #}
+                if (is_array($originalModelData)) {
+                    foreach ({{ allBranchDefaultAttributeMap }} as $branchDefaultKey => $branchDefaultAttr) {
+                        if (!array_key_exists($branchDefaultKey, $originalModelData)) {
+                            $this->$branchDefaultAttr = array_key_exists($branchDefaultKey, $modifiedValues)
+                                ? $modifiedValues[$branchDefaultKey]
+                                : null;
+                        }
+                    }
                 }
-            }
-        {% endif %}
-        {# Array-side compositions (slotKey set) never produce a nested-instance
-           $proposedValue; writing $proposedValue back would replace the validated array
-           with null on whole-composition failure, suppressing a subsequent
-           unevaluatedItems check in collectErrors mode. #}
-        {% if not compositionValidator.getSlotKey() %}
-            $value = $proposedValue;
-        {% endif %}
+            {% endif %}
+            {# Array-side compositions (slotKey set) never produce a nested-instance
+               $proposedValue; writing $proposedValue back would replace the validated array
+               with null on whole-composition failure, suppressing a subsequent
+               unevaluatedItems check in collectErrors mode. #}
+            {% if not compositionValidator.getSlotKey() %}
+                $value = $proposedValue;
+            {% endif %}
+        } else {
+            $value = $originalModelData;
+        }
     {% endif %}
 
     {% if generatorConfiguration.collectErrors() %}
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
-    $result = !({{ composedValueValidation }});
+    $result = !$compositionSatisfied;
 
     {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
         if ($result) {

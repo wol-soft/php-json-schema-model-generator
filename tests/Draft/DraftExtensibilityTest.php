@@ -8,6 +8,8 @@ use PHPModelGenerator\Draft\DraftBuilder;
 use PHPModelGenerator\Draft\DraftInterface;
 use PHPModelGenerator\Draft\Draft_07;
 use PHPModelGenerator\Draft\Element\Type;
+use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
+use PHPModelGenerator\Draft\Producer\RefResolver;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Exception\ValidationException;
@@ -138,7 +140,7 @@ class DraftExtensibilityTest extends AbstractPHPModelGeneratorTestCase
 
         // Empty string fails (length 0 < 1).
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Value for value must not be shorter than 1');
+        $this->expectExceptionMessage("Value for 'value' must not be shorter than 1");
         new $className(['value' => '']);
     }
 
@@ -186,7 +188,7 @@ class DraftExtensibilityTest extends AbstractPHPModelGeneratorTestCase
 
         // 'ab' has length 2 < 3 → validation fails
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Value for value must not be shorter than 3');
+        $this->expectExceptionMessage("Value for 'value' must not be shorter than 3");
         new $className(['value' => 'ab']);
     }
 
@@ -234,5 +236,38 @@ class DraftExtensibilityTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['value' => 'longer string']);
         $this->assertSame('longer string', $object->getValue());
+    }
+
+    /**
+     * A schema node carrying two keywords that both resolve to an ExclusiveProducer (each
+     * declaring itself exclusive over every other keyword on the node) is contradictory: there is
+     * no well-defined way to pick a winner, so generation must fail loudly rather than silently
+     * using whichever producer happens to be registered first.
+     */
+    public function testMultipleExclusiveProducersOnOneNodeThrowsSchemaException(): void
+    {
+        $customDraft = new class implements DraftInterface {
+            public function getDefinition(): DraftBuilder
+            {
+                $builder = (new Draft_07())->getDefinition();
+                // Register a second, independent exclusive producer alongside Draft_07's own
+                // $ref producer, so the test schema's '$ref' + '$secondRef' node carries two.
+                $builder->addProducer('$secondRef', new ExclusiveProducer(new RefResolver()));
+
+                return $builder;
+            }
+        };
+
+        $config = (new GeneratorConfiguration())
+            ->setCollectErrors(false)
+            ->setDraft($customDraft);
+
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Mutually exclusive keywords '\\\$ref', '\\\$secondRef' cannot be combined on property " .
+            "'value' in file '.+'$/",
+        );
+
+        $this->generateClassFromFile('MutuallyExclusiveProducers.json', $config);
     }
 }

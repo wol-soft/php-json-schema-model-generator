@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace PHPModelGenerator\PropertyProcessor\Filter;
 
 use Exception;
-use LogicException;
-use PHPModelGenerator\Draft\Draft;
-use PHPModelGenerator\Draft\DraftFactoryInterface;
 use PHPModelGenerator\Exception\InvalidFilterException;
 use PHPModelGenerator\Exception\Object\InvalidInstanceOfException;
 use PHPModelGenerator\Exception\SchemaException;
@@ -34,11 +31,6 @@ use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeCheck;
 use ReflectionException;
 
-/**
- * Class FilterProcessor
- *
- * @package PHPModelGenerator\PropertyProcessor\Filter
- */
 class FilterProcessor
 {
     /**
@@ -90,7 +82,8 @@ class FilterProcessor
                         $filterToken,
                         $property->getName(),
                         $property->getJsonSchema()->getFile(),
-                    )
+                    ),
+                    $property->getJsonSchema(),
                 );
             }
 
@@ -105,7 +98,8 @@ class FilterProcessor
                             $property->getName(),
                             $property->getJsonSchema()->getFile(),
                             $exception->getMessage(),
-                        )
+                        ),
+                        $property->getJsonSchema(),
                     );
                 }
             }
@@ -119,7 +113,8 @@ class FilterProcessor
                             'Applying a transforming filter to the array property %s is not supported in file %s',
                             $property->getName(),
                             $property->getJsonSchema()->getFile(),
-                        )
+                        ),
+                        $property->getJsonSchema(),
                     );
                 }
                 if ($transformingFilter) {
@@ -128,7 +123,8 @@ class FilterProcessor
                             'Applying multiple transforming filters for property %s is not supported in file %s',
                             $property->getName(),
                             $property->getJsonSchema()->getFile(),
-                        )
+                        ),
+                        $property->getJsonSchema(),
                     );
                 }
             }
@@ -156,7 +152,7 @@ class FilterProcessor
                 // called externally multiple times on the same property; the null-coalescing
                 // assignment ensures we do not rebuild when called from a MediaStringModifier
                 // followed by a FilterValidatorFactory invocation.
-                $builtDraft ??= $this->resolveBuiltDraft($generatorConfiguration, $property);
+                $builtDraft ??= $generatorConfiguration->getBuiltDraft($property->getJsonSchema());
                 $classifier = new CompositionBranchClassifier($builtDraft, $inputTypeNames, $returnTypeNames);
                 $checker = new CompositionCompatibilityChecker($classifier, $property);
                 $checker->checkTransformingFilterCompositionConflicts($property->getJsonSchema()->getJson());
@@ -679,26 +675,6 @@ class FilterProcessor
                 $schema->addUsedClass($typeName);
             }
         }
-    }
-
-    /**
-     * Build and return the Draft instance for the given property's schema.
-     *
-     * Resolves DraftFactoryInterface vs DraftInterface from the GeneratorConfiguration
-     * and builds the immutable Draft registry. Callers should cache the result rather
-     * than calling this method more than once per process() invocation.
-     */
-    private function resolveBuiltDraft(
-        GeneratorConfiguration $generatorConfiguration,
-        PropertyInterface $property,
-    ): Draft {
-        $configDraft = $generatorConfiguration->getDraft();
-
-        $draftInterface = $configDraft instanceof DraftFactoryInterface
-            ? $configDraft->getDraftForSchema($property->getJsonSchema())
-            : $configDraft;
-
-        return $draftInterface->getDefinition()->build();
     }
 
     /**

@@ -41,6 +41,7 @@ class PatternPropertyValidatorFactory extends AbstractValidatorFactory
                     $property->getName(),
                     $propertySchema->getFile(),
                 ),
+                $propertySchema,
             );
         }
 

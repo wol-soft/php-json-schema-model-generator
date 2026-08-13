@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "definitions": {
+    "person": {
+      "$id": "%s",
+      "type": "object",
+      "properties": {
+        "colleague": {
+          "$ref": "/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/library.json#/definitions/person"
+        }
+      }
+    }
+  },
+  "properties": {
+    "person": {
+      "$ref": "#/definitions/person"
+    }
+  }
+}

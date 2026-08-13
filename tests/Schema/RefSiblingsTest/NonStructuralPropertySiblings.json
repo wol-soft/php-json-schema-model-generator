@@ -1,0 +1,27 @@
+{
+  "definitions": {
+    "baseString": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "type": "object",
+  "properties": {
+    "withMinLength": {
+      "$ref": "#/definitions/baseString",
+      "minLength": 5
+    },
+    "withEnum": {
+      "$ref": "#/definitions/baseString",
+      "enum": [
+        "Alice",
+        "Bob",
+        "Charlie"
+      ]
+    },
+    "withConst": {
+      "$ref": "#/definitions/baseString",
+      "const": "fixed"
+    }
+  }
+}

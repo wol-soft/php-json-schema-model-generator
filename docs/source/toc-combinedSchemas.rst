@@ -9,3 +9,4 @@
     combinedSchemas/if
     combinedSchemas/mergedProperty
     combinedSchemas/crossTypedComposition
+    combinedSchemas/impliedObjects

@@ -40,6 +40,7 @@ class FormatValidatorFactory extends AbstractValidatorFactory
                     $property->getName(),
                     $propertySchema->getFile(),
                 ),
+                $propertySchema,
             );
         }
 

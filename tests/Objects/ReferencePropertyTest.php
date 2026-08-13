@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Objects;
 
 use PHPModelGenerator\Attributes\SchemaName;
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Exception\FileSystemException;
@@ -17,13 +18,9 @@ use ReflectionClass;
 use stdClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\WithoutErrorHandler;
 
-/**
- * Class ReferencePropertyTest
- *
- * @package PHPModelGenerator\Tests\Objects
- */
 #[ApplicableDrafts]
 class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -48,9 +45,21 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function internalReferenceProvider(): array
     {
         return [
-            'Internal path reference' => ['#/definitions/person'],
+            'Internal path reference'  => ['#/definitions/person'],
             'Internal direct reference' => ['#person'],
         ];
+    }
+
+    /**
+     * internalReferenceProvider() plus the empty-string $ref form, for use at a position nested
+     * inside the "person" $id scope (e.g. the "children" array's items). There, an empty $ref
+     * resolves to the enclosing "#person" scope (RFC 3986 base-URI scoping) and is a real,
+     * spec-valid recursive-schema idiom - unlike at the document's own top level (see
+     * internalReferenceProvider()), it is not a stand-in for a named reference.
+     */
+    public static function recursiveInternalReferenceProvider(): array
+    {
+        return self::internalReferenceProvider() + ['Empty string reference' => ['']];
     }
 
     public static function externalReferenceProvider(): array
@@ -136,6 +145,30 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * A property-level $ref: "" resolves to the enclosing document's own root (RFC 3986
+     * §5.2.2's empty path/fragment case), not to a named "person" definition living elsewhere in
+     * the same file - "person" ends up typed as another instance of the outer schema itself
+     * (which only has a "person" property), not as the definitions.person shape (which has
+     * name/age). This is a distinct, legitimate recursive pattern, not an alias for the named
+     * forms covered by validReferenceObjectInputProvider() above.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testPropertyReferencingDocumentRootIsValid(): void
+    {
+        $className = $this->generateClassFromFileTemplate('ObjectReference.json', ['']);
+
+        $object = new $className([]);
+        $this->assertNull($object->getPerson());
+
+        $object = new $className(['person' => ['person' => null]]);
+        $this->assertInstanceOf($className, $object->getPerson());
+        $this->assertNull($object->getPerson()->getPerson());
+    }
+
+    /**
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
@@ -149,10 +182,12 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->expectException(ValidationException::class);
         if ($propertyValue instanceof stdClass) {
             $this->expectExceptionMessageMatches(
-                '/Invalid class for person. Requires ReferencePropertyTest_.*, got stdClass/',
+                "/Invalid class for 'person': requires 'ReferencePropertyTest_.*', got 'stdClass'/",
             );
         } else {
-            $this->expectExceptionMessage('Invalid type for person. Requires object, got ' . gettype($propertyValue));
+            $this->expectExceptionMessage(
+                "Invalid type for 'person': requires 'object', got '" . gettype($propertyValue) . "'",
+            );
         }
 
         $className = $this->generateClassFromFileTemplate('ObjectReference.json', [$reference]);
@@ -209,8 +244,12 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         return [
             'Internal path reference' => ['#/definitions/yearBetween1900and2000'],
             'Internal direct reference' => ['#yearBetween1900and2000'],
-            'External path reference' => ['../ReferencePropertyTest_external/library.json#/definitions/yearBetween1900and2000'],
-            'External direct reference' => ['../ReferencePropertyTest_external/library.json#yearBetween1900and2000'],
+            'External path reference' => [
+                '../ReferencePropertyTest_external/library.json#/definitions/yearBetween1900and2000',
+            ],
+            'External direct reference' => [
+                '../ReferencePropertyTest_external/library.json#yearBetween1900and2000',
+            ],
         ];
     }
 
@@ -250,13 +289,13 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         return self::combineDataProvider(
             static::intReferenceProvider(),
             [
-                'bool' => [true, 'Invalid type for year'],
-                'float' => [0.92, 'Invalid type for year'],
-                'array' => [[2], 'Invalid type for year'],
-                'object' => [new stdClass(), 'Invalid type for year'],
-                'string' => ['1', 'Invalid type for year'],
-                'int too low' => [1899, 'Value for year must not be smaller than 1900'],
-                'int too high' => [2001, 'Value for year must not be larger than 2000'],
+                'bool' => [true, "Invalid type for 'year'"],
+                'float' => [0.92, "Invalid type for 'year'"],
+                'array' => [[2], "Invalid type for 'year'"],
+                'object' => [new stdClass(), "Invalid type for 'year'"],
+                'string' => ['1', "Invalid type for 'year'"],
+                'int too low' => [1899, "Value for 'year' must not be smaller than 1900"],
+                'int too high' => [2001, "Value for 'year' must not be larger than 2000"],
             ],
         );
     }
@@ -264,19 +303,30 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function recursiveExternalReferenceProvider(): array
     {
         return [
-            'external path reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personDirect'],
-            'external direct reference to direct recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#personDirect'],
-            'external path reference to path recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personPath'],
-            'external direct reference to path recursion' => ['../ReferencePropertyTest_external/recursiveLibrary.json#personPath'],
+            'external path reference to direct recursion' => [
+                '../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personDirect',
+            ],
+            'external direct reference to direct recursion' => [
+                '../ReferencePropertyTest_external/recursiveLibrary.json#personDirect',
+            ],
+            'external path reference to path recursion' => [
+                '../ReferencePropertyTest_external/recursiveLibrary.json#/definitions/personPath',
+            ],
+            'external direct reference to path recursion' => [
+                '../ReferencePropertyTest_external/recursiveLibrary.json#personPath',
+            ],
         ];
     }
 
     public static function combinedReferenceProvider(): array
     {
         return array_merge(
-            self::combineDataProvider(self::internalReferenceProvider(), self::internalReferenceProvider()),
+            self::combineDataProvider(self::recursiveInternalReferenceProvider(), self::internalReferenceProvider()),
             self::combineDataProvider(static::recursiveExternalReferenceProvider(), self::internalReferenceProvider()),
-            self::combineDataProvider(static::recursiveExternalReferenceProvider(), static::recursiveExternalReferenceProvider()),
+            self::combineDataProvider(
+                static::recursiveExternalReferenceProvider(),
+                static::recursiveExternalReferenceProvider(),
+            ),
         );
     }
 
@@ -376,7 +426,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         // external definition the internal definition is never used and thus can be ignored
         return array_merge(
             self::combineDataProvider(
-                self::internalReferenceProvider(),
+                self::recursiveInternalReferenceProvider(),
                 self::invalidInternalReferenceObjectPropertyTypeDataProvider(),
             ),
             self::combineDataProvider(
@@ -384,7 +434,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
                 self::invalidInternalReferenceObjectPropertyTypeDataProvider(),
             ),
             self::combineDataProvider(
-                self::internalReferenceProvider(),
+                self::recursiveInternalReferenceProvider(),
                 self::combineDataProvider(
                     static::recursiveExternalReferenceProvider(),
                     static::invalidObjectPropertyTypeDataProvider(),
@@ -446,7 +496,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testRecursivePathRefWithInvalidTypeThrowsException(string $schemaFile): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid type for root. Requires object, got integer');
+        $this->expectExceptionMessage("Invalid type for 'root': requires 'object', got 'integer'");
 
         $className = $this->generateClassFromFile($schemaFile);
         new $className(['root' => 42]);
@@ -509,7 +559,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testDefsObjectRefInvalidTypeThrowsException(string $reference): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Invalid type for person. Requires object, got integer');
+        $this->expectExceptionMessage("Invalid type for 'person': requires 'object', got 'integer'");
 
         $className = $this->generateClassFromFileTemplate('DefsObjectReference.json', [$reference]);
         new $className(['person' => 42]);
@@ -685,7 +735,8 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             ],
             'network reference - absolute path to full URL $id' => [
                 $baseURL . 'ReferencePropertyTest/NestedExternalReference.json',
-                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/library.json',
+                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/'
+                    . 'ReferencePropertyTest_external/library.json',
             ],
         ];
     }
@@ -696,7 +747,10 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            sprintf('/Unresolved Reference %s#\/definitions\/family in file .*\.json/', str_replace('/', '\/', $reference)),
+            sprintf(
+                '/Unresolved Reference %s#\/definitions\/family in file .*\.json/',
+                str_replace('/', '\/', $reference),
+            ),
         );
 
         $this->generateClassFromFileTemplate('NestedExternalReference.json', [$id, $reference]);
@@ -725,9 +779,40 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             ],
             'network reference - absolute path to full URL $id' => [
                 $baseURL . 'ReferencePropertyTest/NestedExternalReference.json',
-                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/ReferencePropertyTest_external/nonexistent.json',
+                '/wol-soft/php-json-schema-model-generator/master/tests/Schema/'
+                    . 'ReferencePropertyTest_external/nonexistent.json',
             ],
         ];
+    }
+
+    /**
+     * An absolute external $ref written inside a $id-scoped subschema (here: definitions.person)
+     * resolves against that scope's own $id, not the document's top-level $id (there is none in
+     * this schema) - proving SchemaDefinitionDictionary::parseExternalFile() picks up
+     * JsonSchema::getBaseId() (the nearest enclosing $id) rather than always the document root's.
+     * An absolute-style ref is used deliberately (mirroring
+     * testNestedExternalReference()'s "absolute path to full URL $id" case): it can never
+     * coincidentally resolve via the local-file fallback the way a relative ref could, since
+     * getLocalRefPath() would need a matching ancestor directory literally named "wol-soft" -
+     * this makes success possible only via the network URL built from the correct $id.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testNestedIdScopedExternalReferenceIsResolvedAgainstItsOwnId(): void
+    {
+        $baseURL = 'https://raw.githubusercontent.com/wol-soft/php-json-schema-model-generator/master/tests/Schema/';
+
+        $className = $this->generateClassFromFileTemplate(
+            'NestedIdScopedExternalReference.json',
+            [$baseURL . 'ReferencePropertyTest/NestedExternalReference.json'],
+        );
+
+        $object = new $className(['person' => ['colleague' => ['name' => 'Hannes', 'age' => 42]]]);
+
+        $this->assertSame('Hannes', $object->getPerson()->getColleague()->getName());
+        $this->assertSame(42, $object->getPerson()->getColleague()->getAge());
     }
 
     public function testInvalidBaseReferenceThrowsAnException(): void
@@ -736,6 +821,60 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $this->expectExceptionMessage('A referenced schema on base level must provide an object definition');
 
         $this->generateClassFromFile('InvalidBaseReference.json');
+    }
+
+    /**
+     * '' and '#' both resolve to the schema's own document root (RFC 3986 §5.2.2's empty
+     * path/fragment case). Referencing it at the base level would merge the schema with itself,
+     * which has no fixed point - PropertyProxy::getNestedSchema() would need to fully resolve the
+     * schema in order to build the schema. Unlike the same forms at a nested property position
+     * (see testPropertyReferencingDocumentRootIsValid()), there is no containment boundary here
+     * to give instance data a way to terminate, so this is rejected outright.
+     */
+    #[DataProvider('baseReferenceSelfReferenceProvider')]
+    public function testBaseReferenceSelfReferenceThrowsAnException(string $reference): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^A referenced schema on base level must not reference itself for property '.+' in file .+\.json$/",
+        );
+
+        $this->generateClassFromFileTemplate('BaseReference.json', [$reference]);
+    }
+
+    public static function baseReferenceSelfReferenceProvider(): array
+    {
+        return [
+            'Empty string reference' => [''],
+            'Root fragment reference' => ['#'],
+        ];
+    }
+
+    /**
+     * When a $ref points at an external file that isn't valid JSON, PropertyFactory wraps the
+     * underlying SchemaException into a generic "Unresolved Reference" message - but the
+     * structured accessors must still expose the referenced file's own line/column, falling back
+     * through the wrapped exception rather than reporting the referencing file's location.
+     */
+    public function testExternalReferenceToMalformedJsonReportsTheReferencedFilesOwnLocation(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^Unresolved Reference \.\.\/ReferencePropertyTest_external\/malformed\.json in file (.*)\.json$/',
+        );
+
+        try {
+            $this->generateClassFromFileTemplate(
+                'ObjectReference.json',
+                ['../ReferencePropertyTest_external/malformed.json'],
+            );
+        } catch (SchemaException $exception) {
+            $this->assertStringEndsWith('malformed.json', $exception->getSchemaFile());
+            $this->assertSame(7, $exception->getSourceLine());
+            $this->assertSame(3, $exception->getSourceColumn());
+
+            throw $exception;
+        }
     }
 
     /**
@@ -768,6 +907,178 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
                 'Object with additional property' => [['name' => 'Hannes', 'age' => 42, 'stringProperty' => 'Hello']],
             ],
         );
+    }
+
+    /**
+     * A base-level $ref (the entire top-level schema is `{"$ref": "..."}`) must transfer not only
+     * the referenced object's properties but also its base validators - the validators attached to
+     * the object itself rather than to one of its properties (additionalProperties, minProperties,
+     * maxProperties). Before RefResolver::resolveBaseReference() copied getBaseValidators()
+     * onto the referencing schema, all three were silently dropped: additional properties were
+     * accepted, and neither properties count boundary was enforced.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testBaseLevelReferenceTransfersObjectBaseValidators(): void
+    {
+        $className = $this->generateClassFromFile('BaseReferenceObjectValidators.json');
+
+        // Accepted: exactly one known property satisfies minProperties = maxProperties = 1
+        $object = new $className(['name' => 'Hannes']);
+        $this->assertSame('Hannes', $object->getName());
+
+        // Rejected: additionalProperties = false must still reject a property unknown to the
+        // referenced definition, even though the property arrived via a base-level $ref.
+        // These base validators carry the referenced Person class's own generated (uniqid-suffixed)
+        // class name as their "property name" placeholder rather than the referencing class's name -
+        // the validator instance is transferred as-is, not rebuilt for the new context - so the
+        // quoted identifier is matched by pattern instead of asserted verbatim.
+        try {
+            new $className(['extra' => 1]);
+            $this->fail('Expected AdditionalPropertiesException');
+        } catch (ValidationException $exception) {
+            $this->assertMatchesRegularExpression(
+                "/^Provided JSON for '.+' contains not allowed additional properties \['extra'\]\$/",
+                $exception->getMessage(),
+            );
+        }
+
+        // Rejected: minProperties = 1 must still reject an empty object
+        try {
+            new $className([]);
+            $this->fail('Expected MinPropertiesException');
+        } catch (ValidationException $exception) {
+            $this->assertMatchesRegularExpression(
+                "/^Provided object for '.+' must not contain less than 1 properties\$/",
+                $exception->getMessage(),
+            );
+        }
+
+        // Rejected: maxProperties = 1 must still reject two known properties provided together
+        try {
+            new $className(['name' => 'Hannes', 'age' => 30]);
+            $this->fail('Expected MaxPropertiesException');
+        } catch (ValidationException $exception) {
+            $this->assertMatchesRegularExpression(
+                "/^Provided object for '.+' must not contain more than 1 properties\$/",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * A base-level $ref to a target schema which is itself a root-level composition (`allOf`) must
+     * enforce that composition at construction time. Before RefResolver::resolveBaseReference()
+     * copied getBaseValidators() onto the referencing schema, the allOf branch's own base validator
+     * never ran for the referencing class: the class still constructed successfully, and the
+     * missing required property only surfaced later as a PHP TypeError from the typed getter.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testBaseLevelReferenceToRootCompositionEnforcesCompositionAtConstruction(): void
+    {
+        $className = $this->generateClassFromFile('BaseReferenceRootComposition.json');
+
+        // Accepted: the allOf branch's required property is provided
+        $object = new $className(['name' => 'Hannes']);
+        $this->assertSame('Hannes', $object->getName());
+
+        // Rejected: the allOf branch requires 'name'; construction must fail immediately instead of
+        // succeeding and only failing later when the typed getName() getter is called. The
+        // transferred composition validator reports the referenced definition's own generated class
+        // name, which carries a per-run suffix, so only that identifier is matched by pattern.
+        try {
+            new $className([]);
+            $this->fail('Expected AllOfException');
+        } catch (AllOfException $exception) {
+            $this->assertMatchesRegularExpression(
+                <<<'REGEX'
+                /^Invalid value for '\w+_Composed\w*' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    \* Missing required value for 'name'$/
+                REGEX,
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * Two schema files whose ROOT compositions reference each other must still generate.
+     *
+     * SchemaProcessor::checkObjectRepresentability() classifies the root before any property is
+     * processed, and that classification peeks through `$ref` chains - for a cross-file reference
+     * the peek runs the real SchemaDefinitionDictionary::parseExternalFile(), which processes the
+     * target eagerly. The peek therefore re-enters the SchemaProcessor, which
+     * ObjectShapeResolver's own $visitedReferences cycle guard cannot see: it is local to one
+     * classify() call. Only the file-path registration performed before the check stops the
+     * mutual references from recursing until the stack is exhausted.
+     *
+     * Neither file declares any property, so the pair is deliberately degenerate - what is being
+     * asserted is that generation terminates and yields one class per file.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testMutuallyReferencingRootCompositionsGenerateWithoutRecursingInfinitely(): void
+    {
+        $namespace = 'MutuallyReferencingRootCompositions';
+        $this->generateDirectory('MutuallyReferencingRootCompositions', $this->directoryConfig($namespace));
+
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $aClass = "\\{$namespacePrefix}\\A";
+        $bClass = "\\{$namespacePrefix}\\B";
+
+        $this->assertInstanceOf($aClass, new $aClass([]));
+        $this->assertInstanceOf($bClass, new $bClass([]));
+    }
+
+    /**
+     * A recursive cross-file schema pair - A's root is an `allOf` of a `$ref` to B, and B has a
+     * property referencing A back - must produce exactly one class per file.
+     *
+     * The reference from B back to A is resolved while A's own representability check is still
+     * running (that check's `$ref` peek is what triggers B's eager processing in the first place),
+     * so A must already be registered in processedFileSchemas by then. Otherwise
+     * parseExternalFile()'s dedup short-circuit misses and A is processed a second time,
+     * failing with "File A.php already exists. Make sure object IDs are unique."
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testMutuallyRecursiveCrossFileSchemasProduceOneClassPerFile(): void
+    {
+        $namespace = 'MutuallyRecursiveCrossFileSchemas';
+        $this->generateDirectory('MutuallyRecursiveCrossFileSchemas', $this->directoryConfig($namespace));
+
+        $namespacePrefix = $this->lastGeneratedNamespacePrefix;
+        $aClass = "\\{$namespacePrefix}\\A";
+
+        // A's root $ref transfers B's properties onto A, so A exposes both of them directly.
+        $object = new $aClass([
+            'name' => 'Hannes',
+            'parent' => ['name' => 'Dieter'],
+        ]);
+
+        $this->assertSame('Hannes', $object->getName());
+
+        // Both files plus the single nested class the recursive property resolves to - three
+        // classes, not a second copy of A.
+        $this->assertCount(3, $this->getGeneratedFiles());
+
+        // The class closing the cycle carries the referenced composition but no accessors of its
+        // own. That is a pre-existing limitation of recursive cross-file references (master
+        // generates the identical class), asserted here so that this test pins only the
+        // one-class-per-file guarantee and any future improvement surfaces as a named failure
+        // rather than silently changing what this test appears to cover.
+        $this->assertIsObject($object->getParent());
+        $this->assertFalse(method_exists($object->getParent(), 'getName'));
     }
 
     // -------------------------------------------------------------------------
@@ -881,7 +1192,7 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public function testBaseRefToInBaseDirFileEnforcesRequiredProperty(): void
     {
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Missing required value for street');
+        $this->expectExceptionMessage("Missing required value for 'street'");
 
         $namespace = 'T5BaseDirBaseRefRequired';
         $this->generateDirectory('BaseDirBaseRef', $this->directoryConfig($namespace));
@@ -953,7 +1264,6 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     {
         return (new GeneratorConfiguration())
             ->setNamespacePrefix($namespace)
-            ->setOutputEnabled(false)
             ->setCollectErrors(false);
     }
 
@@ -1004,32 +1314,32 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     public static function invalidValuesForMultiplePropertiesWithIdenticalReferenceDataProvider(): array
     {
         return [
-            'Invalid value for personA' => [
+            "Invalid value for 'personA'" => [
                 ['personA' => 10],
-                'Invalid type for personA. Requires object, got integer',
+                "Invalid type for 'personA': requires 'object', got 'integer'",
             ],
-            'Invalid value for both persons' => [
+            "Invalid value for 'both persons'" => [
                 ['personA' => 10, 'personB' => false],
                 <<<ERROR
-                Invalid type for personA. Requires object, got integer
-                Invalid type for personB. Requires object, got boolean
+                Invalid type for 'personA': requires 'object', got 'integer'
+                Invalid type for 'personB': requires 'object', got 'boolean'
                 ERROR,
             ],
             'Invalid names for personB' => [
                 ['personA' => ['name' => 'A'], 'personB' => ['name' => 10]],
                 <<<ERROR
-                Invalid nested object for property personA:
-                  - Value for name must not be shorter than 3
-                Invalid nested object for property personB:
-                  - Invalid type for name. Requires string, got integer
+                Invalid nested object for property 'personA':
+                  - Value for 'name' must not be shorter than 3
+                Invalid nested object for property 'personB':
+                  - Invalid type for 'name': requires 'string', got 'integer'
                 ERROR,
             ],
             'Combined top level validation error and nested error' => [
                 ['personA' => ['name' => 'A'], 'personB' => 10],
                 <<<ERROR
-                Invalid nested object for property personA:
-                  - Value for name must not be shorter than 3
-                Invalid type for personB. Requires object, got integer
+                Invalid nested object for property 'personA':
+                  - Value for 'name' must not be shorter than 3
+                Invalid type for 'personB': requires 'object', got 'integer'
                 ERROR,
             ],
         ];
@@ -1100,5 +1410,255 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className([]);
         $this->assertPropertyHasJsonPointer($object, 'label', '/properties/label');
         $this->assertPropertyHasJsonPointer($object, 'child', '/properties/child');
+    }
+
+    // Draft 2019-09+: $ref and sibling keywords apply simultaneously (conjunction).
+
+    /**
+     * Draft 2019-09+: both ref properties and sibling properties appear on the generated class;
+     * pointers reflect the authored schema locations without a synthetic /allOf/ segment.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRefWithSiblingsBothApplyForDraft201909(): void
+    {
+        $className = $this->generateClassFromFile('RefWithSiblings.json');
+
+        $object = new $className(['name' => 'Alice', 'street' => 'Main St']);
+
+        // Both ref properties (street, city) and sibling properties (name, zip) are present.
+        $this->assertSame('Alice', $object->getName());
+        $this->assertSame('Main St', $object->getStreet());
+        $this->assertNull($object->getZip());
+        $this->assertNull($object->getCity());
+
+        // Sibling properties point to where they appear in the authored schema.
+        $this->assertPropertyHasJsonPointer($object, 'name', '/properties/name');
+        $this->assertPropertyHasJsonPointer($object, 'zip', '/properties/zip');
+
+        // Ref properties point into the referenced definition, not into a synthetic /allOf.
+        $this->assertPropertyHasJsonPointer($object, 'street', '/definitions/address/properties/street');
+        $this->assertPropertyHasJsonPointer($object, 'city', '/definitions/address/properties/city');
+    }
+
+    /**
+     * Draft 2019-09+: missing required fields (from either the ref or the sibling) trigger a
+     * validation error.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    #[DataProvider('invalidRefWithSiblingsDataProvider')]
+    public function testRefWithSiblingsMissingRequiredThrowsForDraft201909(array $data): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefWithSiblings.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        $this->expectException(ErrorRegistryException::class);
+
+        new $className($data);
+    }
+
+    public static function invalidRefWithSiblingsDataProvider(): array
+    {
+        return [
+            // Sibling-required field missing
+            'missing sibling-required name' => [['street' => 'Main St']],
+            // Ref-required field missing
+            'missing ref-required street'   => [['name' => 'Alice']],
+            // Both required fields missing
+            'missing both required'         => [[]],
+            // Sibling property with wrong type
+            'invalid zip type'              => [['name' => 'Alice', 'street' => 'Main St', 'zip' => 'ABC']],
+            // Ref property with wrong type
+            'invalid city type'             => [['name' => 'Alice', 'street' => 'Main St', 'city' => 42]],
+        ];
+    }
+
+    /**
+     * Draft 07: $ref siblings are silently ignored — only the referenced schema's properties
+     * appear on the generated class and only the ref's required constraint is enforced.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testRefWithSiblingsSilentlyDroppedForDraft07(): void
+    {
+        // Section 1: sibling properties (name, zip) and sibling-required (name) are absent.
+        $className = $this->generateClassFromFile('RefWithSiblings.json');
+
+        $object = new $className(['street' => 'Main St']);
+
+        $this->assertSame('Main St', $object->getStreet());
+        $this->assertNull($object->getCity());
+        $this->assertFalse(method_exists($object, 'getName'));
+        $this->assertFalse(method_exists($object, 'getZip'));
+
+        // Section 2: with error collection — sibling-required (name) is dropped, but
+        // ref-required (street) is still enforced.
+        $className = $this->generateClassFromFile(
+            'RefWithSiblings.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        // name is a sibling-required field, so providing no name is valid under Draft 07.
+        $object = new $className(['street' => 'Main St']);
+        $this->assertSame('Main St', $object->getStreet());
+
+        // Ref-required constraint on street still fires.
+        $this->expectException(ErrorRegistryException::class);
+        new $className([]);
+    }
+
+    // Draft 2019-09+: $ref with scalar/array sibling constraints.
+
+    /**
+     * Draft 2019-09+: a sibling minLength alongside a string $ref is enforced. The property
+     * accepts any string when the constraint is met and rejects strings that are too short.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRefWithPropertyLevelScalarSiblingsApplyForDraft201909(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefWithPropertyLevelScalarSiblings.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        // Happy path: name is absent (optional) or at least 3 characters long.
+        $object = new $className([]);
+        $this->assertNull($object->getName());
+
+        $object = new $className(['name' => 'Alice']);
+        $this->assertSame('Alice', $object->getName());
+
+        // Violation: name is present but shorter than minLength: 3.
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage("Value for 'name' must not be shorter than 3");
+        new $className(['name' => 'Jo']);
+    }
+
+    /**
+     * Draft 07: a sibling minLength alongside a string $ref is silently ignored. Short strings
+     * that would violate the sibling constraint are accepted.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testRefWithPropertyLevelScalarSiblingsIgnoredForDraft07(): void
+    {
+        $className = $this->generateClassFromFile('RefWithPropertyLevelScalarSiblings.json');
+
+        // The sibling minLength is not applied under Draft 07, so short strings are accepted.
+        $object = new $className(['name' => 'Jo']);
+        $this->assertSame('Jo', $object->getName());
+    }
+
+    /**
+     * Draft 2019-09+: a sibling 'type: integer' alongside a 'number' $ref narrows the
+     * effective type to integer. Float values are rejected by the TypeCheck validator.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRefWithPropertyLevelTypeNarrowingForDraft201909(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RefWithPropertyLevelTypeNarrowing.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        // Integer value satisfies both the $ref number type and the sibling integer type.
+        $object = new $className(['score' => 42]);
+        $this->assertSame(42, $object->getScore());
+
+        // Float value is rejected: the effective type after intersection is integer only.
+        $this->expectException(ErrorRegistryException::class);
+        $this->expectExceptionMessage("Invalid type for 'score': requires 'int', got 'double'");
+        new $className(['score' => 42.5]);
+    }
+
+    /**
+     * Draft 07: a sibling 'type' alongside a $ref is silently ignored. The effective type
+     * remains the $ref type (number), so float values are accepted.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
+    public function testRefWithPropertyLevelTypeNarrowingIgnoredForDraft07(): void
+    {
+        $className = $this->generateClassFromFile('RefWithPropertyLevelTypeNarrowing.json');
+
+        // Under Draft 07 the sibling type is ignored: the $ref number type accepts floats.
+        $object = new $className(['score' => 42.5]);
+        $this->assertSame(42.5, $object->getScore());
+    }
+
+    /**
+     * Draft 2019-09+: a sibling 'type' that is incompatible with the $ref type produces a
+     * SchemaException at generation time.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testRefWithPropertyLevelTypeConflictThrowsForDraft201909(): void
+    {
+        $this->expectException(SchemaException::class);
+        // The exception is thrown against the temp-copy of the schema (the test harness
+        // copies schemas to a session temp directory before processing). The file path
+        // in the message is the temp-copy path, so match only the invariant parts.
+        $this->expectExceptionMessageMatches(
+            '/Property \'name\' in file \'.*\':'
+            . ' \$ref resolves to type \'string\' but sibling \'type\' declares \'integer\';'
+            . ' the types are incompatible/',
+        );
+
+        $this->generateClassFromFile('RefWithPropertyLevelTypeConflict.json');
+    }
+
+    /**
+     * The same $ref used both as an array's `items` and as a plain optional object property must
+     * not share metadata (isArrayItem, isRequired) between the two usages, even when implicit
+     * null is disabled (the default). SchemaDefinition::resolveReference() caches the resolved
+     * property per (path, required, isArrayItem, dependencies); dropping isArrayItem from that
+     * key whenever implicit null is off would collide these two usages onto one shared property,
+     * silently flipping the optional 'single' property's generated getter from nullable to
+     * non-nullable because RenderHelper::isPropertyNullable() bases output-type nullability on
+     * !isRequired() regardless of the implicit-null setting. Implicit null is explicitly disabled
+     * here since that is precisely the condition under which such a gated key would collide.
+     */
+    public function testSharedRefAsArrayItemAndObjectPropertyKeepIndependentNullability(): void
+    {
+        $className = $this->generateClassFromFile('SharedRefAsArrayItemAndObjectProperty.json', implicitNull: false);
+
+        $object = new $className(['list' => [['name' => 'Alice']]]);
+        $this->assertNull($object->getSingle());
+        $this->assertSame('Alice', $object->getList()[0]->getName());
+
+        // 'list' items and 'single' resolve the same $ref and must share one generated class,
+        // but 'single' (an optional plain property) must keep its own nullable getter type hint
+        // rather than inheriting the array item's non-nullable one.
+        $itemClass = $object->getList()[0]::class;
+        $this->assertSame([$itemClass, 'null'], $this->getReturnTypeNames($className, 'getSingle'));
     }
 }

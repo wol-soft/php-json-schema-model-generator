@@ -42,6 +42,16 @@ class SchemaDefinition
     }
 
     /**
+     * The raw JsonSchema this definition points at (before any property processing). Used by the
+     * object-shape routing decision to statically peek at a `$ref` target without resolving it into
+     * a property.
+     */
+    public function getSource(): JsonSchema
+    {
+        return $this->source;
+    }
+
+    /**
      * Resolve a reference
      *
      * @throws PHPModelGeneratorException
@@ -52,12 +62,24 @@ class SchemaDefinition
         string $path,
         bool $required,
         ?array $dependencies = null,
+        bool $isArrayItem = false,
     ): PropertyInterface {
         $jsonSchema = $this->source->navigate($path);
 
         // if the properties point to the same definition and share identical metadata the generated property can be
         // recycled. Otherwise, a new property must be generated as diverging metadata lead to different validators.
-        $key = implode('-', [$path, $required ? '1' : '0', md5(json_encode($dependencies))]);
+        // isArrayItem IS included unconditionally, not only when implicit null is allowed. It looks tempting to gate
+        // it behind GeneratorConfiguration::isImplicitNullAllowed(), since TypeCheckValidator's own implicit-null
+        // guard (allowImplicitNull = isImplicitNullAllowed() && !isRequired()) is already false whenever implicit
+        // null is off, independent of isArrayItem. But RenderHelper::isPropertyNullable() computes getter (output)
+        // nullability as !isRequired() whenever outputType=true, regardless of isImplicitNullAllowed(). isRequired()
+        // is itself `isPropertyRequired || isPropertyArrayItem`, and a PropertyProxy delegates both isRequired() and
+        // isArrayItem() to the one shared underlying property. So gating would let an array-item usage and a plain
+        // optional-property usage of the same $ref collide onto one shared property when implicit null is disabled,
+        // and whichever wired isArrayItem=true would silently flip the other's getter to non-nullable. Confirmed via
+        // a $ref used both as `items` of an array and as a plain optional property: gating changed the optional
+        // property's generated getter from `?Item` to the incorrect `Item`.
+        $key = implode('-', [$path, $required ? '1' : '0', $isArrayItem ? '1' : '0', md5(json_encode($dependencies))]);
 
         if (!$this->resolvedPaths->offsetExists($key)) {
             // create a dummy entry for the path first. If the path is used recursive the recursive usages will point
@@ -72,6 +94,7 @@ class SchemaDefinition
                         $propertyName,
                         $jsonSchema,
                         $required,
+                        $isArrayItem,
                     );
 
                 $this->resolvedPaths->offsetSet($key, $property);

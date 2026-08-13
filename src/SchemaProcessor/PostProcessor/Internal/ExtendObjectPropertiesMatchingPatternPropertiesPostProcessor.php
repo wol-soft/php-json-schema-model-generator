@@ -115,6 +115,7 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                         $forbiddenValidator->getPattern(),
                         $property->getJsonSchema()->getFile(),
                     ),
+                    $property->getJsonSchema(),
                 );
             }
         }
@@ -187,7 +188,8 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                             array_keys($matchingPatternDefaults),
                             array_values($matchingPatternDefaults),
                         )),
-                    )
+                    ),
+                    $property->getJsonSchema(),
                 );
             }
 
@@ -204,7 +206,8 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                         var_export($existingDefault, true),
                         array_key_first($matchingPatternDefaults),
                         var_export($agreedPatternDefault, true),
-                    )
+                    ),
+                    $property->getJsonSchema(),
                 );
             }
 
@@ -422,7 +425,8 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                                         . ' is not supported in file %s',
                                     $property->getName(),
                                     $property->getJsonSchema()->getFile(),
-                                )
+                                ),
+                                $property->getJsonSchema(),
                             );
                         }
                     }

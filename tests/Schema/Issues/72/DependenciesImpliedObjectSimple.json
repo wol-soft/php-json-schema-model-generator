@@ -1,0 +1,24 @@
+{
+  "definitions": {
+    "identification": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["name"]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "creditCard": {
+      "type": "string"
+    }
+  },
+  "dependencies": {
+    "creditCard": {
+      "$ref": "#/definitions/identification"
+    }
+  }
+}

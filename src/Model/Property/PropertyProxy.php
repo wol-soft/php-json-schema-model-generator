@@ -227,6 +227,24 @@ class PropertyProxy extends AbstractProperty
     /**
      * @inheritdoc
      */
+    public function setArrayItem(bool $isArrayItem): PropertyInterface
+    {
+        $this->getProperty()->setArrayItem($isArrayItem);
+
+        return $this;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function isArrayItem(): bool
+    {
+        return $this->getProperty()->isArrayItem();
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function setReadOnly(bool $isPropertyReadOnly): PropertyInterface
     {
         $this->getProperty()->setReadOnly($isPropertyReadOnly);

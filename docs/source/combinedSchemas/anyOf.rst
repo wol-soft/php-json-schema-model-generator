@@ -38,12 +38,12 @@ Possible exception (if a string is provided):
 
 .. code-block:: none
 
-    Invalid value for example declined by composition constraint.
-      Requires to match at least one composition element.
+    Invalid value for 'example' declined by composition constraint
+      Requires to match at least one composition element
       - Composition element #1: Failed
-        * Invalid type for example. Requires float, got string
+        * Invalid type for 'example': requires 'float', got 'string'
       - Composition element #2: Failed
-        * Invalid type for example. Requires float, got string
+        * Invalid type for 'example': requires 'float', got 'string'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\AnyOfException* which provides the following methods to get further error details:
 
@@ -64,7 +64,9 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
 
     ``anyOf`` branches can be the boolean literals ``true`` or ``false``.
 
-    - ``true`` branch — always satisfies the branch; treated as an empty schema.
+    - ``true`` branch — always satisfies the branch; treated as an empty schema. The generator
+      emits a generation-time warning that the branch carries no validation keyword and matches
+      any value.
     - ``false`` branch — can never be satisfied; always-failing branches participate in the
       composition but never succeed. If all branches are ``false``, any provided value raises an
       ``AnyOfException`` at runtime, and the generator emits a warning at generation time.
@@ -73,6 +75,14 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
 .. hint::
 
     When combining multiple nested objects with an `anyOf` composition a `merged property <mergedProperty.html>`__ will be generated
+
+.. hint::
+
+    An ``anyOf`` branch does not need to declare ``"type": "object"`` itself to be treated as an
+    object — the generator also detects object-ness implied by a ``$ref`` chain or nested
+    ``allOf``, and object-constraining keywords used without any ``type`` at all. See
+    `Composition-implied objects <impliedObjects.html>`__ for the full explanation, including the
+    asymmetry between ``anyOf`` and ``oneOf`` for bare-validator (object-describing) branches.
 
 .. note::
 
@@ -98,7 +108,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
     construction time by which branches the provided data satisfies. When multiple matching branches
     define a default for the same property, those defaults must agree; the generator throws a
     ``SchemaException`` at generation time if they differ. Branch defaults are **not** included in
-    ``getRawModelDataInput()``.
+    ``meta()->rawInput()``.
 
     See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
     explanation.

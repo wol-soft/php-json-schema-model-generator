@@ -1,0 +1,14 @@
+{
+  "definitions": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "name": {
+      "$ref": "#/definitions/name",
+      "type": "integer"
+    }
+  }
+}

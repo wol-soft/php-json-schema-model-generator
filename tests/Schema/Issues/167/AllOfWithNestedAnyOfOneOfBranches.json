@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "properties": {
+    "p": {
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 5
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        {
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

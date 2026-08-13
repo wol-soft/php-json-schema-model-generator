@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Utils\TypeCheck;
 
 /**
  * Class TypeCheckValidator
@@ -25,7 +26,8 @@ class TypeCheckValidator extends PropertyValidator implements TypeCheckInterface
 
         parent::__construct(
             $property,
-            "!is_$type(\$value)" . ($allowImplicitNull ? ' && $value !== null' : ''),
+            TypeCheck::buildNegatedJsonSchemaTypeCheck($this->type)
+                . ($allowImplicitNull ? ' && $value !== null' : ''),
             InvalidTypeException::class,
             [$type],
         );

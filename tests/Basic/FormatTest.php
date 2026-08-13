@@ -73,7 +73,7 @@ class FormatTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidDateTime(string $value): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches('/must match the format date-time/');
+        $this->expectExceptionMessageMatches("/must match the format 'date-time'/");
 
         $className = $this->generateClassFromFile(
             'DateTime.json',
@@ -118,7 +118,7 @@ class FormatTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidDate(string $value): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches('/must match the format date/');
+        $this->expectExceptionMessageMatches("/must match the format 'date'/");
 
         $className = $this->generateClassFromFile(
             'Date.json',
@@ -164,7 +164,7 @@ class FormatTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidTime(string $value): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches('/must match the format time/');
+        $this->expectExceptionMessageMatches("/must match the format 'time'/");
 
         $className = $this->generateClassFromFile(
             'Time.json',
@@ -217,7 +217,7 @@ class FormatTest extends AbstractPHPModelGeneratorTestCase
             new $className(['value' => $value]);
             $this->fail('Expected exception for invalid email format');
         } catch (ErrorRegistryException | FormatException $exception) {
-            $this->assertMatchesRegularExpression('/must match the format email/', $exception->getMessage());
+            $this->assertMatchesRegularExpression("/must match the format 'email'/", $exception->getMessage());
 
             // collectErrors(true) wraps the format exception in an ErrorRegistryException.
             $innerException = $exception instanceof ErrorRegistryException
@@ -268,7 +268,7 @@ class FormatTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidHostname(string $value): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches('/must match the format hostname/');
+        $this->expectExceptionMessageMatches("/must match the format 'hostname'/");
 
         $className = $this->generateClassFromFile(
             'Hostname.json',
@@ -314,7 +314,7 @@ class FormatTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidIpv4(string $value): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches('/must match the format ipv4/');
+        $this->expectExceptionMessageMatches("/must match the format 'ipv4'/");
 
         $className = $this->generateClassFromFile(
             'Ipv4.json',
@@ -360,7 +360,7 @@ class FormatTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidIpv6(string $value): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches('/must match the format ipv6/');
+        $this->expectExceptionMessageMatches("/must match the format 'ipv6'/");
 
         $className = $this->generateClassFromFile(
             'Ipv6.json',
@@ -406,7 +406,7 @@ class FormatTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidUri(string $value): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches('/must match the format uri/');
+        $this->expectExceptionMessageMatches("/must match the format 'uri'/");
 
         $className = $this->generateClassFromFile(
             'Uri.json',
@@ -454,7 +454,7 @@ class FormatTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidJsonPointer(string $value): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches('/must match the format json-pointer/');
+        $this->expectExceptionMessageMatches("/must match the format 'json-pointer'/");
 
         $className = $this->generateClassFromFile(
             'JsonPointer.json',
@@ -499,7 +499,7 @@ class FormatTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidRegex(string $value): void
     {
         $this->expectException(ErrorRegistryException::class);
-        $this->expectExceptionMessageMatches('/must match the format regex/');
+        $this->expectExceptionMessageMatches("/must match the format 'regex'/");
 
         $className = $this->generateClassFromFile(
             'Regex.json',

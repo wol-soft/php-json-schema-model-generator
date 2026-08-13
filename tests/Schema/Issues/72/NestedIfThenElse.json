@@ -1,0 +1,50 @@
+{
+  "definitions": {
+    "person": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": ["name"]
+        }
+      ]
+    },
+    "company": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "companyName": {
+              "type": "string"
+            }
+          },
+          "required": ["companyName"]
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "p": {
+      "if": {
+        "type": "object",
+        "properties": {
+          "isPerson": {
+            "const": true
+          }
+        },
+        "required": ["isPerson"]
+      },
+      "then": {
+        "$ref": "#/definitions/person"
+      },
+      "else": {
+        "$ref": "#/definitions/company"
+      }
+    }
+  }
+}

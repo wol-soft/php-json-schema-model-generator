@@ -155,15 +155,9 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
         PropertyInterface $property,
         string $reason,
     ): void {
-        if (!$schemaProcessor->getGeneratorConfiguration()->isOutputEnabled()) {
-            return;
-        }
-
-        echo sprintf(
-            "Warning: unevaluatedItems on %s::%s is dead code — %s\n",
-            $schema->getClassName(),
-            $property->getName(),
-            $reason,
+        $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+            'unevaluatedItems on {class}::{property} is dead code — {reason}',
+            ['class' => $schema->getClassName(), 'property' => $property->getName(), 'reason' => $reason],
         );
     }
 }

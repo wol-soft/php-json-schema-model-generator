@@ -28,10 +28,10 @@
     {% endif %}
 
     try {
-        {{ viewHelper.resolvePropertyDecorator(ifProperty) }}
+        {{ viewHelper.resolvePropertyDecorator(ifProperty, false, 2) }}
 
         {% foreach ifProperty.getOrderedValidators() as validator %}
-            {{ viewHelper.renderValidator(validator, schema) }}
+            {{ viewHelper.renderValidator(validator, schema, 2) }}
         {% endforeach %}
 
         {% if generatorConfiguration.collectErrors() %}
@@ -108,10 +108,10 @@
             {% endif %}
 
             try {
-                {{ viewHelper.resolvePropertyDecorator(thenProperty) }}
+                {{ viewHelper.resolvePropertyDecorator(thenProperty, false, 3) }}
 
                 {% foreach thenProperty.getOrderedValidators() as validator %}
-                    {{ viewHelper.renderValidator(validator, schema) }}
+                    {{ viewHelper.renderValidator(validator, schema, 3) }}
                 {% endforeach %}
 
                 {% if generatorConfiguration.collectErrors() %}
@@ -189,10 +189,10 @@
             {% endif %}
 
             try {
-                {{ viewHelper.resolvePropertyDecorator(elseProperty) }}
+                {{ viewHelper.resolvePropertyDecorator(elseProperty, false, 3) }}
 
                 {% foreach elseProperty.getOrderedValidators() as validator %}
-                    {{ viewHelper.renderValidator(validator, schema) }}
+                    {{ viewHelper.renderValidator(validator, schema, 3) }}
                 {% endforeach %}
 
                 {% if generatorConfiguration.collectErrors() %}
@@ -294,6 +294,20 @@
     {% endif %}
 
     $conditionalResult = $thenException || $elseException;
+
+    {#
+        A failed then/else branch may have left $value as the leftover result of a nested object
+        instantiation attempt (an exception object, when the decorator's instantiation try/catch
+        caught a validation failure) rather than the original input. Unlike the "if" branch, which
+        always restores $originalModelData right after its own check, the then/else branch does not
+        reset on its own — restore it here so a failure reports the real input value instead of an
+        internal exception object. Left untouched on success: hasModifiedValuesMethod above still
+        needs the branch's transformed value, and a successful branch's instantiated object is the
+        correct resulting value for a property whose shape is defined entirely by that branch.
+    #}
+    if ($conditionalResult) {
+        $value = $originalModelData;
+    }
 
     {% if compositionValidator.getSlotKey() %}
         $this->_compositionAnnotated[$slotKey] = $conditionalResult ? [] : $compositionEvaluatedIndices;
