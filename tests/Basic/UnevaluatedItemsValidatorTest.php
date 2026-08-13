@@ -11,6 +11,7 @@ use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
+use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
@@ -406,6 +407,36 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * `unevaluatedItems` declared on a non-array-typed property is inapplicable per spec — array
+     * applicators impose no constraint on a value that is not an array — and must be silently
+     * ignored: no array-index validator is emitted for the property, and the property behaves
+     * exactly as if `unevaluatedItems` were absent. Regression guard for
+     * `activateArrayPropertyTracking`'s type-mismatch skip actually being a no-op rather than a
+     * state-corruption path (e.g. wiring up index-tracking machinery for a scalar property, or
+     * suppressing an unrelated sibling keyword). A sibling `unevaluatedProperties: false` on the
+     * parent still activates and works normally, proving this property's malformed-for-its-type
+     * keyword does not interfere with unrelated validators on the class.
+     */
+    public function testUnevaluatedItemsOnNonArrayPropertyIsSilentlyIgnored(): void
+    {
+        $className = $this->generateClassFromFile('UnevaluatedItemsOnNonArrayProperty.json');
+
+        $accepted = new $className(['tags' => 'hello']);
+        $this->assertSame('hello', $accepted->getTags());
+        $this->assertSame(['tags' => 'hello'], $accepted->meta()->rawInput());
+
+        try {
+            new $className(['tags' => 'hello', 'extra' => 1]);
+            $this->fail('unevaluatedProperties: false on the parent must still reject unclaimed keys');
+        } catch (UnevaluatedPropertiesException $exception) {
+            $this->assertSame(
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['extra']",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
      * Composition branches contribute their evaluated indices to a sibling unevaluatedItems
      * accumulator. The fixture has two tuple-form items branches under allOf: branch 1 covers
      * index 0, branch 2 covers indices 0-1. When both succeed (string array), the union
@@ -789,6 +820,57 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
                 $exception->getMessage(),
             );
             $this->assertSame([3], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * `if`/`then`/`else` on an array property: whichever of `then`/`else` actually runs
+     * determines how many indices are evaluated, exercising `ConditionalComposedItem.phptpl`'s
+     * array-side branch. The fixture's `if` checks whether index 0 is the literal `"typed"`:
+     * when it is, `then` requires a 2-tuple (`"typed"` then any string) and covers indices 0-1;
+     * otherwise `else` requires a 1-tuple (an integer) and covers only index 0. `unevaluatedItems:
+     * false` rejects whatever index neither branch of the winning path covers.
+     *
+     * Four assertions on the same generated class:
+     *   - `['typed', 'x']` — `if` passes, `then` covers both indices, accepted;
+     *   - `['typed', 'x', 'extra']` — `if` passes, `then` covers 0-1, index 2 unevaluated;
+     *   - `[5]` — `if` fails (index 0 is not `"typed"`), `else` covers index 0, accepted;
+     *   - `[5, 6]` — `if` fails, `else` covers only index 0, index 1 unevaluated.
+     */
+    public function testIfThenElseArrayCompositionCreditsTheWinningBranchesIndices(): void
+    {
+        $className = $this->generateClassFromFile('IfThenElseArrayUnevaluatedItems.json');
+
+        $acceptedThen = new $className(['tags' => ['typed', 'x']]);
+        $this->assertSame(['typed', 'x'], $acceptedThen->getTags());
+
+        try {
+            new $className(['tags' => ['typed', 'x', 'extra']]);
+            $this->fail('Expected UnevaluatedItemsException for the index past the then-branch tuple');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([2], $exception->getUnevaluatedItems());
+        }
+
+        $acceptedElse = new $className(['tags' => [5]]);
+        $this->assertSame([5], $acceptedElse->getTags());
+
+        try {
+            new $className(['tags' => [5, 6]]);
+            $this->fail('Expected UnevaluatedItemsException for the index past the else-branch tuple');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#1]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([1], $exception->getUnevaluatedItems());
+            $this->assertSame(
+                '/properties/tags/unevaluatedItems',
+                $exception->getJsonPointer()->pointer,
+            );
         }
     }
 

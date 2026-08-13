@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "if": {
+        "items": [
+          {
+            "const": "typed"
+          }
+        ]
+      },
+      "then": {
+        "items": [
+          {
+            "const": "typed"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "else": {
+        "items": [
+          {
+            "type": "integer"
+          }
+        ]
+      },
+      "unevaluatedItems": false
+    }
+  }
+}

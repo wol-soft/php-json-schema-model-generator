@@ -321,6 +321,40 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
+     * A bare boolean `true` composition element is spec-legal inside `allOf` — it always
+     * succeeds and contributes no declared properties of its own. Regression guard for a
+     * null-nested-schema dereference: the always-true branch is represented by
+     * `createAlwaysTrueBranchProperty()` and has no nested `Schema`, so the accumulator must
+     * skip it rather than crash trying to read declared property names off it. The sibling
+     * real branch (`{properties: {kind}}`) still contributes `kind` normally.
+     *
+     * Two scenarios on the same generated class:
+     *   - `{name, kind}` accepted — the real branch's `kind` is evaluated, `name` is a
+     *     declared outer property;
+     *   - `{name, kind, extra}` rejected — the always-true branch contributes nothing to the
+     *     evaluated set, so `extra` remains unevaluated.
+     */
+    public function testAlwaysTrueCompositionBranchContributesNoEvaluatedKeys(): void
+    {
+        $className = $this->generateClassFromFile('AlwaysTrueBranchContributesNoEvaluatedKeys.json');
+
+        $accepted = new $className(['name' => 'Alice', 'kind' => 'X']);
+        $this->assertSame(['name' => 'Alice', 'kind' => 'X'], $accepted->meta()->rawInput());
+
+        try {
+            new $className(['name' => 'Alice', 'kind' => 'X', 'extra' => 1]);
+            $this->fail('An always-true branch must not rescue extras from unevaluatedProperties: false');
+        } catch (UnevaluatedPropertiesException $exception) {
+            $this->assertSame(
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['extra']",
+                $exception->getMessage(),
+            );
+            $this->assertSame(['extra'], $exception->getUnevaluatedProperties());
+            $this->assertSame('/unevaluatedProperties', $exception->getJsonPointer()->pointer);
+        }
+    }
+
+    /**
      * A composition branch that declares its own `unevaluatedProperties: {schema}` records
      * the keys it evaluates against that schema. Those records must propagate to an
      * outer `unevaluatedProperties: false` so the outer treats them as already evaluated.
