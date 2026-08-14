@@ -366,6 +366,55 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
     }
 
     /**
+     * Direct-exception-mode counterpart to
+     * UnevaluatedPropertiesAccessorPostProcessorTest::testRemoveCollectsMinPropertyAndUnevaluatedErrorsTogether:
+     * the same removal both drops the count below `minProperties` and flips the `anyOf`
+     * composition (branch 0 requires `p_foo`; removing it leaves only branch 1, which claims
+     * nothing, orphaning `q_marker`). In collect-errors mode both violations land in one
+     * registry; in direct-exception mode `RemoveAdditionalProperty.phptpl`'s
+     * `minPropertyValidator` check runs first — before the unset, before composition
+     * revalidation, before the post-composition unevaluatedProperties check — so only
+     * `MinPropertiesException` ever surfaces, never the orphaned-key exception. The rejected
+     * call's `catch` rolls `_rawModelDataInput` back, so the object's public behavior is
+     * verified identical to before the failed removal, not just that an exception was thrown.
+     */
+    public function testRemoveThrowsFirstApplicableExceptionDirectlyAndRollsBackOnCompositionMinPropertiesClash(): void
+    {
+        $this->addPostProcessor(true);
+
+        $className = $this->generateClassFromFile(
+            'BranchFlipOnRemove.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        // Both anyOf branches succeed: branch 0 (kind: string, additionalProperties: integer,
+        // minProperties: 3) claims p_foo and q_marker; branch 1 (kind: const "X") claims
+        // nothing. q_marker is credited only through branch 0.
+        $object = new $className(['kind' => 'X', 'p_foo' => 1, 'q_marker' => 7]);
+        $accessor = $object->additionalProperties();
+
+        try {
+            $accessor->remove('p_foo');
+            $this->fail('Expected MinPropertiesException, not an aggregated registry');
+        } catch (MinPropertiesException $exception) {
+            $this->assertSame(
+                "Provided object for '{$className}' must not contain less than 3 properties",
+                $exception->getMessage(),
+            );
+        }
+
+        // Rollback discipline: raw input, the additionalProperties bucket, and an unrelated
+        // setter all behave exactly as they would have if remove() had never been called.
+        $this->assertSame(
+            ['kind' => 'X', 'p_foo' => 1, 'q_marker' => 7],
+            $object->meta()->rawInput(),
+        );
+        $this->assertSame(['q_marker' => 7], $accessor->getAll());
+        $object->setKind('X');
+        $this->assertSame('X', $object->getKind());
+    }
+
+    /**
      * A composition branch declaring `additionalProperties` is decided by keys it never names,
      * so the setter-side validation cache — which asks whether the mutated keys intersect the
      * branch's *declared* property names — must not be consulted for it. A dynamic key never

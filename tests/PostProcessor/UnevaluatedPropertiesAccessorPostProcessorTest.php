@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\PostProcessor;
 
 use DateTime;
+use PHPModelGenerator\Accessor\ImmutableUnevaluatedPropertiesAccessor;
+use PHPModelGenerator\Accessor\UnevaluatedPropertiesAccessor;
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
@@ -22,6 +24,7 @@ use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
+use ReflectionProperty;
 
 /**
  * Exercises UnevaluatedPropertiesAccessorPostProcessor: the unevaluatedProperties() accessor
@@ -78,6 +81,53 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
 
         // Same accessor instance is reused across calls (it's cached on the model).
         $this->assertSame($accessor, $object->unevaluatedProperties());
+    }
+
+    /**
+     * `_setUnevaluatedProperty`'s early-return guard
+     * (`isset($this->_unevaluatedProperties[$key]) && $this->_unevaluatedProperties[$key] ===
+     * $value`) skips validation and rollback bookkeeping entirely when the new value is
+     * identical to the stored one — not just "revalidates and happens to succeed." Proven
+     * observably: in collect-errors mode, every non-skip call unconditionally replaces
+     * `$this->_errorRegistry` with a fresh instance before validating. A sentinel object is
+     * planted in `_errorRegistry` via reflection; setting the same value must leave that exact
+     * instance untouched, while setting a different value must replace it — the negative case
+     * proves the sentinel isn't just always preserved regardless of the guard.
+     */
+    public function testSetSameValueIsANoOpThatSkipsValidationAndRollbackBookkeeping(): void
+    {
+        $this->addPostProcessor();
+        $className = $this->generateClassFromFile(
+            'TypedExtras.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $object = new $className(['name' => 'Alice', 'count' => 42]);
+        $errorRegistryProperty = new ReflectionProperty($object, '_errorRegistry');
+
+        $sentinel = new ErrorRegistryException();
+        $errorRegistryProperty->setValue($object, $sentinel);
+
+        $object->unevaluatedProperties()->set('count', 42);
+        $this->assertSame(
+            $sentinel,
+            $errorRegistryProperty->getValue($object),
+            'Same-value set() must not touch _errorRegistry at all',
+        );
+
+        // Negative control on a fresh instance: a genuinely different value must replace the
+        // registry, proving the sentinel above was preserved because the guard skipped the
+        // call, not because _errorRegistry is untouched regardless of value.
+        $otherObject = new $className(['name' => 'Alice', 'count' => 42]);
+        $otherSentinel = new ErrorRegistryException();
+        $errorRegistryProperty->setValue($otherObject, $otherSentinel);
+
+        $otherObject->unevaluatedProperties()->set('count', 99);
+        $this->assertNotSame(
+            $otherSentinel,
+            $errorRegistryProperty->getValue($otherObject),
+            'A different value must run the full validation path, replacing _errorRegistry',
+        );
     }
 
     /**
@@ -217,6 +267,74 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         $this->assertTrue($reflection->hasMethod('set'));
         $this->assertTrue($reflection->hasMethod('getAll'));
         $this->assertTrue($reflection->hasMethod('remove'));
+    }
+
+    /**
+     * A companion class narrows the accessor to the schema's type — `getType() !== null` on
+     * the validation property gates it. `unevaluatedProperties: {}` (an untyped, empty schema —
+     * distinct from the boolean `true`, which is a no-op that emits no validator and therefore
+     * no accessor at all) has no declared type, so no companion is generated: the accessor
+     * method returns the bare production-library class directly, typed `mixed` throughout.
+     */
+    public function testUntypedUnevaluatedSchemaUsesTheBareProductionLibraryAccessorClass(): void
+    {
+        $this->addPostProcessor();
+
+        $mutableClassName = $this->generateClassFromFile(
+            'UntypedUnevaluatedSchema.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+        $mutableObject = new $mutableClassName();
+        $mutableAccessor = $mutableObject->unevaluatedProperties();
+
+        $this->assertInstanceOf(UnevaluatedPropertiesAccessor::class, $mutableAccessor);
+        $this->assertSame(UnevaluatedPropertiesAccessor::class, $mutableAccessor::class);
+
+        // The bare class imposes no type constraint — any value is accepted and round-trips.
+        $mutableAccessor->set('extra', ['nested' => true]);
+        $this->assertSame(['nested' => true], $mutableAccessor->get('extra'));
+
+        $immutableClassName = $this->generateClassFromFile(
+            'UntypedUnevaluatedSchema.json',
+            (new GeneratorConfiguration())->setImmutable(true),
+        );
+        $immutableObject = new $immutableClassName(['extra' => 'value']);
+
+        $this->assertSame(
+            ImmutableUnevaluatedPropertiesAccessor::class,
+            $immutableObject->unevaluatedProperties()::class,
+        );
+    }
+
+    /**
+     * `setDenyAdditionalProperties(true)` flips a schema with no explicit `additionalProperties`
+     * to an implicit `false` — every extra is rejected before the unevaluated phase ever runs,
+     * so `UnevaluatedPropertiesValidatorFactory` treats the keyword as dead code the same way it
+     * would for an explicit `additionalProperties: false`. No validator means no backing field
+     * to expose, so the accessor method itself must not be generated at all.
+     */
+    public function testDenyAdditionalPropertiesSuppressesTheUnevaluatedAccessor(): void
+    {
+        $this->addPostProcessor();
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'TypedExtras.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setDenyAdditionalProperties(true)->setLogger($logger),
+        );
+
+        $this->assertFalse((new ReflectionClass($className))->hasMethod('unevaluatedProperties'));
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                'unevaluatedProperties on {class} is dead code — {reason}',
+                [
+                    'reason' => 'denyAdditionalProperties() flips missing additionalProperties to'
+                        . ' false, rejecting every extra before the unevaluated phase runs',
+                ],
+            ),
+        );
     }
 
     /**
@@ -383,6 +501,56 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
             // rather than just recording the property name.
             $this->assertSame('/allOf/0/properties/branchOwned', $exception->getJsonPointer()->pointer);
         }
+    }
+
+    /**
+     * `harvestCompositionPropertyNames()` must recurse into two shapes beyond a branch's own
+     * flat `properties`: a branch's `patternProperties` (matched by regex, not by exact name —
+     * `b_foo`, harvested from branch 0) and a composition nested *inside* a branch (`nested`,
+     * declared by a `oneOf` inside branch 1). The two shapes sit in separate `allOf` branches
+     * rather than combined in one to keep the generated nested-class chain shallow enough for
+     * Windows filename-length limits. A genuinely unclaimed key still passes as a control,
+     * proving the guard isn't just rejecting everything.
+     */
+    public function testSetRejectsKeysOwnedThroughNestedCompositionAndPatternProperties(): void
+    {
+        $this->addPostProcessor();
+        // originalClassNames: true — the fixture's two-level branch nesting combined with the
+        // default uniqid-multiplying class-name generator exceeds Windows' path-length limit.
+        $className = $this->generateClassFromFile(
+            'NestedPatternOwned.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+            originalClassNames: true,
+        );
+
+        $object = new $className();
+        $accessor = $object->unevaluatedProperties();
+
+        try {
+            // 'b_foo' is owned by the branch's own patternProperties, matched by regex.
+            $accessor->set('b_foo', 42);
+            $this->fail('Expected RegularPropertyAsUnevaluatedPropertyException for the pattern-owned key');
+        } catch (RegularPropertyAsUnevaluatedPropertyException $exception) {
+            $this->assertSame(
+                "Could not add regular property 'b_foo' as an unevaluated property of object '{$className}'",
+                $exception->getMessage(),
+            );
+        }
+
+        try {
+            // 'nested' is owned by a oneOf composition nested inside the allOf branch.
+            $accessor->set('nested', 42);
+            $this->fail('Expected RegularPropertyAsUnevaluatedPropertyException for the nested-composition-owned key');
+        } catch (RegularPropertyAsUnevaluatedPropertyException $exception) {
+            $this->assertSame(
+                "Could not add regular property 'nested' as an unevaluated property of object '{$className}'",
+                $exception->getMessage(),
+            );
+        }
+
+        // Control: a key owned by nothing is genuinely unevaluated and must be accepted.
+        $accessor->set('truly_unevaluated', 42);
+        $this->assertSame(42, $accessor->get('truly_unevaluated'));
     }
 
     /**

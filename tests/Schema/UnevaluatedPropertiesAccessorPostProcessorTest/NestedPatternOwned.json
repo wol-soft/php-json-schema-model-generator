@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "unevaluatedProperties": {
+    "type": "integer"
+  },
+  "allOf": [
+    {
+      "patternProperties": {
+        "^b_": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "nested": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -13,6 +13,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
+use ReflectionProperty;
 
 /**
  * Verifies that mutations performed after construction re-run the unevaluatedProperties check
@@ -151,13 +152,21 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
      * Nested-branch composition: the parent's `type: object` causes the allOf branches to be
      * rendered as separate nested classes rather than merged inline. The cache stores the
      * nested instance reference and the accumulator rebuild calls getEvaluatedProperties()
-     * on it. Two assertions on the same generated class:
+     * on it.
+     *
+     * Two assertions on the same generated class:
      *   - extra keys are rejected at construction even when the branches live in nested
      *     classes (proves the activation/cache wiring fires for nested-branch composition);
-     *   - a setter on the outer property triggers revalidation, which reads through the
-     *     nested instances correctly and accepts because every key is still covered.
+     *   - `name` is declared directly on the outer schema and by neither branch, so
+     *     `CompositionValidationPostProcessor`'s validator-property map must not wire
+     *     `setName()` to call `_validateComposition_0()` at all — a cache-hit skip, not a
+     *     revalidation that happens to succeed. Proven observably, not just asserted from
+     *     reading the generated code: `foo`'s raw-input value is corrupted via reflection to
+     *     something the branch's own type check would reject, then `setName()` is called. If
+     *     the setter *did* trigger composition revalidation, the corrupted `foo` would surface
+     *     as a validation failure; since it does not, the map correctly excluded `name`.
      */
-    public function testNestedBranchSchemaRejectsExtrasAndRevalidatesThroughNestedInstances(): void
+    public function testNestedBranchSchemaRejectsExtrasAndSkipsCompositionRevalidationForUnrelatedSetters(): void
     {
         $className = $this->generateClassFromFile('AllOfNestedBranches.json', $this->defaultConfig());
 
@@ -173,11 +182,17 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
         }
 
         $object = new $className(['name' => 'Alice', 'foo' => 'hello', 'bar' => 42]);
+
+        $rawModelDataInputProperty = new ReflectionProperty($object, '_rawModelDataInput');
+        $corruptedRawInput = $rawModelDataInputProperty->getValue($object);
+        $corruptedRawInput['foo'] = 12345;
+        $rawModelDataInputProperty->setValue($object, $corruptedRawInput);
+
         $object->setName('Bob');
 
         $this->assertSame('Bob', $object->getName());
         $this->assertSame(
-            ['name' => 'Bob', 'foo' => 'hello', 'bar' => 42],
+            ['name' => 'Bob', 'foo' => 12345, 'bar' => 42],
             $object->meta()->rawInput(),
         );
     }
