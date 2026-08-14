@@ -21,6 +21,22 @@
           }
         }
       ]
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "a"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "onlyWhenA": {
+            "type": "string"
+          }
+        }
+      }
     }
   ]
 }

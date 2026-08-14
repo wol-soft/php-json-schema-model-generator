@@ -506,17 +506,20 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
     /**
      * `harvestCompositionPropertyNames()` must recurse into two shapes beyond a branch's own
      * flat `properties`: a branch's `patternProperties` (matched by regex, not by exact name —
-     * `b_foo`, harvested from branch 0) and a composition nested *inside* a branch (`nested`,
-     * declared by a `oneOf` inside branch 1). The two shapes sit in separate `allOf` branches
-     * rather than combined in one to keep the generated nested-class chain shallow enough for
-     * Windows filename-length limits. A genuinely unclaimed key still passes as a control,
-     * proving the guard isn't just rejecting everything.
+     * `b_foo`, harvested from branch 0), a composition nested *inside* a branch via `oneOf`
+     * (`nested`, declared by branch 1), and the same nested recursion via `if`/`then`/`else`
+     * (`onlyWhenA`, declared inside branch 2's `then`) — `allOf`/`anyOf`/`oneOf` and
+     * `if`/`then`/`else` are two separate recursive code paths in the harvester and neither
+     * exercises the other. The three shapes sit in separate `allOf` branches rather than
+     * combined in one to keep the generated nested-class chain shallow enough for Windows
+     * filename-length limits. A genuinely unclaimed key still passes as a control, proving the
+     * guard isn't just rejecting everything.
      */
     public function testSetRejectsKeysOwnedThroughNestedCompositionAndPatternProperties(): void
     {
         $this->addPostProcessor();
-        // originalClassNames: true — the fixture's two-level branch nesting combined with the
-        // default uniqid-multiplying class-name generator exceeds Windows' path-length limit.
+        // originalClassNames: true — the fixture's branch nesting combined with the default
+        // uniqid-multiplying class-name generator exceeds Windows' path-length limit.
         $className = $this->generateClassFromFile(
             'NestedPatternOwned.json',
             (new GeneratorConfiguration())->setImmutable(false),
@@ -544,6 +547,18 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         } catch (RegularPropertyAsUnevaluatedPropertyException $exception) {
             $this->assertSame(
                 "Could not add regular property 'nested' as an unevaluated property of object '{$className}'",
+                $exception->getMessage(),
+            );
+        }
+
+        try {
+            // 'onlyWhenA' is owned by the then-branch of an if/then/else nested inside the
+            // allOf branch — the harvester's separate if/then/else recursion, not oneOf's.
+            $accessor->set('onlyWhenA', 42);
+            $this->fail('Expected RegularPropertyAsUnevaluatedPropertyException for the then-branch-owned key');
+        } catch (RegularPropertyAsUnevaluatedPropertyException $exception) {
+            $this->assertSame(
+                "Could not add regular property 'onlyWhenA' as an unevaluated property of object '{$className}'",
                 $exception->getMessage(),
             );
         }
