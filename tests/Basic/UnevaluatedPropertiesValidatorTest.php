@@ -471,6 +471,59 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
+     * Deferred bug, found while auditing line-coverage on `UnevaluatedPropertiesPostProcessor`:
+     * a composition branch that declares `unevaluatedProperties` with no matching keyword on
+     * the enclosing schema must still see every property the enclosing schema (or a sibling
+     * branch) declares — `allOf` does not introduce a new evaluation-context boundary, so per
+     * spec a branch-level `unevaluatedProperties` is evaluated against the *same* annotation
+     * set as an outer-level one would be.
+     *
+     * The branch here renders as its own nested class (any branch declaring
+     * `unevaluatedProperties` routes through the object-instantiation path, even with no other
+     * keywords of its own). That nested class's `_executePostCompositionValidators()` calls
+     * `collectUnevaluatedKeys($modelData, [], [], [])` — an empty declared-names list, because
+     * the branch itself declares nothing. It has no visibility into `name`, which the
+     * *enclosing* schema's own `properties` declares and validates. The construction below
+     * should therefore succeed (`name` is evaluated by the enclosing schema), but instead
+     * throws `AllOfException` wrapping an `UnevaluatedPropertiesException` naming `name` as
+     * unevaluated — confirmed independent of whether the branch has its own `properties`
+     * (verified by hand against a variant with `properties: {foo}` added to the branch: the
+     * *same* enclosing-declared `name` is still wrongly rejected).
+     *
+     * This is the mirror image of `testBranchLevelAdditionalPropertiesFeedsEvaluatedSetThroughComposition`
+     * and friends above: those prove a branch's claims propagate *up* to an outer
+     * `unevaluatedProperties`. This is the reverse direction — an outer (or sibling-branch)
+     * declaration propagating *down* into a branch's own `unevaluatedProperties` — and per
+     * `docs/source/combinedSchemas/allOf.rst`'s "Property and item evaluation propagation"
+     * section (which only documents the up-propagation direction), the down direction was
+     * never built.
+     *
+     * Deferred: the fix touches how a composition branch's own nested class computes its
+     * evaluated set, not a single call site — it needs to receive (or otherwise gain
+     * visibility into) the declared names of the enclosing schema and any sibling branches,
+     * which the current architecture does not plumb through to a branch's own generated class
+     * at all. Tracked in implementation-plan.md's post-implementation-review list.
+     */
+    public function testBranchOnlyUnevaluatedPropertiesIgnoresOuterDeclarations(): void
+    {
+        $this->markTestIncomplete(
+            'Bug: a composition branch\'s own unevaluatedProperties does not see properties the '
+            . 'enclosing schema (or a sibling branch) declares — the branch\'s nested class has '
+            . 'no visibility into names declared outside itself. See the class docblock above '
+            . 'for the full analysis; tracked in implementation-plan.md.',
+        );
+
+        // @phpstan-ignore-next-line dead code — unreachable until the fix lands
+        $className = $this->generateClassFromFile('BranchOnlyUnevaluatedPropertiesIgnoresOuterDeclarations.json');
+
+        // 'name' is declared and validated by the enclosing schema's own `properties`, not by
+        // the branch — the branch's `unevaluatedProperties: false` must still treat it as
+        // evaluated, since allOf shares one evaluation context with its enclosing schema.
+        $accepted = new $className(['name' => 'Alice']);
+        $this->assertSame(['name' => 'Alice'], $accepted->meta()->rawInput());
+    }
+
+    /**
      * Keys matched by a successful branch's `patternProperties` (with passing values) are
      * evaluated by that branch and must be credited to the outer accumulator — also when the
      * branch renders as a nested class rather than being merged or inlined. Two assertions on

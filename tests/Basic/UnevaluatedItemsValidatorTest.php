@@ -437,6 +437,30 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * `items: null` is not a valid `items` value (the keyword must be a boolean or a schema),
+     * but the dead-code classifier must still degrade gracefully rather than misclassifying it
+     * as one of the three recognised dead-code shapes (`items: false`, tuple-form with
+     * `additionalItems: false`, or `items: {schema}`). `null` claims nothing, so
+     * `unevaluatedItems: false` correctly falls through to "not dead code" and rejects every
+     * index — proving the classifier's final fallback branch is a safe default, not a silent
+     * misclassification that would let a malformed `items` value slip through unvalidated.
+     */
+    public function testItemsNeitherBooleanTupleNorSchemaFallsThroughToNotDeadCode(): void
+    {
+        $className = $this->generateClassFromFile('ItemsNeitherBooleanTupleNorSchema.json');
+
+        try {
+            new $className(['tags' => ['a', 'b']]);
+            $this->fail('Expected UnevaluatedItemsException since items: null claims no indices');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#0, #1]",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
      * Composition branches contribute their evaluated indices to a sibling unevaluatedItems
      * accumulator. The fixture has two tuple-form items branches under allOf: branch 1 covers
      * index 0, branch 2 covers indices 0-1. When both succeed (string array), the union
