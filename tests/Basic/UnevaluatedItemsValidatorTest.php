@@ -689,29 +689,90 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * A composition nested inside a composition branch on an array-typed property is
-     * silently dropped during generation — not just its unevaluatedItems keyword, the
-     * entire nested composition and everything inside it. Confirmed independent of
-     * unevaluatedItems: the same fixture shape with a plain `minItems` in place of
-     * `unevaluatedItems` inside the inner branch produces identical output (the inner
-     * `oneOf` never renders at all, no error, no warning). The object-typed equivalent
-     * (`{type: object, allOf: [{oneOf: [{minProperties: ...}]}]}`) generates correctly —
-     * each composition level gets its own nested class — so the gap is specific to array
-     * properties, which never carry a nested schema for a branch's own composition to
-     * attach to. This is a pre-existing generation-pipeline gap, not introduced by the
-     * unevaluatedItems work; fixing it belongs to the composition rendering path, not to
-     * this feature's post processor or validators (deferred bug; tracked in the
-     * implementation plan).
+     * A composition (`oneOf`) nested inside a composition branch (`allOf`) on an array-typed
+     * property, with `unevaluatedItems` declared only on the innermost branch and nowhere at
+     * the outer property level, used to crash construction with `Error: Call to undefined
+     * method ...::collectUnevaluatedIndices()` rather than validate or reject cleanly.
+     *
+     * Root cause: `UnevaluatedPropertiesPostProcessor::compositionValidatorsNeedActivation()`
+     * (and its property-level sibling `propertyHasBranchUnevaluatedItems()`) checked a
+     * branch's own JSON directly and recursed into a branch's nested `Schema` — but an
+     * array-typed branch never gets its own nested `Schema` (unlike an object-typed one,
+     * which always routes through `processSchema()`), so a further composition nested
+     * directly inside another branch's own JSON (no intervening object type) was invisible to
+     * the detection walk. The schema-processing step that renders the innermost branch's own
+     * `unevaluatedItems` validator is not gated by that detection at all, so the call to
+     * `collectUnevaluatedIndices()` (from `CompositionEvaluationTrait`) rendered into the
+     * class regardless — but the trait itself, and the `_evaluatedItemIndices` field, were
+     * never added, since the post processor's `process()` short-circuited on the (wrongly)
+     * negative detection result before reaching either.
+     *
+     * Fixed by recursing through the branch's wrapped property's own validators — mirroring
+     * how `activateValidatorsInBranch()` already walks this exact structure for the
+     * activation step itself — whenever a composed property's own nested `Schema` is null.
      */
     public function testCompositionNestedInsideArrayBranchIsNotSilentlyDropped(): void
     {
-        $this->markTestIncomplete(
-            'A composition nested inside a composition branch on an array-typed property '
-            . 'is silently dropped during generation (confirmed independent of '
-            . 'unevaluatedItems — a plain minItems in the same position is dropped too). '
-            . 'The object-typed equivalent generates correctly, so the gap is array-specific '
-            . '(deferred bug; tracked in the implementation plan).',
-        );
+        $className = $this->generateClassFromFile('NestedCompositionInsideArrayBranchSilentlyDropped.json');
+
+        $accepted = new $className(['tags' => ['a', 'b']]);
+        $this->assertSame(['a', 'b'], $accepted->getTags());
+
+        try {
+            new $className(['tags' => [1, 2]]);
+            $this->fail('Expected the innermost branch\'s unevaluatedItems: {type: string} to reject integers');
+        } catch (AllOfException $exception) {
+            $this->assertStringContainsString(
+                "Invalid unevaluated items in array 'tags'",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * A composition (`allOf`) nested two levels inside another composition (`allOf` inside
+     * `allOf`) on an array property, with `unevaluatedItems: false` declared at the *outer*
+     * property level (not inside a branch). The innermost branch's own tuple `items` claims
+     * indices 0-1; that claim must reach the outer `unevaluatedItems` accumulator through both
+     * levels of nesting, not just the first.
+     *
+     * Root cause (distinct from `testCompositionNestedInsideArrayBranchIsNotSilentlyDropped`
+     * above — that one is an activation-detection gap causing a fatal error; this one is a
+     * downstream aggregation gap once activation is already correctly triggered):
+     * `ComposedItem.phptpl`'s per-branch index-set block only populated
+     * `$compositionEvaluatedIndices` from a branch's own *direct* `items`/`additionalItems`/
+     * `contains` shape (`CompositionPropertyDecorator::branchIsArrayKind()`). A branch that is
+     * itself purely a nested composition (`{allOf: [{items: [...]}]}`, with no array
+     * applicator of its own) fails that check, so the block never ran for it — its own nested
+     * composition's tracked slot (`_compositionAnnotated['tags_1']`) was computed correctly
+     * but never read back into the enclosing branch's own slot (`_compositionAnnotated
+     * ['tags_0']`), which the outer `unevaluatedItems: false` reads. Before the fix, all three
+     * indices were reported unevaluated instead of just index 2.
+     *
+     * Fixed by `CompositionPropertyDecorator::getNestedCompositionSlotKeys()`: the indices of
+     * any composition validator nested directly inside a branch's own JSON (found by walking
+     * the branch's wrapped property's own validators, the same way the activation step already
+     * does) get unioned into the branch's own evaluated set.
+     */
+    public function testCompositionNestedTwoLevelsDeepCreditsOuterAccumulator(): void
+    {
+        $className = $this->generateClassFromFile('CompositionNestedTwoLevelsDeepCreditsOuterAccumulator.json');
+
+        // Exactly the tuple length: both indices covered by the innermost branch — accept.
+        $accepted = new $className(['tags' => ['a', 'b']]);
+        $this->assertSame(['a', 'b'], $accepted->getTags());
+
+        // A trailing element past the tuple is not covered by any level of the nesting.
+        try {
+            new $className(['tags' => ['a', 'b', 'c']]);
+            $this->fail('Expected UnevaluatedItemsException for the index past the nested tuple');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([2], $exception->getUnevaluatedItems());
+        }
     }
 
     /**

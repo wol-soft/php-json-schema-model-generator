@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
+use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
@@ -276,6 +277,45 @@ class CompositionPropertyDecorator extends PropertyProxy
             || array_key_exists('patternProperties', $branchJson);
 
         return $hasArrayApplicator && !$hasObjectApplicator;
+    }
+
+    /**
+     * Slot keys of composition validators nested directly inside this branch's own JSON (the
+     * branch is itself `{allOf: [...]}`, `{oneOf: [...]}`, etc.) that also carry evaluation
+     * tracking. An array-typed branch never gets its own nested `Schema` (unlike an
+     * object-typed one, which always routes through `processSchema()`), so a composition
+     * nested inside it renders as a further validator call on the same wrapped property
+     * rather than inside a separate class — its claimed indices are reachable only by reading
+     * back `_compositionAnnotated[<slot>]` at runtime, not by recursing into a nested
+     * `Schema`'s own composed properties the way an object-typed branch's nesting would allow.
+     * The composition template unions each returned slot's tracked indices into this branch's
+     * own evaluated set.
+     *
+     * @return string[]
+     */
+    public function getNestedCompositionSlotKeys(): array
+    {
+        $slotKeys = [];
+
+        foreach ($this->getWrappedProperty()->getOrderedValidators() as $validator) {
+            if ($validator instanceof AbstractComposedPropertyValidator && $validator->getSlotKey() !== null) {
+                $slotKeys[] = $validator->getSlotKey();
+            }
+        }
+
+        return $slotKeys;
+    }
+
+    /**
+     * True when the composition template must build an evaluated-index set for this branch —
+     * either from the branch's own direct array applicators ({@see branchIsArrayKind()}) or
+     * from a composition nested inside the branch ({@see getNestedCompositionSlotKeys()}).
+     * Combines both into one boolean because the template engine's conditional expressions do
+     * not support parenthesised boolean grouping.
+     */
+    public function needsEvaluatedIndexAggregation(): bool
+    {
+        return $this->branchIsArrayKind() || $this->getNestedCompositionSlotKeys() !== [];
     }
 
     /**

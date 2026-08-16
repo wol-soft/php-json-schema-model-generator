@@ -99,7 +99,7 @@
                 {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
             {% endif %}
 
-            {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and compositionProperty.branchIsArrayKind() %}
+            {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and compositionProperty.needsEvaluatedIndexAggregation() %}
                 if ($shouldTrack) {
                     {% if compositionProperty.branchHasItemsSchema() %}
                         $compositionEvaluatedIndices += array_fill_keys(array_keys($originalModelData), true);
@@ -121,6 +121,12 @@
                     {% if compositionProperty.branchHasContains() %}
                         $compositionEvaluatedIndices += $branchContainsMatches;
                     {% endif %}
+                    {% foreach compositionProperty.getNestedCompositionSlotKeys() as nestedCompositionSlotKey %}
+                        // A composition nested directly inside this branch's own JSON (no
+                        // intervening object type, so no nested Schema of its own) tracked its
+                        // claimed indices under its own slot — union them into this branch's set.
+                        $compositionEvaluatedIndices += $this->_compositionAnnotated['{{ nestedCompositionSlotKey }}'] ?? [];
+                    {% endforeach %}
                 }
             {% endif %}
             {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}

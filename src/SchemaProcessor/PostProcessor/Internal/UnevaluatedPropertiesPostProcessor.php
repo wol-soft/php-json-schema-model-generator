@@ -225,8 +225,18 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
     /**
      * True when any composition validator directly on the property carries a branch declaring
-     * `unevaluatedItems`. Such a branch's validator writes and reads `_evaluatedItemIndices`, so
-     * the field must be declared even though the array property itself has no unevaluatedItems.
+     * `unevaluatedItems` — either directly in the branch's own JSON, or nested one or more
+     * levels deeper inside a composition the branch itself carries. Such a branch's validator
+     * writes and reads `_evaluatedItemIndices`, so the field must be declared even though the
+     * array property itself has no unevaluatedItems.
+     *
+     * An array-typed branch never gets its own nested `Schema` (unlike an object-typed branch,
+     * which always routes through `processSchema()`), so a further composition keyword nested
+     * inside the branch's own JSON — e.g. the branch is itself `{oneOf: [{unevaluatedItems:
+     * ...}]}` — has no `Schema` object for `getNestedSchema()` to recurse into. Recursing
+     * through the branch's wrapped property's own validators instead mirrors how
+     * `activateValidatorsInBranch()` already walks this exact structure for the activation step
+     * itself.
      */
     private function propertyHasBranchUnevaluatedItems(PropertyInterface $property): bool
     {
@@ -237,6 +247,13 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
             foreach ($validator->getComposedProperties() as $composedProperty) {
                 if (array_key_exists('unevaluatedItems', $composedProperty->getBranchSchema()->getJson())) {
+                    return true;
+                }
+
+                if (
+                    $composedProperty->getNestedSchema() === null
+                    && $this->propertyHasBranchUnevaluatedItems($composedProperty->getWrappedProperty())
+                ) {
                     return true;
                 }
             }
@@ -481,8 +498,21 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
     /**
      * True when any composition validator in the given list carries a branch that declares an
-     * unevaluated keyword — either in the branch-level JSON or in a nested schema the branch
-     * produces. Shared by the schema-level (base validators) and property-level checks.
+     * unevaluated keyword — either in the branch-level JSON, in a nested schema the branch
+     * produces, or in a further composition nested inside the branch's own JSON. Shared by the
+     * schema-level (base validators) and property-level checks.
+     *
+     * An object-typed branch always gets its own nested `Schema` (routed through
+     * `processSchema()`), so a further composition nested inside it is reached by recursing
+     * into that `Schema` via `needsActivation()`. An array-typed branch never gets one, so a
+     * branch shaped like `{oneOf: [{unevaluatedItems: ...}]}` — a composition nested directly
+     * inside another branch, with no intervening object type — has no `Schema` object for that
+     * recursion to reach. Recursing through the branch's wrapped property's own validators
+     * instead mirrors how `activateValidatorsInBranch()` already walks this exact structure for
+     * the activation step itself. Without this, the branch's own nested validator still renders
+     * (schema processing is not gated by this detection), but the class it renders into never
+     * receives `CompositionEvaluationTrait` or the `_evaluatedItemIndices` field the rendered
+     * code calls into — a fatal `Error: Call to undefined method`, not a silent gap.
      *
      * @param iterable<mixed> $validators
      * @param array<string, bool> $seen
@@ -506,7 +536,20 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
                 $nestedSchema = $composedProperty->getNestedSchema();
 
-                if ($nestedSchema !== null && $this->needsActivation($nestedSchema, $seen)) {
+                if ($nestedSchema !== null) {
+                    if ($this->needsActivation($nestedSchema, $seen)) {
+                        return true;
+                    }
+
+                    continue;
+                }
+
+                if (
+                    $this->compositionValidatorsNeedActivation(
+                        $composedProperty->getWrappedProperty()->getOrderedValidators(),
+                        $seen,
+                    )
+                ) {
                     return true;
                 }
             }
