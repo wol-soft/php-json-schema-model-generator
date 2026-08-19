@@ -45,8 +45,6 @@ class CompositionPropertyDecorator extends PropertyProxy
     private bool $alwaysTrueBranch = false;
 
     /**
-     * CompositionPropertyDecorator constructor.
-     *
      * @throws SchemaException
      */
     public function __construct(string $propertyName, JsonSchema $jsonSchema, PropertyInterface $property)
