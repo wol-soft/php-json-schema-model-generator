@@ -10,11 +10,6 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\RenderJob;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 
-/**
- * Class RenderQueue
- *
- * @package PHPModelGenerator\SchemaProcessor
- */
 class RenderQueue
 {
     /** @var RenderJob[] */
