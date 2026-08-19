@@ -626,34 +626,129 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
-     * A composition branch expressed via `$ref` resolves to the referenced schema at generation
-     * time. Its `properties` declarations must contribute to the outer accumulator so an outer
-     * `unevaluatedProperties: false` sees the ref-resolved keys as evaluated. Two assertions
-     * on the same generated class:
-     *   - `{name: "Alice", foo: "hi", bar: 5}` accepts — the ref-resolved allOf branch claims
-     *     `foo` and `bar`; the local `properties` claims `name`; no unevaluated keys remain.
-     *   - `{name: "Alice", stray: 1}` rejects — `stray` is not declared anywhere.
+     * A `$ref` composition branch (same-file `$defs`, or an external file - see
+     * EXTERNAL_JSON_DIRECTORIES above) resolves to the referenced schema at generation time, and
+     * its `properties` must contribute to the outer `unevaluatedProperties: false` accumulator.
+     * One data provider, not two methods: only `$ref` resolution differs between the rows (its
+     * own concern, covered in ReferencePropertyTest/RefSiblingsTest), not the behaviour under
+     * test here.
+     *
+     * Note: `ExternalRefBranch.json`'s target renders as an ordinary, fully-validating nested
+     * class, not an `ExternalSchema` placeholder (a `$ref` outside the provider's base directory
+     * doesn't by itself produce one - see testExternalSchemaPlaceholderBranchCreditsNothingLikeAVacuousBranch()
+     * for that case, which needs a target file with no `type`/`properties`/composition of its
+     * own).
      */
-    public function testRefResolvedBranchContributesAnnotations(): void
-    {
-        $className = $this->generateClassFromFile('RefResolvedBranchContributesAnnotations.json');
+    #[DataProvider('refResolvedBranchDataProvider')]
+    public function testRefResolvedBranchContributesAnnotations(
+        string $schemaFile,
+        array $acceptedInput,
+        string $strayKey,
+    ): void {
+        $className = $this->generateClassFromFile($schemaFile);
 
-        $accepted = new $className(['name' => 'Alice', 'foo' => 'hi', 'bar' => 5]);
-        $this->assertSame(
-            ['name' => 'Alice', 'foo' => 'hi', 'bar' => 5],
-            $accepted->meta()->rawInput(),
-        );
+        $accepted = new $className($acceptedInput);
+        $this->assertSame($acceptedInput, $accepted->meta()->rawInput());
 
         try {
-            new $className(['name' => 'Alice', 'stray' => 1]);
+            new $className(['name' => 'Alice', $strayKey => 1]);
             $this->fail('An undeclared key must be rejected by unevaluatedProperties: false');
         } catch (UnevaluatedPropertiesException $exception) {
             $this->assertSame(
-                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['stray']",
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['{$strayKey}']",
                 $exception->getMessage(),
             );
-            $this->assertSame(['stray'], $exception->getUnevaluatedProperties());
+            $this->assertSame([$strayKey], $exception->getUnevaluatedProperties());
         }
+    }
+
+    public static function refResolvedBranchDataProvider(): array
+    {
+        return [
+            'same-file $defs reference' => [
+                'RefResolvedBranchContributesAnnotations.json',
+                ['name' => 'Alice', 'foo' => 'hi', 'bar' => 5],
+                'stray',
+            ],
+            'external-file reference crossing a directory boundary' => [
+                'ExternalRefBranch.json',
+                ['name' => 'Alice', 'external' => 'hi'],
+                'whatever',
+            ],
+        ];
+    }
+
+    /**
+     * A `$ref` to an entire external file declaring no `type`/`properties`/composition (only
+     * `definitions`) renders as an `ExternalSchema` placeholder - a branch that's vacuously
+     * satisfied (like `{}`) but declares none of `properties`/`patternProperties`/
+     * `additionalProperties`, so per the spec-mandated rule (combinedSchemas/allOf.rst's
+     * "Property and item evaluation propagation") it credits nothing to `unevaluatedProperties`,
+     * same as a literal `{}` or `true` branch. `whatever` is therefore correctly rejected.
+     *
+     * Also asserts `warnIfVacuousBranch()` still flags this branch even though it inherits the
+     * outer `type: object` - the vacuousness check must look past an inherited type to the
+     * branch's own authored content.
+     */
+    public function testExternalSchemaPlaceholderBranchCreditsNothingLikeAVacuousBranch(): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'ExternalSchemaPlaceholderBranch.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors(false),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+                ['index' => 1],
+            ),
+            'The placeholder branch declares no validation keyword and matches any value - it '
+            . 'should be flagged as vacuous even though it inherits the outer type.',
+        );
+
+        $accepted = new $className(['name' => 'Alice']);
+        $this->assertSame(['name' => 'Alice'], $accepted->meta()->rawInput());
+
+        try {
+            new $className(['name' => 'Alice', 'whatever' => 'x']);
+            $this->fail('An undeclared key must be rejected by unevaluatedProperties: false');
+        } catch (UnevaluatedPropertiesException $exception) {
+            $this->assertSame(
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['whatever']",
+                $exception->getMessage(),
+            );
+            $this->assertSame(['whatever'], $exception->getUnevaluatedProperties());
+        }
+    }
+
+    /**
+     * Non-regression companion: a branch that explicitly declares its own `type` (even one
+     * identical to the parent's) must stay silent - confirms the fix above distinguishes an
+     * inherited type from an author-declared one in both directions.
+     */
+    public function testAuthorDeclaredTypeBranchStaysSilent(): void
+    {
+        $logger = new RecordingLogger();
+
+        $this->generateClassFromFile(
+            'AuthorDeclaredTypeBranchStaysSilent.json',
+            (new GeneratorConfiguration())->setLogger($logger),
+        );
+
+        $this->assertFalse(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+            ),
+            'A branch with its own explicit type declaration must not be flagged as vacuous.',
+        );
     }
 
     /**
@@ -826,35 +921,6 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             MSG,
         );
         new $className(['id' => 1, 'dyn' => ['known' => 'hi', 'stray' => 1]]);
-    }
-
-    /**
-     * A `$ref` that resolves to a schema in a file outside the provider's base directory is
-     * represented at generation time as an `ExternalSchema` placeholder — a class the
-     * generator does not emit validation for. When such a placeholder is used as a composition
-     * branch, the design records that the branch's evaluated set is treated as covering every
-     * instance key, because we trust the external schema to enforce its own contract.
-     *
-     * End-to-end codegen is blocked today by the composition processor's insistence that every
-     * composed branch surface a nested schema. An `ExternalSchema` placeholder branch has
-     * `getNestedSchema() === null`, so SchemaProcessor throws before the unevaluated wiring
-     * ever runs. The same pre-existing limitation blocks a related test on the array-side
-     * self-referencing fixture. Fixing it lives in the composition processor's
-     * `shouldSkip()` / nested-schema expectation, which is out of scope for this topic.
-     *
-     * The fixture is kept in the test directory to document the intended behaviour and to
-     * accelerate the promotion of this case to a real assertion once the composition
-     * processor's nested-schema expectation is relaxed.
-     */
-    public function testExternalRefBranchTreatsAllKeysAsEvaluated(): void
-    {
-        $this->markTestIncomplete(
-            'End-to-end codegen blocked by the composition processor\'s requirement that '
-            . 'every composed branch surface a nested schema. An ExternalSchema placeholder '
-            . 'branch has no nested schema, so generation fails before the unevaluated '
-            . 'accumulator sees the branch. The fix belongs to the composition processor '
-            . '(same pre-existing bug that blocks the array-side self-referencing test).',
-        );
     }
 
     /**

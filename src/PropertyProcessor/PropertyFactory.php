@@ -29,6 +29,8 @@ use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\MultiTypeCheckValidator;
 use PHPModelGenerator\Model\Validator\TypeCheckInterface;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\ObjectInstantiationDecorator;
+use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyDecoratorInterface;
 use PHPModelGenerator\PropertyProcessor\Decorator\Property\PropertyTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
@@ -1151,6 +1153,18 @@ class PropertyFactory
         $subJson = $json;
         unset($subJson['default']);
 
+        // When the multi-type property itself carries schema-root composition, the object
+        // variant's sub-schema re-processes that same composition a second time as its own
+        // nested class's schema-root composition - duplicating the composition already attached
+        // once, correctly, to $property itself (finalizeMultiTypeProperty()). That one correct
+        // copy needs the raw, not-yet-instantiated value to do its own branch matching, so below
+        // we drop the object variant's own ObjectInstantiationDecorator and tell
+        // MultiTypeCheckValidator to recognize an un-instantiated JSON-object-shaped array too.
+        $hasSchemaLevelComposition = isset($json['oneOf'])
+            || isset($json['anyOf'])
+            || isset($json['allOf'])
+            || isset($json['if']);
+
         foreach ($types as $type) {
             $this->checkType($type, $schema);
 
@@ -1184,6 +1198,8 @@ class PropertyFactory
                 $schema,
                 $propertySchema,
                 $totalSubCount,
+                $type,
+                $hasSchemaLevelComposition,
                 &$collectedTypes,
                 &$typeHints,
                 &$resolvedSubCount,
@@ -1200,6 +1216,16 @@ class PropertyFactory
                         $validator,
                         $validatorContainer->getPriority(),
                         $validatorContainer->getSourceKey(),
+                    );
+                }
+
+                if ($type === 'object' && $hasSchemaLevelComposition) {
+                    // Without this, $property would pre-instantiate the raw value via this
+                    // variant's decorator before its own composition validator's instanceof
+                    // checks ever run - see the $hasSchemaLevelComposition comment above.
+                    $subProperty->filterDecorators(
+                        static fn(PropertyDecoratorInterface $decorator): bool =>
+                            !($decorator instanceof ObjectInstantiationDecorator),
                     );
                 }
 
@@ -1220,6 +1246,7 @@ class PropertyFactory
                     $schemaProcessor,
                     $schema,
                     $propertySchema,
+                    $hasSchemaLevelComposition,
                 );
             });
         }
@@ -1263,6 +1290,9 @@ class PropertyFactory
      *
      * @param string[] $collectedTypes
      * @param string[] $typeHints
+     * @param bool     $hasSchemaLevelComposition True when this property's own JSON carries
+     *                                             oneOf/anyOf/allOf/if - see the matching flag
+     *                                             in createMultiTypeProperty().
      *
      * @throws SchemaException
      */
@@ -1273,6 +1303,7 @@ class PropertyFactory
         SchemaProcessor $schemaProcessor,
         Schema $schema,
         JsonSchema $propertySchema,
+        bool $hasSchemaLevelComposition = false,
     ): void {
         $hasNull      = in_array('null', $collectedTypes, true);
         $nonNullTypes = array_values(array_filter(
@@ -1284,8 +1315,12 @@ class PropertyFactory
             && !$property->isRequired();
 
         $property->addValidator(
-            (new MultiTypeCheckValidator($collectedTypes, $property, $allowImplicitNull))
-                ->withJsonPointer($propertySchema->getPointer() . '/type'),
+            (new MultiTypeCheckValidator(
+                $collectedTypes,
+                $property,
+                $allowImplicitNull,
+                $hasSchemaLevelComposition,
+            ))->withJsonPointer($propertySchema->getPointer() . '/type'),
             2,
         );
 

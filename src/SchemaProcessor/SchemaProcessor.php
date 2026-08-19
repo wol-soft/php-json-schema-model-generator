@@ -706,7 +706,21 @@ class SchemaProcessor
                     &$seenBranchPropertyNames,
                 ): void {
                     if (!$composedProperty->getNestedSchema()) {
-                        if ($composedProperty->getType() !== null) {
+                        // allOf requires every branch to hold simultaneously, so a typed branch
+                        // with no nested schema (only an object-asserting branch gets one) can
+                        // never be satisfied alongside this object context - a genuine
+                        // contradiction (e.g. allOf: [{type: integer}] under an object schema).
+                        // oneOf/anyOf/if-then-else need only ONE branch to match, so a
+                        // differently-typed branch (e.g. the array branch of a oneOf reached while
+                        // narrowing a `{type: [object, array]}` property to its object variant)
+                        // is simply not reachable from here, not a contradiction.
+                        $isConjunctiveComposition = is_a(
+                            $validator->getCompositionProcessor(),
+                            AllOfValidatorFactory::class,
+                            true,
+                        );
+
+                        if ($isConjunctiveComposition && $composedProperty->getType() !== null) {
                             throw new SchemaException(
                                 sprintf(
                                     "No nested schema for composed property %s in file %s found",
@@ -718,10 +732,9 @@ class SchemaProcessor
                         }
 
                         // A branch with neither a nested schema nor an explicit type (e.g. a $ref
-                        // to a definition carrying only annotation keywords such as example)
-                        // matches any value and contributes no named properties to transfer -
-                        // this is not a schema error, unlike a branch with an explicit type that
-                        // still lacks a nested schema (a genuine type conflict, handled above).
+                        // to a definition carrying only annotation keywords) matches any value and
+                        // contributes no properties to transfer - not an error, unlike the
+                        // conjunctive/typed conflict handled above.
                         $this->finalizeComposedBranchResolution(
                             in_array($composedProperty, $branchesForValidator, true),
                             $totalBranches,

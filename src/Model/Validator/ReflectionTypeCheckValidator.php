@@ -7,26 +7,22 @@ namespace PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Utils\TypeCheck;
 
-/**
- * Class ReflectionTypeCheckValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class ReflectionTypeCheckValidator extends PropertyValidator
 {
     public static function fromType(
         string $type,
         PropertyInterface $property,
+        bool $treatObjectAsUninstantiatedShape = false,
     ): self {
-        return new self($type, $property);
+        return new self($type, $property, $treatObjectAsUninstantiatedShape);
     }
 
-    /**
-     * ReflectionTypeCheckValidator constructor.
-     */
-    public function __construct(string $name, PropertyInterface $property)
-    {
-        $typeCheck = TypeCheck::buildNegatedJsonSchemaTypeCheck($name);
+    public function __construct(
+        string $name,
+        PropertyInterface $property,
+        bool $treatObjectAsUninstantiatedShape = false,
+    ) {
+        $typeCheck = TypeCheck::buildNegatedJsonSchemaTypeCheck($name, $treatObjectAsUninstantiatedShape);
 
         parent::__construct($property, $typeCheck, '');
     }

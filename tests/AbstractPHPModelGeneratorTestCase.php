@@ -33,11 +33,6 @@ use ReflectionProperty;
 use ReflectionType;
 use ReflectionUnionType;
 
-/**
- * Class AbstractPHPModelGeneratorTest
- *
- * @package PHPModelGenerator\Tests\Objects
- */
 abstract class AbstractPHPModelGeneratorTestCase extends TestCase
 {
     protected const EXTERNAL_JSON_DIRECTORIES = [];
@@ -49,6 +44,16 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     private array $generatedFiles = [];
 
     protected string $lastGeneratedNamespacePrefix = '';
+
+    /**
+     * Destination directories copyExternalJSON() has written outside TEST_BASE_DIR (see its
+     * docblock), tracked so registerExternalJsonCleanup()'s shutdown function can remove them.
+     *
+     * @var array<string, true>
+     */
+    private static array $externalJsonCopyRoots = [];
+
+    private static bool $externalJsonCleanupRegistered = false;
 
     /**
      * Set up an empty directory for the tests
@@ -105,21 +110,96 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
     }
 
     /**
-     * Copy given external JSON schema files into the tmp directory to make them available during model generation
+     * Copy given external JSON schema files into the tmp directory to make them available during
+     * model generation.
+     *
+     * The destination must sit one level above TEST_BASE_DIR, not inside it: an
+     * EXTERNAL_JSON_DIRECTORIES entry (e.g. "../SomeTest_external") is relative to the fixture's
+     * schema directory, which is also how the fixture's own `$ref` keywords reference it -
+     * resolved at generation time relative to TEST_BASE_DIR, where generateClass() writes the
+     * temporary schema file.
+     *
+     * That destination sits outside TEST_BASE_DIR, so bootstrap.php's shutdown cleanup never
+     * touches it - left alone it accumulates forever in the shared system temp directory. Each
+     * copy is therefore (a) preceded by clearing any pre-existing content at the destination, and
+     * (b) tracked in self::$externalJsonCopyRoots for registerExternalJsonCleanup() to remove at
+     * process exit. Known residual gap: the destination name is not session-unique (it can't be,
+     * without also rewriting every fixture's `$ref` strings), so two fully concurrent test-suite
+     * processes can still collide - accepted, since this only closes the never-cleaned
+     * accumulation a single/sequential run hits.
      */
     private function copyExternalJSON(): void
     {
-        $baseDir = TEST_BASE_DIR . DIRECTORY_SEPARATOR;
         $copyBaseDir = __DIR__ . "/Schema/{$this->getStaticClassName()}/";
 
         foreach (static::EXTERNAL_JSON_DIRECTORIES as $directory) {
-            $di = new RecursiveDirectoryIterator($copyBaseDir . $directory, FilesystemIterator::SKIP_DOTS);
+            $sourceRoot = realpath($copyBaseDir . $directory);
 
-            foreach (new RecursiveIteratorIterator($di, RecursiveIteratorIterator::CHILD_FIRST) as $file) {
-                @mkdir($baseDir . dirname(str_replace($copyBaseDir, '', (string) $file)), 0777, true);
-                @copy((string) $file, $baseDir . str_replace($copyBaseDir, '', (string) $file));
+            if ($sourceRoot === false) {
+                continue;
+            }
+
+            $destinationRoot = dirname(TEST_BASE_DIR) . DIRECTORY_SEPARATOR . basename($sourceRoot);
+
+            self::$externalJsonCopyRoots[$destinationRoot] = true;
+            self::registerExternalJsonCleanup();
+            self::removeDirectoryRecursively($destinationRoot);
+
+            $sourceIterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($sourceRoot, FilesystemIterator::SKIP_DOTS),
+            );
+
+            foreach ($sourceIterator as $file) {
+                $destination = $destinationRoot . DIRECTORY_SEPARATOR
+                    . substr((string) $file, strlen($sourceRoot) + 1);
+
+                @mkdir(dirname($destination), 0777, true);
+                @copy((string) $file, $destination);
             }
         }
+    }
+
+    /**
+     * Registers, at most once per process, a shutdown function that removes every destination
+     * copyExternalJSON() has recorded. Warnings inside must stay suppressed (@-operators in
+     * removeDirectoryRecursively()): this runs after the last test finishes, with no TestCase on
+     * the call stack, so an unsuppressed warning would crash the run via PHPUnit's
+     * NoTestCaseObjectOnCallStackException instead of just leaving the directory behind.
+     */
+    private static function registerExternalJsonCleanup(): void
+    {
+        if (self::$externalJsonCleanupRegistered) {
+            return;
+        }
+
+        self::$externalJsonCleanupRegistered = true;
+
+        register_shutdown_function(static function (): void {
+            foreach (array_keys(self::$externalJsonCopyRoots) as $destinationRoot) {
+                self::removeDirectoryRecursively($destinationRoot);
+            }
+        });
+    }
+
+    /**
+     * A no-op when $directory does not exist.
+     */
+    private static function removeDirectoryRecursively(string $directory): void
+    {
+        if (!is_dir($directory)) {
+            return;
+        }
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST,
+        );
+
+        foreach ($iterator as $file) {
+            $file->isDir() ? @rmdir($file->getRealPath()) : @unlink($file->getRealPath());
+        }
+
+        @rmdir($directory);
     }
 
     /**
