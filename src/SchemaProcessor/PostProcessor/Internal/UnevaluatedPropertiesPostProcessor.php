@@ -237,9 +237,25 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * through the branch's wrapped property's own validators instead mirrors how
      * `activateValidatorsInBranch()` already walks this exact structure for the activation step
      * itself.
+     *
+     * A self-referencing array composition (e.g. `{type: array, allOf: [{$ref: "#"}]}`) makes
+     * the wrapped property this recurses into the same property again, indefinitely — required
+     * cycle protection, not defensive, the same class of cycle `needsActivation()` guards
+     * against for schemas. Keyed on file+pointer rather than object identity because
+     * `getOrderedValidators()` returns fresh clones on every call (see
+     * `activateValidatorsInBranch()`'s own comment on this), so the wrapped `PropertyInterface`
+     * instance is not guaranteed stable across recursive calls even for the same schema location.
      */
-    private function propertyHasBranchUnevaluatedItems(PropertyInterface $property): bool
+    private function propertyHasBranchUnevaluatedItems(PropertyInterface $property, array &$seen = []): bool
     {
+        $propertyKey = $property->getJsonSchema()->getFile() . '#' . $property->getJsonSchema()->getPointer();
+
+        if (array_key_exists($propertyKey, $seen)) {
+            return $seen[$propertyKey];
+        }
+
+        $seen[$propertyKey] = false;
+
         foreach ($property->getOrderedValidators() as $validator) {
             if (!$validator instanceof AbstractComposedPropertyValidator) {
                 continue;
@@ -247,14 +263,14 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
             foreach ($validator->getComposedProperties() as $composedProperty) {
                 if (array_key_exists('unevaluatedItems', $composedProperty->getBranchSchema()->getJson())) {
-                    return true;
+                    return $seen[$propertyKey] = true;
                 }
 
                 if (
                     $composedProperty->getNestedSchema() === null
-                    && $this->propertyHasBranchUnevaluatedItems($composedProperty->getWrappedProperty())
+                    && $this->propertyHasBranchUnevaluatedItems($composedProperty->getWrappedProperty(), $seen)
                 ) {
-                    return true;
+                    return $seen[$propertyKey] = true;
                 }
             }
         }

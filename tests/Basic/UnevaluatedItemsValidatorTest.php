@@ -657,35 +657,40 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Regression guard for the recursive activation walk in
-     * `UnevaluatedPropertiesPostProcessor::activateArrayComposition()`: a schema like
-     * `{type: array, allOf: [{$ref: "#/definitions/recursive"}], unevaluatedItems: false}`
-     * where the $ref resolves back to the same schema produces a composition validator
-     * whose composed branch's wrapped property carries the same composition validator
-     * instance. Without the cycle break, the walk recurses indefinitely; with it, the walk
-     * short-circuits on the second visit.
+     * Regression guard for three independent, previously-infinite recursions on the same
+     * self-referencing shape - `{type: array, allOf: [{$ref: "#/definitions/recursive"}],
+     * unevaluatedItems: false}`, where the $ref resolves back to the same schema:
      *
-     * The cycle-break guard was verified by hand: removing it from
-     * `activateArrayComposition()` and running this fixture causes the process to abort
-     * with `Xdebug has detected a possible infinite loop, and aborted your script with a
-     * stack depth of '512' frames`, with the offending frames pointing at the
-     * `activateArrayComposition` / `activateValidatorsInBranch` pair. With the guard
-     * restored, the walk terminates.
+     *   - The activation walk in `UnevaluatedPropertiesPostProcessor::activateArrayComposition()`
+     *     - guarded by `$activatedCompositions`. Verified by hand: removing the guard and
+     *     running this fixture aborts with "Xdebug has detected a possible infinite loop... a
+     *     stack depth of '512' frames", frames pointing at `activateArrayComposition` /
+     *     `activateValidatorsInBranch`.
+     *   - `CompositionTypeHintDecorator::getTypeHint()`, which recurses into the composed
+     *     branch's wrapped property - itself, on this fixture - with no cycle protection.
+     *     Fixed by a per-instance recursion-depth guard mirroring `ArrayTypeHintDecorator`'s
+     *     existing pattern for the analogous array-composition cycle.
+     *   - `UnevaluatedPropertiesPostProcessor::propertyHasBranchUnevaluatedItems()`, which
+     *     recurses into `getWrappedProperty()` whenever a branch has no nested `Schema` (true
+     *     for every array-typed branch) - also unguarded, only surfaced once the other two were
+     *     fixed. Fixed with a `$seen` map keyed on file+pointer, mirroring `needsActivation()`'s
+     *     own guard; keyed on the string location rather than object identity because
+     *     `getOrderedValidators()` returns fresh clones on every call, so the wrapped property
+     *     instance isn't guaranteed stable across recursive calls.
      *
-     * The test is marked incomplete because end-to-end codegen still hits a *second*
-     * infinite recursion in `CompositionTypeHintDecorator::getTypeHint()` on the same
-     * fixture — a pre-existing bug in the type-hint computation path that has no cycle
-     * protection of its own. Fixing that is outside the unevaluatedItems work; the test
-     * will be promoted to a real assertion once the type-hint recursion is closed.
+     * Generation now completes. Constructing an instance of the generated class still crashes
+     * with a stack overflow - the schema means "this array must recurse into a composition
+     * requiring itself, unconditionally", a degenerate constraint with no base case (unlike the
+     * `items: {$ref: "#"}` shape, which recurses into progressively smaller array *elements*
+     * and terminates correctly - verified separately, not affected by this). Tracked as its own,
+     * deeper, runtime issue: see the implementation plan for the fix options considered
+     * (rejecting the degenerate shape at generation time vs. runtime cycle memoization).
      */
     public function testSelfReferencingArrayCompositionDoesNotRecurseIndefinitely(): void
     {
-        $this->markTestIncomplete(
-            'Activation-walk cycle break is in place and verified by hand. End-to-end '
-            . 'codegen blocked by an unrelated infinite recursion in '
-            . 'CompositionTypeHintDecorator::getTypeHint() on self-referencing schemas '
-            . '(deferred bug; tracked in the implementation plan).',
-        );
+        $className = $this->generateClassFromFile('SelfReferencingArrayComposition.json');
+
+        $this->assertNotEmpty($className);
     }
 
     /**
