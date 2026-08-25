@@ -1039,6 +1039,43 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * The `anyOf`/`oneOf` analogue of the `allOf` case above does NOT terminate, unlike that
+     * one. `allOf` branches referencing each other get flattened into one class per file at
+     * generation time (`RefResolver`'s `hasComposedPropertyValidator()` +
+     * `SchemaProcessor::transferComposedPropertiesToSchema()` merge a referenced allOf's
+     * properties/validators directly into the referencing schema, since allOf requires every
+     * branch simultaneously) - confirmed by inspecting the allOf fixture's own generated output:
+     * `A`'s constructor never references `B` at all, only two classes exist in total.
+     *
+     * `anyOf`/`oneOf` cannot use the same trick: only one branch must hold, so each branch stays
+     * an independently instantiable class, and testing a mutually-referencing branch means
+     * actually constructing the referenced class. Constructing `A` here tries the second `anyOf`
+     * branch (a full `B`), which tries *its* second branch (a full `A`), forever - no base case.
+     * Confirmed via direct reproduction: generation succeeds (two classes plus their branch
+     * companions), but `new $aClass([])` stack-overflows (Xdebug's own infinite-loop guard
+     * catches it at ~512 frames).
+     *
+     * Deferred - a real fix is a design decision (reject the mutual reference at generation
+     * time, which would refuse a legitimately useful "recursive polymorphic node" schema shape
+     * unlike the tautological allOf case, vs. runtime cycle memoization), not a mechanical one.
+     * See `.claude/topics/self-composition-runtime-recursion/analysis.md` for the full
+     * analysis. Marked incomplete rather than attempting construction, to avoid burning ~512
+     * stack frames through Xdebug on every suite run for a known, already-diagnosed failure.
+     */
+    public function testMutuallyReferencingAnyOfRootCompositionsDoesNotYetTerminate(): void
+    {
+        $namespace = 'MutuallyReferencingAnyOfRootCompositions';
+        $this->generateDirectory('MutuallyReferencingAnyOfRootCompositions', $this->directoryConfig($namespace));
+
+        $this->markTestIncomplete(
+            'Generation succeeds, but constructing an instance recurses indefinitely - a '
+            . 'mutually-referencing anyOf/oneOf composition has no base case for runtime '
+            . 'branch-matching, unlike allOf (which flattens at generation time instead). '
+            . 'Deferred; tracked in .claude/topics/self-composition-runtime-recursion/.',
+        );
+    }
+
+    /**
      * A recursive cross-file schema pair - A's root is an `allOf` of a `$ref` to B, and B has a
      * property referencing A back - must produce exactly one class per file.
      *
