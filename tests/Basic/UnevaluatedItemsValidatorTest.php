@@ -1143,4 +1143,47 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         $decoded = json_decode($object->toJSON(), true);
         $this->assertSame(['tags' => ['20201010', '2020-12-12']], $decoded);
     }
+
+    /**
+     * Array-side counterpart of `UnevaluatedPropertiesValidatorTest::
+     * testBranchOnlyUnevaluatedPropertiesIgnoresOuterDeclarations()` - same root cause, confirmed
+     * to affect this side too (the object-side write-up's own "revisit trigger" left this
+     * unverified). A branch's own `unevaluatedItems` has no visibility into indices a *sibling*
+     * applicator on the same array property already claims: here, the sibling tuple `items:
+     * [{type: string}]` claims index 0, but the `allOf` branch's own `unevaluatedItems: false`
+     * has no way to see that claim - it only knows what its own (empty) local applicators
+     * evaluated - so `['a']` at index 0 is wrongly rejected as unevaluated even though the
+     * sibling tuple already validated and claimed it.
+     *
+     * Root cause is architectural, not a call-site bug: a composition branch renders as its own,
+     * separately-instantiated generated class (constructed fresh from the raw array value), with
+     * no reference back to the enclosing property's own runtime state
+     * (`_evaluatedItemIndices`/`_compositionAnnotated`). Fixing this for the *sibling-claims*
+     * direction is harder than the enclosing-schema-declared-names case on the object side: the
+     * enclosing schema's own declared names are static, generation-time-known information that
+     * could in principle be baked into the branch's own generated validator call, but a sibling
+     * branch's own evaluated set can be genuinely instance-dependent (e.g. if the sibling is
+     * itself a composition or carries `patternProperties`), so a real fix needs the enclosing
+     * property to compute and pass its siblings' claims into the branch instance at
+     * construction time - not just a static list. See the implementation plan for the full
+     * writeup and the object-side companion bug this mirrors.
+     */
+    public function testBranchUnevaluatedItemsIgnoresSiblingTupleClaim(): void
+    {
+        $this->markTestIncomplete(
+            'Bug: a composition branch\'s own unevaluatedItems does not see indices a sibling '
+            . 'applicator (here, a sibling tuple items) already claims on the same array '
+            . 'property - the branch\'s nested class has no visibility into claims made outside '
+            . 'itself. Array-side counterpart of the object-side bug tracked in '
+            . 'implementation-plan.md; see the class docblock above for the full analysis.',
+        );
+
+        // @phpstan-ignore-next-line dead code — unreachable until the fix lands
+        $className = $this->generateClassFromFile('BranchUnevaluatedItemsIgnoresSiblingTupleClaim.json');
+
+        // Index 0 is declared and validated by the sibling tuple `items`, not by the branch -
+        // the branch's `unevaluatedItems: false` must still treat it as evaluated.
+        $accepted = new $className(['tags' => ['a']]);
+        $this->assertSame(['tags' => ['a']], $accepted->meta()->rawInput());
+    }
 }
