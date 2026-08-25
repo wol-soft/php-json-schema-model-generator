@@ -135,6 +135,39 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
         $this->assertTrue(is_callable([$object, 'setNoReadOnly']));
     }
 
+    /**
+     * A schema whose derived class name collides with a PHP-reserved class name (`readonly` is
+     * reserved since PHP 8.1 - see https://www.php.net/manual/en/reserved.other-reserved-words.php)
+     * currently generates uncompilable PHP: the class is written to disk, then RenderJob::render()
+     * `require`s it, and PHP throws `ParseError: syntax error, unexpected token "readonly",
+     * expecting identifier` - not a `SchemaException` raised cleanly at generation time.
+     *
+     * Explicit inline `"title": "ReadOnly"` plus `$originalClassNames: true` is required to
+     * reproduce this through the test harness: `generateClassFromFile()`'s default path always
+     * writes the schema to a temp file named after the *test's own* generated class name (see
+     * AbstractPHPModelGeneratorTestCase::generateClass()) regardless of the flag, so the
+     * `ReadOnly.json` fixture used elsewhere in this file never actually reaches the generator
+     * under the name "ReadOnly" - only an explicit `title` (which the class-name generator
+     * prioritizes over the filename) reliably forces the collision.
+     *
+     * Unrelated to the `readOnly` JSON Schema keyword under test elsewhere in this file; this is
+     * purely about a schema's own name being reused, unqualified, as the derived PHP class name.
+     * Tracked in .claude/topics/reserved-php-classname-collision/ as a deferred, separate topic -
+     * out of scope for whatever change happens to be touching this file. Asserts the intended
+     * behavior (a SchemaException raised at generation time); currently fails because the real
+     * exception is a ParseError raised later, from require().
+     */
+    public function testClassNameCollidingWithPhpReservedWordThrowsSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+
+        $this->generateClass(
+            '{"title": "ReadOnly", "type": "object", "properties": {"name": {"type": "string"}}}',
+            null,
+            true,
+        );
+    }
+
     public function testSetterChangeTheInternalState(): void
     {
         $className = $this->generateClassFromFile(
