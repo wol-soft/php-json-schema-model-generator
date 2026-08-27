@@ -6,8 +6,8 @@ namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Exception\Object\InvalidPatternPropertiesException;
 use PHPModelGenerator\Model\Property\Property;
-use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 
 /**
  * Validator for patternProperties where the pattern schema is `false`.
@@ -33,7 +33,7 @@ class ForbiddenPatternPropertiesValidator extends AbstractPropertyValidator
 
         $this->patternPointer = $propertySchema->getPointer()
             . '/patternProperties/'
-            . JsonSchema::encodePointer($this->pattern);
+            . JsonSchemaUtil::encodePointer($this->pattern);
     }
 
     public function getPattern(): string

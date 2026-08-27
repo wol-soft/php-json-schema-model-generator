@@ -1,0 +1,1178 @@
+<?php
+
+declare(strict_types=1);
+
+namespace PHPModelGenerator\Tests\Basic;
+
+use DateTime;
+use PHPModelGenerator\Exception\Arrays\InvalidUnevaluatedItemsException;
+use PHPModelGenerator\Exception\Arrays\UniqueItemsException;
+use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
+use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
+use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\UnsupportedSchemaFeatureException;
+use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
+use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
+use PHPUnit\Framework\Attributes\DataProvider;
+
+/**
+ * Verifies the runtime behaviour of `unevaluatedItems`: array indices not claimed by `items`,
+ * `additionalItems`, `contains`, or a successful composition branch must satisfy the
+ * unevaluatedItems schema (or are rejected outright when the keyword is `false`).
+ *
+ * Coverage in this test class is limited to schemas with no sibling positive applicator
+ * crediting any index, plus the three dead-code shapes that the factory short-circuits with
+ * a warning. Composition-driven annotation propagation is exercised separately.
+ */
+#[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
+{
+    /**
+     * Accepted input — the generated class must construct and round-trip the input through
+     * `meta()->rawInput()` unchanged.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function acceptanceProvider(): array
+    {
+        return [
+            'unevaluatedItems: false with empty array' => [
+                'NoOtherConstraintsFalse.json',
+                ['tags' => []],
+            ],
+            'unevaluatedItems: false with array property absent' => [
+                'NoOtherConstraintsFalse.json',
+                [],
+            ],
+            'unevaluatedItems schema-form accepts matching values' => [
+                'NoOtherConstraintsSchema.json',
+                ['tags' => ['alpha', 'beta', 'gamma']],
+            ],
+            'unevaluatedItems schema-form accepts empty array' => [
+                'NoOtherConstraintsSchema.json',
+                ['tags' => []],
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     */
+    #[DataProvider('acceptanceProvider')]
+    public function testAcceptedInputRoundTrips(string $schemaFile, array $input): void
+    {
+        $className = $this->generateClassFromFile($schemaFile);
+        $instance = new $className($input);
+
+        $this->assertSame($input, $instance->meta()->rawInput());
+    }
+
+    /**
+     * Rejected input for the `false` form — construction must throw `UnevaluatedItemsException`
+     * with the expected message. Indices are reported with the `#` prefix that the rest of the
+     * array-side exception family uses (InvalidItemException, InvalidTupleException, etc.) —
+     * the pin includes the prefix so a regression that drops it surfaces here.
+     *
+     * @return array<string, array{0: array<string, mixed>, 1: string}>
+     */
+    public static function falseFormRejectionProvider(): array
+    {
+        return [
+            // Single-element array — minimal case for the bracket+prefix render.
+            'rejects single item' => [
+                ['tags' => ['only']],
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#0]",
+            ],
+            // Three-element array — exercises the comma-separated list path so a future change
+            // to the joiner shows up here.
+            'reports every offending index' => [
+                ['tags' => ['a', 'b', 'c']],
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#0, #1, #2]",
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     */
+    #[DataProvider('falseFormRejectionProvider')]
+    public function testFalseFormRejectsUnevaluatedIndicesWithFullMessage(
+        array $input,
+        string $expectedMessage,
+    ): void {
+        $className = $this->generateClassFromFile('NoOtherConstraintsFalse.json');
+
+        try {
+            new $className($input);
+            $this->fail('Expected UnevaluatedItemsException');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame($expectedMessage, $exception->getMessage());
+            $this->assertSame(
+                array_keys($input['tags']),
+                $exception->getUnevaluatedItems(),
+                'getUnevaluatedItems() must report the same indices the message lists',
+            );
+            // `tags` is the array property at /properties/tags; its unevaluatedItems keyword
+            // sits at /properties/tags/unevaluatedItems, which is the pointer stamped by the
+            // factory when the false-form validator is constructed.
+            $this->assertSame(
+                '/properties/tags/unevaluatedItems',
+                $exception->getJsonPointer()->pointer,
+            );
+        }
+    }
+
+    /**
+     * Schema-form rejection wraps a per-index aggregate around the inner validation errors.
+     * The fixture array deliberately has two failing indices (integer at #1, boolean at #3)
+     * so the test exercises:
+     *
+     *   - Aggregation across multiple failing indices in declaration order — a regression that
+     *     dropped any one failure, reordered them, or collapsed them into a single line would
+     *     fail the heredoc compare.
+     *   - The nested exception list returned by `getInvalidItems()` keys each failure under
+     *     its original index and preserves the per-failure `InvalidTypeException` unchanged,
+     *     so a consumer that catches the wrapper can still surface the precise reason
+     *     (type was integer / boolean, expected string) per index.
+     *
+     * The expected surface message is built via heredoc so the test source reads line-by-line
+     * exactly as the runtime message will.
+     */
+    public function testSchemaFormRejectionPreservesNestedInvalidTypeExceptionForEachFailingIndex(): void
+    {
+        $className = $this->generateClassFromFile('NoOtherConstraintsSchema.json');
+
+        try {
+            new $className(['tags' => ['ok', 42, 'also-ok', true]]);
+            $this->fail('Expected InvalidUnevaluatedItemsException');
+        } catch (InvalidUnevaluatedItemsException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+                Invalid unevaluated items in array 'tags':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+                  - invalid unevaluated item #3
+                    * Invalid type for 'unevaluated item': requires 'string', got 'boolean'
+                MSG,
+                $exception->getMessage(),
+            );
+            $this->assertSame(
+                '/properties/tags/unevaluatedItems',
+                $exception->getJsonPointer()->pointer,
+            );
+
+            $invalidItems = $exception->getInvalidItems();
+            $this->assertSame(
+                [1, 3],
+                array_keys($invalidItems),
+                'only the two non-string indices should fail, keyed by their original index',
+            );
+
+            $this->assertCount(1, $invalidItems[1], 'one inner exception per failing index');
+            $this->assertCount(1, $invalidItems[3], 'one inner exception per failing index');
+
+            $integerFailure = $invalidItems[1][0];
+            $this->assertInstanceOf(InvalidTypeException::class, $integerFailure);
+            $this->assertSame(
+                "Invalid type for 'unevaluated item': requires 'string', got 'integer'",
+                $integerFailure->getMessage(),
+            );
+            $this->assertSame('string', $integerFailure->getExpectedType());
+
+            $booleanFailure = $invalidItems[3][0];
+            $this->assertInstanceOf(InvalidTypeException::class, $booleanFailure);
+            $this->assertSame(
+                "Invalid type for 'unevaluated item': requires 'string', got 'boolean'",
+                $booleanFailure->getMessage(),
+            );
+            $this->assertSame('string', $booleanFailure->getExpectedType());
+        }
+    }
+
+    /**
+     * The tuple form of `items` evaluates every index it covers: index i is evaluated when
+     * i < count(items) and the value at i validated against items[i]. Only indices past the
+     * tuple remain for `unevaluatedItems` — per the 2019-09 annotation rules a sibling
+     * applicator's claims must be credited even without any composition keyword involved.
+     */
+    public function testSiblingTupleItemsCreditTheirEvaluatedIndices(): void
+    {
+        $className = $this->generateClassFromFile('SiblingTupleItems.json');
+
+        // Index 0 is covered by the tuple — nothing is left for unevaluatedItems.
+        $accepted = new $className(['tags' => ['covered']]);
+        $this->assertSame(['covered'], $accepted->getTags());
+
+        // Index 1 lies past the tuple and no other applicator claims it — only that index
+        // may be reported as unevaluated.
+        try {
+            new $className(['tags' => ['covered', 'surplus']]);
+            $this->fail('Expected UnevaluatedItemsException for the index past the tuple');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#1]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([1], $exception->getUnevaluatedItems());
+            $this->assertSame(
+                '/properties/tags/unevaluatedItems',
+                $exception->getJsonPointer()->pointer,
+            );
+        }
+    }
+
+    /**
+     * A sibling `contains` evaluates exactly the indices whose values satisfy its subschema.
+     * Matched indices are credited to the accumulator; every other index remains unevaluated.
+     */
+    public function testSiblingContainsCreditsOnlyMatchingIndices(): void
+    {
+        $className = $this->generateClassFromFile('SiblingContains.json');
+
+        // The single element matches the contains subschema and is therefore evaluated.
+        $accepted = new $className(['tags' => [5]]);
+        $this->assertSame([5], $accepted->getTags());
+
+        // Index 0 matches, index 1 does not — only the non-matching index is unevaluated.
+        try {
+            new $className(['tags' => [5, 'surplus']]);
+            $this->fail('Expected UnevaluatedItemsException for the index contains did not match');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#1]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([1], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * An explicit `items: true` is an applicator: it validates (trivially) and annotates every
+     * index, leaving nothing for `unevaluatedItems`. This mirrors the object side, where an
+     * explicit `additionalProperties: true` claims every extra key — in contrast to an omitted
+     * keyword, which produces no annotation.
+     */
+    public function testSiblingItemsTrueCreditsEveryIndex(): void
+    {
+        $className = $this->generateClassFromFile('SiblingItemsTrue.json');
+
+        $accepted = new $className(['tags' => ['anything', 42]]);
+        $this->assertSame(['anything', 42], $accepted->getTags());
+    }
+
+    /**
+     * A composition branch may carry `unevaluatedItems` even when the array property itself
+     * does not: `allOf: [{unevaluatedItems: {schema}}]`. Within the branch every index is
+     * unevaluated (the branch declares no other applicator), so the branch's subschema applies
+     * to every item and decides the branch outcome.
+     *
+     * The rejection surfaces through the property-level composition wrapping: the inner
+     * unevaluatedItems failure is swallowed by the branch's try/catch and the composition
+     * reports the failed branch, including the branch's own per-element failure detail.
+     */
+    public function testBranchOnlyUnevaluatedItemsValidatesEveryIndex(): void
+    {
+        $className = $this->generateClassFromFile('InnerUnevaluatedItemsOnlyInBranch.json');
+
+        // Every index satisfies the branch's unevaluatedItems schema — the branch succeeds.
+        $accepted = new $className(['tags' => ['alpha', 'beta']]);
+        $this->assertSame(['alpha', 'beta'], $accepted->getTags());
+
+        // A non-string item violates the branch's unevaluatedItems schema — the branch and
+        // therefore the allOf composition must reject the array.
+        $this->expectException(AllOfException::class);
+        $this->expectExceptionMessage(
+            <<<'MSG'
+            Invalid value for 'tags' declined by composition constraint
+              Requires to match all composition elements but matched 0 elements
+            MSG,
+        );
+
+        new $className(['tags' => [5]]);
+    }
+
+    /**
+     * `uniqueItems: true` is orthogonal to `unevaluatedItems`. uniqueItems failure has its own
+     * exception identity and message; the unevaluated check does not get to fire for that
+     * array because the uniqueItems failure surfaces first.
+     */
+    public function testUniqueItemsExceptionIdentityIsPreserved(): void
+    {
+        $this->expectException(UniqueItemsException::class);
+        $this->expectExceptionMessage("Items of array 'tags' are not unique");
+
+        $className = $this->generateClassFromFile('UnevaluatedFalseWithUniqueItems.json');
+        new $className(['tags' => ['dup', 'dup']]);
+    }
+
+    /**
+     * Three sibling shapes make `unevaluatedItems` unreachable; each emits a generation-time
+     * warning instead of a SchemaException. The warning pin captures the developer's intended
+     * class/property identifier so the source of the dead code is obvious in build output.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function deadCodeProvider(): array
+    {
+        return [
+            // items: {schema} claims every index per the JSON Schema spec; the unevaluated
+            // bucket is permanently empty, so the false form can never fire.
+            'items schema form (false)' => [
+                'ItemsSchemaWithUnevaluatedFalse.json',
+                "sibling items: {schema} already validates every index",
+            ],
+            // Same dead-cell shape as above but with the schema form of unevaluatedItems —
+            // the keyword still has nothing left to validate.
+            'items schema form (schema)' => [
+                'ItemsSchemaWithUnevaluatedSchema.json',
+                "sibling items: {schema} already validates every index",
+            ],
+            // items: false reduces the array to empty; no index can be unevaluated.
+            'items: false leaves no indices' => [
+                'ItemsFalseWithUnevaluatedFalse.json',
+                "sibling items: false rejects every index, leaving no unevaluated items",
+            ],
+            // Tuple items + additionalItems: false rejects everything past the tuple length;
+            // the unevaluatedItems keyword cannot contribute.
+            'tuple items with additionalItems: false' => [
+                'TupleAdditionalFalseWithUnevaluatedFalse.json',
+                "sibling additionalItems: false rejects every tail index past the tuple",
+            ],
+        ];
+    }
+
+    #[DataProvider('deadCodeProvider')]
+    public function testDeadCodeShapesWarn(string $schemaFile, string $reason): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            $schemaFile,
+            (new GeneratorConfiguration())->setLogger($logger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                'unevaluatedItems on {class}::{property} is dead code — {reason}',
+                ['property' => 'tags', 'reason' => $reason],
+            ),
+            'Expected a warning naming the dead unevaluatedItems keyword on tags',
+        );
+
+        // Each warned shape still compiles into a working class — an empty tags array
+        // constructs cleanly, proving the keyword did not break codegen.
+        $instance = new $className(['tags' => []]);
+        $this->assertSame(['tags' => []], $instance->meta()->rawInput());
+    }
+
+    /**
+     * Non-bool / non-object values for `unevaluatedProperties` and `unevaluatedItems` must
+     * fail loudly at generation time with a SchemaException. The generator never produces
+     * broken code for these inputs; CLAUDE.md's "Schema error handling" rule applies.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function invalidTypeProvider(): array
+    {
+        return [
+            'unevaluatedItems with integer value' => [
+                'InvalidUnevaluatedItemsType.json',
+                'unevaluatedItems',
+            ],
+            'unevaluatedProperties with integer value' => [
+                'InvalidUnevaluatedPropertiesType.json',
+                'unevaluatedProperties',
+            ],
+        ];
+    }
+
+    #[DataProvider('invalidTypeProvider')]
+    public function testInvalidTypeForKeywordThrowsSchemaException(
+        string $schemaFile,
+        string $keyword,
+    ): void {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^Invalid ' . preg_quote($keyword, '/') . ' 42 for property \'\S+\' in file /',
+        );
+
+        $this->generateClassFromFile($schemaFile);
+    }
+
+    /**
+     * `unevaluatedItems` declared on a non-array-typed property is inapplicable per spec — array
+     * applicators impose no constraint on a value that is not an array — and must be silently
+     * ignored: no array-index validator is emitted for the property, and the property behaves
+     * exactly as if `unevaluatedItems` were absent. Regression guard for
+     * `activateArrayPropertyTracking`'s type-mismatch skip actually being a no-op rather than a
+     * state-corruption path (e.g. wiring up index-tracking machinery for a scalar property, or
+     * suppressing an unrelated sibling keyword). A sibling `unevaluatedProperties: false` on the
+     * parent still activates and works normally, proving this property's malformed-for-its-type
+     * keyword does not interfere with unrelated validators on the class.
+     */
+    public function testUnevaluatedItemsOnNonArrayPropertyIsSilentlyIgnored(): void
+    {
+        $className = $this->generateClassFromFile('UnevaluatedItemsOnNonArrayProperty.json');
+
+        $accepted = new $className(['tags' => 'hello']);
+        $this->assertSame('hello', $accepted->getTags());
+        $this->assertSame(['tags' => 'hello'], $accepted->meta()->rawInput());
+
+        try {
+            new $className(['tags' => 'hello', 'extra' => 1]);
+            $this->fail('unevaluatedProperties: false on the parent must still reject unclaimed keys');
+        } catch (UnevaluatedPropertiesException $exception) {
+            $this->assertSame(
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['extra']",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * `items: null` is not a valid `items` value (the keyword must be a boolean or a schema),
+     * but the dead-code classifier must still degrade gracefully rather than misclassifying it
+     * as one of the three recognised dead-code shapes (`items: false`, tuple-form with
+     * `additionalItems: false`, or `items: {schema}`). `null` claims nothing, so
+     * `unevaluatedItems: false` correctly falls through to "not dead code" and rejects every
+     * index — proving the classifier's final fallback branch is a safe default, not a silent
+     * misclassification that would let a malformed `items` value slip through unvalidated.
+     */
+    public function testItemsNeitherBooleanTupleNorSchemaFallsThroughToNotDeadCode(): void
+    {
+        $className = $this->generateClassFromFile('ItemsNeitherBooleanTupleNorSchema.json');
+
+        try {
+            new $className(['tags' => ['a', 'b']]);
+            $this->fail('Expected UnevaluatedItemsException since items: null claims no indices');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#0, #1]",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * Composition branches contribute their evaluated indices to a sibling unevaluatedItems
+     * accumulator. The fixture has two tuple-form items branches under allOf: branch 1 covers
+     * index 0, branch 2 covers indices 0-1. When both succeed (string array), the union
+     * covers 0-1 and any tail index is reported as unevaluated.
+     */
+    public function testAllOfBranchesContributeEvaluatedIndices(): void
+    {
+        $className = $this->generateClassFromFile('AllOfTupleBranches.json');
+
+        // Both branches succeed; union covers 0-1; no tail → accept.
+        $accepted = new $className(['tags' => ['alpha', 'beta']]);
+        $this->assertSame(['alpha', 'beta'], $accepted->getTags());
+
+        // Both branches succeed; union covers 0-1; index 2 is unevaluated → reject just index 2.
+        try {
+            new $className(['tags' => ['alpha', 'beta', 'gamma']]);
+            $this->fail('Expected UnevaluatedItemsException for tail index past union');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([2], $exception->getUnevaluatedItems());
+            $this->assertSame(
+                '/properties/tags/unevaluatedItems',
+                $exception->getJsonPointer()->pointer,
+            );
+        }
+    }
+
+    /**
+     * Regression guard for the chain-orchestration bug where composition failure assigned
+     * `$value = $proposedValue` (null) at IIFE end, causing the downstream
+     * `is_array($value)` gate inside `unevaluatedItems` to short-circuit and silently
+     * suppress its error in collectErrors mode. With the fix, both errors appear: the
+     * composition's AllOfException listing the failing branches and the
+     * UnevaluatedItemsException listing every index as unevaluated (composition contributed
+     * no claims on failure).
+     */
+    public function testCompositionFailurePreservesArrayValueSoUnevaluatedItemsCheckStillFires(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AllOfTupleBranches.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        try {
+            new $className(['tags' => [1, 2]]);
+            $this->fail('Expected ErrorRegistryException combining composition + unevaluated errors');
+        } catch (ErrorRegistryException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+                Invalid value for 'tags' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tags':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array tags': requires 'string', got 'integer'
+                  - Composition element #2: Failed
+                    * Invalid tuple item in array 'tags':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array tags': requires 'string', got 'integer'
+                      - invalid tuple #2
+                        * Invalid type for 'tuple item #1 of array tags': requires 'string', got 'integer'
+                Provided JSON for 'tags' contains not allowed unevaluated items [#0, #1]
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * Two properties on the same class — one array with composition + `unevaluatedItems:
+     * false`, one object with composition + `unevaluatedProperties: false` — exercise the
+     * structural separation between `_compositionAnnotated` (array side) and
+     * `_compositionEvaluations` (object side). Each accumulator reads from its own field, so
+     * cross-contamination between the two paths is impossible by construction.
+     */
+    public function testArrayAndObjectPropertyCompositionsCoexistOnTheSameClass(): void
+    {
+        $className = $this->generateClassFromFile('ArrayAndObjectPropertyCompositionsCoexist.json');
+
+        $accepted = new $className([
+            'tags' => ['only'],
+            'meta' => ['kind' => 'X'],
+        ]);
+        $this->assertSame(['only'], $accepted->getTags());
+        $this->assertSame('X', $accepted->getMeta()->getKind());
+    }
+
+    public function testArrayPropertyUnevaluatedItemsRejectsTailIndexWhileObjectPropertyAccepts(): void
+    {
+        $className = $this->generateClassFromFile('ArrayAndObjectPropertyCompositionsCoexist.json');
+
+        $this->expectException(UnevaluatedItemsException::class);
+        $this->expectExceptionMessage("Provided JSON for 'tags' contains not allowed unevaluated items [#1]");
+
+        new $className([
+            'tags' => ['head', 'tail'],
+            'meta' => ['kind' => 'X'],
+        ]);
+    }
+
+    /**
+     * Regression guard for the extracted-method-name collision: two compositions on the
+     * same property previously hashed to the same `_validateTags_ComposedProperty_<hash>`
+     * method (the hash was derived from the property's JSON alone), so the second
+     * registration overwrote the first and both call sites invoked the same body. With
+     * the fix mixing the validator's object hash into the method name, each composition
+     * keeps its own body and writes to its own slot key.
+     */
+    public function testMultipleSiblingCompositionsContributeIndependently(): void
+    {
+        $className = $this->generateClassFromFile('MultipleCompositionsOnProperty.json');
+
+        // allOf branch (tuple-1) + oneOf branch (tuple-2) both succeed on two-string array.
+        // Union {0, 1} covers everything → accept.
+        $accepted = new $className(['tags' => ['a', 'b']]);
+        $this->assertSame(['a', 'b'], $accepted->getTags());
+
+        // Three-element string array: both branches still succeed (tuples allow extras);
+        // union is still {0, 1}; index 2 unevaluated.
+        try {
+            new $className(['tags' => ['a', 'b', 'c']]);
+            $this->fail('Expected UnevaluatedItemsException for tail past widest tuple');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([2], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * Regression guard for the PropertyProxy clone reset:
+     * `CompositionPropertyDecorator::getOrderedValidators()` returns fresh
+     * `withProperty(...)` clones on every call. A previous fix attempt set
+     * `setTrackBranchMatches(true)` on the clones returned to the post-processor, leaving
+     * the validator instances actually emitted into generated code with the flag still
+     * false; contains-matched indices were silently dropped. With the fix iterating the
+     * wrapped property's source validators via `getWrappedProperty()`, the flag reaches
+     * the rendered instance.
+     *
+     * Three-element array `['a', 5, 'c']`: contains matches index 1 (integer). The branch
+     * claims {1}; sibling unevaluatedItems reports {0, 2} as unevaluated — not {0, 1, 2}.
+     */
+    public function testContainsOnlyBranchClaimsMatchedIndex(): void
+    {
+        $className = $this->generateClassFromFile('ContainsOnlyBranch.json');
+
+        // All-integer array: contains matches every index; nothing left unevaluated.
+        $accepted = new $className(['tags' => [1, 2, 3]]);
+        $this->assertSame([1, 2, 3], $accepted->getTags());
+
+        // Mixed array: contains matches index 1; non-matching indices fail unevaluatedItems.
+        try {
+            new $className(['tags' => ['a', 5, 'c']]);
+            $this->fail('Expected UnevaluatedItemsException for non-matching indices');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#0, #2]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([0, 2], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * Items + contains combined branch — tuple items claims index 0, contains matches its
+     * own indices, and the branch's evaluated set is the union of both. Items covers index 0
+     * (string), contains matches index 1 (integer). Together they cover the whole two-
+     * element array — accept.
+     */
+    public function testItemsPlusContainsBranchUnionsBothClaimSources(): void
+    {
+        $className = $this->generateClassFromFile('ItemsPlusContainsBranch.json');
+
+        // Items claims index 0, contains claims index 1 → union covers everything → accept.
+        $accepted = new $className(['tags' => ['head', 5]]);
+        $this->assertSame(['head', 5], $accepted->getTags());
+
+        // Three-element array: items covers 0, contains covers 1; index 2 is unevaluated.
+        try {
+            new $className(['tags' => ['head', 5, 'tail']]);
+            $this->fail('Expected UnevaluatedItemsException for unclaimed index');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([2], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * Regression guard for three independent, previously-infinite recursions on the same
+     * self-referencing shape - `{type: array, allOf: [{$ref: "#/definitions/recursive"}],
+     * unevaluatedItems: false}`, where the $ref resolves back to the same schema:
+     *
+     *   - The activation walk in `UnevaluatedPropertiesPostProcessor::activateArrayComposition()`
+     *     - guarded by `$activatedCompositions`. Verified by hand: removing the guard and
+     *     running this fixture aborts with "Xdebug has detected a possible infinite loop... a
+     *     stack depth of '512' frames", frames pointing at `activateArrayComposition` /
+     *     `activateValidatorsInBranch`.
+     *   - `CompositionTypeHintDecorator::getTypeHint()`, which recurses into the composed
+     *     branch's wrapped property - itself, on this fixture - with no cycle protection.
+     *     Fixed by a per-instance recursion-depth guard mirroring `ArrayTypeHintDecorator`'s
+     *     existing pattern for the analogous array-composition cycle.
+     *   - `UnevaluatedPropertiesPostProcessor::propertyHasBranchUnevaluatedItems()`, which
+     *     recurses into `getWrappedProperty()` whenever a branch has no nested `Schema` (true
+     *     for every array-typed branch) - also unguarded, only surfaced once the other two were
+     *     fixed. Fixed with a `$seen` map keyed on file+pointer, mirroring `needsActivation()`'s
+     *     own guard; keyed on the string location rather than object identity because
+     *     `getOrderedValidators()` returns fresh clones on every call, so the wrapped property
+     *     instance isn't guaranteed stable across recursive calls.
+     *
+     * Generation now completes. Constructing an instance of the generated class still crashes
+     * with a stack overflow - the schema means "this array must recurse into a composition
+     * requiring itself, unconditionally", a degenerate constraint with no base case (unlike the
+     * `items: {$ref: "#"}` shape, which recurses into progressively smaller array *elements*
+     * and terminates correctly - verified separately, not affected by this). Tracked as its own,
+     * deeper, runtime issue: see the implementation plan for the fix options considered
+     * (rejecting the degenerate shape at generation time vs. runtime cycle memoization).
+     */
+    public function testSelfReferencingArrayCompositionDoesNotRecurseIndefinitely(): void
+    {
+        $className = $this->generateClassFromFile('SelfReferencingArrayComposition.json');
+
+        $this->assertNotEmpty($className);
+    }
+
+    /**
+     * A composition (`oneOf`) nested inside a composition branch (`allOf`) on an array-typed
+     * property, with `unevaluatedItems` declared only on the innermost branch and nowhere at
+     * the outer property level, used to crash construction with `Error: Call to undefined
+     * method ...::collectUnevaluatedIndices()` rather than validate or reject cleanly.
+     *
+     * Root cause: `UnevaluatedPropertiesPostProcessor::compositionValidatorsNeedActivation()`
+     * (and its property-level sibling `propertyHasBranchUnevaluatedItems()`) checked a
+     * branch's own JSON directly and recursed into a branch's nested `Schema` — but an
+     * array-typed branch never gets its own nested `Schema` (unlike an object-typed one,
+     * which always routes through `processSchema()`), so a further composition nested
+     * directly inside another branch's own JSON (no intervening object type) was invisible to
+     * the detection walk. The schema-processing step that renders the innermost branch's own
+     * `unevaluatedItems` validator is not gated by that detection at all, so the call to
+     * `collectUnevaluatedIndices()` (from `CompositionEvaluationTrait`) rendered into the
+     * class regardless — but the trait itself, and the `_evaluatedItemIndices` field, were
+     * never added, since the post processor's `process()` short-circuited on the (wrongly)
+     * negative detection result before reaching either.
+     *
+     * Fixed by recursing through the branch's wrapped property's own validators — mirroring
+     * how `activateValidatorsInBranch()` already walks this exact structure for the
+     * activation step itself — whenever a composed property's own nested `Schema` is null.
+     */
+    public function testCompositionNestedInsideArrayBranchIsNotSilentlyDropped(): void
+    {
+        $className = $this->generateClassFromFile('NestedCompositionInsideArrayBranchSilentlyDropped.json');
+
+        $accepted = new $className(['tags' => ['a', 'b']]);
+        $this->assertSame(['a', 'b'], $accepted->getTags());
+
+        try {
+            new $className(['tags' => [1, 2]]);
+            $this->fail('Expected the innermost branch\'s unevaluatedItems: {type: string} to reject integers');
+        } catch (AllOfException $exception) {
+            $this->assertStringContainsString(
+                "Invalid unevaluated items in array 'tags'",
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * A composition (`allOf`) nested two levels inside another composition (`allOf` inside
+     * `allOf`) on an array property, with `unevaluatedItems: false` declared at the *outer*
+     * property level (not inside a branch). The innermost branch's own tuple `items` claims
+     * indices 0-1; that claim must reach the outer `unevaluatedItems` accumulator through both
+     * levels of nesting, not just the first.
+     *
+     * Root cause (distinct from `testCompositionNestedInsideArrayBranchIsNotSilentlyDropped`
+     * above — that one is an activation-detection gap causing a fatal error; this one is a
+     * downstream aggregation gap once activation is already correctly triggered):
+     * `ComposedItem.phptpl`'s per-branch index-set block only populated
+     * `$compositionEvaluatedIndices` from a branch's own *direct* `items`/`additionalItems`/
+     * `contains` shape (`CompositionPropertyDecorator::branchIsArrayKind()`). A branch that is
+     * itself purely a nested composition (`{allOf: [{items: [...]}]}`, with no array
+     * applicator of its own) fails that check, so the block never ran for it — its own nested
+     * composition's tracked slot (`_compositionAnnotated['tags_1']`) was computed correctly
+     * but never read back into the enclosing branch's own slot (`_compositionAnnotated
+     * ['tags_0']`), which the outer `unevaluatedItems: false` reads. Before the fix, all three
+     * indices were reported unevaluated instead of just index 2.
+     *
+     * Fixed by `CompositionPropertyDecorator::getNestedCompositionSlotKeys()`: the indices of
+     * any composition validator nested directly inside a branch's own JSON (found by walking
+     * the branch's wrapped property's own validators, the same way the activation step already
+     * does) get unioned into the branch's own evaluated set.
+     */
+    public function testCompositionNestedTwoLevelsDeepCreditsOuterAccumulator(): void
+    {
+        $className = $this->generateClassFromFile('CompositionNestedTwoLevelsDeepCreditsOuterAccumulator.json');
+
+        // Exactly the tuple length: both indices covered by the innermost branch — accept.
+        $accepted = new $className(['tags' => ['a', 'b']]);
+        $this->assertSame(['a', 'b'], $accepted->getTags());
+
+        // A trailing element past the tuple is not covered by any level of the nesting.
+        try {
+            new $className(['tags' => ['a', 'b', 'c']]);
+            $this->fail('Expected UnevaluatedItemsException for the index past the nested tuple');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([2], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * Spec propagation: a nested `unevaluatedItems` schema-form validator inside a
+     * successful `allOf` branch must contribute its claimed indices to the enclosing
+     * `unevaluatedItems` accumulator. The inner validator writes
+     * `_evaluatedItemIndices['tags'][$index] = true` after each successful per-index
+     * validation; the outer reads that map via `collectUnevaluatedIndices()`.
+     *
+     * Without the inner write, the outer `false` form would see every index as
+     * unevaluated and reject a perfectly valid all-string array; with the write, the
+     * outer credits the indices the inner already cleared.
+     */
+    public function testInnerUnevaluatedItemsInAllOfBranchPropagatesIndicesToOuterAccumulator(): void
+    {
+        $className = $this->generateClassFromFile('InnerUnevaluatedItemsInBranch.json');
+
+        // Both indices validate as strings against the inner schema; inner writes
+        // [0, 1] into _evaluatedItemIndices['tags']; outer's false form sees zero
+        // unevaluated indices → accept.
+        $accepted = new $className(['tags' => ['alpha', 'beta']]);
+        $this->assertSame(['alpha', 'beta'], $accepted->getTags());
+    }
+
+    /**
+     * Snapshot/restore guard: when the nested `unevaluatedItems` inside an `allOf`
+     * branch FAILS (any per-index check yields an invalid item), the inner template
+     * must restore `_evaluatedItemIndices` to its pre-IIFE state so no partial writes
+     * leak to the outer accumulator. Under `collectErrors` mode the chain continues
+     * past the failing composition so the outer `false` form runs against the
+     * snapshot-restored state — if the rollback worked, every index appears
+     * unevaluated and is reported in the outer error.
+     *
+     * Without the snapshot/restore, indices 0 and 2 (the successfully-validated
+     * string entries) would leak into `_evaluatedItemIndices['tags']` and the outer
+     * would mistakenly report only index 1 as unevaluated.
+     */
+    public function testInnerUnevaluatedItemsFailureRollsBackPartialWritesUnderCollectErrors(): void
+    {
+        $className = $this->generateClassFromFile(
+            'InnerUnevaluatedItemsInBranch.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        try {
+            new $className(['tags' => ['alpha', 42, 'gamma']]);
+            $this->fail('Expected ErrorRegistryException combining composition + outer unevaluated errors');
+        } catch (ErrorRegistryException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+                Invalid value for 'tags' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid unevaluated items in array 'tags':
+                      - invalid unevaluated item #1
+                        * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+                Provided JSON for 'tags' contains not allowed unevaluated items [#0, #1, #2]
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * `contains` with `minContains: 0` credits every index whose value matched the contains
+     * schema — even when zero matches would still satisfy the branch. The evaluated set is
+     * driven by which indices matched, not by the count. Non-matching indices remain
+     * unevaluated and the outer `unevaluatedItems: false` rejects them.
+     *
+     * Two assertions on the same generated class:
+     *   - `[]` accepts because no indices exist to be evaluated; contains-empty is legal
+     *     under minContains: 0 and the branch succeeds.
+     *   - `[1, 'a', 2, 'b', 3]` — indices 0, 2, 4 match the integer contains schema; indices
+     *     1, 3 are non-matching and surface as unevaluated.
+     */
+    public function testContainsWithMinContainsZeroCreditsMatchedIndicesOnly(): void
+    {
+        $className = $this->generateClassFromFile('ContainsMinContainsZeroBranch.json');
+
+        // Empty array: contains matches zero indices but minContains: 0 keeps the branch
+        // successful. Nothing is unevaluated because there are no indices to evaluate.
+        $accepted = new $className(['tags' => []]);
+        $this->assertSame([], $accepted->getTags());
+
+        // Mixed array: only integer indices are credited; string indices fall through to
+        // unevaluatedItems: false and are reported in declaration order.
+        try {
+            new $className(['tags' => [1, 'a', 2, 'b', 3]]);
+            $this->fail('Expected UnevaluatedItemsException for the two non-matching indices');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#1, #3]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([1, 3], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * `oneOf` with two branches of different tuple lengths: the branch that succeeds
+     * determines how many indices are evaluated. Only one branch may succeed at a time
+     * because otherwise `oneOf` fails as a whole. The outer `unevaluatedItems: false` then
+     * inspects the surviving branch's evaluated indices and rejects any tail past that
+     * length.
+     *
+     * Three assertions on the same generated class:
+     *   - `['a', 'b']` matches only branch 0 (strings, tuple length 2); no tail indices,
+     *     accepted.
+     *   - `[1, 2, 3]` matches only branch 1 (integers, tuple length 3); no tail indices,
+     *     accepted.
+     *   - `[1, 2, 3, 4]` — branch 1 succeeds and covers indices 0-2, but index 3 is not
+     *     covered by any successful branch. `unevaluatedItems: false` rejects.
+     */
+    public function testOneOfBranchesOfDifferentTupleLengthsControlEvaluatedSet(): void
+    {
+        $className = $this->generateClassFromFile('OneOfDifferentTupleLengths.json');
+
+        $acceptedStrings = new $className(['tags' => ['a', 'b']]);
+        $this->assertSame(['a', 'b'], $acceptedStrings->getTags());
+
+        $acceptedIntegers = new $className(['tags' => [1, 2, 3]]);
+        $this->assertSame([1, 2, 3], $acceptedIntegers->getTags());
+
+        try {
+            new $className(['tags' => [1, 2, 3, 4]]);
+            $this->fail('Expected UnevaluatedItemsException for index 3 past widest surviving tuple');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#3]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([3], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * `if`/`then`/`else` on an array property: whichever of `then`/`else` actually runs
+     * determines how many indices are evaluated, exercising `ConditionalComposedItem.phptpl`'s
+     * array-side branch. The fixture's `if` checks whether index 0 is the literal `"typed"`:
+     * when it is, `then` requires a 2-tuple (`"typed"` then any string) and covers indices 0-1;
+     * otherwise `else` requires a 1-tuple (an integer) and covers only index 0. `unevaluatedItems:
+     * false` rejects whatever index neither branch of the winning path covers.
+     *
+     * Four assertions on the same generated class:
+     *   - `['typed', 'x']` — `if` passes, `then` covers both indices, accepted;
+     *   - `['typed', 'x', 'extra']` — `if` passes, `then` covers 0-1, index 2 unevaluated;
+     *   - `[5]` — `if` fails (index 0 is not `"typed"`), `else` covers index 0, accepted;
+     *   - `[5, 6]` — `if` fails, `else` covers only index 0, index 1 unevaluated.
+     */
+    public function testIfThenElseArrayCompositionCreditsTheWinningBranchesIndices(): void
+    {
+        $className = $this->generateClassFromFile('IfThenElseArrayUnevaluatedItems.json');
+
+        $acceptedThen = new $className(['tags' => ['typed', 'x']]);
+        $this->assertSame(['typed', 'x'], $acceptedThen->getTags());
+
+        try {
+            new $className(['tags' => ['typed', 'x', 'extra']]);
+            $this->fail('Expected UnevaluatedItemsException for the index past the then-branch tuple');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([2], $exception->getUnevaluatedItems());
+        }
+
+        $acceptedElse = new $className(['tags' => [5]]);
+        $this->assertSame([5], $acceptedElse->getTags());
+
+        try {
+            new $className(['tags' => [5, 6]]);
+            $this->fail('Expected UnevaluatedItemsException for the index past the else-branch tuple');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#1]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([1], $exception->getUnevaluatedItems());
+            $this->assertSame(
+                '/properties/tags/unevaluatedItems',
+                $exception->getJsonPointer()->pointer,
+            );
+        }
+    }
+
+    /**
+     * A transforming filter (here `dateTime`) declared inside `unevaluatedItems`'s subschema
+     * behaves like a filter on any other property: the transformed value is persisted (the
+     * getter reports `DateTime` instances, not the raw strings), an already-transformed value
+     * passed directly is accepted (the type check is widened via
+     * `TransformingFilterOutputTypePostProcessor`, which recurses into
+     * `UnevaluatedItemsValidator::getValidationProperty()` the same way it already does for
+     * `UnevaluatedPropertiesValidator`), and a mixed list of raw and already-transformed values
+     * is accepted since each index is validated independently.
+     *
+     * Serialization applies the filter's outputFormat to every index credited to the
+     * unevaluatedItems validator, turning each DateTime back into the raw representation the
+     * filter accepts.
+     *
+     * An invalid date string still fails the filter's own validation.
+     */
+    public function testTransformingFilterPersistsAndAcceptsAlreadyTransformedValues(): void
+    {
+        $className = $this->generateClassFromFile(
+            'SchemaFormWithTransformingFilter.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        // Valid raw date strings pass the filter and the transformed value is persisted.
+        $accepted = new $className(['tags' => ['2020-10-10', '2020-12-12']]);
+        $this->assertEquals(
+            [new DateTime('2020-10-10'), new DateTime('2020-12-12')],
+            $accepted->getTags(),
+        );
+        $this->assertSame(['2020-10-10', '2020-12-12'], $accepted->meta()->rawInput()['tags']);
+
+        $this->assertSame(['tags' => ['20201010', '20201212']], $accepted->toArray());
+        $decoded = json_decode($accepted->toJSON(), true);
+        $this->assertSame(['tags' => ['20201010', '20201212']], $decoded);
+
+        // An already-transformed DateTime passed directly is accepted and persisted as-is.
+        $alreadyTransformed = new $className(['tags' => [new DateTime('2020-10-10')]]);
+        $this->assertEquals([new DateTime('2020-10-10')], $alreadyTransformed->getTags());
+        $this->assertEquals([new DateTime('2020-10-10')], $alreadyTransformed->meta()->rawInput()['tags']);
+
+        // A mixed list of raw and already-transformed values is accepted — each index is
+        // validated independently.
+        $mixed = new $className(['tags' => ['2020-10-10', new DateTime('2020-12-12')]]);
+        $this->assertEquals(
+            [new DateTime('2020-10-10'), new DateTime('2020-12-12')],
+            $mixed->getTags(),
+        );
+
+        // The setter must exercise the same validator chain as construction: a raw date string
+        // is transformed and persisted, and an already-transformed value is accepted directly.
+        $accepted->setTags(['2020-01-01']);
+        $this->assertEquals([new DateTime('2020-01-01')], $accepted->getTags());
+
+        $accepted->setTags([new DateTime('2020-02-02')]);
+        $this->assertEquals([new DateTime('2020-02-02')], $accepted->getTags());
+
+        // An invalid date string still fails the filter's own validation.
+        try {
+            new $className(['tags' => ['not-a-date']]);
+            $this->fail('Expected an exception for an invalid date string');
+        } catch (ErrorRegistryException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+    Invalid unevaluated items in array 'tags':
+      - invalid unevaluated item #0
+        * Invalid value for property 'unevaluated item' denied by filter 'dateTime': Invalid Date Time value "not-a-date"
+    MSG,
+                $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * `_evaluatedItemIndices['tags']` records which indices the unevaluatedItems validator
+     * credited so composition/serialization can read it back — but it must never leak from one
+     * validation pass into the next. Without a reset before the validator chain runs, a
+     * `setTags()` call would see stale credits from a previous pass and skip validating (and,
+     * with a transforming filter, skip re-filtering) indices whose value has since completely
+     * changed. Uses a plain type check with no filter to prove this is a general unevaluatedItems
+     * mutability issue, not something specific to the transforming-filter interaction.
+     */
+    public function testSetterRevalidatesEveryIndexRegardlessOfPriorPassCredits(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NoOtherConstraintsSchema.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $object = new $className(['tags' => ['alpha', 'beta']]);
+        $this->assertSame(['alpha', 'beta'], $object->getTags());
+
+        // A value that would have been valid at construction time must still be rejected when
+        // set later — proving the same index isn't silently exempted from validation because a
+        // previous, unrelated array happened to validate successfully at that position.
+        try {
+            $object->setTags([42]);
+            $this->fail('Expected an exception for an integer where unevaluatedItems requires a string');
+        } catch (ErrorRegistryException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+    Invalid unevaluated items in array 'tags':
+      - invalid unevaluated item #0
+        * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+    MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        // The rejected setter call must leave the object's state unchanged.
+        $this->assertSame(['alpha', 'beta'], $object->getTags());
+
+        // A genuinely valid replacement is still accepted.
+        $object->setTags(['gamma']);
+        $this->assertSame(['gamma'], $object->getTags());
+    }
+
+    /**
+     * Which indices unevaluatedItems credits is only known at runtime (tracked in
+     * `_evaluatedItemIndices`) — unlike a tuple index, it can't be resolved to a static list at
+     * generation time. Index 0 is claimed by an `allOf` branch's tuple-form `items` (no filter,
+     * passes through unchanged); index 1 is left over for `unevaluatedItems` (filtered). Proves
+     * the generated serializer only transforms the indices actually credited to
+     * unevaluatedItems, not every index in the array.
+     *
+     * Uses composition-based crediting (`allOf` branch), not a direct sibling `items` tuple,
+     * because direct-sibling tuple crediting is a separately tracked, currently-broken
+     * interaction (see testSiblingTupleItemsCreditTheirEvaluatedIndices) unrelated to this test.
+     */
+    public function testSerializationOfUnevaluatedItemsWithTransformingFilterOnlyAffectsCreditedIndices(): void
+    {
+        $className = $this->generateClassFromFile(
+            'TupleItemsPlusUnevaluatedItemsWithTransformingFilter.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $object = new $className(['tags' => ['plain', '2020-10-10']]);
+
+        $this->assertSame(['tags' => ['plain', '20201010']], $object->toArray());
+
+        $decoded = json_decode($object->toJSON(), true);
+        $this->assertSame(['tags' => ['plain', '20201010']], $decoded);
+    }
+
+    /**
+     * A tuple index and unevaluatedItems on the same array property, each with their own
+     * transforming filter, must not clobber each other: `SerializationPostProcessor` generates
+     * one `_serialize{Property}()` method per property, and independently generating one from
+     * the tuple validator and another from the unevaluatedItems validator would silently
+     * overwrite whichever ran last (`Schema::addMethod()` is a plain array write, not a merge).
+     * Both filters must be reflected in the serialized output: index 0 (tuple, `Ymd`) and
+     * index 1 (unevaluatedItems, `Y-m-d`) end up in visibly different formats, proving neither
+     * one was silently dropped.
+     *
+     * Uses direct-sibling `items`/`unevaluatedItems` (not composition) because that is the only
+     * shape that reaches `SerializationPostProcessor`'s array-item recursion at all — composition
+     * branches are a separate, not-yet-covered case (the branch's own tuple validator lives on
+     * the branch's nested property, invisible to this post processor). As a side effect this
+     * also exercises the direct-sibling tuple-crediting gap tracked elsewhere
+     * (`testSiblingTupleItemsCreditTheirEvaluatedIndices`): `_evaluatedItemIndices` ends up
+     * including the tuple-covered index too, since that credit-tracking bug is unrelated to and
+     * not fixed by this test. This test still passes despite it, because the combined serializer
+     * defensively skips indices already handled by the static tuple branch before running the
+     * dynamic unevaluatedItems branch — proving that defense actually works, not just that the
+     * two "happen" not to collide.
+     */
+    public function testSerializationCombinesTupleAndUnevaluatedItemsFiltersWithoutClobbering(): void
+    {
+        $className = $this->generateClassFromFile(
+            'SiblingTupleAndUnevaluatedItemsBothWithTransformingFilter.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $object = new $className(['tags' => ['2020-10-10', '2020-12-12']]);
+
+        $this->assertSame(['tags' => ['20201010', '2020-12-12']], $object->toArray());
+
+        $decoded = json_decode($object->toJSON(), true);
+        $this->assertSame(['tags' => ['20201010', '2020-12-12']], $decoded);
+    }
+
+    /**
+     * Array-side counterpart of `UnevaluatedPropertiesValidatorTest::
+     * testBranchOnlyUnevaluatedPropertiesThrowsUnsupportedSchemaFeatureException()` - same root
+     * cause, confirmed to affect this side too. A branch's own `unevaluatedItems` cannot see
+     * indices a *sibling* applicator on the same array property already claims: here, the
+     * sibling tuple `items: [{type: string}]` claims index 0, but the `allOf` branch's own
+     * `unevaluatedItems: false` has no way to see that claim - it only knows what its own
+     * (empty) local applicators evaluated, so `['a']` at index 0 used to be wrongly rejected as
+     * unevaluated even though the sibling tuple already validated and claimed it.
+     *
+     * Rather than silently computing a wrong "unevaluated" set, the generator now rejects the
+     * schema itself at generation time - see
+     * `UnsupportedSchemaFeatureException` and `.claude/topics/branch-unevaluated-down-propagation/`
+     * for why a real fix (the branch would need the enclosing property to compute and pass its
+     * siblings' claims into the branch instance at construction time - siblings' claims can be
+     * instance-dependent, unlike the object-side's enclosing-declared-*names* case, which is
+     * static) was deferred instead of implemented.
+     */
+    public function testBranchUnevaluatedItemsThrowsUnsupportedSchemaFeatureException(): void
+    {
+        $this->expectException(UnsupportedSchemaFeatureException::class);
+        $this->expectExceptionMessage(
+            "Branch #1 of the composition for 'tags' declares 'unevaluatedItems', which cannot "
+                . 'yet see property names or indices declared by the enclosing schema or a '
+                . "sibling branch - remove 'unevaluatedItems' from the branch, or restructure the "
+                . 'schema so it is declared only at the level that needs it at line 12, column 9',
+        );
+
+        $this->generateClassFromFile('BranchUnevaluatedItemsIgnoresSiblingTupleClaim.json', null, true);
+    }
+}

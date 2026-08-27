@@ -83,6 +83,18 @@ class ArrayTupleValidator extends PropertyTemplateValidator
     }
 
     /**
+     * The properties used to validate each tuple index, in index order. Exposed so post
+     * processors (e.g. TransformingFilterOutputTypePostProcessor) can recurse into them —
+     * mirrors ArrayItemValidator::getNestedProperty() for the tuple-form equivalent.
+     *
+     * @return PropertyInterface[]
+     */
+    public function getTupleProperties(): array
+    {
+        return $this->tupleProperties;
+    }
+
+    /**
      * Initialize all variables which are required to execute a property names validator
      */
     public function getValidatorSetUp(): string

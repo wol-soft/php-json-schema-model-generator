@@ -112,3 +112,37 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
 
     See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
     explanation.
+
+Property and item evaluation propagation
+----------------------------------------
+
+For an enclosing schema that uses `unevaluatedProperties <../complexTypes/object.html#unevaluated-properties>`__
+or `unevaluatedItems <../complexTypes/array.html#unevaluated-items>`__ (Draft 2019-09 and later),
+each ``anyOf`` branch contributes to the evaluated set **only if it succeeded** during the
+current validation. Failed branches contribute nothing. Because the branches that succeed
+depend on the actual input, the evaluated set is derived per validation call and refreshed
+whenever the model is mutated.
+
+Each successful branch credits property names claimed by its ``properties``, ``patternProperties``,
+and ``additionalProperties`` (per key with a passing value), and — on the array side — the
+indices claimed by its ``items``/``additionalItems``/``contains``.
+
+.. note::
+
+    *Omitting* ``additionalProperties`` from a branch is **not** the same as writing
+    ``additionalProperties: true``. An omitted keyword produces no annotation and therefore
+    credits nothing to the enclosing ``unevaluatedProperties`` — only an *explicit*
+    ``additionalProperties`` (whether ``true`` or ``{schema}``) contributes. Two branches with
+    identical extras behaviour but one writing the keyword and the other omitting it will
+    therefore credit different evaluated sets. This is a spec-mandated distinction from
+    JSON Schema 2019-09. The same rule applies to ``additionalItems`` on the array side.
+
+.. note::
+
+    Only this *up* direction (a branch's own declarations propagating to an enclosing
+    ``unevaluatedProperties``/``unevaluatedItems``) is implemented. The reverse — a branch's own
+    ``unevaluatedProperties``/``unevaluatedItems`` (other than a literal ``true``, which never
+    rejects anything) seeing property names or indices declared by the *enclosing* schema or a
+    *sibling* branch — is not currently supported and throws
+    ``PHPModelGenerator\Exception\UnsupportedSchemaFeatureException`` at generation time. See
+    `All Of <allOf.html>`__'s equivalent note for a concrete example.

@@ -14,8 +14,17 @@
     $proposedValue = null;
     $modifiedValues = [];
 
+    {% if compositionValidator.getSlotKey() %}
+        $slotKey = '{{ compositionValidator.getSlotKey() }}';
+        $compositionEvaluatedIndices = [];
+    {% endif %}
+
     {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
         $originalPropertyValidationState = $this->_propertyValidationState ?? [];
+    {% endif %}
+
+    {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
+        $originalCompositionEvaluations = $this->_compositionEvaluations ?? [];
     {% endif %}
 
     {% if generatorConfiguration.collectErrors() %}
@@ -23,6 +32,14 @@
     {% endif %}
 
     {% foreach compositionProperties as compositionProperty %}
+        {% if compositionValidator.isNotComposition() and compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
+            $preNotBranchEvaluations = $this->_compositionEvaluations ?? [];
+        {% endif %}
+
+        {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+            $shouldTrack = true;
+        {% endif %}
+
         try {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
                 // check if the state of the validator is already known.
@@ -30,15 +47,31 @@
                 if (
                     isset($validatorIndex) &&
                     isset($this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]) &&
-                    !array_intersect(
-                        array_keys($modifiedModelData),
-                        [
-                            {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
-                                '{{ affectedObjectProperty.getName() }}',
-                            {% endforeach %}
-                        ]
-                    )
+                    {% if compositionProperty.branchEvaluationDependsOnUndeclaredKeys() %}
+                        // Never cached: this branch carries a keyword decided by the shape or
+                        // count of the instance's keys (additionalProperties, patternProperties,
+                        // minProperties, ...), so a key it does not declare can still flip its
+                        // outcome. A declared-name test cannot see such a key and would wrongly
+                        // report "nothing relevant changed", skipping a branch that now fails.
+                        false
+                    {% else %}
+                        !array_intersect(
+                            array_keys($modifiedModelData),
+                            [
+                                {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
+                                    '{{ affectedObjectProperty.getName() }}',
+                                {% endforeach %}
+                            ]
+                        )
+                    {% endif %}
                 ) {
+                    {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+                        // Cache hit: validators are not re-run, so $value still holds the
+                        // pre-validator array rather than a nested-schema object. Skip the
+                        // tracking write to preserve the slot value from the previous run.
+                        $shouldTrack = false;
+                    {% endif %}
+
                     {% if generatorConfiguration.collectErrors() %}
                         $compositionErrorCollection[] = $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex];
                     {% endif %}
@@ -52,18 +85,76 @@
                         throw new \Exception();
                     }
                 } else {
+                    {% if compositionValidator.getSlotKey() and compositionProperty.branchHasContains() %}
+                        $branchContainsMatches = [];
+                    {% endif %}
+
                     {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 3) }}
                 }
             {% else %}
+                {% if compositionValidator.getSlotKey() and compositionProperty.branchHasContains() %}
+                    $branchContainsMatches = [];
+                {% endif %}
+
                 {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
             {% endif %}
+
+            {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and compositionProperty.needsEvaluatedIndexAggregation() %}
+                if ($shouldTrack) {
+                    {% if compositionProperty.branchHasItemsSchema() %}
+                        $compositionEvaluatedIndices += array_fill_keys(array_keys($originalModelData), true);
+                    {% endif %}
+                    {% if not compositionProperty.branchHasItemsSchema() and compositionProperty.getBranchTupleItemsCount() %}
+                        $compositionEvaluatedIndices += array_fill(
+                            0,
+                            min({{ compositionProperty.getBranchTupleItemsCount() }}, count($originalModelData)),
+                            true,
+                        );
+                    {% endif %}
+                    {% if not compositionProperty.branchHasItemsSchema() and compositionProperty.branchHasNonFalseAdditionalItems() %}
+                        $compositionEvaluatedIndices += array_fill(
+                            {{ compositionProperty.getBranchTupleItemsCount() }},
+                            max(0, count($originalModelData) - {{ compositionProperty.getBranchTupleItemsCount() }}),
+                            true,
+                        );
+                    {% endif %}
+                    {% if compositionProperty.branchHasContains() %}
+                        $compositionEvaluatedIndices += $branchContainsMatches;
+                    {% endif %}
+                    {% foreach compositionProperty.getNestedCompositionSlotKeys() as nestedCompositionSlotKey %}
+                        // A composition nested directly inside this branch's own JSON (no
+                        // intervening object type, so no nested Schema of its own) tracked its
+                        // claimed indices under its own slot — union them into this branch's set.
+                        $compositionEvaluatedIndices += $this->_compositionAnnotated['{{ nestedCompositionSlotKey }}'] ?? [];
+                    {% endforeach %}
+                }
+            {% endif %}
+            {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
+                if ($shouldTrack) {
+                    {% if compositionProperty.branchClaimsAllKeys() %}
+                        $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = true;
+                    {% endif %}
+                    {% if not compositionProperty.branchClaimsAllKeys() and compositionProperty.getNestedSchema() %}
+                        $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = is_object($value) ? $value : null;
+                    {% endif %}
+                    {% if not compositionProperty.branchClaimsAllKeys() and not compositionProperty.getNestedSchema() %}
+                        $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = $this->collectEvaluatedProperties(
+                            $modelData,
+                            {{ compositionProperty.getBranchDeclaredPropertyNamesPhpLiteral() }},
+                            {{ compositionProperty.getBranchPatternPropertyPatternsPhpLiteral() }},
+                        );
+                    {% endif %}
+                }
+            {% endif %}
         } catch (\Exception $e) {
-            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
-                  and not generatorConfiguration.collectErrors()
-            %}
+            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) and not generatorConfiguration.collectErrors() %}
                 if (isset($validatorIndex)) {
                     $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = false;
                 }
+            {% endif %}
+
+            {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
+                $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = null;
             {% endif %}
 
             {% if not generatorConfiguration.collectErrors()
@@ -84,6 +175,13 @@
 
             $succeededCompositionElements--;
         }
+
+        {% if compositionValidator.isNotComposition() and compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
+            // Restore composition evaluations so any annotations written by the not-branch body
+            // (including by nested UnevaluatedPropertiesValidators) cannot leak to the parent schema.
+            $this->_compositionEvaluations = $preNotBranchEvaluations;
+            $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = null;
+        {% endif %}
 
         $value = $originalModelData;
         $validatorComponentIndex++;
@@ -129,7 +227,13 @@
                     }
                 }
             {% endif %}
-            $value = $proposedValue;
+            {# Array-side compositions (slotKey set) never produce a nested-instance
+               $proposedValue; writing $proposedValue back would replace the validated array
+               with null on whole-composition failure, suppressing a subsequent
+               unevaluatedItems check in collectErrors mode. #}
+            {% if not compositionValidator.getSlotKey() %}
+                $value = $proposedValue;
+            {% endif %}
         } else {
             $value = $originalModelData;
         }
@@ -145,6 +249,16 @@
         if ($result) {
             $this->_propertyValidationState = $originalPropertyValidationState;
         }
+    {% endif %}
+
+    {% if compositionValidator.hasEvaluationTrackingEnabled() %}
+        {% if compositionValidator.getSlotKey() %}
+            $this->_compositionAnnotated[$slotKey] = $result ? [] : $compositionEvaluatedIndices;
+        {% else %}
+            if ($result) {
+                $this->_compositionEvaluations = $originalCompositionEvaluations;
+            }
+        {% endif %}
     {% endif %}
 
     return $result;

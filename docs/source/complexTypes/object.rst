@@ -85,6 +85,44 @@ If `error collection <../gettingStarted.html#collect-errors-vs-early-return>`__ 
 
     If the class created for a nested object is instantiated manually you will either get a collection exception or a specific exception based on your error collection configuration if invalid data is provided.
 
+Object applicators without an explicit type
+-------------------------------------------
+
+A property subschema that declares object applicators — ``properties``, ``patternProperties``, ``additionalProperties``, ``unevaluatedProperties``, ``propertyNames``, ``minProperties`` or ``maxProperties`` — is treated as an object even when it omits ``type: object``. JSON Schema applicators are not gated on a type declaration, so the keywords apply whenever the provided value is an object.
+
+Because an untyped schema imposes no type constraint, a value of any other type is still accepted and passes through unchanged. The property is therefore *not* typed as the nested class alone:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "child": {
+                "properties": {
+                    "known": {
+                        "type": "string"
+                    }
+                },
+                "unevaluatedProperties": false
+            }
+        }
+    }
+
+Generated interface — an object value for ``child`` is wrapped in and validated by the generated nested class, while any other value is accepted unchanged:
+
+.. code-block:: php
+
+    /** @return Child|mixed */
+    public function getChild(): mixed;
+
+The native return type is ``mixed``, not ``Child | mixed``: ``mixed`` already subsumes every type, and PHP rejects it inside a union. The annotation carries the additional information that the value may be an instance of the generated nested class.
+
+A ``child`` object carrying an unevaluated key is rejected, while a scalar ``child`` value is accepted without modification. A bare untyped schema (``{}``) declares no applicators, so no nested class is generated and the property remains a plain ``mixed`` value.
+
+.. note::
+
+    The same principle applies to scalar and array applicators: a subschema declaring ``minLength`` without ``type: string``, or ``minItems`` without ``type: array``, enforces the constraint only when the value is of the matching type and accepts values of every other type.
+
 Namespaces
 ----------
 
@@ -344,6 +382,148 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidAdd
 .. warning::
 
     The validation of additional properties is independently from the `implicit null <../gettingStarted.html#implicit-null>`__ setting. If you require your additional properties to accept null define a `multi type <multiType.html>`__ with explicit null.
+
+Unevaluated Properties
+----------------------
+
+The ``unevaluatedProperties`` keyword (Draft 2019-09 and later) constrains every property whose
+name was not evaluated by any positive sibling applicator at the same schema level. A key is
+counted as *evaluated* when it is claimed by ``properties``, matched by ``patternProperties``,
+claimed by ``additionalProperties`` (when that keyword is present), or claimed by a **successful**
+branch of an adjacent composition (``allOf``, ``anyOf``, ``oneOf``, ``if``/``then``/``else``,
+``$ref``). ``not`` is a negative applicator and contributes nothing.
+
+Unlike ``additionalProperties``, ``unevaluatedProperties`` looks across composition branches:
+a property covered by a branch that ended up succeeding is credited, and a property covered only
+by a branch that failed is not. This makes the keyword suitable for enforcing "no leftovers" at
+the outermost schema level while individual branches are free to declare their own properties.
+
+.. hint::
+
+    If you define constraints via ``unevaluatedProperties`` you may want to use the
+    `UnevaluatedPropertiesAccessorPostProcessor <../generator/builtin/unevaluatedPropertiesAccessorPostProcessor.html>`__
+    to access and modify unevaluated properties on the model.
+
+Using ``false``
+^^^^^^^^^^^^^^^
+
+Setting ``unevaluatedProperties: false`` forbids any property not claimed by a sibling.
+
+.. code-block:: json
+
+    {
+        "$id": "person",
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string"
+            }
+        },
+        "allOf": [
+            {
+                "properties": {
+                    "age": {
+                        "type": "integer"
+                    }
+                }
+            }
+        ],
+        "unevaluatedProperties": false
+    }
+
+The generated model accepts ``name`` (claimed by ``properties``) and ``age`` (claimed by the
+``allOf`` branch). Any other key raises an ``UnevaluatedPropertiesException``:
+
+.. code-block:: none
+
+    Provided JSON for person contains not allowed unevaluated properties [extra]
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\UnevaluatedPropertiesException*
+which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // Get the list of property names that were left unevaluated
+    public function getUnevaluatedProperties(): array
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
+
+Using a schema
+^^^^^^^^^^^^^^
+
+When ``unevaluatedProperties`` is set to a schema, every unevaluated key's value must validate
+against that schema:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "integer"
+            }
+        },
+        "unevaluatedProperties": {
+            "type": "string",
+            "maxLength": 10
+        }
+    }
+
+If invalid unevaluated properties are provided a detailed exception is thrown containing all
+violations:
+
+.. code-block:: none
+
+    Provided JSON for example contains invalid unevaluated properties.
+      - invalid unevaluated property 'note'
+        * Value for unevaluated property must not be longer than 10
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidUnevaluatedPropertiesException*
+which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns a two-dimensional array which contains all validation exceptions grouped by property names
+    public function getNestedExceptions(): array
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
+
+Interaction with ``additionalProperties``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When ``additionalProperties`` is present at the same schema level, it claims every key not
+covered by ``properties`` or ``patternProperties`` first — leaving nothing for
+``unevaluatedProperties`` to see. The generator recognises these dead-code shapes at generation
+time and emits a warning, then skips the ``unevaluatedProperties`` validator entirely:
+
+- ``additionalProperties: true`` alongside any ``unevaluatedProperties`` value.
+- ``additionalProperties: false`` alongside any ``unevaluatedProperties`` value.
+- ``additionalProperties: {schema}`` alongside any ``unevaluatedProperties`` value.
+- An implicit ``additionalProperties: false`` produced by the
+  `deny additional properties setting <../gettingStarted.html#deny-additional-properties>`__.
+
+Contradictory inner schemas (e.g. ``unevaluatedProperties`` combining a subschema that no value
+could satisfy with an outer configuration that still allows keys to reach it) are rejected with
+a ``SchemaException`` at generation time.
+
+.. note::
+
+    ``unevaluatedProperties`` also accepts the boolean literal ``true``. This is a no-op — every
+    property is considered evaluated — and no validator is emitted.
+
+.. hint::
+
+    See `combined schemas <../toc-combinedSchemas.html>`__ for the per-keyword rules that govern
+    how each composition contributes to the evaluated set.
 
 Recursive Objects
 -----------------

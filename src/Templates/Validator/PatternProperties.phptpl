@@ -31,11 +31,11 @@
             if (!isset($this->_patternPropertiesMap[$propertyKey])) {
                 $this->_patternProperties['{{ patternHash }}'][$propertyKey] = $value;
             }
-        } catch (\Exception $e) {
+        } catch (\Exception $exception) {
             // collect all errors concerning invalid pattern properties
             isset($invalidProperties[$propertyKey])
-                ? $invalidProperties[$propertyKey][] = $e
-                : $invalidProperties[$propertyKey] = [$e];
+                ? $invalidProperties[$propertyKey][] = $exception
+                : $invalidProperties[$propertyKey] = [$exception];
         }
     }
 

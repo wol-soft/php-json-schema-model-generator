@@ -129,3 +129,53 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
 
     See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
     explanation.
+
+Property and item evaluation propagation
+----------------------------------------
+
+For an enclosing schema that uses `unevaluatedProperties <../complexTypes/object.html#unevaluated-properties>`__
+or `unevaluatedItems <../complexTypes/array.html#unevaluated-items>`__ (Draft 2019-09 and later),
+every ``allOf`` branch always contributes to the evaluated set — ``allOf`` requires every branch
+to succeed, so all branches' declarations apply.
+
+For an object-level composition:
+
+- Property names declared in each branch's ``properties`` count as evaluated.
+- Names matched by each branch's ``patternProperties`` count as evaluated (per key with a passing
+  value).
+- Names claimed by each branch's ``additionalProperties`` count as evaluated (per key with a
+  passing value).
+
+For a value-typed ``array`` composition, the analogous indices contributed by each branch's
+``items``/``additionalItems``/``contains`` count as evaluated.
+
+.. note::
+
+    *Omitting* ``additionalProperties`` from a branch is **not** the same as writing
+    ``additionalProperties: true``. An omitted keyword produces no annotation and therefore
+    credits nothing to the enclosing ``unevaluatedProperties`` — only an *explicit*
+    ``additionalProperties`` (whether ``true`` or ``{schema}``) contributes. Two branches with
+    identical extras behaviour but one writing the keyword and the other omitting it will
+    therefore credit different evaluated sets. This is a spec-mandated distinction from
+    JSON Schema 2019-09. The same rule applies to ``additionalItems`` on the array side.
+
+.. note::
+
+    Only this *up* direction (a branch's own declarations propagating to an enclosing
+    ``unevaluatedProperties``/``unevaluatedItems``) is implemented. The reverse — a branch's own
+    ``unevaluatedProperties``/``unevaluatedItems`` (other than a literal ``true``, which never
+    rejects anything) seeing property names or indices declared by the *enclosing* schema or a
+    *sibling* branch — is not currently supported. Generation throws
+    ``PHPModelGenerator\Exception\UnsupportedSchemaFeatureException`` for a branch shaped like
+    this:
+
+    .. code-block:: json
+
+        {
+            "type": "object",
+            "properties": { "name": { "type": "string" } },
+            "allOf": [ { "unevaluatedProperties": false } ]
+        }
+
+    since the branch has no way to know that ``name`` is already declared and validated by the
+    enclosing schema.

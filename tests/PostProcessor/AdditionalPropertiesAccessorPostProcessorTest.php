@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\PostProcessor;
 
 use DateTime;
 use Exception;
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\InvalidPropertyNamesException;
 use PHPModelGenerator\Exception\Object\MaxPropertiesException;
@@ -362,6 +363,103 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         $this->expectExceptionMessage('must not contain less than 2 properties');
 
         $accessor->remove('a1');
+    }
+
+    /**
+     * Direct-exception-mode counterpart to
+     * UnevaluatedPropertiesAccessorPostProcessorTest::testRemoveCollectsMinPropertyAndUnevaluatedErrorsTogether:
+     * the same removal both drops the count below `minProperties` and flips the `anyOf`
+     * composition (branch 0 requires `p_foo`; removing it leaves only branch 1, which claims
+     * nothing, orphaning `q_marker`). In collect-errors mode both violations land in one
+     * registry; in direct-exception mode `RemoveAdditionalProperty.phptpl`'s
+     * `minPropertyValidator` check runs first — before the unset, before composition
+     * revalidation, before the post-composition unevaluatedProperties check — so only
+     * `MinPropertiesException` ever surfaces, never the orphaned-key exception. The rejected
+     * call's `catch` rolls `_rawModelDataInput` back, so the object's public behavior is
+     * verified identical to before the failed removal, not just that an exception was thrown.
+     */
+    public function testRemoveThrowsFirstApplicableExceptionDirectlyAndRollsBackOnCompositionMinPropertiesClash(): void
+    {
+        $this->addPostProcessor(true);
+
+        $className = $this->generateClassFromFile(
+            'BranchFlipOnRemove.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        // Both anyOf branches succeed: branch 0 (kind: string, additionalProperties: integer,
+        // minProperties: 3) claims p_foo and q_marker; branch 1 (kind: const "X") claims
+        // nothing. q_marker is credited only through branch 0.
+        $object = new $className(['kind' => 'X', 'p_foo' => 1, 'q_marker' => 7]);
+        $accessor = $object->additionalProperties();
+
+        try {
+            $accessor->remove('p_foo');
+            $this->fail('Expected MinPropertiesException, not an aggregated registry');
+        } catch (MinPropertiesException $exception) {
+            $this->assertSame(
+                "Provided object for '{$className}' must not contain less than 3 properties",
+                $exception->getMessage(),
+            );
+        }
+
+        // Rollback discipline: raw input, the additionalProperties bucket, and an unrelated
+        // setter all behave exactly as they would have if remove() had never been called.
+        $this->assertSame(
+            ['kind' => 'X', 'p_foo' => 1, 'q_marker' => 7],
+            $object->meta()->rawInput(),
+        );
+        $this->assertSame(['q_marker' => 7], $accessor->getAll());
+        $object->setKind('X');
+        $this->assertSame('X', $object->getKind());
+    }
+
+    /**
+     * A composition branch declaring `additionalProperties` is decided by keys it never names,
+     * so the setter-side validation cache — which asks whether the mutated keys intersect the
+     * branch's *declared* property names — must not be consulted for it. A dynamic key never
+     * intersects that list, so a cached branch outcome would let `set()` store a value the
+     * branch rejects.
+     *
+     * Both entry points must agree: constructing with the same pair is rejected, so setting it
+     * has to be rejected too, and the rejected write must leave the raw model data untouched.
+     *
+     * The fixture declares `kind` twice on purpose. `additionalProperties` only exempts the
+     * `properties` of the schema object it sits in, so without the branch's own `kind`
+     * declaration the branch would treat the string `kind` as an additional property, fail its
+     * `type: integer` claim, and reject the constructor call this test needs to succeed.
+     */
+    public function testSetIsRejectedByABranchAdditionalPropertiesClaimDespiteACachedBranchOutcome(): void
+    {
+        $this->addPostProcessor(true);
+
+        $className = $this->generateClassFromFile(
+            'BranchAdditionalPropertiesTypesExtras.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        // Construction populates the branch's cached outcome with "valid".
+        $object = new $className(['kind' => 'a']);
+
+        // The same state the constructor refuses below, reached through the accessor instead.
+        try {
+            $object->additionalProperties()->set('extra', 'not-an-integer');
+            $this->fail('Expected the branch additionalProperties claim to reject the value');
+        } catch (AllOfException $exception) {
+            $this->assertSame(
+                <<<MSG
+                Invalid value for '{$className}' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertSame([], $object->additionalProperties()->getAll());
+        $this->assertSame(['kind' => 'a'], $object->meta()->rawInput());
+
+        $this->expectException(AllOfException::class);
+        new $className(['kind' => 'a', 'extra' => 'not-an-integer']);
     }
 
     public function testSetterSchemaHooksAreResolvedInSetAdditionalProperties(): void

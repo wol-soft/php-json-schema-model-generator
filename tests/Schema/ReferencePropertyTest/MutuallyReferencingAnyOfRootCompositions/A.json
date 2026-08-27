@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "exclusiveProp": {
+          "type": "string",
+          "default": "fromA"
+        }
+      }
+    },
+    {
+      "$ref": "B.json"
+    }
+  ]
+}

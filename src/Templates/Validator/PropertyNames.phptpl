@@ -21,11 +21,11 @@
                     $invalidProperties[$value] = $this->_errorRegistry->getErrors();
                 }
             {% endif %}
-        } catch (\Exception $e) {
+        } catch (\Exception $exception) {
             // collect all errors concerning invalid property names
             isset($invalidProperties[$value])
-                ? $invalidProperties[$value][] = $e
-                : $invalidProperties[$value] = [$e];
+                ? $invalidProperties[$value][] = $exception
+                : $invalidProperties[$value] = [$exception];
         }
     }
 

@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "other": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "maxProperties": 1
+    }
+  ]
+}

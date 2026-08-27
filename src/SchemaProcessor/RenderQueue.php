@@ -10,11 +10,6 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\RenderJob;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 
-/**
- * Class RenderQueue
- *
- * @package PHPModelGenerator\SchemaProcessor
- */
 class RenderQueue
 {
     /** @var RenderJob[] */
@@ -44,8 +39,16 @@ class RenderQueue
             $postProcessor->preProcess();
         }
 
+        // Decouple post-processing from rendering so that a post processor on schema A may
+        // mutate schema B (e.g. attach a method to a nested composition-branch class) and have
+        // those mutations visible when B is rendered, regardless of queue order. Without this
+        // separation, a process()/render() loop interleaved per schema would render B before
+        // A's process() had a chance to touch it.
         foreach ($this->jobs as $job) {
             $job->executePostProcessors($postProcessors, $generatorConfiguration);
+        }
+
+        foreach ($this->jobs as $job) {
             $job->render($generatorConfiguration);
         }
 

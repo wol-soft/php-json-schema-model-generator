@@ -85,6 +85,10 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getCheck(): string
     {
+        // Make this validator instance available to the template so the unevaluatedProperties
+        // tracking guards (hasEvaluationTrackingEnabled, isNotComposition) can be evaluated.
+        $this->templateValues['compositionValidator'] = $this;
+
         $this->setupBranchDefaultHelpers();
 
         return parent::getCheck();
@@ -128,7 +132,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         // Regenerate the modifiedValuesMethod name so the subset validator's helper
         // method is distinct from the original's.
         $subsetValidator->modifiedValuesMethod =
-            '_getModifiedValues_' . substr(md5(spl_object_hash($subsetValidator)), 0, 5);
+            '_getModifiedValues_' . substr(md5((string) spl_object_id($subsetValidator)), 0, 5);
 
         $subsetValidator->composedProperties = $filteredProperties;
         $subsetValidator->templateValues = array_merge($this->templateValues, [

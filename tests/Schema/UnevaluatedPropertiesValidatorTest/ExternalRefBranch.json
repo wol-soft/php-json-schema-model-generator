@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "../UnevaluatedPropertiesValidatorTest_external/externalBranch.json#/definitions/extension"
+    }
+  ],
+  "unevaluatedProperties": false
+}

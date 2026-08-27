@@ -62,7 +62,7 @@ class IfValidatorFactory
         // that sub-schemas that inherit 'object' are correctly recognised as object-typed.
         // Object-typed sub-schemas create nested schemas whose properties are processed
         // independently and are not subject to ComposedItem $value reset.
-        $propertySchema = $this->inheritPropertyType($schemaProcessor, $property, $propertySchema->withJson($json));
+        [$propertySchema] = $this->inheritPropertyType($schemaProcessor, $property, $propertySchema->withJson($json));
         $json = $propertySchema->getJson();
 
         // Check for filter keywords in if/then/else sub-schemas after type inheritance.

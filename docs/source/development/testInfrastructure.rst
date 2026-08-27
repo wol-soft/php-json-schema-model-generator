@@ -128,13 +128,13 @@ Examples:
 
 The three available drafts are defined in the ``JsonSchemaDraft`` enum:
 
-=========================== ===========
-Constant                    Description
-=========================== ===========
-``JsonSchemaDraft::DRAFT_07``         JSON Schema Draft 7 (the baseline)
-``JsonSchemaDraft::DRAFT_2019_09``    JSON Schema Draft 2019-09
-``JsonSchemaDraft::DRAFT_2020_12``    JSON Schema Draft 2020-12
-=========================== ===========
+================================== ==========================================
+Constant                           Description
+================================== ==========================================
+``JsonSchemaDraft::DRAFT_07``      JSON Schema Draft 7 (the baseline)
+``JsonSchemaDraft::DRAFT_2019_09`` JSON Schema Draft 2019-09
+``JsonSchemaDraft::DRAFT_2020_12`` JSON Schema Draft 2020-12
+================================== ==========================================
 
 Data providers and multi-draft expansion
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

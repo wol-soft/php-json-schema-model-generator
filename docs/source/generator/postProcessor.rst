@@ -22,6 +22,7 @@ All added post processors will be executed after a schema was processed and befo
     builtin/populatePostProcessor
     builtin/additionalPropertiesAccessorPostProcessor
     builtin/patternPropertiesAccessorPostProcessor
+    builtin/unevaluatedPropertiesAccessorPostProcessor
 
 .. toctree::
     :caption: Custom Extensions

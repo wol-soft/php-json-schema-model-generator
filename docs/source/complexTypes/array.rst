@@ -334,6 +334,157 @@ any element satisfies the constraint).
 ``contains: false`` — no element could ever satisfy the constraint; any array value raises a
 ``ContainsException`` at runtime. The generator also emits a warning at generation time.
 
+Unevaluated Items
+-----------------
+
+The ``unevaluatedItems`` keyword (Draft 2019-09 and later) constrains every index that was not
+evaluated by any positive sibling applicator at the same schema level. Indices claimed by
+``items`` (single-schema or tuple form), by ``additionalItems`` when present, by a passing
+``contains`` match, or by a **successful** composition branch (``allOf``, ``anyOf``, ``oneOf``,
+``if``/``then``/``else``, ``$ref``) count as evaluated. ``not`` is a negative applicator and
+contributes nothing.
+
+Unlike ``additionalItems``, ``unevaluatedItems`` looks across composition branches: an index
+covered by a branch that ended up succeeding is credited, and an index covered only by a branch
+that failed is not.
+
+Using ``false``
+^^^^^^^^^^^^^^^
+
+Setting ``unevaluatedItems: false`` forbids any array index left uncovered by a sibling.
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "items": [
+                    {
+                        "type": "string"
+                    }
+                ],
+                "allOf": [
+                    {
+                        "items": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "integer"
+                            }
+                        ]
+                    }
+                ],
+                "unevaluatedItems": false
+            }
+        }
+    }
+
+Indices 0 and 1 are covered by the tuple items of the outer or the ``allOf`` branch. Any
+further element raises an ``UnevaluatedItemsException`` with the offending indices:
+
+.. code-block:: none
+
+    Provided JSON for example contains not allowed unevaluated items [#2, #3]
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\UnevaluatedItemsException*
+which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // Get the zero-based indices of the offending items
+    public function getUnevaluatedItems(): array
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
+
+Using a schema
+^^^^^^^^^^^^^^
+
+When ``unevaluatedItems`` is set to a schema, every unevaluated index's value must validate
+against that schema:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "items": [
+                    {
+                        "type": "string"
+                    }
+                ],
+                "unevaluatedItems": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
+
+If invalid unevaluated items are provided a detailed exception is thrown containing all
+violations:
+
+.. code-block:: none
+
+    Invalid unevaluated items in array example:
+      - invalid unevaluated item #1
+        * Invalid type for item of array example. Requires int, got string
+
+The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidUnevaluatedItemsException*
+which provides the following methods to get further error details:
+
+.. code-block:: php
+
+    // returns a two-dimensional array which contains all validation exceptions grouped by item index
+    public function getInvalidItems(): array
+    // get the name of the property which failed
+    public function getPropertyName(): string
+    // get the value provided to the property
+    public function getProvidedValue()
+    // get the JSON pointer to the schema keyword that rejected the value
+    public function getJsonPointer(): JsonPointer
+
+Interaction with sibling applicators
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When a sibling applicator already claims every index, the ``unevaluatedItems`` validator has
+nothing to check. The generator recognises these dead-code shapes at generation time, emits a
+warning, and skips ``unevaluatedItems`` entirely:
+
+- ``items: false`` (or ``items: {schema}`` in single-schema form) leaves no unclaimed index at
+  all, because ``items`` covers every position.
+- ``additionalItems: false`` alongside tuple ``items`` blocks any index past the tuple length —
+  every index is either tuple-covered (and evaluated) or rejected by ``additionalItems``.
+- ``additionalItems: {schema}`` alongside tuple ``items`` claims every index past the tuple
+  length — every index is again covered.
+- An implicit ``additionalItems: false`` produced by the deny setting is treated the same way.
+
+.. note::
+
+    ``contains`` credits only the indices that actually satisfy its subschema, so any index not
+    matched by ``contains`` remains available for ``unevaluatedItems``. When
+    ``minContains: 0`` is set, ``contains`` may succeed with zero matches and contributes nothing
+    to the evaluated set.
+
+.. note::
+
+    ``unevaluatedItems`` also accepts the boolean literal ``true``. This is a no-op — every index
+    is considered evaluated — and no validator is emitted.
+
+.. hint::
+
+    See `combined schemas <../toc-combinedSchemas.html>`__ for the per-keyword rules that govern
+    how each composition contributes to the evaluated set.
+
 Size validation
 ---------------
 
