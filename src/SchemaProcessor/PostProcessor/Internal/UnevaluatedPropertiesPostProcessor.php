@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 
+use PHPModelGenerator\Exception\UnsupportedSchemaFeatureException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
@@ -14,6 +15,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ArrayContainsValidator;
+use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Traits\CompositionEvaluationTrait;
@@ -72,6 +74,8 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             return;
         }
 
+        $this->assertNoUnsupportedDownPropagation($schema);
+
         // A schema with a non-false `unevaluatedProperties` validator tracks each key the
         // validator successfully evaluates in `_evaluatedPropertyKeys`. That field is read
         // by `_getEvaluatedProperties()` on nested branch classes so an enclosing
@@ -92,6 +96,193 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
         $this->activateSchemaLevelTracking($schema);
         $this->activateArrayPropertyTracking($schema);
+    }
+
+    /**
+     * Rejects a composition branch's `unevaluatedProperties`/`unevaluatedItems` when it cannot
+     * possibly be evaluated correctly: the branch renders as its own, separately-constructed
+     * class with no visibility into the enclosing schema's own declarations or a sibling
+     * branch's claims (only the reverse direction - branch claims propagating up - is
+     * implemented). Silently computing a wrong "unevaluated" set would either reject valid
+     * input or accept invalid input, so this fails loudly at generation time instead - see
+     * `.claude/topics/branch-unevaluated-down-propagation/` for the full design discussion,
+     * including why a general fix was rejected as either unsound (anyOf/oneOf: two sibling
+     * branches each gating on the other's claims can have no unique consistent answer at all,
+     * not just an expensive one to compute) or out of proportion to a pattern of unknown
+     * real-world frequency (allOf, where a fix is sound but non-trivial).
+     *
+     * `true` is exempt: it never rejects anything regardless of what the branch believes is
+     * evaluated, so the gap has no observable effect on validation outcomes. `not` is exempt
+     * because it already blocks annotations from crossing its boundary in both directions by
+     * design (see `not.rst`) - nothing about its own outcome depends on outside annotations.
+     */
+    private function assertNoUnsupportedDownPropagation(Schema $schema): void
+    {
+        foreach ($schema->getBaseValidators() as $validator) {
+            if ($validator instanceof AbstractComposedPropertyValidator) {
+                $this->checkBranchesForUnsupportedDownPropagation(
+                    $validator,
+                    $schema->getJsonSchema()->getJson(),
+                    $schema->getClassName(),
+                );
+            }
+        }
+
+        foreach ($schema->getProperties() as $schemaProperty) {
+            foreach ($schemaProperty->getOrderedValidators() as $validator) {
+                if ($validator instanceof AbstractComposedPropertyValidator) {
+                    $this->checkBranchesForUnsupportedDownPropagation(
+                        $validator,
+                        $schemaProperty->getJsonSchema()->getJson(),
+                        $schemaProperty->getName(),
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $enclosingJson The JSON of the schema/property the composition
+     *                                             keyword itself sits on - not any one branch's.
+     */
+    private function checkBranchesForUnsupportedDownPropagation(
+        AbstractComposedPropertyValidator $validator,
+        array $enclosingJson,
+        string $contextName,
+    ): void {
+        if (is_a($validator->getCompositionProcessor(), NotValidatorFactory::class, true)) {
+            return;
+        }
+
+        $composedProperties = $validator->getComposedProperties();
+        $branchJsonList = [];
+        $seen = [];
+
+        foreach ($composedProperties as $index => $composedProperty) {
+            $branchJsonList[$index] = $this->collectBranchOwnJson($composedProperty, $seen);
+        }
+
+        $enclosingHasObjectClaims = $this->declaresObjectClaimingKeyword($enclosingJson);
+        $enclosingHasArrayClaims = $this->declaresArrayClaimingKeyword($enclosingJson);
+
+        foreach ($branchJsonList as $index => $branchJson) {
+            $somethingElseHasObjectClaims = $enclosingHasObjectClaims;
+            $somethingElseHasArrayClaims = $enclosingHasArrayClaims;
+
+            foreach ($branchJsonList as $siblingIndex => $siblingJson) {
+                if ($siblingIndex === $index) {
+                    continue;
+                }
+
+                $somethingElseHasObjectClaims =
+                    $somethingElseHasObjectClaims || $this->declaresObjectClaimingKeyword($siblingJson);
+                $somethingElseHasArrayClaims =
+                    $somethingElseHasArrayClaims || $this->declaresArrayClaimingKeyword($siblingJson);
+            }
+
+            $this->assertKeywordNotUnsupported(
+                $branchJson,
+                'unevaluatedProperties',
+                $somethingElseHasObjectClaims,
+                $composedProperties[$index]->getBranchSchema(),
+                $contextName,
+                $index,
+            );
+            $this->assertKeywordNotUnsupported(
+                $branchJson,
+                'unevaluatedItems',
+                $somethingElseHasArrayClaims,
+                $composedProperties[$index]->getBranchSchema(),
+                $contextName,
+                $index,
+            );
+        }
+    }
+
+    /**
+     * A branch's own JSON, or - when it has no nested `Schema` of its own (true for every
+     * array-typed branch, and for a self/mutually-referencing `$ref` branch) - the JSON of
+     * whatever composition is nested directly inside it instead, recursing the same way
+     * `propertyHasBranchUnevaluatedItems()` does. `$seen` (keyed on file+pointer, not object
+     * identity - `getOrderedValidators()` returns fresh clones on every call) guards against the
+     * same self-referencing-schema cycle item 15 fixed there.
+     *
+     * @param array<string, bool> $seen
+     */
+    private function collectBranchOwnJson(CompositionPropertyDecorator $composedProperty, array &$seen): array
+    {
+        $branchJson = $composedProperty->getBranchSchema()->getJson();
+
+        if ($composedProperty->getNestedSchema() !== null) {
+            return $branchJson;
+        }
+
+        $wrappedProperty = $composedProperty->getWrappedProperty();
+        $propertyKey = $wrappedProperty->getJsonSchema()->getFile()
+            . '#' . $wrappedProperty->getJsonSchema()->getPointer();
+
+        if (array_key_exists($propertyKey, $seen)) {
+            return $branchJson;
+        }
+
+        $seen[$propertyKey] = true;
+
+        foreach ($wrappedProperty->getOrderedValidators() as $nestedValidator) {
+            if (!$nestedValidator instanceof AbstractComposedPropertyValidator) {
+                continue;
+            }
+
+            foreach ($nestedValidator->getComposedProperties() as $nestedComposedProperty) {
+                $branchJson = array_merge($branchJson, $this->collectBranchOwnJson($nestedComposedProperty, $seen));
+            }
+        }
+
+        return $branchJson;
+    }
+
+    private function declaresObjectClaimingKeyword(array $json): bool
+    {
+        return array_key_exists('properties', $json)
+            || array_key_exists('patternProperties', $json)
+            || array_key_exists('additionalProperties', $json);
+    }
+
+    private function declaresArrayClaimingKeyword(array $json): bool
+    {
+        return array_key_exists('items', $json)
+            || array_key_exists('additionalItems', $json)
+            || array_key_exists('contains', $json);
+    }
+
+    private function assertKeywordNotUnsupported(
+        array $branchJson,
+        string $keyword,
+        bool $somethingElseClaims,
+        JsonSchema $branchSchema,
+        string $contextName,
+        int $branchIndex,
+    ): void {
+        if (
+            !array_key_exists($keyword, $branchJson)
+            || $branchJson[$keyword] === true
+            || !$somethingElseClaims
+        ) {
+            return;
+        }
+
+        throw new UnsupportedSchemaFeatureException(
+            sprintf(
+                "Branch #%d of the composition for '%s' declares '%s', which cannot yet see "
+                    . 'property names or indices declared by the enclosing schema or a sibling '
+                    . "branch - remove '%s' from the branch, or restructure the schema so it is "
+                    . 'declared only at the level that needs it',
+                $branchIndex + 1,
+                $contextName,
+                $keyword,
+                $keyword,
+            ),
+            $branchSchema,
+        );
     }
 
     /**

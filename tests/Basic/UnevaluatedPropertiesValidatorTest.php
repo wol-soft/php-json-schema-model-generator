@@ -14,6 +14,7 @@ use PHPModelGenerator\Exception\Object\NestedObjectException;
 use PHPModelGenerator\Exception\Object\RequiredValueException;
 use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\UnsupportedSchemaFeatureException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
@@ -471,56 +472,108 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
-     * Deferred bug, found while auditing line-coverage on `UnevaluatedPropertiesPostProcessor`:
-     * a composition branch that declares `unevaluatedProperties` with no matching keyword on
-     * the enclosing schema must still see every property the enclosing schema (or a sibling
-     * branch) declares — `allOf` does not introduce a new evaluation-context boundary, so per
-     * spec a branch-level `unevaluatedProperties` is evaluated against the *same* annotation
-     * set as an outer-level one would be.
+     * A composition branch's own `unevaluatedProperties` cannot see property names the
+     * *enclosing* schema (or a sibling branch) declares — `allOf` does not introduce a new
+     * evaluation-context boundary, so per spec a branch-level `unevaluatedProperties` should be
+     * evaluated against the *same* annotation set an outer-level one would be, but nothing in
+     * the current architecture plumbs the enclosing schema's declared names (or a sibling
+     * branch's claims) through to a branch's own, separately-generated class - only the reverse
+     * direction (branch claims propagating up) is implemented.
      *
-     * The branch here renders as its own nested class (any branch declaring
-     * `unevaluatedProperties` routes through the object-instantiation path, even with no other
-     * keywords of its own). That nested class's `_executePostCompositionValidators()` calls
-     * `collectUnevaluatedKeys($modelData, [], [], [])` — an empty declared-names list, because
-     * the branch itself declares nothing. It has no visibility into `name`, which the
-     * *enclosing* schema's own `properties` declares and validates. The construction below
-     * should therefore succeed (`name` is evaluated by the enclosing schema), but instead
-     * throws `AllOfException` wrapping an `UnevaluatedPropertiesException` naming `name` as
-     * unevaluated — confirmed independent of whether the branch has its own `properties`
-     * (verified by hand against a variant with `properties: {foo}` added to the branch: the
-     * *same* enclosing-declared `name` is still wrongly rejected).
-     *
-     * This is the mirror image of `testBranchLevelAdditionalPropertiesFeedsEvaluatedSetThroughComposition`
-     * and friends above: those prove a branch's claims propagate *up* to an outer
-     * `unevaluatedProperties`. This is the reverse direction — an outer (or sibling-branch)
-     * declaration propagating *down* into a branch's own `unevaluatedProperties` — and per
-     * `docs/source/combinedSchemas/allOf.rst`'s "Property and item evaluation propagation"
-     * section (which only documents the up-propagation direction), the down direction was
-     * never built.
-     *
-     * Deferred: the fix touches how a composition branch's own nested class computes its
-     * evaluated set, not a single call site — it needs to receive (or otherwise gain
-     * visibility into) the declared names of the enclosing schema and any sibling branches,
-     * which the current architecture does not plumb through to a branch's own generated class
-     * at all. Tracked in implementation-plan.md's post-implementation-review list.
+     * Rather than silently computing a wrong "unevaluated" set (this exact shape used to reject
+     * `{name: "Alice"}`, even though `name` is declared and validated by the enclosing schema's
+     * own `properties`), the generator now rejects the schema itself at generation time with a
+     * distinct exception - see `.claude/topics/branch-unevaluated-down-propagation/` for why a
+     * real fix was deferred instead of implemented (a sound fix exists for `allOf` alone, but
+     * the equivalent for `anyOf`/`oneOf` can have no unique consistent answer at all when two
+     * sibling branches each gate their own `unevaluatedProperties` on the other's claims).
      */
-    public function testBranchOnlyUnevaluatedPropertiesIgnoresOuterDeclarations(): void
+    public function testBranchOnlyUnevaluatedPropertiesThrowsUnsupportedSchemaFeatureException(): void
     {
-        $this->markTestIncomplete(
-            'Bug: a composition branch\'s own unevaluatedProperties does not see properties the '
-            . 'enclosing schema (or a sibling branch) declares — the branch\'s nested class has '
-            . 'no visibility into names declared outside itself. See the class docblock above '
-            . 'for the full analysis; tracked in implementation-plan.md.',
+        $this->expectException(UnsupportedSchemaFeatureException::class);
+        $this->expectExceptionMessage(
+            "Branch #1 of the composition for 'BranchOnlyUnevaluatedPropertiesIgnoresOuterDeclarations' "
+                . "declares 'unevaluatedProperties', which cannot yet see property names or indices "
+                . 'declared by the enclosing schema or a sibling branch - remove '
+                . "'unevaluatedProperties' from the branch, or restructure the schema so it is "
+                . 'declared only at the level that needs it at line 10, column 5',
         );
 
-        // @phpstan-ignore-next-line dead code — unreachable until the fix lands
-        $className = $this->generateClassFromFile('BranchOnlyUnevaluatedPropertiesIgnoresOuterDeclarations.json');
+        $this->generateClassFromFile('BranchOnlyUnevaluatedPropertiesIgnoresOuterDeclarations.json', null, true);
+    }
 
-        // 'name' is declared and validated by the enclosing schema's own `properties`, not by
-        // the branch — the branch's `unevaluatedProperties: false` must still treat it as
-        // evaluated, since allOf shares one evaluation context with its enclosing schema.
-        $accepted = new $className(['name' => 'Alice']);
-        $this->assertSame(['name' => 'Alice'], $accepted->meta()->rawInput());
+    /**
+     * The unsupported-down-propagation guard above is driven by
+     * `AbstractComposedPropertyValidator::getComposedProperties()`, which every composition
+     * keyword's validator populates uniformly - confirms the guard actually reaches `anyOf`,
+     * `oneOf`, and `if`/`then`/`else` too, not just the `allOf` shape the bug was originally
+     * found with. Also confirms the *sibling-branch* half of the detection (as opposed to the
+     * enclosing-schema-declares-something half every other row here exercises): the enclosing
+     * schema itself declares nothing in `SiblingBranchUnsupportedDownPropagation.json` - only a
+     * *sibling* `allOf` branch declares `properties`.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function unsupportedDownPropagationDataProvider(): array
+    {
+        return [
+            'anyOf branch' => [
+                'AnyOfBranchUnsupportedDownPropagation.json',
+                "Branch #1 of the composition for 'AnyOfBranchUnsupportedDownPropagation' declares "
+                    . "'unevaluatedProperties', which cannot yet see property names or indices "
+                    . 'declared by the enclosing schema or a sibling branch - remove '
+                    . "'unevaluatedProperties' from the branch, or restructure the schema so it is "
+                    . 'declared only at the level that needs it at line 10, column 5',
+            ],
+            'oneOf branch' => [
+                'OneOfBranchUnsupportedDownPropagation.json',
+                "Branch #1 of the composition for 'OneOfBranchUnsupportedDownPropagation' declares "
+                    . "'unevaluatedProperties', which cannot yet see property names or indices "
+                    . 'declared by the enclosing schema or a sibling branch - remove '
+                    . "'unevaluatedProperties' from the branch, or restructure the schema so it is "
+                    . 'declared only at the level that needs it at line 10, column 5',
+            ],
+            'if/then branch' => [
+                'IfThenBranchUnsupportedDownPropagation.json',
+                "Branch #2 of the composition for 'IfThenBranchUnsupportedDownPropagation' declares "
+                    . "'unevaluatedProperties', which cannot yet see property names or indices "
+                    . 'declared by the enclosing schema or a sibling branch - remove '
+                    . "'unevaluatedProperties' from the branch, or restructure the schema so it is "
+                    . 'declared only at the level that needs it at line 19, column 11',
+            ],
+            'sibling branch declares the claim, not the enclosing schema' => [
+                'SiblingBranchUnsupportedDownPropagation.json',
+                "Branch #1 of the composition for 'SiblingBranchUnsupportedDownPropagation' declares "
+                    . "'unevaluatedProperties', which cannot yet see property names or indices "
+                    . 'declared by the enclosing schema or a sibling branch - remove '
+                    . "'unevaluatedProperties' from the branch, or restructure the schema so it is "
+                    . 'declared only at the level that needs it at line 5, column 5',
+            ],
+        ];
+    }
+
+    #[DataProvider('unsupportedDownPropagationDataProvider')]
+    public function testUnsupportedDownPropagationThrowsAcrossCompositionKeywords(
+        string $schemaFile,
+        string $expectedMessage,
+    ): void {
+        $this->expectException(UnsupportedSchemaFeatureException::class);
+        $this->expectExceptionMessage($expectedMessage);
+
+        $this->generateClassFromFile($schemaFile, null, true);
+    }
+
+    /**
+     * `not` is deliberately exempt from the unsupported-down-propagation guard: it already
+     * blocks annotations from crossing its boundary in both directions by design (see
+     * `not.rst`) - nothing about its own outcome depends on outside annotations, so there is
+     * nothing for the guard to protect against here, unlike every other composition keyword.
+     */
+    public function testNotBranchIsExemptFromUnsupportedDownPropagationGuard(): void
+    {
+        $className = $this->generateClassFromFile('NotBranchExemptFromUnsupportedDownPropagation.json');
+
+        $this->assertSame(['name' => 'Alice'], (new $className(['name' => 'Alice']))->meta()->rawInput());
     }
 
     /**

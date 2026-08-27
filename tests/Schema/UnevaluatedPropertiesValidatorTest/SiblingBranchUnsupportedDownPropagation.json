@@ -1,0 +1,16 @@
+{
+  "title": "SiblingBranchUnsupportedDownPropagation",
+  "type": "object",
+  "allOf": [
+    {
+      "unevaluatedProperties": false
+    },
+    {
+      "properties": {
+        "other": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}

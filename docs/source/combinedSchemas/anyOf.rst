@@ -136,3 +136,13 @@ indices claimed by its ``items``/``additionalItems``/``contains``.
     identical extras behaviour but one writing the keyword and the other omitting it will
     therefore credit different evaluated sets. This is a spec-mandated distinction from
     JSON Schema 2019-09. The same rule applies to ``additionalItems`` on the array side.
+
+.. note::
+
+    Only this *up* direction (a branch's own declarations propagating to an enclosing
+    ``unevaluatedProperties``/``unevaluatedItems``) is implemented. The reverse — a branch's own
+    ``unevaluatedProperties``/``unevaluatedItems`` (other than a literal ``true``, which never
+    rejects anything) seeing property names or indices declared by the *enclosing* schema or a
+    *sibling* branch — is not currently supported and throws
+    ``PHPModelGenerator\Exception\UnsupportedSchemaFeatureException`` at generation time. See
+    `All Of <allOf.html>`__'s equivalent note for a concrete example.

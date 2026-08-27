@@ -158,3 +158,24 @@ For a value-typed ``array`` composition, the analogous indices contributed by ea
     identical extras behaviour but one writing the keyword and the other omitting it will
     therefore credit different evaluated sets. This is a spec-mandated distinction from
     JSON Schema 2019-09. The same rule applies to ``additionalItems`` on the array side.
+
+.. note::
+
+    Only this *up* direction (a branch's own declarations propagating to an enclosing
+    ``unevaluatedProperties``/``unevaluatedItems``) is implemented. The reverse — a branch's own
+    ``unevaluatedProperties``/``unevaluatedItems`` (other than a literal ``true``, which never
+    rejects anything) seeing property names or indices declared by the *enclosing* schema or a
+    *sibling* branch — is not currently supported. Generation throws
+    ``PHPModelGenerator\Exception\UnsupportedSchemaFeatureException`` for a branch shaped like
+    this:
+
+    .. code-block:: json
+
+        {
+            "type": "object",
+            "properties": { "name": { "type": "string" } },
+            "allOf": [ { "unevaluatedProperties": false } ]
+        }
+
+    since the branch has no way to know that ``name`` is already declared and validated by the
+    enclosing schema.

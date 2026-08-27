@@ -252,3 +252,14 @@ and refreshed whenever the model is mutated.
     identical extras behaviour but one writing the keyword and the other omitting it will
     therefore credit different evaluated sets. This is a spec-mandated distinction from
     JSON Schema 2019-09. The same rule applies to ``additionalItems`` on the array side.
+
+.. note::
+
+    Only this *up* direction (a branch's own declarations propagating to an enclosing
+    ``unevaluatedProperties``/``unevaluatedItems``) is implemented. The reverse — a ``then`` or
+    ``else`` branch's own ``unevaluatedProperties``/``unevaluatedItems`` (other than a literal
+    ``true``, which never rejects anything) seeing property names or indices declared by the
+    *enclosing* schema, ``if``'s own declarations, or the other conditional branch — is not
+    currently supported and throws
+    ``PHPModelGenerator\Exception\UnsupportedSchemaFeatureException`` at generation time. See
+    `All Of <allOf.html>`__'s equivalent note for a concrete example.

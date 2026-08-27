@@ -1,12 +1,12 @@
 {
-  "title": "BranchOnlyUnevaluatedPropertiesIgnoresOuterDeclarations",
+  "title": "OneOfBranchUnsupportedDownPropagation",
   "type": "object",
   "properties": {
     "name": {
       "type": "string"
     }
   },
-  "allOf": [
+  "oneOf": [
     {
       "unevaluatedProperties": false
     }
