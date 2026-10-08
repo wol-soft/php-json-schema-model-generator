@@ -77,9 +77,10 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
     }
 
     /**
-     * Three sibling-shape combinations make the unevaluatedItems keyword unreachable: the
+     * Several sibling-shape combinations make the unevaluatedItems keyword unreachable: the
      * array is forced empty by `items: false`, every index is already claimed by an
-     * `items: {schema}`, or the tuple length is fully covered with `additionalItems: false`.
+     * `items: true` / `items: {schema}`, or tuple `items` is followed by an `additionalItems`
+     * of any value (`false` rejects the tail, `true` / `{schema}` claim it).
      * Each one is spec-legal and emits a generation-time warning instead of a SchemaException
      * — the developer's intent is intact but the keyword cannot contribute.
      */
@@ -120,18 +121,25 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
         $isTupleItems = is_array($items) && $items !== [] && array_is_list($items);
 
         if ($isTupleItems) {
-            if (($json['additionalItems'] ?? null) === false) {
-                $this->warn(
-                    $schemaProcessor,
-                    $schema,
-                    $property,
-                    "sibling additionalItems: false rejects every tail index past the tuple",
-                );
-
-                return true;
+            if (!array_key_exists('additionalItems', $json)) {
+                return false;
             }
 
-            return false;
+            // The tuple evaluates the head; additionalItems then covers every index past it. With
+            // `false` the tail is rejected outright, with `true` or a schema it is accepted and
+            // evaluated (and, for a schema, validated). Either way no index is left over.
+            $additionalItems = $json['additionalItems'];
+
+            $reason = match (true) {
+                $additionalItems === false => 'rejects every tail index past the tuple',
+                $additionalItems === true => 'already claims every tail index past the tuple',
+                default => 'already validates every tail index past the tuple',
+            };
+            $keywordValue = is_bool($additionalItems) ? var_export($additionalItems, true) : '{schema}';
+
+            $this->warn($schemaProcessor, $schema, $property, "sibling additionalItems: $keywordValue $reason");
+
+            return true;
         }
 
         // Schema-form items claims every index per the spec; nothing is left over for the

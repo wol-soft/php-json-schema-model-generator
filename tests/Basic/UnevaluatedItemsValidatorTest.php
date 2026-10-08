@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Basic;
 
 use DateTime;
+use PHPModelGenerator\Exception\Arrays\InvalidAdditionalTupleItemsException;
 use PHPModelGenerator\Exception\Arrays\InvalidUnevaluatedItemsException;
-use PHPModelGenerator\Exception\Arrays\UniqueItemsException;
 use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
+use PHPModelGenerator\Exception\Arrays\UniqueItemsException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
@@ -391,7 +392,7 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Three sibling shapes make `unevaluatedItems` unreachable; each emits a generation-time
+     * Several sibling shapes make `unevaluatedItems` unreachable; each emits a generation-time
      * warning instead of a SchemaException. The warning pin captures the developer's intended
      * class/property identifier so the source of the dead code is obvious in build output.
      *
@@ -423,6 +424,17 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
                 'TupleAdditionalFalseWithUnevaluatedFalse.json',
                 "sibling additionalItems: false rejects every tail index past the tuple",
             ],
+            // Tuple items + additionalItems: true accepts and evaluates every tail index; with the
+            // tuple covering the head, every index is claimed.
+            'tuple items with additionalItems: true' => [
+                'TupleAdditionalTrueWithUnevaluatedSchema.json',
+                "sibling additionalItems: true already claims every tail index past the tuple",
+            ],
+            // Tuple items + additionalItems: {schema} validates and evaluates every tail index.
+            'tuple items with additionalItems: {schema}' => [
+                'TupleAdditionalSchemaWithUnevaluatedSchema.json',
+                "sibling additionalItems: {schema} already validates every tail index past the tuple",
+            ],
         ];
     }
 
@@ -450,6 +462,27 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         // constructs cleanly, proving the keyword did not break codegen.
         $instance = new $className(['tags' => []]);
         $this->assertSame(['tags' => []], $instance->meta()->rawInput());
+    }
+
+    /**
+     * With `additionalItems: {schema}` beside a tuple, the tail is validated (and evaluated) by
+     * `additionalItems` alone. The skipped `unevaluatedItems` schema must not influence the
+     * outcome: a tail value is accepted or rejected exactly as `additionalItems` decides, never by
+     * the unevaluated schema (here a boolean, which no integer tail value could satisfy).
+     */
+    public function testSkippedUnevaluatedItemsDoesNotInfluenceTheAdditionalItemsOutcome(): void
+    {
+        $className = $this->generateClassFromFile('TupleAdditionalSchemaWithUnevaluatedSchema.json');
+
+        $accepted = new $className(['tags' => ['head', 1, 2]]);
+        $this->assertSame(['head', 1, 2], $accepted->getTags());
+
+        try {
+            new $className(['tags' => ['head', true]]);
+            $this->fail('Expected additionalItems to reject the non-integer tail value');
+        } catch (InvalidAdditionalTupleItemsException $exception) {
+            $this->assertSame('tags', $exception->getPropertyName());
+        }
     }
 
     /**

@@ -470,11 +470,12 @@ warning, and skips ``unevaluatedItems`` entirely:
   index at all, because ``items`` covers every position.
 - ``additionalItems: false`` alongside tuple ``items`` blocks any index past the tuple length —
   every index is either tuple-covered (and evaluated) or rejected by ``additionalItems``.
+- ``additionalItems: true`` or ``additionalItems: {schema}`` alongside tuple ``items`` accepts
+  and evaluates every index past the tuple length (a schema additionally validates it) — every
+  index is again claimed. A tail value is accepted or rejected by ``additionalItems`` alone; a
+  skipped ``unevaluatedItems`` schema never takes part in the decision.
 
-Not every shape that claims all indices is recognised as dead code. ``additionalItems: true`` or
-``additionalItems: {schema}`` alongside tuple ``items`` credits every index past the tuple length,
-so ``unevaluatedItems`` can never fire; no warning is emitted and the validator is still
-generated. Unlike ``additionalProperties`` on objects, the
+Unlike ``additionalProperties`` on objects, the
 `deny additional properties setting <../gettingStarted.html#deny-additional-properties>`__ has no
 effect on arrays: an index past a tuple stays subject to ``unevaluatedItems``.
 
