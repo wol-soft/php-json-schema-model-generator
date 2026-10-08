@@ -1157,10 +1157,10 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
         } catch (ErrorRegistryException $exception) {
             $this->assertSame(
                 <<<'MSG'
-    Invalid unevaluated items in array 'tags':
-      - invalid unevaluated item #0
-        * Invalid value for property 'unevaluated item' denied by filter 'dateTime': Invalid Date Time value "not-a-date"
-    MSG,
+Invalid unevaluated items in array 'tags':
+  - invalid unevaluated item #0
+    * Invalid value for property 'unevaluated item' denied by filter 'dateTime': Invalid Date Time value "not-a-date"
+MSG,
                 $exception->getMessage(),
             );
         }
