@@ -9,11 +9,6 @@ use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class AbstractComposedPropertyValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidator
 {
     /** @var string */

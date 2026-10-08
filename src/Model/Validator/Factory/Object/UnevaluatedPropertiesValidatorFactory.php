@@ -27,21 +27,24 @@ class UnevaluatedPropertiesValidatorFactory extends AbstractValidatorFactory
         $json = $propertySchema->getJson();
 
         // `unevaluatedProperties: true` is the spec default — every unevaluated key is allowed,
-        // so no validator is needed. Absent keyword is treated the same way.
-        if (!isset($json[$this->key]) || $json[$this->key] === true) {
+        // so no validator is needed. Absent keyword is treated the same way. array_key_exists()
+        // rather than isset(): an explicit `null` is an invalid value and must reach the check
+        // below instead of being mistaken for an absent keyword.
+        if (!array_key_exists($this->key, $json) || $json[$this->key] === true) {
             return;
         }
 
         $unevaluatedProperties = $json[$this->key];
 
-        if (!is_bool($unevaluatedProperties) && !is_array($unevaluatedProperties)) {
+        if (!$this->isBooleanOrSchemaObject($unevaluatedProperties)) {
             throw new SchemaException(
                 sprintf(
-                    "Invalid unevaluatedProperties %s for property '%s' in file %s",
+                    "Invalid unevaluatedProperties %s for class '%s' in file %s",
                     str_replace("\n", '', var_export($unevaluatedProperties, true)),
                     $schema->getClassName(),
                     $propertySchema->getFile(),
                 ),
+                $propertySchema,
             );
         }
 

@@ -11,11 +11,6 @@ use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\Factory\Composition\IfValidatorFactory;
 
-/**
- * Class ConditionalPropertyValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
 {
     /** @var CompositionPropertyDecorator[] */

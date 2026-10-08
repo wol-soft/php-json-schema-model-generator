@@ -374,22 +374,64 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Non-bool / non-object values for `unevaluatedProperties` and `unevaluatedItems` must
-     * fail loudly at generation time with a SchemaException. The generator never produces
-     * broken code for these inputs; CLAUDE.md's "Schema error handling" rule applies.
+     * Values that are neither a boolean nor a schema object must fail loudly at generation time
+     * with a SchemaException naming the offending value and the property or class carrying the keyword;
+     * the generator never produces broken code for these inputs. Covers the scalar shapes, an
+     * explicit `null` (a present-but-null keyword is invalid, not absent), and a non-empty JSON
+     * list (a list is not a schema object and must not reach the schema processor).
      *
-     * @return array<string, array{0: string, 1: string}>
+     * @return array<string, array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string}>
      */
     public static function invalidTypeProvider(): array
     {
         return [
             'unevaluatedItems with integer value' => [
-                'InvalidUnevaluatedItemsType.json',
+                'InvalidUnevaluatedItemsValue.json',
                 'unevaluatedItems',
+                '42',
+                '42',
+                'property',
+                'tags',
+            ],
+            'unevaluatedItems with null value' => [
+                'InvalidUnevaluatedItemsValue.json',
+                'unevaluatedItems',
+                'null',
+                'NULL',
+                'property',
+                'tags',
+            ],
+            'unevaluatedItems with list value' => [
+                'InvalidUnevaluatedItemsValue.json',
+                'unevaluatedItems',
+                '["a"]',
+                "array (  0 => 'a',)",
+                'property',
+                'tags',
             ],
             'unevaluatedProperties with integer value' => [
-                'InvalidUnevaluatedPropertiesType.json',
+                'InvalidUnevaluatedPropertiesValue.json',
                 'unevaluatedProperties',
+                '42',
+                '42',
+                'class',
+                '\\S+',
+            ],
+            'unevaluatedProperties with null value' => [
+                'InvalidUnevaluatedPropertiesValue.json',
+                'unevaluatedProperties',
+                'null',
+                'NULL',
+                'class',
+                '\\S+',
+            ],
+            'unevaluatedProperties with list value' => [
+                'InvalidUnevaluatedPropertiesValue.json',
+                'unevaluatedProperties',
+                '[{"type": "string"}]',
+                "array (  0 =>   array (    'type' => 'string',  ),)",
+                'class',
+                '\\S+',
             ],
         ];
     }
@@ -398,13 +440,21 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     public function testInvalidTypeForKeywordThrowsSchemaException(
         string $schemaFile,
         string $keyword,
+        string $jsonValue,
+        string $renderedValue,
+        string $subjectKind,
+        string $subjectNamePattern,
     ): void {
+        // The object-side keyword is processed against the nested class, so its message names the
+        // generated class (whose name carries a run-specific suffix); the array-side message names
+        // the array property.
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
-            '/^Invalid ' . preg_quote($keyword, '/') . ' 42 for property \'\S+\' in file /',
+            '/^' . preg_quote("Invalid $keyword $renderedValue for $subjectKind '", '/')
+                . $subjectNamePattern . '\' in file \S+ at line \d+, column \d+$/',
         );
 
-        $this->generateClassFromFile($schemaFile);
+        $this->generateClassFromFileTemplate($schemaFile, [$jsonValue], null, false);
     }
 
     /**

@@ -42,7 +42,7 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
 
         $unevaluatedItems = $json[$this->key];
 
-        if (!is_bool($unevaluatedItems) && !is_array($unevaluatedItems)) {
+        if (!$this->isBooleanOrSchemaObject($unevaluatedItems)) {
             throw new SchemaException(
                 sprintf(
                     "Invalid unevaluatedItems %s for property '%s' in file %s",
@@ -50,6 +50,7 @@ class UnevaluatedItemsValidatorFactory extends AbstractValidatorFactory
                     $property->getName(),
                     $propertySchema->getFile(),
                 ),
+                $propertySchema,
             );
         }
 
