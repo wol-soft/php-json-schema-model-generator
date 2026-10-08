@@ -550,6 +550,11 @@ conventions, strip prefixes, and so on.
 See `Naming of nested classes <complexTypes/object.html#naming-of-nested-classes>`__ for a
 description of the built-in priority order.
 
+A class name that is a reserved PHP word (``Class``, ``Match``, ``ReadOnly``, ``Int``, ``Mixed``,
+``Self``, ... — matched case-insensitively) cannot be declared as a class. Generation throws a
+``SchemaException`` naming the class and the schema file; set a different ``title`` on the schema
+or use a custom class name generator to choose another name.
+
 Custom filter
 ^^^^^^^^^^^^^
 

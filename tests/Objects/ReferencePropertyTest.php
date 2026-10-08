@@ -1058,9 +1058,8 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
      * Deferred - a real fix is a design decision (reject the mutual reference at generation
      * time, which would refuse a legitimately useful "recursive polymorphic node" schema shape
      * unlike the tautological allOf case, vs. runtime cycle memoization), not a mechanical one.
-     * See `.claude/topics/self-composition-runtime-recursion/analysis.md` for the full
-     * analysis. Marked incomplete rather than attempting construction, to avoid burning ~512
-     * stack frames through Xdebug on every suite run for a known, already-diagnosed failure.
+     * Marked incomplete rather than attempting construction, to avoid burning ~512 stack frames
+     * through Xdebug on every suite run for a known, already-diagnosed failure.
      */
     public function testMutuallyReferencingAnyOfRootCompositionsDoesNotYetTerminate(): void
     {
@@ -1071,7 +1070,8 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
             'Generation succeeds, but constructing an instance recurses indefinitely - a '
             . 'mutually-referencing anyOf/oneOf composition has no base case for runtime '
             . 'branch-matching, unlike allOf (which flattens at generation time instead). '
-            . 'Deferred; tracked in .claude/topics/self-composition-runtime-recursion/.',
+            . 'Deferred: a real fix needs a design decision (reject the mutual reference at '
+            . 'generation time vs. runtime cycle memoization).',
         );
     }
 

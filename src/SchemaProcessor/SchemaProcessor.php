@@ -32,6 +32,7 @@ use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
 use PHPModelGenerator\Utils\PropertyAttributeSynthesizer;
+use PHPModelGenerator\Utils\ReservedClassNames;
 
 class SchemaProcessor
 {
@@ -137,6 +138,21 @@ class SchemaProcessor
         SchemaDefinitionDictionary $dictionary,
         bool $initialClass,
     ): Schema {
+        // A reserved word can never be declared as a class: the rendered file would not compile
+        // (a ParseError, or for builtin type names an uncatchable fatal error that ends the PHP
+        // process), so reject it here where the offending schema is still known.
+        if (ReservedClassNames::isReserved($className)) {
+            throw new SchemaException(
+                sprintf(
+                    "Class name '%s' is a reserved PHP word and cannot be used for the generated class of file %s:"
+                        . " set a different 'title' on the schema or configure a custom class name generator",
+                    $className,
+                    $jsonSchema->getFile(),
+                ),
+                $jsonSchema,
+            );
+        }
+
         $schemaSignature = $jsonSchema->getSignature();
 
         if (!$initialClass && isset($this->processedSchema[$schemaSignature])) {
@@ -856,8 +872,8 @@ class SchemaProcessor
         $compositionProcessor = $validator->getCompositionProcessor();
 
         $transferredProperty = (clone $property)
-            ->filterValidators(static fn(Validator $v): bool =>
-                is_a($v->getValidator(), PropertyTemplateValidator::class))
+            ->filterValidators(static fn(Validator $container): bool =>
+                is_a($container->getValidator(), PropertyTemplateValidator::class))
             ->setDefaultValue(null)
             ->filterDecorators(static fn($decorator): bool =>
                 !($decorator instanceof DefaultArrayToEmptyArrayDecorator));
@@ -917,7 +933,7 @@ class SchemaProcessor
 
             $branchPropertyNames = $branch->getNestedSchema()
                 ? array_map(
-                    static fn(PropertyInterface $p): string => $p->getName(),
+                    static fn(PropertyInterface $branchProperty): string => $branchProperty->getName(),
                     $branch->getNestedSchema()->getProperties(),
                 )
                 : [];
