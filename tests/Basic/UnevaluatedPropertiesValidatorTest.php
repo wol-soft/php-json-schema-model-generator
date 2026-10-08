@@ -21,6 +21,7 @@ use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
 
 /**
  * Verifies the runtime behaviour of `unevaluatedProperties`: keys not claimed by `properties`,
@@ -472,6 +473,77 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
+     * The `_getEvaluatedProperties()` method generated on a branch class merges in the branch's
+     * `_patternProperties` and `_evaluatedPropertyKeys` fields. Whether the class declares each
+     * field is known when the method is rendered, so the merge steps are emitted only for fields
+     * that exist - no runtime `property_exists()` probing in the generated code. Four branch
+     * shapes on three generated classes:
+     *   - a branch with neither field merges nothing beyond its declared names;
+     *   - a branch with `patternProperties` only merges the pattern matches;
+     *   - a branch with `unevaluatedProperties: {schema}` only merges the evaluated keys;
+     *   - a branch with both merges both.
+     */
+    public function testEvaluatedPropertiesMethodMergesOnlyTheFieldsTheBranchClassDeclares(): void
+    {
+        $plainClassName = $this->generateClassFromFile('BranchesWithoutEvaluationFields.json');
+        [$declaredOnlySource, $patternOnlySource] = array_map(
+            fn(string $nestedClassName): string => $this->getEvaluatedPropertiesMethodSource($nestedClassName),
+            $this->resolveNestedClassName($plainClassName, 2),
+        );
+
+        $this->assertStringNotContainsString('property_exists', $declaredOnlySource);
+        $this->assertStringNotContainsString('_patternProperties', $declaredOnlySource);
+        $this->assertStringNotContainsString('_evaluatedPropertyKeys', $declaredOnlySource);
+
+        $this->assertStringNotContainsString('property_exists', $patternOnlySource);
+        $this->assertStringContainsString('$this->_patternProperties', $patternOnlySource);
+        $this->assertStringNotContainsString('_evaluatedPropertyKeys', $patternOnlySource);
+
+        $evaluatedKeysClassName = $this->generateClassFromFile('NestedUnevaluatedInBranchPropagatesClaims.json');
+        $evaluatedKeysSource = $this->getEvaluatedPropertiesMethodSource(
+            $this->resolveNestedClassName($evaluatedKeysClassName),
+        );
+
+        $this->assertStringNotContainsString('property_exists', $evaluatedKeysSource);
+        $this->assertStringNotContainsString('_patternProperties', $evaluatedKeysSource);
+        $this->assertStringContainsString('$this->_evaluatedPropertyKeys', $evaluatedKeysSource);
+
+        $bothClassName = $this->generateClassFromFile('BranchWithPatternAndUnevaluatedSchema.json');
+        $bothSource = $this->getEvaluatedPropertiesMethodSource($this->resolveNestedClassName($bothClassName));
+
+        $this->assertStringNotContainsString('property_exists', $bothSource);
+        $this->assertStringContainsString('$this->_patternProperties', $bothSource);
+        $this->assertStringContainsString('$this->_evaluatedPropertyKeys', $bothSource);
+
+        // The unconditional merge must stay correct at runtime: a key matched by the branch's
+        // pattern and one evaluated by its unevaluatedProperties schema both reach the outer.
+        $accepted = new $bothClassName(['foo' => 'hi', 'x-a' => 'v', 'extra' => 5]);
+        $this->assertSame(['foo' => 'hi', 'x-a' => 'v', 'extra' => 5], $accepted->meta()->rawInput());
+    }
+
+    /**
+     * @return string the source of `_getEvaluatedProperties()` as rendered into the nested class
+     */
+    private function getEvaluatedPropertiesMethodSource(string $nestedClassName): string
+    {
+        $source = file_get_contents(
+            (new ReflectionClass($this->lastGeneratedNamespacePrefix . $nestedClassName))->getFileName(),
+        );
+
+        $this->assertSame(
+            1,
+            preg_match(
+                '/function _getEvaluatedProperties\(\): array.*?return array_keys\(\$evaluated\);/s',
+                $source,
+                $matches,
+            ),
+            "Nested class $nestedClassName must declare _getEvaluatedProperties()",
+        );
+
+        return $matches[0];
+    }
+
+    /**
      * A composition branch that declares its own `additionalProperties: {schema}` contributes
      * the keys it validated against that schema to the outer accumulator. Two assertions on the
      * same generated class:
@@ -539,10 +611,10 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
      * Rather than silently computing a wrong "unevaluated" set (this exact shape used to reject
      * `{name: "Alice"}`, even though `name` is declared and validated by the enclosing schema's
      * own `properties`), the generator now rejects the schema itself at generation time with a
-     * distinct exception - see `.claude/topics/branch-unevaluated-down-propagation/` for why a
-     * real fix was deferred instead of implemented (a sound fix exists for `allOf` alone, but
-     * the equivalent for `anyOf`/`oneOf` can have no unique consistent answer at all when two
-     * sibling branches each gate their own `unevaluatedProperties` on the other's claims).
+     * distinct exception. A real fix was deferred instead of implemented: a sound fix exists for
+     * `allOf` alone, but the equivalent for `anyOf`/`oneOf` can have no unique consistent answer
+     * at all when two sibling branches each gate their own `unevaluatedProperties` on the
+     * other's claims.
      */
     public function testBranchOnlyUnevaluatedPropertiesThrowsUnsupportedSchemaFeatureException(): void
     {

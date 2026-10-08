@@ -19,6 +19,7 @@ use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Traits\CompositionEvaluationTrait;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Detects whether unevaluatedProperties or unevaluatedItems is reachable from a schema and,
@@ -104,12 +105,11 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * class with no visibility into the enclosing schema's own declarations or a sibling
      * branch's claims (only the reverse direction - branch claims propagating up - is
      * implemented). Silently computing a wrong "unevaluated" set would either reject valid
-     * input or accept invalid input, so this fails loudly at generation time instead - see
-     * `.claude/topics/branch-unevaluated-down-propagation/` for the full design discussion,
-     * including why a general fix was rejected as either unsound (anyOf/oneOf: two sibling
-     * branches each gating on the other's claims can have no unique consistent answer at all,
-     * not just an expensive one to compute) or out of proportion to a pattern of unknown
-     * real-world frequency (allOf, where a fix is sound but non-trivial).
+     * input or accept invalid input, so this fails loudly at generation time instead. A general
+     * fix was rejected as either unsound (anyOf/oneOf: two sibling branches each gating on the
+     * other's claims can have no unique consistent answer at all, not just an expensive one to
+     * compute) or out of proportion to a pattern of unknown real-world frequency (allOf, where
+     * a fix is sound but non-trivial).
      *
      * `true` is exempt: it never rejects anything regardless of what the branch believes is
      * evaluated, so the gap has no observable effect on validation outcomes. `not` is exempt
@@ -614,34 +614,54 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                     ),
                 ));
 
-                return sprintf(
-                    '
-                    #[Internal]
-                    public function _getEvaluatedProperties(): array
-                    {
-                        $evaluated = [];
-                        foreach (%s as $propName) {
-                            if (array_key_exists($propName, $this->_rawModelDataInput)) {
-                                $evaluated[$propName] = true;
-                            }
-                        }
-                        // Keys matched by this schema\'s own patternProperties (with passing
-                        // values) are evaluated too, so an enclosing schema must see them. Only the
-                        // keys matter (the result is array_keys($evaluated)), so union the maps.
-                        if (property_exists($this, "_patternProperties")) {
-                            foreach ($this->_patternProperties as $patternMatches) {
-                                $evaluated += $patternMatches;
-                            }
-                        }
-                        // Keys evaluated by this schema\'s own unevaluatedProperties: {schema}
-                        // validator are tracked so an enclosing schema can see them.
-                        if (property_exists($this, "_evaluatedPropertyKeys")) {
-                            $evaluated += $this->_evaluatedPropertyKeys;
-                        }
-                        return array_keys($evaluated);
-                    }',
-                    var_export($declaredPropertyNames, true),
-                );
+                // Both fields are added by post processors, and RenderQueue::execute() runs every
+                // process() before the first render(), so by now the nested schema's final field
+                // set is known. Emitting a runtime property_exists() guard instead would leave
+                // generated code probing for a field the generator already knows is absent.
+                $lines = [
+                    '#[Internal]',
+                    'public function _getEvaluatedProperties(): array',
+                    '{',
+                    '    $evaluated = [];',
+                    '    foreach (' . RenderHelper::varExportArray($declaredPropertyNames) . ' as $declaredName) {',
+                    '        if (array_key_exists($declaredName, $this->_rawModelDataInput)) {',
+                    '            $evaluated[$declaredName] = true;',
+                    '        }',
+                    '    }',
+                ];
+
+                if ($this->declaresInternalProperty('patternProperties')) {
+                    // Keys matched by this schema's own patternProperties (with passing values) are
+                    // evaluated too, so an enclosing schema must see them. Only the keys matter
+                    // (the result is array_keys($evaluated)), so the maps are unioned.
+                    array_push(
+                        $lines,
+                        '    foreach ($this->_patternProperties as $patternMatches) {',
+                        '        $evaluated += $patternMatches;',
+                        '    }',
+                    );
+                }
+
+                if ($this->declaresInternalProperty('evaluatedPropertyKeys')) {
+                    // Keys evaluated by this schema's own unevaluatedProperties: {schema} validator
+                    // are tracked so an enclosing schema can see them.
+                    $lines[] = '    $evaluated += $this->_evaluatedPropertyKeys;';
+                }
+
+                array_push($lines, '', '    return array_keys($evaluated);', '}');
+
+                return implode("\n", $lines);
+            }
+
+            private function declaresInternalProperty(string $propertyName): bool
+            {
+                foreach ($this->nestedSchema->getProperties() as $property) {
+                    if ($property->isInternal() && $property->getName() === $propertyName) {
+                        return true;
+                    }
+                }
+
+                return false;
             }
         };
     }

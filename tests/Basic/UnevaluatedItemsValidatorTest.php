@@ -1285,12 +1285,11 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
      * unevaluated even though the sibling tuple already validated and claimed it.
      *
      * Rather than silently computing a wrong "unevaluated" set, the generator now rejects the
-     * schema itself at generation time - see
-     * `UnsupportedSchemaFeatureException` and `.claude/topics/branch-unevaluated-down-propagation/`
-     * for why a real fix (the branch would need the enclosing property to compute and pass its
-     * siblings' claims into the branch instance at construction time - siblings' claims can be
-     * instance-dependent, unlike the object-side's enclosing-declared-*names* case, which is
-     * static) was deferred instead of implemented.
+     * schema itself at generation time with an `UnsupportedSchemaFeatureException`. A real fix
+     * was deferred instead of implemented: the branch would need the enclosing property to
+     * compute and pass its siblings' claims into the branch instance at construction time, and
+     * those claims can be instance-dependent, unlike the object-side's enclosing-declared-*names*
+     * case, which is static.
      */
     public function testBranchUnevaluatedItemsThrowsUnsupportedSchemaFeatureException(): void
     {
