@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
+use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -79,9 +81,21 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
         return $this->compositionProcessor === NotValidatorFactory::class;
     }
 
-    protected function initModifiedValuesMethod(): void
+    /**
+     * Names the helper method that computes branch-default values. Must run before the parent
+     * constructor, which receives the name as a template value. The name is reserved on the
+     * class so two composition validators on the same property never share a helper, without
+     * depending on object identity (see ExtractedMethodValidator for why that is avoided).
+     */
+    protected function initModifiedValuesMethod(Schema $schema, PropertyInterface $property): void
     {
-        $this->modifiedValuesMethod = '_getModifiedValues_' . substr(md5((string) spl_object_id($this)), 0, 5);
+        $this->modifiedValuesMethod = $schema->reserveMethodName(
+            '_getModifiedValues_' . substr(
+                md5($property->getAttribute() . json_encode($property->getJsonSchema()->getJson())),
+                0,
+                5,
+            ),
+        );
     }
 
     /**

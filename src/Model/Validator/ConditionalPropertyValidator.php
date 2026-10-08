@@ -26,7 +26,7 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
         array $conditionBranches,
         array $validatorVariables,
     ) {
-        $this->initModifiedValuesMethod();
+        $this->initModifiedValuesMethod($validatorVariables['schema'], $property);
         $this->isResolved = true;
 
         parent::__construct(
@@ -36,6 +36,7 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
             array_merge($validatorVariables, ['modifiedValuesMethod' => $this->modifiedValuesMethod]),
             ConditionalException::class,
             ['&$ifException', '&$thenException', '&$elseException'],
+            $validatorVariables['schema'],
         );
 
         $this->compositionProcessor = IfValidatorFactory::class;

@@ -1,0 +1,67 @@
+{
+  "type": "object",
+  "properties": {
+    "values": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "allOf": [
+        {
+          "maxItems": 3
+        },
+        {
+          "minItems": 1
+        }
+      ],
+      "oneOf": [
+        {
+          "maxItems": 1
+        },
+        {
+          "minItems": 2
+        }
+      ]
+    },
+    "nested": {
+      "type": "object",
+      "properties": {
+        "p": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "properties": {
+            "q": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "properties": {
+            "r": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "anyOf": [
+    {
+      "properties": {
+        "s": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "properties": {
+        "t": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}

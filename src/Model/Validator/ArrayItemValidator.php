@@ -14,19 +14,12 @@ use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class ArrayItemValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class ArrayItemValidator extends ExtractedMethodValidator
 {
     private readonly string $variableSuffix;
     private readonly PropertyInterface $nestedProperty;
 
     /**
-     * ArrayItemValidator constructor.
-     *
      * @throws SchemaException
      */
     public function __construct(
@@ -67,6 +60,7 @@ class ArrayItemValidator extends ExtractedMethodValidator
             ],
             InvalidItemException::class,
             ["&\$invalidItems{$this->variableSuffix}"],
+            $schema,
         );
     }
 

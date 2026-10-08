@@ -81,6 +81,9 @@ class Schema
      */
     private array $accessorCacheProperties = [];
 
+    /** @var array<string, int> Number of times each candidate method name has been reserved */
+    private array $reservedMethodNames = [];
+
     private PropertyMerger $propertyMerger;
 
     /**
@@ -380,6 +383,22 @@ class Schema
     public function getMethods(): array
     {
         return $this->methods;
+    }
+
+    /**
+     * Reserve a method name unique within this class. The first reservation of a candidate keeps
+     * it unchanged; each further reservation of the same candidate gets a numeric suffix
+     * (`_2`, `_3`, ...). Names are therefore a function of the candidates requested for this
+     * class and their order only - never of object identity or of other classes generated in the
+     * same run - so regenerating an unchanged schema reproduces the same names.
+     */
+    public function reserveMethodName(string $candidate): string
+    {
+        $this->reservedMethodNames[$candidate] = ($this->reservedMethodNames[$candidate] ?? 0) + 1;
+
+        return $this->reservedMethodNames[$candidate] === 1
+            ? $candidate
+            : $candidate . '_' . $this->reservedMethodNames[$candidate];
     }
 
     public function hasMethod(string $methodKey): bool
