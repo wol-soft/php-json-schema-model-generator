@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "if": {
+    "properties": {
+      "marker": {
+        "const": true
+      }
+    },
+    "required": [
+      "marker"
+    ]
+  },
+  "then": {
+    "properties": {
+      "x": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "x"
+    ]
+  },
+  "else": {
+    "properties": {
+      "y": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "y"
+    ]
+  },
+  "unevaluatedProperties": false
+}

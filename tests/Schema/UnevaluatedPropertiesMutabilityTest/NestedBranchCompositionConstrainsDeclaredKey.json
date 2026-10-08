@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "n": {}
+  },
+  "allOf": [
+    {
+      "allOf": [
+        {
+          "properties": {
+            "n": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "unevaluatedProperties": false
+}

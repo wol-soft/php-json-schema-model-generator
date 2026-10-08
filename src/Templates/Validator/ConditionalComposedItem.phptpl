@@ -14,6 +14,9 @@
         $slotKey = '{{ compositionValidator.getSlotKey() }}';
         $compositionEvaluatedIndices = [];
     {% endif %}
+    {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
+        $originalCompositionEvaluations = $this->_compositionEvaluations ?? [];
+    {% endif %}
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
@@ -51,17 +54,17 @@
 
     {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and ifProperty.branchIsArrayKind() %}
         if (!$ifException) {
-            {% if ifProperty.branchHasItemsSchema() %}
+            {% if ifProperty.branchClaimsAllIndices() %}
                 $compositionEvaluatedIndices += array_fill_keys(array_keys($originalModelData), true);
             {% endif %}
-            {% if not ifProperty.branchHasItemsSchema() and ifProperty.getBranchTupleItemsCount() %}
+            {% if not ifProperty.branchClaimsAllIndices() and ifProperty.getBranchTupleItemsCount() %}
                 $compositionEvaluatedIndices += array_fill(
                     0,
                     min({{ ifProperty.getBranchTupleItemsCount() }}, count($originalModelData)),
                     true,
                 );
             {% endif %}
-            {% if not ifProperty.branchHasItemsSchema() and ifProperty.branchHasNonFalseAdditionalItems() %}
+            {% if not ifProperty.branchClaimsAllIndices() and ifProperty.branchHasNonFalseAdditionalItems() %}
                 $compositionEvaluatedIndices += array_fill(
                     {{ ifProperty.getBranchTupleItemsCount() }},
                     max(0, count($originalModelData) - {{ ifProperty.getBranchTupleItemsCount() }}),
@@ -129,17 +132,17 @@
 
             {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and thenProperty.branchIsArrayKind() %}
                 if (!$thenException) {
-                    {% if thenProperty.branchHasItemsSchema() %}
+                    {% if thenProperty.branchClaimsAllIndices() %}
                         $compositionEvaluatedIndices += array_fill_keys(array_keys($originalModelData), true);
                     {% endif %}
-                    {% if not thenProperty.branchHasItemsSchema() and thenProperty.getBranchTupleItemsCount() %}
+                    {% if not thenProperty.branchClaimsAllIndices() and thenProperty.getBranchTupleItemsCount() %}
                         $compositionEvaluatedIndices += array_fill(
                             0,
                             min({{ thenProperty.getBranchTupleItemsCount() }}, count($originalModelData)),
                             true,
                         );
                     {% endif %}
-                    {% if not thenProperty.branchHasItemsSchema() and thenProperty.branchHasNonFalseAdditionalItems() %}
+                    {% if not thenProperty.branchClaimsAllIndices() and thenProperty.branchHasNonFalseAdditionalItems() %}
                         $compositionEvaluatedIndices += array_fill(
                             {{ thenProperty.getBranchTupleItemsCount() }},
                             max(0, count($originalModelData) - {{ thenProperty.getBranchTupleItemsCount() }}),
@@ -210,17 +213,17 @@
 
             {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and elseProperty.branchIsArrayKind() %}
                 if (!$elseException) {
-                    {% if elseProperty.branchHasItemsSchema() %}
+                    {% if elseProperty.branchClaimsAllIndices() %}
                         $compositionEvaluatedIndices += array_fill_keys(array_keys($originalModelData), true);
                     {% endif %}
-                    {% if not elseProperty.branchHasItemsSchema() and elseProperty.getBranchTupleItemsCount() %}
+                    {% if not elseProperty.branchClaimsAllIndices() and elseProperty.getBranchTupleItemsCount() %}
                         $compositionEvaluatedIndices += array_fill(
                             0,
                             min({{ elseProperty.getBranchTupleItemsCount() }}, count($originalModelData)),
                             true,
                         );
                     {% endif %}
-                    {% if not elseProperty.branchHasItemsSchema() and elseProperty.branchHasNonFalseAdditionalItems() %}
+                    {% if not elseProperty.branchClaimsAllIndices() and elseProperty.branchHasNonFalseAdditionalItems() %}
                         $compositionEvaluatedIndices += array_fill(
                             {{ elseProperty.getBranchTupleItemsCount() }},
                             max(0, count($originalModelData) - {{ elseProperty.getBranchTupleItemsCount() }}),
@@ -311,6 +314,13 @@
 
     {% if compositionValidator.getSlotKey() %}
         $this->_compositionAnnotated[$slotKey] = $conditionalResult ? [] : $compositionEvaluatedIndices;
+    {% endif %}
+    {% if compositionValidator.hasEvaluationTrackingEnabled() and not compositionValidator.getSlotKey() %}
+        // A conditional that fails as a whole contributes no annotations: drop the claims its
+        // passing "if" condition already wrote, as a failed allOf/anyOf/oneOf does.
+        if ($conditionalResult) {
+            $this->_compositionEvaluations = $originalCompositionEvaluations;
+        }
     {% endif %}
 
     return $conditionalResult;

@@ -208,14 +208,27 @@ class CompositionPropertyDecorator extends PropertyProxy
     }
 
     /**
-     * True when the branch declares `items` as a schema object (not a tuple list, not a
-     * boolean). A schema-form `items` claims every index in the validated array.
+     * True when a successful branch evaluates every index of the validated array: `items` as a
+     * schema object, an explicit `items: true`, an empty `items` (`{}`), or an explicit
+     * `unevaluatedItems: true`. Each validates trivially or per index and annotates the whole
+     * array; only an omitted keyword produces no annotation.
+     *
+     * An empty PHP array is treated as the empty schema `{}`, never as an empty tuple `[]`:
+     * json_decode(..., true) maps both to the same value, and the sibling-applicator path
+     * (UnevaluatedItemsValidatorFactory) makes the same call. Reading it as an empty tuple would
+     * credit nothing and over-reject a branch the author wrote as `items: {}`.
      */
-    public function branchHasItemsSchema(): bool
+    public function branchClaimsAllIndices(): bool
     {
-        $items = $this->jsonSchema->getJson()['items'] ?? null;
+        $branchJson = $this->jsonSchema->getJson();
 
-        return is_array($items) && $items !== [] && !array_is_list($items);
+        if (($branchJson['unevaluatedItems'] ?? null) === true) {
+            return true;
+        }
+
+        $items = $branchJson['items'] ?? null;
+
+        return $items === true || (is_array($items) && ($items === [] || !array_is_list($items)));
     }
 
     /**
@@ -258,7 +271,8 @@ class CompositionPropertyDecorator extends PropertyProxy
 
     /**
      * True when the branch carries at least one array-side applicator (`items`,
-     * `additionalItems`, `contains`) and no object-side applicators (`properties`,
+     * `additionalItems`, `contains`, or an `unevaluatedItems: true` annotation) and no
+     * object-side applicators (`properties`,
      * `additionalProperties`, `patternProperties`). Drives whether the composition template
      * writes the branch's slot into `_compositionAnnotated`.
      */
@@ -268,7 +282,8 @@ class CompositionPropertyDecorator extends PropertyProxy
 
         $hasArrayApplicator = array_key_exists('items', $branchJson)
             || array_key_exists('additionalItems', $branchJson)
-            || array_key_exists('contains', $branchJson);
+            || array_key_exists('contains', $branchJson)
+            || ($branchJson['unevaluatedItems'] ?? null) === true;
 
         $hasObjectApplicator = array_key_exists('properties', $branchJson)
             || array_key_exists('additionalProperties', $branchJson)
@@ -334,7 +349,7 @@ class CompositionPropertyDecorator extends PropertyProxy
      * processed entirely inside its generated nested class. So a branch here never simultaneously
      * has a nested schema and its own composed/conditional validator; the validator, when present,
      * always belongs to a bare (untyped) branch and must be kept and rendered, or the nested
-     * composition would silently accept every value (issue #167).
+     * composition would silently accept every value.
      *
      * Filtering here — at render time, without mutating the wrapped property's own validator
      * list — keeps the exclusion branch-local. The wrapped property may be shared (via

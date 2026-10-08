@@ -298,6 +298,85 @@ class UnevaluatedItemsValidatorTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * A successful composition branch that carries an explicit all-index applicator evaluates
+     * every index of the array, exactly like the same keyword as a sibling would. `items: true`,
+     * `items: {}` and `unevaluatedItems: true` all validate trivially and annotate every index;
+     * only an omitted keyword produces no annotation. The schema-form `items` row is the
+     * control: it already credited every index before the explicit-`true` shapes were handled.
+     *
+     * @return array<string, array{0: string, 1: list<mixed>}>
+     */
+    public static function branchAllIndexClaimProvider(): array
+    {
+        return [
+            'branch items: true' => ['{"items": true}', ['a', 5]],
+            'branch items: {} (empty schema object)' => ['{"items": {}}', ['a', 5]],
+            'branch unevaluatedItems: true' => ['{"unevaluatedItems": true}', ['a', 5]],
+            'branch items: {schema} (control)' => ['{"items": {"type": "string"}}', ['a', 'b']],
+        ];
+    }
+
+    #[DataProvider('branchAllIndexClaimProvider')]
+    public function testBranchClaimingEveryIndexCreditsTheOuterAccumulator(string $branchJson, array $tags): void
+    {
+        $className = $this->generateClassFromFileTemplate('BranchClaimsEveryIndex.json', [$branchJson], null, false);
+
+        $accepted = new $className(['tags' => $tags]);
+        $this->assertSame($tags, $accepted->getTags());
+    }
+
+    /**
+     * Only a branch that actually succeeded credits indices. The first anyOf branch claims every
+     * index through `items: true` but fails on `maxItems`, so for a two-element array the claim is
+     * discarded; the second branch succeeds without any applicator and credits nothing. Both
+     * indices stay unevaluated. A one-element array satisfies the first branch, whose claim then
+     * covers the index.
+     */
+    public function testFailingBranchWithAllIndexClaimCreditsNothing(): void
+    {
+        $className = $this->generateClassFromFile('AnyOfFailingBranchCreditsNothing.json');
+
+        $accepted = new $className(['tags' => ['only']]);
+        $this->assertSame(['only'], $accepted->getTags());
+
+        try {
+            new $className(['tags' => ['first', 'second']]);
+            $this->fail('Expected UnevaluatedItemsException: the failed branch must not credit its indices');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#0, #1]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([0, 1], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
+     * An `if` condition that passes keeps its annotations even when it only carries an
+     * all-index applicator: `if: {items: true, minItems: 2}` evaluates every index of a
+     * two-element array. When the condition fails (one element) no annotation survives and the
+     * absent `else` credits nothing.
+     */
+    public function testPassingIfConditionWithAllIndexClaimCreditsTheOuterAccumulator(): void
+    {
+        $className = $this->generateClassFromFile('IfBranchItemsTrue.json');
+
+        $accepted = new $className(['tags' => ['a', 'b']]);
+        $this->assertSame(['a', 'b'], $accepted->getTags());
+
+        try {
+            new $className(['tags' => ['solo']]);
+            $this->fail('Expected UnevaluatedItemsException: the failed if condition credits nothing');
+        } catch (UnevaluatedItemsException $exception) {
+            $this->assertSame(
+                "Provided JSON for 'tags' contains not allowed unevaluated items [#0]",
+                $exception->getMessage(),
+            );
+            $this->assertSame([0], $exception->getUnevaluatedItems());
+        }
+    }
+
+    /**
      * `uniqueItems: true` is orthogonal to `unevaluatedItems`. uniqueItems failure has its own
      * exception identity and message; the unevaluated check does not get to fire for that
      * array because the uniqueItems failure surfaces first.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
 use PHPModelGenerator\Exception\String\MinLengthException;
@@ -101,6 +102,63 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
         }
         $this->assertSame('on', $object->getMode());
         $this->assertSame(['mode' => 'on', 'onlyWhenOn' => 5], $object->meta()->rawInput());
+    }
+
+    /**
+     * A named setter must re-run a composition whose branch constrains the written key without
+     * declaring it in the branch's `properties`. Two shapes on separate generated classes, each
+     * with an unconstrained outer property the branch narrows to integers:
+     *   - the branch carries only `patternProperties: {"^x-": {type: integer}}`, so the key
+     *     `x-a` is reachable by pattern alone;
+     *   - the narrowing `properties.n` sits in a composition nested inside the branch, so the
+     *     key is declared only two composition levels down.
+     * A setter that skipped the composition would commit a string the constructor rejects; the
+     * rejected write must leave the model reconstructible from its own raw input.
+     */
+    public function testSetterRerunsCompositionForKeysConstrainedOnlyThroughBranchInternals(): void
+    {
+        $compositionMessage = <<<'MSG'
+            Invalid value for '%s' declined by composition constraint
+              Requires to match all composition elements but matched 0 elements
+            MSG;
+
+        $patternClassName = $this->generateClassFromFile(
+            'BranchPatternPropertiesConstrainsDeclaredKey.json',
+            $this->defaultConfig(),
+        );
+        $patternObject = new $patternClassName(['x-a' => 1]);
+
+        $patternObject->setXA(5);
+        $this->assertSame(['x-a' => 5], $patternObject->meta()->rawInput());
+
+        try {
+            $patternObject->setXA('not-an-integer');
+            $this->fail('Expected setXA to be rejected by the branch patternProperties');
+        } catch (AllOfException $exception) {
+            $this->assertSame(sprintf($compositionMessage, $patternClassName), $exception->getMessage());
+        }
+        $this->assertSame(['x-a' => 5], $patternObject->meta()->rawInput());
+        $rebuiltPatternObject = new $patternClassName($patternObject->meta()->rawInput());
+        $this->assertSame(['x-a' => 5], $rebuiltPatternObject->meta()->rawInput());
+
+        $nestedClassName = $this->generateClassFromFile(
+            'NestedBranchCompositionConstrainsDeclaredKey.json',
+            $this->defaultConfig(),
+        );
+        $nestedObject = new $nestedClassName(['n' => 1]);
+
+        $nestedObject->setN(5);
+        $this->assertSame(['n' => 5], $nestedObject->meta()->rawInput());
+
+        try {
+            $nestedObject->setN('not-an-integer');
+            $this->fail('Expected setN to be rejected by the nested branch composition');
+        } catch (AllOfException $exception) {
+            $this->assertSame(sprintf($compositionMessage, $nestedClassName), $exception->getMessage());
+        }
+        $this->assertSame(['n' => 5], $nestedObject->meta()->rawInput());
+        $rebuiltNestedObject = new $nestedClassName($nestedObject->meta()->rawInput());
+        $this->assertSame(['n' => 5], $rebuiltNestedObject->meta()->rawInput());
     }
 
     /**

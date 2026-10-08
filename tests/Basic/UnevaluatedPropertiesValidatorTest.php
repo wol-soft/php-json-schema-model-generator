@@ -416,6 +416,62 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
+     * A conditional whose `then` branch fails as a whole contributes no annotations — including
+     * the claims of its passing `if` condition — exactly like a failed `allOf`. With a stale `if`
+     * claim, `marker` would be credited to the outer accumulator and silently vanish from the
+     * orphan report that error collection prints next to the conditional failure.
+     *
+     * Three inputs on the same generated class (collect-errors mode):
+     *   - `{marker: true, other: 1}`: `if` passes, `then` fails on the missing `x`; both `marker`
+     *     (claimed only by the failed conditional) and `other` are orphans;
+     *   - `{other: 1}`: `if` fails and `else` fails on the missing `y`; only `other` is an orphan;
+     *   - `{marker: true, x: 1}`: the conditional succeeds and credits `marker` and `x`.
+     */
+    public function testFailedConditionalDropsTheClaimsOfItsPassingIfCondition(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ConditionalFailureDropsIfClaims.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        $accepted = new $className(['marker' => true, 'x' => 1]);
+        $this->assertSame(['marker' => true, 'x' => 1], $accepted->meta()->rawInput());
+
+        try {
+            new $className(['marker' => true, 'other' => 1]);
+            $this->fail('Expected the failed then branch to reject the input');
+        } catch (ErrorRegistryException $registry) {
+            $this->assertSame(
+                <<<MSG
+                Invalid value for '{$className}' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:Missing required value for 'x'
+                    * Invalid type for 'x': requires 'int', got 'NULL'
+                Provided JSON for '{$className}' contains not allowed unevaluated properties ['marker', 'other']
+                MSG,
+                $registry->getMessage(),
+            );
+        }
+
+        try {
+            new $className(['other' => 1]);
+            $this->fail('Expected the failed else branch to reject the input');
+        } catch (ErrorRegistryException $registry) {
+            $this->assertSame(
+                <<<MSG
+                Invalid value for '{$className}' declined by conditional composition constraint
+                  - Condition: FailedMissing required value for 'marker'
+                    * Value for 'marker' must be true, got null
+                  - Conditional branch failed:Missing required value for 'y'
+                    * Invalid type for 'y': requires 'int', got 'NULL'
+                Provided JSON for '{$className}' contains not allowed unevaluated properties ['other']
+                MSG,
+                $registry->getMessage(),
+            );
+        }
+    }
+
+    /**
      * A composition branch that declares its own `additionalProperties: {schema}` contributes
      * the keys it validated against that schema to the outer accumulator. Two assertions on the
      * same generated class:

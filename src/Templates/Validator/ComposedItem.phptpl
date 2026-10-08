@@ -101,17 +101,17 @@
 
             {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and compositionProperty.needsEvaluatedIndexAggregation() %}
                 if ($shouldTrack) {
-                    {% if compositionProperty.branchHasItemsSchema() %}
+                    {% if compositionProperty.branchClaimsAllIndices() %}
                         $compositionEvaluatedIndices += array_fill_keys(array_keys($originalModelData), true);
                     {% endif %}
-                    {% if not compositionProperty.branchHasItemsSchema() and compositionProperty.getBranchTupleItemsCount() %}
+                    {% if not compositionProperty.branchClaimsAllIndices() and compositionProperty.getBranchTupleItemsCount() %}
                         $compositionEvaluatedIndices += array_fill(
                             0,
                             min({{ compositionProperty.getBranchTupleItemsCount() }}, count($originalModelData)),
                             true,
                         );
                     {% endif %}
-                    {% if not compositionProperty.branchHasItemsSchema() and compositionProperty.branchHasNonFalseAdditionalItems() %}
+                    {% if not compositionProperty.branchClaimsAllIndices() and compositionProperty.branchHasNonFalseAdditionalItems() %}
                         $compositionEvaluatedIndices += array_fill(
                             {{ compositionProperty.getBranchTupleItemsCount() }},
                             max(0, count($originalModelData) - {{ compositionProperty.getBranchTupleItemsCount() }}),
