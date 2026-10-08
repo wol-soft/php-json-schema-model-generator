@@ -1,0 +1,7 @@
+{
+  "definitions": {
+    "unused": {
+      "type": "string"
+    }
+  }
+}

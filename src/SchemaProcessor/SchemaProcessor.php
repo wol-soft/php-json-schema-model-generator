@@ -32,6 +32,7 @@ use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
 use PHPModelGenerator\Utils\PropertyAttributeSynthesizer;
+use PHPModelGenerator\Utils\ReservedClassNames;
 
 class SchemaProcessor
 {
@@ -137,6 +138,21 @@ class SchemaProcessor
         SchemaDefinitionDictionary $dictionary,
         bool $initialClass,
     ): Schema {
+        // A reserved word can never be declared as a class: the rendered file would not compile
+        // (a ParseError, or for builtin type names an uncatchable fatal error that ends the PHP
+        // process), so reject it here where the offending schema is still known.
+        if (ReservedClassNames::isReserved($className)) {
+            throw new SchemaException(
+                sprintf(
+                    "Class name '%s' is a reserved PHP word and cannot be used for the generated class of file %s:"
+                        . " set a different 'title' on the schema or configure a custom class name generator",
+                    $className,
+                    $jsonSchema->getFile(),
+                ),
+                $jsonSchema,
+            );
+        }
+
         $schemaSignature = $jsonSchema->getSignature();
 
         if (!$initialClass && isset($this->processedSchema[$schemaSignature])) {
@@ -706,7 +722,21 @@ class SchemaProcessor
                     &$seenBranchPropertyNames,
                 ): void {
                     if (!$composedProperty->getNestedSchema()) {
-                        if ($composedProperty->getType() !== null) {
+                        // allOf requires every branch to hold simultaneously, so a typed branch
+                        // with no nested schema (only an object-asserting branch gets one) can
+                        // never be satisfied alongside this object context - a genuine
+                        // contradiction (e.g. allOf: [{type: integer}] under an object schema).
+                        // oneOf/anyOf/if-then-else need only ONE branch to match, so a
+                        // differently-typed branch (e.g. the array branch of a oneOf reached while
+                        // narrowing a `{type: [object, array]}` property to its object variant)
+                        // is simply not reachable from here, not a contradiction.
+                        $isConjunctiveComposition = is_a(
+                            $validator->getCompositionProcessor(),
+                            AllOfValidatorFactory::class,
+                            true,
+                        );
+
+                        if ($isConjunctiveComposition && $composedProperty->getType() !== null) {
                             throw new SchemaException(
                                 sprintf(
                                     "No nested schema for composed property %s in file %s found",
@@ -718,10 +748,9 @@ class SchemaProcessor
                         }
 
                         // A branch with neither a nested schema nor an explicit type (e.g. a $ref
-                        // to a definition carrying only annotation keywords such as example)
-                        // matches any value and contributes no named properties to transfer -
-                        // this is not a schema error, unlike a branch with an explicit type that
-                        // still lacks a nested schema (a genuine type conflict, handled above).
+                        // to a definition carrying only annotation keywords) matches any value and
+                        // contributes no properties to transfer - not an error, unlike the
+                        // conjunctive/typed conflict handled above.
                         $this->finalizeComposedBranchResolution(
                             in_array($composedProperty, $branchesForValidator, true),
                             $totalBranches,
@@ -843,8 +872,8 @@ class SchemaProcessor
         $compositionProcessor = $validator->getCompositionProcessor();
 
         $transferredProperty = (clone $property)
-            ->filterValidators(static fn(Validator $v): bool =>
-                is_a($v->getValidator(), PropertyTemplateValidator::class))
+            ->filterValidators(static fn(Validator $container): bool =>
+                is_a($container->getValidator(), PropertyTemplateValidator::class))
             ->setDefaultValue(null)
             ->filterDecorators(static fn($decorator): bool =>
                 !($decorator instanceof DefaultArrayToEmptyArrayDecorator));
@@ -904,7 +933,7 @@ class SchemaProcessor
 
             $branchPropertyNames = $branch->getNestedSchema()
                 ? array_map(
-                    static fn(PropertyInterface $p): string => $p->getName(),
+                    static fn(PropertyInterface $branchProperty): string => $branchProperty->getName(),
                     $branch->getNestedSchema()->getProperties(),
                 )
                 : [];

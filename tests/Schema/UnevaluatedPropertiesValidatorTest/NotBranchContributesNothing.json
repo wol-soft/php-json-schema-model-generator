@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "foo": {
+      "type": "string"
+    }
+  },
+  "not": {
+    "properties": {
+      "forbidden": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "forbidden"
+    ]
+  },
+  "unevaluatedProperties": false
+}

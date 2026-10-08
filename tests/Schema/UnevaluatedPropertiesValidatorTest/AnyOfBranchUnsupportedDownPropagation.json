@@ -1,0 +1,14 @@
+{
+  "title": "AnyOfBranchUnsupportedDownPropagation",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "anyOf": [
+    {
+      "unevaluatedProperties": false
+    }
+  ]
+}

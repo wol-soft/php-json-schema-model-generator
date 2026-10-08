@@ -284,3 +284,14 @@ A property schema with ``$ref`` pointing to a string definition and a sibling ``
 
 Both constraints are enforced: the effective minimum length is ``5`` (the sibling tightens
 the ref's ``minLength: 1``).
+
+Property and item evaluation propagation
+----------------------------------------
+
+A ``$ref`` is a positive applicator. When an enclosing schema uses
+`unevaluatedProperties <../complexTypes/object.html#unevaluated-properties>`__ or
+`unevaluatedItems <../complexTypes/array.html#unevaluated-items>`__ (Draft 2019-09 and later),
+the resolved schema's evaluated set contributes to the enclosing schema's evaluated set —
+exactly as an inline branch of the same shape would. Self-referential ``$ref`` chains are
+handled without infinite recursion: the generator terminates the walk when it revisits a
+schema it has already processed.

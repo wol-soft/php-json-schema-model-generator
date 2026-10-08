@@ -9,7 +9,7 @@ class ArrayHash
     public static function hash(array $array, array $relevantFields = []): string
     {
         if ($relevantFields) {
-            foreach ($array as $key => $_) {
+            foreach (array_keys($array) as $key) {
                 if (!in_array($key, $relevantFields)) {
                     unset($array[$key]);
                 }

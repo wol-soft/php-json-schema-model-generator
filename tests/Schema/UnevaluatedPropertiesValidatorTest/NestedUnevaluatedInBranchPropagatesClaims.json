@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "properties": {
+        "foo": {
+          "type": "string"
+        }
+      },
+      "unevaluatedProperties": {
+        "type": "integer"
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}

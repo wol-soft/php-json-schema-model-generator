@@ -5,14 +5,12 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
+use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class AbstractComposedPropertyValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidator
 {
     /** @var string */
@@ -20,6 +18,10 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     /** @var CompositionPropertyDecorator[] */
     protected $composedProperties;
     protected string $modifiedValuesMethod = '';
+
+    private bool $evaluationTrackingEnabled = false;
+
+    private ?string $slotKey = null;
 
     public function getCompositionProcessor(): string
     {
@@ -34,9 +36,66 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
         return $this->composedProperties;
     }
 
-    protected function initModifiedValuesMethod(): void
+    /**
+     * When true, this validator's rendered output will emit the _compositionEvaluations
+     * cache field and per-branch slot writes needed for unevaluatedProperties tracking.
+     */
+    public function enableEvaluationTracking(): void
     {
-        $this->modifiedValuesMethod = '_getModifiedValues_' . substr(md5(spl_object_hash($this)), 0, 5);
+        $this->evaluationTrackingEnabled = true;
+    }
+
+    public function hasEvaluationTrackingEnabled(): bool
+    {
+        return $this->evaluationTrackingEnabled;
+    }
+
+    /**
+     * Identifier under which this validator's per-call result (the union of indices claimed
+     * by successful array-side branches) is cached on the model instance. When set, the
+     * composition template writes the result wholesale to `$this->_compositionAnnotated[$slotKey]`
+     * at end-of-IIFE: `[]` on whole-composition failure, the union otherwise. Null when the
+     * validator is not part of an array-side tracking chain — the template then takes its
+     * pre-existing object-side path against `$this->_compositionEvaluations[$validatorIndex]`
+     * instead.
+     */
+    public function setSlotKey(string $slotKey): void
+    {
+        $this->slotKey = $slotKey;
+        $this->templateValues['slotKey'] = $slotKey;
+    }
+
+    public function getSlotKey(): ?string
+    {
+        return $this->slotKey;
+    }
+
+    /**
+     * Returns true when this validator implements `not` composition semantics.
+     *
+     * When true, composition templates unconditionally roll back _compositionEvaluations
+     * after the not-branch runs so that any annotations it wrote cannot leak to the parent.
+     */
+    public function isNotComposition(): bool
+    {
+        return $this->compositionProcessor === NotValidatorFactory::class;
+    }
+
+    /**
+     * Names the helper method that computes branch-default values. Must run before the parent
+     * constructor, which receives the name as a template value. The name is reserved on the
+     * class so two composition validators on the same property never share a helper, without
+     * depending on object identity (see ExtractedMethodValidator for why that is avoided).
+     */
+    protected function initModifiedValuesMethod(Schema $schema, PropertyInterface $property): void
+    {
+        $this->modifiedValuesMethod = $schema->reserveMethodName(
+            '_getModifiedValues_' . substr(
+                md5($property->getAttribute() . json_encode($property->getJsonSchema()->getJson())),
+                0,
+                5,
+            ),
+        );
     }
 
     /**

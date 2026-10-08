@@ -18,6 +18,7 @@ use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 #[ApplicableDrafts]
@@ -133,6 +134,92 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertTrue(is_callable([$object, 'getNoReadOnly']));
         $this->assertTrue(is_callable([$object, 'setNoReadOnly']));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function reservedClassNameProvider(): array
+    {
+        return [
+            'reserved keyword readonly' => ['ReadOnly'],
+            'reserved keyword class' => ['Class'],
+            'reserved keyword match' => ['Match'],
+            'reserved type name int' => ['Int'],
+            'reserved type name mixed' => ['Mixed'],
+            'reserved class name self' => ['Self'],
+            'reserved constant name null' => ['Null'],
+        ];
+    }
+
+    /**
+     * A schema whose derived class name is a PHP reserved word (`readonly` is reserved since PHP
+     * 8.1, as are all keywords and the builtin type names) can never be written as a class
+     * declaration: the rendered file fails to compile. The generator must reject it at generation
+     * time with a SchemaException that names the offending class name and the file, instead of
+     * letting RenderJob::render() surface a ParseError from require().
+     *
+     * The check is case-insensitive, as PHP resolves reserved words independent of case.
+     *
+     * An explicit inline `title` plus `$originalClassNames: true` is required to reproduce this
+     * through the test harness: `generateClassFromFile()`'s default path always writes the schema
+     * to a temp file named after the *test's own* generated class name (see
+     * AbstractPHPModelGeneratorTestCase::generateClass()) regardless of the flag, so only an
+     * explicit `title` (which the class-name generator prioritizes over the filename) reliably
+     * forces the collision.
+     */
+    #[DataProvider('reservedClassNameProvider')]
+    public function testClassNameCollidingWithPhpReservedWordThrowsSchemaException(string $title): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^' . preg_quote("Class name '$title' is a reserved PHP word and cannot be used for the generated"
+                . " class of file ", '/')
+                . '\S+: set a different \'title\' on the schema or configure a custom class name generator'
+                . ' at line \d+, column \d+$/',
+        );
+
+        $this->generateClass(
+            sprintf('{"title": "%s", "type": "object", "properties": {"name": {"type": "string"}}}', $title),
+            null,
+            true,
+        );
+    }
+
+    /**
+     * Control for the reserved-word check: `Enum`, `Resource` and `Numeric` look like candidates but
+     * are not reserved as class names, so they must keep generating working classes.
+     *
+     * Restricted to one draft: the generated class carries the fixed name from the title and every
+     * generation loads it into the same PHP process, so a second draft run would redeclare it. The
+     * reserved-word check is independent of the draft.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    #[DataProvider('nonReservedClassNameProvider')]
+    public function testClassNameResemblingAReservedWordIsAccepted(string $title): void
+    {
+        $this->generateClass(
+            sprintf('{"title": "%s", "type": "object", "properties": {"name": {"type": "string"}}}', $title),
+            null,
+            true,
+        );
+
+        // The harness returns its own file-based name; the generated class carries the title.
+        $generatedClassName = $this->lastGeneratedNamespacePrefix . '\\' . $title;
+        $this->assertTrue(class_exists($generatedClassName), "Class $generatedClassName must have been generated");
+        $this->assertSame('Alice', (new $generatedClassName(['name' => 'Alice']))->getName());
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function nonReservedClassNameProvider(): array
+    {
+        return [
+            'enum is contextual only' => ['Enum'],
+            'resource is not reserved' => ['Resource'],
+            'numeric is not reserved' => ['Numeric'],
+        ];
     }
 
     public function testSetterChangeTheInternalState(): void

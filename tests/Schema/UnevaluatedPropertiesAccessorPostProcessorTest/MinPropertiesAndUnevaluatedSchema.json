@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "minProperties": 3,
+  "unevaluatedProperties": {
+    "type": "integer"
+  }
+}

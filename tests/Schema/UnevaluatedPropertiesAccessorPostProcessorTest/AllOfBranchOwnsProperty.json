@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "properties": {
+        "branchOwned": {
+          "type": "string"
+        }
+      }
+    }
+  ],
+  "unevaluatedProperties": {
+    "type": "integer"
+  }
+}

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Utils\Json;
 
-use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Utils\JsonSchema;
 
 /**
  * Resolves an RFC 6901 JSON pointer against raw JSON source text to the source position of the

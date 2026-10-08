@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "patternProperties": {
+    "^x_": {
+      "type": "string"
+    }
+  },
+  "unevaluatedProperties": false
+}

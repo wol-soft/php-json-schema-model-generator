@@ -1011,6 +1011,8 @@ class Issue72Test extends AbstractIssueTestCase
      * while branches containing only "const" or "type" - both registered on their Type via
      * addModifier() rather than addValidator() in Draft_07, so invisible to
      * Draft::getTypesForKeyword() - must not, since both are genuine constraints.
+     *
+     * Also covers 'not', including the type-inheritance exclusion (notBranchInheritingParentType).
      */
     public function testVacuousBranchWarningIsDrivenByRegisteredValidatorsNotAHardcodedList(): void
     {
@@ -1095,6 +1097,21 @@ class Issue72Test extends AbstractIssueTestCase
         $this->assertNotNull($emptyBranchEntry, 'Expected a warning entry for the emptyBranchParity property.');
         $this->assertSame($trueBranchEntry['message'], $emptyBranchEntry['message']);
         $this->assertSame($trueBranchEntry['context']['index'], $emptyBranchEntry['context']['index']);
+
+        // 'not' inherits the parent type the same way allOf/anyOf/oneOf do, and the inherited
+        // type must be excluded from vacuousness the same way too - notBranchInheritingParentType
+        // declares nothing of its own, so without the exclusion it would look identical to an
+        // author-declared, non-vacuous `not: {"type": "string"}`.
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $entries,
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+                ['index' => 1, 'property' => 'notBranchInheritingParentType'],
+            ),
+            'Expected a vacuous-branch warning for the notBranchInheritingParentType property.',
+        );
     }
 
     /**

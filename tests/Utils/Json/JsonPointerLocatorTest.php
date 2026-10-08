@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Utils\Json;
 
-use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Utils\JsonSchema;
 use PHPModelGenerator\Utils\Json\JsonPointerLocator;
 use PHPUnit\Framework\TestCase;
 

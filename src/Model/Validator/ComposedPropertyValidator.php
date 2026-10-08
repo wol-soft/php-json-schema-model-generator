@@ -10,11 +10,6 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class ComposedPropertyValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 {
     public function __construct(
@@ -25,10 +20,10 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
         string $exceptionClass,
         array $validatorVariables,
     ) {
-        $this->initModifiedValuesMethod();
-        $this->isResolved = true;
-
         $schema = $validatorVariables['schema'];
+
+        $this->initModifiedValuesMethod($schema, $property);
+        $this->isResolved = true;
 
         parent::__construct(
             $generatorConfiguration,
@@ -71,6 +66,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             ]),
             $exceptionClass,
             ['&$succeededCompositionElements', '&$compositionErrorCollection'],
+            $schema,
         );
 
         $this->compositionProcessor = $compositionProcessor;
@@ -85,6 +81,10 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getCheck(): string
     {
+        // Make this validator instance available to the template so the unevaluatedProperties
+        // tracking guards (hasEvaluationTrackingEnabled, isNotComposition) can be evaluated.
+        $this->templateValues['compositionValidator'] = $this;
+
         $this->setupBranchDefaultHelpers();
 
         return parent::getCheck();
@@ -127,8 +127,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
 
         // Regenerate the modifiedValuesMethod name so the subset validator's helper
         // method is distinct from the original's.
-        $subsetValidator->modifiedValuesMethod =
-            '_getModifiedValues_' . substr(md5(spl_object_hash($subsetValidator)), 0, 5);
+        $subsetValidator->modifiedValuesMethod = $this->modifiedValuesMethod . $methodSuffix;
 
         $subsetValidator->composedProperties = $filteredProperties;
         $subsetValidator->templateValues = array_merge($this->templateValues, [

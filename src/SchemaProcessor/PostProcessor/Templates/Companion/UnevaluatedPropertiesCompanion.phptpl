@@ -1,0 +1,62 @@
+<?php
+
+// @codingStandardsIgnoreFile
+// @codeCoverageIgnoreStart
+
+declare(strict_types = 1);
+
+{% if namespace %}
+    namespace {{ namespace }};
+{% endif %}
+
+{% foreach use as import %}
+    use {{ import }};
+{% endforeach %}
+
+class {{ companionClassName }}
+{
+    {% if immutable %}
+        public function __construct(private readonly array $unevaluatedProperties) {}
+    {% else %}
+        public function __construct(
+            private array &$unevaluatedProperties,
+            private readonly \Closure $setter,
+            private readonly \Closure $remover,
+        ) {}
+    {% endif %}
+
+    /**
+     * @return {{ getReturnType }}
+     */
+    public function get(string $key): {{ getNullablePhpType }}
+    {
+        return $this->unevaluatedProperties[$key] ?? null;
+    }
+
+    /**
+     * @return {{ getAllReturnAnnotation }}
+     */
+    public function getAll(): array
+    {
+        return $this->unevaluatedProperties;
+    }
+
+    {% if not immutable %}
+        /**
+         * @param string $key
+         * @param {{ setParameterAnnotation }} $value
+         */
+        public function set(string $key, {{ setParameterType }} $value): static
+        {
+            ($this->setter)($key, $value);
+            return $this;
+        }
+
+        public function remove(string $key): bool
+        {
+            return ($this->remover)($key);
+        }
+    {% endif %}
+}
+
+// @codeCoverageIgnoreEnd

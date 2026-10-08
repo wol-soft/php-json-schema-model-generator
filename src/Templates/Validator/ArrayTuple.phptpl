@@ -27,11 +27,11 @@ is_array($value) && (function (&$items) use (&$invalidTuples, $modelData) {
                     $invalidTuples[$index] = $this->_errorRegistry->getErrors();
                 }
             {% endif %}
-        } catch (\Exception $e) {
+        } catch (\Exception $exception) {
             // collect all errors concerning invalid tuples
             isset($invalidTuples[$index])
-                ? $invalidTuples[$index][] = $e
-                : $invalidTuples[$index] = [$e];
+                ? $invalidTuples[$index][] = $exception
+                : $invalidTuples[$index] = [$exception];
         }
     {% endforeach %}
 

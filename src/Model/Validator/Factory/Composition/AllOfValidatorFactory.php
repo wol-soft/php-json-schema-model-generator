@@ -38,7 +38,11 @@ class AllOfValidatorFactory
         }
 
         $this->warnIfEmpty($schemaProcessor, $property, $propertySchema);
-        $propertySchema = $this->inheritPropertyType($schemaProcessor, $property, $propertySchema);
+        [$propertySchema, $injectedTypeBranchIndices] = $this->inheritPropertyType(
+            $schemaProcessor,
+            $property,
+            $propertySchema,
+        );
         $this->checkForFilterInBranches($property, $propertySchema);
 
         $wrappedSchema = $propertySchema->withJson([
@@ -53,6 +57,7 @@ class AllOfValidatorFactory
             $property,
             $wrappedSchema,
             true,
+            $injectedTypeBranchIndices,
         );
 
         $resolvedCompositions = 0;

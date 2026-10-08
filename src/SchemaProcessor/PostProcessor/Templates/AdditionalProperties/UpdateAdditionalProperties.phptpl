@@ -2,7 +2,7 @@
     foreach (array_diff(array_keys($value), {{ additionalProperties }}) as $propertyKey) {
         {% if patternProperties %}
             foreach ({{ patternProperties }} as $pattern) {
-                if (preg_match("/$pattern/", $propertyKey)) {
+                if (preg_match($pattern, $propertyKey)) {
                     continue 2;
                 }
             }

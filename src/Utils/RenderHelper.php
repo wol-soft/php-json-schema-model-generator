@@ -10,6 +10,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
+use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
 
 /**
  * Class RenderHelper
@@ -231,6 +232,27 @@ class RenderHelper
     }
 
     /**
+     * True when the property carries an UnevaluatedItemsValidator among its own validators.
+     *
+     * `_evaluatedItemIndices[$propertyName]` must be reset to an empty array before this
+     * property's validator chain runs (ahead of any composition validator, which may credit
+     * indices into the same slot during this same pass) — otherwise indices credited by a
+     * previous, unrelated validation pass (e.g. an earlier setter call) would incorrectly count
+     * as "already evaluated" for a completely different array value, silently skipping both
+     * validation and any transforming filter for that index.
+     */
+    public function hasUnevaluatedItemsValidator(PropertyInterface $property): bool
+    {
+        foreach ($property->getValidators() as $propertyValidator) {
+            if ($propertyValidator->getValidator() instanceof UnevaluatedItemsValidator) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Render $value as a PHP literal suitable for embedding directly in generated code: short-array ([...]) syntax
      * for arrays (recursively, preserving string keys for associative arrays), plain var_export() for everything
      * else. var_export() alone always emits the old array (...) syntax for arrays, which - unlike its output for
@@ -261,6 +283,41 @@ class RenderHelper
     private static function exportScalar(mixed $value): string
     {
         return $value === null ? 'null' : var_export($value, true);
+    }
+
+    /**
+     * Returns a PHP array literal whose values are each raw $patterns entry wrapped with `/`
+     * delimiters and with any embedded `/` characters escaped so they cannot terminate the
+     * delimiter early. The result is ready for direct `preg_match` use at runtime.
+     *
+     * @param string[] $rawPatterns Raw patternProperties regexes from a JSON Schema.
+     */
+    public static function varExportPcrePatterns(array $rawPatterns): string
+    {
+        return self::varExportArray(
+            array_map(
+                static fn(string $rawPattern): string => '/' . addcslashes($rawPattern, '/') . '/',
+                $rawPatterns,
+            ),
+        );
+    }
+
+    /**
+     * Returns a PHP array literal keyed by each raw pattern wrapped for direct `preg_match`
+     * use. Distinct from varExportPcrePatterns because the caller needs the values (not the
+     * numeric indices) so a per-pattern piece of metadata such as a JSON pointer can be looked
+     * up at runtime by the matched pattern.
+     *
+     * @param array<string, mixed> $rawPatternMap Keyed by raw regex; value is preserved verbatim.
+     */
+    public static function varExportPcrePatternMap(array $rawPatternMap): string
+    {
+        $keyed = [];
+        foreach ($rawPatternMap as $rawPattern => $value) {
+            $keyed['/' . addcslashes((string) $rawPattern, '/') . '/'] = $value;
+        }
+
+        return var_export($keyed, true);
     }
 
     public static function filterClassImports(array $imports, string $namespace): array

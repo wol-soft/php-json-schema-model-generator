@@ -341,7 +341,13 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     /**
      * Build composition sub-properties for the current keyword's branches.
      *
-     * @param bool $merged Whether to suppress CompositionTypeHintDecorators for object branches.
+     * @param bool             $merged                   Whether to suppress
+     *                                                    CompositionTypeHintDecorators for
+     *                                                    object branches.
+     * @param array<int, true> $injectedTypeBranchIndices Branch indices whose 'type' was
+     *                                                    inherited rather than author-declared
+     *                                                    (see inheritPropertyType()) - excluded
+     *                                                    from the vacuous-branch check below.
      *
      * @return CompositionPropertyDecorator[]
      *
@@ -353,6 +359,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         PropertyInterface $property,
         JsonSchema $propertySchema,
         bool $merged,
+        array $injectedTypeBranchIndices = [],
     ): array {
         $propertyFactory = new PropertyFactory();
         $compositionProperties = [];
@@ -424,6 +431,12 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             // would risk a fatal error (its wrapped property may still be an unresolved proxy).
             if ($compositionProperty->isResolved()) {
                 $resolvedBranchJson = $compositionProperty->getJsonSchema()->getJson();
+
+                // An inherited 'type' isn't an author-declared constraint - strip it so
+                // vacuousness is judged on what the branch actually declares.
+                if (isset($injectedTypeBranchIndices[$index])) {
+                    unset($resolvedBranchJson['type']);
+                }
 
                 $this->warnIfVacuousBranch($schemaProcessor, $property, $index + 1, $resolvedBranchJson, $draft);
             }
@@ -529,22 +542,32 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
     /**
      * Inherit a parent-level type into composition branches that declare no type.
+     *
+     * @return array{0: JsonSchema, 1: array<int, true>} The (possibly type-injected) schema, and
+     *         the zero-based indices of branches whose 'type' this call injected rather than
+     *         found already declared - consumed by getCompositionProperties()'s vacuous-branch
+     *         check. Populated for 'not' too (index 0, once the caller wraps its single schema
+     *         into an array). Always empty for 'if', which never reaches
+     *         getCompositionProperties().
      */
     protected function inheritPropertyType(
         SchemaProcessor $schemaProcessor,
         PropertyInterface $property,
         JsonSchema $propertySchema,
-    ): JsonSchema {
+    ): array {
+        $injectedTypeBranchIndices = [];
+
         $json = $propertySchema->getJson();
 
         if (!isset($json['type'])) {
-            return $propertySchema;
+            return [$propertySchema, $injectedTypeBranchIndices];
         }
 
         switch ($this->key) {
             case 'not':
                 if (!isset($json[$this->key]['type'])) {
                     $json[$this->key]['type'] = $json['type'];
+                    $injectedTypeBranchIndices[0] = true;
 
                     if ($json['type'] === 'object') {
                         $this->warnIfInjectedObjectTypeConflictsWithEnumOrConst(
@@ -557,11 +580,15 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 }
                 break;
             case 'if':
-                return $this->inheritIfPropertyType($schemaProcessor, $property, $propertySchema->withJson($json));
+                return [
+                    $this->inheritIfPropertyType($schemaProcessor, $property, $propertySchema->withJson($json)),
+                    $injectedTypeBranchIndices,
+                ];
             default:
                 foreach ($json[$this->key] as $index => &$composedElement) {
                     if (!is_bool($composedElement) && !isset($composedElement['type'])) {
                         $composedElement['type'] = $json['type'];
+                        $injectedTypeBranchIndices[$index] = true;
 
                         if ($json['type'] === 'object') {
                             $this->warnIfInjectedObjectTypeConflictsWithEnumOrConst(
@@ -575,7 +602,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 }
         }
 
-        return $propertySchema->withJson($json);
+        return [$propertySchema->withJson($json), $injectedTypeBranchIndices];
     }
 
     /**

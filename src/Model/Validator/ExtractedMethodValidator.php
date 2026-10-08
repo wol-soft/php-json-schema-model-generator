@@ -9,6 +9,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\MethodInterface;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -26,13 +27,23 @@ abstract class ExtractedMethodValidator extends PropertyTemplateValidator
         array $templateValues,
         string $exceptionClass,
         array $exceptionParams = [],
+        ?Schema $schema = null,
     ) {
-        $this->extractedMethodName = sprintf(
+        $methodName = sprintf(
             '_validate%s_%s_%s',
             str_replace(' ', '', ucfirst($property->getAttribute())),
             str_replace('Validator', '', substr(strrchr(static::class, '\\'), 1)),
             md5(json_encode($property->getJsonSchema()->getJson())),
         );
+
+        // Two validators of the same kind on the same attribute with identical schema JSON (two
+        // compositions on one property, identical anyOf branches, ...) hash to the same name, and
+        // a class registers each name once - the second validator would silently reuse the first
+        // one's method body. The class-scoped reservation separates them deterministically.
+        // Rejected: mixing spl_object_id() into the hash - it separates them too, but the id shifts
+        // whenever an unrelated schema was processed earlier in the run, renaming the extracted
+        // methods of classes that did not change.
+        $this->extractedMethodName = $schema?->reserveMethodName($methodName) ?? $methodName;
 
         parent::__construct($property, $template, $templateValues, $exceptionClass, $exceptionParams);
     }

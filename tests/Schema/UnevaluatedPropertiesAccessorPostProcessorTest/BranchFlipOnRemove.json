@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    }
+  },
+  "patternProperties": {
+    "^p_": {
+      "type": "integer"
+    }
+  },
+  "minProperties": 3,
+  "anyOf": [
+    {
+      "minProperties": 3,
+      "properties": {
+        "kind": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "X"
+        }
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}

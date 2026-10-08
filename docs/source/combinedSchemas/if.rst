@@ -220,3 +220,56 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
 
     See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
     explanation.
+
+Property and item evaluation propagation
+----------------------------------------
+
+For an enclosing schema that uses `unevaluatedProperties <../complexTypes/object.html#unevaluated-properties>`__
+or `unevaluatedItems <../complexTypes/array.html#unevaluated-items>`__ (Draft 2019-09 and later),
+each of the three branches (``if``, ``then``, ``else``) contributes independently:
+
+- ``if`` runs unconditionally. When it succeeds, its own declarations count as evaluated —
+  the JSON Schema 2019-09 spec treats ``if`` as a positive applicator whose annotations
+  survive.
+- ``then`` runs only when ``if`` succeeded; it contributes if it also succeeds.
+- ``else`` runs only when ``if`` failed; it contributes if it succeeds.
+
+At most two of the three branches actually execute per validation call, so the effective
+contribution is: (``if``'s + ``then``'s) when the condition holds, or (``else``'s) when it does
+not. Each contributing branch credits property names claimed by its ``properties``,
+``patternProperties``, and ``additionalProperties`` (per key with a passing value), and — on the
+array side — the indices claimed by its ``items``/``additionalItems``/``contains``.
+
+Because branch outcomes depend on the input, the evaluated set is derived per validation call
+and refreshed whenever the model is mutated. A conditional that fails as a whole (for example a
+passing ``if`` followed by a failing ``then``) contributes nothing, not even the annotations of
+the passing ``if`` — as with a failed ``allOf``, keys it would have claimed show up as
+unevaluated in the error report when errors are collected.
+
+A composition nested inside a branch (an ``anyOf`` inside an ``allOf`` branch, a conditional
+inside a ``oneOf`` branch, ...) contributes the claims of its own successful branches to the
+enclosing branch, to any depth.
+
+.. note::
+
+    *Omitting* ``additionalProperties`` from a branch is **not** the same as writing
+    ``additionalProperties: true``. An omitted keyword produces no annotation and therefore
+    credits nothing to the enclosing ``unevaluatedProperties`` — only an *explicit*
+    ``additionalProperties`` (whether ``true`` or ``{schema}``) contributes. Two branches with
+    identical extras behaviour but one writing the keyword and the other omitting it will
+    therefore credit different evaluated sets. This is a spec-mandated distinction from
+    JSON Schema 2019-09. The same rule applies on the array side: an explicit ``additionalItems``
+    credits the indices past the tuple, and an explicit ``items: true`` or ``items: {}`` credits
+    every index. An explicit ``unevaluatedProperties: true`` or ``unevaluatedItems: true`` inside
+    a branch likewise credits every key or index, while omitting these keywords credits nothing.
+
+.. note::
+
+    Only this *up* direction (a branch's own declarations propagating to an enclosing
+    ``unevaluatedProperties``/``unevaluatedItems``) is implemented. The reverse — a ``then`` or
+    ``else`` branch's own ``unevaluatedProperties``/``unevaluatedItems`` (other than a literal
+    ``true``, which never rejects anything) seeing property names or indices declared by the
+    *enclosing* schema, ``if``'s own declarations, or the other conditional branch — is not
+    currently supported and throws
+    ``PHPModelGenerator\Exception\UnsupportedSchemaFeatureException`` at generation time. See
+    `All Of <allOf.html>`__'s equivalent note for a concrete example.

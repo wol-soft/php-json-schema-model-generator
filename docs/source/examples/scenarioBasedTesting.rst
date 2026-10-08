@@ -168,7 +168,7 @@ We'll use the schema model generator to create a Scenario class with the followi
 
 Now we can add a scripts-section to our composer.json to create a build script which runs our **generateScenarioModels.php**:
 
-.. code-block:: json
+.. code-block:: none
 
     ...
     "scripts": {
@@ -368,7 +368,7 @@ Yes, it was. But keep in mind: your entities are likely bigger, you may have man
 
 In a larger context you may want to structure your **scenario-schema** more user-orientated instead of representing the entities of your application one-to-one. Let's assume you extend your Petshop with subscriptions so a user can subscribe to get updates on various pets (eg. changes of the availability). Now you can go one way and add an entity *petSubscription* to the **scenario-schema** which links a pet to a user with the properties *user* and *pet* (just like a subscription entity in your code). But as we want simple scenarios we could also change the *pet* entity and add a list of subscribers to the entity in our **scenario-schema**:
 
-.. code-block:: json
+.. code-block:: none
 
     "pets": {
       "type": "array",
@@ -388,7 +388,7 @@ In a larger context you may want to structure your **scenario-schema** more user
 
 In our **ScenarioBuilder** we extend the setupPets method to also persist our subscriptions. Now our **scenario** in a SubscriberTest can look like:
 
-.. code-block:: json
+.. code-block:: none
 
     ...,
     "pets": [

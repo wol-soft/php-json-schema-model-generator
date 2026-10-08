@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Objects;
 
+use DateTime;
 use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
 use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
@@ -433,5 +434,47 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             'one level nested - invalid nested first tuple' => [['abc', [1, 'def']]],
             'one level nested - invalid nested second tuple' => [['abc', ['abc', 1]]],
         ];
+    }
+
+    /**
+     * A transforming filter (here `dateTime`) declared on one tuple index persists the
+     * transformed value and accepts an already-transformed value passed directly for that
+     * index — TransformingFilterOutputTypePostProcessor recurses into
+     * ArrayTupleValidator::getTupleProperties() to widen the affected index's TypeCheckValidator
+     * without touching the other, unfiltered index.
+     *
+     * Serialization applies the filter's outputFormat only to the tuple index that declares it
+     * (index 0); the plain second index passes through unchanged — proving the per-index
+     * serializer doesn't over-apply the filter to indices that never had one.
+     */
+    public function testTransformingFilterOnTupleIndexPersistsAndAcceptsAlreadyTransformedValue(): void
+    {
+        $className = $this->generateClassFromFile(
+            'TupleArrayWithTransformingFilter.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $accepted = new $className(['tags' => ['2020-10-10', 'plain']]);
+        $this->assertEquals([new DateTime('2020-10-10'), 'plain'], $accepted->getTags());
+        // The raw input view stays untransformed — only the property's own storage is affected.
+        $this->assertSame(['2020-10-10', 'plain'], $accepted->meta()->rawInput()['tags']);
+
+        $this->assertSame(['tags' => ['20201010', 'plain']], $accepted->toArray());
+        $decoded = json_decode($accepted->toJSON(), true);
+        $this->assertSame(['tags' => ['20201010', 'plain']], $decoded);
+
+        $alreadyTransformed = new $className(['tags' => [new DateTime('2020-10-10'), 'plain']]);
+        $this->assertEquals([new DateTime('2020-10-10'), 'plain'], $alreadyTransformed->getTags());
+        $this->assertEquals(
+            [new DateTime('2020-10-10'), 'plain'],
+            $alreadyTransformed->meta()->rawInput()['tags'],
+        );
+
+        // The setter must exercise the same validator chain as construction.
+        $accepted->setTags(['2020-01-01', 'plain']);
+        $this->assertEquals([new DateTime('2020-01-01'), 'plain'], $accepted->getTags());
+
+        $accepted->setTags([new DateTime('2020-02-02'), 'plain']);
+        $this->assertEquals([new DateTime('2020-02-02'), 'plain'], $accepted->getTags());
     }
 }

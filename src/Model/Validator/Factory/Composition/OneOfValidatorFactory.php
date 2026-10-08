@@ -39,7 +39,11 @@ class OneOfValidatorFactory
         }
 
         $this->warnIfEmpty($schemaProcessor, $property, $propertySchema);
-        $propertySchema = $this->inheritPropertyType($schemaProcessor, $property, $propertySchema);
+        [$propertySchema, $injectedTypeBranchIndices] = $this->inheritPropertyType(
+            $schemaProcessor,
+            $property,
+            $propertySchema,
+        );
         $this->checkForFilterInBranches($property, $propertySchema);
 
         $onlyForDefinedValues = !($property instanceof BaseProperty)
@@ -58,6 +62,7 @@ class OneOfValidatorFactory
             $property,
             $wrappedSchema,
             false,
+            $injectedTypeBranchIndices,
         );
 
         $resolvedCompositions = 0;

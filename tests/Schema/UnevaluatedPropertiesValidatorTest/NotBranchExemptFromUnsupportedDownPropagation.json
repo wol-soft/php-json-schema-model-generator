@@ -1,0 +1,12 @@
+{
+  "title": "NotBranchExemptFromUnsupportedDownPropagation",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "not": {
+    "unevaluatedProperties": false
+  }
+}

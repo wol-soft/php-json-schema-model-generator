@@ -1,4 +1,4 @@
-is_array($value) && (function (&$items){% if countMatches %} use (&$containsMatches){% endif %} {
+is_array($value) && (function (&$items){% if countMatches or trackBranchMatches %} use ({% if countMatches %}&$containsMatches{% endif %}{% if countMatches and trackBranchMatches %}, {% endif %}{% if trackBranchMatches %}&$branchContainsMatches{% endif %}){% endif %} {
     if (empty($items)) {
         return {% if allowNoMatch %}false{% else %}true{% endif %};
     }
@@ -7,7 +7,11 @@ is_array($value) && (function (&$items){% if countMatches %} use (&$containsMatc
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
 
-    foreach ($items as &$value) {
+    {% if trackEvaluatedItems %}
+        $branchContainsMatches = [];
+    {% endif %}
+
+    foreach ($items as $index => &$value) {
         try {
             {% if generatorConfiguration.collectErrors() %}
                 $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
@@ -27,13 +31,18 @@ is_array($value) && (function (&$items){% if countMatches %} use (&$containsMatc
                 $this->_errorRegistry = $originalErrorRegistry;
             {% endif %}
 
+            {% if trackBranchMatches or trackEvaluatedItems %}
+                $branchContainsMatches[$index] = true;
+            {% endif %}
+
             {% if countMatches %}
                 $containsMatches++;
-            {% else %}
-                // one matched item is enough to pass the contains check
+            {% endif %}
+            {% if not countMatches and not trackBranchMatches and not trackEvaluatedItems %}
+                // one matched item is enough; no need to keep iterating
                 return false;
             {% endif %}
-        } catch (\Exception $e) {
+        } catch (\Exception) {
             continue;
         }
     }
@@ -42,5 +51,20 @@ is_array($value) && (function (&$items){% if countMatches %} use (&$containsMatc
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
-    return {% if countMatches %}{% if allowNoMatch %}false{% else %}$containsMatches === 0{% endif %}{% else %}true{% endif %};
+    {% if trackEvaluatedItems %}
+        // Credit every matched index to the property's evaluated-index set so a sibling
+        // unevaluatedItems validator sees those indices as evaluated.
+        $this->_evaluatedItemIndices['{{ trackEvaluatedItemsProperty }}'] =
+            ($this->_evaluatedItemIndices['{{ trackEvaluatedItemsProperty }}'] ?? []) + $branchContainsMatches;
+    {% endif %}
+
+    {% if countMatches %}
+        return {% if allowNoMatch %}false{% else %}$containsMatches === 0{% endif %};
+    {% else %}
+        {% if trackBranchMatches or trackEvaluatedItems %}
+            return empty($branchContainsMatches);
+        {% else %}
+            return true;
+        {% endif %}
+    {% endif %}
 })($value)

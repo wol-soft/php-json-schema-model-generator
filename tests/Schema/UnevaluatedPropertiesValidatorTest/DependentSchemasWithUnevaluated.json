@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    }
+  },
+  "dependentSchemas": {
+    "kind": {
+      "properties": {
+        "extra": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "unevaluatedProperties": false
+}

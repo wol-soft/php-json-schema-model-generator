@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\Object\InvalidPatternPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -276,5 +277,49 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         $bob = $instances['person_bob'];
         $this->assertSame('Bob', $bob->getName());
         $this->assertNull($bob->getAge());
+    }
+
+    /**
+     * `additionalProperties: {schema}` combined with a sibling `patternProperties` must route
+     * a pattern-matching key through the pattern's own subschema and only fall through to
+     * `additionalProperties` for a key the pattern does not match. Regression guard for
+     * `AdditionalProperties.phptpl`'s pattern-exclusion loop, which referenced an undefined
+     * `$property` instead of the enclosing `foreach`'s `$propertyKey` — every key, matching or
+     * not, hit `preg_match($pattern, null)`, which throws a `TypeError` under PHP 8's strict
+     * internal-function typing. The `catch (\Exception $exception)` around the per-key
+     * validation body does not catch `TypeError` (it extends `Error`, not `Exception`), so the
+     * bug was an uncaught fatal crash on construction for any input, not just a wrong-validator
+     * result — this is why the fixture has no `properties` block at all: even a key matching
+     * neither `properties` nor the pattern must be reachable to exercise the fallthrough.
+     */
+    public function testAdditionalPropertiesSchemaValidatesKeysThePatternDoesNotMatch(): void
+    {
+        $className = $this->generateClassFromFile('AdditionalPropertiesSchemaWithSiblingPattern.json');
+
+        // Pattern-matching key validated against the pattern's own string schema.
+        new $className(['x_foo' => 'hello']);
+
+        // Non-matching key validated against additionalProperties' integer schema.
+        new $className(['other' => 5]);
+
+        try {
+            new $className(['x_foo' => 123]);
+            $this->fail('Expected InvalidPatternPropertiesException for a non-string pattern match');
+        } catch (InvalidPatternPropertiesException $exception) {
+            $this->assertStringContainsString(
+                "Invalid type for 'pattern property': requires 'string', got 'integer'",
+                $exception->getMessage(),
+            );
+        }
+
+        try {
+            new $className(['other' => 'not-an-int']);
+            $this->fail('Expected InvalidAdditionalPropertiesException for a non-integer fallthrough key');
+        } catch (InvalidAdditionalPropertiesException $exception) {
+            $this->assertStringContainsString(
+                "Invalid type for 'additional property': requires 'int', got 'string'",
+                $exception->getMessage(),
+            );
+        }
     }
 }

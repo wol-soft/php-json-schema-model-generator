@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string",
+          "filter": [
+            {
+              "filter": "dateTime",
+              "outputFormat": "Ymd"
+            }
+          ]
+        }
+      ],
+      "unevaluatedItems": {
+        "type": "string",
+        "filter": [
+          {
+            "filter": "dateTime",
+            "outputFormat": "Y-m-d"
+          }
+        ]
+      }
+    }
+  }
+}

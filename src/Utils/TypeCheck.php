@@ -79,30 +79,35 @@ class TypeCheck
 
     /**
      * Build a negated runtime check for a single JSON Schema type name, as used by the "type"
-     * keyword (TypeCheckValidator, and MultiTypeCheckValidator via ReflectionTypeCheckValidator -
-     * both always call this with exactly one type name per instance).
+     * keyword. Differs from negating buildCheck() for "array"/"object" because
+     * json_decode($x, true) maps both an empty JSON object `{}` and an empty JSON array `[]` to
+     * the same empty PHP array - see ObjectInstantiationDecorator.phptpl for the same ambiguity
+     * handled on the instantiation side. "array" requires array_is_list($value) to reject a PHP
+     * map masquerading as an array. This must NOT bleed into buildCheck()/buildCompound()/
+     * buildNegatedCompound(), which are general PHP-type checks for filter input/output and must
+     * keep accepting any PHP array.
      *
-     * Identical to negating buildCheck() except for "array": a JSON object and a JSON array both
-     * decode to a PHP array via json_decode($x, true), so "type": "array" must additionally
-     * require array_is_list($value) to reject a JSON object represented as a PHP map. No special
-     * case is needed for an empty array: array_is_list() already treats [] as a list, so an empty
-     * JSON array correctly satisfies "type": "array" here. (An empty JSON *object* satisfying
-     * "type": "array" too is the inherent, accepted {} vs [] limitation - see
-     * ObjectInstantiationDecorator.phptpl, which carries the opposite-direction carve-out so an
-     * empty object is still accepted for "type": "object".)
-     *
-     * This must NOT bleed into buildCheck()/buildCompound()/buildNegatedCompound(), which
-     * represent general PHP-type checks for filter input/output types - a filter declaring
-     * "array" as an accepted PHP type must keep accepting any PHP array, list or map, since it
-     * operates on already-decoded PHP values rather than re-deriving JSON Schema type semantics.
+     * $treatObjectAsUninstantiatedShape applies the mirror-image "object" carve-out
+     * (`$value === []` also counts as an object), needed only by MultiTypeCheckValidator: when a
+     * multi-type property's own composition validator - not ObjectInstantiationDecorator - owns
+     * instantiation, "object" candidacy must be checked against the raw, not-yet-instantiated
+     * value. Without the carve-out, `{}` is wrongly rejected as "not an object" whenever the
+     * property's other candidate type isn't "array" too (pairing with "array" masks the gap,
+     * since `[]` then legitimately matches that candidate anyway).
      */
-    public static function buildNegatedJsonSchemaTypeCheck(string $typeName): string
-    {
-        if ($typeName !== 'array') {
-            return self::buildNegatedCompound([$typeName]);
+    public static function buildNegatedJsonSchemaTypeCheck(
+        string $typeName,
+        bool $treatObjectAsUninstantiatedShape = false,
+    ): string {
+        if ($typeName === 'array') {
+            return '!(is_array($value) && array_is_list($value))';
         }
 
-        return '!(is_array($value) && array_is_list($value))';
+        if ($typeName === 'object' && $treatObjectAsUninstantiatedShape) {
+            return '!(is_object($value) || (is_array($value) && (!array_is_list($value) || $value === [])))';
+        }
+
+        return self::buildNegatedCompound([$typeName]);
     }
 
     /**

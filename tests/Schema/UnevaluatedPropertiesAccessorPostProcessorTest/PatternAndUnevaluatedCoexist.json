@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "patternProperties": {
+    "^s/~": {
+      "type": "string"
+    }
+  },
+  "unevaluatedProperties": {
+    "type": "integer"
+  }
+}

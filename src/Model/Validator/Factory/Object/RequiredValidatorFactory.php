@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 
 /**
  * Attaches a RequiredPropertyValidator to every property named in the object schema's 'required'
@@ -64,7 +65,7 @@ class RequiredValidatorFactory extends AbstractValidatorFactory
         // withPointer() to advance the pointer without descending into JSON content.
         $nestedPropertySchema = $propertySchema
             ->withPointer(
-                $propertySchema->getPointer() . '/properties/' . JsonSchema::encodePointer($propertyName),
+                $propertySchema->getPointer() . '/properties/' . JsonSchemaUtil::encodePointer($propertyName),
             )
             ->withJson([]);
 
@@ -81,7 +82,7 @@ class RequiredValidatorFactory extends AbstractValidatorFactory
         if ($dependencies !== null) {
             $this->addDependencyValidator(
                 $nestedProperty,
-                $schema->getJsonSchema()->navigate('dependencies/' . JsonSchema::encodePointer($propertyName)),
+                $schema->getJsonSchema()->navigate('dependencies/' . JsonSchemaUtil::encodePointer($propertyName)),
                 $schemaProcessor,
                 $schema,
             );
