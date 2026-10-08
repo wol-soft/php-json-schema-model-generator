@@ -18,6 +18,7 @@ use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 #[ApplicableDrafts]
@@ -188,7 +189,12 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
     /**
      * Control for the reserved-word check: `Enum`, `Resource` and `Numeric` look like candidates but
      * are not reserved as class names, so they must keep generating working classes.
+     *
+     * Restricted to one draft: the generated class carries the fixed name from the title and every
+     * generation loads it into the same PHP process, so a second draft run would redeclare it. The
+     * reserved-word check is independent of the draft.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
     #[DataProvider('nonReservedClassNameProvider')]
     public function testClassNameResemblingAReservedWordIsAccepted(string $title): void
     {
