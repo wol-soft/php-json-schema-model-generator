@@ -504,17 +504,32 @@ draft instance (``DraftInterface``) to pin all schemas to one draft, or a factor
 (``DraftFactoryInterface``) to select the draft per schema file.
 
 By default ``AutoDetectionDraft`` is used. It implements ``DraftFactoryInterface`` and inspects
-the ``$schema`` keyword of each schema file to select the appropriate draft automatically. When
-the keyword is absent or unrecognised, it falls back to JSON Schema Draft 7 behaviour, so schemas
-with different ``$schema`` declarations in the same generation run can use different drafts.
+the ``$schema`` keyword of each schema file to select the appropriate draft automatically. The
+declared draft applies to the whole document, including every nested object, array item and
+composition branch. When the keyword is absent or unrecognised, it falls back to JSON Schema
+Draft 2020-12 behaviour, so schemas with different ``$schema`` declarations in the same
+generation run can use different drafts.
 
 Available draft classes:
 
-============= ================================
-Draft class   Description
-============= ================================
-``Draft_07``  JSON Schema Draft 7 (default)
-============= ================================
+================== ===============================================================
+Draft class        Description
+================== ===============================================================
+``Draft_07``       JSON Schema Draft 7
+``Draft_2019_09``  JSON Schema Draft 2019-09
+``Draft_2020_12``  JSON Schema Draft 2020-12 (default without a recognised $schema)
+================== ===============================================================
+
+.. warning::
+
+    **Upgrading: keywords introduced after Draft 7 are now enforced.** Schemas without a
+    recognised ``$schema`` are processed with Draft 2020-12 rules. Keywords that Draft 7 does not
+    define — for example ``unevaluatedProperties``, ``unevaluatedItems``, ``minContains`` and
+    ``maxContains`` — are enforced for these schemas wherever they appear, including nested
+    objects and array properties; versions that only supported Draft 7 ignored them silently.
+    Input that was accepted before can therefore be rejected after the upgrade. To keep the
+    previous behaviour for a schema declare ``"$schema": "http://json-schema.org/draft-07/schema#"``
+    in it, or pin the draft for the whole run with ``setDraft(new Draft_07())``.
 
 .. seealso::
 

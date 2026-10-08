@@ -127,6 +127,10 @@ Each successful branch credits property names claimed by its ``properties``, ``p
 and ``additionalProperties`` (per key with a passing value), and — on the array side — the
 indices claimed by its ``items``/``additionalItems``/``contains``.
 
+A composition nested inside a branch (an ``anyOf`` inside an ``allOf`` branch, a conditional
+inside a ``oneOf`` branch, ...) contributes the claims of its own successful branches to the
+enclosing branch, to any depth.
+
 .. note::
 
     *Omitting* ``additionalProperties`` from a branch is **not** the same as writing
@@ -135,7 +139,10 @@ indices claimed by its ``items``/``additionalItems``/``contains``.
     ``additionalProperties`` (whether ``true`` or ``{schema}``) contributes. Two branches with
     identical extras behaviour but one writing the keyword and the other omitting it will
     therefore credit different evaluated sets. This is a spec-mandated distinction from
-    JSON Schema 2019-09. The same rule applies to ``additionalItems`` on the array side.
+    JSON Schema 2019-09. The same rule applies on the array side: an explicit ``additionalItems``
+    credits the indices past the tuple, and an explicit ``items: true`` or ``items: {}`` credits
+    every index. An explicit ``unevaluatedProperties: true`` or ``unevaluatedItems: true`` inside
+    a branch likewise credits every key or index, while omitting these keywords credits nothing.
 
 .. note::
 

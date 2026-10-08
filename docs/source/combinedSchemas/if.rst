@@ -241,7 +241,14 @@ not. Each contributing branch credits property names claimed by its ``properties
 array side — the indices claimed by its ``items``/``additionalItems``/``contains``.
 
 Because branch outcomes depend on the input, the evaluated set is derived per validation call
-and refreshed whenever the model is mutated.
+and refreshed whenever the model is mutated. A conditional that fails as a whole (for example a
+passing ``if`` followed by a failing ``then``) contributes nothing, not even the annotations of
+the passing ``if`` — as with a failed ``allOf``, keys it would have claimed show up as
+unevaluated in the error report when errors are collected.
+
+A composition nested inside a branch (an ``anyOf`` inside an ``allOf`` branch, a conditional
+inside a ``oneOf`` branch, ...) contributes the claims of its own successful branches to the
+enclosing branch, to any depth.
 
 .. note::
 
@@ -251,7 +258,10 @@ and refreshed whenever the model is mutated.
     ``additionalProperties`` (whether ``true`` or ``{schema}``) contributes. Two branches with
     identical extras behaviour but one writing the keyword and the other omitting it will
     therefore credit different evaluated sets. This is a spec-mandated distinction from
-    JSON Schema 2019-09. The same rule applies to ``additionalItems`` on the array side.
+    JSON Schema 2019-09. The same rule applies on the array side: an explicit ``additionalItems``
+    credits the indices past the tuple, and an explicit ``items: true`` or ``items: {}`` credits
+    every index. An explicit ``unevaluatedProperties: true`` or ``unevaluatedItems: true`` inside
+    a branch likewise credits every key or index, while omitting these keywords credits nothing.
 
 .. note::
 

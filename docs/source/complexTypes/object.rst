@@ -119,6 +119,8 @@ The native return type is ``mixed``, not ``Child | mixed``: ``mixed`` already su
 
 A ``child`` object carrying an unevaluated key is rejected, while a scalar ``child`` value is accepted without modification. A bare untyped schema (``{}``) declares no applicators, so no nested class is generated and the property remains a plain ``mixed`` value.
 
+This applies to property subschemas. A *root* schema without ``type: object`` does not generate a class at all, so an ``unevaluatedProperties`` keyword on a typeless root has nothing to apply to — declare ``type: object`` on the root.
+
 .. note::
 
     The same principle applies to scalar and array applicators: a subschema declaring ``minLength`` without ``type: string``, or ``minItems`` without ``type: array``, enforces the constraint only when the value is of the matching type and accepts values of every other type.
@@ -436,7 +438,7 @@ The generated model accepts ``name`` (claimed by ``properties``) and ``age`` (cl
 
 .. code-block:: none
 
-    Provided JSON for person contains not allowed unevaluated properties [extra]
+    Provided JSON for 'person' contains not allowed unevaluated properties ['extra']
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\UnevaluatedPropertiesException*
 which provides the following methods to get further error details:
@@ -479,9 +481,9 @@ violations:
 
 .. code-block:: none
 
-    Provided JSON for example contains invalid unevaluated properties.
+    Provided JSON for 'example' contains invalid unevaluated properties
       - invalid unevaluated property 'note'
-        * Value for unevaluated property must not be longer than 10
+        * Value for 'unevaluated property' must not be longer than 10
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Object\\InvalidUnevaluatedPropertiesException*
 which provides the following methods to get further error details:
@@ -517,8 +519,11 @@ a ``SchemaException`` at generation time.
 
 .. note::
 
-    ``unevaluatedProperties`` also accepts the boolean literal ``true``. This is a no-op — every
-    property is considered evaluated — and no validator is emitted.
+    ``unevaluatedProperties`` also accepts the boolean literal ``true``. On its own this is a
+    no-op — every property is considered evaluated — and no validator is emitted. Inside a
+    composition branch an explicit ``unevaluatedProperties: true`` annotates every property, so a
+    successful branch credits all keys to an enclosing ``unevaluatedProperties``. An *omitted*
+    keyword produces no annotation.
 
 .. hint::
 

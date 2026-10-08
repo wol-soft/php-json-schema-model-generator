@@ -215,6 +215,54 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
     }
 
     /**
+     * The accessor is emitted even when a successful composition branch claims every extra key
+     * through a non-false `additionalProperties`: the schema keyword is present and branches can
+     * be runtime-dependent (anyOf/oneOf/if), so the bucket is only statically empty for some
+     * shapes. For a branch that does claim the keys, the accessor keeps a consistent contract:
+     *   - a value satisfying the branch's claim is accepted and stored in the raw input, but the
+     *     key is evaluated by the branch and therefore never appears in the unevaluated bucket;
+     *   - a value violating the claim is rejected by the composition re-validation and rolled
+     *     back completely.
+     * The untyped `unevaluatedProperties: {}` keeps the accessor's value type open so both a
+     * conforming and a violating value can be offered. The model stays reconstructible from its
+     * own raw data throughout.
+     */
+    public function testSetOnBranchClaimedKeyIsValidatedByTheBranchAndStaysOutOfTheBucket(): void
+    {
+        $this->addPostProcessor();
+        $className = $this->generateClassFromFile(
+            'BranchAdditionalPropertiesClaimsUntypedExtras.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className(['kind' => 'a']);
+
+        $object->unevaluatedProperties()->set('claimed', 5);
+
+        $this->assertSame([], $object->unevaluatedProperties()->getAll());
+        $this->assertSame(['kind' => 'a', 'claimed' => 5], $object->meta()->rawInput());
+
+        try {
+            $object->unevaluatedProperties()->set('violating', 'not-an-integer');
+            $this->fail('Expected the branch additionalProperties claim to reject the value');
+        } catch (AllOfException $exception) {
+            $this->assertSame(
+                <<<MSG
+                Invalid value for '{$className}' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertSame([], $object->unevaluatedProperties()->getAll());
+        $this->assertSame(['kind' => 'a', 'claimed' => 5], $object->meta()->rawInput());
+
+        $reconstructed = new $className($object->meta()->rawInput());
+        $this->assertSame(['kind' => 'a', 'claimed' => 5], $reconstructed->meta()->rawInput());
+    }
+
+    /**
      * Keys that match a declared property name must be routed through the named setter and
      * not the unevaluated accessor. The shim's runtime guard rejects them with a dedicated
      * exception.

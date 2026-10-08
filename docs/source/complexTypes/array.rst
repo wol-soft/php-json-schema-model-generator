@@ -346,7 +346,12 @@ contributes nothing.
 
 Unlike ``additionalItems``, ``unevaluatedItems`` looks across composition branches: an index
 covered by a branch that ended up succeeding is credited, and an index covered only by a branch
-that failed is not.
+that failed is not. Compositions nested inside a branch contribute their own successful branches
+the same way, to any depth.
+
+A property subschema that declares array applicators but omits ``type: array`` is treated as an
+array property: the keywords apply whenever the provided value is an array, and a value of any
+other type passes through unchanged.
 
 Using ``false``
 ^^^^^^^^^^^^^^^
@@ -388,7 +393,7 @@ further element raises an ``UnevaluatedItemsException`` with the offending indic
 
 .. code-block:: none
 
-    Provided JSON for example contains not allowed unevaluated items [#2, #3]
+    Provided JSON for 'example' contains not allowed unevaluated items [#2, #3]
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\UnevaluatedItemsException*
 which provides the following methods to get further error details:
@@ -435,9 +440,9 @@ violations:
 
 .. code-block:: none
 
-    Invalid unevaluated items in array example:
+    Invalid unevaluated items in array 'example':
       - invalid unevaluated item #1
-        * Invalid type for item of array example. Requires int, got string
+        * Invalid type for 'unevaluated item': requires 'int', got 'string'
 
 The thrown exception will be a *PHPModelGenerator\\Exception\\Arrays\\InvalidUnevaluatedItemsException*
 which provides the following methods to get further error details:
@@ -460,13 +465,18 @@ When a sibling applicator already claims every index, the ``unevaluatedItems`` v
 nothing to check. The generator recognises these dead-code shapes at generation time, emits a
 warning, and skips ``unevaluatedItems`` entirely:
 
-- ``items: false`` (or ``items: {schema}`` in single-schema form) leaves no unclaimed index at
-  all, because ``items`` covers every position.
+- ``items: false`` rejects every index, so the array is forced empty.
+- ``items: true``, ``items: {}`` or ``items: {schema}`` in single-schema form leave no unclaimed
+  index at all, because ``items`` covers every position.
 - ``additionalItems: false`` alongside tuple ``items`` blocks any index past the tuple length —
   every index is either tuple-covered (and evaluated) or rejected by ``additionalItems``.
-- ``additionalItems: {schema}`` alongside tuple ``items`` claims every index past the tuple
-  length — every index is again covered.
-- An implicit ``additionalItems: false`` produced by the deny setting is treated the same way.
+
+Not every shape that claims all indices is recognised as dead code. ``additionalItems: true`` or
+``additionalItems: {schema}`` alongside tuple ``items`` credits every index past the tuple length,
+so ``unevaluatedItems`` can never fire; no warning is emitted and the validator is still
+generated. Unlike ``additionalProperties`` on objects, the
+`deny additional properties setting <../gettingStarted.html#deny-additional-properties>`__ has no
+effect on arrays: an index past a tuple stays subject to ``unevaluatedItems``.
 
 .. note::
 
@@ -477,8 +487,11 @@ warning, and skips ``unevaluatedItems`` entirely:
 
 .. note::
 
-    ``unevaluatedItems`` also accepts the boolean literal ``true``. This is a no-op — every index
-    is considered evaluated — and no validator is emitted.
+    ``unevaluatedItems`` also accepts the boolean literal ``true``. On its own this is a no-op —
+    every index is considered evaluated — and no validator is emitted. Inside a composition branch
+    an explicit ``unevaluatedItems: true`` (like ``items: true`` or ``items: {}``) annotates every
+    index of the array, so a successful branch credits all of them to an enclosing
+    ``unevaluatedItems``. An *omitted* keyword produces no annotation.
 
 .. hint::
 

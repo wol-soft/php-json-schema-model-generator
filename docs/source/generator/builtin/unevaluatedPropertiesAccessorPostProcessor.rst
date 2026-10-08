@@ -93,6 +93,14 @@ into the coverage of another sibling applicator (or vice versa) is rejected up f
 *RegularPropertyAsUnevaluatedPropertyException* if the key conflicts with a regularly-defined
 schema property.
 
+**set** on a key that a successful composition branch claims (for example through the branch's
+own ``additionalProperties``) is validated by that branch: a value violating the branch's claim is
+rejected and the model is left unchanged, a conforming value is accepted and stored in the model's
+raw data. Such a key is *evaluated* by the branch, so it never appears in **getAll**. The accessor
+is generated under the conditions described above; it is not suppressed because of a branch-level
+``additionalProperties``, since which branch succeeds can depend on the input. When a branch
+always claims every extra key the bucket therefore simply stays empty.
+
 **remove**: Removes an existing unevaluated property from the model. Returns true if the property
 was removed, false if it did not exist. Re-runs the enclosing schema's validation against the
 post-removal state — including composition re-evaluation — and throws a *ValidationException* if
