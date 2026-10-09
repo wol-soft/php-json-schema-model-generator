@@ -1,0 +1,61 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "anyOf": [
+        {
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "filter": "trim"
+            }
+          },
+          "required": ["name"]
+        },
+        {
+          "properties": {
+            "code": {
+              "type": "integer"
+            }
+          },
+          "required": ["code"]
+        }
+      ]
+    },
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "filter": "trim"
+            }
+          },
+          "required": ["label"]
+        },
+        {
+          "properties": {
+            "reference": {
+              "type": "integer"
+            }
+          },
+          "required": ["reference"]
+        }
+      ]
+    },
+    {
+      "not": {
+        "properties": {
+          "forbidden": {
+            "type": "string",
+            "filter": "trim",
+            "const": "bad"
+          }
+        },
+        "required": ["forbidden"]
+      }
+    }
+  ]
+}

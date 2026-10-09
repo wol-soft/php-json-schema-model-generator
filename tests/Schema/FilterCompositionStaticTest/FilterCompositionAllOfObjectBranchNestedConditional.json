@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": 1
+          }
+        },
+        "required": ["mode"]
+      },
+      "then": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "filter": "trim"
+          }
+        },
+        "required": ["title"]
+      }
+    }
+  ],
+  "properties": {
+    "mode": {
+      "type": "integer"
+    }
+  }
+}

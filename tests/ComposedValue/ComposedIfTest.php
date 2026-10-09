@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\ComposedValue;
 
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -257,20 +259,217 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
         );
     }
 
-    public function testCrossTypedThenOnlyProducesNullableHint(): void
+    /**
+     * Without an else branch the conditional constrains nothing when the if-condition fails, so a value of any
+     * type may reach a property which is only declared in the then branch. A typed slot would reject such a
+     * schema-valid value with a TypeError; the property is therefore widened to mixed like every other
+     * property which is exclusive to a single branch.
+     */
+    public function testCrossTypedThenOnlyWidensExclusivePropertyToMixed(): void
     {
         $className = $this->generateClassFromFile(
             'CrossTypedThenOnly.json',
             (new GeneratorConfiguration())->setImmutable(false),
         );
 
-        $this->assertSame(
-            ['int', 'null'],
-            $this->getParameterTypeNames($className, 'setAge'),
+        $this->assertSame('mixed', $this->getParameterType($className, 'setAge')->getName());
+        $this->assertSame('mixed', $this->getReturnType($className, 'getAge')->getName());
+    }
+
+    /**
+     * A value of an unrelated type for a property which is only declared in the then branch is valid as long as
+     * the branch is inactive. Storing it must not fail with a TypeError of the typed slot.
+     */
+    public function testThenOnlyPropertyKeepsValueOfAnyTypeWhileTheBranchIsInactive(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ConditionalThenOnlyTypedProperty.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
         );
-        $this->assertSame(
-            ['int', 'null'],
-            $this->getReturnTypeNames($className, 'getAge'),
+
+        // inactive branch: no constraint at all
+        $object = new $className(['kind' => 2, 'amount' => 'abc']);
+        $this->assertSame('abc', $object->getAmount());
+
+        $object = new $className(['kind' => 2]);
+        $this->assertNull($object->getAmount());
+
+        $this->assertSame('mixed', $this->getParameterType($className, 'setAmount')->getName());
+        $this->assertSame('mixed', $this->getReturnType($className, 'getAmount')->getName());
+
+        // active branch: the declared type and the requirement apply
+        $object = new $className(['kind' => 1, 'amount' => 5]);
+        $this->assertSame(5, $object->getAmount());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['kind' => 1, 'amount' => 'abc'],
+            ConditionalException::class,
+            <<<ERROR
+            Invalid value for '%class%' declined by conditional composition constraint
+              - Condition: Valid
+              - Conditional branch failed:
+                * Invalid type for 'amount': requires 'int', got 'string'
+            ERROR,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['kind' => 1],
+            ConditionalException::class,
+            <<<ERROR
+            Invalid value for '%class%' declined by conditional composition constraint
+              - Condition: Valid
+              - Conditional branch failed:
+                * Missing required value for 'amount'
+            ERROR,
+        );
+
+        // the setter accepts the same values (the validation of the branch is not re-run for an inactive
+        // branch, the condition is evaluated against the raw input of the model)
+        $object = new $className(['kind' => 2]);
+        $object->setAmount('abc');
+        $this->assertSame('abc', $object->getAmount());
+    }
+
+    /**
+     * Symmetric to the then-only case: a property which is only declared in the else branch is unconstrained
+     * while the if-condition holds.
+     */
+    public function testElseOnlyPropertyKeepsValueOfAnyTypeWhileTheBranchIsInactive(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ConditionalElseOnlyTypedProperty.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['kind' => 1, 'amount' => 'abc']);
+        $this->assertSame('abc', $object->getAmount());
+
+        $object = new $className(['kind' => 2, 'amount' => 5]);
+        $this->assertSame(5, $object->getAmount());
+
+        $this->assertSame('mixed', $this->getParameterType($className, 'setAmount')->getName());
+        $this->assertSame('mixed', $this->getReturnType($className, 'getAmount')->getName());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['kind' => 2, 'amount' => 'abc'],
+            ConditionalException::class,
+            <<<ERROR
+            Invalid value for '%class%' declined by conditional composition constraint
+              - Condition: Failed
+                * Value for 'kind' must be 1, got 2
+              - Conditional branch failed:
+                * Invalid type for 'amount': requires 'int', got 'string'
+            ERROR,
+        );
+    }
+
+    /**
+     * A conditional nested in an allOf branch is instantiated as a branch class, which the surrounding
+     * composition reads the property values from. The constructor must not fail with a TypeError for a
+     * schema-valid value of the inactive branch, neither when throwing the first error nor when collecting
+     * all errors.
+     */
+    #[DataProvider('allOfWrappedConditionalErrorModeDataProvider')]
+    public function testAllOfWrappedThenOnlyPropertyKeepsValueOfAnyTypeWhileTheBranchIsInactive(
+        bool $collectErrors,
+        string $expectedException,
+        string $expectedMessage,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'AllOfConditionalThenOnlyTypedProperty.json',
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors),
+        );
+
+        $object = new $className(['kind' => 2, 'amount' => 'abc']);
+        $this->assertSame('abc', $object->getAmount());
+
+        $object = new $className(['kind' => 1, 'amount' => 5]);
+        $this->assertSame(5, $object->getAmount());
+
+        $this->assertSame('mixed', $this->getReturnType($className, 'getAmount')->getName());
+
+        // the active branch still rejects the value with a validation error instead of a TypeError
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['kind' => 1, 'amount' => 'abc'],
+            $expectedException,
+            $expectedMessage,
+        );
+    }
+
+    public static function allOfWrappedConditionalErrorModeDataProvider(): array
+    {
+        return [
+            'throw first error' => [
+                false,
+                AllOfException::class,
+                <<<ERROR
+                Invalid value for '%class%' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid value for '%class%' declined by conditional composition constraint
+                      - Condition: Valid
+                      - Conditional branch failed:
+                        * Invalid type for 'amount': requires 'int', got 'string'
+                ERROR,
+            ],
+            'collect errors' => [
+                true,
+                ErrorRegistryException::class,
+                <<<ERROR
+                Invalid value for '%class%' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid value for '%class%' declined by conditional composition constraint
+                      - Condition: Valid
+                      - Conditional branch failed:Invalid type for 'amount': requires 'int', got 'string'
+                ERROR,
+            ],
+        ];
+    }
+
+    /**
+     * A property which is also declared at the root keeps its root type: the conditional only adds
+     * constraints and doesn't make the slot untyped.
+     */
+    public function testThenOnlyPropertyDeclaredAtRootKeepsItsType(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ConditionalThenOnlyPropertyDeclaredAtRoot.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $this->assertSame(['int', 'null'], $this->getReturnTypeNames($className, 'getAmount'));
+        $this->assertSame(['int', 'null'], $this->getParameterTypeNames($className, 'setAmount'));
+
+        // the root type applies independent of the branch
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['kind' => 2, 'amount' => 'abc'],
+            InvalidTypeException::class,
+            "Invalid type for 'amount': requires 'int', got 'string'",
+        );
+
+        $object = new $className(['kind' => 2, 'amount' => 5]);
+        $this->assertSame(5, $object->getAmount());
+
+        // the constraints of the then branch apply additionally while the branch is active
+        $object = new $className(['kind' => 1, 'amount' => 50]);
+        $this->assertSame(50, $object->getAmount());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['kind' => 1, 'amount' => 5],
+            ConditionalException::class,
+            <<<ERROR
+            Invalid value for '%class%' declined by conditional composition constraint
+              - Condition: Valid
+              - Conditional branch failed:
+                * Value for 'amount' must not be smaller than 10
+            ERROR,
         );
     }
 
