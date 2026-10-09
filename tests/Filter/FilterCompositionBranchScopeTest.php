@@ -326,6 +326,9 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
             'anyOf branch' => ['AnyOfBranchFilter.json'],
             'anyOf branch nested in an allOf branch' => ['AnyOfBranchFilterNestedInAllOf.json'],
             'anyOf branch referenced via $ref' => ['ReferencedAnyOfBranchFilter.json'],
+            // The oneOf branch could own the filter, but its value would have to be forwarded through
+            // the anyOf, where several branches can match.
+            'oneOf branch nested in an anyOf branch' => ['OneOfBranchFilterNestedInAnyOf.json'],
         ];
     }
 

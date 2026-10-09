@@ -1,0 +1,43 @@
+{
+  "type": "object",
+  "anyOf": [
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "a"
+            },
+            "name": {
+              "type": "string",
+              "filter": "trim"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "b"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    {
+      "properties": {
+        "code": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code"
+      ]
+    }
+  ]
+}
