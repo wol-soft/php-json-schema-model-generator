@@ -147,6 +147,73 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
         }
     }
 
+    /**
+     * The filter may not have run when its branch is inactive: a property which is declared by the parent
+     * with a type and transformed by a branch accepts and returns the raw type as well as the transformed one.
+     */
+    public function testTransformingFilterInConditionalBranchWidensTheTypeOfAParentProperty(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ConditionalBranchTransformingFilterOnTypedParentProperty.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false)->setSerialization(true),
+        );
+
+        $this->assertEqualsCanonicalizing(
+            ['string', 'DateTime', 'null'],
+            $this->getReturnTypeNames($className, 'getWhen'),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['string', 'DateTime', 'null'],
+            $this->getParameterTypeNames($className, 'setWhen'),
+        );
+
+        $object = new $className(['kind' => 'a', 'when' => '2024-01-01T10:00:00+00:00']);
+        $this->assertInstanceOf(DateTime::class, $object->getWhen());
+        $this->assertSame('2024-01-01T10:00:00+0000', $object->toArray()['when']);
+
+        $object = new $className(['kind' => 'b', 'when' => 'not a date']);
+        $this->assertSame('not a date', $object->getWhen());
+        $this->assertSame('not a date', $object->toArray()['when']);
+
+        // An already transformed value is accepted by the setter and serialized by the filter.
+        $object = new $className(['kind' => 'a', 'when' => '2024-01-01T10:00:00+00:00']);
+        $object->setWhen(new DateTime('2025-05-05T00:00:00+00:00'));
+        $this->assertSame('2025-05-05T00:00:00+0000', $object->toArray()['when']);
+    }
+
+    /**
+     * Only one of the branches is active, so then and else may transform the same property differently. The
+     * serializer picks the filter which matches the value.
+     */
+    public function testDifferentTransformingFiltersInThenAndElseAreSerializedByTheMatchingFilter(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ConditionalBranchDifferentTransformingFilters.json',
+            (new GeneratorConfiguration())
+                ->setCollectErrors(false)
+                ->setImmutable(false)
+                ->setSerialization(true)
+                ->addFilter($this->getCustomTransformingFilter(
+                    [self::class, 'serializeIntToString'],
+                    [self::class, 'convertStringToInt'],
+                    'stringToInt',
+                )),
+        );
+
+        $this->assertEqualsCanonicalizing(
+            ['string', 'DateTime', 'int', 'null'],
+            $this->getReturnTypeNames($className, 'getValue'),
+        );
+
+        $object = new $className(['kind' => 'a', 'value' => '2024-01-01T10:00:00+00:00']);
+        $this->assertInstanceOf(DateTime::class, $object->getValue());
+        $this->assertSame('2024-01-01T10:00:00+0000', $object->toArray()['value']);
+
+        $object = new $className(['kind' => 'b', 'value' => '42']);
+        $this->assertSame(42, $object->getValue());
+        $this->assertSame('42', $object->toArray()['value']);
+    }
+
     // -------------------------------------------------------------------------
     // oneOf
     // -------------------------------------------------------------------------

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\SchemaProcessor;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\Property;
@@ -33,7 +34,10 @@ use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShape;
 use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
+use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\PropertyAttributeSynthesizer;
+use PHPModelGenerator\Utils\RenderHelper;
+use ReflectionException;
 
 class SchemaProcessor
 {
@@ -880,7 +884,46 @@ class SchemaProcessor
                 $wrapper->getPriority(),
                 $wrapper->getSourceKey(),
             );
+
+            $this->widenOutputTypeForBranchFilter($transferredProperty, $wrapper->getValidator());
         }
+    }
+
+    /**
+     * The branch which owns a transforming filter may be inactive, so the transferred property holds the
+     * value as provided or the transformed value. The output type of the branch class only describes the
+     * transformed value; merging the copies of several branches would then drop the raw type.
+     *
+     * @throws ReflectionException
+     */
+    private function widenOutputTypeForBranchFilter(PropertyInterface $property, FilterValidator $filterValidator): void
+    {
+        $filter = $filterValidator->getFilter();
+        $inputType = $property->getType();
+
+        // Without a type the property accepts every value, there is no output type to widen.
+        if (!($filter instanceof TransformingFilterInterface) || $inputType === null) {
+            return;
+        }
+
+        $renderHelper = new RenderHelper($this->generatorConfiguration);
+        $outputType = $property->getType(true) ?? $inputType;
+        $returnNames = array_map(
+            static fn(string $name): string => $renderHelper->getSimpleClassName($name),
+            FilterReflection::getReturnTypeNames($filter, $property),
+        );
+
+        $property->setType(
+            $inputType,
+            new PropertyType(
+                array_values(array_unique(array_merge($inputType->getNames(), $outputType->getNames(), $returnNames))),
+                $inputType->isNullable() === true
+                    || $outputType->isNullable() === true
+                    || FilterReflection::isReturnNullable($filter)
+                    ? true
+                    : $outputType->isNullable(),
+            ),
+        );
     }
 
     /**
@@ -899,11 +942,14 @@ class SchemaProcessor
         }
 
         $hasSubstitution = false;
-        $hasFilter = false;
+        $describedFilters = [];
 
         foreach ($registeredProperty->getValidators() as $wrapper) {
             $hasSubstitution = $hasSubstitution || $wrapper->getValidator() instanceof BranchFilteredValueValidator;
-            $hasFilter = $hasFilter || $wrapper->getValidator() instanceof FilterValidator;
+
+            if ($wrapper->getValidator() instanceof FilterValidator) {
+                $describedFilters[] = $wrapper->getValidator()->getFilter()->getToken();
+            }
         }
 
         if (!$hasSubstitution) {
@@ -911,20 +957,24 @@ class SchemaProcessor
             $registeredProperty->addValidator(new BranchFilteredValueValidator($registeredProperty), 0);
         }
 
-        if ($hasFilter) {
-            return;
-        }
-
+        // Then and else (or the branches of a oneOf) may transform the same property differently: the output type
+        // and the serializer of the property have to know every filter whose value the property can hold.
         foreach ($branchProperty->getValidators() as $wrapper) {
-            if ($wrapper->getValidator() instanceof FilterValidator) {
-                $registeredProperty->addValidator(
-                    $wrapper->getValidator()->withoutExecution(),
-                    $wrapper->getPriority(),
-                    $wrapper->getSourceKey(),
-                );
+            $filterValidator = $wrapper->getValidator();
 
-                return;
+            if (
+                !($filterValidator instanceof FilterValidator)
+                || in_array($filterValidator->getFilter()->getToken(), $describedFilters, true)
+            ) {
+                continue;
             }
+
+            $describedFilters[] = $filterValidator->getFilter()->getToken();
+            $registeredProperty->addValidator(
+                $filterValidator->withoutExecution(),
+                $wrapper->getPriority(),
+                $wrapper->getSourceKey(),
+            );
         }
     }
 
