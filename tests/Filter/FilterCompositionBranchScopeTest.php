@@ -19,8 +19,11 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * affect the value while that branch is the active one. The branch class owns the filter; the
  * parent class receives the result of the active branch instead of running the filter itself.
  *
- * Only branches with exactly one active branch (if/then/else, oneOf) can own a filtered property.
- * A filtered property declared directly in an anyOf or allOf branch is rejected at generation time.
+ * Branches with exactly one active branch (if/then/else, oneOf) own their filtered properties. A branch
+ * of an anyOf composition cannot: several branches can match, so a filtered property declared in an anyOf
+ * branch is rejected at generation time. All branches of an allOf are always active, so a single filtered
+ * property is fine, but a property which is filtered more than once (several allOf branches, or the parent
+ * schema plus an allOf branch) is rejected because only one of the filters would take effect.
  */
 #[ApplicableDrafts]
 class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
@@ -252,41 +255,95 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     }
 
     // -------------------------------------------------------------------------
-    // anyOf / allOf: rejected at generation time
+    // allOf: a single filtered property works, a property filtered more than once is rejected
     // -------------------------------------------------------------------------
 
-    public static function ambiguousBranchFilterProvider(): array
+    /**
+     * Every branch of an allOf is always active, so the filter of a property declared in a single allOf
+     * branch applies to every input. Must keep working.
+     */
+    public function testFilterOnPropertyOfSingleAllOfBranchRunsForEveryInput(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AllOfBranchFilter.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['name' => '  x  ']);
+        $this->assertSame('x', $object->getName());
+
+        $object->setName('  y  ');
+        $this->assertSame('y', $object->getName());
+    }
+
+    public static function propertyFilteredMoreThanOnceProvider(): array
     {
         return [
-            'anyOf branch' => ['AnyOfBranchFilter.json', 'trim', 'name', 'anyOf'],
-            'allOf branch' => ['AllOfBranchFilter.json', 'trim', 'name', 'allOf'],
-            'allOf branch redeclaring a filtered root property' =>
-                ['AllOfBranchOverridesRootFilter.json', 'trim', 'filteredProperty', 'allOf'],
-            'anyOf branch nested in an allOf branch' =>
-                ['AnyOfBranchFilterNestedInAllOf.json', 'trim', 'name', 'anyOf'],
-            'anyOf branch referenced via $ref' => ['ReferencedAnyOfBranchFilter.json', 'trim', 'name', 'anyOf'],
+            'two allOf branches filter the same property' =>
+                ['AllOfBranchesFilterSameProperty.json', 'name', 'trim', 'upper'],
+            'parent property and allOf branch filter the same property' =>
+                ['AllOfBranchOverridesRootFilter.json', 'filteredProperty', 'dateTime', 'trim'],
         ];
     }
 
-    #[DataProvider('ambiguousBranchFilterProvider')]
-    public function testFilterOnPropertyDeclaredDirectlyInAnyOfOrAllOfBranchThrowsSchemaException(
+    /**
+     * Without the rejection only one of the filters would run and the other would be silently dropped.
+     */
+    #[DataProvider('propertyFilteredMoreThanOnceProvider')]
+    public function testPropertyFilteredMoreThanOnceViaAllOfThrowsSchemaException(
         string $schemaFile,
-        string $filterToken,
         string $propertyName,
-        string $compositionKeyword,
+        string $firstFilterToken,
+        string $secondFilterToken,
     ): void {
         $this->expectException(SchemaException::class);
         $this->expectExceptionMessageMatches(
             '/^' . preg_quote(
-                "Filter '{$filterToken}' on property '{$propertyName}' declared directly in a branch of an"
-                    . " '{$compositionKeyword}' composition is not supported in file ",
+                "Property '{$propertyName}' is filtered more than once ('{$firstFilterToken}', '{$secondFilterToken}')"
+                    . ' in file ',
                 '/',
             ) . '.+' . preg_quote(
-                ': only branches of if/then/else and oneOf can own a filtered property',
+                ': only one filter per property is supported when an allOf branch declares a property which is'
+                    . ' also declared in another branch or in the parent schema',
                 '/',
             ) . ' at line \d+, column \d+$/',
         );
 
-        $this->generateClassFromFile($schemaFile);
+        $this->generateClassFromFile(
+            $schemaFile,
+            (new GeneratorConfiguration())
+                ->addFilter($this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'upper')),
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // anyOf: a filtered property declared in a branch is rejected
+    // -------------------------------------------------------------------------
+
+    public static function anyOfBranchFilterProvider(): array
+    {
+        return [
+            'anyOf branch' => ['AnyOfBranchFilter.json'],
+            'anyOf branch nested in an allOf branch' => ['AnyOfBranchFilterNestedInAllOf.json'],
+            'anyOf branch referenced via $ref' => ['ReferencedAnyOfBranchFilter.json'],
+        ];
+    }
+
+    #[DataProvider('anyOfBranchFilterProvider')]
+    public function testFilterOnPropertyDeclaredInAnyOfBranchThrowsSchemaException(string $schemaFile): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^' . preg_quote(
+                "Filter 'trim' on property 'name' declared in a branch of an 'anyOf' composition is not supported"
+                    . ' in file ',
+                '/',
+            ) . '.+' . preg_quote(
+                ': more than one branch can match, so the filtered value cannot be attributed to a single branch',
+                '/',
+            ) . ' at line \d+, column \d+$/',
+        );
+
+        $this->generateClassFromFile($schemaFile, new GeneratorConfiguration());
     }
 }
