@@ -5,12 +5,11 @@
       "filter": "dateTime",
       "allOf": [
         {
-          "if": {
-            "filter": "trim"
-          },
-          "then": {
-            "minLength": 1
-          }
+          "allOf": [
+            {
+              "filter": "trim"
+            }
+          ]
         }
       ]
     }

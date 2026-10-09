@@ -111,12 +111,22 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
                 'FilterCompositionRootElseConstrainsFilteredSubproperty.json',
                 '/Composition else.*constrains filtered subproperty filteredProperty.*output-type-space/',
             ],
-            // Filter inside an if sub-schema within an allOf branch: the SINGLE_COMPOSITION_KEYWORDS
-            // loop in branchContainsFilter must descend into if and detect the filter keyword.
+            // Filter inside an if sub-schema of a conditional nested in an allOf branch: the nested
+            // conditional builds its own branch property and rejects the filter itself, so the
+            // message names the conditional and not the enclosing allOf.
             'filter inside if sub-schema within allOf branch' => [
                 'FilterCompositionFilterInNestedIfBranch.json',
-                '/A filter keyword inside a allOf composition branch is not supported'
-                    . ' for property filteredProperty.*branch #1/',
+                '/^A filter keyword inside an if\/then\/else composition branch is not supported'
+                    . ' for property filteredProperty in file .*\.json \(if sub-schema\)\.'
+                    . ' at line \d+, column \d+$/',
+            ],
+            // Detection of a nested composition does not rely on the enclosing level scanning into it:
+            // every nesting level rejects a filter in its own branches, here an allOf within an allOf.
+            'filter inside allOf nested in an allOf branch' => [
+                'FilterCompositionFilterInNestedAllOfBranch.json',
+                '/^A filter keyword inside a allOf composition branch is not supported'
+                    . ' for property filteredProperty in file .*\.json \(branch #1\)\.'
+                    . ' at line \d+, column \d+$/',
             ],
             // Filter inside a not branch: same $value-reset issue as for array composition keywords.
             'filter inside not branch' => [
@@ -142,18 +152,19 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
                 '/A filter keyword inside an if\/then\/else composition branch is not supported'
                     . ' for property filteredProperty.*if sub-schema/',
             ],
-            // Filter inside a deeply-nested allOf/anyOf branch: recursive scan must descend.
+            // Filter inside an anyOf nested in an allOf branch: the anyOf level rejects its own branch,
+            // so the message names the anyOf and not the enclosing allOf.
             'filter inside nested allOf\/anyOf branch' => [
                 'FilterCompositionFilterInNestedBranch.json',
-                '/A filter keyword inside a allOf composition branch is not supported'
-                    . ' for property filteredProperty.*branch #1/',
+                '/^A filter keyword inside a anyOf composition branch is not supported'
+                    . ' for property filteredProperty in file .*\.json \(branch #1\)\.'
+                    . ' at line \d+, column \d+$/',
             ],
-            // Filter inside a not sub-schema within an allOf branch: the recursive scan for
-            // SINGLE_COMPOSITION_KEYWORDS descends into not and finds the filter keyword.
+            // Filter inside a not nested in an allOf branch: the not level rejects it and names itself.
             'filter inside not sub-schema within allOf branch' => [
                 'FilterCompositionFilterInNestedNotBranch.json',
-                '/A filter keyword inside a allOf composition branch is not supported'
-                    . ' for property filteredProperty.*branch #1/',
+                '/^A filter keyword inside a not composition branch is not supported'
+                    . ' for property filteredProperty in file .*\.json\. at line \d+, column \d+$/',
             ],
             // anyOf branch spanning both input and output type-spaces is ambiguous.
             'anyOf with single Mixed branch' => [
@@ -249,6 +260,13 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
             // to return early without throwing (effective types empty means no dead-filter conclusion).
             'allOf with integer and number branches alongside dateTime filter' =>
                 ['FilterCompositionAllOfIntegerNumberBranches.json'],
+            // The "properties" of a string-typed branch can never apply to a string value, so a filter
+            // inside a composition under them can never run and is not worth a rejection. Rejecting it
+            // would require descending into compositions below "properties" of a non-object branch,
+            // which is exactly the recursion that wrongly rejected filters in object branches nested in
+            // an allOf branch (covered by FilterCompositionRuntimeTest).
+            'string-typed allOf branch: filter in a composition under its inert properties' =>
+                ['FilterCompositionInertFilterUnderStringBranchProperties.json'],
         ];
     }
 
