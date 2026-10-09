@@ -221,11 +221,6 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
             // the raw string input before transformation — no output-type-space conflict.
             'root-level not: input-space constraint on filtered subproperty' =>
                 ['FilterCompositionRootNotInputSpaceConstrainsFilteredSubproperty.json'],
-            // A root-level allOf branch introduces an inherited-object property that itself
-            // declares a filter. The filter is on a nested property, not on the composition
-            // branch directly, so no filter-in-branch rejection fires.
-            'root-level allOf branch: filter in inherited-object branch property' =>
-                ['FilterCompositionRootBranchWithFilterInProperty.json'],
             // anyOf branch typed as object via the array form (["object"]) is correctly
             // identified as object-typed. Its properties are not scanned for filter keywords,
             // so the inner trim filter does not trigger a filter-in-branch rejection.

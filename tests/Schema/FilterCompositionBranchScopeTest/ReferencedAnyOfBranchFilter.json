@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "definitions": {
+    "namedBranch": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "filter": "trim"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "anyOf": [
+    {
+      "$ref": "#/definitions/namedBranch"
+    },
+    {
+      "properties": {
+        "code": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code"
+      ]
+    }
+  ]
+}
