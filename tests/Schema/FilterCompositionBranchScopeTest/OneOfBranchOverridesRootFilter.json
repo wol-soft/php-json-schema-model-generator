@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "filter": "trim"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "const": "a"
+        },
+        "name": {
+          "type": "string",
+          "filter": "upper"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "b"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    }
+  ]
+}

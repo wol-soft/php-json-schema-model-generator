@@ -22,8 +22,13 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * Branches with exactly one active branch (if/then/else, oneOf) own their filtered properties. A branch
  * of an anyOf composition cannot: several branches can match, so a filtered property declared in an anyOf
  * branch is rejected at generation time. All branches of an allOf are always active, so a single filtered
- * property is fine, but a property which is filtered more than once (several allOf branches, or the parent
- * schema plus an allOf branch) is rejected because only one of the filters would take effect.
+ * property is fine.
+ *
+ * A property which is filtered more than once by declarations that can apply to the same value (several
+ * allOf branches, or the parent schema plus any branch) is rejected: the filters have no defined order.
+ * Declarations which exclude each other are fine, e.g. a filter in then and a different one in else.
+ *
+ * A filter on a property of the if condition runs inside the condition, it is not applied to the parent.
  */
 #[ApplicableDrafts]
 class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
@@ -179,6 +184,35 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     }
 
     // -------------------------------------------------------------------------
+    // Filter on a property of the if condition
+    // -------------------------------------------------------------------------
+
+    /**
+     * The condition is evaluated in a class of its own where the filter runs before the validators of the
+     * property, so the trimmed code is compared with the const. The condition only selects the branch: the
+     * parent class keeps the code as provided and no value is handed over.
+     */
+    public function testFilterOnIfConditionPropertyRunsInsideTheConditionButIsNotAppliedToTheParent(): void
+    {
+        $className = $this->generateClassFromFile(
+            'IfConditionFilter.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        // The trimmed code matches the const: the condition holds and the then branch is active.
+        $object = new $className(['code' => '  abc  ', 'thenValue' => '  then  ', 'elseValue' => '  else  ']);
+        $this->assertSame('  abc  ', $object->getCode());
+        $this->assertSame('then', $object->getThenValue());
+        $this->assertSame('  else  ', $object->getElseValue());
+
+        // The condition fails: the else branch is active.
+        $object = new $className(['code' => '  xyz  ', 'thenValue' => '  then  ', 'elseValue' => '  else  ']);
+        $this->assertSame('  xyz  ', $object->getCode());
+        $this->assertSame('  then  ', $object->getThenValue());
+        $this->assertSame('  else  ', $object->getElseValue());
+    }
+
+    // -------------------------------------------------------------------------
     // Compositions on a property whose value is an object
     // -------------------------------------------------------------------------
 
@@ -255,7 +289,7 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     }
 
     // -------------------------------------------------------------------------
-    // allOf: a single filtered property works, a property filtered more than once is rejected
+    // allOf: a single filtered property works; a property filtered more than once is rejected
     // -------------------------------------------------------------------------
 
     /**
@@ -283,14 +317,20 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
                 ['AllOfBranchesFilterSameProperty.json', 'name', 'trim', 'upper'],
             'parent property and allOf branch filter the same property' =>
                 ['AllOfBranchOverridesRootFilter.json', 'filteredProperty', 'dateTime', 'trim'],
+            'parent property and then branch filter the same property' =>
+                ['ThenBranchOverridesRootFilter.json', 'name', 'trim', 'upper'],
+            'parent property and oneOf branch filter the same property' =>
+                ['OneOfBranchOverridesRootFilter.json', 'name', 'trim', 'upper'],
         ];
     }
 
     /**
-     * Without the rejection only one of the filters would run and the other would be silently dropped.
+     * The filters of one property have no defined order. Without the rejection only one of them would run
+     * (the first declaration wins) and the other would be silently dropped. The filter of the parent is
+     * named first, followed by the branches in declaration order.
      */
     #[DataProvider('propertyFilteredMoreThanOnceProvider')]
-    public function testPropertyFilteredMoreThanOnceViaAllOfThrowsSchemaException(
+    public function testPropertyFilteredMoreThanOnceThrowsSchemaException(
         string $schemaFile,
         string $propertyName,
         string $firstFilterToken,
@@ -302,11 +342,8 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
                 "Property '{$propertyName}' is filtered more than once ('{$firstFilterToken}', '{$secondFilterToken}')"
                     . ' in file ',
                 '/',
-            ) . '.+' . preg_quote(
-                ': only one filter per property is supported when an allOf branch declares a property which is'
-                    . ' also declared in another branch or in the parent schema',
-                '/',
-            ) . ' at line \d+, column \d+$/',
+            ) . '.+' . preg_quote(': filters of the same property have no defined order', '/')
+                . ' at line \d+, column \d+$/',
         );
 
         $this->generateClassFromFile(
