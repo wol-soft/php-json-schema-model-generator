@@ -7,7 +7,6 @@ namespace PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
-use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -62,7 +61,7 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
      * Whether the active branch hands the filtered value of the given branch property over to the schema which
      * contains the composition.
      *
-     * - anyOf: never, several branches can match (a filtered property is rejected).
+     * - anyOf: never, a filtered property in a branch of an anyOf is rejected at generation time.
      * - allOf: only values forwarded from a nested composition. A property which is filtered directly in an
      *   allOf branch keeps its executed filter on the schema, all branches of an allOf are always active.
      * - oneOf, if/then/else: every filtered property of a branch. The condition of an if/then/else only
@@ -70,10 +69,7 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
      */
     public function publishesFilteredValueOf(CompositionPropertyDecorator $branch, PropertyInterface $property): bool
     {
-        if (
-            is_a($this->compositionProcessor, AnyOfValidatorFactory::class, true)
-            || ($this instanceof ConditionalPropertyValidator && $branch === $this->getIfBranch())
-        ) {
+        if ($this instanceof ConditionalPropertyValidator && $branch === $this->getIfBranch()) {
             return false;
         }
 

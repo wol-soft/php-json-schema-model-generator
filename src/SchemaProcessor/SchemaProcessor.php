@@ -46,6 +46,14 @@ class SchemaProcessor
 
     private PropertyAttributeSynthesizer $propertyAttributeSynthesizer;
 
+    /**
+     * The filters which declare a property on a schema, per schema and property name: the token of the filter and
+     * the composition which owns it (null for the schema itself).
+     *
+     * @var array<int, array<string, array<int, array{token: string, owner: ?AbstractComposedPropertyValidator}>>>
+     */
+    private array $filterDeclarations = [];
+
     /** @var Schema[] Collect processed schemas to avoid duplicated classes */
     protected array $processedSchema = [];
     /** @var PropertyInterface[] Collect processed schemas to avoid duplicated classes */
@@ -762,6 +770,13 @@ class SchemaProcessor
                             );
 
                             foreach ($composedProperty->getNestedSchema()->getProperties() as $branchProperty) {
+                                $this->assertBranchFilterIsDeclaredOnce(
+                                    $schema,
+                                    $validator,
+                                    $composedProperty,
+                                    $branchProperty,
+                                );
+
                                 if ($branchLabel !== null) {
                                     $this->checkRootBranchDefaultConflict(
                                         $branchProperty,
@@ -836,6 +851,98 @@ class SchemaProcessor
         $this->checkCrossBranchDefaultConflicts($validator, $property);
 
         $this->propertyAttributeSynthesizer->synthesiseForValidator($validator, $schema, $seenBranchPropertyNames);
+    }
+
+    /**
+     * Rejects filters which cannot be attributed to exactly one declaration.
+     *
+     * - A filtered property in a branch of an anyOf (also forwarded from a nested composition): several branches
+     *   can match, so the filtered value cannot be attributed to a single branch.
+     * - A property which is filtered more than once by declarations that can apply to the same value: the schema
+     *   itself plus any branch, several branches of an allOf, or the branches of different compositions. The
+     *   filters have no defined order and only the first declaration would take effect. The branches of one
+     *   oneOf or if/then/else exclude each other and may filter the same property differently.
+     * - The condition of an if/then/else keeps its filters to itself, they never reach the schema.
+     *
+     * @throws SchemaException
+     */
+    private function assertBranchFilterIsDeclaredOnce(
+        Schema $schema,
+        AbstractComposedPropertyValidator $validator,
+        CompositionPropertyDecorator $sourceBranch,
+        PropertyInterface $branchProperty,
+    ): void {
+        $branchFilters = [];
+
+        foreach ($branchProperty->getValidators() as $wrapper) {
+            if ($wrapper->getValidator() instanceof FilterValidator) {
+                $branchFilters[] = $wrapper->getValidator()->getFilter()->getToken();
+            }
+        }
+
+        if ($branchFilters === []) {
+            return;
+        }
+
+        $isAllOf = is_a($validator->getCompositionProcessor(), AllOfValidatorFactory::class, true);
+
+        if (is_a($validator->getCompositionProcessor(), AnyOfValidatorFactory::class, true)) {
+            throw new SchemaException(
+                sprintf(
+                    "Filter '%s' on property '%s' declared in a branch of an 'anyOf' composition is not supported"
+                        . ' in file %s: more than one branch can match,'
+                        . ' so the filtered value cannot be attributed to a single branch',
+                    $branchFilters[0],
+                    $branchProperty->getName(),
+                    $schema->getJsonSchema()->getFile(),
+                ),
+                $branchProperty->getJsonSchema(),
+            );
+        }
+
+        if ($validator instanceof ConditionalPropertyValidator && $sourceBranch === $validator->getIfBranch()) {
+            return;
+        }
+
+        $schemaKey = spl_object_id($schema);
+        $propertyName = $branchProperty->getName();
+
+        if (!isset($this->filterDeclarations[$schemaKey][$propertyName])) {
+            $this->filterDeclarations[$schemaKey][$propertyName] = [];
+
+            // The declarations of the schema itself are the first ones to be seen.
+            if ($schema->isRootRegistered($propertyName)) {
+                foreach ($schema->getProperty($propertyName)?->getValidators() ?? [] as $wrapper) {
+                    if ($wrapper->getValidator() instanceof FilterValidator) {
+                        $this->filterDeclarations[$schemaKey][$propertyName][] = [
+                            'token' => $wrapper->getValidator()->getFilter()->getToken(),
+                            'owner' => null,
+                        ];
+                    }
+                }
+            }
+        }
+
+        foreach ($this->filterDeclarations[$schemaKey][$propertyName] as $declaration) {
+            // Branches of the same oneOf or if/then/else are never active at the same time.
+            if ($declaration['owner'] === $validator && !$isAllOf) {
+                continue;
+            }
+
+            throw new SchemaException(
+                sprintf(
+                    "Property '%s' is filtered more than once ('%s', '%s') in file %s:"
+                        . ' filters of the same property have no defined order',
+                    $propertyName,
+                    $declaration['token'],
+                    $branchFilters[0],
+                    $schema->getJsonSchema()->getFile(),
+                ),
+                $branchProperty->getJsonSchema(),
+            );
+        }
+
+        $this->filterDeclarations[$schemaKey][$propertyName][] = ['token' => $branchFilters[0], 'owner' => $validator];
     }
 
     /**

@@ -84,12 +84,4 @@ class BranchFilteredKeyMapTest extends AbstractFilterTestCase
         $this->assertCount(1, $validators);
         $this->assertSame([], $validators[0]->getBranchFilteredKeyMap());
     }
-
-    public function testAnyOfHandsOverNothingBecauseSeveralBranchesCanMatch(): void
-    {
-        $validators = $this->generateAndCaptureComposedValidators('AnyOfBranch.json');
-
-        $this->assertCount(1, $validators);
-        $this->assertSame([], $validators[0]->getBranchFilteredKeyMap());
-    }
 }
