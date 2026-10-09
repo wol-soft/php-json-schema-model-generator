@@ -115,7 +115,7 @@ Composition keywords (``allOf``, ``anyOf``, ``oneOf``, ``if``/``then``/``else``,
 
 A branch that spans both type-spaces raises a ``SchemaException`` at generation time because it cannot be placed correctly in either phase of the pipeline. The following additional constraints are also enforced:
 
-- A filter keyword inside any composition branch always raises a ``SchemaException``, regardless of whether the property itself carries a filter. The composition engine resets the value to the original input after each branch evaluation, which would silently discard any transformation applied inside the branch.
+- A filter keyword inside a composition branch which is not object-typed always raises a ``SchemaException``, regardless of whether the property itself carries a filter. The composition engine resets the value to the original input after each branch evaluation, which would silently discard any transformation applied inside the branch (with two filters in two different branches only one of them would take effect). A nested composition is checked on its own level, so the rule applies at any nesting depth. Branches of an object schema are not affected, see `Filters on properties of object branches`_.
 - ``anyOf`` / ``oneOf``: all branches must share a single type-space; cross-space branches raise a ``SchemaException``.
 - ``not``: the inner schema must target a single type-space.
 - ``if`` / ``then`` / ``else``: all three sub-schemas must share the same type-space.
@@ -167,6 +167,45 @@ The property accepts both raw strings (transformed by the filter) and already-co
 .. hint::
 
     The ``type`` keyword inside a composition branch always validates against the **raw input value** (before the filter runs). For a ``stringToInt`` filter, a branch like ``{"type": "integer", "minimum": 0}`` mixes an input-space constraint (``type``) with an output-space constraint (``minimum``), which raises a ``SchemaException`` at generation time. Declare the type at the **property level** instead.
+
+Filters on properties of object branches
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The branches of a composition on an object schema (explicitly typed ``object`` or inheriting ``object`` from the parent schema) are instantiated as classes of their own. A filter on a property of such a branch is applied inside the branch class, independent of the value reset described above, and runs before the validators of the same property. This also holds for properties of ``if``/``then``/``else``, ``anyOf``, ``oneOf`` and ``not`` which are nested inside an object branch:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "allOf": [
+            {
+                "if": {
+                    "properties": {
+                        "mode": {
+                            "const": 1
+                        }
+                    },
+                    "required": ["mode"]
+                },
+                "then": {
+                    "properties": {
+                        "title": {
+                            "type": "string",
+                            "minLength": 1,
+                            "filter": "trim"
+                        }
+                    },
+                    "required": ["title"]
+                }
+            }
+        ]
+    }
+
+With ``mode`` set to ``1`` the title ``"  My list  "`` is trimmed to ``"My list"``, a title consisting only of whitespace is empty after the filter and violates ``minLength``.
+
+.. warning::
+
+    A property of a conditional branch is part of the generated class independent of the branch being active. Its filter therefore also runs when the branch is inactive: with ``mode`` set to ``3`` the title ``"  My list  "`` is accepted without any constraint but it is still trimmed. Values of a type the filter doesn't accept are passed through unchanged.
 
 Exceptions from filter
 ----------------------

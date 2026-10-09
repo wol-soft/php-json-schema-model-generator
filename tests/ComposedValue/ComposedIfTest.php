@@ -503,9 +503,10 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame('mixed', $this->getReturnType($className, 'getQualifier')->getName());
         $this->assertSame('mixed', $this->getParameterType($className, 'setQualifier')->getName());
 
-        // 'value' is from the then-only branch with no other data branch — not widened
-        $this->assertSame(['int', 'null'], $this->getReturnTypeNames($className, 'getValue'));
-        $this->assertSame(['int', 'null'], $this->getParameterTypeNames($className, 'setValue'));
+        // 'value' is from the then-only branch: while the if condition fails nothing constrains it, so it is
+        // widened to mixed as well
+        $this->assertSame('mixed', $this->getReturnType($className, 'getValue')->getName());
+        $this->assertSame('mixed', $this->getParameterType($className, 'setValue')->getName());
 
         // Both properties are accessible from a constructed object
         $object = new $className(['qualifier' => 'test', 'value' => 42]);

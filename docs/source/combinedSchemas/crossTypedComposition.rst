@@ -127,6 +127,10 @@ When a property appears in only one branch and the other branches do not declare
 If all other branches declare ``additionalProperties: false``, the generator knows no conflicting
 value can arrive and preserves the branch type (as nullable).
 
+An ``if``/``then``/``else`` which defines only one of ``then`` and ``else`` behaves as if the missing
+branch was another branch without any constraint: a property which is only defined in the present branch is
+widened to ``mixed``, as a value of any type is valid while that branch is inactive.
+
 if / then / else: conditional union widening
 ---------------------------------------------
 
