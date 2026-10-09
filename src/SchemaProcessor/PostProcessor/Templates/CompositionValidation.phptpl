@@ -15,6 +15,30 @@ private function _validateComposition_{{ index }}(array &$modifiedModelData): vo
         {{ viewHelper.validationError(validator) }}
     }
 
+    {% if branchFilteredKeys %}
+        // The values of the active branch replace the previously published values of this composition only. A
+        // property which the caller did not modify but whose published value changed (the active branch
+        // switched) is validated again, otherwise it would keep the value of the previous branch.
+        $previousPublishedValues = array_intersect_key($this->_branchFilteredValues, {{ branchFilteredKeyLookup }});
+        $this->_branchFilteredValues = array_diff_key($this->_branchFilteredValues, {{ branchFilteredKeyLookup }})
+            + ($publishedValues ?? []);
+
+        foreach ({{ branchFilteredKeys }} as $filteredKey => [$filteredAttribute, $filteredValidationMethod]) {
+            if (
+                !array_key_exists($filteredKey, $modifiedModelData)
+                && array_key_exists($filteredKey, $modelData)
+                && (
+                    array_key_exists($filteredKey, $previousPublishedValues)
+                        !== array_key_exists($filteredKey, $this->_branchFilteredValues)
+                    || ($previousPublishedValues[$filteredKey] ?? null)
+                        !== ($this->_branchFilteredValues[$filteredKey] ?? null)
+                )
+            ) {
+                $this->$filteredAttribute = $this->$filteredValidationMethod($modelData[$filteredKey], $modelData);
+            }
+        }
+
+    {% endif %}
     foreach (array_keys($modifiedModelData) as $property) {
         $modifiedModelData[$property] = $modelData[$property];
     }

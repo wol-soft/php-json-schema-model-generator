@@ -16,8 +16,10 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\BranchFilteredValueValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
+use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
@@ -774,6 +776,10 @@ class SchemaProcessor
                                     $validator->getCompositionProcessor(),
                                 );
 
+                                if ($validator->publishesFilteredValueOf($composedProperty, $branchProperty)) {
+                                    $this->takeOverBranchFilteredValue($schema, $branchProperty);
+                                }
+
                                 $composedProperty->appendAffectedObjectProperty($branchProperty);
                                 $seenBranchPropertyNames[$branchProperty->getName()] = true;
                             }
@@ -829,6 +835,100 @@ class SchemaProcessor
     }
 
     /**
+     * Makes sure the transferred copy of a branch property doesn't execute the filter of the branch.
+     *
+     * The branch class owns the filter. A branch which publishes its filtered value (see
+     * AbstractComposedPropertyValidator::publishesFilteredValueOf) hands the result to the schema, so the copy
+     * keeps a non-executing description of the filter: the output type and the serializer of a transforming
+     * filter are derived from the filters of a property. The condition of an if/then/else only selects the
+     * branch, its filters keep running inside the condition but the schema keeps the value as provided, so
+     * the copy must not announce a filter at all. Executing the filter on the schema would run it
+     * regardless of the active branch.
+     */
+    private function scopeFiltersToBranch(
+        PropertyInterface $transferredProperty,
+        CompositionPropertyDecorator $sourceBranch,
+        AbstractComposedPropertyValidator $validator,
+    ): void {
+        $isFilterValidator = static fn(Validator $wrapper): bool => $wrapper->getValidator() instanceof FilterValidator;
+
+        if ($validator instanceof ConditionalPropertyValidator && $sourceBranch === $validator->getIfBranch()) {
+            $transferredProperty->filterValidators(
+                static fn(Validator $wrapper): bool => !$isFilterValidator($wrapper),
+            );
+
+            return;
+        }
+
+        if (!$validator->publishesFilteredValueOf($sourceBranch, $transferredProperty)) {
+            return;
+        }
+
+        $executedFilters = array_filter(
+            $transferredProperty->getValidators(),
+            static fn(Validator $wrapper): bool => $isFilterValidator($wrapper)
+                && $wrapper->getValidator()->isExecuted(),
+        );
+
+        $transferredProperty->filterValidators(
+            static fn(Validator $wrapper): bool => !in_array($wrapper, $executedFilters, true),
+        );
+
+        foreach ($executedFilters as $wrapper) {
+            $transferredProperty->addValidator(
+                $wrapper->getValidator()->withoutExecution(),
+                $wrapper->getPriority(),
+                $wrapper->getSourceKey(),
+            );
+        }
+    }
+
+    /**
+     * Lets the property which is registered on the schema take the value which the active branch published.
+     *
+     * The registered property is not necessarily the transferred copy: a property which is declared by the
+     * schema itself or by another branch is registered first and the validators of a later copy are dropped
+     * when the properties are merged.
+     */
+    private function takeOverBranchFilteredValue(Schema $schema, PropertyInterface $branchProperty): void
+    {
+        $registeredProperty = $schema->getProperty($branchProperty->getName());
+
+        if ($registeredProperty === null) {
+            return;
+        }
+
+        $hasSubstitution = false;
+        $hasFilter = false;
+
+        foreach ($registeredProperty->getValidators() as $wrapper) {
+            $hasSubstitution = $hasSubstitution || $wrapper->getValidator() instanceof BranchFilteredValueValidator;
+            $hasFilter = $hasFilter || $wrapper->getValidator() instanceof FilterValidator;
+        }
+
+        if (!$hasSubstitution) {
+            // Runs in front of every other validator of the property.
+            $registeredProperty->addValidator(new BranchFilteredValueValidator($registeredProperty), 0);
+        }
+
+        if ($hasFilter) {
+            return;
+        }
+
+        foreach ($branchProperty->getValidators() as $wrapper) {
+            if ($wrapper->getValidator() instanceof FilterValidator) {
+                $registeredProperty->addValidator(
+                    $wrapper->getValidator()->withoutExecution(),
+                    $wrapper->getPriority(),
+                    $wrapper->getSourceKey(),
+                );
+
+                return;
+            }
+        }
+    }
+
+    /**
      * Clone the provided property to transfer it to a schema. Sets the nullability and required
      * flag based on the composition processor used to set up the composition. Widens the type to
      * mixed when the property is exclusive to one anyOf/oneOf/conditional branch and a path exists
@@ -848,6 +948,8 @@ class SchemaProcessor
             ->setDefaultValue(null)
             ->filterDecorators(static fn($decorator): bool =>
                 !($decorator instanceof DefaultArrayToEmptyArrayDecorator));
+
+        $this->scopeFiltersToBranch($transferredProperty, $sourceBranch, $validator);
 
         if (!is_a($compositionProcessor, AllOfValidatorFactory::class, true)) {
             $transferredProperty->setRequired(false);

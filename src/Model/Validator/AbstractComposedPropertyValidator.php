@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
+use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
@@ -58,36 +59,59 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     }
 
     /**
+     * Whether the active branch hands the filtered value of the given branch property over to the schema which
+     * contains the composition.
+     *
+     * - anyOf: never, several branches can match (a filtered property is rejected).
+     * - allOf: only values forwarded from a nested composition. A property which is filtered directly in an
+     *   allOf branch keeps its executed filter on the schema, all branches of an allOf are always active.
+     * - oneOf, if/then/else: every filtered property of a branch. The condition of an if/then/else only
+     *   selects the branch and never hands over values.
+     */
+    public function publishesFilteredValueOf(CompositionPropertyDecorator $branch, PropertyInterface $property): bool
+    {
+        if (
+            is_a($this->compositionProcessor, AnyOfValidatorFactory::class, true)
+            || ($this instanceof ConditionalPropertyValidator && $branch === $this->getIfBranch())
+        ) {
+            return false;
+        }
+
+        $isAllOf = is_a($this->compositionProcessor, AllOfValidatorFactory::class, true);
+
+        foreach ($property->getValidators() as $propertyValidator) {
+            $filterValidator = $propertyValidator->getValidator();
+
+            if ($filterValidator instanceof FilterValidator && (!$isAllOf || !$filterValidator->isExecuted())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Describes the properties for which the active branch of this composition hands the filtered value
      * over to the schema which contains the composition: component index => property name =>
      * [attribute, name of the method validating the property].
      *
-     * - anyOf: nothing is handed over, several branches can match (a filtered property is rejected).
-     * - allOf: only values forwarded from a nested composition are handed over. A property which is
-     *   filtered directly in an allOf branch keeps its executed filter on the schema, all branches of an
-     *   allOf are always active.
-     * - oneOf, if/then/else: every filtered property of a branch. The condition of an if/then/else only
-     *   selects the branch and never hands over values.
-     *
-     * Properties which were not transferred to the containing schema (a composition on a named property
-     * compiles its branches to classes of their own) are not part of the result.
+     * Only the compositions of a schema (base validators) hand values over. A composition on a named property
+     * compiles its branches to classes of their own, nothing is transferred to the containing schema.
      *
      * @return array<int, array<string, array{string, string}>>
      */
     public function getBranchFilteredKeyMap(): array
     {
-        if (is_a($this->compositionProcessor, AnyOfValidatorFactory::class, true)) {
+        if ($this->scope !== null && !($this->templateValues['isBaseValidator'] ?? false)) {
             return [];
         }
 
-        $isAllOf = is_a($this->compositionProcessor, AllOfValidatorFactory::class, true);
-        $ifBranch = $this instanceof ConditionalPropertyValidator ? $this->getIfBranch() : null;
         $filteredKeyMap = [];
 
         foreach ($this->composedProperties as $branchIndex => $compositionProperty) {
             $nestedSchema = $compositionProperty->getNestedSchema();
 
-            if ($nestedSchema === null || $compositionProperty === $ifBranch) {
+            if ($nestedSchema === null) {
                 continue;
             }
 
@@ -95,32 +119,58 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
                 if (
                     $branchProperty->isInternal()
                     || ($this->scope !== null && $this->scope->getProperty($branchProperty->getName()) === null)
+                    || !$this->publishesFilteredValueOf($compositionProperty, $branchProperty)
                 ) {
                     continue;
                 }
 
-                foreach ($branchProperty->getValidators() as $propertyValidator) {
-                    $filterValidator = $propertyValidator->getValidator();
-
-                    if (!($filterValidator instanceof FilterValidator)) {
-                        continue;
-                    }
-
-                    if ($isAllOf && $filterValidator->isExecuted()) {
-                        continue;
-                    }
-
-                    $filteredKeyMap[$branchIndex][$branchProperty->getName()] = [
-                        $branchProperty->getAttribute(),
-                        '_validate' . ucfirst($branchProperty->getAttribute()),
-                    ];
-
-                    break;
-                }
+                $filteredKeyMap[$branchIndex][$branchProperty->getName()] = [
+                    $branchProperty->getAttribute(),
+                    '_validate' . ucfirst($branchProperty->getAttribute()),
+                ];
             }
         }
 
         return $filteredKeyMap;
+    }
+
+    /**
+     * The published properties of all components: property name => [attribute, validation method].
+     *
+     * @return array<string, array{string, string}>
+     */
+    public function getFilteredKeys(): array
+    {
+        $filteredKeys = [];
+
+        foreach ($this->getBranchFilteredKeyMap() as $componentFilteredKeys) {
+            $filteredKeys += $componentFilteredKeys;
+        }
+
+        return $filteredKeys;
+    }
+
+    /**
+     * @param int[]|null $componentIndices Restrict the lookup to the given components, null for all components
+     *
+     * @return string PHP code of an array containing the published property names as keys
+     */
+    protected function getFilteredKeyLookup(?array $componentIndices = null): string
+    {
+        $lookup = [];
+
+        foreach ($this->getBranchFilteredKeyMap() as $componentIndex => $filteredKeys) {
+            if ($componentIndices === null || in_array($componentIndex, $componentIndices, true)) {
+                $lookup += array_fill_keys(array_keys($filteredKeys), true);
+            }
+        }
+
+        return RenderHelper::varExportArray($lookup);
+    }
+
+    protected function publishesFilteredValues(): bool
+    {
+        return $this->getBranchFilteredKeyMap() !== [];
     }
 
     /**
@@ -218,6 +268,7 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
                     'modifiedValuesMethod' => $this->modifiedValuesMethod,
                     'componentDefaultValueMap' => RenderHelper::varExportArray($componentDefaultValueMap),
                     'propertyAccessors' => RenderHelper::varExportArray($propertyAccessors),
+                    'filteredKeys' => RenderHelper::varExportArray(array_keys($this->getFilteredKeys())),
                 ],
             ),
         );

@@ -111,6 +111,14 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
             ? (int) array_search($elseProperty, $this->composedProperties, true)
             : -1;
 
+        $this->templateValues['publishesFilteredValues'] = $this->publishesFilteredValues();
+        $this->templateValues['thenFilteredKeyLookup'] = $this->getFilteredKeyLookup(
+            [$this->templateValues['thenComponentIndex']],
+        );
+        $this->templateValues['elseFilteredKeyLookup'] = $this->getFilteredKeyLookup(
+            [$this->templateValues['elseComponentIndex']],
+        );
+
         return parent::getCheck();
     }
 
@@ -119,6 +127,8 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getValidatorSetUp(): string
     {
-        return '$ifException = $thenException = $elseException = null;';
+        $setUp = '$ifException = $thenException = $elseException = null;';
+
+        return $this->publishesFilteredValues() ? $setUp . "\n\$publishedValues = null;" : $setUp;
     }
 }

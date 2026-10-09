@@ -87,6 +87,9 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
     {
         $this->setupBranchDefaultHelpers();
 
+        $this->templateValues['publishesFilteredValues'] = $this->publishesFilteredValues();
+        $this->templateValues['filteredKeyLookup'] = $this->getFilteredKeyLookup();
+
         return parent::getCheck();
     }
 
@@ -95,10 +98,12 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getValidatorSetUp(): string
     {
-        return <<<'CODE'
+        $setUp = <<<'CODE'
             $succeededCompositionElements = 0;
             $compositionErrorCollection = [];
             CODE;
+
+        return $this->publishesFilteredValues() ? $setUp . "\n\$publishedValues = null;" : $setUp;
     }
 
     /**

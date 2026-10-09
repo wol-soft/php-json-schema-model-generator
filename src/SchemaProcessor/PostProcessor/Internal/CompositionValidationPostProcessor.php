@@ -108,11 +108,16 @@ class CompositionValidationPostProcessor extends PostProcessor
         GeneratorConfiguration $generatorConfiguration,
         array $compositionValidatorKeys,
     ): void {
+        $handsOverFilteredValues = false;
+
         foreach ($compositionValidatorKeys as $validatorIndex) {
             /** @var AbstractComposedPropertyValidator $compositionValidator */
             $compositionValidator = $schema->getBaseValidators()[$validatorIndex];
 
             $compositionValidator->setScope($schema);
+
+            $filteredKeys = $compositionValidator->getFilteredKeys();
+            $handsOverFilteredValues = $handsOverFilteredValues || $filteredKeys !== [];
 
             $schema->addMethod(
                 "_validateComposition_$validatorIndex",
@@ -125,8 +130,26 @@ class CompositionValidationPostProcessor extends PostProcessor
                         'schema' => $schema,
                         'index' => $validatorIndex,
                         'viewHelper' => new RenderHelper($generatorConfiguration),
+                        'branchFilteredKeys' => $filteredKeys === [] ? '' : RenderHelper::varExportArray($filteredKeys),
+                        'branchFilteredKeyLookup' => RenderHelper::varExportArray(
+                            array_fill_keys(array_keys($filteredKeys), true),
+                        ),
                     ],
                 )
+            );
+        }
+
+        if ($handsOverFilteredValues) {
+            // The filtered values which the active branches of the compositions handed over, by property name.
+            $schema->addProperty(
+                (new Property(
+                    'branchFilteredValues',
+                    new PropertyType('array'),
+                    new JsonSchema(__FILE__, []),
+                    'Filtered values handed over by the active branches of composed validations',
+                ))
+                    ->setInternal(true)
+                    ->setDefaultValue([]),
             );
         }
     }
