@@ -321,6 +321,19 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(0, $object->get0());
     }
 
+    public function testPropertiesNamedLikeSchemaKeywordsAreGeneratedAsPlainProperties(): void
+    {
+        // The `properties` map itself contains the keys "$schema" and "$id". Their values are
+        // property schemas (arrays), not the draft URI / identifier strings the keywords carry.
+        $className = $this->generateClassFromFile('PropertiesNamedLikeKeywords.json');
+
+        $object = new $className(['$schema' => 'https://example.com/profile', '$id' => 42, 'name' => 'Hannes']);
+
+        $this->assertSame('https://example.com/profile', $object->getSchema());
+        $this->assertSame(42, $object->getId());
+        $this->assertSame('Hannes', $object->getName());
+    }
+
     public function testEmptyNormalizedPropertyNameThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);

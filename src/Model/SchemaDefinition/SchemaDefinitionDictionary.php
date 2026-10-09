@@ -65,16 +65,16 @@ class SchemaDefinitionDictionary extends ArrayObject
         SchemaProcessor $schemaProcessor,
         Schema $schema,
     ): void {
-        $json = $jsonSchema->getJson();
+        $ownId = $jsonSchema->getOwnId();
 
-        if (isset($json['$id'])) {
+        if ($ownId !== null) {
             $this->addDefinition(
-                JsonSchema::normalizeId((string) $json['$id']),
+                JsonSchema::normalizeId($ownId),
                 new SchemaDefinition($jsonSchema, $schemaProcessor, $schema),
             );
         }
 
-        foreach ($json as $key => $item) {
+        foreach ($jsonSchema->getJson() as $key => $item) {
             if (!is_array($item)) {
                 continue;
             }

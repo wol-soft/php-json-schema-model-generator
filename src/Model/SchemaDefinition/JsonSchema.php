@@ -74,14 +74,24 @@ class JsonSchema
         $this->schemaUri = $this->deriveSchemaUri($json);
         $this->json = $json;
 
-        if (isset($json['$id'])) {
-            $this->baseId = self::normalizeId((string) $json['$id']);
+        $ownId = self::readStringKeyword($json, '$id');
+        if ($ownId !== null) {
+            $this->baseId = self::normalizeId($ownId);
         }
     }
 
     public function getJson(): array
     {
         return $this->json;
+    }
+
+    /**
+     * The $id declared by this node's own JSON, or null if it declares none. Unlike getBaseId() this
+     * does not inherit from ancestors.
+     */
+    public function getOwnId(): ?string
+    {
+        return self::readStringKeyword($this->json, '$id');
     }
 
     /**
@@ -99,7 +109,28 @@ class JsonSchema
      */
     private function deriveSchemaUri(mixed $json): ?string
     {
-        return (is_array($json) ? $json['$schema'] ?? null : null) ?? $this->schemaUri;
+        return self::readStringKeyword($json, '$schema') ?? $this->schemaUri;
+    }
+
+    /**
+     * Reads a string-valued keyword ($id, $schema) from a node, ignoring any non-string value.
+     *
+     * A node is not necessarily a schema object: navigate() also lands on keyword maps such as
+     * "properties", "patternProperties" or "$defs", whose keys are user-chosen names. A property
+     * called "$schema" or "$id" then yields an array (its property schema) under that key.
+     * Both keywords are string-valued by the core spec, so a non-string value can only be such a
+     * name and is not the keyword. Do NOT replace this with a lookup of which keywords hold maps:
+     * that table would have to track every draft and custom keyword, whereas the value type is
+     * draft-independent. The cost is that a genuinely malformed `"$id": 5` on a real schema is
+     * ignored instead of rejected, because a map entry and a schema node cannot be told apart here.
+     */
+    private static function readStringKeyword(mixed $json, string $keyword): ?string
+    {
+        if (!is_array($json) || !is_string($json[$keyword] ?? null)) {
+            return null;
+        }
+
+        return $json[$keyword];
     }
 
     /**
@@ -156,8 +187,9 @@ class JsonSchema
 
             $jsonSchema->json = $jsonSchema->json[$decodedPathSegment];
 
-            if (is_array($jsonSchema->json) && isset($jsonSchema->json['$id'])) {
-                $jsonSchema->baseId = self::normalizeId((string) $jsonSchema->json['$id']);
+            $segmentId = self::readStringKeyword($jsonSchema->json, '$id');
+            if ($segmentId !== null) {
+                $jsonSchema->baseId = self::normalizeId($segmentId);
             }
         }
 
