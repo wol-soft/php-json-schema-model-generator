@@ -215,6 +215,54 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     }
 
     // -------------------------------------------------------------------------
+    // Compositions nested in the branch of another composition
+    // -------------------------------------------------------------------------
+
+    /**
+     * The filtered value has to be handed over twice: from the then branch to the class of the oneOf
+     * branch and from there to the parent class.
+     */
+    public function testFilterInConditionalNestedInOneOfBranchRunsOnlyWhileBothBranchesAreActive(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ConditionalNestedInOneOfBranch.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        // oneOf branch "x" and the then branch are active.
+        $object = new $className(['type' => 'x', 'mode' => 1, 'name' => '  a  ']);
+        $this->assertSame('a', $object->getName());
+
+        // oneOf branch "x" is active, the condition of the nested conditional fails.
+        $object = new $className(['type' => 'x', 'mode' => 2, 'name' => '  a  ']);
+        $this->assertSame('  a  ', $object->getName());
+
+        // The oneOf branch which contains the filter is inactive.
+        $object = new $className(['type' => 'y', 'mode' => 1, 'name' => '  a  ']);
+        $this->assertSame('  a  ', $object->getName());
+    }
+
+    public function testFilterInOneOfNestedInThenBranchRunsOnlyWhileBothBranchesAreActive(): void
+    {
+        $className = $this->generateClassFromFile(
+            'OneOfNestedInThenBranch.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        // The then branch and the oneOf branch "a" are active.
+        $object = new $className(['mode' => 1, 'sub' => 'a', 'name' => '  a  ']);
+        $this->assertSame('a', $object->getName());
+
+        // The then branch is active but the oneOf branch which contains the filter is not.
+        $object = new $className(['mode' => 1, 'sub' => 'b', 'name' => '  a  ']);
+        $this->assertSame('  a  ', $object->getName());
+
+        // The then branch is inactive.
+        $object = new $className(['mode' => 2, 'name' => '  a  ']);
+        $this->assertSame('  a  ', $object->getName());
+    }
+
+    // -------------------------------------------------------------------------
     // oneOf
     // -------------------------------------------------------------------------
 
@@ -388,6 +436,8 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
                 ['ThenBranchOverridesRootFilter.json', 'name', 'trim', 'upper'],
             'parent property and oneOf branch filter the same property' =>
                 ['OneOfBranchOverridesRootFilter.json', 'name', 'trim', 'upper'],
+            'a oneOf and an if/then/else filter the same property' =>
+                ['OneOfAndConditionalFilterSameProperty.json', 'name', 'trim', 'upper'],
         ];
     }
 

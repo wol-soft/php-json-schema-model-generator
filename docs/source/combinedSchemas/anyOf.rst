@@ -112,3 +112,9 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
 
     See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
     explanation.
+
+.. warning::
+
+    A property in an object-level ``anyOf`` branch must not declare a ``"filter"``: several branches can
+    match, so the filtered value can't be attributed to a single branch. The generator throws a
+    ``SchemaException`` at generation time. See `Filters on properties of object branches <../nonStandardExtensions/filter.html#filters-on-properties-of-object-branches>`__.

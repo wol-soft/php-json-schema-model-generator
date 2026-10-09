@@ -129,3 +129,10 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
 
     See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
     explanation.
+
+.. note::
+
+    A property in an object-level ``allOf`` branch may declare a ``"filter"``, all branches are always
+    active. A property which is filtered more than once (in several branches, or by the schema itself and
+    a branch) is rejected with a ``SchemaException``, as the filters of a property have no defined order.
+    See `Filters on properties of object branches <../nonStandardExtensions/filter.html#filters-on-properties-of-object-branches>`__.

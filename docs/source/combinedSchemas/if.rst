@@ -222,3 +222,10 @@ While the branch is active the declared type is still enforced. A property which
 
     See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
     explanation.
+
+.. note::
+
+    A property in a ``then`` or ``else`` branch may declare a ``"filter"``. The filter only affects the
+    value while its branch is the active one, otherwise the property keeps the value as provided. A
+    filter on a property of the ``if`` condition runs inside the condition and is not applied to the
+    generated class. See `Filters on properties of object branches <../nonStandardExtensions/filter.html#filters-on-properties-of-object-branches>`__.
