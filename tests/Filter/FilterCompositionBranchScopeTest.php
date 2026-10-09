@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Filter;
 
 use DateTime;
+use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
 use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\Filter\InvalidFilterValueException;
@@ -172,6 +173,82 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
         $object = new $className(['kind' => 'a', 'name' => '  name  ']);
         $object->setKind('b');
         $this->assertSame('  NAME  ', $object->getName());
+    }
+
+    // -------------------------------------------------------------------------
+    // Compositions on a property whose value is an object
+    // -------------------------------------------------------------------------
+
+    /**
+     * A property-level anyOf with a single object branch: the value of the property is an instance of
+     * the branch class, so the filter of the branch property runs inside that class and no property is
+     * merged into a parent class. Must keep working.
+     */
+    public function testFilterInSingleObjectBranchOfPropertyLevelAnyOfRunsInsideTheBranch(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelSingleAnyOfObjectBranch.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['filteredProperty' => ['nested' => '  x  ']]);
+        $this->assertSame('x', $object->getFilteredProperty()->getNested());
+
+        // The trim filter doesn't accept an integer, so the value passes through unchanged.
+        $object = new $className(['filteredProperty' => ['nested' => 5]]);
+        $this->assertSame(5, $object->getFilteredProperty()->getNested());
+
+        $object = new $className(['filteredProperty' => []]);
+        $this->assertNull($object->getFilteredProperty()->getNested());
+
+        $this->expectException(AnyOfException::class);
+        new $className(['filteredProperty' => 'not an object']);
+    }
+
+    public static function propertyLevelDisjunctiveObjectBranchesProvider(): array
+    {
+        return [
+            'anyOf (merged class)' => ['PropertyLevelAnyOfObjectBranches.json'],
+            'oneOf' => ['PropertyLevelOneOfObjectBranches.json'],
+        ];
+    }
+
+    /**
+     * With several object branches on a property the value is created from the matching branch only, so
+     * the filter of a non-matching branch must not touch the value. Must keep working.
+     */
+    #[DataProvider('propertyLevelDisjunctiveObjectBranchesProvider')]
+    public function testFilterOnObjectBranchPropertyOfPropertyLevelCompositionRunsOnlyForTheMatchingBranch(
+        string $schemaFile,
+    ): void {
+        $className = $this->generateClassFromFile(
+            $schemaFile,
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['filteredProperty' => ['kind' => 'a', 'name' => '  x  ']]);
+        $this->assertSame('x', $object->getFilteredProperty()->getName());
+
+        $object = new $className(['filteredProperty' => ['kind' => 'b', 'name' => '  x  ']]);
+        $this->assertSame('  x  ', $object->getFilteredProperty()->getName());
+    }
+
+    /**
+     * A conditional on an object-typed property is processed like a root-level conditional: the
+     * branch properties are merged into the class of the property, so the same scoping applies.
+     */
+    public function testFilterInConditionalBranchOfObjectPropertyRunsOnlyWhileBranchIsActive(): void
+    {
+        $className = $this->generateClassFromFile(
+            'PropertyLevelConditionalObjectBranch.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['filteredProperty' => ['kind' => 'a', 'name' => '  x  ']]);
+        $this->assertSame('x', $object->getFilteredProperty()->getName());
+
+        $object = new $className(['filteredProperty' => ['kind' => 'b', 'name' => '  x  ']]);
+        $this->assertSame('  x  ', $object->getFilteredProperty()->getName());
     }
 
     // -------------------------------------------------------------------------
