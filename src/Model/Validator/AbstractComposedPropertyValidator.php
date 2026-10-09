@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator;
 
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -53,6 +55,72 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
         }
 
         return false;
+    }
+
+    /**
+     * Describes the properties for which the active branch of this composition hands the filtered value
+     * over to the schema which contains the composition: component index => property name =>
+     * [attribute, name of the method validating the property].
+     *
+     * - anyOf: nothing is handed over, several branches can match (a filtered property is rejected).
+     * - allOf: only values forwarded from a nested composition are handed over. A property which is
+     *   filtered directly in an allOf branch keeps its executed filter on the schema, all branches of an
+     *   allOf are always active.
+     * - oneOf, if/then/else: every filtered property of a branch. The condition of an if/then/else only
+     *   selects the branch and never hands over values.
+     *
+     * Properties which were not transferred to the containing schema (a composition on a named property
+     * compiles its branches to classes of their own) are not part of the result.
+     *
+     * @return array<int, array<string, array{string, string}>>
+     */
+    public function getBranchFilteredKeyMap(): array
+    {
+        if (is_a($this->compositionProcessor, AnyOfValidatorFactory::class, true)) {
+            return [];
+        }
+
+        $isAllOf = is_a($this->compositionProcessor, AllOfValidatorFactory::class, true);
+        $ifBranch = $this instanceof ConditionalPropertyValidator ? $this->getIfBranch() : null;
+        $filteredKeyMap = [];
+
+        foreach ($this->composedProperties as $branchIndex => $compositionProperty) {
+            $nestedSchema = $compositionProperty->getNestedSchema();
+
+            if ($nestedSchema === null || $compositionProperty === $ifBranch) {
+                continue;
+            }
+
+            foreach ($nestedSchema->getProperties() as $branchProperty) {
+                if (
+                    $branchProperty->isInternal()
+                    || ($this->scope !== null && $this->scope->getProperty($branchProperty->getName()) === null)
+                ) {
+                    continue;
+                }
+
+                foreach ($branchProperty->getValidators() as $propertyValidator) {
+                    $filterValidator = $propertyValidator->getValidator();
+
+                    if (!($filterValidator instanceof FilterValidator)) {
+                        continue;
+                    }
+
+                    if ($isAllOf && $filterValidator->isExecuted()) {
+                        continue;
+                    }
+
+                    $filteredKeyMap[$branchIndex][$branchProperty->getName()] = [
+                        $branchProperty->getAttribute(),
+                        '_validate' . ucfirst($branchProperty->getAttribute()),
+                    ];
+
+                    break;
+                }
+            }
+        }
+
+        return $filteredKeyMap;
     }
 
     /**
