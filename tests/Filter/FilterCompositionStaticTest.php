@@ -121,16 +121,9 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
                     . ' at line \d+, column \d+$/',
             ],
             // Detection of a nested composition does not rely on the enclosing level scanning into it:
-            // every nesting level rejects a filter in its own branches. allOf within allOf ...
+            // every nesting level rejects a filter in its own branches, here an allOf within an allOf.
             'filter inside allOf nested in an allOf branch' => [
                 'FilterCompositionFilterInNestedAllOfBranch.json',
-                '/^A filter keyword inside a allOf composition branch is not supported'
-                    . ' for property filteredProperty in file .*\.json \(branch #1\)\.'
-                    . ' at line \d+, column \d+$/',
-            ],
-            // ... and arbitrarily deep.
-            'filter inside allOf nested three levels deep' => [
-                'FilterCompositionFilterInTripleNestedAllOfBranch.json',
                 '/^A filter keyword inside a allOf composition branch is not supported'
                     . ' for property filteredProperty in file .*\.json \(branch #1\)\.'
                     . ' at line \d+, column \d+$/',
@@ -267,22 +260,11 @@ class FilterCompositionStaticTest extends AbstractFilterTestCase
             // to return early without throwing (effective types empty means no dead-filter conclusion).
             'allOf with integer and number branches alongside dateTime filter' =>
                 ['FilterCompositionAllOfIntegerNumberBranches.json'],
-            // An allOf branch inherits "type": "object" from its parent, so it is instantiated as its own
-            // class; a conditional nested in that branch carries a filter on an object property. The
-            // untyped "then" must not be mistaken for a scalar branch whose value is reset after evaluation.
-            'allOf object branch: filter in property of a nested if\/then' =>
-                ['FilterCompositionAllOfObjectBranchNestedConditional.json'],
-            // Same for a nested anyOf, oneOf and not within an inherited-object allOf branch.
-            'allOf object branch: filter in property of a nested anyOf branch' =>
-                ['FilterCompositionAllOfObjectBranchNestedAnyOf.json'],
-            'allOf object branch: filter in property of a nested oneOf branch' =>
-                ['FilterCompositionAllOfObjectBranchNestedOneOf.json'],
-            'allOf object branch: filter in property of a nested not' =>
-                ['FilterCompositionAllOfObjectBranchNestedNot.json'],
             // The "properties" of a string-typed branch can never apply to a string value, so a filter
             // inside a composition under them can never run and is not worth a rejection. Rejecting it
             // would require descending into compositions below "properties" of a non-object branch,
-            // which is exactly the recursion that wrongly rejects the object-branch shapes above.
+            // which is exactly the recursion that wrongly rejected filters in object branches nested in
+            // an allOf branch (covered by FilterCompositionRuntimeTest).
             'string-typed allOf branch: filter in a composition under its inert properties' =>
                 ['FilterCompositionInertFilterUnderStringBranchProperties.json'],
         ];
