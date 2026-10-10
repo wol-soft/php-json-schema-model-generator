@@ -77,6 +77,14 @@ class BranchFilteredKeyMapTest extends AbstractFilterTestCase
         $this->assertSame([0 => ['name' => ['name', '_validateName']]], $validators[0]->getBranchFilteredKeyMap());
     }
 
+    public function testAnyOfKeepsAFilterWhichEveryBranchDeclaresOnTheSchema(): void
+    {
+        $validators = $this->generateAndCaptureComposedValidators('AnyOfBranchesSameFilter.json');
+
+        $this->assertCount(1, $validators);
+        $this->assertSame([], $validators[0]->getBranchFilteredKeyMap());
+    }
+
     public function testAllOfKeepsAPropertyWhichIsFilteredDirectlyInABranchOnTheSchema(): void
     {
         $validators = $this->generateAndCaptureComposedValidators('AllOfBranch.json');

@@ -8,11 +8,16 @@ use DateTime;
 use PHPModelGenerator\Exception\ComposedValue\AnyOfException;
 use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
 use PHPModelGenerator\Exception\ComposedValue\OneOfException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Filter\InvalidFilterValueException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Throwable;
 
 /**
  * A filter on a property which is declared inside a branch of an object composition must only
@@ -253,6 +258,93 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
         $object = new $className(['kind' => 'a', 'value' => 'Text']);
         $this->assertSame('TEXT', $object->getValue());
         $this->assertSame('text', $object->toArray()['value']);
+    }
+
+    // -------------------------------------------------------------------------
+    // A failing update leaves the model untouched
+    // -------------------------------------------------------------------------
+
+    public static function collectErrorsProvider(): array
+    {
+        return [
+            'exception on the first violation' => [false, ValidationException::class],
+            'collect errors' => [true, ErrorRegistryException::class],
+        ];
+    }
+
+    /**
+     * The new value of kind selects the then branch (the composition succeeds) but violates the maxLength of kind
+     * itself. The values which the branches handed over and the properties which depend on the active branch must
+     * not change.
+     *
+     * @param class-string<Throwable> $expectedException
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testSetterWhichFailsAfterTheCompositionLeavesTheBranchStateUntouched(
+        bool $collectErrors,
+        string $expectedException,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'ConditionalBranchSwitchRejectedByOwnValidation.json',
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(false),
+        );
+
+        $object = new $className(['kind' => 'a', 'name' => '  n  ']);
+        $this->assertSame('  n  ', $object->getName());
+
+        try {
+            $object->setKind('ccc');
+            $this->fail('Expected the maxLength violation of kind');
+        } catch (Throwable $exception) {
+            $this->assertInstanceOf($expectedException, $exception);
+        }
+
+        $this->assertSame('a', $object->getKind());
+        // The name belongs to the then branch which was not activated by the failed update.
+        $this->assertSame('  n  ', $object->getName());
+
+        // The failed update must not influence later updates.
+        $object->setName('  m  ');
+        $this->assertSame('  m  ', $object->getName());
+    }
+
+    /**
+     * populate() applies all properties or none. The failing update must not leave the branch state of the
+     * attempt behind, the successful update switches the branch and validates the dependent property again.
+     */
+    public function testPopulateWhichFailsLeavesTheBranchStateUntouchedAndPopulateWhichSucceedsSwitchesTheBranch(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
+        $className = $this->generateClassFromFile(
+            'ConditionalBranchSwitchByPopulate.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['kind' => 'a', 'name' => '  n  ']);
+        $this->assertSame('  n  ', $object->getName());
+
+        // kind selects the then branch, label violates its maxLength.
+        try {
+            $object->populate(['kind' => 'c', 'label' => 'too long']);
+            $this->fail('Expected the maxLength violation of label');
+        } catch (ValidationException) {
+            // expected
+        }
+
+        $this->assertSame('a', $object->getKind());
+        $this->assertSame('  n  ', $object->getName());
+
+        // The successful update activates the then branch: the name which was not part of the update is filtered.
+        $object->populate(['kind' => 'c', 'label' => 'ok']);
+        $this->assertSame('c', $object->getKind());
+        $this->assertSame('n', $object->getName());
+
+        // And back: the branch is inactive, the name is returned as provided.
+        $object->populate(['kind' => 'a']);
+        $this->assertSame('  n  ', $object->getName());
     }
 
     // -------------------------------------------------------------------------
@@ -517,11 +609,31 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     // anyOf: a filtered property declared in a branch is rejected
     // -------------------------------------------------------------------------
 
+    /**
+     * Whichever branch matches, the property is filtered by the same filter: the filtered value can be attributed
+     * without knowing the matching branch. Works without the rejection, so it must keep working.
+     */
+    public function testFilterWhichEveryAnyOfBranchDeclaresForAPropertyIsApplied(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AnyOfBranchesSameFilter.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $this->assertSame('x', (new $className(['kind' => 'a', 'name' => '  x  ']))->getName());
+        $this->assertSame('x', (new $className(['kind' => 'b', 'name' => '  x  ']))->getName());
+
+        $object = new $className(['kind' => 'a']);
+        $object->setName('  y  ');
+        $this->assertSame('y', $object->getName());
+    }
+
     public static function anyOfBranchFilterProvider(): array
     {
         return [
             'anyOf branch' => ['AnyOfBranchFilter.json'],
             'anyOf branch nested in an allOf branch' => ['AnyOfBranchFilterNestedInAllOf.json'],
+            'anyOf branches declare different filters' => ['AnyOfBranchesDifferentFilters.json'],
             'anyOf branch referenced via $ref' => ['ReferencedAnyOfBranchFilter.json'],
             // The oneOf branch could own the filter, but its value would have to be forwarded through
             // the anyOf, where several branches can match.
@@ -539,11 +651,16 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
                     . ' in file ',
                 '/',
             ) . '.+' . preg_quote(
-                ': more than one branch can match, so the filtered value cannot be attributed to a single branch',
+                ': more than one branch can match, the filtered value can only be attributed when every branch'
+                    . ' declares the property with the same filter',
                 '/',
             ) . ' at line \d+, column \d+$/',
         );
 
-        $this->generateClassFromFile($schemaFile, new GeneratorConfiguration());
+        $this->generateClassFromFile(
+            $schemaFile,
+            (new GeneratorConfiguration())
+                ->addFilter($this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'upper')),
+        );
     }
 }

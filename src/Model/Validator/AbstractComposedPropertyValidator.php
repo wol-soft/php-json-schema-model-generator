@@ -72,7 +72,8 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
      * Whether the active branch hands the filtered value of the given branch property over to the schema which
      * contains the composition.
      *
-     * - anyOf: never, a filtered property in a branch of an anyOf is rejected at generation time.
+     * - anyOf: never. A filter which every branch declares in the same way keeps being executed on the schema, any
+     *   other filtered property in a branch of an anyOf is rejected at generation time.
      * - allOf: only values forwarded from a nested composition. A property which is filtered directly in an
      *   allOf branch keeps its executed filter on the schema, all branches of an allOf are always active.
      * - oneOf, if/then/else: every filtered property of a branch. The condition of an if/then/else only
@@ -80,7 +81,9 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
      */
     public function publishesFilteredValueOf(CompositionPropertyDecorator $branch, PropertyInterface $property): bool
     {
-        if ($this instanceof ConditionalPropertyValidator && $branch === $this->getIfBranch()) {
+        // A property which every anyOf branch filters in the same way keeps its executed filter on the schema, like
+        // a property which is filtered directly in an allOf branch. Other filters in an anyOf are rejected.
+        if ($this->isAnyOf() || ($this instanceof ConditionalPropertyValidator && $branch === $this->getIfBranch())) {
             return false;
         }
 

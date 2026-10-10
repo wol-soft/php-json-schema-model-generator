@@ -176,7 +176,7 @@ The branches of a composition on an object schema (explicitly typed ``object`` o
 - ``if`` / ``then`` / ``else`` and ``oneOf``: exactly one branch is active. The filter only affects the value while its branch is the active one; the parent class receives the filtered value of the active branch. While the branch is inactive the property keeps the value as provided. The branches of one ``oneOf`` or ``if``/``then``/``else`` exclude each other and may filter the same property differently (e.g. ``trim`` in ``then`` and a different filter in ``else``). Filters inside branches which are nested in an ``allOf`` branch (or in another ``oneOf`` / ``if``/``then``/``else``) work in the same way, the value is passed on to the parent class.
 - The condition of an ``if``: the filter runs inside the condition (so a ``trim`` applies before a ``const`` of the same property is compared) but the parent class keeps the value as provided.
 - ``allOf``: all branches are always active, so the filter of a property which is declared in a single ``allOf`` branch is applied to every value.
-- ``anyOf``: several branches can match, so the filtered value can't be attributed to a single branch. A filtered property in a branch of an ``anyOf`` raises a ``SchemaException``. This also applies to a filtered property of a ``oneOf`` or ``if``/``then``/``else`` branch which is nested in an ``anyOf`` branch.
+- ``anyOf``: several branches can match, so the filtered value can only be attributed to a branch when the matching branch doesn't matter: every branch must declare the property with the same filter, which is then applied to the property independent of the matching branch. Any other filtered property in a branch of an ``anyOf`` raises a ``SchemaException`` (a branch without the property, different filters or options, or a filter which is handed over by a ``oneOf`` or ``if``/``then``/``else`` nested in the ``anyOf`` branch).
 
 .. code-block:: json
 
@@ -207,6 +207,8 @@ The branches of a composition on an object schema (explicitly typed ``object`` o
     }
 
 With ``mode`` set to ``1`` the title ``"  My list  "`` is trimmed to ``"My list"``, a title consisting only of whitespace is empty after the filter and violates ``minLength``. With ``mode`` set to ``3`` the ``then`` branch is inactive: the title is not constrained and stays ``"  My list  "``. Values of a type the filter doesn't accept are passed through unchanged.
+
+A setter or ``populate()`` which fails doesn't change the model: the filtered values which the active branches hand over are only adopted after the update succeeded, a rejected update keeps the previous branch and the previous values.
 
 If a setter changes the property which selects the branch (``mode`` in the example) the properties of the branches are validated again, so a title which was trimmed for ``mode`` ``1`` is returned as provided after ``mode`` was changed to ``3``.
 

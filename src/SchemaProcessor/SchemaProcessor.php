@@ -843,6 +843,8 @@ class SchemaProcessor
             return;
         }
 
+        $this->assertAnyOfFiltersAreUnambiguous($validator, $schema, array_keys($seenBranchPropertyNames));
+
         foreach (array_keys($seenBranchPropertyNames) as $branchPropertyName) {
             $schema->getPropertyMerger()->checkForTotalConflict(
                 $branchPropertyName,
@@ -857,10 +859,77 @@ class SchemaProcessor
     }
 
     /**
+     * Several branches of an anyOf can match, so the filter of a property can only be attributed when the outcome
+     * doesn't depend on the matching branch: every branch declares the property with the same filters. Anything
+     * else (a branch without the property, different filters, a filter handed over by a nested composition) is
+     * rejected.
+     *
+     * @param string[] $propertyNames
+     *
+     * @throws SchemaException
+     */
+    private function assertAnyOfFiltersAreUnambiguous(
+        AbstractComposedPropertyValidator $validator,
+        Schema $schema,
+        array $propertyNames,
+    ): void {
+        if (!$validator->isAnyOf()) {
+            return;
+        }
+
+        foreach ($propertyNames as $propertyName) {
+            $signatures = [];
+            $firstFilteredProperty = null;
+            $allFiltersExecuted = true;
+
+            foreach ($validator->getComposedProperties() as $branch) {
+                $branchProperty = $branch->getNestedSchema()?->getProperty($propertyName);
+                $filterValidators = $branchProperty === null ? [] : FilterValidator::of($branchProperty);
+
+                if ($filterValidators !== [] && $firstFilteredProperty === null) {
+                    $firstFilteredProperty = [$branchProperty, $filterValidators[0]];
+                }
+
+                foreach ($filterValidators as $filterValidator) {
+                    $allFiltersExecuted = $allFiltersExecuted && $filterValidator->isExecuted();
+                }
+
+                // null: the branch doesn't declare the property at all.
+                $signatures[] = $branchProperty === null
+                    ? null
+                    : json_encode(array_map(
+                        static fn(FilterValidator $filterValidator): array => [
+                            $filterValidator->getFilter()->getToken(),
+                            $filterValidator->getFilterOptions(),
+                        ],
+                        $filterValidators,
+                    ));
+            }
+
+            if (
+                $firstFilteredProperty === null
+                || ($allFiltersExecuted && !in_array(null, $signatures, true) && count(array_unique($signatures)) === 1)
+            ) {
+                continue;
+            }
+
+            throw new SchemaException(
+                sprintf(
+                    "Filter '%s' on property '%s' declared in a branch of an 'anyOf' composition is not supported"
+                        . ' in file %s: more than one branch can match, the filtered value can only be attributed'
+                        . ' when every branch declares the property with the same filter',
+                    $firstFilteredProperty[1]->getFilter()->getToken(),
+                    $propertyName,
+                    $schema->getJsonSchema()->getFile(),
+                ),
+                $firstFilteredProperty[0]->getJsonSchema(),
+            );
+        }
+    }
+
+    /**
      * Rejects filters which cannot be attributed to exactly one declaration.
      *
-     * - A filtered property in a branch of an anyOf (also forwarded from a nested composition): several branches
-     *   can match, so the filtered value cannot be attributed to a single branch.
      * - A property which is filtered more than once by declarations that can apply to the same value: the schema
      *   itself plus any branch, several branches of an allOf, or the branches of different compositions. The
      *   filters have no defined order and only the first declaration would take effect. The branches of one
@@ -882,20 +951,6 @@ class SchemaProcessor
 
         if ($branchFilters === []) {
             return;
-        }
-
-        if ($validator->isAnyOf()) {
-            throw new SchemaException(
-                sprintf(
-                    "Filter '%s' on property '%s' declared in a branch of an 'anyOf' composition is not supported"
-                        . ' in file %s: more than one branch can match,'
-                        . ' so the filtered value cannot be attributed to a single branch',
-                    $branchFilters[0],
-                    $branchProperty->getName(),
-                    $schema->getJsonSchema()->getFile(),
-                ),
-                $branchProperty->getJsonSchema(),
-            );
         }
 
         if ($validator instanceof ConditionalPropertyValidator && $sourceBranch === $validator->getIfBranch()) {
