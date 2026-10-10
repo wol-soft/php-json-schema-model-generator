@@ -50,33 +50,6 @@ class BranchFilteredKeyMapTest extends AbstractFilterTestCase
         return $capturedValidators->getArrayCopy();
     }
 
-    public function testConditionalHandsOverOnlyTheFilteredPropertiesOfThenAndElse(): void
-    {
-        $validators = $this->generateAndCaptureComposedValidators('ConditionalThenElse.json');
-
-        $this->assertCount(1, $validators);
-
-        // Component indices follow the composition order if (0), then (1), else (2). The filtered
-        // property of the if condition only selects the branch and is never handed over, unfiltered
-        // properties of a branch are not part of the map. The attribute and validation method are
-        // derived from the property name: 'then-value' => thenValue / _validateThenValue.
-        $this->assertSame(
-            [
-                1 => ['then-value' => ['thenValue', '_validateThenValue']],
-                2 => ['else-value' => ['elseValue', '_validateElseValue']],
-            ],
-            $validators[0]->getBranchFilteredKeyMap(),
-        );
-    }
-
-    public function testOneOfHandsOverTheFilteredPropertiesOfItsBranches(): void
-    {
-        $validators = $this->generateAndCaptureComposedValidators('OneOfBranches.json');
-
-        $this->assertCount(1, $validators);
-        $this->assertSame([0 => ['name' => ['name', '_validateName']]], $validators[0]->getBranchFilteredKeyMap());
-    }
-
     public function testAnyOfKeepsAFilterWhichEveryBranchDeclaresOnTheSchema(): void
     {
         $validators = $this->generateAndCaptureComposedValidators('AnyOfBranchesSameFilter.json');

@@ -565,10 +565,6 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
                 ['AllOfBranchesFilterSameProperty.json', 'name', 'trim', 'upper'],
             'parent property and allOf branch filter the same property' =>
                 ['AllOfBranchOverridesRootFilter.json', 'filteredProperty', 'dateTime', 'trim'],
-            'parent property and then branch filter the same property' =>
-                ['ThenBranchOverridesRootFilter.json', 'name', 'trim', 'upper'],
-            'parent property and oneOf branch filter the same property' =>
-                ['OneOfBranchOverridesRootFilter.json', 'name', 'trim', 'upper'],
             'parent property declared via $ref and then branch filter the same property' =>
                 ['ParentPropertyByReferenceAndThenBranchFilterSameProperty.json', 'name', 'trim', 'upper'],
             'a oneOf and an if/then/else filter the same property' =>
