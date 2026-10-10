@@ -5,7 +5,8 @@
     &$modelData,
     &$ifException,
     &$thenException,
-    &$elseException
+    &$elseException{% if publishesFilteredValues %},
+    &$publishedValues{% endif %}
 ) {
     $originalModelData = $value;
     {% if generatorConfiguration.collectErrors() %}
@@ -87,6 +88,23 @@
             if ($ifException !== null && !$elseException && is_object($value)) {
                 $modifiedValues = $this->{{ modifiedValuesMethod }}($originalModelData, $value, {{ elseComponentIndex }});
             }
+        {% endif %}
+        {% if publishesFilteredValues %}
+            {#
+                Hand the filtered values of the active branch to the schema. The outcome is definitive here: a
+                failed branch throws after this closure and the values are never adopted.
+            #}
+            $publishedValues = [];
+            {% if thenProperty %}
+                if (!$ifException && !$thenException) {
+                    $publishedValues = array_intersect_key($modifiedValues, {{ thenFilteredKeyLookup }});
+                }
+            {% endif %}
+            {% if elseProperty %}
+                if ($ifException !== null && !$elseException) {
+                    $publishedValues = array_intersect_key($modifiedValues, {{ elseFilteredKeyLookup }});
+                }
+            {% endif %}
         {% endif %}
         // Apply branch defaults only when the outcome is definitive: a branch succeeded, or the
         // if-condition failed (meaning no then-branch applies and $elseException captures the else

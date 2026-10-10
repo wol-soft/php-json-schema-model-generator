@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "anyOf": [
+        {
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "filter": "trim"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "properties": {
+            "code": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "code"
+          ]
+        }
+      ]
+    }
+  ]
+}

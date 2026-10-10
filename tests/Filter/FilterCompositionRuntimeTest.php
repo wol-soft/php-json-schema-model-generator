@@ -1308,10 +1308,10 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
             ERROR,
         );
 
-        // The filter belongs to the property of the merged class and also runs while the branch which
-        // declares it is inactive (the title is not constrained in mode 3, but it is still trimmed).
+        // The filter belongs to the then branch: while that branch is inactive the title is neither
+        // constrained nor trimmed (mode 3 selects no branch which declares the title).
         $object = new $className(['playlist-management' => 3, 'playlist-title' => '  Untouched by the branch  ']);
-        $this->assertSame('Untouched by the branch', $object->getPlaylistTitle());
+        $this->assertSame('  Untouched by the branch  ', $object->getPlaylistTitle());
     }
 
     /**
@@ -1350,15 +1350,16 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
 
     /**
      * anyOf, oneOf and not nested in an allOf branch behave like their root-level counterparts: filters
-     * on the object properties of their branches run before validation, anyOf requires one matching branch,
-     * oneOf exactly one, and not none.
+     * on the object properties of oneOf branches run before validation, anyOf requires one matching branch,
+     * oneOf exactly one, and not none. A filtered property in an anyOf branch is rejected at generation time
+     * (FilterCompositionBranchScopeTest), so the anyOf branch of this schema declares no filter.
      */
     public function testFiltersInCompositionsNestedInAllOfObjectBranchAreApplied(): void
     {
         $className = $this->generateClassFromFile('FilterCompositionAllOfObjectBranchNestedCompositions.json');
 
-        // anyOf via the filtered "name" branch, oneOf via the filtered "label" branch.
-        $object = new $className(['name' => '  Ann  ', 'label' => ' L ']);
+        // anyOf via the "name" branch, oneOf via the filtered "label" branch.
+        $object = new $className(['name' => 'Ann', 'label' => ' L ']);
         $this->assertSame('Ann', $object->getName());
         $this->assertSame('L', $object->getLabel());
 
@@ -1372,10 +1373,10 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
         $object = new $className(['name' => 'a', 'label' => 'x', 'forbidden' => 'ok']);
         $this->assertSame('a', $object->getName());
 
-        // A name which is empty after the filter doesn't satisfy its anyOf branch, no other branch matches.
+        // An empty name doesn't satisfy its anyOf branch, no other branch matches.
         $this->assertInstantiationFailsWithMessage(
             $className,
-            ['name' => '   ', 'reference' => 1],
+            ['name' => '', 'reference' => 1],
             AllOfException::class,
             <<<ERROR
             Invalid value for '%class%' declined by composition constraint

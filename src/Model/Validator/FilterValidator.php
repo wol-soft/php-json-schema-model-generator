@@ -19,6 +19,8 @@ use ReflectionException;
 
 class FilterValidator extends PropertyTemplateValidator
 {
+    private bool $executed = true;
+
     /**
      * FilterValidator constructor.
      *
@@ -92,9 +94,46 @@ class FilterValidator extends PropertyTemplateValidator
      */
     public function getValidatorSetUp(): string
     {
-        return $this->filter instanceof TransformingFilterInterface
+        return $this->executed && $this->filter instanceof TransformingFilterInterface
             ? '$transformationFailed = false;'
             : '';
+    }
+
+    /**
+     * Returns a copy which keeps describing the filter but is not rendered into the validation code.
+     *
+     * Used for a property which receives the filtered value from the branch of a composition that owns
+     * the filter. The property still has to expose the filter: the output type of a transforming filter
+     * and its serializer are derived from the FilterValidators of a property. Deleting the validator
+     * instead would lose both, keeping it executed would run the filter outside of its branch.
+     */
+    public function withoutExecution(): static
+    {
+        $clone = clone $this;
+        $clone->executed = false;
+
+        return $clone;
+    }
+
+    public function isExecuted(): bool
+    {
+        return $this->executed;
+    }
+
+    /**
+     * @return FilterValidator[] The filters of the property, executed or not, in the order of the validators
+     */
+    public static function of(PropertyInterface $property): array
+    {
+        $filterValidators = [];
+
+        foreach ($property->getValidators() as $wrapper) {
+            if ($wrapper->getValidator() instanceof self) {
+                $filterValidators[] = $wrapper->getValidator();
+            }
+        }
+
+        return $filterValidators;
     }
 
     /**

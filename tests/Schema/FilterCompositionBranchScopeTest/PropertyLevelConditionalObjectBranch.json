@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "type": "object",
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "a"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "filter": "trim"
+          }
+        }
+      }
+    }
+  }
+}

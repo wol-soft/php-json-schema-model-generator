@@ -15,6 +15,16 @@ private function _validateComposition_{{ index }}(array &$modifiedModelData): vo
         {{ viewHelper.validationError(validator) }}
     }
 
+    {% if branchFilteredKeys %}
+        // Stage the values of the active branch. They are adopted by _commitBranchFilteredValues() when the update
+        // succeeded. null: no active branch of this composition hands over a value for the property.
+        foreach (array_keys({{ branchFilteredKeyLookup }}) as $filteredKey) {
+            $this->_stagedBranchFilteredValues[$filteredKey] = array_key_exists($filteredKey, $publishedValues ?? [])
+                ? [$publishedValues[$filteredKey]]
+                : null;
+        }
+
+    {% endif %}
     foreach (array_keys($modifiedModelData) as $property) {
         $modifiedModelData[$property] = $modelData[$property];
     }

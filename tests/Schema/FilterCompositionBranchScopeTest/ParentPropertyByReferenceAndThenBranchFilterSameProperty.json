@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "definitions": {
+    "trimmedName": {
+      "type": "string",
+      "filter": "trim"
+    }
+  },
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "name": {
+      "$ref": "#/definitions/trimmedName"
+    }
+  },
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "a"
+      }
+    },
+    "required": [
+      "kind"
+    ]
+  },
+  "then": {
+    "properties": {
+      "name": {
+        "type": "string",
+        "filter": "upper"
+      }
+    }
+  }
+}

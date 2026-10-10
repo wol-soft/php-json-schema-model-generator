@@ -171,7 +171,12 @@ The property accepts both raw strings (transformed by the filter) and already-co
 Filters on properties of object branches
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The branches of a composition on an object schema (explicitly typed ``object`` or inheriting ``object`` from the parent schema) are instantiated as classes of their own. A filter on a property of such a branch is applied inside the branch class, independent of the value reset described above, and runs before the validators of the same property. This also holds for properties of ``if``/``then``/``else``, ``anyOf``, ``oneOf`` and ``not`` which are nested inside an object branch:
+The branches of a composition on an object schema (explicitly typed ``object`` or inheriting ``object`` from the parent schema) are instantiated as classes of their own. A filter on a property of such a branch is applied inside the branch class, independent of the value reset described above, and runs before the validators of the same property. The properties of the branches are also part of the generated parent class. Which branch is allowed to filter a property of the parent class depends on the composition keyword:
+
+- ``if`` / ``then`` / ``else`` and ``oneOf``: exactly one branch is active. The filter only affects the value while its branch is the active one; the parent class receives the filtered value of the active branch. While the branch is inactive the property keeps the value as provided. The branches of one ``oneOf`` or ``if``/``then``/``else`` exclude each other and may filter the same property differently (e.g. ``trim`` in ``then`` and a different filter in ``else``). Filters inside branches which are nested in an ``allOf`` branch (or in another ``oneOf`` / ``if``/``then``/``else``) work in the same way, the value is passed on to the parent class.
+- The condition of an ``if``: the filter runs inside the condition (so a ``trim`` applies before a ``const`` of the same property is compared) but the parent class keeps the value as provided.
+- ``allOf``: all branches are always active, so the filter of a property which is declared in a single ``allOf`` branch is applied to every value.
+- ``anyOf``: several branches can match, so the filtered value can only be attributed to a branch when the matching branch doesn't matter: every branch must declare the property with the same filter, which is then applied to the property independent of the matching branch. Any other filtered property in a branch of an ``anyOf`` raises a ``SchemaException`` (a branch without the property, different filters or options, or a filter which is handed over by a ``oneOf`` or ``if``/``then``/``else`` nested in the ``anyOf`` branch).
 
 .. code-block:: json
 
@@ -201,11 +206,52 @@ The branches of a composition on an object schema (explicitly typed ``object`` o
         ]
     }
 
-With ``mode`` set to ``1`` the title ``"  My list  "`` is trimmed to ``"My list"``, a title consisting only of whitespace is empty after the filter and violates ``minLength``.
+With ``mode`` set to ``1`` the title ``"  My list  "`` is trimmed to ``"My list"``, a title consisting only of whitespace is empty after the filter and violates ``minLength``. With ``mode`` set to ``3`` the ``then`` branch is inactive: the title is not constrained and stays ``"  My list  "``. Values of a type the filter doesn't accept are passed through unchanged.
 
-.. warning::
+A setter or ``populate()`` which fails doesn't change the model: the filtered values which the active branches hand over are only adopted after the update succeeded, a rejected update keeps the previous branch and the previous values.
 
-    A property of a conditional branch is part of the generated class independent of the branch being active. Its filter therefore also runs when the branch is inactive: with ``mode`` set to ``3`` the title ``"  My list  "`` is accepted without any constraint but it is still trimmed. Values of a type the filter doesn't accept are passed through unchanged.
+If a setter changes the property which selects the branch (``mode`` in the example) the properties of the branches are validated again, so a title which was trimmed for ``mode`` ``1`` is returned as provided after ``mode`` was changed to ``3``.
+
+A property which is filtered more than once by declarations which can apply to the same value raises a ``SchemaException``, as the filters of a property have no defined order. This applies to
+
+- a property which declares a filter and is filtered again in a branch (of an ``allOf``, ``oneOf`` or ``if``/``then``/``else``),
+- a property which is filtered in more than one branch of an ``allOf``,
+- a property which is filtered in the branches of different compositions of the same schema.
+
+.. code-block:: text
+
+    Property 'name' is filtered more than once ('trim', 'upper') in file <file>: filters of the same property have no defined order
+
+Transforming filters in the branches of an ``if``/``then``/``else`` or ``oneOf`` follow the same rules. As the branch may be inactive the property may hold the value as provided or the transformed value: the type hints of the getter and setter contain the type of the value as provided as well as the types returned by the filters of all branches, and the serialization only applies the serializer of a filter to a value of its output type:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "kind": {
+                "type": "string"
+            }
+        },
+        "if": {
+            "properties": {
+                "kind": {
+                    "const": "a"
+                }
+            },
+            "required": ["kind"]
+        },
+        "then": {
+            "properties": {
+                "when": {
+                    "type": "string",
+                    "filter": "dateTime"
+                }
+            }
+        }
+    }
+
+With ``kind`` set to ``"a"`` the property ``when`` contains a ``DateTime`` object, with any other ``kind`` the string is kept as provided (and not validated by the filter).
 
 Exceptions from filter
 ----------------------
