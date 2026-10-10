@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
+use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Utils\RenderHelper;
 
@@ -26,6 +27,16 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     public function getCompositionProcessor(): string
     {
         return $this->compositionProcessor;
+    }
+
+    public function isAllOf(): bool
+    {
+        return is_a($this->compositionProcessor, AllOfValidatorFactory::class, true);
+    }
+
+    public function isAnyOf(): bool
+    {
+        return is_a($this->compositionProcessor, AnyOfValidatorFactory::class, true);
     }
 
     /**
@@ -73,12 +84,8 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
             return false;
         }
 
-        $isAllOf = is_a($this->compositionProcessor, AllOfValidatorFactory::class, true);
-
-        foreach ($property->getValidators() as $propertyValidator) {
-            $filterValidator = $propertyValidator->getValidator();
-
-            if ($filterValidator instanceof FilterValidator && (!$isAllOf || !$filterValidator->isExecuted())) {
+        foreach (FilterValidator::of($property) as $filterValidator) {
+            if (!$this->isAllOf() || !$filterValidator->isExecuted()) {
                 return true;
             }
         }
@@ -147,26 +154,22 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     }
 
     /**
+     * @param array<int, array<string, array{string, string}>> $filteredKeyMap See getBranchFilteredKeyMap()
      * @param int[]|null $componentIndices Restrict the lookup to the given components, null for all components
      *
      * @return string PHP code of an array containing the published property names as keys
      */
-    protected function getFilteredKeyLookup(?array $componentIndices = null): string
+    protected function createFilteredKeyLookup(array $filteredKeyMap, ?array $componentIndices = null): string
     {
         $lookup = [];
 
-        foreach ($this->getBranchFilteredKeyMap() as $componentIndex => $filteredKeys) {
+        foreach ($filteredKeyMap as $componentIndex => $filteredKeys) {
             if ($componentIndices === null || in_array($componentIndex, $componentIndices, true)) {
                 $lookup += array_fill_keys(array_keys($filteredKeys), true);
             }
         }
 
         return RenderHelper::varExportArray($lookup);
-    }
-
-    protected function publishesFilteredValues(): bool
-    {
-        return $this->getBranchFilteredKeyMap() !== [];
     }
 
     /**
@@ -178,8 +181,10 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
      *
      * Returns true when the helper method was registered (at least one branch has a nested
      * schema with properties), false otherwise.
+     *
+     * @param array<int, array<string, array{string, string}>> $filteredKeyMap See getBranchFilteredKeyMap()
      */
-    protected function setupBranchDefaultHelpers(): bool
+    protected function setupBranchDefaultHelpers(array $filteredKeyMap): bool
     {
         $hasNestedSchemaWithProperties = $this->hasNestedSchemaWithProperties();
 
@@ -264,7 +269,9 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
                     'modifiedValuesMethod' => $this->modifiedValuesMethod,
                     'componentDefaultValueMap' => RenderHelper::varExportArray($componentDefaultValueMap),
                     'propertyAccessors' => RenderHelper::varExportArray($propertyAccessors),
-                    'filteredKeys' => RenderHelper::varExportArray(array_keys($this->getFilteredKeys())),
+                    'filteredKeys' => RenderHelper::varExportArray(
+                        array_keys(array_replace([], ...array_values($filteredKeyMap))),
+                    ),
                 ],
             ),
         );

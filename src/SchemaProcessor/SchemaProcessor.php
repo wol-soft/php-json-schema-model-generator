@@ -34,10 +34,11 @@ use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShape;
 use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
+use PHPModelGenerator\Utils\BranchFilterOutputType;
 use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\PropertyAttributeSynthesizer;
-use PHPModelGenerator\Utils\RenderHelper;
 use ReflectionException;
+use WeakMap;
 
 class SchemaProcessor
 {
@@ -47,12 +48,13 @@ class SchemaProcessor
     private PropertyAttributeSynthesizer $propertyAttributeSynthesizer;
 
     /**
-     * The filters which declare a property on a schema, per schema and property name: the token of the filter and
-     * the composition which owns it (null for the schema itself).
+     * The filters which composition branches declare for a property of a schema, per schema and property name: the
+     * token of the filter and the composition which owns it. A WeakMap, so the entries disappear together with the
+     * schema and a recycled object id can never inherit the declarations of another schema.
      *
-     * @var array<int, array<string, array<int, array{token: string, owner: ?AbstractComposedPropertyValidator}>>>
+     * @var WeakMap<Schema, array<string, array<int, array{token: string, owner: AbstractComposedPropertyValidator}>>>
      */
-    private array $filterDeclarations = [];
+    private WeakMap $filterDeclarations;
 
     /** @var Schema[] Collect processed schemas to avoid duplicated classes */
     protected array $processedSchema = [];
@@ -86,6 +88,7 @@ class SchemaProcessor
         protected RenderQueue $renderQueue,
     ) {
         $this->propertyAttributeSynthesizer = new PropertyAttributeSynthesizer($generatorConfiguration);
+        $this->filterDeclarations = new WeakMap();
     }
 
     /**
@@ -872,21 +875,16 @@ class SchemaProcessor
         CompositionPropertyDecorator $sourceBranch,
         PropertyInterface $branchProperty,
     ): void {
-        $branchFilters = [];
-
-        foreach ($branchProperty->getValidators() as $wrapper) {
-            if ($wrapper->getValidator() instanceof FilterValidator) {
-                $branchFilters[] = $wrapper->getValidator()->getFilter()->getToken();
-            }
-        }
+        $branchFilters = array_map(
+            static fn(FilterValidator $filterValidator): string => $filterValidator->getFilter()->getToken(),
+            FilterValidator::of($branchProperty),
+        );
 
         if ($branchFilters === []) {
             return;
         }
 
-        $isAllOf = is_a($validator->getCompositionProcessor(), AllOfValidatorFactory::class, true);
-
-        if (is_a($validator->getCompositionProcessor(), AnyOfValidatorFactory::class, true)) {
+        if ($validator->isAnyOf()) {
             throw new SchemaException(
                 sprintf(
                     "Filter '%s' on property '%s' declared in a branch of an 'anyOf' composition is not supported"
@@ -904,45 +902,87 @@ class SchemaProcessor
             return;
         }
 
-        $schemaKey = spl_object_id($schema);
         $propertyName = $branchProperty->getName();
 
-        if (!isset($this->filterDeclarations[$schemaKey][$propertyName])) {
-            $this->filterDeclarations[$schemaKey][$propertyName] = [];
+        $this->assertNotFilteredBySchemaItself($schema, $branchProperty, $branchFilters[0]);
 
-            // The declarations of the schema itself are the first ones to be seen.
-            if ($schema->isRootRegistered($propertyName)) {
-                foreach ($schema->getProperty($propertyName)?->getValidators() ?? [] as $wrapper) {
-                    if ($wrapper->getValidator() instanceof FilterValidator) {
-                        $this->filterDeclarations[$schemaKey][$propertyName][] = [
-                            'token' => $wrapper->getValidator()->getFilter()->getToken(),
-                            'owner' => null,
-                        ];
-                    }
-                }
-            }
-        }
+        $declarations = $this->filterDeclarations[$schema][$propertyName] ?? [];
 
-        foreach ($this->filterDeclarations[$schemaKey][$propertyName] as $declaration) {
+        foreach ($declarations as $declaration) {
             // Branches of the same oneOf or if/then/else are never active at the same time.
-            if ($declaration['owner'] === $validator && !$isAllOf) {
+            if ($declaration['owner'] === $validator && !$validator->isAllOf()) {
                 continue;
             }
 
-            throw new SchemaException(
-                sprintf(
-                    "Property '%s' is filtered more than once ('%s', '%s') in file %s:"
-                        . ' filters of the same property have no defined order',
-                    $propertyName,
-                    $declaration['token'],
-                    $branchFilters[0],
-                    $schema->getJsonSchema()->getFile(),
-                ),
-                $branchProperty->getJsonSchema(),
+            throw $this->createFilteredMoreThanOnceException(
+                $schema,
+                $branchProperty,
+                $declaration['token'],
+                $branchFilters[0],
             );
         }
 
-        $this->filterDeclarations[$schemaKey][$propertyName][] = ['token' => $branchFilters[0], 'owner' => $validator];
+        $declarations[] = ['token' => $branchFilters[0], 'owner' => $validator];
+
+        $filterDeclarations = $this->filterDeclarations[$schema] ?? [];
+        $filterDeclarations[$propertyName] = $declarations;
+        $this->filterDeclarations[$schema] = $filterDeclarations;
+    }
+
+    /**
+     * Rejects a branch filter for a property which the schema itself already filters. The filters of the property
+     * are read when the check runs: a property which is not resolved yet (e.g. a $ref) gets its validators later, the
+     * check is deferred until then.
+     *
+     * @throws SchemaException
+     */
+    private function assertNotFilteredBySchemaItself(
+        Schema $schema,
+        PropertyInterface $branchProperty,
+        string $branchFilterToken,
+    ): void {
+        $schemaProperty = $schema->isRootRegistered($branchProperty->getName())
+            ? $schema->getProperty($branchProperty->getName())
+            : null;
+
+        if ($schemaProperty === null) {
+            return;
+        }
+
+        $assertNotFiltered = function () use ($schema, $schemaProperty, $branchProperty, $branchFilterToken): void {
+            foreach (FilterValidator::of($schemaProperty) as $filterValidator) {
+                // The non-executing filters describe the branches which hand over their value to the property.
+                if ($filterValidator->isExecuted()) {
+                    throw $this->createFilteredMoreThanOnceException(
+                        $schema,
+                        $branchProperty,
+                        $filterValidator->getFilter()->getToken(),
+                        $branchFilterToken,
+                    );
+                }
+            }
+        };
+
+        $schemaProperty->isResolved() ? $assertNotFiltered() : $schemaProperty->onResolve($assertNotFiltered);
+    }
+
+    private function createFilteredMoreThanOnceException(
+        Schema $schema,
+        PropertyInterface $branchProperty,
+        string $firstFilterToken,
+        string $secondFilterToken,
+    ): SchemaException {
+        return new SchemaException(
+            sprintf(
+                "Property '%s' is filtered more than once ('%s', '%s') in file %s:"
+                    . ' filters of the same property have no defined order',
+                $branchProperty->getName(),
+                $firstFilterToken,
+                $secondFilterToken,
+                $schema->getJsonSchema()->getFile(),
+            ),
+            $branchProperty->getJsonSchema(),
+        );
     }
 
     /**
@@ -1013,22 +1053,14 @@ class SchemaProcessor
             return;
         }
 
-        $renderHelper = new RenderHelper($this->generatorConfiguration);
-        $outputType = $property->getType(true) ?? $inputType;
-        $returnNames = array_map(
-            static fn(string $name): string => $renderHelper->getSimpleClassName($name),
-            FilterReflection::getReturnTypeNames($filter, $property),
-        );
-
         $property->setType(
             $inputType,
-            new PropertyType(
-                array_values(array_unique(array_merge($inputType->getNames(), $outputType->getNames(), $returnNames))),
-                $inputType->isNullable() === true
-                    || $outputType->isNullable() === true
-                    || FilterReflection::isReturnNullable($filter)
-                    ? true
-                    : $outputType->isNullable(),
+            BranchFilterOutputType::create(
+                $inputType,
+                $property->getType(true),
+                FilterReflection::getReturnTypeNames($filter, $property),
+                FilterReflection::isReturnNullable($filter),
+                $this->generatorConfiguration,
             ),
         );
     }
@@ -1049,14 +1081,13 @@ class SchemaProcessor
         }
 
         $hasSubstitution = false;
-        $describedFilters = [];
+        $describedFilters = array_map(
+            static fn(FilterValidator $filterValidator): string => $filterValidator->getFilter()->getToken(),
+            FilterValidator::of($registeredProperty),
+        );
 
         foreach ($registeredProperty->getValidators() as $wrapper) {
             $hasSubstitution = $hasSubstitution || $wrapper->getValidator() instanceof BranchFilteredValueValidator;
-
-            if ($wrapper->getValidator() instanceof FilterValidator) {
-                $describedFilters[] = $wrapper->getValidator()->getFilter()->getToken();
-            }
         }
 
         if (!$hasSubstitution) {

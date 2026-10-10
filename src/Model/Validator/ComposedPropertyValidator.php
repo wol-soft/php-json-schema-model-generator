@@ -85,10 +85,12 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getCheck(): string
     {
-        $this->setupBranchDefaultHelpers();
+        $filteredKeyMap = $this->getBranchFilteredKeyMap();
 
-        $this->templateValues['publishesFilteredValues'] = $this->publishesFilteredValues();
-        $this->templateValues['filteredKeyLookup'] = $this->getFilteredKeyLookup();
+        $this->setupBranchDefaultHelpers($filteredKeyMap);
+
+        $this->templateValues['publishesFilteredValues'] = $filteredKeyMap !== [];
+        $this->templateValues['filteredKeyLookup'] = $this->createFilteredKeyLookup($filteredKeyMap);
 
         return parent::getCheck();
     }
@@ -103,7 +105,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             $compositionErrorCollection = [];
             CODE;
 
-        return $this->publishesFilteredValues() ? $setUp . "\n\$publishedValues = null;" : $setUp;
+        return $this->getBranchFilteredKeyMap() !== [] ? $setUp . "\n\$publishedValues = null;" : $setUp;
     }
 
     /**

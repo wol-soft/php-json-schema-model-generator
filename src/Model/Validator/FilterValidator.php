@@ -121,6 +121,22 @@ class FilterValidator extends PropertyTemplateValidator
     }
 
     /**
+     * @return FilterValidator[] The filters of the property, executed or not, in the order of the validators
+     */
+    public static function of(PropertyInterface $property): array
+    {
+        $filterValidators = [];
+
+        foreach ($property->getValidators() as $wrapper) {
+            if ($wrapper->getValidator() instanceof self) {
+                $filterValidators[] = $wrapper->getValidator();
+            }
+        }
+
+        return $filterValidators;
+    }
+
+    /**
      * Make sure the filter is only executed if a non-transformed value is provided.
      * This is required as a setter (eg. for a string property which is modified by the DateTime filter into a DateTime
      * object) also accepts a transformed value (in this case a DateTime object).

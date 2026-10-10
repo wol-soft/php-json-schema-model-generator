@@ -96,7 +96,9 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getCheck(): string
     {
-        $this->setupBranchDefaultHelpers();
+        $filteredKeyMap = $this->getBranchFilteredKeyMap();
+
+        $this->setupBranchDefaultHelpers($filteredKeyMap);
 
         $thenProperty = $this->templateValues['thenProperty'] ?? null;
         $elseProperty = $this->templateValues['elseProperty'] ?? null;
@@ -111,11 +113,13 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
             ? (int) array_search($elseProperty, $this->composedProperties, true)
             : -1;
 
-        $this->templateValues['publishesFilteredValues'] = $this->publishesFilteredValues();
-        $this->templateValues['thenFilteredKeyLookup'] = $this->getFilteredKeyLookup(
+        $this->templateValues['publishesFilteredValues'] = $filteredKeyMap !== [];
+        $this->templateValues['thenFilteredKeyLookup'] = $this->createFilteredKeyLookup(
+            $filteredKeyMap,
             [$this->templateValues['thenComponentIndex']],
         );
-        $this->templateValues['elseFilteredKeyLookup'] = $this->getFilteredKeyLookup(
+        $this->templateValues['elseFilteredKeyLookup'] = $this->createFilteredKeyLookup(
+            $filteredKeyMap,
             [$this->templateValues['elseComponentIndex']],
         );
 
@@ -129,6 +133,6 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
     {
         $setUp = '$ifException = $thenException = $elseException = null;';
 
-        return $this->publishesFilteredValues() ? $setUp . "\n\$publishedValues = null;" : $setUp;
+        return $this->getBranchFilteredKeyMap() !== [] ? $setUp . "\n\$publishedValues = null;" : $setUp;
     }
 }

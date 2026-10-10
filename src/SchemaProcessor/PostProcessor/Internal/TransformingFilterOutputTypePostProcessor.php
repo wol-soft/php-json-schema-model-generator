@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\Utils\TypeCheck;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
+use PHPModelGenerator\Utils\BranchFilterOutputType;
 use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\RenderHelper;
 use ReflectionException;
@@ -101,20 +102,18 @@ class TransformingFilterOutputTypePostProcessor extends PostProcessor
         $baseType = $property->getType();
 
         // Without a base type the property accepts every value, there is no type to extend.
-        if ($baseType === null || empty(array_diff($returnTypeNames, $baseType->getNames()))) {
+        if ($baseType === null) {
             return;
         }
 
-        $renderHelper = new RenderHelper($generatorConfiguration);
-
         $property->setType(
             $baseType,
-            new PropertyType(
-                array_map(
-                    static fn(string $name): string => $renderHelper->getSimpleClassName($name),
-                    array_values(array_unique(array_merge($baseType->getNames(), $returnTypeNames))),
-                ),
-                $baseType->isNullable() === true || $returnNullable,
+            BranchFilterOutputType::create(
+                $baseType,
+                $property->getType(true),
+                $returnTypeNames,
+                $returnNullable,
+                $generatorConfiguration,
             ),
         );
     }

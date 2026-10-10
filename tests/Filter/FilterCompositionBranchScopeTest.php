@@ -33,6 +33,17 @@ use PHPUnit\Framework\Attributes\DataProvider;
 #[ApplicableDrafts]
 class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
 {
+    /** Accepts a string and returns mixed, the result can't be recognized by its type. */
+    public static function filterStringToMixed(string $value): mixed
+    {
+        return strtoupper($value);
+    }
+
+    public static function serializeMixedToString(mixed $value): string
+    {
+        return strtolower((string) $value);
+    }
+
     // -------------------------------------------------------------------------
     // if/then/else
     // -------------------------------------------------------------------------
@@ -212,6 +223,36 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
         $object = new $className(['kind' => 'b', 'value' => '42']);
         $this->assertSame(42, $object->getValue());
         $this->assertSame('42', $object->toArray()['value']);
+    }
+
+    /**
+     * A filter which declares no return type can't be recognized by its output. Its serializer is tried last,
+     * otherwise the serializers of the other filters would be unreachable.
+     */
+    public function testSerializerOfAFilterWithoutReturnTypeIsTriedLast(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ConditionalBranchTransformingFilterWithUntypedResult.json',
+            (new GeneratorConfiguration())
+                ->setCollectErrors(false)
+                ->setImmutable(false)
+                ->setSerialization(true)
+                ->addFilter($this->getCustomTransformingFilter(
+                    [self::class, 'serializeMixedToString'],
+                    [self::class, 'filterStringToMixed'],
+                    'stringToMixed',
+                )),
+        );
+
+        // Output of the dateTime filter: serialized by the dateTime serializer, not by the untyped one.
+        $object = new $className(['kind' => 'b', 'value' => '2024-01-01T10:00:00+00:00']);
+        $this->assertInstanceOf(DateTime::class, $object->getValue());
+        $this->assertSame('2024-01-01T10:00:00+0000', $object->toArray()['value']);
+
+        // Output of the untyped filter.
+        $object = new $className(['kind' => 'a', 'value' => 'Text']);
+        $this->assertSame('TEXT', $object->getValue());
+        $this->assertSame('text', $object->toArray()['value']);
     }
 
     // -------------------------------------------------------------------------
@@ -436,6 +477,8 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
                 ['ThenBranchOverridesRootFilter.json', 'name', 'trim', 'upper'],
             'parent property and oneOf branch filter the same property' =>
                 ['OneOfBranchOverridesRootFilter.json', 'name', 'trim', 'upper'],
+            'parent property declared via $ref and then branch filter the same property' =>
+                ['ParentPropertyByReferenceAndThenBranchFilterSameProperty.json', 'name', 'trim', 'upper'],
             'a oneOf and an if/then/else filter the same property' =>
                 ['OneOfAndConditionalFilterSameProperty.json', 'name', 'trim', 'upper'],
         ];

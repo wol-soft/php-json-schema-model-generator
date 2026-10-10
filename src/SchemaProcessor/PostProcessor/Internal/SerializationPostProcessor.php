@@ -57,6 +57,11 @@ class SerializationPostProcessor extends PostProcessor
     }
 
     /**
+     * Renders the body of the serializer of a property which holds the value as provided or the output of one of
+     * several filters. A filter which declares no return type can't be recognized by its output, it is tried last:
+     * trying it earlier would make the serializers of the other filters unreachable. Of several such filters only
+     * the first one is reachable.
+     *
      * @param FilterValidator[] $filterValidators
      *
      * @throws ReflectionException
@@ -64,6 +69,7 @@ class SerializationPostProcessor extends PostProcessor
     private function renderGuardedSerializers(array $filterValidators, PropertyInterface $property): string
     {
         $code = ['$value = $this->' . $property->getAttribute(true) . ';', ''];
+        $unconditionalSerialization = null;
 
         foreach ($filterValidators as $filterValidator) {
             [$serializerClass, $serializerMethod] = $filterValidator->getFilter()->getSerializer();
@@ -73,9 +79,9 @@ class SerializationPostProcessor extends PostProcessor
                 . '$value, ' . RenderHelper::varExportArray($filterValidator->getFilterOptions()) . ');';
 
             if ($returnTypeNames === []) {
-                $code[] = $serialization;
+                $unconditionalSerialization ??= $serialization;
 
-                return implode("\n", $code);
+                continue;
             }
 
             array_push(
@@ -87,7 +93,7 @@ class SerializationPostProcessor extends PostProcessor
             );
         }
 
-        $code[] = 'return $value;';
+        $code[] = $unconditionalSerialization ?? 'return $value;';
 
         return implode("\n", $code);
     }
@@ -129,6 +135,7 @@ class SerializationPostProcessor extends PostProcessor
                     $property,
                 );
             } else {
+                // Only one transforming filter can be executed on a property.
                 $validator = $transformingFilterValidators[0];
                 [$serializerClass, $serializerMethod] = $validator->getFilter()->getSerializer();
 
