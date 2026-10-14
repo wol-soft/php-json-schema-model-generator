@@ -1125,15 +1125,12 @@ class SchemaProcessor
      *
      * The registered property is not necessarily the transferred copy: a property which is declared by the
      * schema itself or by another branch is registered first and the validators of a later copy are dropped
-     * when the properties are merged.
+     * when the properties are merged. Registering a property by name happens immediately, so the transferred copy
+     * has always been registered at this point.
      */
     private function takeOverBranchFilteredValue(Schema $schema, PropertyInterface $branchProperty): void
     {
         $registeredProperty = $schema->getProperty($branchProperty->getName());
-
-        if ($registeredProperty === null) {
-            return;
-        }
 
         $hasSubstitution = false;
         $describedFilters = array_map(
