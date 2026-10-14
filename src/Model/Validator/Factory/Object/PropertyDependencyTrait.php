@@ -22,6 +22,10 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 trait PropertyDependencyTrait
 {
     /**
+     * @return Schema|null The dependency schema of a schema dependency whose properties have to be transferred to the
+     *                     base schema by transferDependentPropertiesToBaseSchema() once the properties of the base
+     *                     schema are registered, null for a property dependency
+     *
      * @throws SchemaException
      */
     private function addDependencyValidator(
@@ -29,7 +33,7 @@ trait PropertyDependencyTrait
         JsonSchema $dependencyJsonSchema,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-    ): void {
+    ): ?Schema {
         $propertyDependency = true;
 
         foreach ($dependencyJsonSchema->getJson() as $index => $dependency) {
@@ -47,7 +51,7 @@ trait PropertyDependencyTrait
                     ->withJsonPointer($dependencyPointer),
             );
 
-            return;
+            return null;
         }
 
         $json = $dependencyJsonSchema->getJson();
@@ -68,9 +72,15 @@ trait PropertyDependencyTrait
         );
         $schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
 
-        $this->transferDependentPropertiesToBaseSchema($dependencySchema, $schema);
+        return $dependencySchema;
     }
 
+    /**
+     * The transferred properties neither validate nor transform: the dependency schema only validates the data (also
+     * with its filters, which keep running inside the dependency schema). Transferred after the properties of the
+     * base schema are registered: the declaration which is registered first wins, a property which is declared by the
+     * base schema must not be replaced by the unvalidated copy of a dependency schema.
+     */
     private function transferDependentPropertiesToBaseSchema(Schema $dependencySchema, Schema $schema): void
     {
         foreach ($dependencySchema->getProperties() as $dependencyProperty) {

@@ -78,16 +78,20 @@ class RequiredValidatorFactory extends AbstractValidatorFactory
 
         $dependencies = $propertySchema->getJson()['dependencies'][$propertyName] ?? null;
 
-        if ($dependencies !== null) {
-            $this->addDependencyValidator(
+        $dependencySchema = $dependencies !== null
+            ? $this->addDependencyValidator(
                 $nestedProperty,
                 $schema->getJsonSchema()->navigate('dependencies/' . JsonSchema::encodePointer($propertyName)),
                 $schemaProcessor,
                 $schema,
-            );
-        }
+            )
+            : null;
 
         $schema->addProperty($nestedProperty);
+
+        if ($dependencySchema !== null) {
+            $this->transferDependentPropertiesToBaseSchema($dependencySchema, $schema);
+        }
 
         return $nestedProperty;
     }
