@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "maxLength": 1
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "a"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    {
+      "properties": {
+        "kind": {
+          "type": "string",
+          "pattern": "^b"
+        },
+        "other": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    }
+  ]
+}

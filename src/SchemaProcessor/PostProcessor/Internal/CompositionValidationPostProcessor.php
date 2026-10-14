@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
+use PHPModelGenerator\SchemaProcessor\Hook\SetterRollbackHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -151,6 +152,33 @@ class CompositionValidationPostProcessor extends PostProcessor
                         array_unique($this->validatorPropertyMap[$property->getName()] ?? []),
                     )
                 );
+            }
+        });
+
+        // The composition validation records the result of each component in the validation state before the
+        // update is accepted. A rejected update must leave the state as it was, otherwise the rejected data
+        // influences later updates (components are only evaluated again if their properties are updated).
+        $schema->addSchemaHook(new class ($validatorPropertyMap) implements SetterRollbackHookInterface {
+            public function __construct(protected array $validatorPropertyMap)
+            {}
+
+            public function getBackupCode(PropertyInterface $property): string
+            {
+                return $this->isPartOfComposition($property)
+                    ? '$previousPropertyValidationState = $this->_propertyValidationState;'
+                    : '';
+            }
+
+            public function getRestoreCode(PropertyInterface $property): string
+            {
+                return $this->isPartOfComposition($property)
+                    ? '$this->_propertyValidationState = $previousPropertyValidationState;'
+                    : '';
+            }
+
+            private function isPartOfComposition(PropertyInterface $property): bool
+            {
+                return !empty($this->validatorPropertyMap[$property->getName()]);
             }
         });
     }

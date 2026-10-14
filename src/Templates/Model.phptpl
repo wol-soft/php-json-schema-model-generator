@@ -164,14 +164,34 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
                     {% endif %}
 
-                    {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
+                    {% if schemaHookResolver.resolveSetterRollbackRestoreHook(property) %}
+                        {{ schemaHookResolver.resolveSetterRollbackBackupHook(property) }}
 
-                    $value = $this->_validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
+                        try {
+                            {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
 
-                    {% if generatorConfiguration.collectErrors() %}
-                        if ($this->_errorRegistry->getErrors()) {
-                            throw $this->_errorRegistry;
+                            $value = $this->_validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
+
+                            {% if generatorConfiguration.collectErrors() %}
+                                if ($this->_errorRegistry->getErrors()) {
+                                    throw $this->_errorRegistry;
+                                }
+                            {% endif %}
+                        } catch (\Throwable $exception) {
+                            {{ schemaHookResolver.resolveSetterRollbackRestoreHook(property) }}
+
+                            throw $exception;
                         }
+                    {% else %}
+                        {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
+
+                        $value = $this->_validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
+
+                        {% if generatorConfiguration.collectErrors() %}
+                            if ($this->_errorRegistry->getErrors()) {
+                                throw $this->_errorRegistry;
+                            }
+                        {% endif %}
                     {% endif %}
 
                     $this->{{ property.getAttribute(true) }} = $value;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Basic;
 
 use Exception;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\Number\MinimumException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -18,6 +19,7 @@ use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SerializationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterAfterValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
+use PHPModelGenerator\SchemaProcessor\Hook\SetterRollbackHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
@@ -172,6 +174,62 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
                 Exception::class,
                 'SetterAfterValidationHook',
             ],
+        ];
+    }
+
+    /** @var int[] The values which the rollback hook restored */
+    public static array $restoredAges = [];
+
+    #[DataProvider('collectErrorsDataProvider')]
+    public function testSetterRollbackHookRestoresTheStateOnlyIfTheUpdateIsRejected(
+        bool $collectErrors,
+        string $expectedException,
+    ): void {
+        self::$restoredAges = [];
+
+        $this->addSchemaHook(new class () implements SetterRollbackHookInterface {
+            public function getBackupCode(PropertyInterface $property): string
+            {
+                return $property->getName() === 'age' ? '$previousAge = $this->age;' : '';
+            }
+
+            public function getRestoreCode(PropertyInterface $property): string
+            {
+                return $property->getName() === 'age'
+                    ? '\\' . SchemaHookTest::class . '::$restoredAges[] = $previousAge;'
+                    : '';
+            }
+        });
+
+        $className = $this->generateClassFromFile(
+            'BasicSchema.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+        );
+
+        $object = new $className(['name' => 'Albert', 'age' => 35]);
+
+        // An accepted update and updates of other properties don't restore anything.
+        $this->assertSame(40, $object->setAge(40)->getAge());
+        $this->assertSame('Hannes', $object->setName('Hannes')->getName());
+        $this->assertSame([], self::$restoredAges);
+
+        // The rejected update restores the state and the exception is passed on unchanged.
+        try {
+            $object->setAge(-12);
+            $this->fail('Expected the minimum violation of age');
+        } catch (Exception $exception) {
+            $this->assertInstanceOf($expectedException, $exception);
+        }
+
+        $this->assertSame([40], self::$restoredAges);
+        $this->assertSame(40, $object->getAge());
+    }
+
+    public static function collectErrorsDataProvider(): array
+    {
+        return [
+            'exception on the first violation' => [false, MinimumException::class],
+            'collect errors' => [true, ErrorRegistryException::class],
         ];
     }
 

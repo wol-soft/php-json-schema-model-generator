@@ -1,4 +1,4 @@
-foreach (['_additionalProperties', '_patternProperties'] as $property) {
+foreach (['_additionalProperties', '_patternProperties', '_propertyValidationState'] as $property) {
     if (isset($this->{$property})) {
         $rollbackValues[$property] = $this->{$property};
     }
