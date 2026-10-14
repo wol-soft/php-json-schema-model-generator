@@ -208,7 +208,7 @@ The branches of a composition on an object schema (explicitly typed ``object`` o
 
 With ``mode`` set to ``1`` the title ``"  My list  "`` is trimmed to ``"My list"``, a title consisting only of whitespace is empty after the filter and violates ``minLength``. With ``mode`` set to ``3`` the ``then`` branch is inactive: the title is not constrained and stays ``"  My list  "``. Values of a type the filter doesn't accept are passed through unchanged.
 
-A setter or ``populate()`` which fails doesn't change the model: the filtered values which the active branches hand over are only adopted after the update succeeded, a rejected update keeps the previous branch and the previous values.
+A setter or ``populate()`` which fails doesn't change the model: the filtered values which the active branches hand over are only adopted after the update succeeded, a rejected update keeps the previous branch and the previous values. The only exception is an exception which is raised while a dependent property is validated again after the branch switched (see below); as the active branch has already validated the same data this is hardly reachable, but in that case the property which was set by the update keeps its new value.
 
 If a setter changes the property which selects the branch (``mode`` in the example) the properties of the branches are validated again, so a title which was trimmed for ``mode`` ``1`` is returned as provided after ``mode`` was changed to ``3``.
 
@@ -231,6 +231,9 @@ Transforming filters in the branches of an ``if``/``then``/``else`` or ``oneOf``
         "properties": {
             "kind": {
                 "type": "string"
+            },
+            "when": {
+                "type": "string"
             }
         },
         "if": {
@@ -251,7 +254,11 @@ Transforming filters in the branches of an ``if``/``then``/``else`` or ``oneOf``
         }
     }
 
-With ``kind`` set to ``"a"`` the property ``when`` contains a ``DateTime`` object, with any other ``kind`` the string is kept as provided (and not validated by the filter).
+With ``kind`` set to ``"a"`` the property ``when`` contains a ``DateTime`` object, with any other ``kind`` the string is kept as provided (and not validated by the filter). The getter and the setter of ``when`` are typed ``string | DateTime | null``.
+
+.. hint::
+
+    A property which is declared only inside a branch (without a declaration in the parent schema) has no raw type of its own. As the branch may be inactive its getter and setter are typed ``mixed``, independent of the filter.
 
 Exceptions from filter
 ----------------------

@@ -40,13 +40,13 @@ class CompositionValidationPostProcessor extends PostProcessor
 
         $validatorPropertyMap = $this->generateValidatorPropertyMap($schema);
 
-        $handsOverFilteredValues = $this->addValidationMethods(
+        $allFilteredKeys = $this->addValidationMethods(
             $schema,
             $generatorConfiguration,
             $compositionValidatorKeys,
         );
 
-        if ($handsOverFilteredValues) {
+        if ($allFilteredKeys !== []) {
             $this->addBranchFilteredValueConstructorHook($schema);
         }
 
@@ -55,7 +55,7 @@ class CompositionValidationPostProcessor extends PostProcessor
             return;
         }
 
-        $this->addValidationCallsToSetterMethods($schema, $validatorPropertyMap, $handsOverFilteredValues);
+        $this->addValidationCallsToSetterMethods($schema, $validatorPropertyMap, $allFilteredKeys);
     }
 
     /**
@@ -113,14 +113,14 @@ class CompositionValidationPostProcessor extends PostProcessor
     /**
      * @param int[] $compositionValidatorKeys
      *
-     * @return bool Whether a composition hands over filtered values of its active branch to the schema
+     * @return array The properties for which a composition hands over filtered values of its active branch to the
+     *               schema (property name => [attribute, validation method]); empty if there are none
      */
     private function addValidationMethods(
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
         array $compositionValidatorKeys,
-    ): bool {
-        $handsOverFilteredValues = false;
+    ): array {
         $allFilteredKeys = [];
 
         foreach ($compositionValidatorKeys as $validatorIndex) {
@@ -130,7 +130,6 @@ class CompositionValidationPostProcessor extends PostProcessor
             $compositionValidator->setScope($schema);
 
             $filteredKeys = $compositionValidator->getFilteredKeys();
-            $handsOverFilteredValues = $handsOverFilteredValues || $filteredKeys !== [];
             $allFilteredKeys += $filteredKeys;
 
             $schema->addMethod(
@@ -153,7 +152,7 @@ class CompositionValidationPostProcessor extends PostProcessor
             );
         }
 
-        if ($handsOverFilteredValues) {
+        if ($allFilteredKeys !== []) {
             // The filtered values which the active branches of the compositions handed over, by property name, and the
             // values which are staged by the update in progress. A failed update leaves the staged values unused.
             foreach (
@@ -180,7 +179,7 @@ class CompositionValidationPostProcessor extends PostProcessor
             );
         }
 
-        return $handsOverFilteredValues;
+        return $allFilteredKeys;
     }
 
     /**
@@ -203,14 +202,16 @@ class CompositionValidationPostProcessor extends PostProcessor
      * The compositions stage the filtered values of their active branches. A setter starts with an empty staging, the
      * values are adopted once the update succeeded. The batch update (populate) validates all compositions up front
      * and adopts the staged values after all properties were updated.
+     *
+     * @param array $allFilteredKeys property name => [attribute, validation method]
      */
     private function addValidationCallsToSetterMethods(
         Schema $schema,
         array $validatorPropertyMap,
-        bool $handsOverFilteredValues,
+        array $allFilteredKeys,
     ): void {
         $schema->addSchemaHook(
-            new class ($validatorPropertyMap, $handsOverFilteredValues) implements SetterBeforeValidationHookInterface {
+            new class ($validatorPropertyMap, $allFilteredKeys !== []) implements SetterBeforeValidationHookInterface {
                 public function __construct(protected array $validatorPropertyMap, protected bool $stages)
                 {}
 
@@ -233,12 +234,20 @@ class CompositionValidationPostProcessor extends PostProcessor
             },
         );
 
-        if (!$handsOverFilteredValues) {
+        if ($allFilteredKeys === []) {
             return;
         }
 
-        $schema->addSchemaHook(new class ($validatorPropertyMap) implements SetterAfterValidationHookInterface {
-            public function __construct(protected array $validatorPropertyMap)
+        $attributeToPropertyName = [];
+        foreach ($allFilteredKeys as $propertyName => [$attribute]) {
+            $attributeToPropertyName[$attribute] = $propertyName;
+        }
+
+        $schema->addSchemaHook(new class (
+            $validatorPropertyMap,
+            $attributeToPropertyName,
+        ) implements SetterAfterValidationHookInterface {
+            public function __construct(protected array $validatorPropertyMap, protected array $attributeToPropertyName)
             {}
 
             public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
@@ -247,8 +256,14 @@ class CompositionValidationPostProcessor extends PostProcessor
                     return '';
                 }
 
+                // Only the properties which populate() processed count as processed: it skips a value which equals the
+                // current attribute, such a property must be validated again if the active branch switched. Passing
+                // all keys of the provided data would exclude it although its filtered value changed.
                 return $batchUpdate
-                    ? '$this->_commitBranchFilteredValues(array_keys($modelData));'
+                    ? sprintf(
+                        '$this->_commitBranchFilteredValues(array_values(array_intersect_key(%s, $rollbackValues)));',
+                        RenderHelper::varExportArray($this->attributeToPropertyName),
+                    )
                     : sprintf('$this->_commitBranchFilteredValues([%s]);', var_export($property->getName(), true));
             }
         });

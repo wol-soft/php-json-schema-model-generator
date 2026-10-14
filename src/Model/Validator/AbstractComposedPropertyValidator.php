@@ -130,8 +130,10 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
                     continue;
                 }
 
+                // The class attribute (a name starting with a digit is prefixed) and the validation method, which
+                // is derived from the plain attribute name.
                 $filteredKeyMap[$branchIndex][$branchProperty->getName()] = [
-                    $branchProperty->getAttribute(),
+                    $branchProperty->getAttribute(true),
                     '_validate' . ucfirst($branchProperty->getAttribute()),
                 ];
             }

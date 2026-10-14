@@ -30,6 +30,10 @@ class BranchFilterOutputType
         $renderHelper = new RenderHelper($generatorConfiguration);
         $currentOutputType ??= $inputType;
 
+        $isNullable = $inputType->isNullable() === true
+            || $currentOutputType->isNullable() === true
+            || $returnNullable;
+
         return new PropertyType(
             array_values(array_unique(array_merge(
                 $inputType->getNames(),
@@ -39,9 +43,9 @@ class BranchFilterOutputType
                     $returnTypeNames,
                 ),
             ))),
-            $inputType->isNullable() === true || $currentOutputType->isNullable() === true || $returnNullable
-                ? true
-                : $currentOutputType->isNullable(),
+            // Not just $isNullable: null means "not specified" (the property decides), false means "explicitly not
+            // nullable". Passing the plain boolean would turn an unspecified nullability into an explicit false.
+            $isNullable ? true : $currentOutputType->isNullable(),
         );
     }
 }

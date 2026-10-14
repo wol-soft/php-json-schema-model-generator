@@ -347,6 +347,86 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
         $this->assertSame('  n  ', $object->getName());
     }
 
+    /**
+     * An immutable model has no setters and no composition validation on updates: the values which the active branch
+     * hands over are adopted by the constructor only.
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testFilterInConditionalBranchOfImmutableModelRunsOnlyWhileBranchIsActive(
+        bool $collectErrors,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'ConditionalBranchSwitchByPopulate.json',
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(true),
+        );
+
+        $object = new $className(['kind' => 'c', 'name' => '  n  ']);
+        $this->assertSame('n', $object->getName());
+
+        $object = new $className(['kind' => 'a', 'name' => '  n  ']);
+        $this->assertSame('  n  ', $object->getName());
+
+        $this->assertFalse(method_exists($object, 'setName'));
+    }
+
+    /**
+     * A populate which re-passes the filtered property together with the property which switches the branch (a form
+     * which submits all fields): the value which equals the current attribute is not processed by populate, the
+     * filter of the newly active branch must nevertheless be applied.
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testPopulateWhichRepassesTheFilteredPropertyWhileSwitchingTheBranchAppliesTheFilter(
+        bool $collectErrors,
+    ): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
+        $className = $this->generateClassFromFile(
+            'ConditionalBranchSwitchByPopulate.json',
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(false),
+        );
+
+        $object = new $className(['kind' => 'a', 'name' => '  n  ']);
+        $this->assertSame('  n  ', $object->getName());
+
+        // The unchanged name is passed again while the then branch becomes active.
+        $object->populate(['kind' => 'c', 'name' => '  n  ']);
+        $this->assertSame('n', $object->getName());
+
+        // The setter agrees with the populated state.
+        $object->setName('  m  ');
+        $this->assertSame('m', $object->getName());
+
+        // And the other way round: the unchanged raw value is passed again while the branch becomes inactive.
+        $object->populate(['kind' => 'a', 'name' => '  m  ']);
+        $this->assertSame('  m  ', $object->getName());
+    }
+
+    /**
+     * The class attribute of a property whose name starts with a digit is prefixed. The value which the active
+     * branch hands over, and the validation of the property when the branch switches, address the prefixed attribute.
+     */
+    public function testFilterOfPropertyStartingWithDigitIsAppliedWhenTheBranchSwitches(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ConditionalBranchPropertyStartingWithDigit.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['kind' => 'a', '1st name' => '  n  ']);
+        $this->assertSame('  n  ', $object->get1stName());
+
+        $object->setKind('c');
+        $this->assertSame('n', $object->get1stName());
+
+        $object->setKind('a');
+        $this->assertSame('  n  ', $object->get1stName());
+
+        $object = new $className(['kind' => 'c', '1st name' => '  n  ']);
+        $this->assertSame('n', $object->get1stName());
+    }
+
     // -------------------------------------------------------------------------
     // Compositions nested in the branch of another composition
     // -------------------------------------------------------------------------
