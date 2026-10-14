@@ -22,10 +22,6 @@ use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 trait PropertyDependencyTrait
 {
     /**
-     * @return Schema|null The dependency schema of a schema dependency whose properties have to be transferred to the
-     *                     base schema by transferDependentPropertiesToBaseSchema() once the properties of the base
-     *                     schema are registered, null for a property dependency
-     *
      * @throws SchemaException
      */
     private function addDependencyValidator(
@@ -33,7 +29,7 @@ trait PropertyDependencyTrait
         JsonSchema $dependencyJsonSchema,
         SchemaProcessor $schemaProcessor,
         Schema $schema,
-    ): ?Schema {
+    ): void {
         $propertyDependency = true;
 
         foreach ($dependencyJsonSchema->getJson() as $index => $dependency) {
@@ -51,7 +47,7 @@ trait PropertyDependencyTrait
                     ->withJsonPointer($dependencyPointer),
             );
 
-            return null;
+            return;
         }
 
         $json = $dependencyJsonSchema->getJson();
@@ -72,19 +68,18 @@ trait PropertyDependencyTrait
         );
         $schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
 
-        return $dependencySchema;
+        $this->transferDependentPropertiesToBaseSchema($dependencySchema, $schema);
     }
 
     /**
      * The transferred properties neither validate nor transform: the dependency schema only validates the data (also
-     * with its filters, which keep running inside the dependency schema). Transferred after the properties of the
-     * base schema are registered: the declaration which is registered first wins, a property which is declared by the
-     * base schema must not be replaced by the unvalidated copy of a dependency schema.
+     * with its filters, which keep running inside the dependency schema). A property which is declared by the base
+     * schema keeps the declaration of the base schema, independent of the order of the properties.
      */
     private function transferDependentPropertiesToBaseSchema(Schema $dependencySchema, Schema $schema): void
     {
         foreach ($dependencySchema->getProperties() as $dependencyProperty) {
-            $schema->addProperty(
+            $schema->addDependencyTransferredProperty(
                 (clone $dependencyProperty)
                     ->setRequired(false)
                     ->setType(null)

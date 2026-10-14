@@ -36,8 +36,6 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
 
         $propertySchema = $propertySchema->withJson($json);
 
-        $dependencySchemas = [];
-
         foreach ($json[$this->key] as $propertyName => $propertyStructure) {
             if ($propertyStructure === false) {
                 if (in_array($propertyName, $json['required'] ?? [], true)) {
@@ -108,7 +106,7 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
             );
 
             if ($dependencies !== null) {
-                $dependencySchema = $this->addDependencyValidator(
+                $this->addDependencyValidator(
                     $nestedProperty,
                     $schema->getJsonSchema()->navigate(
                         'dependencies/' . JsonSchema::encodePointer((string) $propertyName),
@@ -116,17 +114,9 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
                     $schemaProcessor,
                     $schema,
                 );
-
-                if ($dependencySchema !== null) {
-                    $dependencySchemas[] = $dependencySchema;
-                }
             }
 
             $schema->addProperty($nestedProperty);
-        }
-
-        foreach ($dependencySchemas as $dependencySchema) {
-            $this->transferDependentPropertiesToBaseSchema($dependencySchema, $schema);
         }
     }
 }
