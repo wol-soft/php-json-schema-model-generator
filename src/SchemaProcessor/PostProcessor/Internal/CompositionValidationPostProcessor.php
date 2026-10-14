@@ -155,31 +155,74 @@ class CompositionValidationPostProcessor extends PostProcessor
             }
         });
 
-        // The composition validation records the result of each component in the validation state before the
-        // update is accepted. A rejected update must leave the state as it was, otherwise the rejected data
-        // influences later updates (components are only evaluated again if their properties are updated).
-        $schema->addSchemaHook(new class ($validatorPropertyMap) implements SetterRollbackHookInterface {
-            public function __construct(protected array $validatorPropertyMap)
-            {}
+        // The composition validation records the result of each component in the validation state and applies the
+        // defaults of the matching branches before the update is accepted. A rejected update must leave both as
+        // they were, otherwise the rejected data influences later updates (components are only evaluated again if
+        // their properties are updated) and the model contains defaults of a branch which doesn't match.
+        $branchDefaultAttributes = [];
+        foreach ($schema->getCompositionValidatorKeys() as $validatorIndex) {
+            $branchDefaultAttributes[$validatorIndex] = $schema->getBaseValidators()[$validatorIndex]
+                ->getBranchDefaultAttributes();
+        }
 
-            public function getBackupCode(PropertyInterface $property): string
-            {
-                return $this->isPartOfComposition($property)
-                    ? '$previousPropertyValidationState = $this->_propertyValidationState;'
-                    : '';
-            }
+        $schema->addSchemaHook(
+            new class ($validatorPropertyMap, $branchDefaultAttributes) implements SetterRollbackHookInterface {
+                public function __construct(
+                    protected array $validatorPropertyMap,
+                    protected array $branchDefaultAttributes,
+                ) {}
 
-            public function getRestoreCode(PropertyInterface $property): string
-            {
-                return $this->isPartOfComposition($property)
-                    ? '$this->_propertyValidationState = $previousPropertyValidationState;'
-                    : '';
-            }
+                public function getBackupCode(?PropertyInterface $property): string
+                {
+                    $attributes = $this->getRestoredAttributes($property);
 
-            private function isPartOfComposition(PropertyInterface $property): bool
-            {
-                return !empty($this->validatorPropertyMap[$property->getName()]);
-            }
-        });
+                    return $attributes === []
+                        ? ''
+                        : sprintf('$compositionStateBackup = [%s];', $this->renderAttributes($attributes));
+                }
+
+                public function getRestoreCode(?PropertyInterface $property): string
+                {
+                    $attributes = $this->getRestoredAttributes($property);
+
+                    return $attributes === []
+                        ? ''
+                        : sprintf('[%s] = $compositionStateBackup;', $this->renderAttributes($attributes));
+                }
+
+                /**
+                 * @return string[] The attributes which are changed by the compositions the property (or, for a
+                 *                  batch update, any property) is part of
+                 */
+                private function getRestoredAttributes(?PropertyInterface $property): array
+                {
+                    $validatorIndices = $property === null
+                        ? array_merge(...array_values($this->validatorPropertyMap))
+                        : ($this->validatorPropertyMap[$property->getName()] ?? []);
+
+                    if ($validatorIndices === []) {
+                        return [];
+                    }
+
+                    $defaultAttributes = [];
+                    foreach (array_unique($validatorIndices) as $validatorIndex) {
+                        $defaultAttributes = array_merge(
+                            $defaultAttributes,
+                            $this->branchDefaultAttributes[$validatorIndex] ?? [],
+                        );
+                    }
+
+                    return array_merge(['_propertyValidationState'], array_unique($defaultAttributes));
+                }
+
+                private function renderAttributes(array $attributes): string
+                {
+                    return join(
+                        ', ',
+                        array_map(static fn(string $attribute): string => '$this->' . $attribute, $attributes),
+                    );
+                }
+            },
+        );
     }
 }

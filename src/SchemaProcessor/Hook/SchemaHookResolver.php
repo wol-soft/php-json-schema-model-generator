@@ -32,7 +32,7 @@ class SchemaHookResolver
         return $this->resolveHook(SetterBeforeValidationHookInterface::class, $property, $batchUpdate);
     }
 
-    public function resolveSetterRollbackBackupHook(PropertyInterface $property): string
+    public function resolveSetterRollbackBackupHook(?PropertyInterface $property = null): string
     {
         return $this->joinCode(array_map(
             static fn(SetterRollbackHookInterface $hook): string => $hook->getBackupCode($property),
@@ -40,7 +40,7 @@ class SchemaHookResolver
         ));
     }
 
-    public function resolveSetterRollbackRestoreHook(PropertyInterface $property): string
+    public function resolveSetterRollbackRestoreHook(?PropertyInterface $property = null): string
     {
         return $this->joinCode(array_map(
             static fn(SetterRollbackHookInterface $hook): string => $hook->getRestoreCode($property),

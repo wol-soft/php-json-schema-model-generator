@@ -55,6 +55,8 @@ class ComposedFailedUpdateStateTest extends AbstractPHPModelGeneratorTestCase
         }
 
         $this->assertSame('a', $object->getKind());
+        // The default of the second branch was not adopted: the branch doesn't match.
+        $this->assertNull($object->getSandbox());
 
         // The data (kind 'a', other 'x') matches exactly the first branch.
         $object->setOther('x');
@@ -90,9 +92,12 @@ class ComposedFailedUpdateStateTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame('a', $object->getKind());
         $this->assertNull($object->getOther());
+        // The default of the second branch was not adopted: the branch doesn't match.
+        $this->assertNull($object->getSandbox());
 
         $object->populate(['other' => 'z']);
         $this->assertSame('z', $object->getOther());
+        $this->assertNull($object->getSandbox());
 
         $object->setOther('x');
         $this->assertSame('x', $object->getOther());

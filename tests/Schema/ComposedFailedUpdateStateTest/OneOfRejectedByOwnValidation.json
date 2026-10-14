@@ -26,6 +26,10 @@
         },
         "other": {
           "type": "string"
+        },
+        "sandbox": {
+          "type": "boolean",
+          "default": true
         }
       },
       "required": [

@@ -20,6 +20,7 @@ use PHPModelGenerator\SchemaProcessor\Hook\SerializationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterAfterValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SetterRollbackHookInterface;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
@@ -188,18 +189,24 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
         self::$restoredAges = [];
 
         $this->addSchemaHook(new class () implements SetterRollbackHookInterface {
-            public function getBackupCode(PropertyInterface $property): string
+            public function getBackupCode(?PropertyInterface $property): string
             {
-                return $property->getName() === 'age' ? '$previousAge = $this->age;' : '';
+                return $property === null || $property->getName() === 'age' ? '$previousAge = $this->age;' : '';
             }
 
-            public function getRestoreCode(PropertyInterface $property): string
+            public function getRestoreCode(?PropertyInterface $property): string
             {
-                return $property->getName() === 'age'
+                return $property === null || $property->getName() === 'age'
                     ? '\\' . SchemaHookTest::class . '::$restoredAges[] = $previousAge;'
                     : '';
             }
         });
+
+        $schemaHookModifier = $this->modifyModelGenerator;
+        $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator) use ($schemaHookModifier): void {
+            $schemaHookModifier($modelGenerator);
+            $modelGenerator->addPostProcessor(new PopulatePostProcessor());
+        };
 
         $className = $this->generateClassFromFile(
             'BasicSchema.json',
@@ -211,9 +218,10 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
         // An accepted update and updates of other properties don't restore anything.
         $this->assertSame(40, $object->setAge(40)->getAge());
         $this->assertSame('Hannes', $object->setName('Hannes')->getName());
+        $this->assertSame(41, $object->populate(['age' => 41])->getAge());
         $this->assertSame([], self::$restoredAges);
 
-        // The rejected update restores the state and the exception is passed on unchanged.
+        // A rejected update restores the state and the exception is passed on unchanged.
         try {
             $object->setAge(-12);
             $this->fail('Expected the minimum violation of age');
@@ -221,8 +229,19 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
             $this->assertInstanceOf($expectedException, $exception);
         }
 
-        $this->assertSame([40], self::$restoredAges);
-        $this->assertSame(40, $object->getAge());
+        $this->assertSame([41], self::$restoredAges);
+        $this->assertSame(41, $object->getAge());
+
+        // Also for a batch update.
+        try {
+            $object->populate(['name' => 'Walter', 'age' => -12]);
+            $this->fail('Expected the minimum violation of age');
+        } catch (Exception $exception) {
+            $this->assertInstanceOf($expectedException, $exception);
+        }
+
+        $this->assertSame([41, 41], self::$restoredAges);
+        $this->assertSame('Hannes', $object->getName());
     }
 
     public static function collectErrorsDataProvider(): array

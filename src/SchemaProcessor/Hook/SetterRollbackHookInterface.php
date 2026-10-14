@@ -12,10 +12,13 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
  * The backup code is rendered at the beginning of a setter, the restore code is executed if the update is rejected
  * (an exception is thrown by the before hooks or the validation, or errors are collected) before the exception
  * is passed on. If no hook provides restore code the setter is rendered without the additional handling.
+ *
+ * A batch update (populate) updates several properties at once: the code is rendered once at the beginning of the
+ * update and once before a rejected update is passed on, the property is null.
  */
 interface SetterRollbackHookInterface extends SchemaHookInterface
 {
-    public function getBackupCode(PropertyInterface $property): string;
+    public function getBackupCode(?PropertyInterface $property): string;
 
-    public function getRestoreCode(PropertyInterface $property): string;
+    public function getRestoreCode(?PropertyInterface $property): string;
 }
