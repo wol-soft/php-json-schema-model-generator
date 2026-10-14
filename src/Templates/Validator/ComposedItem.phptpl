@@ -6,7 +6,9 @@
     &$modifiedModelData,
     &$compositionErrorCollection,
     &$succeededCompositionElements,
-    &$validatorIndex
+    &$validatorIndex{% if publishesFilteredValues %},
+    &$publishedValues,
+    &$evaluatedComponents{% endif %}
 ) {
     $succeededCompositionElements = {{ availableAmount }};
     $validatorComponentIndex = 0;
@@ -52,9 +54,15 @@
                         throw new \Exception();
                     }
                 } else {
+                    {% if publishesFilteredValues %}
+                        $evaluatedComponents[] = $validatorComponentIndex;
+                    {% endif %}
                     {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 3) }}
                 }
             {% else %}
+                {% if publishesFilteredValues %}
+                    $evaluatedComponents[] = $validatorComponentIndex;
+                {% endif %}
                 {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
             {% endif %}
         } catch (\Exception $e) {
@@ -98,6 +106,14 @@
         value and, since array/object items are validated by reference, the original data itself.
     #}
     $compositionSatisfied = {{ composedValueValidation }};
+
+    {% if publishesFilteredValues %}
+        {#
+            Hand the filtered values of the passing branches to the schema. $modifiedValues only contains
+            values of passing components, so for a oneOf these are the values of the single matching branch.
+        #}
+        $publishedValues = $compositionSatisfied ? array_intersect_key($modifiedValues, {{ filteredKeyLookup }}) : null;
+    {% endif %}
 
     {% if mergedProperty %}
         if ($compositionSatisfied && is_object($proposedValue)) {

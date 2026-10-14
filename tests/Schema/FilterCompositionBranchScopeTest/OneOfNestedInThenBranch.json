@@ -1,0 +1,41 @@
+{
+  "type": "object",
+  "if": {
+    "properties": {
+      "mode": {
+        "const": 1
+      }
+    },
+    "required": [
+      "mode"
+    ]
+  },
+  "then": {
+    "oneOf": [
+      {
+        "properties": {
+          "sub": {
+            "const": "a"
+          },
+          "name": {
+            "type": "string",
+            "filter": "trim"
+          }
+        },
+        "required": [
+          "sub"
+        ]
+      },
+      {
+        "properties": {
+          "sub": {
+            "const": "b"
+          }
+        },
+        "required": [
+          "sub"
+        ]
+      }
+    ]
+  }
+}

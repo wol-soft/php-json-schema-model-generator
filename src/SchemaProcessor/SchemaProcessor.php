@@ -31,6 +31,7 @@ use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShape;
 use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
+use PHPModelGenerator\Utils\BranchFilterScope;
 use PHPModelGenerator\Utils\PropertyAttributeSynthesizer;
 
 class SchemaProcessor
@@ -39,6 +40,8 @@ class SchemaProcessor
     protected string $currentClassName;
 
     private PropertyAttributeSynthesizer $propertyAttributeSynthesizer;
+
+    private BranchFilterScope $branchFilterScope;
 
     /** @var Schema[] Collect processed schemas to avoid duplicated classes */
     protected array $processedSchema = [];
@@ -72,6 +75,7 @@ class SchemaProcessor
         protected RenderQueue $renderQueue,
     ) {
         $this->propertyAttributeSynthesizer = new PropertyAttributeSynthesizer($generatorConfiguration);
+        $this->branchFilterScope = new BranchFilterScope($generatorConfiguration);
     }
 
     /**
@@ -756,6 +760,13 @@ class SchemaProcessor
                             );
 
                             foreach ($composedProperty->getNestedSchema()->getProperties() as $branchProperty) {
+                                $this->branchFilterScope->assertBranchFilterIsDeclaredOnce(
+                                    $schema,
+                                    $validator,
+                                    $composedProperty,
+                                    $branchProperty,
+                                );
+
                                 if ($branchLabel !== null) {
                                     $this->checkRootBranchDefaultConflict(
                                         $branchProperty,
@@ -773,6 +784,10 @@ class SchemaProcessor
                                     ),
                                     $validator->getCompositionProcessor(),
                                 );
+
+                                if ($validator->publishesFilteredValueOf($composedProperty, $branchProperty)) {
+                                    $this->branchFilterScope->takeOverBranchFilteredValue($schema, $branchProperty);
+                                }
 
                                 $composedProperty->appendAffectedObjectProperty($branchProperty);
                                 $seenBranchPropertyNames[$branchProperty->getName()] = true;
@@ -815,6 +830,12 @@ class SchemaProcessor
             return;
         }
 
+        $this->branchFilterScope->assertAnyOfFiltersAreUnambiguous(
+            $validator,
+            $schema,
+            array_keys($seenBranchPropertyNames),
+        );
+
         foreach (array_keys($seenBranchPropertyNames) as $branchPropertyName) {
             $schema->getPropertyMerger()->checkForTotalConflict(
                 $branchPropertyName,
@@ -848,6 +869,8 @@ class SchemaProcessor
             ->setDefaultValue(null)
             ->filterDecorators(static fn($decorator): bool =>
                 !($decorator instanceof DefaultArrayToEmptyArrayDecorator));
+
+        $this->branchFilterScope->scopeFiltersToBranch($transferredProperty, $sourceBranch, $validator);
 
         if (!is_a($compositionProcessor, AllOfValidatorFactory::class, true)) {
             $transferredProperty->setRequired(false);

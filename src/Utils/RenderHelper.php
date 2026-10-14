@@ -7,7 +7,9 @@ namespace PHPModelGenerator\Utils;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\Validator\BranchFilteredValueValidator;
 use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
+use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 
@@ -185,6 +187,14 @@ class RenderHelper
         // different schema
         if ($validator instanceof PropertyTemplateValidator) {
             $validator->setScope($schema);
+        }
+
+        if ($validator instanceof FilterValidator && !$validator->isExecuted()) {
+            return '';
+        }
+
+        if ($validator instanceof BranchFilteredValueValidator) {
+            return self::indent($validator->getStatement(), $indentLevel);
         }
 
         if (!$validator instanceof ExtractedMethodValidator) {

@@ -1,0 +1,60 @@
+/**
+ * Adopt the filtered values which the active branches of the compositions handed over once the update succeeded.
+ * A failed update leaves the staged values unused, the model keeps its state.
+ *
+ * Properties which were not processed by the update but depend on the active branch (the active branch switched)
+ * are validated again, otherwise they would keep the value of the previously active branch.
+ *
+ * @param string[] $processedKeys The names of the properties which were processed by the update
+ *
+ *{% if not generatorConfiguration.collectErrors() %} @throws ValidationException{% endif %}
+ */
+private function _commitBranchFilteredValues(array $processedKeys): void
+{
+    if (!$this->_stagedBranchFilteredValues) {
+        return;
+    }
+
+    $branchFilteredValues = $this->_branchFilteredValues;
+
+    foreach ($this->_stagedBranchFilteredValues as $filteredKey => $stagedValue) {
+        if ($stagedValue === null) {
+            unset($branchFilteredValues[$filteredKey]);
+        } else {
+            $branchFilteredValues[$filteredKey] = $stagedValue[0];
+        }
+    }
+
+    // The validation of a property reads the staged values, they are cleared afterwards.
+    $dependentValues = [];
+
+    foreach ({{ branchFilteredKeys }} as $filteredKey => [$filteredAttribute, $filteredValidationMethod]) {
+        if (
+            !in_array($filteredKey, $processedKeys, true)
+            && array_key_exists($filteredKey, $this->_rawModelDataInput)
+            && (
+                array_key_exists($filteredKey, $this->_branchFilteredValues)
+                    !== array_key_exists($filteredKey, $branchFilteredValues)
+                || ($this->_branchFilteredValues[$filteredKey] ?? null) !== ($branchFilteredValues[$filteredKey] ?? null)
+            )
+        ) {
+            $dependentValues[$filteredAttribute] = $this->$filteredValidationMethod(
+                $this->_rawModelDataInput[$filteredKey],
+                $this->_rawModelDataInput,
+            );
+        }
+    }
+
+    {% if generatorConfiguration.collectErrors() %}
+        if ($this->_errorRegistry->getErrors()) {
+            throw $this->_errorRegistry;
+        }
+
+    {% endif %}
+    foreach ($dependentValues as $filteredAttribute => $dependentValue) {
+        $this->$filteredAttribute = $dependentValue;
+    }
+
+    $this->_branchFilteredValues = $branchFilteredValues;
+    $this->_stagedBranchFilteredValues = [];
+}

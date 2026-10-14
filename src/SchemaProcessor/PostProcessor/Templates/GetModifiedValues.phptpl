@@ -6,10 +6,15 @@ private function {{ modifiedValuesMethod }}(
     $modifiedValues = [];
     $componentDefaultValueMap = {{ componentDefaultValueMap }};
     $branchDefaultProps = $componentDefaultValueMap[$componentIndex] ?? [];
+    $filteredKeys = {{ filteredKeys }};
 
     foreach ({{ propertyAccessors }} as $key => $accessor) {
         if (
-            (isset($originalModelData[$key]) || in_array($key, $branchDefaultProps))
+            (
+                isset($originalModelData[$key])
+                || in_array($key, $branchDefaultProps)
+                || (array_key_exists($key, $originalModelData) && in_array($key, $filteredKeys, true))
+            )
             && method_exists($nestedCompositionObject, $accessor)
             && ($modifiedValue = $nestedCompositionObject->$accessor())
                 !== ($originalModelData[$key] ?? !$modifiedValue)

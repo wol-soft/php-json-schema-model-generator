@@ -13,15 +13,20 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
+use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\Hook\SerializationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Traits\SerializableTrait;
+use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\RenderHelper;
+use PHPModelGenerator\Utils\TypeCheck;
+use ReflectionException;
 
 /**
  * Class SerializationPostProcessor
@@ -52,6 +57,48 @@ class SerializationPostProcessor extends PostProcessor
     }
 
     /**
+     * Renders the body of the serializer of a property which holds the value as provided or the output of one of
+     * several filters. A filter which declares no return type can't be recognized by its output, it is tried last:
+     * trying it earlier would make the serializers of the other filters unreachable. Of several such filters only
+     * the first one is reachable.
+     *
+     * @param FilterValidator[] $filterValidators
+     *
+     * @throws ReflectionException
+     */
+    private function renderGuardedSerializers(array $filterValidators, PropertyInterface $property): string
+    {
+        $code = ['$value = $this->' . $property->getAttribute(true) . ';', ''];
+        $unconditionalSerialization = null;
+
+        foreach ($filterValidators as $filterValidator) {
+            [$serializerClass, $serializerMethod] = $filterValidator->getFilter()->getSerializer();
+            $returnTypeNames = FilterReflection::getReturnTypeNames($filterValidator->getFilter(), $property);
+
+            $serialization = "return \\{$serializerClass}::{$serializerMethod}("
+                . '$value, ' . RenderHelper::varExportArray($filterValidator->getFilterOptions()) . ');';
+
+            if ($returnTypeNames === []) {
+                $unconditionalSerialization ??= $serialization;
+
+                continue;
+            }
+
+            array_push(
+                $code,
+                'if ' . TypeCheck::buildCompound($returnTypeNames) . ' {',
+                "    $serialization",
+                '}',
+                '',
+            );
+        }
+
+        $code[] = $unconditionalSerialization ?? 'return $value;';
+
+        return implode("\n", $code);
+    }
+
+    /**
      * Each transforming filter must provide a method to serialize the value. Add a method to the schema to call the
      * serialization for each property with a transforming filter
      */
@@ -60,34 +107,54 @@ class SerializationPostProcessor extends PostProcessor
         GeneratorConfiguration $generatorConfiguration,
     ): void {
         foreach ($schema->getProperties() as $property) {
-            foreach ($property->getValidators() as $validator) {
-                $validator = $validator->getValidator();
+            $transformingFilterValidators = array_values(array_filter(
+                array_map(
+                    static fn(Validator $wrapper): PropertyValidatorInterface => $wrapper->getValidator(),
+                    $property->getValidators(),
+                ),
+                static fn(PropertyValidatorInterface $validator): bool => $validator instanceof FilterValidator
+                    && $validator->getFilter() instanceof TransformingFilterInterface,
+            ));
 
-                if (
-                    $validator instanceof FilterValidator &&
-                    $validator->getFilter() instanceof TransformingFilterInterface
-                ) {
-                    [$serializerClass, $serializerMethod] = $validator->getFilter()->getSerializer();
-
-                    $schema->addMethod(
-                        "_serialize{$property->getAttribute()}",
-                        new RenderedMethod(
-                            $schema,
-                            $generatorConfiguration,
-                            join(
-                                DIRECTORY_SEPARATOR,
-                                ['Serialization', 'TransformingFilterSerializer.phptpl'],
-                            ),
-                            [
-                                'property' => $property,
-                                'serializerClass' => $serializerClass,
-                                'serializerMethod' => $serializerMethod,
-                                'serializerOptions' => RenderHelper::varExportArray($validator->getFilterOptions()),
-                            ],
-                        )
-                    );
-                }
+            if ($transformingFilterValidators === []) {
+                continue;
             }
+
+            $templateValues = ['property' => $property, 'guardedSerializers' => ''];
+
+            // A filter which is owned by a branch of a composition may not have run: the property then still holds
+            // the value as provided. Only a value of the output type of a filter is serialized by it.
+            $ownedByBranch = array_filter(
+                $transformingFilterValidators,
+                static fn(FilterValidator $validator): bool => !$validator->isExecuted(),
+            );
+
+            if ($ownedByBranch !== []) {
+                $templateValues['guardedSerializers'] = $this->renderGuardedSerializers(
+                    $transformingFilterValidators,
+                    $property,
+                );
+            } else {
+                // Only one transforming filter can be executed on a property.
+                $validator = $transformingFilterValidators[0];
+                [$serializerClass, $serializerMethod] = $validator->getFilter()->getSerializer();
+
+                $templateValues += [
+                    'serializerClass' => $serializerClass,
+                    'serializerMethod' => $serializerMethod,
+                    'serializerOptions' => RenderHelper::varExportArray($validator->getFilterOptions()),
+                ];
+            }
+
+            $schema->addMethod(
+                "_serialize{$property->getAttribute()}",
+                new RenderedMethod(
+                    $schema,
+                    $generatorConfiguration,
+                    join(DIRECTORY_SEPARATOR, ['Serialization', 'TransformingFilterSerializer.phptpl']),
+                    $templateValues,
+                ),
+            );
         }
 
         foreach ($schema->getBaseValidators() as $validator) {

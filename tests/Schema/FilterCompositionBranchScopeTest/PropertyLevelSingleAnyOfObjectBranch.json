@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "anyOf": [
+        {
+          "type": [
+            "object"
+          ],
+          "properties": {
+            "nested": {
+              "filter": "trim"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "maxLength": 1
+    },
+    "label": {
+      "type": "string",
+      "maxLength": 3
+    }
+  },
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "c"
+      }
+    },
+    "required": [
+      "kind"
+    ]
+  },
+  "then": {
+    "properties": {
+      "name": {
+        "type": "string",
+        "filter": "trim"
+      }
+    }
+  }
+}
