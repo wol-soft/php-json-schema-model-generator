@@ -131,7 +131,9 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
                     continue;
                 }
 
-                $allBranchDefaultAttributeMap[$branchProperty->getName()] = $branchProperty->getAttribute();
+                // The generated code writes to the class attribute: a name starting with a digit is prefixed there,
+                // writing to the plain attribute name would create a dynamic property.
+                $allBranchDefaultAttributeMap[$branchProperty->getName()] = $branchProperty->getAttribute(true);
             }
         }
 

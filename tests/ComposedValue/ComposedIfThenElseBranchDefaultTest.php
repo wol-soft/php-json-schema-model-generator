@@ -156,4 +156,29 @@ class ComposedIfThenElseBranchDefaultTest extends AbstractPHPModelGeneratorTestC
             . ' failed for an unrelated field.',
         );
     }
+
+    /**
+     * The attribute of a property whose name starts with a digit is prefixed in the generated class. The default of a
+     * branch must be written to (and removed from) this attribute, not to a dynamic property.
+     */
+    public function testBranchDefaultOfPropertyStartingWithDigitIsAppliedAndRemoved(): void
+    {
+        $className = $this->generateClassFromFile(
+            'BranchDefaultOfPropertyStartingWithDigit.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className(['kind' => 'A']);
+        $this->assertSame('default-a', $object->get1stValue());
+        $this->assertSame(['kind' => 'A'], $object->meta()->rawInput());
+
+        $object->setKind('B');
+        $this->assertNull($object->get1stValue());
+
+        $object->setKind('A');
+        $this->assertSame('default-a', $object->get1stValue());
+
+        $this->assertSame('default-a', (new $className(['kind' => 'A']))->get1stValue());
+        $this->assertNull((new $className(['kind' => 'B']))->get1stValue());
+    }
 }
