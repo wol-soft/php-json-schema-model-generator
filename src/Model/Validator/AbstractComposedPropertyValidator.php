@@ -159,6 +159,26 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     }
 
     /**
+     * The components which own a published property: property name => component indices. A composition which keeps
+     * the result of a component from its previous evaluation (the properties of the component are not part of the
+     * update) doesn't hand the value of that component over again, the schema keeps the value it already holds.
+     *
+     * @return array<string, int[]>
+     */
+    public function getFilteredKeyComponents(): array
+    {
+        $filteredKeyComponents = [];
+
+        foreach ($this->getBranchFilteredKeyMap() as $componentIndex => $componentFilteredKeys) {
+            foreach (array_keys($componentFilteredKeys) as $propertyName) {
+                $filteredKeyComponents[$propertyName][] = $componentIndex;
+            }
+        }
+
+        return $filteredKeyComponents;
+    }
+
+    /**
      * @param array<int, array<string, array{string, string}>> $filteredKeyMap See getBranchFilteredKeyMap()
      * @param int[]|null $componentIndices Restrict the lookup to the given components, null for all components
      *

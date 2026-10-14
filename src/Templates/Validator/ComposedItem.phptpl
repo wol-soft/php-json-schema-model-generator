@@ -7,7 +7,8 @@
     &$compositionErrorCollection,
     &$succeededCompositionElements,
     &$validatorIndex{% if publishesFilteredValues %},
-    &$publishedValues{% endif %}
+    &$publishedValues,
+    &$evaluatedComponents{% endif %}
 ) {
     $succeededCompositionElements = {{ availableAmount }};
     $validatorComponentIndex = 0;
@@ -53,9 +54,15 @@
                         throw new \Exception();
                     }
                 } else {
+                    {% if publishesFilteredValues %}
+                        $evaluatedComponents[] = $validatorComponentIndex;
+                    {% endif %}
                     {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 3) }}
                 }
             {% else %}
+                {% if publishesFilteredValues %}
+                    $evaluatedComponents[] = $validatorComponentIndex;
+                {% endif %}
                 {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
             {% endif %}
         } catch (\Exception $e) {

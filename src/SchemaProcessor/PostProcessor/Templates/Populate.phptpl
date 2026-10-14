@@ -18,6 +18,12 @@ public function populate(array $modelData): self
         }
     }
 
+    // A populate which failed after a composition staged filtered values of its active branches leaves them behind.
+    // The compositions only stage the components which are part of the update, so a stale value must not be adopted.
+    if (property_exists($this, '_stagedBranchFilteredValues')) {
+        $this->_stagedBranchFilteredValues = [];
+    }
+
     $rollbackValues = [];
 
     {% if generatorConfiguration.collectErrors() %}

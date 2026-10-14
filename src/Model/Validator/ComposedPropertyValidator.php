@@ -105,7 +105,11 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             $compositionErrorCollection = [];
             CODE;
 
-        return $this->getBranchFilteredKeyMap() !== [] ? $setUp . "\n\$publishedValues = null;" : $setUp;
+        // The published values and the components which were evaluated (not answered from the state of the previous
+        // evaluation) by this validation.
+        return $this->getBranchFilteredKeyMap() !== []
+            ? $setUp . "\n\$publishedValues = null;\n\$evaluatedComponents = [];"
+            : $setUp;
     }
 
     /**

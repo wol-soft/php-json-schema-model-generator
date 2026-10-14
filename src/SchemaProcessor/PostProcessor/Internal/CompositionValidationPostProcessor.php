@@ -144,8 +144,8 @@ class CompositionValidationPostProcessor extends PostProcessor
                         'index' => $validatorIndex,
                         'viewHelper' => new RenderHelper($generatorConfiguration),
                         'branchFilteredKeys' => $filteredKeys === [] ? '' : RenderHelper::varExportArray($filteredKeys),
-                        'branchFilteredKeyLookup' => RenderHelper::varExportArray(
-                            array_fill_keys(array_keys($filteredKeys), true),
+                        'branchFilteredKeyComponents' => RenderHelper::varExportArray(
+                            $compositionValidator->getFilteredKeyComponents(),
                         ),
                     ],
                 )

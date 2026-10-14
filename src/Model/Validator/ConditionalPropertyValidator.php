@@ -10,6 +10,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\Factory\Composition\IfValidatorFactory;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class ConditionalPropertyValidator
@@ -133,6 +134,10 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
     {
         $setUp = '$ifException = $thenException = $elseException = null;';
 
-        return $this->getBranchFilteredKeyMap() !== [] ? $setUp . "\n\$publishedValues = null;" : $setUp;
+        // A conditional is evaluated as a whole every time, all components count as evaluated.
+        return $this->getBranchFilteredKeyMap() !== []
+            ? $setUp . "\n\$publishedValues = null;\n\$evaluatedComponents = "
+                . RenderHelper::varExportArray(array_keys($this->composedProperties)) . ';'
+            : $setUp;
     }
 }

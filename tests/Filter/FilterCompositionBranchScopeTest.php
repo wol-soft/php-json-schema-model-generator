@@ -348,6 +348,119 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     }
 
     /**
+     * The composition only evaluates the components whose properties are part of an update, the other components
+     * keep the result of their previous evaluation. The filtered value which the unchanged active branch handed
+     * over must survive an update which only touches another branch.
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testUpdateOfAnInactiveOneOfBranchKeepsTheFilteredValueOfTheActiveBranch(
+        bool $collectErrors,
+    ): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
+        $className = $this->generateClassFromFile(
+            'OneOfBranchWithFilterAndUnrelatedBranch.json',
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(false),
+        );
+
+        $object = new $className(['type' => 'a', 'name' => '  n  ']);
+        $this->assertSame('n', $object->getName());
+
+        $object->setOther('o');
+        $this->assertSame('n', $object->getName());
+
+        $object->populate(['other' => 'p']);
+        $this->assertSame('n', $object->getName());
+
+        // The filtered property of the active branch is still updated by its own setter.
+        $object->setName('  m  ');
+        $this->assertSame('m', $object->getName());
+    }
+
+    /**
+     * Same as above for the components of an allOf: an update which only affects the second conditional must not
+     * drop the filtered value which the first (unchanged) conditional handed over.
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testUpdateOfOneAllOfComponentKeepsTheFilteredValueOfTheOtherComponent(
+        bool $collectErrors,
+    ): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
+        $className = $this->generateClassFromFile(
+            'AllOfConditionalsWithFilteredProperties.json',
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(false),
+        );
+
+        $object = new $className([
+            'firstKind' => 'x',
+            'secondKind' => 'x',
+            'first' => '  a  ',
+            'second' => '  b  ',
+        ]);
+        $this->assertSame('  a  ', $object->getFirst());
+        $this->assertSame('  b  ', $object->getSecond());
+
+        $object->setFirstKind('c');
+        $this->assertSame('a', $object->getFirst());
+        $this->assertSame('  b  ', $object->getSecond());
+
+        // The second conditional becomes active, the first one is not part of the update.
+        $object->setSecondKind('c');
+        $this->assertSame('a', $object->getFirst());
+        $this->assertSame('b', $object->getSecond());
+
+        // The first conditional becomes inactive, the second one keeps its value.
+        $object->setFirstKind('x');
+        $this->assertSame('  a  ', $object->getFirst());
+        $this->assertSame('b', $object->getSecond());
+
+        $object->populate(['firstKind' => 'c', 'secondKind' => 'c']);
+        $this->assertSame('a', $object->getFirst());
+        $this->assertSame('b', $object->getSecond());
+
+        $object->populate(['firstKind' => 'x']);
+        $this->assertSame('  a  ', $object->getFirst());
+        $this->assertSame('b', $object->getSecond());
+    }
+
+    /**
+     * A populate which fails after the composition staged the value of its component leaves that staged value
+     * behind. A later populate which keeps the result of the component must not adopt the stale value.
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testFailedPopulateDoesNotLeakItsStagedValueIntoALaterPopulate(bool $collectErrors): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
+        $className = $this->generateClassFromFile(
+            'OneOfBranchWithFilterAndOwnLimit.json',
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(false),
+        );
+
+        $object = new $className(['type' => 'a', 'name' => '  n  ']);
+        $this->assertSame('n', $object->getName());
+
+        try {
+            $object->populate(['name' => '  q  ', 'label' => 'too long']);
+            $this->fail('Expected the maxLength violation of label');
+        } catch (Throwable) {
+            // expected
+        }
+
+        $this->assertSame('n', $object->getName());
+
+        $object->populate(['other' => 'o']);
+        $this->assertSame('n', $object->getName());
+    }
+
+    /**
      * An immutable model has no setters and no composition validation on updates: the values which the active branch
      * hands over are adopted by the constructor only.
      */
