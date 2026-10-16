@@ -22,5 +22,41 @@
         "default": "default-a"
       }
     }
-  }
+  },
+  "else": {
+    "properties": {
+      "2nd value": {
+        "type": "string",
+        "default": "default-b"
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["X"]
+        },
+        "3rd value": {
+          "type": "string",
+          "default": "default-x"
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    },
+    {
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["Y"]
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    }
+  ]
 }
