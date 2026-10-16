@@ -138,9 +138,9 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
 
                 $scopeProperty = $this->scope->getProperty($branchProperty->getName());
 
-                // A branch property which is not transferred onto the scope (e.g. the internal
-                // `additionalProperties`/`patternProperties` bookkeeping properties) is no attribute of $this,
-                // resetting it would create a dynamic property.
+                // The branch properties of a `not` composition are never transferred onto the scope (only
+                // compositions of a ComposedPropertiesValidatorFactoryInterface are), so they are no attributes of
+                // $this: resetting them would create a dynamic property.
                 if ($scopeProperty === null) {
                     continue;
                 }
