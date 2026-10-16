@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 
-use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\Property;
@@ -12,10 +11,9 @@ use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
-use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
+use PHPModelGenerator\Model\Validator\UpdateAdditionalPropertiesValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
-use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class AdditionalPropertiesPostProcessor
@@ -72,45 +70,8 @@ class AdditionalPropertiesPostProcessor extends PostProcessor
         }
     }
 
-    /**
-     * Usually the AdditionalPropertiesValidator validates all additional properties against the constraints and updates
-     * the internal storage of the additional properties. If no additional property constraints are defined for the
-     * schema the provided additional properties must be updated separately as no AdditionalPropertiesValidator is added
-     * to the generated class.
-     */
     private function addUpdateAdditionalProperties(Schema $schema): void
     {
-        $schema->addBaseValidator(
-            new class ($schema) extends PropertyTemplateValidator {
-                public function __construct(Schema $schema)
-                {
-                    $patternProperties = array_keys($schema->getJsonSchema()->getJson()['patternProperties'] ?? []);
-
-                    parent::__construct(
-                        new Property($schema->getClassName(), null, $schema->getJsonSchema()),
-                        join(
-                            DIRECTORY_SEPARATOR,
-                            [
-                                '..',
-                                'SchemaProcessor',
-                                'PostProcessor',
-                                'Templates',
-                                'AdditionalProperties',
-                                'UpdateAdditionalProperties.phptpl',
-                            ],
-                        ),
-                        [
-                            'patternProperties' => $patternProperties
-                                ? RenderHelper::varExportArray($patternProperties)
-                                : null,
-                            'additionalProperties' => RenderHelper::varExportArray(
-                                array_keys($schema->getJsonSchema()->getJson()['properties'] ?? []),
-                            ),
-                        ],
-                        InvalidAdditionalPropertiesException::class,
-                    );
-                }
-            },
-        );
+        $schema->addBaseValidator(new UpdateAdditionalPropertiesValidator($schema));
     }
 }

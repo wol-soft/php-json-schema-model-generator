@@ -8,8 +8,11 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
+use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
+use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
+use PHPModelGenerator\Model\Validator\UpdateAdditionalPropertiesValidator;
 
 /**
  * Class CompositionPropertyDecorator
@@ -63,6 +66,45 @@ class CompositionPropertyDecorator extends PropertyProxy
     public function getAffectedObjectProperties(): array
     {
         return $this->affectedObjectProperties;
+    }
+
+    /**
+     * Whether the validity of the branch may change with keys of the object which the branch doesn't declare as
+     * properties: true for a branch with an object-level validator (maxProperties, additionalProperties - also
+     * implicitly denied via the generator configuration -, patternProperties, propertyNames, a nested composition,
+     * ...) or a dependency, and for a branch without a nested schema, whose dependencies are unknown.
+     *
+     * Deciding by a whitelist of the keywords in the branch JSON was rejected: a $ref branch only contains the
+     * reference and additionalProperties may be denied by the configuration without any keyword in the schema. The
+     * validators of the generated nested schema cover both.
+     */
+    public function dependsOnAllObjectProperties(): bool
+    {
+        $nestedSchema = $this->getNestedSchema();
+
+        if ($nestedSchema === null) {
+            return true;
+        }
+
+        foreach ($nestedSchema->getBaseValidators() as $baseValidator) {
+            // only stores the additional properties, never rejects a value
+            if (!$baseValidator instanceof UpdateAdditionalPropertiesValidator) {
+                return true;
+            }
+        }
+
+        foreach ($nestedSchema->getProperties() as $property) {
+            foreach ($property->getValidators() as $validator) {
+                if (
+                    $validator->getValidator() instanceof PropertyDependencyValidator
+                    || $validator->getValidator() instanceof SchemaDependencyValidator
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public function markAsAlwaysTrueBranch(): void

@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "maxLength": 1
+    },
+    "a1": {
+      "type": "string"
+    }
+  },
+  "patternProperties": {
+    "^a": {
+      "type": "string"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "const": "b"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    {
+      "properties": {
+        "kind": {
+          "type": "string",
+          "pattern": "^c"
+        },
+        "a1": {
+          "type": "string",
+          "default": "dflt"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    }
+  ]
+}

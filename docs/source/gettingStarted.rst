@@ -196,7 +196,7 @@ Immutable classes
 
     setImmutable(bool $immutable);
 
-If set to true the generated model classes will be delivered without setter methods for the object properties. By default the classes are generated without setter methods. Each setter will validate the provided value and throw either a specific exception or a collection exception depending on the `error collection configuration <#collect-errors-vs-early-return>`__. If all validations pass the internal value will be updated as well as the value which will be returned when `meta()->rawInput()` is called.
+If set to true the generated model classes will be delivered without setter methods for the object properties. By default the classes are generated without setter methods. Each setter will validate the provided value and throw either a specific exception or a collection exception depending on the `error collection configuration <#collect-errors-vs-early-return>`__. If all validations pass the internal value will be updated as well as the value which will be returned when `meta()->rawInput()` is called. If a validation fails, the model stays unchanged, including its internal state (e.g. the default values applied by a composition branch). Compositions of the schema are validated again by each setter of a property they depend on; a composition branch using an object level keyword (e.g. **maxProperties**, **additionalProperties**, **propertyNames**) depends on all properties of the model.
 
 .. code-block:: php
 
@@ -263,6 +263,10 @@ By setting the **denyAdditionalProperties** option each object which doesn't spe
 
     (new GeneratorConfiguration())
         ->setDenyAdditionalProperties(true);
+
+.. note::
+
+    The option also applies to the branches of a composition (e.g. **oneOf**) of an object. Such a branch rejects all properties it doesn't define, so it depends on all properties of the model: if `immutability <#immutable-classes>`__ is disabled, the composition is validated again by every setter of the model instead of only by the setters of the properties defined in its branches. To keep the latter, set *additionalProperties* to *true* explicitly for the branches.
 
 Implicit object composition
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

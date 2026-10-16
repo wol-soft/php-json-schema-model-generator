@@ -1,5 +1,5 @@
 /**
- *{% if minPropertyValidator %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+ *{% if minPropertyValidator or compositionValidatorKeys %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
  */
 private function _removeAdditionalProperty(string $key): bool
 {
@@ -19,11 +19,13 @@ private function _removeAdditionalProperty(string $key): bool
         return false;
     }
 
-    {% if minPropertyValidator %}
-        {% if generatorConfiguration.collectErrors() %}
+    {% if generatorConfiguration.collectErrors() %}
+        {% if minPropertyValidator or compositionValidatorKeys %}
             $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
+    {% endif %}
 
+    {% if minPropertyValidator %}
         if ({{ minPropertyValidator.getCheck() }}) {
             {{ viewHelper.validationError(minPropertyValidator) }}
         }
@@ -35,17 +37,15 @@ private function _removeAdditionalProperty(string $key): bool
         {% endif %}
     {% endif %}
 
-    if ($inPatternProperties) {
-        foreach ($this->_patternProperties as $patternHash => $_) {
-            unset($this->_patternProperties[$patternHash][$key]);
-        }
-    }
-
-    unset($this->_rawModelDataInput[$key]);
-
-    if ($inAdditionalProperties) {
-        unset($this->_additionalProperties[$key]);
-    }
+    {#
+        A composition with a branch depending on keys it doesn't declare (e.g. minProperties) is validated against
+        the remaining model data after the property is removed - restore the model state if it rejects the removal.
+    #}
+    {% if compositionValidatorKeys %}
+        {{ viewHelper.indent(viewHelper.wrapInModelStateRollback(schema, renderUpdate()), 1) }}
+    {% else %}
+        {{ viewHelper.indent(renderUpdate(), 1) }}
+    {% endif %}
 
     return true;
 }

@@ -3,8 +3,6 @@
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
 
-    $rollbackValues = $this->_patternProperties;
-
     foreach ($properties as $propertyKey => $value) {
         $propertyKey = (string) $propertyKey;
         try {
@@ -42,10 +40,6 @@
     {% if generatorConfiguration.collectErrors() %}
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
-
-    if (!empty($invalidProperties)) {
-        $this->_patternProperties = $rollbackValues;
-    }
 
     return !empty($invalidProperties);
 })()

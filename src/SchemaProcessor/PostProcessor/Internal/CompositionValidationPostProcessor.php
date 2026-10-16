@@ -36,25 +36,32 @@ class CompositionValidationPostProcessor extends PostProcessor
             return;
         }
 
-        $validatorPropertyMap = $this->generateValidatorPropertyMap($schema);
+        [$validatorPropertyMap, $allPropertiesValidatorIndices] = $this->generateValidatorPropertyMap($schema);
 
         $this->addValidationMethods($schema, $generatorConfiguration, $compositionValidatorKeys);
 
         // if the generator is immutable no validation on value updates are required
-        if ($generatorConfiguration->isImmutable() || empty($validatorPropertyMap)) {
+        if (
+            $generatorConfiguration->isImmutable()
+            || (empty($validatorPropertyMap) && empty($allPropertiesValidatorIndices))
+        ) {
             return;
         }
 
-        $this->addValidationCallsToSetterMethods($schema, $validatorPropertyMap);
+        $this->addValidationCallsToSetterMethods($schema, $validatorPropertyMap, $allPropertiesValidatorIndices);
     }
 
     /**
      * Set up a map containing the properties and the corresponding composition validators which must be checked when
      * the property is updated
+     *
+     * @return array{array<string, int[]>, int[]} The validators per property declared in a branch, and the validators
+     *         which must be checked when any property is updated
      */
     private function generateValidatorPropertyMap(Schema $schema): array
     {
         $validatorPropertyMap = [];
+        $allPropertiesValidatorIndices = [];
 
         // get all base validators which are composed value validators and set up a map of affected object properties
         foreach ($schema->getBaseValidators() as $validatorIndex => $validator) {
@@ -62,11 +69,18 @@ class CompositionValidationPostProcessor extends PostProcessor
                 continue;
             }
 
-            foreach ($validator->getComposedProperties() as $composedProperty) {
-                if ($composedProperty->getNestedSchema() === null) {
-                    continue;
-                }
+            // A branch which depends on keys it doesn't declare (e.g. maxProperties) may change its result with an
+            // update of any property, so each setter must validate the composition again. Mapping only the
+            // properties declared by the branches was rejected: an update of another property would be accepted
+            // although the constructor rejects the resulting data. The setters are resolved when they are rendered
+            // (see addValidationCallsToSetterMethods), not here, to cover properties added by later post processors.
+            if ($validator->dependsOnAllObjectProperties()) {
+                $allPropertiesValidatorIndices[] = $validatorIndex;
 
+                continue;
+            }
+
+            foreach ($validator->getComposedProperties() as $composedProperty) {
                 foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
                     if (!isset($validatorPropertyMap[$property->getName()])) {
                         $validatorPropertyMap[$property->getName()] = [];
@@ -77,7 +91,7 @@ class CompositionValidationPostProcessor extends PostProcessor
             }
         }
 
-        if (!empty($validatorPropertyMap)) {
+        if (!empty($validatorPropertyMap) || !empty($allPropertiesValidatorIndices)) {
             $schema->addProperty(
                 (new Property(
                     'propertyValidationState',
@@ -89,7 +103,7 @@ class CompositionValidationPostProcessor extends PostProcessor
                     ->setDefaultValue(
                         array_fill_keys(
                             array_unique(
-                                array_merge(...array_values($validatorPropertyMap)),
+                                array_merge($allPropertiesValidatorIndices, ...array_values($validatorPropertyMap)),
                             ),
                             [],
                         )
@@ -97,7 +111,7 @@ class CompositionValidationPostProcessor extends PostProcessor
             );
         }
 
-        return $validatorPropertyMap;
+        return [$validatorPropertyMap, $allPropertiesValidatorIndices];
     }
 
     /**
@@ -135,20 +149,48 @@ class CompositionValidationPostProcessor extends PostProcessor
      * Add internal calls to validation methods to the setters which are part of a composition validation. The
      * validation methods will validate the state of all compositions when the value is updated.
      */
-    private function addValidationCallsToSetterMethods(Schema $schema, array $validatorPropertyMap): void
-    {
-        $schema->addSchemaHook(new class ($validatorPropertyMap) implements SetterBeforeValidationHookInterface {
-            public function __construct(protected array $validatorPropertyMap)
-            {}
+    private function addValidationCallsToSetterMethods(
+        Schema $schema,
+        array $validatorPropertyMap,
+        array $allPropertiesValidatorIndices,
+    ): void {
+        $schema->addSchemaHook(new class (
+            $schema,
+            $validatorPropertyMap,
+            $allPropertiesValidatorIndices,
+        ) implements SetterBeforeValidationHookInterface {
+            public function __construct(
+                protected Schema $schema,
+                protected array $validatorPropertyMap,
+                protected array $allPropertiesValidatorIndices,
+            ) {}
 
             public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
             {
+                // A batch update (populate) executes all base validators, the compositions included, for the whole
+                // update. Validating the compositions again per updated property is redundant and, with collected
+                // errors, reports each failing composition a second time.
+                if ($batchUpdate) {
+                    return '';
+                }
+
+                $validatorIndices = $this->validatorPropertyMap[$property->getName()] ?? [];
+
+                // Only properties of the schema itself: the hook is also resolved for the validation property of
+                // additional properties, whose update already executes all base validators.
+                if (!$property->isInternal() && $this->schema->getProperty($property->getName()) === $property) {
+                    $validatorIndices = array_merge($validatorIndices, $this->allPropertiesValidatorIndices);
+                }
+
+                $validatorIndices = array_unique($validatorIndices);
+                sort($validatorIndices);
+
                 return join(
                     "\n",
                     array_map(
                         static fn(int $validatorIndex): string =>
                             sprintf('$this->_validateComposition_%s($modelData);', $validatorIndex),
-                        array_unique($this->validatorPropertyMap[$property->getName()] ?? []),
+                        $validatorIndices,
                     )
                 );
             }

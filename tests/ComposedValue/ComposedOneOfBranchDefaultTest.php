@@ -246,40 +246,37 @@ class ComposedOneOfBranchDefaultTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Regression test for the `is_array($originalModelData)` guard in ComposedItem.phptpl: a
-     * named-property composition (not the schema's own root composition) whose satisfied branch
-     * is a scalar must not crash when the branch-default reset mechanism runs.
+     * A composition on a named property never transfers the properties of its branches onto the outer schema: an
+     * object branch compiles to its own class which applies its defaults in its own constructor. The branch defaults
+     * of such a composition must therefore never be written to the outer model, even if the outer schema declares a
+     * sibling property with the same name as a branch property ("value" here).
      *
-     * The branch-default map is normally empty for a named-property composition, because
-     * AbstractComposedPropertyValidator::setupBranchDefaultHelpers() only records a branch
-     * property when it resolves to a REAL property on the containing schema
-     * (`$this->scope->getProperty($branchProperty->getName())`). That lookup is a plain name
-     * match, not an identity check against the branch itself - so it also matches a coincidental
-     * sibling property of the same name declared directly on the outer schema. Here the outer
-     * schema declares its own "value" property alongside "target", and "target"'s object branch
-     * also declares a "value" property with a default. That name collision populates the
-     * branch-default map for this named-property composition, even though "target" itself was
-     * never transferred onto the outer schema.
-     *
-     * When the string branch matches, $originalModelData for this validator is "target"'s own
-     * value - a plain string, not the outer model array - so without the guard,
-     * array_key_exists('value', $originalModelData) is called with a string haystack and throws
-     * a TypeError.
+     * Resolving the branch property on the outer schema by name was rejected: the name lookup matches the unrelated
+     * sibling, so the object branch default 'fallback' of target.value overwrote the integer property value of the
+     * outer model (and the getter then failed with a TypeError).
      */
-    public function testNamedPropertyCompositionWithScalarBranchAndSiblingNameCollisionDoesNotCrash(): void
+    public function testNamedPropertyCompositionDoesNotApplyBranchDefaultToSiblingWithSameName(): void
     {
         $className = $this->generateClassFromFile(
             'NamedPropertyBranchDefaultScalarSiblingCollision.json',
             (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
         );
 
-        // String branch of "target" matches: $originalModelData for the "target" composition
-        // validator is the plain string "hello", not an array. Must not throw a TypeError, and
-        // the unrelated sibling "value" property must not be clobbered by the branch-default
-        // reset (which is scoped to the coincidentally-named "value" property of the object
-        // branch of "target", not the outer schema's own "value" property).
+        // String branch of target matches: target holds the scalar, value is untouched.
         $object = new $className(['value' => 5, 'target' => 'hello']);
         $this->assertSame('hello', $object->getTarget());
         $this->assertSame(5, $object->getValue());
+
+        // Object branch of target matches: the default belongs to the nested object only.
+        $object = new $className(['value' => 5, 'target' => []]);
+        $this->assertSame(5, $object->getValue());
+        $this->assertSame('fallback', $object->getTarget()->getValue());
+        $this->assertSame(['value' => 5, 'target' => []], $object->meta()->rawInput());
+
+        // Same via the setter, switching target from the string branch to the object branch.
+        $object = new $className(['value' => 5, 'target' => 'hello']);
+        $object->setTarget([]);
+        $this->assertSame(5, $object->getValue());
+        $this->assertSame('fallback', $object->getTarget()->getValue());
     }
 }

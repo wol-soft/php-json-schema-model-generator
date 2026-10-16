@@ -26,6 +26,11 @@ Run the full suite:
 
     ./vendor/bin/phpunit
 
+The configuration (``phpunit.xml``) fails the test run on every PHP deprecation, warning and notice
+(``failOnDeprecation``, ``failOnWarning``, ``failOnNotice``), e.g. a dynamic property created by generated code. PHPUnit
+then still prints ``OK, but there were issues!`` but exits with a non-zero code. Add ``--display-deprecations``,
+``--display-warnings`` or ``--display-notices`` to see where the issue was triggered.
+
 For development work, save the full output to a file so it can be inspected after the run without re-executing the suite:
 
 .. code-block:: console
@@ -128,13 +133,13 @@ Examples:
 
 The three available drafts are defined in the ``JsonSchemaDraft`` enum:
 
-=========================== ===========
-Constant                    Description
-=========================== ===========
-``JsonSchemaDraft::DRAFT_07``         JSON Schema Draft 7 (the baseline)
-``JsonSchemaDraft::DRAFT_2019_09``    JSON Schema Draft 2019-09
-``JsonSchemaDraft::DRAFT_2020_12``    JSON Schema Draft 2020-12
-=========================== ===========
+================================== ==================================
+Constant                           Description
+================================== ==================================
+``JsonSchemaDraft::DRAFT_07``      JSON Schema Draft 7 (the baseline)
+``JsonSchemaDraft::DRAFT_2019_09`` JSON Schema Draft 2019-09
+``JsonSchemaDraft::DRAFT_2020_12`` JSON Schema Draft 2020-12
+================================== ==================================
 
 Data providers and multi-draft expansion
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
