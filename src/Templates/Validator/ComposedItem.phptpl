@@ -24,7 +24,18 @@
 
     {% foreach compositionProperties as compositionProperty %}
         try {
-            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
+            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
+                  and compositionProperty.dependsOnAllObjectProperties()
+            %}
+                {#
+                    The branch depends on keys it doesn't declare (e.g. maxProperties): whether the cached result
+                    is still valid can't be decided by the updated properties, always evaluate the branch again.
+                #}
+                {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
+            {% endif %}
+            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
+                  and not compositionProperty.dependsOnAllObjectProperties()
+            %}
                 // check if the state of the validator is already known.
                 // If none of the properties affected by the validator are changed the validator must not be re-evaluated
                 if (
@@ -54,7 +65,8 @@
                 } else {
                     {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 3) }}
                 }
-            {% else %}
+            {% endif %}
+            {% if not viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
                 {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
             {% endif %}
         } catch (\Exception $e) {

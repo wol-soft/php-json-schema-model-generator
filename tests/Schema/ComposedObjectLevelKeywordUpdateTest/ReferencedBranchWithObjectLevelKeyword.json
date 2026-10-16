@@ -1,0 +1,42 @@
+{
+  "type": "object",
+  "definitions": {
+    "branchB": {
+      "properties": {
+        "kind": {
+          "const": "B"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "maxProperties": 1
+    }
+  },
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": {
+    "type": "string"
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "const": "A"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    {
+      "$ref": "#/definitions/branchB"
+    }
+  ]
+}

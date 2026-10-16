@@ -63,7 +63,17 @@ class CompositionValidationPostProcessor extends PostProcessor
             }
 
             foreach ($validator->getComposedProperties() as $composedProperty) {
-                if ($composedProperty->getNestedSchema() === null) {
+                // A branch which depends on keys it doesn't declare (e.g. maxProperties) may change its result with
+                // an update of any property, so each setter must validate the composition again. Mapping only the
+                // properties declared by the branch was rejected: an update of another property would be accepted
+                // although the constructor rejects the resulting data.
+                if ($composedProperty->dependsOnAllObjectProperties()) {
+                    foreach ($schema->getProperties() as $property) {
+                        if (!$property->isInternal()) {
+                            $validatorPropertyMap[$property->getName()][] = $validatorIndex;
+                        }
+                    }
+
                     continue;
                 }
 
@@ -143,6 +153,13 @@ class CompositionValidationPostProcessor extends PostProcessor
 
             public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
             {
+                // A batch update (populate) executes all base validators, the compositions included, for the whole
+                // update. Validating the compositions again per updated property is redundant and, with collected
+                // errors, reports each failing composition a second time.
+                if ($batchUpdate) {
+                    return '';
+                }
+
                 return join(
                     "\n",
                     array_map(

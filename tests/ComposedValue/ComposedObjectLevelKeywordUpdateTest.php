@@ -1,0 +1,169 @@
+<?php
+
+declare(strict_types=1);
+
+namespace PHPModelGenerator\Tests\ComposedValue;
+
+use Closure;
+use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
+use Throwable;
+
+/**
+ * A composition of the schema remembers the result of each branch and evaluates a branch again only if an update
+ * changes one of the properties the branch declares. A branch with an object-level keyword (maxProperties,
+ * additionalProperties, patternProperties, propertyNames, dependencies, a nested composition, ...) depends on keys it
+ * does not declare. Such a branch must be evaluated again on every update, otherwise an update the constructor
+ * rejects is accepted.
+ *
+ * The reference for each update is the constructor: an update must be rejected with the same exception the
+ * constructor throws for the resulting model data.
+ */
+class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTestCase
+{
+    public static function objectLevelKeywordProvider(): array
+    {
+        return [
+            'maxProperties' => [', "maxProperties": 1', false, false, true],
+            'maxProperties (collect errors)' => [', "maxProperties": 1', false, true, true],
+            'additionalProperties' => [', "additionalProperties": false', false, false, true],
+            'implicitly denied additionalProperties' => ['', true, false, true],
+            'patternProperties' => [
+                ', "patternProperties": {"^(note|extra)$": {"type": "integer"}}',
+                false,
+                false,
+                true,
+            ],
+            'propertyNames' => [', "propertyNames": {"pattern": "^kind$"}', false, false, true],
+            'schema dependency' => [', "dependencies": {"kind": {"maxProperties": 1}}', false, false, true],
+            'nested composition' => [', "allOf": [{"maxProperties": 1}]', false, false, true],
+        ];
+    }
+
+    #[DataProvider('objectLevelKeywordProvider')]
+    public function testUpdateViolatingObjectLevelKeywordOfBranchIsRejectedLikeTheConstructor(
+        string $branchKeyword,
+        bool $denyAdditionalProperties,
+        bool $collectErrors,
+        bool $additionalPropertyViolatesBranch,
+    ): void {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFileTemplate(
+            'BranchWithObjectLevelKeyword.json',
+            [$branchKeyword],
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors($collectErrors)
+                ->setDenyAdditionalProperties($denyAdditionalProperties),
+            false,
+        );
+
+        $this->assertUpdatesAreRejectedLikeTheConstructor($className, $additionalPropertyViolatesBranch);
+    }
+
+    public function testUpdateViolatingObjectLevelKeywordOfReferencedBranchIsRejectedLikeTheConstructor(): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFile(
+            'ReferencedBranchWithObjectLevelKeyword.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $this->assertUpdatesAreRejectedLikeTheConstructor($className, true);
+    }
+
+    /**
+     * A branch which only constrains the properties it declares keeps the cached result: the setter of a property no
+     * branch declares doesn't execute the composition validation, and the cached result of a branch is used as long as
+     * none of its properties is updated.
+     */
+    public function testBranchWithDeclaredPropertiesOnlyKeepsCachedValidation(): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFile(
+            'BranchWithDeclaredPropertiesOnly.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className(['kind' => 'B']);
+        $object->setNote('n');
+        $object->populate(['note' => 'm']);
+        $this->assertSame(['kind' => 'B', 'note' => 'm'], $object->meta()->rawInput());
+
+        $source = file_get_contents((new ReflectionClass($className))->getFileName());
+
+        $this->assertMatchesRegularExpression('/function setNote\(.*?\n    }\n/s', $source);
+        preg_match('/function setNote\(.*?\n    }\n/s', $source, $setNote);
+        $this->assertStringNotContainsString('_validateComposition_', $setNote[0]);
+
+        preg_match('/function setKind\(.*?\n    }\n/s', $source, $setKind);
+        $this->assertStringContainsString('_validateComposition_', $setKind[0]);
+
+        // both branches keep the check for a cached result
+        $this->assertSame(2, substr_count($source, 'array_intersect('));
+    }
+
+    /**
+     * Each update of a model with kind 'B' must be rejected exactly like the constructor rejects the resulting data.
+     */
+    private function assertUpdatesAreRejectedLikeTheConstructor(
+        string $className,
+        bool $additionalPropertyViolatesBranch,
+    ): void {
+        $updates = [
+            'setter' => [static fn(object $object) => $object->setNote('n'), ['kind' => 'B', 'note' => 'n']],
+            'populate' => [
+                static fn(object $object) => $object->populate(['note' => 'n']),
+                ['kind' => 'B', 'note' => 'n'],
+            ],
+        ];
+
+        if ($additionalPropertyViolatesBranch) {
+            $updates['additional property'] = [
+                static fn(object $object) => $object->additionalProperties()->set('extra', 'e'),
+                ['kind' => 'B', 'extra' => 'e'],
+            ];
+        }
+
+        foreach ($updates as $update => [$executeUpdate, $resultingData]) {
+            $expectedException = $this->catchException(static fn() => new $className($resultingData));
+            $this->assertNotNull($expectedException, "The constructor must reject the data of the $update");
+
+            $actualException = $this->catchException(
+                static fn() => $executeUpdate(new $className(['kind' => 'B'])),
+            );
+
+            $this->assertNotNull($actualException, "The $update must be rejected");
+            $this->assertSame($expectedException::class, $actualException::class, $update);
+            $this->assertSame($expectedException->getMessage(), $actualException->getMessage(), $update);
+        }
+    }
+
+    private function catchException(Closure $callable): ?Throwable
+    {
+        try {
+            $callable();
+        } catch (Throwable $exception) {
+            return $exception;
+        }
+
+        return null;
+    }
+
+    private function addUpdatePostProcessors(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator
+                ->addPostProcessor(new PopulatePostProcessor())
+                ->addPostProcessor(new AdditionalPropertiesAccessorPostProcessor(true));
+        };
+    }
+}
