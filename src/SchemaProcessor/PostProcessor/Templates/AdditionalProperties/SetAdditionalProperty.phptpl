@@ -22,9 +22,11 @@ private function _setAdditionalProperty(
 
     {#
         The base validators store the value (as additional or pattern property) and evaluate the compositions before
-        the update is accepted - restore the model state if a later validator rejects the update.
+        the update is accepted - restore the model state if a later validator rejects the update. Hook code is only
+        resolved for a validation property, which exists only with an AdditionalPropertiesValidator (a base
+        validator), so the hook code is wrapped as well.
     #}
-    {% if schema.getBaseValidators() or validationProperty and schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) %}
+    {% if schema.getBaseValidators() %}
         {{ viewHelper.indent(viewHelper.wrapInModelStateRollback(schema, renderUpdate()), 1) }}
     {% else %}
         {{ viewHelper.indent(renderUpdate(), 1) }}
