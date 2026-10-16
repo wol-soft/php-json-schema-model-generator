@@ -36,7 +36,6 @@ What can you do inside your custom post processor?
     * Implement the **GetterHookInterface** to add code to your getter methods
     * Implement the **SetterBeforeValidationHookInterface** to add code to the beginning of your setter methods
     * Implement the **SetterAfterValidationHookInterface** to add code to the end of your setter methods
-    * Implement the **SetterRollbackHookInterface** to restore state which your hooks change while an update is validated if the update is rejected. The backup code is added to the beginning of the setter, the restore code is executed before the exception of a rejected update is passed on (also if the errors are collected). For a batch update via *populate* the code is rendered once for the whole update and the property is *null*
     * Implement the **SerializationHookInterface** to add code to the end of your serialization process
 
 .. warning::

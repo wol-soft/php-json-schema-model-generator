@@ -20,8 +20,6 @@ public function populate(array $modelData): self
 
     $rollbackValues = [];
 
-    {{ schemaHookResolver.resolveSetterRollbackBackupHook() }}
-
     {% if generatorConfiguration.collectErrors() %}
         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
 
@@ -32,8 +30,6 @@ public function populate(array $modelData): self
                 $this->{$property} = $value;
             }
 
-            {{ schemaHookResolver.resolveSetterRollbackRestoreHook() }}
-
             throw $this->_errorRegistry;
         }
     {% else %}
@@ -43,8 +39,6 @@ public function populate(array $modelData): self
             foreach ($rollbackValues as $property => $value) {
                 $this->{$property} = $value;
             }
-
-            {{ schemaHookResolver.resolveSetterRollbackRestoreHook() }}
 
             throw $exception;
         }

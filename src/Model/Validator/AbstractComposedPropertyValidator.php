@@ -56,26 +56,27 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     }
 
     /**
-     * The class attributes (as used in the generated code) which the branch defaults of this composition write to,
-     * see setupBranchDefaultHelpers().
+     * Sets up the allBranchDefaultAttributeMap template variable and registers the
+     * _getModifiedValues_* helper method on the schema scope. Properties that already carry
+     * a root-level (unconditional) default in the parent schema are excluded from the map;
+     * those defaults are applied via PHP field initializers and must not be reset by the
+     * per-branch mechanism.
      *
-     * @return string[]
+     * Returns true when the helper method was registered (at least one branch has a nested
+     * schema with properties), false otherwise.
      */
-    public function getBranchDefaultAttributes(): array
+    protected function setupBranchDefaultHelpers(): bool
     {
-        return array_map(
-            fn(string $propertyName): string => $this->scope->getProperty($propertyName)->getAttribute(true),
-            array_keys($this->collectBranchDefaults()[0]),
-        );
-    }
+        $hasNestedSchemaWithProperties = $this->hasNestedSchemaWithProperties();
 
-    /**
-     * @return array{array<string, string>, array<int, string[]>, array<string, string>} The attributes of the
-     *         branch defaults which are reset by the composition (property name => attribute), the names of the
-     *         properties with a default per component and the getters of all branch properties
-     */
-    private function collectBranchDefaults(): array
-    {
+        $this->templateValues['hasModifiedValuesMethod'] = $hasNestedSchemaWithProperties;
+
+        if (!$hasNestedSchemaWithProperties) {
+            $this->templateValues['allBranchDefaultAttributeMap'] = RenderHelper::varExportArray([]);
+
+            return false;
+        }
+
         $allBranchDefaultAttributeMap = [];
         $componentDefaultValueMap = [];
         $propertyAccessors = [];
@@ -136,33 +137,6 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
                 $allBranchDefaultAttributeMap[$branchProperty->getName()] = $scopeProperty->getAttribute(true);
             }
         }
-
-        return [$allBranchDefaultAttributeMap, $componentDefaultValueMap, $propertyAccessors];
-    }
-
-    /**
-     * Sets up the allBranchDefaultAttributeMap template variable and registers the
-     * _getModifiedValues_* helper method on the schema scope. Properties that already carry
-     * a root-level (unconditional) default in the parent schema are excluded from the map;
-     * those defaults are applied via PHP field initializers and must not be reset by the
-     * per-branch mechanism.
-     *
-     * Returns true when the helper method was registered (at least one branch has a nested
-     * schema with properties), false otherwise.
-     */
-    protected function setupBranchDefaultHelpers(): bool
-    {
-        $hasNestedSchemaWithProperties = $this->hasNestedSchemaWithProperties();
-
-        $this->templateValues['hasModifiedValuesMethod'] = $hasNestedSchemaWithProperties;
-
-        if (!$hasNestedSchemaWithProperties) {
-            $this->templateValues['allBranchDefaultAttributeMap'] = RenderHelper::varExportArray([]);
-
-            return false;
-        }
-
-        [$allBranchDefaultAttributeMap, $componentDefaultValueMap, $propertyAccessors] = $this->collectBranchDefaults();
 
         $this->templateValues['allBranchDefaultAttributeMap'] = RenderHelper::varExportArray(
             $allBranchDefaultAttributeMap,

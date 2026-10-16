@@ -32,22 +32,6 @@ class SchemaHookResolver
         return $this->resolveHook(SetterBeforeValidationHookInterface::class, $property, $batchUpdate);
     }
 
-    public function resolveSetterRollbackBackupHook(?PropertyInterface $property = null): string
-    {
-        return $this->joinCode(array_map(
-            static fn(SetterRollbackHookInterface $hook): string => $hook->getBackupCode($property),
-            $this->getHooks(SetterRollbackHookInterface::class),
-        ));
-    }
-
-    public function resolveSetterRollbackRestoreHook(?PropertyInterface $property = null): string
-    {
-        return $this->joinCode(array_map(
-            static fn(SetterRollbackHookInterface $hook): string => $hook->getRestoreCode($property),
-            $this->getHooks(SetterRollbackHookInterface::class),
-        ));
-    }
-
     public function resolveSetterAfterValidationHook(PropertyInterface $property, bool $batchUpdate = false): string
     {
         return $this->resolveHook(SetterAfterValidationHookInterface::class, $property, $batchUpdate);
@@ -71,20 +55,16 @@ class SchemaHookResolver
 
     private function resolveHook(string $filterHook, mixed ...$parameters): string
     {
-        return $this->joinCode(
-            array_map(static fn($hook): string => $hook->getCode(...$parameters), $this->getHooks($filterHook)),
-        );
-    }
-
-    /**
-     * @param string[] $codeSnippets
-     */
-    private function joinCode(array $codeSnippets): string
-    {
         // A hook may legitimately have no code to contribute for a given call (eg. a hook which only applies to
         // a subset of properties or configurations). Filtering those out before joining avoids the "\n\n"
         // separator surviving as a stray leading/trailing/middle blank when mixed with a hook that does emit
         // code, which would corrupt the embedding template's ambient indentation for the remaining code.
-        return join("\n\n", array_filter($codeSnippets, static fn(string $code): bool => $code !== ''));
+        return join(
+            "\n\n",
+            array_filter(
+                array_map(static fn($hook): string => $hook->getCode(...$parameters), $this->getHooks($filterHook)),
+                static fn(string $code): bool => $code !== '',
+            ),
+        );
     }
 }
