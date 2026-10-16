@@ -26,6 +26,11 @@ Run the full suite:
 
     ./vendor/bin/phpunit
 
+The configuration (``phpunit.xml``) fails the test run on every PHP deprecation, warning and notice
+(``failOnDeprecation``, ``failOnWarning``, ``failOnNotice``), e.g. a dynamic property created by generated code. PHPUnit
+then still prints ``OK, but there were issues!`` but exits with a non-zero code. Add ``--display-deprecations``,
+``--display-warnings`` or ``--display-notices`` to see where the issue was triggered.
+
 For development work, save the full output to a file so it can be inspected after the run without re-executing the suite:
 
 .. code-block:: console

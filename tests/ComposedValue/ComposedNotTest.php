@@ -227,8 +227,9 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
     /**
      * The properties of a `not` branch are never transferred onto the schema, so the default of a branch property
      * is no attribute of the model and must not be written by the branch default reset (it would create a dynamic
-     * property). Resolving the attributes of all branch properties of a composition of the schema without checking
-     * the schema was rejected for exactly this case.
+     * property, the deprecation fails the test run via failOnDeprecation in phpunit.xml). Resolving the attributes
+     * of all branch properties of a composition of the schema without checking the schema was rejected for exactly
+     * this case.
      */
     public function testObjectLevelNotDoesNotApplyBranchDefaultOfNotTransferredProperty(): void
     {
@@ -242,8 +243,6 @@ class ComposedNotTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame('other', $object->getKind());
         $this->assertSame(['kind' => 'other'], $object->meta()->rawInput());
-        // no dynamic property was created for the branch property
-        $this->assertSame([], get_object_vars($object));
     }
 
     #[DataProvider('validExtendedPropertyDataProvider')]
