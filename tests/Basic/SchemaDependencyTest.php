@@ -7,6 +7,8 @@ namespace PHPModelGenerator\Tests\Basic;
 use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -359,5 +361,53 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
                 ERROR,
             ],
         ];
+    }
+
+    /**
+     * The schema which is dependant on a property is validated against the whole model data, not only against the
+     * values which are part of the update.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testSetterAndPopulateValidateTheDependencySchemaAgainstTheStoredData(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
+        $className = $this->generateClassFromFile('SchemaDependency.json', $configuration->setImmutable(false));
+
+        $object = new $className(['date_of_birth' => '1990-01-01']);
+
+        $object->setCreditCard(12345);
+        $this->assertSame(12345, $object->getCreditCard());
+
+        $object->populate(['credit_card' => 6789]);
+        $this->assertSame(6789, $object->getCreditCard());
+
+        // The dependency schema is still enforced if the required value isn't stored.
+        $object = new $className([]);
+
+        try {
+            $object->setCreditCard(12345);
+            $this->fail('Expected exception for the invalid dependency schema');
+        } catch (ErrorRegistryException | InvalidSchemaDependencyException $exception) {
+            // The direct exception reports the first violation only.
+            $this->assertSame(
+                $configuration->collectErrors()
+                    ? <<<ERROR
+                    Invalid schema which is dependant on 'credit_card':
+                      - Missing required value for 'date_of_birth'
+                      - Invalid type for 'date_of_birth': requires 'string', got 'NULL'
+                    ERROR
+                    : <<<ERROR
+                    Invalid schema which is dependant on 'credit_card':
+                      - Missing required value for 'date_of_birth'
+                    ERROR,
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertNull($object->getCreditCard());
     }
 }
