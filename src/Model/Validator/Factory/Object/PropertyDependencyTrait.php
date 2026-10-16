@@ -71,10 +71,15 @@ trait PropertyDependencyTrait
         $this->transferDependentPropertiesToBaseSchema($dependencySchema, $schema);
     }
 
+    /**
+     * The transferred properties neither validate nor transform: the dependency schema only validates the data (also
+     * with its filters, which keep running inside the dependency schema). A property which is declared by the base
+     * schema keeps the declaration of the base schema, independent of the order of the properties.
+     */
     private function transferDependentPropertiesToBaseSchema(Schema $dependencySchema, Schema $schema): void
     {
         foreach ($dependencySchema->getProperties() as $dependencyProperty) {
-            $schema->addProperty(
+            $schema->addDependencyTransferredProperty(
                 (clone $dependencyProperty)
                     ->setRequired(false)
                     ->setType(null)

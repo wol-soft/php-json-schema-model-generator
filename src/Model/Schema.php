@@ -62,6 +62,9 @@ class Schema
     /** @var array<string, true> */
     private array $rootRegisteredPropertyNames = [];
 
+    /** @var array<string, true> Properties which are only registered as the copy of a property of a schema dependency */
+    private array $dependencyTransferredPropertyNames = [];
+
     /** @var string[] Maps normalized attribute → raw property name; used to detect property-vs-property collisions */
     private array $attributeIndex = [];
 
@@ -228,15 +231,13 @@ class Schema
 
             $property->isResolved() ? $registerAttribute() : $property->onResolve($registerAttribute);
 
-            $property->onResolve(function (): void {
-                if (++$this->resolvedProperties === count($this->properties)) {
-                    foreach ($this->onAllPropertiesResolvedCallbacks as $callback) {
-                        $callback();
+            $property->onResolve($this->onPropertyResolved(...));
 
-                        $this->onAllPropertiesResolvedCallbacks = [];
-                    }
-                }
-            });
+            return $this;
+        }
+
+        if ($compositionProcessor === null && isset($this->dependencyTransferredPropertyNames[$property->getName()])) {
+            $this->replaceDependencyTransferredProperty($property);
 
             return $this;
         }
@@ -252,6 +253,58 @@ class Schema
         );
 
         return $this;
+    }
+
+    /**
+     * Register the copy of a property of a schema dependency. The copy neither validates nor transforms, it must not
+     * take precedence over a property of this schema with the same name: an existing property is kept, and the copy is
+     * replaced by the declaration of the schema if that is registered later (see addProperty()).
+     *
+     * @throws SchemaException
+     */
+    public function addDependencyTransferredProperty(PropertyInterface $property): self
+    {
+        if (isset($this->dependencyTransferredPropertyNames[$property->getName()])) {
+            return $this;
+        }
+
+        $isNew = !isset($this->properties[$property->getName()]);
+
+        $this->addProperty($property);
+
+        if ($isNew) {
+            $this->dependencyTransferredPropertyNames[$property->getName()] = true;
+        }
+
+        return $this;
+    }
+
+    /**
+     * The slot keeps its position in the property order, the generated class lists the property where the dependency
+     * schema transferred it.
+     */
+    private function replaceDependencyTransferredProperty(PropertyInterface $property): void
+    {
+        unset($this->dependencyTransferredPropertyNames[$property->getName()]);
+
+        $this->properties[$property->getName()] = $property;
+
+        // The replaced copy counted as resolved.
+        if (!$property->isResolved()) {
+            $this->resolvedProperties--;
+            $property->onResolve($this->onPropertyResolved(...));
+        }
+    }
+
+    private function onPropertyResolved(): void
+    {
+        if (++$this->resolvedProperties === count($this->properties)) {
+            foreach ($this->onAllPropertiesResolvedCallbacks as $callback) {
+                $callback();
+
+                $this->onAllPropertiesResolvedCallbacks = [];
+            }
+        }
     }
 
     public function isRootRegistered(string $name): bool

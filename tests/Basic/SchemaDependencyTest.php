@@ -6,10 +6,12 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionMethod;
 
 /**
  * Class SchemaDependencyTest
@@ -359,5 +361,83 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
                 ERROR,
             ],
         ];
+    }
+
+    public static function dependencySchemaRedeclaringMainPropertyDataProvider(): array
+    {
+        return [
+            'main property declared after the dependant property' =>
+                ['DependencySchemaRedeclaresMainPropertyAfterDependant.json'],
+            'main property declared before the dependant property' =>
+                ['DependencySchemaRedeclaresMainPropertyBeforeDependant.json'],
+        ];
+    }
+
+    /**
+     * A property which is declared by the main schema and again by a dependency schema keeps the declaration of the
+     * main schema (type, validators, filters), independent of the order in which the properties are declared. The
+     * dependency schema only validates.
+     */
+    #[DataProvider('dependencySchemaRedeclaringMainPropertyDataProvider')]
+    public function testPropertyOfTheMainSchemaWinsOverTheDeclarationOfADependencySchema(string $schemaFile): void
+    {
+        $className = $this->generateClassFromFile($schemaFile, (new GeneratorConfiguration())->setCollectErrors(false));
+
+        $object = new $className(['billing_address' => '  555 Debitors Lane  ']);
+        $this->assertSame('555 Debitors Lane', $object->getBillingAddress());
+        $this->assertSame(
+            '?string',
+            (string) (new ReflectionMethod($className, 'getBillingAddress'))->getReturnType(),
+        );
+
+        try {
+            new $className(['billing_address' => '  ab  ']);
+            $this->fail('Expected the minLength violation of the main schema');
+        } catch (MinLengthException $exception) {
+            $this->assertSame("Value for 'billing_address' must not be shorter than 3", $exception->getMessage());
+        }
+
+        // The dependency schema is still enforced.
+        $this->expectException(InvalidSchemaDependencyException::class);
+        $this->expectExceptionMessage(
+            "Invalid schema which is dependant on 'credit_card':\n  - Missing required value for 'billing_address'",
+        );
+
+        new $className(['credit_card' => 12345]);
+    }
+
+    /**
+     * A filter of a property inside a dependency schema runs inside the dependency schema (the validators of the
+     * property see the filtered value), the base model keeps the value as provided. Consistent with the condition of
+     * an if/then/else. A property which should be filtered has to be declared in the main schema.
+     */
+    public function testFilterInDependencySchemaRunsInsideTheDependencySchemaOnly(): void
+    {
+        $className = $this->generateClassFromFile(
+            'DependencySchemaWithFilter.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        // The dependency is active, the filtered value satisfies the minLength; the base model keeps the raw value.
+        $object = new $className(['credit_card' => 12345, 'note' => '  ab  ']);
+        $this->assertSame('  ab  ', $object->getNote());
+
+        // The dependency is inactive: the dependency schema isn't validated.
+        $object = new $className(['note' => ' a ']);
+        $this->assertSame(' a ', $object->getNote());
+
+        // The filtered value ('a') violates the minLength of the dependency schema.
+        try {
+            new $className(['credit_card' => 12345, 'note' => ' a ']);
+            $this->fail('Expected the minLength violation of the dependency schema');
+        } catch (InvalidSchemaDependencyException $exception) {
+            $this->assertSame(
+                <<<ERROR
+                Invalid schema which is dependant on 'credit_card':
+                  - Value for 'note' must not be shorter than 2
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
     }
 }
