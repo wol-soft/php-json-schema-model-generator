@@ -12,6 +12,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PatternPropertiesAccessorPos
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
 use Throwable;
 
 /**
@@ -48,12 +49,9 @@ class ComposedFailedUpdateStateTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['kind' => 'a']);
 
-        try {
-            $object->setKind('bb');
-            $this->fail('Expected the maxLength violation of kind');
-        } catch (Throwable $exception) {
-            $this->assertInstanceOf($expectedException, $exception);
-        }
+        $exception = $this->catchException(static fn() => $object->setKind('bb'));
+        $this->assertInstanceOf($expectedException, $exception, 'Expected the maxLength violation of kind');
+        $this->assertSame("Value for 'kind' must not be longer than 1", $exception->getMessage());
 
         $this->assertSame('a', $object->getKind());
         // The default of the second branch was not adopted: the branch doesn't match.
@@ -84,12 +82,9 @@ class ComposedFailedUpdateStateTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['kind' => 'a']);
 
-        try {
-            $object->populate(['kind' => 'bb', 'other' => 'y']);
-            $this->fail('Expected the maxLength violation of kind');
-        } catch (Throwable $exception) {
-            $this->assertInstanceOf($expectedException, $exception);
-        }
+        $exception = $this->catchException(static fn() => $object->populate(['kind' => 'bb', 'other' => 'y']));
+        $this->assertInstanceOf($expectedException, $exception, 'Expected the maxLength violation of kind');
+        $this->assertSame("Value for 'kind' must not be longer than 1", $exception->getMessage());
 
         $this->assertSame('a', $object->getKind());
         $this->assertNull($object->getOther());
@@ -134,12 +129,9 @@ class ComposedFailedUpdateStateTest extends AbstractPHPModelGeneratorTestCase
         // setter: the second branch matches (default for a1), the maxLength of kind rejects the update
         $object = new $className(['kind' => 'b']);
 
-        try {
-            $object->setKind('cc');
-            $this->fail('Expected the maxLength violation of kind');
-        } catch (Throwable $exception) {
-            $this->assertInstanceOf($expectedException, $exception);
-        }
+        $exception = $this->catchException(static fn() => $object->setKind('cc'));
+        $this->assertInstanceOf($expectedException, $exception, 'Expected the maxLength violation of kind');
+        $this->assertSame("Value for 'kind' must not be longer than 1", $exception->getMessage());
 
         $this->assertSame('b', $object->getKind());
         $this->assertNull($object->getA1());
@@ -150,12 +142,9 @@ class ComposedFailedUpdateStateTest extends AbstractPHPModelGeneratorTestCase
         // populate: additionally a new pattern property, which must not be adopted
         $object = new $className(['kind' => 'b']);
 
-        try {
-            $object->populate(['kind' => 'cc', 'a2' => 'y']);
-            $this->fail('Expected the maxLength violation of kind');
-        } catch (Throwable $exception) {
-            $this->assertInstanceOf($expectedException, $exception);
-        }
+        $exception = $this->catchException(static fn() => $object->populate(['kind' => 'cc', 'a2' => 'y']));
+        $this->assertInstanceOf($expectedException, $exception, 'Expected the maxLength violation of kind');
+        $this->assertSame("Value for 'kind' must not be longer than 1", $exception->getMessage());
 
         $this->assertSame('b', $object->getKind());
         $this->assertNull($object->getA1());
@@ -185,12 +174,20 @@ class ComposedFailedUpdateStateTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className(['kind' => 'a']);
         $this->assertNull($object->getSandbox());
 
-        try {
-            $object->setKind('bb');
-            $this->fail('Expected the oneOf violation of kind');
-        } catch (Throwable $exception) {
-            $this->assertInstanceOf($expectedException, $exception);
-        }
+        $exception = $this->catchException(static fn() => $object->setKind('bb'));
+        $this->assertInstanceOf($expectedException, $exception, 'Expected the oneOf violation of kind');
+        $this->assertSame(
+            sprintf(
+                "Invalid value for '%s' declined by composition constraint\n"
+                    . '  Requires to match one composition element but matched 0 elements%s',
+                (new ReflectionClass($className))->getShortName(),
+                // with collected errors, the failing element of the composition is listed
+                $collectErrors
+                    ? "\n  - Composition element #1: Failed\n    * Value for 'kind' must not be longer than 1"
+                    : '',
+            ),
+            $exception->getMessage(),
+        );
 
         $this->assertSame('a', $object->getKind());
         $this->assertNull($object->getSandbox());

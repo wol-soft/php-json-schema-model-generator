@@ -157,13 +157,9 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
 
         $object = new $className(['name' => 'Albert', 'age' => 35]);
 
-        try {
-            $object->setAge(-12);
-            $this->fail('Expected the minimum violation of age');
-        } catch (Exception $exception) {
-            $this->assertInstanceOf($expectedException, $exception);
-            $this->assertSame("Value for 'age' must not be smaller than 0", $exception->getMessage());
-        }
+        $exception = $this->catchException(static fn() => $object->setAge(-12));
+        $this->assertInstanceOf($expectedException, $exception, 'Expected the minimum violation of age');
+        $this->assertSame("Value for 'age' must not be smaller than 0", $exception->getMessage());
 
         $this->assertSame(35, $object->getAge());
         $this->assertSame(['name' => 'Albert', 'age' => 35], $object->meta()->rawInput());

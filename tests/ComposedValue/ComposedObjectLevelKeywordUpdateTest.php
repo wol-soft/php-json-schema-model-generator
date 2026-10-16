@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\ComposedValue;
 
-use Closure;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyType;
@@ -17,7 +16,6 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
-use Throwable;
 
 /**
  * A composition of the schema remembers the result of each branch and evaluates a branch again only if an update
@@ -253,17 +251,6 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
             $this->assertNull($object->getNote(), $update);
             $this->assertSame([], $object->additionalProperties()->getAll(), $update);
         }
-    }
-
-    private function catchException(Closure $callable): ?Throwable
-    {
-        try {
-            $callable();
-        } catch (Throwable $exception) {
-            return $exception;
-        }
-
-        return null;
     }
 
     private function addUpdatePostProcessors(): void
