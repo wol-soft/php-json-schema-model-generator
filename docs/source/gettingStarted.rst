@@ -264,6 +264,10 @@ By setting the **denyAdditionalProperties** option each object which doesn't spe
     (new GeneratorConfiguration())
         ->setDenyAdditionalProperties(true);
 
+.. note::
+
+    The option also applies to the branches of a composition (e.g. **oneOf**) of an object. Such a branch rejects all properties it doesn't define, so it depends on all properties of the model: if `immutability <#immutable-classes>`__ is disabled, the composition is validated again by every setter of the model instead of only by the setters of the properties defined in its branches. To keep the latter, set *additionalProperties* to *true* explicitly for the branches.
+
 Implicit object composition
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
