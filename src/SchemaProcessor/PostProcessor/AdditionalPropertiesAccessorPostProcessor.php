@@ -21,6 +21,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\AdditionalPropertiesPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\SerializationPostProcessor;
+use PHPModelGenerator\Utils\RenderFactory;
 use PHPModelGenerator\Utils\RenderHelper;
 use ReflectionClass;
 
@@ -185,6 +186,18 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                     'objectProperties' => RenderHelper::varExportArray($objectProperties),
                     'objectPropertyPointers' => RenderHelper::varExportArray($objectPropertyPointers),
                     'schemaHookResolver' => new SchemaHookResolver($schema),
+                    // the update is rendered on its own to be wrapped into the model state rollback
+                    'renderUpdate' => static fn(): string => RenderFactory::create(
+                        __DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR,
+                    )->renderTemplate(
+                        'AdditionalProperties' . DIRECTORY_SEPARATOR . 'SetAdditionalPropertyUpdate.phptpl',
+                        [
+                            'schema' => $schema,
+                            'validationProperty' => $validationProperty,
+                            'schemaHookResolver' => new SchemaHookResolver($schema),
+                            'generatorConfiguration' => $generatorConfiguration,
+                        ],
+                    ),
                 ],
             )
         );
@@ -237,13 +250,34 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             ))->withJsonPointer($schema->getJsonSchema()->getPointer() . '/minProperties');
         }
 
+        // Removing a key can only change the result of a composition with a branch depending on keys it doesn't
+        // declare: every other branch only validates declared properties, which can't be removed via this method.
+        $compositionValidatorKeys = array_values(array_filter(
+            $schema->getCompositionValidatorKeys(),
+            static fn(int $validatorIndex): bool =>
+                $schema->getBaseValidators()[$validatorIndex]->dependsOnAllObjectProperties(),
+        ));
+
         $schema->addMethod(
             '_removeAdditionalProperty',
             new RenderedMethod(
                 $schema,
                 $generatorConfiguration,
                 'AdditionalProperties/RemoveAdditionalProperty.phptpl',
-                ['minPropertyValidator' => $minPropertyValidator],
+                [
+                    'minPropertyValidator' => $minPropertyValidator,
+                    'compositionValidatorKeys' => $compositionValidatorKeys,
+                    // the update is rendered on its own to be wrapped into the model state rollback
+                    'renderUpdate' => static fn(): string => RenderFactory::create(
+                        __DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR,
+                    )->renderTemplate(
+                        'AdditionalProperties' . DIRECTORY_SEPARATOR . 'RemoveAdditionalPropertyUpdate.phptpl',
+                        [
+                            'compositionValidatorKeys' => $compositionValidatorKeys,
+                            'generatorConfiguration' => $generatorConfiguration,
+                        ],
+                    ),
+                ],
             )
         );
     }

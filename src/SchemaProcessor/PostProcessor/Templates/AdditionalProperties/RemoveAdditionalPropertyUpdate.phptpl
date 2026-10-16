@@ -1,0 +1,25 @@
+if ($inPatternProperties) {
+    foreach ($this->_patternProperties as $patternHash => $_) {
+        unset($this->_patternProperties[$patternHash][$key]);
+    }
+}
+
+unset($this->_rawModelDataInput[$key]);
+
+if ($inAdditionalProperties) {
+    unset($this->_additionalProperties[$key]);
+}
+
+{% if compositionValidatorKeys %}
+    // the compositions merge the remaining model data, no property is updated
+    $updatedModelData = [];
+    {% foreach compositionValidatorKeys as compositionValidatorKey %}
+        $this->_validateComposition_{{ compositionValidatorKey }}($updatedModelData);
+    {% endforeach %}
+
+    {% if generatorConfiguration.collectErrors() %}
+        if (count($this->_errorRegistry->getErrors())) {
+            throw $this->_errorRegistry;
+        }
+    {% endif %}
+{% endif %}

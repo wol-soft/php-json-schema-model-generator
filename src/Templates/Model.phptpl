@@ -164,15 +164,7 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
                     {% endif %}
 
-                    {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
-
-                    $value = $this->_validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
-
-                    {% if generatorConfiguration.collectErrors() %}
-                        if ($this->_errorRegistry->getErrors()) {
-                            throw $this->_errorRegistry;
-                        }
-                    {% endif %}
+                    {{ viewHelper.indent(viewHelper.renderSetterValidation(schema, property, schemaHookResolver), 2) }}
 
                     $this->{{ property.getAttribute(true) }} = $value;
                     $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};

@@ -1,9 +1,3 @@
-foreach (['_additionalProperties', '_patternProperties'] as $property) {
-    if (isset($this->{$property})) {
-        $rollbackValues[$property] = $this->{$property};
-    }
-}
-
 {% if schema.getBaseValidators() %}
     $this->_executeBaseValidators($modelData);
 {% endif %}
@@ -16,8 +10,14 @@ foreach (['_additionalProperties', '_patternProperties'] as $property) {
         ) {
             {{ schemaHookResolver.resolveSetterBeforeValidationHook(property, true) }}
 
-            $rollbackValues['{{ property.getAttribute(true) }}'] = $this->{{ property.getAttribute(true) }};
+            $updatedProperties['{{ property.getAttribute(true) }}'] = true;
             $this->_process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
         }
     {% endif %}
 {% endforeach %}
+
+{% if generatorConfiguration.collectErrors() %}
+    if (count($this->_errorRegistry->getErrors())) {
+        throw $this->_errorRegistry;
+    }
+{% endif %}

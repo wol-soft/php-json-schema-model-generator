@@ -1,0 +1,18 @@
+/**
+ * Snapshot of the model state before an update, restored via _restoreModelState() if the update is rejected
+ */
+private function _backupModelState(): array
+{
+    $modelState = [];
+
+    {#
+        Copy each value instead of using get_object_vars() directly: get_object_vars() keeps PHP references (e.g. a
+        declared property linked into the pattern property storage), so the snapshot would follow later changes of
+        the referenced value and the restore couldn't detect them.
+    #}
+    foreach (get_object_vars($this) as $attribute => $value) {
+        $modelState[$attribute] = $value;
+    }
+
+    return $modelState;
+}

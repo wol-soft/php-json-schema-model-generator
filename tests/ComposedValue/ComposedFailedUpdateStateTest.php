@@ -8,6 +8,7 @@ use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PatternPropertiesAccessorPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -101,5 +102,102 @@ class ComposedFailedUpdateStateTest extends AbstractPHPModelGeneratorTestCase
 
         $object->setOther('x');
         $this->assertSame('x', $object->getOther());
+    }
+
+    /**
+     * A declared property matching a pattern property is linked into the pattern property storage by reference. The
+     * composition writes the branch default of a1 through this reference before the update is rejected by the
+     * maxLength of kind. The restored model must neither contain the default nor lose the reference: a later update
+     * of a1 must still be visible via the pattern property accessor.
+     *
+     * Restoring from a snapshot which still contains the reference was rejected: the snapshot value then follows the
+     * reference and holds the default, so the restore would not detect the change.
+     *
+     * @param class-string<Throwable> $expectedException
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testRejectedUpdateRestoresBranchDefaultOfPatternPropertyAndKeepsReference(
+        bool $collectErrors,
+        string $expectedException,
+    ): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator
+                ->addPostProcessor(new PopulatePostProcessor())
+                ->addPostProcessor(new PatternPropertiesAccessorPostProcessor());
+        };
+
+        $className = $this->generateClassFromFile(
+            'BranchDefaultOnPatternProperty.json',
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(false),
+        );
+
+        // setter: the second branch matches (default for a1), the maxLength of kind rejects the update
+        $object = new $className(['kind' => 'b']);
+
+        try {
+            $object->setKind('cc');
+            $this->fail('Expected the maxLength violation of kind');
+        } catch (Throwable $exception) {
+            $this->assertInstanceOf($expectedException, $exception);
+        }
+
+        $this->assertSame('b', $object->getKind());
+        $this->assertNull($object->getA1());
+
+        $object->setA1('x');
+        $this->assertSame(['a1' => 'x'], $object->patternProperties()->get('^a'));
+
+        // populate: additionally a new pattern property, which must not be adopted
+        $object = new $className(['kind' => 'b']);
+
+        try {
+            $object->populate(['kind' => 'cc', 'a2' => 'y']);
+            $this->fail('Expected the maxLength violation of kind');
+        } catch (Throwable $exception) {
+            $this->assertInstanceOf($expectedException, $exception);
+        }
+
+        $this->assertSame('b', $object->getKind());
+        $this->assertNull($object->getA1());
+        $this->assertSame(['kind' => 'b'], $object->meta()->rawInput());
+
+        $object->populate(['a1' => 'x', 'a2' => 'y']);
+        $this->assertSame(['a1' => 'x', 'a2' => 'y'], $object->patternProperties()->get('^a'));
+    }
+
+    /**
+     * The first composition (anyOf) accepts the update, records its result and applies the default of its matching
+     * branch. The second composition (oneOf) rejects the update afterwards. The model state written by the first
+     * composition must be restored as well, although the first composition itself succeeded.
+     *
+     * @param class-string<Throwable> $expectedException
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testRejectionBySecondCompositionRestoresStateOfFirstComposition(
+        bool $collectErrors,
+        string $expectedException,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'SecondCompositionRejects.json',
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(false),
+        );
+
+        $object = new $className(['kind' => 'a']);
+        $this->assertNull($object->getSandbox());
+
+        try {
+            $object->setKind('bb');
+            $this->fail('Expected the oneOf violation of kind');
+        } catch (Throwable $exception) {
+            $this->assertInstanceOf($expectedException, $exception);
+        }
+
+        $this->assertSame('a', $object->getKind());
+        $this->assertNull($object->getSandbox());
+
+        // the restored validation state of the anyOf composition evaluates the next update correctly
+        $object->setKind('b');
+        $this->assertSame('b', $object->getKind());
+        $this->assertTrue($object->getSandbox());
     }
 }

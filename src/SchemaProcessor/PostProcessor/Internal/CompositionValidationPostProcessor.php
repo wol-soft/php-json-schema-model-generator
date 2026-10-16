@@ -62,21 +62,21 @@ class CompositionValidationPostProcessor extends PostProcessor
                 continue;
             }
 
-            foreach ($validator->getComposedProperties() as $composedProperty) {
-                // A branch which depends on keys it doesn't declare (e.g. maxProperties) may change its result with
-                // an update of any property, so each setter must validate the composition again. Mapping only the
-                // properties declared by the branch was rejected: an update of another property would be accepted
-                // although the constructor rejects the resulting data.
-                if ($composedProperty->dependsOnAllObjectProperties()) {
-                    foreach ($schema->getProperties() as $property) {
-                        if (!$property->isInternal()) {
-                            $validatorPropertyMap[$property->getName()][] = $validatorIndex;
-                        }
+            // A branch which depends on keys it doesn't declare (e.g. maxProperties) may change its result with an
+            // update of any property, so each setter must validate the composition again. Mapping only the
+            // properties declared by the branches was rejected: an update of another property would be accepted
+            // although the constructor rejects the resulting data.
+            if ($validator->dependsOnAllObjectProperties()) {
+                foreach ($schema->getProperties() as $property) {
+                    if (!$property->isInternal()) {
+                        $validatorPropertyMap[$property->getName()][] = $validatorIndex;
                     }
-
-                    continue;
                 }
 
+                continue;
+            }
+
+            foreach ($validator->getComposedProperties() as $composedProperty) {
                 foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
                     if (!isset($validatorPropertyMap[$property->getName()])) {
                         $validatorPropertyMap[$property->getName()] = [];

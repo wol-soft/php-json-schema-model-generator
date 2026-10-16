@@ -10,6 +10,8 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
+use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 
 /**
  * Class RenderHelper
@@ -223,6 +225,73 @@ class RenderHelper
         }
 
         return $renderedMethods;
+    }
+
+    /**
+     * Wraps the code of an update (setter, populate, additional property accessors) which may change the model state
+     * before the update is accepted (compositions record their results and apply branch defaults, base validators
+     * store additional and pattern properties, custom setter hooks may change anything): a rejected update restores
+     * the complete model state. The snapshot and restore methods are added to the schema on first use, a class
+     * without any such update doesn't contain them.
+     *
+     * Restoring only the state known to be changed by specific validators (one rollback mechanism per validator)
+     * was rejected: each validator needs its own bookkeeping, state changed by custom hooks isn't covered, and a
+     * validator which succeeds before a later validator rejects the update isn't restored at all.
+     */
+    public function wrapInModelStateRollback(Schema $schema, string $code): string
+    {
+        $methodTemplates = ['_backupModelState' => 'BackupModelState', '_restoreModelState' => 'RestoreModelState'];
+
+        foreach ($methodTemplates as $method => $template) {
+            if (!$schema->hasMethod($method)) {
+                $schema->addMethod(
+                    $method,
+                    new RenderedMethod(
+                        $schema,
+                        $this->generatorConfiguration,
+                        join(DIRECTORY_SEPARATOR, ['ModelState', "$template.phptpl"]),
+                    ),
+                );
+            }
+        }
+
+        return join("\n", [
+            '$modelStateBackup = $this->_backupModelState();',
+            '',
+            'try {',
+            '    ' . self::indent($code, 1),
+            '} catch (\\Throwable $exception) {',
+            '    $this->_restoreModelState($modelStateBackup);',
+            '',
+            '    throw $exception;',
+            '}',
+        ]);
+    }
+
+    /**
+     * The validation of a setter. Only before validation hook code (e.g. the composition validation) changes the
+     * model state before the update is accepted - the validators of the property itself never write the model
+     * state -, so only a setter with hook code is wrapped into the model state rollback.
+     *
+     * Wrapping every setter was rejected: a setter without hook code throws before the model state is changed, the
+     * snapshot would only add runtime costs to the setters of simple models.
+     */
+    public function renderSetterValidation(
+        Schema $schema,
+        PropertyInterface $property,
+        SchemaHookResolver $schemaHookResolver,
+    ): string {
+        $hookCode = $schemaHookResolver->resolveSetterBeforeValidationHook($property);
+
+        $code = join("\n\n", array_filter([
+            $hookCode,
+            sprintf('$value = $this->_validate%s($value, $modelData);', $this->ucfirst($property->getAttribute())),
+            $this->generatorConfiguration->collectErrors()
+                ? "if (\$this->_errorRegistry->getErrors()) {\n    throw \$this->_errorRegistry;\n}"
+                : '',
+        ]));
+
+        return $hookCode === '' ? $code : $this->wrapInModelStateRollback($schema, $code);
     }
 
     public function isMutableBaseValidator(GeneratorConfiguration $generatorConfiguration, bool $isBaseValidator): bool

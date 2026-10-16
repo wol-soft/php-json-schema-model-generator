@@ -30,12 +30,9 @@ class PopulatePostProcessor extends PostProcessor
                 [
                     'schemaHookResolver' => $schemaHookResolver,
                     'true' => true,
-                    // Rendered as its own template and embedded via viewHelper.indent() instead of being inlined
-                    // directly: the shared rollback-tracking/setter-dispatch body sits at a different real
-                    // nesting depth depending on whether collectErrors() wraps it in a bare block or a try {} -
-                    // one literal indentation can't be correct for both, so the body is written once, at its own
-                    // canonical depth, and the two call sites in Populate.phptpl each indent the rendered result
-                    // to their own real depth.
+                    // Rendered as its own template: the body is wrapped into the model state rollback
+                    // (RenderHelper::wrapInModelStateRollback()), which needs the code as a string to embed it at
+                    // its own nesting depth.
                     'renderPopulateBody' => function () use (
                         $schema,
                         $generatorConfiguration,
@@ -45,6 +42,7 @@ class PopulatePostProcessor extends PostProcessor
                             ->renderTemplate('PopulateBody.phptpl', [
                                 'schema' => $schema,
                                 'schemaHookResolver' => $schemaHookResolver,
+                                'generatorConfiguration' => $generatorConfiguration,
                                 'viewHelper' => new RenderHelper($generatorConfiguration),
                             ]);
                     },

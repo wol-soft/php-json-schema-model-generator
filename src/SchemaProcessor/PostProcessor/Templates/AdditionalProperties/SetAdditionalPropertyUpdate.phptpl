@@ -1,0 +1,15 @@
+{% if validationProperty %}{{ schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) }}{% endif %}
+
+{% if schema.getBaseValidators() %}
+    $addedProperty = [$key => $value];
+    $this->_executeBaseValidators($addedProperty);
+
+    {% if generatorConfiguration.collectErrors() %}
+        if (count($this->_errorRegistry->getErrors())) {
+            throw $this->_errorRegistry;
+        }
+    {% endif %}
+{% else %}
+    // No base validators means no pattern properties either — value goes directly to _additionalProperties.
+    $this->_additionalProperties[$key] = $value;
+{% endif %}

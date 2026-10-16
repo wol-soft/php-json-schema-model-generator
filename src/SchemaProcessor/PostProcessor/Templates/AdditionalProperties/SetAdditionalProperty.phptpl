@@ -16,24 +16,18 @@ private function _setAdditionalProperty(
         return;
     }
 
-    {% if validationProperty %}{{ schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) }}{% endif %}
+    {% if generatorConfiguration.collectErrors() %}
+        $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+    {% endif %}
 
-    {% if schema.getBaseValidators() %}
-        {% if generatorConfiguration.collectErrors() %}
-            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-        {% endif %}
-
-        $addedProperty = [$key => $value];
-        $this->_executeBaseValidators($addedProperty);
-
-        {% if generatorConfiguration.collectErrors() %}
-            if (count($this->_errorRegistry->getErrors())) {
-                throw $this->_errorRegistry;
-            }
-        {% endif %}
+    {#
+        The base validators store the value (as additional or pattern property) and evaluate the compositions before
+        the update is accepted - restore the model state if a later validator rejects the update.
+    #}
+    {% if schema.getBaseValidators() or validationProperty and schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) %}
+        {{ viewHelper.indent(viewHelper.wrapInModelStateRollback(schema, renderUpdate()), 1) }}
     {% else %}
-        // No base validators means no pattern properties either — value goes directly to _additionalProperties.
-        $this->_additionalProperties[$key] = $value;
+        {{ viewHelper.indent(renderUpdate(), 1) }}
     {% endif %}
 
     $this->_rawModelDataInput[$key] = $value;

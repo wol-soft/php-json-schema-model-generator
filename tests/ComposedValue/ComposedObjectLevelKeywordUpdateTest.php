@@ -79,6 +79,57 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
         $this->assertUpdatesAreRejectedLikeTheConstructor($className, true);
     }
 
+    public static function removalProvider(): array
+    {
+        return [
+            'minProperties' => ['BranchWithObjectLevelKeyword.json', [', "minProperties": 3'], false],
+            'minProperties (collect errors)' => ['BranchWithObjectLevelKeyword.json', [', "minProperties": 3'], true],
+            // the dependency of the declared property note requires the additional property extra
+            'property dependency' => ['BranchWithPropertyDependency.json', [], false],
+        ];
+    }
+
+    /**
+     * Removing an additional property changes keys a branch with an object-level keyword depends on: the removal
+     * must be rejected like the constructor rejects the remaining data, and leave the model unchanged.
+     */
+    #[DataProvider('removalProvider')]
+    public function testRemovalViolatingObjectLevelKeywordOfBranchIsRejectedLikeTheConstructor(
+        string $schemaFile,
+        array $templateValues,
+        bool $collectErrors,
+    ): void {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFileTemplate(
+            $schemaFile,
+            $templateValues,
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+            false,
+        );
+
+        $initialData = ['kind' => 'B', 'note' => 'n', 'extra' => 'e'];
+        $remainingData = ['kind' => 'B', 'note' => 'n'];
+
+        $expectedException = $this->catchException(static fn() => new $className($remainingData));
+        $this->assertNotNull($expectedException, 'The constructor must reject the remaining data');
+
+        $object = new $className($initialData);
+        $actualException = $this->catchException(static fn() => $object->additionalProperties()->remove('extra'));
+
+        $this->assertNotNull($actualException, 'The removal must be rejected');
+        $this->assertSame($expectedException::class, $actualException::class);
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+
+        $this->assertSame($initialData, $object->meta()->rawInput());
+        $this->assertSame(['extra' => 'e'], $object->additionalProperties()->getAll());
+
+        // a removal which keeps the data valid is accepted
+        $object = new $className($initialData + ['other' => 'o']);
+        $this->assertTrue($object->additionalProperties()->remove('other'));
+        $this->assertSame($initialData, $object->meta()->rawInput());
+    }
+
     /**
      * A branch which only constrains the properties it declares keeps the cached result: the setter of a property no
      * branch declares doesn't execute the composition validation, and the cached result of a branch is used as long as
@@ -137,13 +188,17 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
             $expectedException = $this->catchException(static fn() => new $className($resultingData));
             $this->assertNotNull($expectedException, "The constructor must reject the data of the $update");
 
-            $actualException = $this->catchException(
-                static fn() => $executeUpdate(new $className(['kind' => 'B'])),
-            );
+            $object = new $className(['kind' => 'B']);
+            $actualException = $this->catchException(static fn() => $executeUpdate($object));
 
             $this->assertNotNull($actualException, "The $update must be rejected");
             $this->assertSame($expectedException::class, $actualException::class, $update);
             $this->assertSame($expectedException->getMessage(), $actualException->getMessage(), $update);
+
+            // the rejected update didn't change the model
+            $this->assertSame(['kind' => 'B'], $object->meta()->rawInput(), $update);
+            $this->assertNull($object->getNote(), $update);
+            $this->assertSame([], $object->additionalProperties()->getAll(), $update);
         }
     }
 
