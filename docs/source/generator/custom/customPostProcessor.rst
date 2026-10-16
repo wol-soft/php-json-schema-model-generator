@@ -38,6 +38,10 @@ What can you do inside your custom post processor?
     * Implement the **SetterAfterValidationHookInterface** to add code to the end of your setter methods
     * Implement the **SerializationHookInterface** to add code to the end of your serialization process
 
+.. note::
+
+    If an update is rejected (by a setter, the *populate* method or the *additionalProperties().set()* / *additionalProperties().remove()* methods), the complete state of the model is restored. This also covers changes the code of your **SetterBeforeValidationHookInterface** hooks applied to the model, so a hook doesn't need to undo its own changes.
+
 .. warning::
 
     If a setter for a property is called with the same value which is already stored internally (consequently no update of the property is required), the setters will return directly and as a result of that the setter hooks will not be executed.

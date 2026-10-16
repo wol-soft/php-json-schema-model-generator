@@ -196,7 +196,7 @@ Immutable classes
 
     setImmutable(bool $immutable);
 
-If set to true the generated model classes will be delivered without setter methods for the object properties. By default the classes are generated without setter methods. Each setter will validate the provided value and throw either a specific exception or a collection exception depending on the `error collection configuration <#collect-errors-vs-early-return>`__. If all validations pass the internal value will be updated as well as the value which will be returned when `meta()->rawInput()` is called.
+If set to true the generated model classes will be delivered without setter methods for the object properties. By default the classes are generated without setter methods. Each setter will validate the provided value and throw either a specific exception or a collection exception depending on the `error collection configuration <#collect-errors-vs-early-return>`__. If all validations pass the internal value will be updated as well as the value which will be returned when `meta()->rawInput()` is called. If a validation fails, the model stays unchanged, including its internal state (e.g. the default values applied by a composition branch). Compositions of the schema are validated again by each setter of a property they depend on; a composition branch using an object level keyword (e.g. **maxProperties**, **additionalProperties**, **propertyNames**) depends on all properties of the model.
 
 .. code-block:: php
 
