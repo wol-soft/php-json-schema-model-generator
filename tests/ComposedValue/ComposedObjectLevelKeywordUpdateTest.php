@@ -6,9 +6,14 @@ namespace PHPModelGenerator\Tests\ComposedValue;
 
 use Closure;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Property\Property;
+use PHPModelGenerator\Model\Property\PropertyType;
+use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
@@ -128,6 +133,54 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
         $object = new $className($initialData + ['other' => 'o']);
         $this->assertTrue($object->additionalProperties()->remove('other'));
         $this->assertSame($initialData, $object->meta()->rawInput());
+    }
+
+    /**
+     * A post processor may add properties after the composition validation was set up. The setter of such a property
+     * must validate a composition which depends on all properties as well.
+     *
+     * Mapping the setters when the composition validation is set up was rejected: a property added by a later post
+     * processor isn't part of the schema at that time, its setter accepted data the constructor rejects.
+     */
+    public function testSetterOfPropertyAddedByLaterPostProcessorIsRejectedLikeTheConstructor(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new class () extends PostProcessor {
+                public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
+                {
+                    // only the schema containing the composition, not the classes of its branches
+                    if ($schema->getCompositionValidatorKeys() === []) {
+                        return;
+                    }
+
+                    $schema->addProperty(
+                        new Property(
+                            'added',
+                            new PropertyType('string'),
+                            new JsonSchema(__FILE__, ['type' => 'string']),
+                        ),
+                    );
+                }
+            });
+        };
+
+        $className = $this->generateClassFromFileTemplate(
+            'BranchWithObjectLevelKeyword.json',
+            [', "maxProperties": 1'],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            false,
+        );
+
+        $expectedException = $this->catchException(static fn() => new $className(['kind' => 'B', 'added' => 'a']));
+        $this->assertNotNull($expectedException, 'The constructor must reject the data');
+
+        $object = new $className(['kind' => 'B']);
+        $actualException = $this->catchException(static fn() => $object->setAdded('a'));
+
+        $this->assertNotNull($actualException, 'The setter must be rejected');
+        $this->assertSame($expectedException::class, $actualException::class);
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+        $this->assertSame(['kind' => 'B'], $object->meta()->rawInput());
     }
 
     /**
