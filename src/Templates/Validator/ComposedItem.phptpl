@@ -14,10 +14,6 @@
     $proposedValue = null;
     $modifiedValues = [];
 
-    {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-        $originalPropertyValidationState = $this->_propertyValidationState ?? [];
-    {% endif %}
-
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
@@ -149,13 +145,9 @@
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
-    $result = !$compositionSatisfied;
-
-    {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-        if ($result) {
-            $this->_propertyValidationState = $originalPropertyValidationState;
-        }
-    {% endif %}
-
-    return $result;
+    {#
+        A rejected composition doesn't restore the validation state recorded above: the update operation (setter,
+        populate, additional property accessors) restores the complete model state of a rejected update.
+    #}
+    return !$compositionSatisfied;
 })($value)
