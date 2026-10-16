@@ -144,7 +144,7 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                  * Set the value of {{ property.getName() }}.
                  *
                  * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute(true) }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
-                 {% if property.getValidators() %}
+                 {% if property.getValidators() or schemaHookResolver.resolveSetterBeforeValidationHook(property) %}
                      *
                      * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
                  {% endif %}
