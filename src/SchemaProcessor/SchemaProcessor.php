@@ -831,9 +831,9 @@ class SchemaProcessor
     /**
      * Clone the provided property to transfer it to a schema. Sets the nullability and required
      * flag based on the composition processor used to set up the composition. Widens the type to
-     * mixed when the property is exclusive to one anyOf/oneOf branch and at least one other branch
-     * allows additional properties, preventing TypeError when raw input values of an arbitrary
-     * type are stored in the property slot.
+     * mixed when the property is exclusive to one anyOf/oneOf/conditional branch and a path exists
+     * on which no branch declaring the property applies, preventing TypeError when raw input values
+     * of an arbitrary type are stored in the property slot.
      */
     private function cloneTransferredProperty(
         PropertyInterface $property,
@@ -863,7 +863,10 @@ class SchemaProcessor
                 ? $validator->getConditionBranches()
                 : $validator->getComposedProperties();
 
-            if ($this->exclusiveBranchPropertyNeedsWidening($property->getName(), $sourceBranch, $wideningBranches)) {
+            if (
+                $this->hasImplicitUnconstrainedBranch($validator)
+                || $this->exclusiveBranchPropertyNeedsWidening($property->getName(), $sourceBranch, $wideningBranches)
+            ) {
                 $transferredProperty->setType(null, null, reset: true);
             }
 
@@ -878,6 +881,21 @@ class SchemaProcessor
         }
 
         return $transferredProperty;
+    }
+
+    /**
+     * Returns true for an if/then/else which defines only one of its branches. The missing branch is
+     * an implicit branch without any constraint: while the defined branch is inactive a value of any
+     * type is valid for the properties it declares. The defined branch alone therefore cannot assign
+     * a typed slot to such a property.
+     *
+     * Rejected alternative: keeping the typed slot and rejecting a value of another type outside of the
+     * active branch. That would invalidate instances the schema allows and silently change which values
+     * are valid instead of the type contract of the generated accessor.
+     */
+    private function hasImplicitUnconstrainedBranch(AbstractComposedPropertyValidator $validator): bool
+    {
+        return $validator instanceof ConditionalPropertyValidator && count($validator->getConditionBranches()) < 2;
     }
 
     /**

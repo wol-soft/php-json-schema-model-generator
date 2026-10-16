@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "integer"
+    }
+  },
+  "if": {
+    "properties": {
+      "kind": {
+        "const": 1
+      }
+    },
+    "required": ["kind"]
+  },
+  "then": {
+    "properties": {
+      "amount": {
+        "type": "integer"
+      }
+    },
+    "required": ["amount"]
+  }
+}

@@ -157,12 +157,14 @@ Generated interface:
     public function setAge(int | string | null $age): static;
     public function getAge(): int | string | null;
 
-When only a ``then`` block is present (no ``else``), the branch may not apply at runtime, so the property is always nullable:
+When only a ``then`` block is present (no ``else``), the branch may not apply at runtime and a missing branch doesn't constrain anything. A value of any type is valid for the property while the ``if`` condition fails, so the type hint is widened to ``mixed``. The same applies to a property which is only defined in an ``else`` block:
 
 .. code-block:: php
 
-    public function setAge(?int $age): static;
-    public function getAge(): ?int;
+    public function setAge(mixed $age): static;
+    public function getAge(): mixed;
+
+While the branch is active the declared type is still enforced. A property which is additionally defined in the root ``properties`` keeps the type of the root definition.
 
 .. note::
 

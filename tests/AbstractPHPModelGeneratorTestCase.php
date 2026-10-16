@@ -16,6 +16,7 @@ use PHPModelGenerator\Tests\CodeQuality\GeneratedCodeAuditor;
 use PHPModelGenerator\Utils\ClassNameGenerator;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\FileSystemException;
+use PHPModelGenerator\Exception\JSONModelValidationException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
@@ -418,6 +419,42 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
         }
 
         return false;
+    }
+
+    /**
+     * Asserts the complete message of a validation failure. The template is the full expected message in
+     * which every generated class name (unique per test run and therefore unpredictable) is written as
+     * the %class% placeholder; everything else must match literally.
+     */
+    protected function assertMessageMatchesTemplate(string $template, string $actualMessage): void
+    {
+        $pattern = '/^' . str_replace(preg_quote('%class%', '/'), '[A-Za-z0-9_]+', preg_quote($template, '/')) . '$/';
+
+        $this->assertMatchesRegularExpression($pattern, $actualMessage);
+    }
+
+    /**
+     * Asserts that instantiating the generated class with the given input fails with the given exception
+     * class and complete message (see assertMessageMatchesTemplate for the %class% placeholder).
+     *
+     * @param class-string<JSONModelValidationException> $expectedException
+     */
+    protected function assertInstantiationFailsWithMessage(
+        string $className,
+        array $input,
+        string $expectedException,
+        string $messageTemplate,
+    ): void {
+        try {
+            new $className($input);
+        } catch (JSONModelValidationException $exception) {
+            $this->assertInstanceOf($expectedException, $exception);
+            $this->assertMessageMatchesTemplate($messageTemplate, $exception->getMessage());
+
+            return;
+        }
+
+        $this->fail('Expected ' . $expectedException . ' for input ' . json_encode($input));
     }
 
     /**

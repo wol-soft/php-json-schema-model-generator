@@ -1206,4 +1206,225 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
         $this->expectException(InvalidFilterValueException::class);
         new $className(['filteredProperty' => 'Hello']);
     }
+
+    // -------------------------------------------------------------------------
+    // Filters on object properties inside conditionals / compositions nested in an allOf branch
+    // -------------------------------------------------------------------------
+
+    /**
+     * Each allOf branch of an object schema is object-typed and instantiated as its own class, so a
+     * filter on a property of a conditional nested in that branch runs inside that class. The filter
+     * must run before the validators of the same property, and the conditional requirements must be
+     * enforced per active branch.
+     */
+    public function testFilterInConditionalNestedInAllOfObjectBranchRunsBeforeValidation(): void
+    {
+        $className = $this->generateClassFromFile('FilterCompositionAllOfObjectBranchNestedConditional.json');
+
+        // The filter of the active branch trims the title; the raw input stays untouched.
+        $object = new $className(
+            ['playlist-management' => 1, 'playlist-title' => '  My list  ', 'playlist-type' => 2],
+        );
+        $this->assertSame('My list', $object->getPlaylistTitle());
+        $this->assertSame(2, $object->getPlaylistType());
+        $this->assertNull($object->getPlaylistId());
+        $this->assertSame('  My list  ', $object->meta()->rawInput()['playlist-title']);
+
+        $object = new $className(['playlist-management' => 2, 'playlist-id' => 42]);
+        $this->assertSame(42, $object->getPlaylistId());
+        $this->assertNull($object->getPlaylistTitle());
+
+        // Modes without requirements, including the default (absent) mode.
+        foreach ([[], ['playlist-management' => 0], ['playlist-management' => 3]] as $input) {
+            $object = new $className($input);
+            $this->assertNull($object->getPlaylistTitle());
+            $this->assertNull($object->getPlaylistId());
+        }
+
+        // A title which only consists of whitespace is empty after the filter and violates minLength.
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['playlist-management' => 1, 'playlist-title' => '   ', 'playlist-type' => 2],
+            AllOfException::class,
+            <<<ERROR
+            Invalid value for '%class%' declined by composition constraint
+              Requires to match all composition elements but matched 1 element
+              - Composition element #1: Failed
+                * Invalid value for '%class%' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Value for 'playlist-title' must not be shorter than 1
+              - Composition element #2: Valid
+            ERROR,
+        );
+
+        // The requirements of the active branch are enforced.
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['playlist-management' => 1, 'playlist-type' => 2],
+            AllOfException::class,
+            <<<ERROR
+            Invalid value for '%class%' declined by composition constraint
+              Requires to match all composition elements but matched 1 element
+              - Composition element #1: Failed
+                * Invalid value for '%class%' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Missing required value for 'playlist-title'
+              - Composition element #2: Valid
+            ERROR,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['playlist-management' => 2],
+            AllOfException::class,
+            <<<ERROR
+            Invalid value for '%class%' declined by composition constraint
+              Requires to match all composition elements but matched 1 element
+              - Composition element #1: Valid
+              - Composition element #2: Failed
+                * Invalid value for '%class%' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Missing required value for 'playlist-id'
+            ERROR,
+        );
+
+        // The constraints of the active branch apply to the other properties of the branch as well.
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['playlist-management' => 1, 'playlist-title' => 'x', 'playlist-type' => 3],
+            AllOfException::class,
+            <<<ERROR
+            Invalid value for '%class%' declined by composition constraint
+              Requires to match all composition elements but matched 1 element
+              - Composition element #1: Failed
+                * Invalid value for '%class%' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Value for 'playlist-type' must be one of [1,2,16,32,64], got 3
+              - Composition element #2: Valid
+            ERROR,
+        );
+
+        // The filter belongs to the property of the merged class and also runs while the branch which
+        // declares it is inactive (the title is not constrained in mode 3, but it is still trimmed).
+        $object = new $className(['playlist-management' => 3, 'playlist-title' => '  Untouched by the branch  ']);
+        $this->assertSame('Untouched by the branch', $object->getPlaylistTitle());
+    }
+
+    /**
+     * The branch of a conditional which does not apply imposes no constraint. A value of any type
+     * for a property which is only declared inside an inactive branch is valid and must be returned
+     * as provided; the filter of the property is skipped as it doesn't accept the type of the value.
+     */
+    public function testValueOutsideTheActiveConditionalBranchIsKeptAsProvided(): void
+    {
+        $className = $this->generateClassFromFile('FilterCompositionAllOfObjectBranchNestedConditional.json');
+
+        $object = new $className(['playlist-management' => 0, 'playlist-id' => 'not an integer']);
+        $this->assertSame('not an integer', $object->getPlaylistId());
+
+        $object = new $className(['playlist-management' => 3, 'playlist-title' => 5, 'playlist-type' => 'custom']);
+        $this->assertSame(5, $object->getPlaylistTitle());
+        $this->assertSame('custom', $object->getPlaylistType());
+
+        // Within the active branch the declared type is still enforced.
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['playlist-management' => 2, 'playlist-id' => 'not an integer'],
+            AllOfException::class,
+            <<<ERROR
+            Invalid value for '%class%' declined by composition constraint
+              Requires to match all composition elements but matched 1 element
+              - Composition element #1: Valid
+              - Composition element #2: Failed
+                * Invalid value for '%class%' declined by conditional composition constraint
+                  - Condition: Valid
+                  - Conditional branch failed:
+                    * Invalid type for 'playlist-id': requires 'int', got 'string'
+            ERROR,
+        );
+    }
+
+    /**
+     * anyOf, oneOf and not nested in an allOf branch behave like their root-level counterparts: filters
+     * on the object properties of their branches run before validation, anyOf requires one matching branch,
+     * oneOf exactly one, and not none.
+     */
+    public function testFiltersInCompositionsNestedInAllOfObjectBranchAreApplied(): void
+    {
+        $className = $this->generateClassFromFile('FilterCompositionAllOfObjectBranchNestedCompositions.json');
+
+        // anyOf via the filtered "name" branch, oneOf via the filtered "label" branch.
+        $object = new $className(['name' => '  Ann  ', 'label' => ' L ']);
+        $this->assertSame('Ann', $object->getName());
+        $this->assertSame('L', $object->getLabel());
+
+        // anyOf via "code", oneOf via "reference".
+        $object = new $className(['code' => 5, 'reference' => 7]);
+        $this->assertNull($object->getName());
+        $this->assertSame(5, $object->getCode());
+        $this->assertSame(7, $object->getReference());
+
+        // The inner not branch does not match (the properties of a not branch are not part of the object).
+        $object = new $className(['name' => 'a', 'label' => 'x', 'forbidden' => 'ok']);
+        $this->assertSame('a', $object->getName());
+
+        // A name which is empty after the filter doesn't satisfy its anyOf branch, no other branch matches.
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['name' => '   ', 'reference' => 1],
+            AllOfException::class,
+            <<<ERROR
+            Invalid value for '%class%' declined by composition constraint
+              Requires to match all composition elements but matched 2 elements
+              - Composition element #1: Failed
+                * Invalid value for '%class%' declined by composition constraint
+                  Requires to match at least one composition element
+                  - Composition element #1: Failed
+                    * Value for 'name' must not be shorter than 1
+                  - Composition element #2: Failed
+                    * Missing required value for 'code'
+              - Composition element #2: Valid
+              - Composition element #3: Valid
+            ERROR,
+        );
+
+        // oneOf matched by both branches.
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['name' => 'a', 'label' => 'x', 'reference' => 1],
+            AllOfException::class,
+            <<<ERROR
+            Invalid value for '%class%' declined by composition constraint
+              Requires to match all composition elements but matched 2 elements
+              - Composition element #1: Valid
+              - Composition element #2: Failed
+                * Invalid value for '%class%' declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
+                  - Composition element #1: Valid
+                  - Composition element #2: Valid
+              - Composition element #3: Valid
+            ERROR,
+        );
+
+        // The value of the not branch is trimmed before the const is compared, so " bad " is forbidden.
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['name' => 'a', 'label' => 'x', 'forbidden' => ' bad '],
+            AllOfException::class,
+            <<<ERROR
+            Invalid value for '%class%' declined by composition constraint
+              Requires to match all composition elements but matched 2 elements
+              - Composition element #1: Valid
+              - Composition element #2: Valid
+              - Composition element #3: Failed
+                * Invalid value for '%class%' declined by composition constraint
+                  Requires to match none composition element but matched 1 element
+                  - Composition element #1: Valid
+            ERROR,
+        );
+    }
 }
