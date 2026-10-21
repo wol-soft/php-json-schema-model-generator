@@ -93,7 +93,7 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
     }
 
     {% if schema.getBaseValidators() %}
-        protected function _executeBaseValidators(array &$modelData): void
+        protected function _executeBaseValidators(array &$modelData, bool $validateCompositions = true): void
         {
             $value = &$modelData;
 
@@ -101,9 +101,13 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                 {{ viewHelper.renderValidator(validator, schema, 2) }}
             {% endforeach %}
 
-            {% foreach schema.getCompositionValidatorKeys() as compositionValidatorKey %}
-                $this->_validateComposition_{{ compositionValidatorKey }}($modelData);
-            {% endforeach %}
+            {% if schema.getCompositionValidatorKeys() %}
+                if ($validateCompositions) {
+                    {% foreach schema.getCompositionValidatorKeys() as compositionValidatorKey %}
+                        $this->_validateComposition_{{ compositionValidatorKey }}($modelData);
+                    {% endforeach %}
+                }
+            {% endif %}
         }
     {% endif %}
 

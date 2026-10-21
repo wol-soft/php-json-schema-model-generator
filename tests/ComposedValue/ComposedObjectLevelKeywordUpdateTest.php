@@ -133,6 +133,36 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
         $this->assertSame($initialData, $object->meta()->rawInput());
     }
 
+    public static function patternPropertyMatchingDeclaredPropertyProvider(): array
+    {
+        return [
+            'branch with object-level keyword' => ['', ', "maxProperties": 1'],
+            'branch declaring the property' => [', "note": {"type": "string", "maxLength": 0}', ''],
+        ];
+    }
+
+    /**
+     * The setter of a property matching a pattern property executes the base validators to store the pattern
+     * property. The composition must be validated only once by such a setter, otherwise each failing composition is
+     * reported twice with collected errors.
+     */
+    #[DataProvider('patternPropertyMatchingDeclaredPropertyProvider')]
+    public function testUpdateOfPropertyMatchingPatternPropertyIsRejectedLikeTheConstructor(
+        string $branchProperty,
+        string $branchKeyword,
+    ): void {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFileTemplate(
+            'PatternPropertyMatchingDeclaredProperty.json',
+            [$branchProperty, $branchKeyword],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(true),
+            false,
+        );
+
+        $this->assertUpdatesAreRejectedLikeTheConstructor($className, false);
+    }
+
     /**
      * A post processor may add properties after the composition validation was set up. The setter of such a property
      * must validate a composition which depends on all properties as well.

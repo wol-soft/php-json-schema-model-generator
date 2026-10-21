@@ -61,10 +61,16 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                     // TODO: extract pattern property validation from the base validator into a separate method and
                     // TODO: call only the pattern property validation at this location to avoid executing unnecessary
                     // TODO: validators
+                    //
+                    // The compositions are skipped: the setter hook of CompositionValidationPostProcessor validates
+                    // each composition the property may change. Validating them here as well reports each failing
+                    // composition twice with collected errors. Skipping the composition hook for properties matching
+                    // a pattern instead was rejected: it duplicates the pattern matching of this hook in a second
+                    // post processor.
                     return sprintf(
                         '
                             $modelData = array_merge($this->_rawModelDataInput, ["%s" => $value]);
-                            $this->_executeBaseValidators($modelData);
+                            $this->_executeBaseValidators($modelData, false);
                         ',
                         $property->getName(),
                     );
