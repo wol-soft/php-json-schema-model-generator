@@ -79,11 +79,14 @@ trait PropertyDependencyTrait
     private function transferDependentPropertiesToBaseSchema(Schema $dependencySchema, Schema $schema): void
     {
         foreach ($dependencySchema->getProperties() as $dependencyProperty) {
-            $schema->addDependencyTransferredProperty(
+            // Registered as a transferred property (not as a property of the base schema): a property which the base
+            // schema declares takes precedence, see PropertyMerger::merge().
+            $schema->addProperty(
                 (clone $dependencyProperty)
                     ->setRequired(false)
                     ->setType(null)
                     ->filterValidators(static fn(): bool => false),
+                SchemaDependencyValidator::class,
             );
         }
     }

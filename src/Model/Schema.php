@@ -62,9 +62,6 @@ class Schema
     /** @var array<string, true> */
     private array $rootRegisteredPropertyNames = [];
 
-    /** @var array<string, true> Properties which are only registered as the copy of a property of a schema dependency */
-    private array $dependencyTransferredPropertyNames = [];
-
     /** @var string[] Maps normalized attribute → raw property name; used to detect property-vs-property collisions */
     private array $attributeIndex = [];
 
@@ -181,8 +178,10 @@ class Schema
     }
 
     /**
-     * @param string|null $compositionProcessor The FQCN of the composition processor transferring this property,
-     *                                           or null when not called from a composition context.
+     * @param string|null $compositionProcessor The FQCN of the composition processor (or of another component which
+     *                                           transfers the property from a nested schema, e.g. the schema
+     *                                           dependency validator) transferring this property, or null when the
+     *                                           property is declared by this schema itself.
      * @param JsonSchema|null $rebuildFrom See PropertyMerger::merge()'s docblock. Only meaningful together with
      *                                     $schemaProcessor; both are forwarded as-is.
      *
@@ -236,13 +235,7 @@ class Schema
             return $this;
         }
 
-        if ($compositionProcessor === null && isset($this->dependencyTransferredPropertyNames[$property->getName()])) {
-            $this->replaceDependencyTransferredProperty($property);
-
-            return $this;
-        }
-
-        $this->propertyMerger->merge(
+        $replacesExisting = $this->propertyMerger->merge(
             $this->properties[$property->getName()],
             $property,
             is_a($compositionProcessor, AllOfValidatorFactory::class, true),
@@ -250,47 +243,31 @@ class Schema
             $rebuildFrom,
             $schemaProcessor,
             $this,
+            $compositionProcessor === null,
         );
 
-        return $this;
-    }
-
-    /**
-     * Register the copy of a property of a schema dependency. The copy neither validates nor transforms, it must not
-     * take precedence over a property of this schema with the same name: an existing property is kept, and the copy is
-     * replaced by the declaration of the schema if that is registered later (see addProperty()).
-     *
-     * @throws SchemaException
-     */
-    public function addDependencyTransferredProperty(PropertyInterface $property): self
-    {
-        if (isset($this->dependencyTransferredPropertyNames[$property->getName()])) {
-            return $this;
-        }
-
-        $isNew = !isset($this->properties[$property->getName()]);
-
-        $this->addProperty($property);
-
-        if ($isNew) {
-            $this->dependencyTransferredPropertyNames[$property->getName()] = true;
+        if ($replacesExisting) {
+            $this->replaceRegisteredProperty($property);
         }
 
         return $this;
     }
 
     /**
-     * The slot keeps its position in the property order, the generated class lists the property where the dependency
-     * schema transferred it.
+     * The slot keeps its position in the property order, the generated class lists the property where it was first
+     * registered.
      */
-    private function replaceDependencyTransferredProperty(PropertyInterface $property): void
+    private function replaceRegisteredProperty(PropertyInterface $property): void
     {
-        unset($this->dependencyTransferredPropertyNames[$property->getName()]);
+        $wasResolved = $this->properties[$property->getName()]->isResolved();
 
         $this->properties[$property->getName()] = $property;
+        $this->rootRegisteredPropertyNames[$property->getName()] = true;
 
-        // The replaced copy counted as resolved.
-        if (!$property->isResolved()) {
+        // The resolution counter counts the slot, not the property: a replaced property which was resolved already
+        // counted it, the replacement has to count it again once it resolves. The pending callback of an unresolved
+        // replaced property counts the slot when that one resolves.
+        if ($wasResolved && !$property->isResolved()) {
             $this->resolvedProperties--;
             $property->onResolve($this->onPropertyResolved(...));
         }
