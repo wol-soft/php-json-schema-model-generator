@@ -7,6 +7,8 @@ namespace PHPModelGenerator\Tests\Basic;
 use PHPModelGenerator\Exception\Dependency\InvalidPropertyDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -185,5 +187,47 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
                 ],
             ],
         );
+    }
+
+    /**
+     * The dependencies of a property are validated against the whole model data, not only against the values which
+     * are part of the update: the setter and populate() of a property with a dependency must accept the update if
+     * the dependant property is already stored in the model.
+     */
+    #[DataProvider('validationMethodDataProvider')]
+    public function testSetterAndPopulateValidateTheDependencyAgainstTheStoredData(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
+        $className = $this->generateClassFromFile('PropertyDependency.json', $configuration->setImmutable(false));
+
+        $object = new $className(['billing_address' => '555 Debitors Lane']);
+
+        $object->setCreditCard(12345);
+        $this->assertSame(12345, $object->getCreditCard());
+
+        $object->populate(['credit_card' => 6789]);
+        $this->assertSame(6789, $object->getCreditCard());
+
+        // The dependency is still enforced if the dependant property isn't stored.
+        $object = new $className([]);
+
+        try {
+            $object->setCreditCard(12345);
+            $this->fail('Expected exception for missing property dependency');
+        } catch (ErrorRegistryException | InvalidPropertyDependencyException $exception) {
+            $this->assertSame(
+                <<<ERROR
+                Missing required attributes which are dependants of 'credit_card':
+                  - 'billing_address'
+                ERROR,
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertNull($object->getCreditCard());
     }
 }
