@@ -180,6 +180,22 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertPropertyHasJsonPointer($object, 'integerProperty', '/anyOf/1/properties/integerProperty');
     }
 
+    /**
+     * The composition of a mutable model records the result of each branch, even if no branch declares a property.
+     * The state must be a declared property: writing to an undeclared one creates a dynamic property, which is
+     * deprecated.
+     */
+    public function testMutableObjectLevelAnyOfWithoutDeclaredPropertiesDeclaresItsValidationState(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ObjectBranchesWithoutProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $object = new $className(['property' => 1]);
+        $this->assertSame(['property' => 1], $object->meta()->rawInput());
+    }
+
     #[DataProvider('validPropertyTypeDataProvider')]
     #[DataProvider('nullDataProvider')]
     public function testValidProvidedAnyOfTypePropertyIsValid(mixed $propertyValue): void

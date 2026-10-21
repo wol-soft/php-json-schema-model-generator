@@ -41,14 +41,38 @@ class CompositionValidationPostProcessor extends PostProcessor
         $this->addValidationMethods($schema, $generatorConfiguration, $compositionValidatorKeys);
 
         // if the generator is immutable no validation on value updates are required
-        if (
-            $generatorConfiguration->isImmutable()
-            || (empty($validatorPropertyMap) && empty($allPropertiesValidatorIndices))
-        ) {
+        if ($generatorConfiguration->isImmutable()) {
+            return;
+        }
+
+        $this->addValidationStateProperty($schema, $compositionValidatorKeys);
+
+        if (empty($validatorPropertyMap) && empty($allPropertiesValidatorIndices)) {
             return;
         }
 
         $this->addValidationCallsToSetterMethods($schema, $validatorPropertyMap, $allPropertiesValidatorIndices);
+    }
+
+    /**
+     * The composition of a mutable model records the result of each branch, whether or not a branch declares a
+     * property. Declaring the state only if a setter validates the composition was rejected: the composition records
+     * its result in the constructor as well, an undeclared state is created as (deprecated) dynamic property.
+     *
+     * @param int[] $compositionValidatorKeys
+     */
+    private function addValidationStateProperty(Schema $schema, array $compositionValidatorKeys): void
+    {
+        $schema->addProperty(
+            (new Property(
+                'propertyValidationState',
+                new PropertyType('array'),
+                new JsonSchema(__FILE__, []),
+                'Track the internal validation state of composed validations',
+            ))
+                ->setInternal(true)
+                ->setDefaultValue(array_fill_keys($compositionValidatorKeys, [])),
+        );
     }
 
     /**
@@ -89,26 +113,6 @@ class CompositionValidationPostProcessor extends PostProcessor
                     $validatorPropertyMap[$property->getName()][] = $validatorIndex;
                 }
             }
-        }
-
-        if (!empty($validatorPropertyMap) || !empty($allPropertiesValidatorIndices)) {
-            $schema->addProperty(
-                (new Property(
-                    'propertyValidationState',
-                    new PropertyType('array'),
-                    new JsonSchema(__FILE__, []),
-                    'Track the internal validation state of composed validations',
-                ))
-                    ->setInternal(true)
-                    ->setDefaultValue(
-                        array_fill_keys(
-                            array_unique(
-                                array_merge($allPropertiesValidatorIndices, ...array_values($validatorPropertyMap)),
-                            ),
-                            [],
-                        )
-                    ),
-            );
         }
 
         return [$validatorPropertyMap, $allPropertiesValidatorIndices];
