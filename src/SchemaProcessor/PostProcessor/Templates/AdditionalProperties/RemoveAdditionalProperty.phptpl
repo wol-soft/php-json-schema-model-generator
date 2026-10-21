@@ -1,5 +1,5 @@
 /**
- *{% if minPropertyValidator or compositionValidatorKeys %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+ *{% if minPropertyValidator or compositionValidatorKeys or dependencyValidators %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
  */
 private function _removeAdditionalProperty(string $key): bool
 {
@@ -20,7 +20,7 @@ private function _removeAdditionalProperty(string $key): bool
     }
 
     {% if generatorConfiguration.collectErrors() %}
-        {% if minPropertyValidator or compositionValidatorKeys %}
+        {% if minPropertyValidator or compositionValidatorKeys or dependencyValidators %}
             $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
     {% endif %}
@@ -38,10 +38,10 @@ private function _removeAdditionalProperty(string $key): bool
     {% endif %}
 
     {#
-        A composition with a branch depending on keys it doesn't declare (e.g. minProperties) is validated against
-        the remaining model data after the property is removed - restore the model state if it rejects the removal.
+        The compositions and the dependencies of the declared properties are validated against the remaining model
+        data after the property is removed - restore the model state if they reject the removal.
     #}
-    {% if compositionValidatorKeys %}
+    {% if compositionValidatorKeys or dependencyValidators %}
         {{ viewHelper.indent(viewHelper.wrapInModelStateRollback(schema, renderUpdate()), 1) }}
     {% else %}
         {{ viewHelper.indent(renderUpdate(), 1) }}

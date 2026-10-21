@@ -61,7 +61,7 @@ When the ``additionalProperties`` keyword provides a schema that constrains the 
 
 **set**: Adds or updates an additional property. Performs all necessary validations including property name constraints, min/max properties limits and the compositions of the schema. If the additional properties are processed via a transforming filter an already transformed value will be accepted. Throws *RegularPropertyAsAdditionalPropertyException* if the key conflicts with a regularly-defined schema property. If the update is rejected, the model stays unchanged.
 
-**remove**: Removes an existing additional property from the model. Returns true if the property was removed, false if it did not exist. May throw a *MinPropertiesException* if removal would produce an invalid model state. Compositions of the schema with a branch which depends on keys it doesn't declare (e.g. via **minProperties** or **dependencies**) are validated against the remaining data and may reject the removal as well. If the removal is rejected, the model stays unchanged.
+**remove**: Removes an existing additional property from the model. Returns true if the property was removed, false if it did not exist. May throw a *MinPropertiesException* if removal would produce an invalid model state. The compositions of the schema (a branch may require the removed property or depend on it via e.g. **minProperties**) and the **dependencies** of the declared properties are validated against the remaining data and may reject the removal as well. If the removal is rejected, the model stays unchanged.
 
 Serialization
 ~~~~~~~~~~~~~

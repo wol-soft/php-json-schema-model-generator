@@ -133,6 +133,48 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
         $this->assertSame($initialData, $object->meta()->rawInput());
     }
 
+    /**
+     * A property a branch only requires (it isn't declared in the properties of the schema) is stored as additional
+     * property and can be removed. A branch which only constrains its declared properties depends on that key as
+     * well: the removal must be rejected like the constructor rejects the remaining data, and the cached result of
+     * the branch must not survive the removal.
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testRemovalOfPropertyRequiredOnlyByBranchIsRejectedLikeTheConstructor(bool $collectErrors): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFile(
+            'BranchesRequiringUndeclaredProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+        );
+
+        $expectedException = $this->catchException(static fn() => new $className([]));
+        $this->assertNotNull($expectedException, 'The constructor must reject the remaining data');
+
+        $object = new $className(['y' => 1]);
+        $actualException = $this->catchException(static fn() => $object->additionalProperties()->remove('y'));
+
+        $this->assertNotNull($actualException, 'The removal must be rejected');
+        $this->assertSame($expectedException::class, $actualException::class);
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+        $this->assertSame(['y' => 1], $object->meta()->rawInput());
+        $this->assertSame(['y' => 1], $object->additionalProperties()->getAll());
+
+        // the accepted removal of y re-evaluates the branch requiring y, a later removal of z can't rely on a stale
+        // result of that branch
+        $object = new $className(['y' => 1, 'z' => 2]);
+        $this->assertTrue($object->additionalProperties()->remove('y'));
+        $this->assertSame(['z' => 2], $object->meta()->rawInput());
+
+        $actualException = $this->catchException(static fn() => $object->additionalProperties()->remove('z'));
+
+        $this->assertNotNull($actualException, 'The removal of the last required property must be rejected');
+        $this->assertSame($expectedException::class, $actualException::class);
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+        $this->assertSame(['z' => 2], $object->meta()->rawInput());
+    }
+
     public static function patternPropertyMatchingDeclaredPropertyProvider(): array
     {
         return [
@@ -161,6 +203,14 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
         );
 
         $this->assertUpdatesAreRejectedLikeTheConstructor($className, false);
+    }
+
+    public static function collectErrorsProvider(): array
+    {
+        return [
+            'direct exception' => [false],
+            'collect errors' => [true],
+        ];
     }
 
     /**

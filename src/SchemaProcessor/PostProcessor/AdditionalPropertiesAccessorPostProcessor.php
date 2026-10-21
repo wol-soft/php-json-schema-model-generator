@@ -17,7 +17,10 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
+use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
+use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\AdditionalPropertiesPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\SerializationPostProcessor;
@@ -249,13 +252,12 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             ))->withJsonPointer($schema->getJsonSchema()->getPointer() . '/minProperties');
         }
 
-        // Removing a key can only change the result of a composition with a branch depending on keys it doesn't
-        // declare: every other branch only validates declared properties, which can't be removed via this method.
-        $compositionValidatorKeys = array_values(array_filter(
-            $schema->getCompositionValidatorKeys(),
-            static fn(int $validatorIndex): bool =>
-                $schema->getBaseValidators()[$validatorIndex]->dependsOnAllObjectProperties(),
-        ));
+        // Every composition is validated again: a removed key may be required by any branch, also by a branch which
+        // only declares properties (a property declared only inside a branch is stored as additional property).
+        // Validating only the compositions with a branch depending on keys it doesn't declare was rejected: it
+        // accepted removals the constructor rejects.
+        $compositionValidatorKeys = $schema->getCompositionValidatorKeys();
+        $dependencyValidators = $this->getDependencyValidators($schema);
 
         $schema->addMethod(
             '_removeAdditionalProperty',
@@ -266,16 +268,50 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                 [
                     'minPropertyValidator' => $minPropertyValidator,
                     'compositionValidatorKeys' => $compositionValidatorKeys,
+                    'dependencyValidators' => $dependencyValidators,
                     // the update is rendered on its own to be wrapped into the model state rollback
                     'renderUpdate' => static fn(): string => RenderedMethod::renderPart(
                         $schema,
                         $generatorConfiguration,
                         'AdditionalProperties' . DIRECTORY_SEPARATOR . 'RemoveAdditionalPropertyUpdate.phptpl',
-                        ['compositionValidatorKeys' => $compositionValidatorKeys],
+                        [
+                            'compositionValidatorKeys' => $compositionValidatorKeys,
+                            'dependencyValidators' => $dependencyValidators,
+                        ],
                     ),
                 ],
             )
         );
+    }
+
+    /**
+     * The dependency validators of the declared properties: a dependency may require the removed key, so the removal
+     * must check them against the remaining data like the constructor does. Only the dependency validators are
+     * executed, not all validators of the property: the others don't depend on other keys, and executing them again
+     * would apply filters and instantiate nested objects for nothing.
+     *
+     * @return array<string, PropertyValidatorInterface[]> The dependency validators keyed by the property name
+     */
+    private function getDependencyValidators(Schema $schema): array
+    {
+        $dependencyValidators = [];
+
+        foreach ($schema->getProperties() as $property) {
+            if ($property->isInternal()) {
+                continue;
+            }
+
+            foreach ($property->getOrderedValidators() as $validator) {
+                if (
+                    $validator instanceof PropertyDependencyValidator
+                    || $validator instanceof SchemaDependencyValidator
+                ) {
+                    $dependencyValidators[$property->getName()][] = $validator;
+                }
+            }
+        }
+
+        return $dependencyValidators;
     }
 
     /**

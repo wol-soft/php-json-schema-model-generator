@@ -10,13 +10,37 @@ if ($inAdditionalProperties) {
     unset($this->_additionalProperties[$key]);
 }
 
+{#
+    Validate the remaining data in the order of the constructor: the compositions are base validators, the
+    dependencies are validators of the declared properties.
+#}
 {% if compositionValidatorKeys %}
     // the compositions merge the remaining model data, no property is updated
     $updatedModelData = [];
     {% foreach compositionValidatorKeys as compositionValidatorKey %}
+        {#
+            The cached result of a branch is kept as long as none of its properties is updated, but the removed key
+            may be one of them - and a removed key can't be passed as updated model data. Discard the cached results.
+        #}
+        $this->_propertyValidationState[{{ compositionValidatorKey }}] = [];
         $this->_validateComposition_{{ compositionValidatorKey }}($updatedModelData);
     {% endforeach %}
+{% endif %}
 
+{% if dependencyValidators %}
+    $modelData = $this->_rawModelDataInput;
+    {% foreach dependencyValidators as propertyName, validators %}
+        if (array_key_exists('{{ propertyName }}', $modelData)) {
+            $value = $modelData['{{ propertyName }}'];
+
+            {% foreach validators as validator %}
+                {{ viewHelper.renderValidator(validator, schema, 1) }}
+            {% endforeach %}
+        }
+    {% endforeach %}
+{% endif %}
+
+{% if compositionValidatorKeys or dependencyValidators %}
     {% if generatorConfiguration.collectErrors() %}
         if (count($this->_errorRegistry->getErrors())) {
             throw $this->_errorRegistry;
