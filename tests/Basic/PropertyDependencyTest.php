@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
+use PHPModelGenerator\Exception\ComposedValue\AllOfException;
+use PHPModelGenerator\Exception\ComposedValue\OneOfException;
 use PHPModelGenerator\Exception\Dependency\InvalidPropertyDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
@@ -229,5 +231,81 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         }
 
         $this->assertNull($object->getCreditCard());
+    }
+
+    public static function compositionBranchDependencyProvider(): array
+    {
+        return [
+            'oneOf, property dependency' => ['oneOf', '["extra"]', OneOfException::class],
+            'oneOf, schema dependency' => ['oneOf', '{"required": ["extra"]}', OneOfException::class],
+            'anyOf, property dependency' => ['anyOf', '["extra"]', null],
+            'anyOf, schema dependency' => ['anyOf', '{"required": ["extra"]}', null],
+        ];
+    }
+
+    /**
+     * A dependency declared by a branch of a disjunctive composition only applies if the value is validated against
+     * that branch: data matching another branch must be accepted although it violates the dependency.
+     */
+    #[DataProvider('compositionBranchDependencyProvider')]
+    public function testDependencyOfACompositionBranchOnlyAppliesToTheBranch(
+        string $composition,
+        string $dependency,
+        ?string $exceptionMatchingBothBranches,
+    ): void {
+        $className = $this->generateClassFromFileTemplate(
+            'CompositionBranchDependency.json',
+            [$composition, $dependency],
+            (new GeneratorConfiguration())->setCollectErrors(false),
+            false,
+        );
+
+        // only the first branch matches, the dependency of the second branch is violated
+        $object = new $className(['kind' => 'k', 'note' => 'n']);
+        $this->assertSame(['kind' => 'k', 'note' => 'n'], $object->meta()->rawInput());
+
+        // only the second branch matches
+        $object = new $className(['note' => 'n', 'extra' => 'e']);
+        $this->assertSame(['note' => 'n', 'extra' => 'e'], $object->meta()->rawInput());
+
+        $bothBranchesMatching = static fn() => new $className(['kind' => 'k', 'note' => 'n', 'extra' => 'e']);
+
+        if ($exceptionMatchingBothBranches === null) {
+            $this->assertNull($this->catchException($bothBranchesMatching));
+        } else {
+            $this->assertInstanceOf($exceptionMatchingBothBranches, $this->catchException($bothBranchesMatching));
+        }
+    }
+
+    public static function allOfBranchDependencyProvider(): array
+    {
+        return [
+            'property dependency' => ['["extra"]'],
+            'schema dependency' => ['{"required": ["extra"]}'],
+        ];
+    }
+
+    /**
+     * A dependency declared by an allOf branch is validated by the composition, like every other constraint of a
+     * branch: a violation is reported once by the composition, not a second time by the property of the model.
+     */
+    #[DataProvider('allOfBranchDependencyProvider')]
+    public function testViolatedDependencyOfAnAllOfBranchIsReportedOnce(string $dependency): void
+    {
+        $className = $this->generateClassFromFileTemplate(
+            'CompositionBranchDependency.json',
+            ['allOf', $dependency],
+            (new GeneratorConfiguration())->setCollectErrors(true),
+            false,
+        );
+
+        $exception = $this->catchException(static fn() => new $className(['kind' => 'k', 'note' => 'n']));
+
+        $this->assertInstanceOf(ErrorRegistryException::class, $exception);
+        $this->assertCount(1, $exception->getErrors());
+        $this->assertInstanceOf(AllOfException::class, $exception->getErrors()[0]);
+
+        $object = new $className(['kind' => 'k', 'note' => 'n', 'extra' => 'e']);
+        $this->assertSame(['kind' => 'k', 'note' => 'n', 'extra' => 'e'], $object->meta()->rawInput());
     }
 }

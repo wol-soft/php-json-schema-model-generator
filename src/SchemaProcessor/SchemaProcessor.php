@@ -18,7 +18,9 @@ use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
+use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
+use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AnyOfValidatorFactory;
 use PHPModelGenerator\Model\Validator\Factory\Composition\ComposedPropertiesValidatorFactoryInterface;
@@ -842,9 +844,14 @@ class SchemaProcessor
     ): PropertyInterface {
         $compositionProcessor = $validator->getCompositionProcessor();
 
+        // A dependency validates the keys of the object only if the branch applies: the composition validates it.
+        // Keeping it on the transferred property was rejected: the model then enforces the dependency of a
+        // oneOf/anyOf branch also for data matching another branch, and reports a violation of an allOf branch twice.
         $transferredProperty = (clone $property)
             ->filterValidators(static fn(Validator $v): bool =>
-                is_a($v->getValidator(), PropertyTemplateValidator::class))
+                is_a($v->getValidator(), PropertyTemplateValidator::class)
+                && !$v->getValidator() instanceof PropertyDependencyValidator
+                && !$v->getValidator() instanceof SchemaDependencyValidator)
             ->setDefaultValue(null)
             ->filterDecorators(static fn($decorator): bool =>
                 !($decorator instanceof DefaultArrayToEmptyArrayDecorator));

@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "additionalProperties": true,
+  "%1$s": [
+    {
+      "required": [
+        "kind"
+      ]
+    },
+    {
+      "properties": {
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "note"
+      ],
+      "dependencies": {
+        "note": %2$s
+      }
+    }
+  ]
+}

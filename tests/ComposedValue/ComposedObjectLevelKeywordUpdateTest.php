@@ -175,6 +175,43 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
         $this->assertSame(['z' => 2], $object->meta()->rawInput());
     }
 
+    /**
+     * The dependency of the second branch requires extra, which the branch doesn't declare. Adding extra makes the
+     * second branch match besides the first one, so the update must be rejected like the constructor rejects the
+     * resulting data - a cached result of the branch, which was evaluated without extra, must not be used.
+     */
+    public function testAddingThePropertyADependencyOfABranchRequiresIsRejectedLikeTheConstructor(): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFile(
+            'BranchWithDependencyOnUndeclaredProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $initialData = ['kind' => 'k', 'note' => 'n'];
+
+        $expectedException = $this->catchException(
+            static fn() => new $className($initialData + ['extra' => 'e']),
+        );
+        $this->assertNotNull($expectedException, 'The constructor must reject the data');
+
+        $updates = [
+            'additional property' => static fn(object $object) => $object->additionalProperties()->set('extra', 'e'),
+            'populate' => static fn(object $object) => $object->populate(['extra' => 'e']),
+        ];
+
+        foreach ($updates as $update => $executeUpdate) {
+            $object = new $className($initialData);
+            $actualException = $this->catchException(static fn() => $executeUpdate($object));
+
+            $this->assertNotNull($actualException, "The $update must be rejected");
+            $this->assertSame($expectedException::class, $actualException::class, $update);
+            $this->assertSame($expectedException->getMessage(), $actualException->getMessage(), $update);
+            $this->assertSame($initialData, $object->meta()->rawInput(), $update);
+        }
+    }
+
     public static function patternPropertyMatchingDeclaredPropertyProvider(): array
     {
         return [
