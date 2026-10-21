@@ -178,8 +178,10 @@ class Schema
     }
 
     /**
-     * @param string|null $compositionProcessor The FQCN of the composition processor transferring this property,
-     *                                           or null when not called from a composition context.
+     * @param string|null $compositionProcessor The FQCN of the composition processor (or of another component which
+     *                                           transfers the property from a nested schema, e.g. the schema
+     *                                           dependency validator) transferring this property, or null when the
+     *                                           property is declared by this schema itself.
      * @param JsonSchema|null $rebuildFrom See PropertyMerger::merge()'s docblock. Only meaningful together with
      *                                     $schemaProcessor; both are forwarded as-is.
      *
@@ -228,20 +230,12 @@ class Schema
 
             $property->isResolved() ? $registerAttribute() : $property->onResolve($registerAttribute);
 
-            $property->onResolve(function (): void {
-                if (++$this->resolvedProperties === count($this->properties)) {
-                    foreach ($this->onAllPropertiesResolvedCallbacks as $callback) {
-                        $callback();
-
-                        $this->onAllPropertiesResolvedCallbacks = [];
-                    }
-                }
-            });
+            $property->onResolve($this->onPropertyResolved(...));
 
             return $this;
         }
 
-        $this->propertyMerger->merge(
+        $replacesExisting = $this->propertyMerger->merge(
             $this->properties[$property->getName()],
             $property,
             is_a($compositionProcessor, AllOfValidatorFactory::class, true),
@@ -249,9 +243,45 @@ class Schema
             $rebuildFrom,
             $schemaProcessor,
             $this,
+            $compositionProcessor === null,
         );
 
+        if ($replacesExisting) {
+            $this->replaceRegisteredProperty($property);
+        }
+
         return $this;
+    }
+
+    /**
+     * The slot keeps its position in the property order, the generated class lists the property where it was first
+     * registered.
+     */
+    private function replaceRegisteredProperty(PropertyInterface $property): void
+    {
+        $wasResolved = $this->properties[$property->getName()]->isResolved();
+
+        $this->properties[$property->getName()] = $property;
+        $this->rootRegisteredPropertyNames[$property->getName()] = true;
+
+        // The resolution counter counts the slot, not the property: a replaced property which was resolved already
+        // counted it, the replacement has to count it again once it resolves. The pending callback of an unresolved
+        // replaced property counts the slot when that one resolves.
+        if ($wasResolved && !$property->isResolved()) {
+            $this->resolvedProperties--;
+            $property->onResolve($this->onPropertyResolved(...));
+        }
+    }
+
+    private function onPropertyResolved(): void
+    {
+        if (++$this->resolvedProperties === count($this->properties)) {
+            foreach ($this->onAllPropertiesResolvedCallbacks as $callback) {
+                $callback();
+
+                $this->onAllPropertiesResolvedCallbacks = [];
+            }
+        }
     }
 
     public function isRootRegistered(string $name): bool

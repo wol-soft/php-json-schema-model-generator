@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "billing_address": {
+      "type": "string",
+      "minLength": 3,
+      "filter": "trim"
+    },
+    "credit_card": {
+      "type": "integer"
+    }
+  },
+  "dependencies": {
+    "credit_card": {
+      "properties": {
+        "billing_address": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "billing_address"
+      ]
+    }
+  }
+}
