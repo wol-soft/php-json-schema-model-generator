@@ -317,6 +317,63 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     }
 
     /**
+     * The update switches the active branch, so the property which depends on the branch is validated again. Its
+     * filtered value violates a constraint of the schema: the update is rejected before anything is assigned, the
+     * model keeps the previous branch and values (a model the constructor would reject must never be left behind).
+     *
+     * @param class-string<Throwable> $expectedException
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testUpdateRejectedByThePropertyWhichDependsOnTheBranchLeavesTheModelUntouched(
+        bool $collectErrors,
+        string $expectedException,
+    ): void {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
+        $className = $this->generateClassFromFile(
+            'ConditionalBranchSwitchRejectedByDependentProperty.json',
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(false),
+        );
+
+        $object = new $className(['kind' => 'b', 'title' => '  a  ']);
+        $this->assertSame('  a  ', $object->getTitle());
+
+        foreach (
+            [
+                'setter' => static fn() => $object->setKind('a'),
+                'populate' => static fn() => $object->populate(['kind' => 'a']),
+            ] as $update => $rejectedUpdate
+        ) {
+            try {
+                $rejectedUpdate();
+                $this->fail("Expected the minLength violation of the trimmed title ($update)");
+            } catch (Throwable $exception) {
+                $this->assertInstanceOf($expectedException, $exception);
+                $this->assertSame("Value for 'title' must not be shorter than 3", $exception->getMessage());
+            }
+
+            $this->assertSame('b', $object->getKind(), $update);
+            $this->assertSame('  a  ', $object->getTitle(), $update);
+        }
+
+        // The rejected updates don't influence later updates.
+        $object->setTitle('  abc  ');
+        $this->assertSame('  abc  ', $object->getTitle());
+
+        $object->setKind('a');
+        $this->assertSame('abc', $object->getTitle());
+
+        // The dependent property is part of the update: it is processed with the new branch, not validated again.
+        $object->populate(['kind' => 'b', 'title' => '  x  ']);
+        $this->assertSame('  x  ', $object->getTitle());
+
+        $object->populate(['kind' => 'a', 'title' => '  xyz  ']);
+        $this->assertSame('xyz', $object->getTitle());
+    }
+
+    /**
      * populate() applies all properties or none. The failing update must not leave the branch state of the
      * attempt behind, the successful update switches the branch and validates the dependent property again.
      */

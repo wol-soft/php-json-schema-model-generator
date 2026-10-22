@@ -168,14 +168,20 @@ class CompositionValidationPostProcessor extends PostProcessor
                 );
             }
 
+            // Prepared before anything is assigned (a rejected dependent property rejects the update), applied once the
+            // update succeeded.
             $schema->addMethod(
-                '_commitBranchFilteredValues',
+                '_prepareBranchFilteredValues',
                 new RenderedMethod(
                     $schema,
                     $generatorConfiguration,
-                    'CommitBranchFilteredValues.phptpl',
+                    'PrepareBranchFilteredValues.phptpl',
                     ['branchFilteredKeys' => RenderHelper::varExportArray($allFilteredKeys)],
                 ),
+            );
+            $schema->addMethod(
+                '_applyBranchFilteredValues',
+                new RenderedMethod($schema, $generatorConfiguration, 'ApplyBranchFilteredValues.phptpl', []),
             );
         }
 
@@ -190,7 +196,8 @@ class CompositionValidationPostProcessor extends PostProcessor
         $schema->addSchemaHook(new class implements ConstructorAfterValidationHookInterface {
             public function getCode(): string
             {
-                return '$this->_commitBranchFilteredValues(array_keys($this->_rawModelDataInput));';
+                return '$this->_applyBranchFilteredValues('
+                    . '$this->_prepareBranchFilteredValues(null, $this->_rawModelDataInput));';
             }
         });
     }
@@ -227,6 +234,12 @@ class CompositionValidationPostProcessor extends PostProcessor
 
                     if ($this->stages && !$batchUpdate && $validatorIndices !== []) {
                         array_unshift($code, '$this->_stagedBranchFilteredValues = [];');
+                        // Before the setter assigns anything (see the setter after validation hook).
+                        $code[] = sprintf(
+                            '$preparedBranchFilteredValues = $this->_prepareBranchFilteredValues(%s, %s);',
+                            RenderHelper::varExportArray([$property->getAttribute(true)]),
+                            'array_merge($this->_rawModelDataInput, $modelData)',
+                        );
                     }
 
                     return join("\n", $code);
@@ -238,33 +251,16 @@ class CompositionValidationPostProcessor extends PostProcessor
             return;
         }
 
-        $attributeToPropertyName = [];
-        foreach ($allFilteredKeys as $propertyName => [$attribute]) {
-            $attributeToPropertyName[$attribute] = $propertyName;
-        }
-
-        $schema->addSchemaHook(new class (
-            $validatorPropertyMap,
-            $attributeToPropertyName,
-        ) implements SetterAfterValidationHookInterface {
-            public function __construct(protected array $validatorPropertyMap, protected array $attributeToPropertyName)
+        // populate() prepares and applies the filtered values itself, once for all properties.
+        $schema->addSchemaHook(new class ($validatorPropertyMap) implements SetterAfterValidationHookInterface {
+            public function __construct(protected array $validatorPropertyMap)
             {}
 
             public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
             {
-                if (empty($this->validatorPropertyMap[$property->getName()])) {
-                    return '';
-                }
-
-                // Only the properties which populate() processed count as processed: it skips a value which equals the
-                // current attribute, such a property must be validated again if the active branch switched. Passing
-                // all keys of the provided data would exclude it although its filtered value changed.
-                return $batchUpdate
-                    ? sprintf(
-                        '$this->_commitBranchFilteredValues(array_values(array_intersect_key(%s, $rollbackValues)));',
-                        RenderHelper::varExportArray($this->attributeToPropertyName),
-                    )
-                    : sprintf('$this->_commitBranchFilteredValues([%s]);', var_export($property->getName(), true));
+                return $batchUpdate || empty($this->validatorPropertyMap[$property->getName()])
+                    ? ''
+                    : '$this->_applyBranchFilteredValues($preparedBranchFilteredValues);';
             }
         });
     }

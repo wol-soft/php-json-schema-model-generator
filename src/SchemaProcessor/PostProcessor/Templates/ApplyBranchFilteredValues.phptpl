@@ -1,0 +1,20 @@
+/**
+ * Assign the state prepared by _prepareBranchFilteredValues() once the update succeeded.
+ *
+ * @param array|null $preparedBranchFilteredValues
+ */
+private function _applyBranchFilteredValues(?array $preparedBranchFilteredValues): void
+{
+    if ($preparedBranchFilteredValues === null) {
+        return;
+    }
+
+    [$branchFilteredValues, $dependentValues] = $preparedBranchFilteredValues;
+
+    foreach ($dependentValues as $filteredAttribute => $dependentValue) {
+        $this->$filteredAttribute = $dependentValue;
+    }
+
+    $this->_branchFilteredValues = $branchFilteredValues;
+    $this->_stagedBranchFilteredValues = [];
+}
