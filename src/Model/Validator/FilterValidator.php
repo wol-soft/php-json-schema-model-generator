@@ -122,11 +122,14 @@ class FilterValidator extends PropertyTemplateValidator
 
     /**
      * Identifies the filter including its options: two declarations of the same filter with different options
-     * transform (and serialize) differently.
+     * transform (and serialize) differently. The identifier is rendered into the generated code (the source of a
+     * branch filtered value), so the options are represented by their hash instead of their JSON representation.
      */
     public function getIdentifier(): string
     {
-        return (string) json_encode([$this->filter->getToken(), $this->filterOptions]);
+        return $this->filterOptions === []
+            ? $this->filter->getToken()
+            : $this->filter->getToken() . '_' . md5((string) json_encode($this->filterOptions));
     }
 
     /**

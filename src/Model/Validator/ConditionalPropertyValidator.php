@@ -136,14 +136,22 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getValidatorSetUp(): string
     {
-        $setUp = '$ifException = $thenException = $elseException = null;';
+        $setUp = ['$ifException = $thenException = $elseException = null;'];
 
-        // A conditional is evaluated as a whole every time, all components count as evaluated.
-        return $this->getBranchFilteredKeyMap() !== []
-            ? $setUp . "\n\$publishedValues = null;\n\$evaluatedComponents = "
-                . RenderHelper::varExportArray(array_keys($this->composedProperties)) . ';'
-                // The producing filters of the published values, see getFilterSourceMap().
-                . ($this->getFilterSourceMap() !== [] ? "\n\$publishedSources = [];" : '')
-            : $setUp;
+        if ($this->getBranchFilteredKeyMap() !== []) {
+            $setUp[] = '$publishedValues = null;';
+            // A conditional is evaluated as a whole every time, all components count as evaluated.
+            $setUp[] = sprintf(
+                '$evaluatedComponents = %s;',
+                RenderHelper::varExportArray(array_keys($this->composedProperties)),
+            );
+
+            // The producing filters of the published values, see getFilterSourceMap().
+            if ($this->getFilterSourceMap() !== []) {
+                $setUp[] = '$publishedSources = [];';
+            }
+        }
+
+        return implode("\n", $setUp);
     }
 }

@@ -63,6 +63,10 @@
         },
         "stamp": {
           "$ref": "#/definitions/stamp"
+        },
+        "nickname": {
+          "type": "string",
+          "filter": "trim"
         }
       }
     },

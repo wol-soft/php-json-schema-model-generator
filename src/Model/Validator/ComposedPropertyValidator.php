@@ -104,20 +104,21 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getValidatorSetUp(): string
     {
-        $setUp = <<<'CODE'
-            $succeededCompositionElements = 0;
-            $compositionErrorCollection = [];
-            CODE;
+        $setUp = ['$succeededCompositionElements = 0;', '$compositionErrorCollection = [];'];
 
-        // The published values and the components which were evaluated (not answered from the state of the previous
-        // evaluation) by this validation.
-        if ($this->getBranchFilteredKeyMap() === []) {
-            return $setUp;
+        if ($this->getBranchFilteredKeyMap() !== []) {
+            // The published values and the components which were evaluated (not answered from the state of the
+            // previous evaluation) by this validation.
+            $setUp[] = '$publishedValues = null;';
+            $setUp[] = '$evaluatedComponents = [];';
+
+            // The producing filters of the published values, see getFilterSourceMap().
+            if ($this->getFilterSourceMap() !== []) {
+                $setUp[] = '$publishedSources = [];';
+            }
         }
 
-        // The producing filters of the published values, see getFilterSourceMap().
-        return $setUp . "\n\$publishedValues = null;\n\$evaluatedComponents = [];"
-            . ($this->getFilterSourceMap() !== [] ? "\n\$publishedSources = [];" : '');
+        return implode("\n", $setUp);
     }
 
     /**

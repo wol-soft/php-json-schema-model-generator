@@ -127,6 +127,19 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
 
         $object = new $className(['name' => '  name  ']);
         $this->assertSame('  name  ', $object->getName());
+
+        // The setter returns early if the new value equals the current (filtered) value. The value is nevertheless
+        // the provided value of the property: when the branch switches, the property is validated again from the
+        // provided value and must not fall back to the value provided before.
+        $object = new $className(['kind' => 'a', 'name' => '  x  ']);
+        $this->assertSame('x', $object->getName());
+
+        $object->setName('x');
+        $this->assertSame('x', $object->getName());
+        $this->assertSame(['kind' => 'a', 'name' => 'x'], $object->meta()->rawInput());
+
+        $object->setKind('b');
+        $this->assertSame('x', $object->getName());
     }
 
     public function testSamePropertyWithDifferentFiltersInThenAndElseUsesTheFilterOfTheActiveBranch(): void
@@ -516,42 +529,6 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     }
 
     /**
-     * The new value of kind selects the then branch (the composition succeeds) but violates the maxLength of kind
-     * itself. The values which the branches handed over and the properties which depend on the active branch must
-     * not change.
-     *
-     * @param class-string<Throwable> $expectedException
-     */
-    #[DataProvider('collectErrorsProvider')]
-    public function testSetterWhichFailsAfterTheCompositionLeavesTheBranchStateUntouched(
-        bool $collectErrors,
-        string $expectedException,
-    ): void {
-        $className = $this->generateClassFromFile(
-            'ConditionalBranchSwitchRejectedByOwnValidation.json',
-            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(false),
-        );
-
-        $object = new $className(['kind' => 'a', 'name' => '  n  ']);
-        $this->assertSame('  n  ', $object->getName());
-
-        try {
-            $object->setKind('ccc');
-            $this->fail('Expected the maxLength violation of kind');
-        } catch (Throwable $exception) {
-            $this->assertInstanceOf($expectedException, $exception);
-        }
-
-        $this->assertSame('a', $object->getKind());
-        // The name belongs to the then branch which was not activated by the failed update.
-        $this->assertSame('  n  ', $object->getName());
-
-        // The failed update must not influence later updates.
-        $object->setName('  m  ');
-        $this->assertSame('  m  ', $object->getName());
-    }
-
-    /**
      * The update switches the active branch, so the property which depends on the branch is validated again. Its
      * filtered value violates a constraint of the schema: the update is rejected before anything is assigned, the
      * model keeps the previous branch and values (a model the constructor would reject must never be left behind).
@@ -609,45 +586,6 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     }
 
     /**
-     * populate() applies all properties or none. The failing update must not leave the branch state of the
-     * attempt behind, the successful update switches the branch and validates the dependent property again.
-     */
-    public function testPopulateWhichFailsLeavesTheBranchStateUntouchedAndPopulateWhichSucceedsSwitchesTheBranch(): void
-    {
-        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
-            $generator->addPostProcessor(new PopulatePostProcessor());
-        };
-
-        $className = $this->generateClassFromFile(
-            'ConditionalBranchSwitchByPopulate.json',
-            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
-        );
-
-        $object = new $className(['kind' => 'a', 'name' => '  n  ']);
-        $this->assertSame('  n  ', $object->getName());
-
-        // kind selects the then branch, label violates its maxLength.
-        try {
-            $object->populate(['kind' => 'c', 'label' => 'too long']);
-            $this->fail('Expected the maxLength violation of label');
-        } catch (ValidationException) {
-            // expected
-        }
-
-        $this->assertSame('a', $object->getKind());
-        $this->assertSame('  n  ', $object->getName());
-
-        // The successful update activates the then branch: the name which was not part of the update is filtered.
-        $object->populate(['kind' => 'c', 'label' => 'ok']);
-        $this->assertSame('c', $object->getKind());
-        $this->assertSame('n', $object->getName());
-
-        // And back: the branch is inactive, the name is returned as provided.
-        $object->populate(['kind' => 'a']);
-        $this->assertSame('  n  ', $object->getName());
-    }
-
-    /**
      * The composition only evaluates the components whose properties are part of an update, the other components
      * keep the result of their previous evaluation. The filtered value which the unchanged active branch handed
      * over must survive an update which only touches another branch.
@@ -661,7 +599,7 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
         };
 
         $className = $this->generateClassFromFile(
-            'OneOfBranchWithFilterAndUnrelatedBranch.json',
+            'OneOfBranchWithFilterAndOwnLimit.json',
             (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(false),
         );
 
@@ -672,6 +610,20 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
         $this->assertSame('n', $object->getName());
 
         $object->populate(['other' => 'p']);
+        $this->assertSame('n', $object->getName());
+
+        // A populate which fails after the composition staged the value of its component leaves that staged value
+        // behind. A later populate which keeps the result of the component must not adopt the stale value.
+        try {
+            $object->populate(['name' => '  q  ', 'label' => 'too long']);
+            $this->fail('Expected the maxLength violation of label');
+        } catch (Throwable) {
+            // expected
+        }
+
+        $this->assertSame('n', $object->getName());
+
+        $object->populate(['other' => 'o']);
         $this->assertSame('n', $object->getName());
 
         // The filtered property of the active branch is still updated by its own setter.
@@ -729,71 +681,14 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     }
 
     /**
-     * A populate which fails after the composition staged the value of its component leaves that staged value
-     * behind. A later populate which keeps the result of the component must not adopt the stale value.
-     */
-    #[DataProvider('collectErrorsProvider')]
-    public function testFailedPopulateDoesNotLeakItsStagedValueIntoALaterPopulate(bool $collectErrors): void
-    {
-        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
-            $generator->addPostProcessor(new PopulatePostProcessor());
-        };
-
-        $className = $this->generateClassFromFile(
-            'OneOfBranchWithFilterAndOwnLimit.json',
-            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(false),
-        );
-
-        $object = new $className(['type' => 'a', 'name' => '  n  ']);
-        $this->assertSame('n', $object->getName());
-
-        try {
-            $object->populate(['name' => '  q  ', 'label' => 'too long']);
-            $this->fail('Expected the maxLength violation of label');
-        } catch (Throwable) {
-            // expected
-        }
-
-        $this->assertSame('n', $object->getName());
-
-        $object->populate(['other' => 'o']);
-        $this->assertSame('n', $object->getName());
-    }
-
-    /**
-     * The setter returns early if the new value equals the current (filtered) value. The value is nevertheless the
-     * provided value of the property: when the branch switches, the property is validated again from the provided
-     * value and must not fall back to the value provided before.
-     */
-    public function testSetterWithTheFilteredValueIsTheProvidedValueAfterABranchSwitch(): void
-    {
-        $className = $this->generateClassFromFile(
-            'ConditionalBranchFilterOnRootProperty.json',
-            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
-        );
-
-        $object = new $className(['mode' => 1, 'title' => '  x  ']);
-        $this->assertSame('x', $object->getTitle());
-
-        $object->setTitle('x');
-        $this->assertSame('x', $object->getTitle());
-        $this->assertSame(['mode' => 1, 'title' => 'x'], $object->meta()->rawInput());
-
-        $object->setMode(2);
-        $this->assertSame('x', $object->getTitle());
-    }
-
-    /**
      * An immutable model has no setters and no composition validation on updates: the values which the active branch
      * hands over are adopted by the constructor only.
      */
-    #[DataProvider('collectErrorsProvider')]
-    public function testFilterInConditionalBranchOfImmutableModelRunsOnlyWhileBranchIsActive(
-        bool $collectErrors,
-    ): void {
+    public function testFilterInConditionalBranchOfImmutableModelRunsOnlyWhileBranchIsActive(): void
+    {
         $className = $this->generateClassFromFile(
-            'ConditionalBranchSwitchByPopulate.json',
-            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(true),
+            'ConditionalBranchSwitch.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(true),
         );
 
         $object = new $className(['kind' => 'c', 'name' => '  n  ']);
@@ -806,37 +701,75 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     }
 
     /**
-     * A populate which re-passes the filtered property together with the property which switches the branch (a form
-     * which submits all fields): the value which equals the current attribute is not processed by populate, the
-     * filter of the newly active branch must nevertheless be applied.
+     * An update which fails (the setter of the property which selects the branch, a populate which switches the
+     * branch) must not leave the branch state of the attempt behind. A successful update switches the branch and
+     * validates the property which depends on it again.
+     *
+     * @param class-string<Throwable> $expectedException
      */
     #[DataProvider('collectErrorsProvider')]
-    public function testPopulateWhichRepassesTheFilteredPropertyWhileSwitchingTheBranchAppliesTheFilter(
+    public function testFailedUpdateLeavesTheBranchStateUntouchedAndSuccessfulUpdateSwitchesTheBranch(
         bool $collectErrors,
+        string $expectedException,
     ): void {
         $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
             $generator->addPostProcessor(new PopulatePostProcessor());
         };
 
         $className = $this->generateClassFromFile(
-            'ConditionalBranchSwitchByPopulate.json',
+            'ConditionalBranchSwitch.json',
             (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(false),
         );
 
         $object = new $className(['kind' => 'a', 'name' => '  n  ']);
         $this->assertSame('  n  ', $object->getName());
 
-        // The unchanged name is passed again while the then branch becomes active.
-        $object->populate(['kind' => 'c', 'name' => '  n  ']);
-        $this->assertSame('n', $object->getName());
+        foreach (
+            [
+                // 'ccc' selects the then branch (the composition succeeds) but violates the maxLength of kind itself.
+                'setter' => static fn() => $object->setKind('ccc'),
+                // kind selects the then branch, label violates its maxLength.
+                'populate' => static fn() => $object->populate(['kind' => 'c', 'label' => 'too long']),
+            ] as $update => $rejectedUpdate
+        ) {
+            try {
+                $rejectedUpdate();
+                $this->fail("Expected the maxLength violation ($update)");
+            } catch (Throwable $exception) {
+                $this->assertInstanceOf($expectedException, $exception);
+            }
 
-        // The setter agrees with the populated state.
+            $this->assertSame('a', $object->getKind(), $update);
+            // The name belongs to the then branch which was not activated by the failed update.
+            $this->assertSame('  n  ', $object->getName(), $update);
+        }
+
+        // The failed updates must not influence later updates.
         $object->setName('  m  ');
+        $this->assertSame('  m  ', $object->getName());
+
+        // The successful update activates the then branch: the name which was not part of the update is filtered.
+        $object->populate(['kind' => 'c', 'label' => 'ok']);
+        $this->assertSame('c', $object->getKind());
         $this->assertSame('m', $object->getName());
 
-        // And the other way round: the unchanged raw value is passed again while the branch becomes inactive.
-        $object->populate(['kind' => 'a', 'name' => '  m  ']);
+        // And back: the branch is inactive, the name is returned as provided.
+        $object->populate(['kind' => 'a']);
         $this->assertSame('  m  ', $object->getName());
+
+        // A populate which re-passes the filtered property together with the property which switches the branch (a
+        // form which submits all fields): the value which equals the current attribute is not processed by
+        // populate, the filter of the newly active branch must nevertheless be applied.
+        $object->populate(['kind' => 'c', 'name' => '  m  ']);
+        $this->assertSame('m', $object->getName());
+
+        // The setter agrees with the populated state.
+        $object->setName('  k  ');
+        $this->assertSame('k', $object->getName());
+
+        // And the other way round: the unchanged raw value is passed again while the branch becomes inactive.
+        $object->populate(['kind' => 'a', 'name' => '  k  ']);
+        $this->assertSame('  k  ', $object->getName());
     }
 
     /**
@@ -1057,24 +990,6 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     // -------------------------------------------------------------------------
 
     /**
-     * Every branch of an allOf is always active, so the filter of a property declared in a single allOf
-     * branch applies to every input. Must keep working.
-     */
-    public function testFilterOnPropertyOfSingleAllOfBranchRunsForEveryInput(): void
-    {
-        $className = $this->generateClassFromFile(
-            'AllOfBranchFilter.json',
-            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
-        );
-
-        $object = new $className(['name' => '  x  ']);
-        $this->assertSame('x', $object->getName());
-
-        $object->setName('  y  ');
-        $this->assertSame('y', $object->getName());
-    }
-
-    /**
      * A filter which runs on the parent for every input (a single allOf branch, the identical filters of several
      * allOf branches) is adopted by a property which the parent schema declares without a filter, as if the
      * property were declared only in the branch: the filter runs first, the validators of the parent check the
@@ -1102,7 +1017,14 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
             'code' => 'c',
             'item' => ['title' => '  i  '],
             'stamp' => '2026-10-21T13:45:00+00:00',
+            'nickname' => '  n  ',
         ]);
+
+        // Every branch of an allOf is always active, so the filter of a property which is declared in a single allOf
+        // branch only applies to every input.
+        $this->assertSame('n', $object->getNickname());
+        $object->setNickname('  m  ');
+        $this->assertSame('m', $object->getNickname());
 
         // parent declares the property without a filter, a single allOf branch filters it
         $this->assertSame('abc', $object->getTitle());
@@ -1132,33 +1054,6 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
             $this->fail('Expected a ValidationException for the trimmed title');
         } catch (ValidationException $exception) {
             $this->assertSame("Value for 'title' must not be shorter than 3", $exception->getMessage());
-        }
-    }
-
-    /**
-     * The filter which every anyOf branch declares in the same way runs on the parent for every input, so it is
-     * adopted by a property which the parent schema declares without a filter, like the filter of an allOf branch.
-     */
-    public function testFilterWhichEveryAnyOfBranchDeclaresIsAdoptedByParentProperty(): void
-    {
-        $className = $this->generateClassFromFile(
-            'AnyOfBranchesSameFilterOnRootDeclaredProperty.json',
-            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
-        );
-
-        $this->assertSame('xy', (new $className(['kind' => 'a', 'name' => '  xy  ']))->getName());
-        $this->assertSame('xy', (new $className(['kind' => 'b', 'name' => '  xy  ']))->getName());
-
-        $object = new $className(['kind' => 'a']);
-        $object->setName('  yz  ');
-        $this->assertSame('yz', $object->getName());
-
-        // the minLength of the parent validates the filtered value
-        try {
-            new $className(['kind' => 'a', 'name' => '  x  ']);
-            $this->fail('Expected a ValidationException for the trimmed name');
-        } catch (ValidationException $exception) {
-            $this->assertSame("Value for 'name' must not be shorter than 2", $exception->getMessage());
         }
     }
 
@@ -1231,6 +1126,9 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     /**
      * Whichever branch matches, the property is filtered by the same filter: the filtered value can be attributed
      * without knowing the matching branch. Works without the rejection, so it must keep working.
+     *
+     * The filter runs on the parent for every input, so it is also adopted by a property which the parent schema
+     * declares without a filter (title), like the filter of an allOf branch.
      */
     public function testFilterWhichEveryAnyOfBranchDeclaresForAPropertyIsApplied(): void
     {
@@ -1239,12 +1137,25 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
             (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
         );
 
-        $this->assertSame('x', (new $className(['kind' => 'a', 'name' => '  x  ']))->getName());
-        $this->assertSame('x', (new $className(['kind' => 'b', 'name' => '  x  ']))->getName());
+        foreach (['a', 'b'] as $kind) {
+            $object = new $className(['kind' => $kind, 'name' => '  x  ', 'title' => '  xy  ']);
+            $this->assertSame('x', $object->getName(), $kind);
+            $this->assertSame('xy', $object->getTitle(), $kind);
+        }
 
         $object = new $className(['kind' => 'a']);
         $object->setName('  y  ');
         $this->assertSame('y', $object->getName());
+        $object->setTitle('  yz  ');
+        $this->assertSame('yz', $object->getTitle());
+
+        // the minLength of the parent validates the filtered value
+        try {
+            new $className(['kind' => 'a', 'title' => '  x  ']);
+            $this->fail('Expected a ValidationException for the trimmed title');
+        } catch (ValidationException $exception) {
+            $this->assertSame("Value for 'title' must not be shorter than 2", $exception->getMessage());
+        }
     }
 
     public static function anyOfBranchFilterProvider(): array

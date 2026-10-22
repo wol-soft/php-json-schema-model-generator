@@ -1312,17 +1312,10 @@ class FilterCompositionRuntimeTest extends AbstractFilterTestCase
         // constrained nor trimmed (mode 3 selects no branch which declares the title).
         $object = new $className(['playlist-management' => 3, 'playlist-title' => '  Untouched by the branch  ']);
         $this->assertSame('  Untouched by the branch  ', $object->getPlaylistTitle());
-    }
 
-    /**
-     * The branch of a conditional which does not apply imposes no constraint. A value of any type
-     * for a property which is only declared inside an inactive branch is valid and must be returned
-     * as provided; the filter of the property is skipped as it doesn't accept the type of the value.
-     */
-    public function testValueOutsideTheActiveConditionalBranchIsKeptAsProvided(): void
-    {
-        $className = $this->generateClassFromFile('FilterCompositionAllOfObjectBranchNestedConditional.json');
-
+        // The branch of a conditional which does not apply imposes no constraint. A value of any type
+        // for a property which is only declared inside an inactive branch is valid and must be returned
+        // as provided; the filter of the property is skipped as it doesn't accept the type of the value.
         $object = new $className(['playlist-management' => 0, 'playlist-id' => 'not an integer']);
         $this->assertSame('not an integer', $object->getPlaylistId());
 

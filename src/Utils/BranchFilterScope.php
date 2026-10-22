@@ -249,11 +249,8 @@ class BranchFilterScope
      */
     private static function getFilterListSignature(array $filterValidators): string
     {
-        return (string) json_encode(array_map(
-            static fn(FilterValidator $filterValidator): array => [
-                $filterValidator->getFilter()->getToken(),
-                $filterValidator->getFilterOptions(),
-            ],
+        return implode(',', array_map(
+            static fn(FilterValidator $filterValidator): string => $filterValidator->getIdentifier(),
             $filterValidators,
         ));
     }

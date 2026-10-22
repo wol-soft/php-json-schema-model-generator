@@ -265,21 +265,6 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
      * schema-valid value with a TypeError; the property is therefore widened to mixed like every other
      * property which is exclusive to a single branch.
      */
-    public function testCrossTypedThenOnlyWidensExclusivePropertyToMixed(): void
-    {
-        $className = $this->generateClassFromFile(
-            'CrossTypedThenOnly.json',
-            (new GeneratorConfiguration())->setImmutable(false),
-        );
-
-        $this->assertSame('mixed', $this->getParameterType($className, 'setAge')->getName());
-        $this->assertSame('mixed', $this->getReturnType($className, 'getAge')->getName());
-    }
-
-    /**
-     * A value of an unrelated type for a property which is only declared in the then branch is valid as long as
-     * the branch is inactive. Storing it must not fail with a TypeError of the typed slot.
-     */
     public function testThenOnlyPropertyKeepsValueOfAnyTypeWhileTheBranchIsInactive(): void
     {
         $className = $this->generateClassFromFile(

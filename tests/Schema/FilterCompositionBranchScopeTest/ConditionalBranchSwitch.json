@@ -13,7 +13,10 @@
   "if": {
     "properties": {
       "kind": {
-        "const": "c"
+        "enum": [
+          "c",
+          "ccc"
+        ]
       }
     },
     "required": [
