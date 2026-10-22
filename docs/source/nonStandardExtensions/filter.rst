@@ -242,7 +242,8 @@ A property which is filtered more than once by declarations which can apply to t
 
 - a property which declares a filter and is filtered again in a branch (of an ``allOf``, ``oneOf`` or ``if``/``then``/``else``), also if the branch repeats the identical filter,
 - a property which is filtered in more than one branch of an ``allOf`` with diverging filter lists (different filters, options or order, or a list which is a part of the other one), or with values which the ``allOf`` branches hand over from nested ``oneOf`` or ``if``/``then``/``else`` compositions (they can select different branches),
-- a property which is filtered in the branches of different compositions of the same schema.
+- a property which is filtered in the branches of different compositions of the same schema,
+- a property which matches a ``patternProperties`` entry with a filter (the filter of a matching pattern property applies to the declared property for every value) and is filtered by its own declaration, by a branch or by another matching ``patternProperties`` entry.
 
 .. code-block:: text
 

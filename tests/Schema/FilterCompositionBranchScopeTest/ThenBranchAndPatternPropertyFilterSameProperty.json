@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "properties": {
+    "mode": {
+      "type": "integer"
+    },
+    "name": {
+      "type": "string"
+    }
+  },
+  "patternProperties": {
+    "^na": {
+      "type": "string",
+      "filter": "trim"
+    }
+  },
+  "if": {
+    "properties": {
+      "mode": {
+        "const": 1
+      }
+    },
+    "required": [
+      "mode"
+    ]
+  },
+  "then": {
+    "properties": {
+      "name": {
+        "type": "string",
+        "filter": "upper"
+      }
+    }
+  }
+}

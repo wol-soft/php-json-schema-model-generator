@@ -1183,6 +1183,13 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
                 ['ParentFilterRepeatedInAllOfBranch.json', 'name', 'trim', 'trim'],
             'parent property declared via $ref and then branch filter the same property' =>
                 ['ParentPropertyByReferenceAndThenBranchFilterSameProperty.json', 'name', 'trim', 'upper'],
+            // The filter of a matching pattern property applies to the declared property for every value.
+            'then branch and a pattern property filter the same property' =>
+                ['ThenBranchAndPatternPropertyFilterSameProperty.json', 'name', 'upper', 'trim'],
+            'parent property and a pattern property filter the same property' =>
+                ['ParentPropertyAndPatternPropertyFilterSameProperty.json', 'name', 'upper', 'trim'],
+            'two pattern properties filter the same property' =>
+                ['TwoPatternPropertiesFilterSameProperty.json', 'name', 'trim', 'upper'],
             'a oneOf and an if/then/else filter the same property' =>
                 ['OneOfAndConditionalFilterSameProperty.json', 'name', 'trim', 'upper'],
         ];
