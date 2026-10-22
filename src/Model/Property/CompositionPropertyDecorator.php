@@ -7,11 +7,10 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
+use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
-use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
-use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\Model\Validator\UpdateAdditionalPropertiesValidator;
 
 /**
@@ -95,10 +94,7 @@ class CompositionPropertyDecorator extends PropertyProxy
 
         foreach ($nestedSchema->getProperties() as $property) {
             foreach ($property->getValidators() as $validator) {
-                if (
-                    $validator->getValidator() instanceof PropertyDependencyValidator
-                    || $validator->getValidator() instanceof SchemaDependencyValidator
-                ) {
+                if ($validator->getValidator() instanceof DependencyValidatorInterface) {
                     return true;
                 }
             }

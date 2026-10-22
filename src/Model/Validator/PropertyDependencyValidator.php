@@ -13,7 +13,7 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * @package PHPModelGenerator\Model\Validator
  */
-class PropertyDependencyValidator extends PropertyTemplateValidator
+class PropertyDependencyValidator extends PropertyTemplateValidator implements DependencyValidatorInterface
 {
     /**
      * PropertyDependencyValidator constructor.

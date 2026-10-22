@@ -18,7 +18,7 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * @package PHPModelGenerator\Model\Validator
  */
-class SchemaDependencyValidator extends PropertyTemplateValidator
+class SchemaDependencyValidator extends PropertyTemplateValidator implements DependencyValidatorInterface
 {
     /**
      * SchemaDependencyValidator constructor.

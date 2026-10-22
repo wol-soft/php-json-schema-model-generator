@@ -17,10 +17,9 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
-use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
+use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
-use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\AdditionalPropertiesPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\SerializationPostProcessor;
@@ -302,10 +301,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             }
 
             foreach ($property->getOrderedValidators() as $validator) {
-                if (
-                    $validator instanceof PropertyDependencyValidator
-                    || $validator instanceof SchemaDependencyValidator
-                ) {
+                if ($validator instanceof DependencyValidatorInterface) {
                     $dependencyValidators[$property->getName()][] = $validator;
                 }
             }
