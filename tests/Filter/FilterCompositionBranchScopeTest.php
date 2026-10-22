@@ -17,6 +17,7 @@ use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionMethod;
 use Throwable;
 
 /**
@@ -387,6 +388,100 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
         $object = new $className(['kind' => 'b', 'value' => 'abc']);
         $this->assertSame(3, $object->getValue());
         $this->assertSame('xxx', $object->toArray()['value']);
+    }
+
+    // -------------------------------------------------------------------------
+    // Definitions shared via $ref
+    // -------------------------------------------------------------------------
+
+    /**
+     * A definition which is referenced by a branch property and by other properties is shared: transferring the
+     * branch property to the parent (scoping its filter to the branch, handing over the value) must not change the
+     * definition, otherwise the other properties referencing it lose their filter or validators.
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testSharedDefinitionReferencedByOneOfBranchesKeepsWorkingForEveryReference(
+        bool $collectErrors,
+        string $expectedException,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'SharedDefinitionInOneOfBranches.json',
+            (new GeneratorConfiguration())->setCollectErrors($collectErrors)->setImmutable(false),
+        );
+
+        $values = ['code' => '  c  ', 'name' => '  n  ', 'label' => '  l  '];
+
+        $object = new $className(['kind' => 'a'] + $values);
+        $this->assertSame(['c', 'n', 'l'], [$object->getCode(), $object->getName(), $object->getLabel()]);
+
+        // The second branch declares name without the definition, the root property code keeps its filter.
+        $object = new $className(['kind' => 'b'] + $values);
+        $this->assertSame(['c', '  n  ', 'l'], [$object->getCode(), $object->getName(), $object->getLabel()]);
+
+        // The root property keeps the type check of the definition.
+        try {
+            new $className(['kind' => 'b', 'code' => 5]);
+            $this->fail('Expected the type violation of code');
+        } catch (Throwable $exception) {
+            $this->assertInstanceOf($expectedException, $exception);
+            $this->assertSame("Invalid type for 'code': requires 'string', got 'integer'", $exception->getMessage());
+        }
+    }
+
+    public function testSharedDefinitionReferencedByConditionalBranchesKeepsWorkingForEveryReference(): void
+    {
+        $className = $this->generateClassFromFile(
+            'SharedDefinitionInConditionalBranches.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false)->setSerialization(true),
+        );
+
+        $values = ['first' => '  f  ', 'second' => '  s  ', 'date' => '2026-01-01', 'other' => '2021-01-01'];
+
+        $object = new $className(['kind' => 'a'] + $values);
+        $this->assertSame(['f', 's'], [$object->getFirst(), $object->getSecond()]);
+        $this->assertSame('2026', $object->toArray()['date']);
+        // other references the same definition as date, the transforming filter of the then branch is not its own
+        $this->assertSame('2021-01-01', $object->getOther());
+        $this->assertSame('?string', (string) (new ReflectionMethod($className, 'getOther'))->getReturnType());
+
+        $object = new $className(['kind' => 'b'] + $values);
+        $this->assertSame(['f', '  s  '], [$object->getFirst(), $object->getSecond()]);
+
+        // count references the definition of the then-only property amount: it keeps its type
+        $this->assertSame('?int', (string) (new ReflectionMethod($className, 'getCount'))->getReturnType());
+
+        try {
+            new $className(['kind' => 'b', 'count' => 'abc']);
+            $this->fail('Expected the type violation of count');
+        } catch (ValidationException $exception) {
+            $this->assertSame("Invalid type for 'count': requires 'int', got 'string'", $exception->getMessage());
+        }
+    }
+
+    /**
+     * The adopted filter belongs to the adopting property only, not to the definition it references.
+     */
+    public function testFilterAdoptedByAPropertyReferencingASharedDefinitionIsNotSharedWithOtherReferences(): void
+    {
+        $className = $this->generateClassFromFile(
+            'SharedDefinitionAdoptedByAllOfBranches.json',
+            (new GeneratorConfiguration())
+                ->setCollectErrors(false)
+                ->setImmutable(false)
+                ->addFilter($this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'upper'))
+                ->addFilter($this->getCustomFilter([self::class, 'appendExclamationMark'], 'exclaim')),
+        );
+
+        $object = new $className(['title' => 'ab', 'other' => 'cd', 'plain' => 'ef']);
+        $this->assertSame(['AB', 'cd!', 'ef'], [$object->getTitle(), $object->getOther(), $object->getPlain()]);
+
+        // the definition's own validators still apply to every reference
+        try {
+            new $className(['plain' => 'e']);
+            $this->fail('Expected the minLength violation of plain');
+        } catch (ValidationException $exception) {
+            $this->assertSame("Value for 'plain' must not be shorter than 2", $exception->getMessage());
+        }
     }
 
     // -------------------------------------------------------------------------

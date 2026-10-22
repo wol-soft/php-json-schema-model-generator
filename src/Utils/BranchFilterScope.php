@@ -305,7 +305,12 @@ class BranchFilterScope
         );
         $jsonPointer = $branchProperty->getJsonSchema()->getPointer() . '/filter';
 
-        return function () use ($schema, $registeredProperty, $filterList, $jsonPointer): void {
+        $propertyName = $registeredProperty->getName();
+
+        return function () use ($schema, $propertyName, $filterList, $jsonPointer): void {
+            // Read after the merge: a property referencing a definition is detached from the definition by the merge,
+            // the filter must not be added to the definition other properties share.
+            $registeredProperty = $schema->getProperty($propertyName);
             $validatorsBefore = FilterValidator::of($registeredProperty);
 
             (new FilterProcessor())->process(

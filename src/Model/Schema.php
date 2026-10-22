@@ -13,6 +13,7 @@ use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\Attributes\AttributesTrait;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyProxy;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
@@ -239,6 +240,18 @@ class Schema
             });
 
             return $this;
+        }
+
+        // The merge changes the registered property, which may be shared: the first property referencing a definition
+        // is the property every other reference (PropertyProxy) delegates to. The registered property is replaced by
+        // a copy of its own, other properties referencing the same definition must not be affected. An unresolved
+        // property is kept, the resolution bookkeeping is bound to it.
+        $existing = $this->properties[$property->getName()];
+
+        if ($existing->isResolved()) {
+            $this->properties[$property->getName()] = $existing instanceof PropertyProxy
+                ? $existing->detach()
+                : clone $existing;
         }
 
         $this->propertyMerger->merge(

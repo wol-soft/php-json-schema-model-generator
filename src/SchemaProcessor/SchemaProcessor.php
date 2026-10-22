@@ -9,6 +9,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyProxy;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\RenderJob;
 use PHPModelGenerator\Model\Schema;
@@ -871,7 +872,8 @@ class SchemaProcessor
     ): PropertyInterface {
         $compositionProcessor = $validator->getCompositionProcessor();
 
-        $transferredProperty = (clone $property)
+        // A property referencing a definition must not change the definition, which other properties share.
+        $transferredProperty = ($property instanceof PropertyProxy ? $property->detach() : clone $property)
             ->filterValidators(static fn(Validator $v): bool =>
                 is_a($v->getValidator(), PropertyTemplateValidator::class))
             ->setDefaultValue(null)

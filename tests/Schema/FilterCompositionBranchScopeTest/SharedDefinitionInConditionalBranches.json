@@ -1,0 +1,66 @@
+{
+  "type": "object",
+  "definitions": {
+    "trimmed": {
+      "type": "string",
+      "filter": "trim"
+    },
+    "text": {
+      "type": "string"
+    },
+    "number": {
+      "type": "integer"
+    }
+  },
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "first": {
+      "$ref": "#/definitions/trimmed"
+    },
+    "date": {
+      "$ref": "#/definitions/text"
+    },
+    "other": {
+      "$ref": "#/definitions/text"
+    },
+    "count": {
+      "$ref": "#/definitions/number"
+    }
+  },
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "a"
+      }
+    },
+    "required": [
+      "kind"
+    ]
+  },
+  "then": {
+    "properties": {
+      "second": {
+        "$ref": "#/definitions/trimmed"
+      },
+      "date": {
+        "type": "string",
+        "filter": {
+          "filter": "dateTime",
+          "outputFormat": "Y"
+        }
+      },
+      "amount": {
+        "$ref": "#/definitions/number"
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "second": {
+        "type": "string"
+      }
+    }
+  }
+}
