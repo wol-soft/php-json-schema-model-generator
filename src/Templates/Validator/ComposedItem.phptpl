@@ -20,49 +20,45 @@
 
     {% foreach compositionProperties as compositionProperty %}
         try {
-            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
-                  and compositionProperty.dependsOnAllObjectProperties()
-            %}
-                {#
-                    The branch depends on keys it doesn't declare (e.g. maxProperties): whether the cached result
-                    is still valid can't be decided by the updated properties, always evaluate the branch again.
-                #}
-                {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
-            {% endif %}
-            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
-                  and not compositionProperty.dependsOnAllObjectProperties()
-            %}
-                // check if the state of the validator is already known.
-                // If none of the properties affected by the validator are changed the validator must not be re-evaluated
-                if (
-                    isset($validatorIndex) &&
-                    isset($this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]) &&
-                    !array_intersect(
-                        array_keys($modifiedModelData),
-                        [
-                            {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
-                                '{{ affectedObjectProperty.getName() }}',
-                            {% endforeach %}
-                        ]
-                    )
-                ) {
-                    {% if generatorConfiguration.collectErrors() %}
-                        $compositionErrorCollection[] = $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex];
-                    {% endif %}
-
-                    if ({% if generatorConfiguration.collectErrors() %}
-                            $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]->getErrors()
-                        {% else %}
-                            $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] !== true
-                        {% endif %}
+            {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
+                {% if compositionProperty.dependsOnAllObjectProperties() %}
+                    {#
+                        The branch depends on keys it doesn't declare (e.g. maxProperties): whether the cached result
+                        is still valid can't be decided by the updated properties, always evaluate the branch again.
+                    #}
+                    {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
+                {% else %}
+                    // check if the state of the validator is already known.
+                    // If none of the properties affected by the validator are changed the validator must not be re-evaluated
+                    if (
+                        isset($validatorIndex) &&
+                        isset($this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]) &&
+                        !array_intersect(
+                            array_keys($modifiedModelData),
+                            [
+                                {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
+                                    '{{ affectedObjectProperty.getName() }}',
+                                {% endforeach %}
+                            ]
+                        )
                     ) {
-                        throw new \Exception();
+                        {% if generatorConfiguration.collectErrors() %}
+                            $compositionErrorCollection[] = $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex];
+                        {% endif %}
+
+                        if ({% if generatorConfiguration.collectErrors() %}
+                                $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]->getErrors()
+                            {% else %}
+                                $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] !== true
+                            {% endif %}
+                        ) {
+                            throw new \Exception();
+                        }
+                    } else {
+                        {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 3) }}
                     }
-                } else {
-                    {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 3) }}
-                }
-            {% endif %}
-            {% if not viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
+                {% endif %}
+            {% else %}
                 {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
             {% endif %}
         } catch (\Exception $e) {
