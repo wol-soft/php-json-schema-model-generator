@@ -58,13 +58,22 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     /**
      * Returns true when at least one composition branch has a nested schema with declared
      * properties, meaning the modified-values helper method may produce non-empty results.
+     * Internal properties (e.g. the composition validation state of a mutable branch class) are no
+     * branch data and don't count, like in the branch default map below.
      */
     protected function hasNestedSchemaWithProperties(): bool
     {
         foreach ($this->composedProperties as $compositionProperty) {
             $nestedSchema = $compositionProperty->getNestedSchema();
-            if ($nestedSchema !== null && !empty($nestedSchema->getProperties())) {
-                return true;
+
+            if ($nestedSchema === null) {
+                continue;
+            }
+
+            foreach ($nestedSchema->getProperties() as $branchProperty) {
+                if (!$branchProperty->isInternal()) {
+                    return true;
+                }
             }
         }
 
