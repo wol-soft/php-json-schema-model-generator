@@ -22,7 +22,10 @@ private function _validateComposition_{{ index }}(array &$modifiedModelData): vo
         // not hand over a value again, the schema keeps the value which is already committed.
         foreach ({{ branchFilteredKeyComponents }} as $filteredKey => $componentIndices) {
             if (array_key_exists($filteredKey, $publishedValues ?? [])) {
-                $this->_stagedBranchFilteredValues[$filteredKey] = [$publishedValues[$filteredKey]];
+                $this->_stagedBranchFilteredValues[$filteredKey] = [
+                    $publishedValues[$filteredKey],
+                    {% if publishesFilterSources %}$publishedSources[$filteredKey] ?? null{% else %}null{% endif %},
+                ];
             } elseif (!array_diff($componentIndices, $evaluatedComponents)) {
                 $this->_stagedBranchFilteredValues[$filteredKey] = null;
             }

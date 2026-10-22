@@ -121,6 +121,47 @@ class FilterValidator extends PropertyTemplateValidator
     }
 
     /**
+     * Identifies the filter including its options: two declarations of the same filter with different options
+     * transform (and serialize) differently.
+     */
+    public function getIdentifier(): string
+    {
+        return (string) json_encode([$this->filter->getToken(), $this->filterOptions]);
+    }
+
+    /**
+     * The transforming filters which branches of compositions execute for the property (see withoutExecution()),
+     * distinct by filter and options.
+     *
+     * @return FilterValidator[]
+     */
+    public static function branchTransformingFiltersOf(PropertyInterface $property): array
+    {
+        $filterValidators = [];
+
+        foreach (self::of($property) as $filterValidator) {
+            if (
+                !$filterValidator->isExecuted()
+                && $filterValidator->getFilter() instanceof TransformingFilterInterface
+            ) {
+                $filterValidators[$filterValidator->getIdentifier()] ??= $filterValidator;
+            }
+        }
+
+        return array_values($filterValidators);
+    }
+
+    /**
+     * Whether the property has to remember which filter produced the value it holds. Several transforming filters
+     * of branches (or one filter with different options) can produce values of the same type, the serializer can't
+     * tell them apart by the type of the value.
+     */
+    public static function requiresSourceTracking(PropertyInterface $property): bool
+    {
+        return count(self::branchTransformingFiltersOf($property)) > 1;
+    }
+
+    /**
      * @return FilterValidator[] The filters of the property, executed or not, in the order of the validators
      */
     public static function of(PropertyInterface $property): array

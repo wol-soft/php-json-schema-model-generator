@@ -51,6 +51,16 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
         return strtolower((string) $value);
     }
 
+    public static function countCharacters(string $value): int
+    {
+        return strlen($value);
+    }
+
+    public static function serializeCountAsCharacters(int $value): string
+    {
+        return str_repeat('x', $value);
+    }
+
     /** Not idempotent: reveals a filter which runs more than once. */
     public static function appendExclamationMark(string $value): string
     {
@@ -266,6 +276,117 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
         $object = new $className(['kind' => 'a', 'value' => 'Text']);
         $this->assertSame('TEXT', $object->getValue());
         $this->assertSame('text', $object->toArray()['value']);
+    }
+
+    /**
+     * Then and else transform the same property with the same filter but different options. Both outputs have the
+     * same type, so the type can't tell which serializer applies: the property remembers which filter produced the
+     * value it holds and is serialized by exactly that filter.
+     */
+    public function testSameTransformingFilterWithDifferentOptionsIsSerializedWithTheOptionsOfTheProducingBranch(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
+        $className = $this->generateClassFromFile(
+            'ConditionalBranchesSameTransformingFilterDifferentOptions.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false)->setSerialization(true),
+        );
+
+        $date = '2026-10-22T13:45:00+00:00';
+
+        $this->assertSame('2026-10-22', (new $className(['kind' => 'a', 'when' => $date]))->toArray()['when']);
+        $this->assertSame('13:45', (new $className(['kind' => 'b', 'when' => $date]))->toArray()['when']);
+
+        // A branch switch via a setter and via populate() changes the producing filter.
+        $object = new $className(['kind' => 'a', 'when' => $date]);
+        $object->setKind('b');
+        $this->assertSame('13:45', $object->toArray()['when']);
+        $object->populate(['kind' => 'a']);
+        $this->assertSame('2026-10-22', $object->toArray()['when']);
+
+        // An already transformed value set while the else branch is active is held for the else branch.
+        $object->populate(['kind' => 'b']);
+        $object->setWhen(new DateTime('2026-10-23T08:15:00+00:00'));
+        $this->assertSame('08:15', $object->toArray()['when']);
+
+        // 'aa' selects the then branch but violates the maxLength of kind: the rejected update keeps the filter.
+        try {
+            $object->setKind('aa');
+            $this->fail('Expected the maxLength violation of kind');
+        } catch (ValidationException) {
+            // expected
+        }
+
+        $this->assertSame('08:15', $object->toArray()['when']);
+    }
+
+    /**
+     * The value is handed over through nested compositions: from a conditional inside an allOf branch, from the
+     * branches of a oneOf, and from a oneOf inside a then branch next to an else branch. The filter which produced the
+     * value is handed over together with the value.
+     */
+    public function testProducingFilterIsHandedOverThroughNestedCompositions(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedBranchesSameTransformingFilterDifferentOptions.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false)->setSerialization(true),
+        );
+
+        $date = '2026-10-22T13:45:00+00:00';
+        $values = ['first' => $date, 'second' => $date, 'third' => $date];
+
+        $object = new $className(['mode' => 1, 'sel' => 'p', 'sw' => 1, 'pick' => 'x'] + $values);
+        $this->assertSame(
+            ['2026-10-22', '2026', '2026'],
+            array_values(array_intersect_key($object->toArray(), $values)),
+        );
+
+        $object = new $className(['mode' => 2, 'sel' => 'q', 'sw' => 1, 'pick' => 'y'] + $values);
+        $this->assertSame(
+            ['13:45', '13:45', '10'],
+            array_values(array_intersect_key($object->toArray(), $values)),
+        );
+
+        $object = new $className(['mode' => 2, 'sel' => 'q', 'sw' => 2] + $values);
+        $this->assertSame('22', $object->toArray()['third']);
+
+        // A setter switches the branch of the nested composition.
+        $object->setMode(1);
+        $this->assertSame('2026-10-22', $object->toArray()['first']);
+    }
+
+    /**
+     * Then and else use different transforming filters with the same output type.
+     */
+    public function testDifferentTransformingFiltersWithTheSameOutputTypeAreSerializedByTheProducingFilter(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ConditionalBranchesTransformingFiltersWithSameOutputType.json',
+            (new GeneratorConfiguration())
+                ->setCollectErrors(false)
+                ->setImmutable(false)
+                ->setSerialization(true)
+                ->addFilter($this->getCustomTransformingFilter(
+                    [self::class, 'serializeIntToString'],
+                    [self::class, 'convertStringToInt'],
+                    'stringToInt',
+                ))
+                ->addFilter($this->getCustomTransformingFilter(
+                    [self::class, 'serializeCountAsCharacters'],
+                    [self::class, 'countCharacters'],
+                    'countToInt',
+                )),
+        );
+
+        $object = new $className(['kind' => 'a', 'value' => '42']);
+        $this->assertSame(42, $object->getValue());
+        $this->assertSame('42', $object->toArray()['value']);
+
+        $object = new $className(['kind' => 'b', 'value' => 'abc']);
+        $this->assertSame(3, $object->getValue());
+        $this->assertSame('xxx', $object->toArray()['value']);
     }
 
     // -------------------------------------------------------------------------

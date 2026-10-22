@@ -122,6 +122,7 @@ class CompositionValidationPostProcessor extends PostProcessor
         array $compositionValidatorKeys,
     ): array {
         $allFilteredKeys = [];
+        $tracksFilterSources = false;
 
         foreach ($compositionValidatorKeys as $validatorIndex) {
             /** @var AbstractComposedPropertyValidator $compositionValidator */
@@ -131,6 +132,8 @@ class CompositionValidationPostProcessor extends PostProcessor
 
             $filteredKeys = $compositionValidator->getFilteredKeys();
             $allFilteredKeys += $filteredKeys;
+            $publishesFilterSources = $compositionValidator->getFilterSourceMap() !== [];
+            $tracksFilterSources = $tracksFilterSources || $publishesFilterSources;
 
             $schema->addMethod(
                 "_validateComposition_$validatorIndex",
@@ -147,6 +150,7 @@ class CompositionValidationPostProcessor extends PostProcessor
                         'branchFilteredKeyComponents' => RenderHelper::varExportArray(
                             $compositionValidator->getFilteredKeyComponents(),
                         ),
+                        'publishesFilterSources' => $publishesFilterSources,
                     ],
                 )
             );
@@ -159,7 +163,12 @@ class CompositionValidationPostProcessor extends PostProcessor
                 [
                     'branchFilteredValues' => 'Filtered values handed over by the active branches of compositions',
                     'stagedBranchFilteredValues' => 'Filtered values staged by the update in progress',
-                ] as $name => $description
+                ] + (
+                    $tracksFilterSources
+                        // See FilterValidator::requiresSourceTracking()
+                        ? ['branchFilteredSources' => 'The filters which produced the handed over filtered values']
+                        : []
+                ) as $name => $description
             ) {
                 $schema->addProperty(
                     (new Property($name, new PropertyType('array'), new JsonSchema(__FILE__, []), $description))
@@ -176,12 +185,20 @@ class CompositionValidationPostProcessor extends PostProcessor
                     $schema,
                     $generatorConfiguration,
                     'PrepareBranchFilteredValues.phptpl',
-                    ['branchFilteredKeys' => RenderHelper::varExportArray($allFilteredKeys)],
+                    [
+                        'branchFilteredKeys' => RenderHelper::varExportArray($allFilteredKeys),
+                        'tracksFilterSources' => $tracksFilterSources,
+                    ],
                 ),
             );
             $schema->addMethod(
                 '_applyBranchFilteredValues',
-                new RenderedMethod($schema, $generatorConfiguration, 'ApplyBranchFilteredValues.phptpl', []),
+                new RenderedMethod(
+                    $schema,
+                    $generatorConfiguration,
+                    'ApplyBranchFilteredValues.phptpl',
+                    ['tracksFilterSources' => $tracksFilterSources],
+                ),
             );
         }
 

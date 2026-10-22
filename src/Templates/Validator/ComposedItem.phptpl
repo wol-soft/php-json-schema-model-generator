@@ -8,7 +8,8 @@
     &$succeededCompositionElements,
     &$validatorIndex{% if publishesFilteredValues %},
     &$publishedValues,
-    &$evaluatedComponents{% endif %}
+    &$evaluatedComponents{% endif %}{% if filterSourceMap %},
+    &$publishedSources{% endif %}
 ) {
     $succeededCompositionElements = {{ availableAmount }};
     $validatorComponentIndex = 0;
@@ -57,13 +58,13 @@
                     {% if publishesFilteredValues %}
                         $evaluatedComponents[] = $validatorComponentIndex;
                     {% endif %}
-                    {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 3) }}
+                    {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose, filterSourceMap), 3) }}
                 }
             {% else %}
                 {% if publishesFilteredValues %}
                     $evaluatedComponents[] = $validatorComponentIndex;
                 {% endif %}
-                {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
+                {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose, filterSourceMap), 2) }}
             {% endif %}
         } catch (\Exception $e) {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)

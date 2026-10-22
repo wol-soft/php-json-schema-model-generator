@@ -9,12 +9,15 @@ private function _applyBranchFilteredValues(?array $preparedBranchFilteredValues
         return;
     }
 
-    [$branchFilteredValues, $dependentValues] = $preparedBranchFilteredValues;
+    [$branchFilteredValues, $dependentValues, $branchFilteredSources] = $preparedBranchFilteredValues;
 
     foreach ($dependentValues as $filteredAttribute => $dependentValue) {
         $this->$filteredAttribute = $dependentValue;
     }
 
     $this->_branchFilteredValues = $branchFilteredValues;
+    {% if tracksFilterSources %}
+        $this->_branchFilteredSources = $branchFilteredSources;
+    {% endif %}
     $this->_stagedBranchFilteredValues = [];
 }

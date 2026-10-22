@@ -39,7 +39,11 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
             $generatorConfiguration,
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ConditionalComposedItem.phptpl',
-            array_merge($validatorVariables, ['modifiedValuesMethod' => $this->modifiedValuesMethod]),
+            array_merge(
+                $validatorVariables,
+                // filterSourceMap is set by getCheck(), see getFilterSourceMap().
+                ['modifiedValuesMethod' => $this->modifiedValuesMethod, 'filterSourceMap' => ''],
+            ),
             ConditionalException::class,
             ['&$ifException', '&$thenException', '&$elseException'],
         );
@@ -99,7 +103,7 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
     {
         $filteredKeyMap = $this->getBranchFilteredKeyMap();
 
-        $this->setupBranchDefaultHelpers($filteredKeyMap);
+        $this->setupBranchDefaultHelpers($filteredKeyMap, $this->setupFilterSourceTemplateValues());
 
         $thenProperty = $this->templateValues['thenProperty'] ?? null;
         $elseProperty = $this->templateValues['elseProperty'] ?? null;
@@ -138,6 +142,8 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
         return $this->getBranchFilteredKeyMap() !== []
             ? $setUp . "\n\$publishedValues = null;\n\$evaluatedComponents = "
                 . RenderHelper::varExportArray(array_keys($this->composedProperties)) . ';'
+                // The producing filters of the published values, see getFilterSourceMap().
+                . ($this->getFilterSourceMap() !== [] ? "\n\$publishedSources = [];" : '')
             : $setUp;
     }
 }

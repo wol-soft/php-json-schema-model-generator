@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator;
 
+use PHPModelGenerator\Filter\TransformingFilterInterface;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
@@ -159,6 +160,63 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     }
 
     /**
+     * How the active branch hands over which filter produced a published value, for the published properties which
+     * have to remember the producing filter on the schema (see FilterValidator::requiresSourceTracking()):
+     * component index => property name => the identifier of the filter if the branch property is transformed by a
+     * single filter, true if the branch class remembers the producing filter itself (it receives the value from a
+     * nested composition with several filters) - it is read from the branch object.
+     *
+     * @return array<int, array<string, string|true>>
+     */
+    public function getFilterSourceMap(): array
+    {
+        $filterSourceMap = [];
+
+        foreach ($this->getBranchFilteredKeyMap() as $componentIndex => $componentFilteredKeys) {
+            $nestedSchema = $this->composedProperties[$componentIndex]->getNestedSchema();
+
+            foreach (array_keys($componentFilteredKeys) as $propertyName) {
+                $scopeProperty = $this->scope?->getProperty($propertyName);
+
+                if ($scopeProperty === null || !FilterValidator::requiresSourceTracking($scopeProperty)) {
+                    continue;
+                }
+
+                $identifiers = [];
+                foreach (FilterValidator::of($nestedSchema->getProperty($propertyName)) as $filterValidator) {
+                    if ($filterValidator->getFilter() instanceof TransformingFilterInterface) {
+                        $identifiers[$filterValidator->getIdentifier()] = true;
+                    }
+                }
+
+                if ($identifiers !== []) {
+                    $filterSourceMap[$componentIndex][$propertyName] = count($identifiers) === 1
+                        ? array_key_first($identifiers)
+                        : true;
+                }
+            }
+        }
+
+        return $filterSourceMap;
+    }
+
+    /**
+     * Sets the template values for the hand over of the producing filters, see getFilterSourceMap().
+     *
+     * @return string[] The published properties which have to remember the producing filter
+     */
+    protected function setupFilterSourceTemplateValues(): array
+    {
+        $filterSourceMap = $this->getFilterSourceMap();
+
+        $this->templateValues['filterSourceMap'] = $filterSourceMap === []
+            ? ''
+            : RenderHelper::varExportArray($filterSourceMap);
+
+        return array_keys(array_replace([], ...array_values($filterSourceMap)));
+    }
+
+    /**
      * The components which own a published property: property name => component indices. A composition which keeps
      * the result of a component from its previous evaluation (the properties of the component are not part of the
      * update) doesn't hand the value of that component over again, the schema keeps the value it already holds.
@@ -209,7 +267,11 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
      *
      * @param array<int, array<string, array{string, string}>> $filteredKeyMap See getBranchFilteredKeyMap()
      */
-    protected function setupBranchDefaultHelpers(array $filteredKeyMap): bool
+    /**
+     * @param string[] $sourceTrackedKeys The published properties which have to remember the producing filter: the
+     *                                    active branch hands them over also if the filter didn't change the value
+     */
+    protected function setupBranchDefaultHelpers(array $filteredKeyMap, array $sourceTrackedKeys = []): bool
     {
         $hasNestedSchemaWithProperties = $this->hasNestedSchemaWithProperties();
 
@@ -297,6 +359,7 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
                     'filteredKeys' => RenderHelper::varExportArray(
                         array_keys(array_replace([], ...array_values($filteredKeyMap))),
                     ),
+                    'sourceTrackedKeys' => RenderHelper::varExportArray($sourceTrackedKeys),
                 ],
             ),
         );

@@ -437,7 +437,7 @@ class BranchFilterScope
 
         $hasSubstitution = false;
         $describedFilters = array_map(
-            static fn(FilterValidator $filterValidator): string => $filterValidator->getFilter()->getToken(),
+            static fn(FilterValidator $filterValidator): string => $filterValidator->getIdentifier(),
             FilterValidator::of($registeredProperty),
         );
 
@@ -451,18 +451,19 @@ class BranchFilterScope
         }
 
         // Then and else (or the branches of a oneOf) may transform the same property differently: the output type
-        // and the serializer of the property have to know every filter whose value the property can hold.
+        // and the serializer of the property have to know every filter whose value the property can hold. The same
+        // filter with different options counts as a different filter, it serializes differently.
         foreach ($branchProperty->getValidators() as $wrapper) {
             $filterValidator = $wrapper->getValidator();
 
             if (
                 !($filterValidator instanceof FilterValidator)
-                || in_array($filterValidator->getFilter()->getToken(), $describedFilters, true)
+                || in_array($filterValidator->getIdentifier(), $describedFilters, true)
             ) {
                 continue;
             }
 
-            $describedFilters[] = $filterValidator->getFilter()->getToken();
+            $describedFilters[] = $filterValidator->getIdentifier();
             $registeredProperty->addValidator(
                 $filterValidator->withoutExecution(),
                 $wrapper->getPriority(),

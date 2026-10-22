@@ -71,12 +71,29 @@ class SerializationPostProcessor extends PostProcessor
         $code = ['$value = $this->' . $property->getAttribute(true) . ';', ''];
         $unconditionalSerialization = null;
 
-        foreach ($filterValidators as $filterValidator) {
-            [$serializerClass, $serializerMethod] = $filterValidator->getFilter()->getSerializer();
-            $returnTypeNames = FilterReflection::getReturnTypeNames($filterValidator->getFilter(), $property);
+        // Several filters can produce a value of the same type: the property remembers the filter which produced the
+        // value. A value no branch filter produced (e.g. set while no branch which filters the property is active)
+        // falls back to the serializers guarded by the output type.
+        if (FilterValidator::requiresSourceTracking($property)) {
+            $code[] = sprintf(
+                'switch ($this->_branchFilteredSources[%s] ?? null) {',
+                var_export($property->getName(), true),
+            );
 
-            $serialization = "return \\{$serializerClass}::{$serializerMethod}("
-                . '$value, ' . RenderHelper::varExportArray($filterValidator->getFilterOptions()) . ');';
+            foreach (FilterValidator::branchTransformingFiltersOf($property) as $filterValidator) {
+                array_push(
+                    $code,
+                    '    case ' . var_export($filterValidator->getIdentifier(), true) . ':',
+                    '        ' . $this->renderSerialization($filterValidator),
+                );
+            }
+
+            array_push($code, '}', '');
+        }
+
+        foreach ($filterValidators as $filterValidator) {
+            $returnTypeNames = FilterReflection::getReturnTypeNames($filterValidator->getFilter(), $property);
+            $serialization = $this->renderSerialization($filterValidator);
 
             if ($returnTypeNames === []) {
                 $unconditionalSerialization ??= $serialization;
@@ -96,6 +113,14 @@ class SerializationPostProcessor extends PostProcessor
         $code[] = $unconditionalSerialization ?? 'return $value;';
 
         return implode("\n", $code);
+    }
+
+    private function renderSerialization(FilterValidator $filterValidator): string
+    {
+        [$serializerClass, $serializerMethod] = $filterValidator->getFilter()->getSerializer();
+
+        return "return \\{$serializerClass}::{$serializerMethod}("
+            . '$value, ' . RenderHelper::varExportArray($filterValidator->getFilterOptions()) . ');';
     }
 
     /**

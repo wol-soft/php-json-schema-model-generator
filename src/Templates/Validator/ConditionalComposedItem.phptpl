@@ -6,7 +6,8 @@
     &$ifException,
     &$thenException,
     &$elseException{% if publishesFilteredValues %},
-    &$publishedValues{% endif %}
+    &$publishedValues{% endif %}{% if filterSourceMap %},
+    &$publishedSources{% endif %}
 ) {
     $originalModelData = $value;
     {% if generatorConfiguration.collectErrors() %}
@@ -98,11 +99,26 @@
             {% if thenProperty %}
                 if (!$ifException && !$thenException) {
                     $publishedValues = array_intersect_key($modifiedValues, {{ thenFilteredKeyLookup }});
+                    $activeComponentIndex = {{ thenComponentIndex }};
                 }
             {% endif %}
             {% if elseProperty %}
                 if ($ifException !== null && !$elseException) {
                     $publishedValues = array_intersect_key($modifiedValues, {{ elseFilteredKeyLookup }});
+                    $activeComponentIndex = {{ elseComponentIndex }};
+                }
+            {% endif %}
+            {% if filterSourceMap %}
+
+                // Hand over which filter produced the values (see getFilterSourceMap()).
+                foreach ({{ filterSourceMap }}[$activeComponentIndex ?? -1] ?? [] as $sourceKey => $source) {
+                    if (array_key_exists($sourceKey, $publishedValues)) {
+                        $publishedSources[$sourceKey] = $source === true
+                            ? (function () use ($sourceKey) {
+                                return $this->_branchFilteredSources[$sourceKey] ?? null;
+                            })->call($value)
+                            : $source;
+                    }
                 }
             {% endif %}
         {% endif %}
