@@ -236,10 +236,10 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
     public static function compositionBranchDependencyProvider(): array
     {
         return [
-            'oneOf, property dependency' => ['oneOf', '["extra"]', OneOfException::class],
-            'oneOf, schema dependency' => ['oneOf', '{"required": ["extra"]}', OneOfException::class],
-            'anyOf, property dependency' => ['anyOf', '["extra"]', null],
-            'anyOf, schema dependency' => ['anyOf', '{"required": ["extra"]}', null],
+            'oneOf, property dependency' => ['oneOf', '["extra"]', true],
+            'oneOf, schema dependency' => ['oneOf', '{"required": ["extra"]}', true],
+            'anyOf, property dependency' => ['anyOf', '["extra"]', false],
+            'anyOf, schema dependency' => ['anyOf', '{"required": ["extra"]}', false],
         ];
     }
 
@@ -251,7 +251,7 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
     public function testDependencyOfACompositionBranchOnlyAppliesToTheBranch(
         string $composition,
         string $dependency,
-        ?string $exceptionMatchingBothBranches,
+        bool $matchingBothBranchesIsRejected,
     ): void {
         $className = $this->generateClassFromFileTemplate(
             'CompositionBranchDependency.json',
@@ -268,20 +268,37 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         $object = new $className(['note' => 'n', 'extra' => 'e']);
         $this->assertSame(['note' => 'n', 'extra' => 'e'], $object->meta()->rawInput());
 
-        $bothBranchesMatching = static fn() => new $className(['kind' => 'k', 'note' => 'n', 'extra' => 'e']);
+        $exception = $this->catchException(
+            static fn() => new $className(['kind' => 'k', 'note' => 'n', 'extra' => 'e']),
+        );
 
-        if ($exceptionMatchingBothBranches === null) {
-            $this->assertNull($this->catchException($bothBranchesMatching));
-        } else {
-            $this->assertInstanceOf($exceptionMatchingBothBranches, $this->catchException($bothBranchesMatching));
+        if (!$matchingBothBranchesIsRejected) {
+            $this->assertNull($exception);
+
+            return;
         }
+
+        $this->assertInstanceOf(OneOfException::class, $exception);
+        $this->assertSame(
+            "Invalid value for '$className' declined by composition constraint\n"
+                . "  Requires to match one composition element but matched 2 elements\n"
+                . "  - Composition element #1: Valid\n"
+                . '  - Composition element #2: Valid',
+            $exception->getMessage(),
+        );
     }
 
     public static function allOfBranchDependencyProvider(): array
     {
         return [
-            'property dependency' => ['["extra"]'],
-            'schema dependency' => ['{"required": ["extra"]}'],
+            'property dependency' => [
+                '["extra"]',
+                "    * Missing required attributes which are dependants of 'note':\n      - 'extra'",
+            ],
+            'schema dependency' => [
+                '{"required": ["extra"]}',
+                "    * Invalid schema which is dependant on 'note':\n      - Missing required value for 'extra'",
+            ],
         ];
     }
 
@@ -290,8 +307,10 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
      * branch: a violation is reported once by the composition, not a second time by the property of the model.
      */
     #[DataProvider('allOfBranchDependencyProvider')]
-    public function testViolatedDependencyOfAnAllOfBranchIsReportedOnce(string $dependency): void
-    {
+    public function testViolatedDependencyOfAnAllOfBranchIsReportedOnce(
+        string $dependency,
+        string $branchError,
+    ): void {
         $className = $this->generateClassFromFileTemplate(
             'CompositionBranchDependency.json',
             ['allOf', $dependency],
@@ -304,6 +323,14 @@ class PropertyDependencyTest extends AbstractPHPModelGeneratorTestCase
         $this->assertInstanceOf(ErrorRegistryException::class, $exception);
         $this->assertCount(1, $exception->getErrors());
         $this->assertInstanceOf(AllOfException::class, $exception->getErrors()[0]);
+        $this->assertSame(
+            "Invalid value for '$className' declined by composition constraint\n"
+                . "  Requires to match all composition elements but matched 1 element\n"
+                . "  - Composition element #1: Valid\n"
+                . "  - Composition element #2: Failed\n"
+                . $branchError,
+            $exception->getMessage(),
+        );
 
         $object = new $className(['kind' => 'k', 'note' => 'n', 'extra' => 'e']);
         $this->assertSame(['kind' => 'k', 'note' => 'n', 'extra' => 'e'], $object->meta()->rawInput());
