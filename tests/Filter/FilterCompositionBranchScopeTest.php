@@ -26,11 +26,13 @@ use Throwable;
  *
  * Branches with exactly one active branch (if/then/else, oneOf) own their filtered properties. A branch
  * of an anyOf composition cannot: several branches can match, so a filtered property declared in an anyOf
- * branch is rejected at generation time. All branches of an allOf are always active, so a single filtered
- * property is fine.
+ * branch is rejected at generation time, unless every branch declares the property with the same filter. All
+ * branches of an allOf are always active, so a filtered property is fine. A filter which runs on the parent for
+ * every input is adopted by a property which the parent declares without a filter.
  *
- * A property which is filtered more than once by declarations that can apply to the same value (several
- * allOf branches, or the parent schema plus any branch) is rejected: the filters have no defined order.
+ * A property which is filtered more than once by declarations that can apply to the same value (allOf branches
+ * with diverging filters, or the parent schema plus any branch) is rejected: the filters have no defined order.
+ * Several allOf branches with an identical filter list filter the same input, the filters run once.
  * Declarations which exclude each other are fine, e.g. a filter in then and a different one in else.
  *
  * A filter on a property of the if condition runs inside the condition, it is not applied to the parent.
@@ -47,6 +49,12 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
     public static function serializeMixedToString(mixed $value): string
     {
         return strtolower((string) $value);
+    }
+
+    /** Not idempotent: reveals a filter which runs more than once. */
+    public static function appendExclamationMark(string $value): string
+    {
+        return $value . '!';
     }
 
     // -------------------------------------------------------------------------
@@ -751,13 +759,113 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
         $this->assertSame('y', $object->getName());
     }
 
+    /**
+     * A filter which runs on the parent for every input (a single allOf branch, the identical filters of several
+     * allOf branches) is adopted by a property which the parent schema declares without a filter, as if the
+     * property were declared only in the branch: the filter runs first, the validators of the parent check the
+     * filtered value. Without the adoption the declaration of the parent took precedence and the branch filter was
+     * silently dropped.
+     *
+     * Several allOf branches which declare an identical filter list (same filters, options and order) don't chain
+     * their filters: every branch filters the same input, so the result is the same and the filters run once.
+     */
+    public function testFilterOfAllOfBranchIsAdoptedByParentPropertyAndIdenticalFiltersOfAllOfBranchesRunOnce(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AllOfBranchFilterAdoption.json',
+            (new GeneratorConfiguration())
+                ->setCollectErrors(false)
+                ->setImmutable(false)
+                ->setSerialization(true)
+                ->addFilter($this->getCustomFilter([self::class, 'appendExclamationMark'], 'exclaim')),
+        );
+
+        $object = new $className([
+            'title' => '  abc  ',
+            'date' => '2026-10-21',
+            'label' => 'l',
+            'code' => 'c',
+            'item' => ['title' => '  i  '],
+            'stamp' => '2026-10-21T13:45:00+00:00',
+        ]);
+
+        // parent declares the property without a filter, a single allOf branch filters it
+        $this->assertSame('abc', $object->getTitle());
+        $this->assertInstanceOf(DateTime::class, $object->getDate());
+        $this->assertSame('2026-10-21', $object->getDate()->format('Y-m-d'));
+        $this->assertSame((new DateTime('2026-10-21'))->format(DATE_ISO8601), $object->toArray()['date']);
+        // the branch declares the property via $ref, the filter options are adopted as well
+        $this->assertSame('13:45', $object->getStamp()->format('H:i'));
+        $this->assertSame('13:45', $object->toArray()['stamp']);
+        // nested object schema with its own allOf
+        $this->assertSame('i', $object->getItem()->getTitle());
+
+        // identical filters in two allOf branches run once (with and without a declaration in the parent)
+        $this->assertSame('l!', $object->getLabel());
+        $this->assertSame('c!', $object->getCode());
+
+        $object->setTitle('  xyz  ');
+        $this->assertSame('xyz', $object->getTitle());
+        $object->setLabel('m');
+        $this->assertSame('m!', $object->getLabel());
+        $object->setCode('d');
+        $this->assertSame('d!', $object->getCode());
+
+        // the minLength of the parent validates the filtered value
+        try {
+            new $className(['title' => '  ab  ']);
+            $this->fail('Expected a ValidationException for the trimmed title');
+        } catch (ValidationException $exception) {
+            $this->assertSame("Value for 'title' must not be shorter than 3", $exception->getMessage());
+        }
+    }
+
+    /**
+     * The filter which every anyOf branch declares in the same way runs on the parent for every input, so it is
+     * adopted by a property which the parent schema declares without a filter, like the filter of an allOf branch.
+     */
+    public function testFilterWhichEveryAnyOfBranchDeclaresIsAdoptedByParentProperty(): void
+    {
+        $className = $this->generateClassFromFile(
+            'AnyOfBranchesSameFilterOnRootDeclaredProperty.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $this->assertSame('xy', (new $className(['kind' => 'a', 'name' => '  xy  ']))->getName());
+        $this->assertSame('xy', (new $className(['kind' => 'b', 'name' => '  xy  ']))->getName());
+
+        $object = new $className(['kind' => 'a']);
+        $object->setName('  yz  ');
+        $this->assertSame('yz', $object->getName());
+
+        // the minLength of the parent validates the filtered value
+        try {
+            new $className(['kind' => 'a', 'name' => '  x  ']);
+            $this->fail('Expected a ValidationException for the trimmed name');
+        } catch (ValidationException $exception) {
+            $this->assertSame("Value for 'name' must not be shorter than 2", $exception->getMessage());
+        }
+    }
+
     public static function propertyFilteredMoreThanOnceProvider(): array
     {
         return [
             'two allOf branches filter the same property' =>
                 ['AllOfBranchesFilterSameProperty.json', 'name', 'trim', 'upper'],
+            'two allOf branches use the same filter with different options' =>
+                ['AllOfBranchesSameFilterDifferentOptions.json', 'date', 'dateTime', 'dateTime'],
+            'two allOf branches use the same filters in a different order' =>
+                ['AllOfBranchesSameFiltersDifferentOrder.json', 'name', 'trim', 'upper'],
+            'the filters of an allOf branch are a subset of the filters of another allOf branch' =>
+                ['AllOfBranchFilterListIsSubsetOfOther.json', 'name', 'trim', 'trim'],
+            // The two conditionals can select different branches, the forwarded values can diverge.
+            'two allOf branches forward the same filter from nested conditionals' =>
+                ['AllOfBranchesForwardSameFilterFromConditionals.json', 'name', 'trim', 'trim'],
             'parent property and allOf branch filter the same property' =>
                 ['AllOfBranchOverridesRootFilter.json', 'filteredProperty', 'dateTime', 'trim'],
+            // An identical repetition is rejected as well, the filter belongs to one declaration.
+            'parent property and allOf branch declare the identical filter' =>
+                ['ParentFilterRepeatedInAllOfBranch.json', 'name', 'trim', 'trim'],
             'parent property declared via $ref and then branch filter the same property' =>
                 ['ParentPropertyByReferenceAndThenBranchFilterSameProperty.json', 'name', 'trim', 'upper'],
             'a oneOf and an if/then/else filter the same property' =>

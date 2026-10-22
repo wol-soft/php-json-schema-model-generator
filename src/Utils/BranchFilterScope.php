@@ -15,6 +15,7 @@ use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\BranchFilteredValueValidator;
 use PHPModelGenerator\Model\Validator\ConditionalPropertyValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
+use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
 use ReflectionException;
 use WeakMap;
 
@@ -27,16 +28,31 @@ class BranchFilterScope
 {
     /**
      * The filters which composition branches declare for a property of a schema, per schema and property name: the
-     * token of the filter and the composition which owns it. A WeakMap, so the entries disappear together with the
-     * schema and a recycled object id can never inherit the declarations of another schema.
+     * token of the first filter, the composition which owns it, the signature of the filter list and whether the
+     * branch executes the filters itself. A WeakMap, so the entries disappear together with the schema and a recycled
+     * object id can never inherit the declarations of another schema.
      *
-     * @var WeakMap<Schema, array<string, array<int, array{token: string, owner: AbstractComposedPropertyValidator}>>>
+     * @var WeakMap<Schema, array<string, array<int, array{
+     *     token: string,
+     *     owner: AbstractComposedPropertyValidator,
+     *     signature: string,
+     *     executed: bool,
+     * }>>>
      */
     private WeakMap $filterDeclarations;
+
+    /**
+     * The filters which a property of a schema adopted from a branch (see adoptExecutedBranchFilters()). They belong
+     * to the branch declaration, not to the schema itself.
+     *
+     * @var WeakMap<FilterValidator, true>
+     */
+    private WeakMap $adoptedFilters;
 
     public function __construct(private readonly GeneratorConfiguration $generatorConfiguration)
     {
         $this->filterDeclarations = new WeakMap();
+        $this->adoptedFilters = new WeakMap();
     }
 
     /**
@@ -125,14 +141,21 @@ class BranchFilterScope
         CompositionPropertyDecorator $sourceBranch,
         PropertyInterface $branchProperty,
     ): void {
+        $filterValidators = FilterValidator::of($branchProperty);
         $branchFilters = array_map(
             static fn(FilterValidator $filterValidator): string => $filterValidator->getFilter()->getToken(),
-            FilterValidator::of($branchProperty),
+            $filterValidators,
         );
 
         if ($branchFilters === []) {
             return;
         }
+
+        $signature = self::getFilterListSignature($filterValidators);
+        $executed = array_filter(
+            $filterValidators,
+            static fn(FilterValidator $filterValidator): bool => !$filterValidator->isExecuted(),
+        ) === [];
 
         if ($validator instanceof ConditionalPropertyValidator && $sourceBranch === $validator->getIfBranch()) {
             return;
@@ -150,6 +173,19 @@ class BranchFilterScope
                 continue;
             }
 
+            // All branches of an allOf filter the same input: identical filter lists (same filters, options and
+            // order) which the branches execute themselves give the same result, the filters run once. Not for values
+            // which the branches forward from nested compositions: these can select different branches, the
+            // forwarded values can diverge.
+            if (
+                $declaration['owner'] === $validator
+                && $declaration['executed']
+                && $executed
+                && $declaration['signature'] === $signature
+            ) {
+                continue;
+            }
+
             throw $this->createFilteredMoreThanOnceException(
                 $schema,
                 $branchProperty,
@@ -158,7 +194,12 @@ class BranchFilterScope
             );
         }
 
-        $declarations[] = ['token' => $branchFilters[0], 'owner' => $validator];
+        $declarations[] = [
+            'token' => $branchFilters[0],
+            'owner' => $validator,
+            'signature' => $signature,
+            'executed' => $executed,
+        ];
 
         $filterDeclarations = $this->filterDeclarations[$schema] ?? [];
         $filterDeclarations[$propertyName] = $declarations;
@@ -187,8 +228,9 @@ class BranchFilterScope
 
         $assertNotFiltered = function () use ($schema, $schemaProperty, $branchProperty, $branchFilterToken): void {
             foreach (FilterValidator::of($schemaProperty) as $filterValidator) {
-                // The non-executing filters describe the branches which hand over their value to the property.
-                if ($filterValidator->isExecuted()) {
+                // The non-executing filters describe the branches which hand over their value to the property, the
+                // adopted filters belong to a branch declaration.
+                if ($filterValidator->isExecuted() && !isset($this->adoptedFilters[$filterValidator])) {
                     throw $this->createFilteredMoreThanOnceException(
                         $schema,
                         $branchProperty,
@@ -200,6 +242,86 @@ class BranchFilterScope
         };
 
         $schemaProperty->isResolved() ? $assertNotFiltered() : $schemaProperty->onResolve($assertNotFiltered);
+    }
+
+    /**
+     * @param FilterValidator[] $filterValidators
+     */
+    private static function getFilterListSignature(array $filterValidators): string
+    {
+        return (string) json_encode(array_map(
+            static fn(FilterValidator $filterValidator): array => [
+                $filterValidator->getFilter()->getToken(),
+                $filterValidator->getFilterOptions(),
+            ],
+            $filterValidators,
+        ));
+    }
+
+    /**
+     * A filter which a branch executes on the schema for every input (a single allOf branch, the identical filter
+     * lists of several allOf branches or of every anyOf branch) is adopted by a property which is already registered
+     * on the schema without a filter, as if the property were declared with the filter: the filter runs first, the
+     * validators of the registered property check the filtered value. Without the adoption the registered property
+     * kept its validators and the branch filter was silently dropped when the properties were merged.
+     *
+     * Detaches the filters from the transferred copy before it is merged (the merge compares the output types, the
+     * output type of a transforming filter would conflict with the type of the registered property) and returns a
+     * callback which lets the registered property adopt them after the merge, null if nothing is adopted.
+     */
+    public function detachFiltersForAdoption(
+        Schema $schema,
+        PropertyInterface $transferredProperty,
+        PropertyInterface $branchProperty,
+    ): ?callable {
+        $registeredProperty = $schema->getProperty($transferredProperty->getName());
+        $executedFilters = array_filter(
+            FilterValidator::of($transferredProperty),
+            static fn(FilterValidator $filterValidator): bool => $filterValidator->isExecuted(),
+        );
+
+        if (
+            $registeredProperty === null
+            || $executedFilters === []
+            || !$registeredProperty->isResolved()
+            // Filtered already: by the schema itself or by a previous branch (rejected or identical, see
+            // assertBranchFilterIsDeclaredOnce()), the filters run once.
+            || FilterValidator::of($registeredProperty) !== []
+        ) {
+            return null;
+        }
+
+        $transferredProperty->filterValidators(
+            static fn(Validator $wrapper): bool => !in_array($wrapper->getValidator(), $executedFilters, true),
+        );
+        $transferredProperty->setType($transferredProperty->getType(), $transferredProperty->getType());
+
+        // Rebuilt from the filters instead of read from the filter keyword of the branch property: a property which is
+        // declared via $ref doesn't carry the keyword itself.
+        $filterList = array_map(
+            static fn(FilterValidator $filterValidator): array =>
+                ['filter' => $filterValidator->getFilter()->getToken()] + $filterValidator->getFilterOptions(),
+            array_values($executedFilters),
+        );
+        $jsonPointer = $branchProperty->getJsonSchema()->getPointer() . '/filter';
+
+        return function () use ($schema, $registeredProperty, $filterList, $jsonPointer): void {
+            $validatorsBefore = FilterValidator::of($registeredProperty);
+
+            (new FilterProcessor())->process(
+                $registeredProperty,
+                $filterList,
+                $this->generatorConfiguration,
+                $schema,
+                $jsonPointer,
+            );
+
+            foreach (FilterValidator::of($registeredProperty) as $filterValidator) {
+                if (!in_array($filterValidator, $validatorsBefore, true)) {
+                    $this->adoptedFilters[$filterValidator] = true;
+                }
+            }
+        };
     }
 
     private function createFilteredMoreThanOnceException(

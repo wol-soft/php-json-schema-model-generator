@@ -776,14 +776,22 @@ class SchemaProcessor
                                     );
                                 }
 
-                                $schema->addProperty(
-                                    $this->cloneTransferredProperty(
-                                        $branchProperty,
-                                        $composedProperty,
-                                        $validator,
-                                    ),
-                                    $validator->getCompositionProcessor(),
+                                $transferredProperty = $this->cloneTransferredProperty(
+                                    $branchProperty,
+                                    $composedProperty,
+                                    $validator,
                                 );
+                                $adoptFilters = $this->branchFilterScope->detachFiltersForAdoption(
+                                    $schema,
+                                    $transferredProperty,
+                                    $branchProperty,
+                                );
+
+                                $schema->addProperty($transferredProperty, $validator->getCompositionProcessor());
+
+                                if ($adoptFilters !== null) {
+                                    $adoptFilters();
+                                }
 
                                 if ($validator->publishesFilteredValueOf($composedProperty, $branchProperty)) {
                                     $this->branchFilterScope->takeOverBranchFilteredValue($schema, $branchProperty);

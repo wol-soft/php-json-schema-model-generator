@@ -1,0 +1,82 @@
+{
+  "type": "object",
+  "definitions": {
+    "stamp": {
+      "type": "string",
+      "filter": {
+        "filter": "dateTime",
+        "outputFormat": "H:i"
+      }
+    }
+  },
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 3
+    },
+    "date": {
+      "type": "string"
+    },
+    "code": {
+      "type": "string"
+    },
+    "item": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "properties": {
+            "title": {
+              "type": "string",
+              "filter": "trim"
+            }
+          }
+        }
+      ]
+    },
+    "stamp": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "title": {
+          "type": "string",
+          "filter": "trim"
+        },
+        "date": {
+          "type": "string",
+          "filter": "dateTime"
+        },
+        "label": {
+          "type": "string",
+          "filter": "exclaim"
+        },
+        "code": {
+          "type": "string",
+          "filter": "exclaim"
+        },
+        "stamp": {
+          "$ref": "#/definitions/stamp"
+        }
+      }
+    },
+    {
+      "properties": {
+        "label": {
+          "type": "string",
+          "filter": "exclaim"
+        },
+        "code": {
+          "type": "string",
+          "filter": "exclaim"
+        }
+      }
+    }
+  ]
+}

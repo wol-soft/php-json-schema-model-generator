@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "a"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "filter": "trim"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "b"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "filter": "trim"
+          }
+        }
+      }
+    }
+  ]
+}
