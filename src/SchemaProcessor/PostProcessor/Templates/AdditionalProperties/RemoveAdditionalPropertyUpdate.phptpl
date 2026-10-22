@@ -29,14 +29,15 @@ if ($inAdditionalProperties) {
 
 {% if dependencyValidators %}
     $modelData = $this->_rawModelDataInput;
+    {#
+        Each dependency validator checks itself whether its property is present. $value is the provided value the
+        validators pass to their exception, like in the constructor.
+    #}
     {% foreach dependencyValidators as propertyName, validators %}
-        if (array_key_exists('{{ propertyName }}', $modelData)) {
-            $value = $modelData['{{ propertyName }}'];
-
-            {% foreach validators as validator %}
-                {{ viewHelper.renderValidator(validator, schema, 1) }}
-            {% endforeach %}
-        }
+        $value = $modelData['{{ propertyName }}'] ?? null;
+        {% foreach validators as validator %}
+            {{ viewHelper.renderValidator(validator, schema, 0) }}
+        {% endforeach %}
     {% endforeach %}
 {% endif %}
 
