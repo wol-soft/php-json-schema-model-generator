@@ -14,6 +14,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -188,6 +189,10 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
      */
     public function testTransformingFilterInConditionalBranchWidensTheTypeOfAParentProperty(): void
     {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new BuilderClassPostProcessor());
+        };
+
         $className = $this->generateClassFromFile(
             'ConditionalBranchTransformingFilterOnTypedParentProperty.json',
             (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false)->setSerialization(true),
@@ -201,6 +206,20 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
             ['string', 'DateTime', 'null'],
             $this->getParameterTypeNames($className, 'setWhen'),
         );
+        // The docblocks list every type as well, the builder class imports the classes from the docblock.
+        $this->assertEqualsCanonicalizing(
+            ['string', 'DateTime', 'null'],
+            explode('|', $this->getReturnTypeAnnotation($className, 'getWhen')),
+        );
+        $this->assertEqualsCanonicalizing(
+            ['string', 'DateTime', 'null'],
+            explode('|', $this->getParameterTypeAnnotation($className, 'setWhen')),
+        );
+
+        $builderClassName = $className . 'Builder';
+        $builder = new $builderClassName(['kind' => 'a']);
+        $builder->setWhen(new DateTime('2025-05-05T00:00:00+00:00'));
+        $this->assertSame('2025-05-05T00:00:00+0000', $builder->validate()->toArray()['when']);
 
         $object = new $className(['kind' => 'a', 'when' => '2024-01-01T10:00:00+00:00']);
         $this->assertInstanceOf(DateTime::class, $object->getWhen());
@@ -739,6 +758,29 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
 
         $object->populate(['other' => 'o']);
         $this->assertSame('n', $object->getName());
+    }
+
+    /**
+     * The setter returns early if the new value equals the current (filtered) value. The value is nevertheless the
+     * provided value of the property: when the branch switches, the property is validated again from the provided
+     * value and must not fall back to the value provided before.
+     */
+    public function testSetterWithTheFilteredValueIsTheProvidedValueAfterABranchSwitch(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ConditionalBranchFilterOnRootProperty.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['mode' => 1, 'title' => '  x  ']);
+        $this->assertSame('x', $object->getTitle());
+
+        $object->setTitle('x');
+        $this->assertSame('x', $object->getTitle());
+        $this->assertSame(['mode' => 1, 'title' => 'x'], $object->meta()->rawInput());
+
+        $object->setMode(2);
+        $this->assertSame('x', $object->getTitle());
     }
 
     /**

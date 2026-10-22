@@ -14,6 +14,7 @@ use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\Utils\TypeCheck;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
 use PHPModelGenerator\Utils\BranchFilterOutputType;
 use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -116,6 +117,10 @@ class TransformingFilterOutputTypePostProcessor extends PostProcessor
                 $generatorConfiguration,
             ),
         );
+
+        // The docblock type hint only renders the first name of a type, it has to list the raw type and every type
+        // the filters return (the builder class also derives its imports from it).
+        $property->addTypeHintDecorator(new TypeHintDecorator($property->getType(true)->getNames()));
     }
 
     /**

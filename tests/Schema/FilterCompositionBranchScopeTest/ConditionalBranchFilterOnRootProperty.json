@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "properties": {
+    "mode": {
+      "type": "integer"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "if": {
+    "properties": {
+      "mode": {
+        "const": 1
+      }
+    },
+    "required": [
+      "mode"
+    ]
+  },
+  "then": {
+    "properties": {
+      "title": {
+        "type": "string",
+        "filter": "trim"
+      }
+    }
+  }
+}
