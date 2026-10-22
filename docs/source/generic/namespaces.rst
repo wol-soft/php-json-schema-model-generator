@@ -61,3 +61,5 @@ The generator gives a `duplicated signature` hint in the output.
 The detection is not bound to namespace limits so a nested object which occurs in `Request\Register.json` as well as in `Response\Register.json` will be generated only once.
 Consequently the class generated to `Response\Register.php` may use classes from the `Request` namespace.
 A duplicated class is not linked to an already generated class if it's a primary object. The detection only links nested classes.
+
+Two nested schemas are detected as identical if they only differ in the order of a list whose order doesn't change their meaning: the types of a ``type`` list, the property names of ``required``, the values of an ``enum`` and the properties required by a property dependency. Every other list keeps its order: schemas with a different order of their ``filter`` list, of the items of a tuple or of composition branches are generated as different classes.

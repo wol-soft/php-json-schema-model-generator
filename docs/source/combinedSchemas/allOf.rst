@@ -133,6 +133,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
 .. note::
 
     A property in an object-level ``allOf`` branch may declare a ``"filter"``, all branches are always
-    active. A property which is filtered more than once (in several branches, or by the schema itself and
-    a branch) is rejected with a ``SchemaException``, as the filters of a property have no defined order.
+    active. If the schema itself declares the property without a filter, it adopts the filter of the branch.
+    Several branches may declare an identical filter list, the filters are executed once. A property which is
+    filtered more than once with diverging filters (in several branches, or by the schema itself and a branch)
+    is rejected with a ``SchemaException``, as the filters of a property have no defined order.
     See `Filters on properties of object branches <../nonStandardExtensions/filter.html#filters-on-properties-of-object-branches>`__.

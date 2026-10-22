@@ -175,8 +175,34 @@ The branches of a composition on an object schema (explicitly typed ``object`` o
 
 - ``if`` / ``then`` / ``else`` and ``oneOf``: exactly one branch is active. The filter only affects the value while its branch is the active one; the parent class receives the filtered value of the active branch. While the branch is inactive the property keeps the value as provided. The branches of one ``oneOf`` or ``if``/``then``/``else`` exclude each other and may filter the same property differently (e.g. ``trim`` in ``then`` and a different filter in ``else``). Filters inside branches which are nested in an ``allOf`` branch (or in another ``oneOf`` / ``if``/``then``/``else``) work in the same way, the value is passed on to the parent class.
 - The condition of an ``if`` and the schema of a schema dependency (``dependencies``): the filter runs inside the condition or the dependency schema (so a ``trim`` applies before a ``const`` or a ``minLength`` of the same property is checked) but the parent class keeps the value as provided. To get the filtered value declare the property including the filter in the main schema.
-- ``allOf``: all branches are always active, so the filter of a property which is declared in a single ``allOf`` branch is applied to every value.
+- ``allOf``: all branches are always active, so the filter of a property which is declared in a single ``allOf`` branch is applied to every value. Several ``allOf`` branches may declare the same property with an identical filter list (the same filters with the same options in the same order): every branch filters the same input, the filters are executed once. Diverging filter lists raise a ``SchemaException`` (see below).
 - ``anyOf``: several branches can match, so the filtered value can only be attributed to a branch when the matching branch doesn't matter: every branch must declare the property with the same filter, which is then applied to the property independent of the matching branch. Any other filtered property in a branch of an ``anyOf`` raises a ``SchemaException`` (a branch without the property, different filters or options, or a filter which is handed over by a ``oneOf`` or ``if``/``then``/``else`` nested in the ``anyOf`` branch).
+
+If the schema itself declares the property without a filter and the filter of an ``allOf`` branch (or the identical filter of every ``anyOf`` branch) applies to every value, the property of the schema adopts the filter, as if it was declared on the property: the filter is executed first, the validators of the schema check the filtered value.
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "title": {
+                "type": "string",
+                "minLength": 3
+            }
+        },
+        "allOf": [
+            {
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "filter": "trim"
+                    }
+                }
+            }
+        ]
+    }
+
+The title ``"  My list  "`` is trimmed to ``"My list"``, the title ``"  ab  "`` is trimmed to ``"ab"`` and violates the ``minLength`` of the schema.
 
 .. code-block:: json
 
@@ -208,14 +234,14 @@ The branches of a composition on an object schema (explicitly typed ``object`` o
 
 With ``mode`` set to ``1`` the title ``"  My list  "`` is trimmed to ``"My list"``, a title consisting only of whitespace is empty after the filter and violates ``minLength``. With ``mode`` set to ``3`` the ``then`` branch is inactive: the title is not constrained and stays ``"  My list  "``. Values of a type the filter doesn't accept are passed through unchanged.
 
-A setter or ``populate()`` which fails doesn't change the model: the filtered values which the active branches hand over are only adopted after the update succeeded, a rejected update keeps the previous branch and the previous values. The only exception is an exception which is raised while a dependent property is validated again after the branch switched (see below); as the active branch has already validated the same data this is hardly reachable, but in that case the property which was set by the update keeps its new value.
+If a setter or ``populate()`` changes the property which selects the branch (``mode`` in the example) the properties of the branches are validated again, so a title which was trimmed for ``mode`` ``1`` is returned as provided after ``mode`` was changed to ``3``.
 
-If a setter changes the property which selects the branch (``mode`` in the example) the properties of the branches are validated again, so a title which was trimmed for ``mode`` ``1`` is returned as provided after ``mode`` was changed to ``3``.
+A setter or ``populate()`` which fails doesn't change the model: the filtered values which the active branches hand over and the properties which are validated again because the active branch switched are only adopted after the whole update was validated. A rejected update keeps the previous branch and the previous values, also if the property which depends on the branch rejects the update (e.g. a title which violates a ``minLength`` of the schema after it was trimmed by the newly active branch).
 
 A property which is filtered more than once by declarations which can apply to the same value raises a ``SchemaException``, as the filters of a property have no defined order. This applies to
 
-- a property which declares a filter and is filtered again in a branch (of an ``allOf``, ``oneOf`` or ``if``/``then``/``else``),
-- a property which is filtered in more than one branch of an ``allOf``,
+- a property which declares a filter and is filtered again in a branch (of an ``allOf``, ``oneOf`` or ``if``/``then``/``else``), also if the branch repeats the identical filter,
+- a property which is filtered in more than one branch of an ``allOf`` with diverging filter lists (different filters, options or order, or a list which is a part of the other one), or with values which the ``allOf`` branches hand over from nested ``oneOf`` or ``if``/``then``/``else`` compositions (they can select different branches),
 - a property which is filtered in the branches of different compositions of the same schema.
 
 .. code-block:: text
@@ -255,6 +281,8 @@ Transforming filters in the branches of an ``if``/``then``/``else`` or ``oneOf``
     }
 
 With ``kind`` set to ``"a"`` the property ``when`` contains a ``DateTime`` object, with any other ``kind`` the string is kept as provided (and not validated by the filter). The getter and the setter of ``when`` are typed ``string | DateTime | null``.
+
+The branches may also use the same transforming filter with different options (e.g. ``dateTime`` with the ``outputFormat`` ``Y-m-d`` in ``then`` and ``H:i`` in ``else``) or different transforming filters which return the same type. The type of a value can't tell which serializer applies, so the property remembers which filter produced the value it holds and the value is serialized by exactly that filter (also if the active branch switches via a setter or ``populate()``, or if an already transformed value is set while a branch is active). A value which no branch filter produced (e.g. a ``DateTime`` set while no branch which filters the property is active) is serialized by the first filter whose output type matches.
 
 .. hint::
 
