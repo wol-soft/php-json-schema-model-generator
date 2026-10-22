@@ -7,7 +7,10 @@ namespace PHPModelGenerator\Utils;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
+use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
+use PHPModelGenerator\Model\Validator\ObjectUpdateDependentValidatorInterface;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
@@ -282,16 +285,171 @@ class RenderHelper
         SchemaHookResolver $schemaHookResolver,
     ): string {
         $hookCode = $schemaHookResolver->resolveSetterBeforeValidationHook($property);
+        $objectValidationCode = $this->renderSetterObjectValidation($schema, $property);
+        $dependencyValidationCode = $this->renderSetterDependencyValidation($schema, $property);
 
+        // The order of the constructor: object validators, compositions (hook code), dependencies of the properties
         $code = join("\n\n", array_filter([
+            $objectValidationCode,
             $hookCode,
+            $dependencyValidationCode,
             sprintf('$value = $this->_validate%s($value, $modelData);', $this->ucfirst($property->getAttribute())),
             $this->generatorConfiguration->collectErrors()
                 ? "if (\$this->_errorRegistry->getErrors()) {\n    throw \$this->_errorRegistry;\n}"
                 : '',
         ]));
 
-        return $hookCode === '' ? $code : $this->wrapInModelStateRollback($schema, $code);
+        return $hookCode === '' && $objectValidationCode === '' && $dependencyValidationCode === ''
+            ? $code
+            : $this->wrapInModelStateRollback($schema, $code);
+    }
+
+    /**
+     * Whether the setter of the property validates more than the property itself
+     */
+    public function hasSetterObjectValidation(Schema $schema, PropertyInterface $property): bool
+    {
+        return $this->renderSetterObjectValidation($schema, $property) !== ''
+            || $this->renderSetterDependencyValidation($schema, $property) !== '';
+    }
+
+    /**
+     * The object validators (e.g. maxProperties, propertyNames) validate the update of the property like the
+     * constructor validates the data. Only the updated key is passed: the validators which count the properties
+     * include the stored data themselves, the others only validate the provided keys.
+     *
+     * Executing the object validators in every setter was rejected: the setter of a declared property can't violate
+     * e.g. additionalProperties, every setter of such a common model would validate and snapshot the model state for
+     * nothing.
+     */
+    private function renderSetterObjectValidation(Schema $schema, PropertyInterface $property): string
+    {
+        if (!self::isAffectedByUpdateOf($schema->getObjectValidators(), $property->getName())) {
+            return '';
+        }
+
+        // a copy: the validators must not change the value of the setter
+        return "\$objectModelData = \$modelData;\n\$this->_executeObjectValidators(\$objectModelData);";
+    }
+
+    /**
+     * A schema dependency of another property validates the whole object, an update of the property may violate it.
+     * The dependencies of the property itself are validated with the property.
+     */
+    private function renderSetterDependencyValidation(Schema $schema, PropertyInterface $property): string
+    {
+        $isAffected = false;
+
+        $key = $property->getName();
+
+        foreach (self::getDependencyValidators($schema) as $propertyName => $validators) {
+            if ($propertyName !== $key && self::isAffectedByUpdateOf($validators, $key)) {
+                $isAffected = true;
+            }
+        }
+
+        if (!$isAffected) {
+            return '';
+        }
+
+        $this->addDependencyValidationMethod($schema);
+
+        return sprintf(
+            '$this->_executeDependencyValidators(array_merge($this->_rawModelDataInput, $modelData), [%s]);',
+            var_export($property->getName(), true),
+        );
+    }
+
+    /**
+     * Whether populate() must validate the dependencies of the properties it doesn't update (adds the method
+     * executing them if so). populate() may update any key: each property and any undeclared key are checked.
+     */
+    public function addPopulateDependencyValidation(Schema $schema): bool
+    {
+        $keys = [];
+        foreach ($schema->getProperties() as $property) {
+            if (!$property->isInternal()) {
+                $keys[] = $property->getName();
+            }
+        }
+
+        // stands for an additional property: a property can't have an empty name (rejected on generation)
+        $keys[] = '';
+
+        foreach (self::getDependencyValidators($schema) as $validators) {
+            foreach ($keys as $key) {
+                if (self::isAffectedByUpdateOf($validators, $key)) {
+                    $this->addDependencyValidationMethod($schema);
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param PropertyValidatorInterface[] $validators
+     */
+    public static function isAffectedByUpdateOf(array $validators, string $key): bool
+    {
+        foreach ($validators as $validator) {
+            // a validator which doesn't know its dependency is treated as depending on the value of every key
+            if (
+                !$validator instanceof ObjectUpdateDependentValidatorInterface
+                || $validator->getObjectUpdateDependency($key) !== ObjectUpdateDependency::None
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The dependency validators of the properties of the schema
+     *
+     * @return array<string, PropertyValidatorInterface[]> The dependency validators keyed by the property name
+     */
+    public static function getDependencyValidators(Schema $schema): array
+    {
+        $dependencyValidators = [];
+
+        foreach ($schema->getProperties() as $property) {
+            if ($property->isInternal()) {
+                continue;
+            }
+
+            foreach ($property->getOrderedValidators() as $validator) {
+                if ($validator instanceof DependencyValidatorInterface) {
+                    $dependencyValidators[$property->getName()][] = $validator;
+                }
+            }
+        }
+
+        return $dependencyValidators;
+    }
+
+    /**
+     * Adds _executeDependencyValidators() to the schema on first use. It validates the dependency validators of the
+     * properties outside the validation of the property, e.g. after another property was updated or removed.
+     */
+    public function addDependencyValidationMethod(Schema $schema): void
+    {
+        if ($schema->hasMethod('_executeDependencyValidators')) {
+            return;
+        }
+
+        $schema->addMethod(
+            '_executeDependencyValidators',
+            new RenderedMethod(
+                $schema,
+                $this->generatorConfiguration,
+                join(DIRECTORY_SEPARATOR, ['Dependencies', 'ExecuteDependencyValidators.phptpl']),
+                ['dependencyValidators' => self::getDependencyValidators($schema)],
+            ),
+        );
     }
 
     public function isMutableBaseValidator(GeneratorConfiguration $generatorConfiguration, bool $isBaseValidator): bool

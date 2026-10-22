@@ -10,7 +10,6 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
-use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Utils\RenderFactory;
@@ -124,10 +123,6 @@ class RenderJob
                     'viewHelper'                        => new RenderHelper($generatorConfiguration),
                     // one hack a day keeps the problems away. Make true literal available for the templating. Easy fix
                     'true'                              => true,
-                    'baseValidatorsWithoutCompositions' => array_filter(
-                        $this->schema->getBaseValidators(),
-                        static fn($validator): bool => !is_a($validator, AbstractComposedPropertyValidator::class),
-                    ),
                 ],
             );
         } catch (PHPMicroTemplateException $exception) {

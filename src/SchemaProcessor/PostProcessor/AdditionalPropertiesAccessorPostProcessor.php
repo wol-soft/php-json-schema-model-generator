@@ -17,9 +17,7 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
-use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
-use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\AdditionalPropertiesPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\SerializationPostProcessor;
@@ -256,7 +254,12 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         // Validating only the compositions with a branch depending on keys it doesn't declare was rejected: it
         // accepted removals the constructor rejects.
         $compositionValidatorKeys = $schema->getCompositionValidatorKeys();
-        $dependencyValidators = $this->getDependencyValidators($schema);
+        // A dependency of a declared property may require the removed key: the removal checks the dependencies against
+        // the remaining data like the constructor does.
+        $dependencyValidators = RenderHelper::getDependencyValidators($schema) !== [];
+        if ($dependencyValidators) {
+            (new RenderHelper($generatorConfiguration))->addDependencyValidationMethod($schema);
+        }
 
         $schema->addMethod(
             '_removeAdditionalProperty',
@@ -281,33 +284,6 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                 ],
             )
         );
-    }
-
-    /**
-     * The dependency validators of the declared properties: a dependency may require the removed key, so the removal
-     * must check them against the remaining data like the constructor does. Only the dependency validators are
-     * executed, not all validators of the property: the others don't depend on other keys, and executing them again
-     * would apply filters and instantiate nested objects for nothing.
-     *
-     * @return array<string, PropertyValidatorInterface[]> The dependency validators keyed by the property name
-     */
-    private function getDependencyValidators(Schema $schema): array
-    {
-        $dependencyValidators = [];
-
-        foreach ($schema->getProperties() as $property) {
-            if ($property->isInternal()) {
-                continue;
-            }
-
-            foreach ($property->getOrderedValidators() as $validator) {
-                if ($validator instanceof DependencyValidatorInterface) {
-                    $dependencyValidators[$property->getName()][] = $validator;
-                }
-            }
-        }
-
-        return $dependencyValidators;
     }
 
     /**

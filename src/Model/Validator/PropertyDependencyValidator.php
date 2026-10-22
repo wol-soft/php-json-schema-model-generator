@@ -13,7 +13,9 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * @package PHPModelGenerator\Model\Validator
  */
-class PropertyDependencyValidator extends PropertyTemplateValidator implements DependencyValidatorInterface
+class PropertyDependencyValidator extends PropertyTemplateValidator implements
+    DependencyValidatorInterface,
+    ObjectUpdateDependentValidatorInterface
 {
     /**
      * PropertyDependencyValidator constructor.
@@ -39,5 +41,14 @@ class PropertyDependencyValidator extends PropertyTemplateValidator implements D
     public function getValidatorSetUp(): string
     {
         return '$missingAttributes = [];';
+    }
+
+    /**
+     * The dependency requires keys to be present: an update never removes a key, it can't violate the dependency of
+     * another property. The dependency of the updated property itself is validated with the property.
+     */
+    public function getObjectUpdateDependency(string $key): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::None;
     }
 }

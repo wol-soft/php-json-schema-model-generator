@@ -93,21 +93,30 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
     }
 
     {% if schema.getBaseValidators() %}
-        protected function _executeBaseValidators(array &$modelData, bool $validateCompositions = true): void
+        protected function _executeBaseValidators(array &$modelData): void
+        {
+            {% if schema.getObjectValidators() %}
+                $this->_executeObjectValidators($modelData);
+            {% endif %}
+
+            {% foreach schema.getCompositionValidatorKeys() as compositionValidatorKey %}
+                $this->_validateComposition_{{ compositionValidatorKey }}($modelData);
+            {% endforeach %}
+        }
+    {% endif %}
+
+    {#
+        Separate from the compositions: an update of a single property (setter) executes the object validators, the
+        compositions are validated by the setter hook of the CompositionValidationPostProcessor.
+    #}
+    {% if schema.getObjectValidators() %}
+        protected function _executeObjectValidators(array &$modelData): void
         {
             $value = &$modelData;
 
-            {% foreach baseValidatorsWithoutCompositions as validator %}
+            {% foreach schema.getObjectValidators() as validator %}
                 {{ viewHelper.renderValidator(validator, schema, 2) }}
             {% endforeach %}
-
-            {% if schema.getCompositionValidatorKeys() %}
-                if ($validateCompositions) {
-                    {% foreach schema.getCompositionValidatorKeys() as compositionValidatorKey %}
-                        $this->_validateComposition_{{ compositionValidatorKey }}($modelData);
-                    {% endforeach %}
-                }
-            {% endif %}
         }
     {% endif %}
 
@@ -148,7 +157,10 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                  * Set the value of {{ property.getName() }}.
                  *
                  * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute(true) }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
-                 {% if property.getValidators() or schemaHookResolver.resolveSetterBeforeValidationHook(property) %}
+                 {% if property.getValidators()
+                     or schemaHookResolver.resolveSetterBeforeValidationHook(property)
+                     or viewHelper.hasSetterObjectValidation(schema, property)
+                 %}
                      *
                      * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
                  {% endif %}

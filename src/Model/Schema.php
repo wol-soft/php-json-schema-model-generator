@@ -305,6 +305,21 @@ class Schema
     /**
      * Get the keys of all composition base validators
      */
+    /**
+     * The base validators except the compositions: they validate the object itself (e.g. additionalProperties,
+     * maxProperties) and are rendered into _executeObjectValidators(). Keys are kept.
+     *
+     * @return PropertyValidatorInterface[]
+     */
+    public function getObjectValidators(): array
+    {
+        return array_filter(
+            $this->baseValidators,
+            static fn(PropertyValidatorInterface $validator): bool =>
+                !is_a($validator, AbstractComposedPropertyValidator::class),
+        );
+    }
+
     public function getCompositionValidatorKeys(): array
     {
         $keys = [];

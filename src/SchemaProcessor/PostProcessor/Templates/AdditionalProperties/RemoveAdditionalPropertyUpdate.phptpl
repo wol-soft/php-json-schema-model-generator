@@ -28,17 +28,7 @@ if ($inAdditionalProperties) {
 {% endif %}
 
 {% if dependencyValidators %}
-    $modelData = $this->_rawModelDataInput;
-    {#
-        Each dependency validator checks itself whether its property is present. $value is the provided value the
-        validators pass to their exception, like in the constructor.
-    #}
-    {% foreach dependencyValidators as propertyName, validators %}
-        $value = $modelData['{{ propertyName }}'] ?? null;
-        {% foreach validators as validator %}
-            {{ viewHelper.renderValidator(validator, schema, 0) }}
-        {% endforeach %}
-    {% endforeach %}
+    $this->_executeDependencyValidators($this->_rawModelDataInput);
 {% endif %}
 
 {% if compositionValidatorKeys or dependencyValidators %}

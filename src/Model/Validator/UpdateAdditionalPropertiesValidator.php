@@ -17,7 +17,8 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * The validator never rejects a value.
  */
-class UpdateAdditionalPropertiesValidator extends PropertyTemplateValidator
+class UpdateAdditionalPropertiesValidator extends PropertyTemplateValidator implements
+    ObjectUpdateDependentValidatorInterface
 {
     public function __construct(Schema $schema)
     {
@@ -46,5 +47,13 @@ class UpdateAdditionalPropertiesValidator extends PropertyTemplateValidator
             ],
             InvalidAdditionalPropertiesException::class,
         );
+    }
+
+    /**
+     * Only stores the additional properties, never rejects a value.
+     */
+    public function getObjectUpdateDependency(string $key): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::None;
     }
 }

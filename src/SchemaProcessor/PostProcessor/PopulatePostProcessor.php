@@ -7,6 +7,7 @@ namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
+use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Class PopulatePostProcessor
@@ -35,7 +36,11 @@ class PopulatePostProcessor extends PostProcessor
                         $schema,
                         $generatorConfiguration,
                         'PopulateBody.phptpl',
-                        ['schemaHookResolver' => $schemaHookResolver],
+                        [
+                            'schemaHookResolver' => $schemaHookResolver,
+                            'dependencyValidation' => (new RenderHelper($generatorConfiguration))
+                                ->addPopulateDependencyValidation($schema),
+                        ],
                     ),
                 ],
             )

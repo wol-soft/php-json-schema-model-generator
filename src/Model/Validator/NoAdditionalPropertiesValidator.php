@@ -13,14 +13,17 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * @package PHPModelGenerator\Model\Validator
  */
-class NoAdditionalPropertiesValidator extends PropertyTemplateValidator
+class NoAdditionalPropertiesValidator extends PropertyTemplateValidator implements
+    ObjectUpdateDependentValidatorInterface
 {
-    /**
-     * PropertyDependencyValidator constructor.
-     */
+    /** @var string[] */
+    private readonly array $declaredProperties;
+
     public function __construct(PropertyInterface $property, array $json)
     {
         $this->isResolved = true;
+        // numeric property names are integer array keys
+        $this->declaredProperties = array_map('strval', array_keys($json['properties'] ?? []));
 
         parent::__construct(
             $property,
@@ -32,5 +35,15 @@ class NoAdditionalPropertiesValidator extends PropertyTemplateValidator
             AdditionalPropertiesException::class,
             ['&$additionalProperties'],
         );
+    }
+
+    /**
+     * A declared property is no additional property, any other key is rejected by its presence.
+     */
+    public function getObjectUpdateDependency(string $key): ObjectUpdateDependency
+    {
+        return in_array($key, $this->declaredProperties, true)
+            ? ObjectUpdateDependency::None
+            : ObjectUpdateDependency::AddedKey;
     }
 }

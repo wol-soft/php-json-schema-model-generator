@@ -19,7 +19,7 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * @package PHPModelGenerator\Model\Validator
  */
-class AdditionalPropertiesValidator extends PropertyTemplateValidator
+class AdditionalPropertiesValidator extends PropertyTemplateValidator implements ObjectUpdateDependentValidatorInterface
 {
     protected const PROPERTY_NAME = 'additional property';
 
@@ -30,6 +30,8 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
 
     private readonly PropertyInterface $validationProperty;
     private bool $collectAdditionalProperties = false;
+    /** @var string[] */
+    private readonly array $declaredProperties;
 
     /**
      * AdditionalPropertiesValidator constructor.
@@ -57,6 +59,9 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
         });
 
         $patternProperties = array_keys($schema->getJsonSchema()->getJson()['patternProperties'] ?? []);
+        $declaredProperties = array_keys($propertiesStructure->getJson()[static::PROPERTIES_KEY] ?? []);
+        // numeric property names are integer array keys
+        $this->declaredProperties = array_map('strval', $declaredProperties);
 
         parent::__construct(
             new Property($propertyName ?? $schema->getClassName(), null, $propertiesStructure),
@@ -64,9 +69,7 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
             [
                 'schema' => $schema,
                 'validationProperty' => $this->validationProperty,
-                'additionalProperties' => RenderHelper::varExportArray(
-                    array_keys($propertiesStructure->getJson()[static::PROPERTIES_KEY] ?? []),
-                ),
+                'additionalProperties' => RenderHelper::varExportArray($declaredProperties),
                 'patternProperties' => $patternProperties ? RenderHelper::varExportArray($patternProperties) : null,
                 'generatorConfiguration' => $schemaProcessor->getGeneratorConfiguration(),
                 'viewHelper' => new RenderHelper($schemaProcessor->getGeneratorConfiguration()),
@@ -76,6 +79,17 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator
             static::EXCEPTION_CLASS,
             ['&$invalidProperties'],
         );
+    }
+
+    /**
+     * A declared property is no additional property. Any other key is validated against the additional properties
+     * schema with its value.
+     */
+    public function getObjectUpdateDependency(string $key): ObjectUpdateDependency
+    {
+        return in_array($key, $this->declaredProperties, true)
+            ? ObjectUpdateDependency::None
+            : ObjectUpdateDependency::Value;
     }
 
     /**
