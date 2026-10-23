@@ -99,10 +99,6 @@ class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
      *
      * Rejecting such a schema at generation time as unsatisfiable was wrong: e.g. if: {required: [kind]}, then: false
      * is the common way to deny a key under a condition.
-     *
-     * The complete message is asserted for direct exceptions. With collected errors the ConditionalException of the
-     * production library renders a collected condition / branch error without the bullet ("Condition: Failed" is
-     * directly followed by the error message), only the rejection is asserted there.
      */
     #[DataProvider('falseConditionalBranchDataProvider')]
     public function testFalseConditionalBranchRejectsOnlyTheValuesEnteringTheBranch(
@@ -123,15 +119,10 @@ class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
             }
 
             $this->assertNotNull($exception, 'Invalid data accepted: ' . json_encode($data));
-
-            if ($configuration->collectErrors()) {
-                $this->assertInstanceOf(ErrorRegistryException::class, $exception);
-                $this->assertCount(1, $exception->getErrors());
-                $this->assertInstanceOf(ConditionalException::class, $exception->getErrors()[0]);
-                continue;
-            }
-
-            $this->assertInstanceOf(ConditionalException::class, $exception);
+            $this->assertInstanceOf(
+                $configuration->collectErrors() ? ErrorRegistryException::class : ConditionalException::class,
+                $exception,
+            );
             $this->assertSame(str_replace('{class}', $shortClassName, $expectedMessage), $exception->getMessage());
         }
     }
