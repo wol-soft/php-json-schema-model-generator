@@ -43,6 +43,9 @@ final class JsonSchema
      * #[JsonPointer] attributes rather than independently recomputing it from
      * $property->getJsonSchema()->getPointer(), which would silently diverge if
      * PropertyMerger's choice of JsonSchema changed.
+     *
+     * A property without the attribute (e.g. added to the schema by a custom post processor)
+     * reports the pointer of its JsonSchema.
      */
     public static function resolvePrimaryJsonPointer(PropertyInterface $property): string
     {

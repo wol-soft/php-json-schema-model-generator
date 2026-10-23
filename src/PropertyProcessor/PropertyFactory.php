@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\PropertyProcessor;
 
+use LogicException;
 use PHPModelGenerator\Attributes\Deprecated;
 use PHPModelGenerator\Attributes\JsonPointer;
 use PHPModelGenerator\Attributes\JsonSchema as JsonSchemaAttribute;
@@ -964,10 +965,12 @@ class PropertyFactory
 
         // Injecting `type: object` guarantees processSchema generates a class — its skip path only
         // triggers for a non-object, non-composition, non-$ref root — so $nestedSchema is never null
-        // here. The guard mirrors createObjectProperty and degrades gracefully rather than fatally
-        // if a custom pipeline ever returns null.
+        // here. Returning without the nested class (as createObjectProperty does for a schema which
+        // may legitimately be skipped) was rejected: the property would silently accept any object.
         if ($nestedSchema === null) {
-            return;
+            // @codeCoverageIgnoreStart
+            throw new LogicException("No nested class was generated for the untyped object property '$propertyName'");
+            // @codeCoverageIgnoreEnd
         }
 
         $property->setNestedSchema($nestedSchema);

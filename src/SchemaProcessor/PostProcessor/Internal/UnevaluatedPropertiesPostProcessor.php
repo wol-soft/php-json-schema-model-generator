@@ -22,27 +22,21 @@ use PHPModelGenerator\Traits\CompositionEvaluationTrait;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
- * Detects whether unevaluatedProperties or unevaluatedItems is reachable from a schema and,
- * when it is, activates evaluation tracking on that schema's composition validators.
+ * Detects whether unevaluatedProperties or unevaluatedItems is evaluated by a schema's generated
+ * class and, when it is, activates evaluation tracking on that schema's composition validators.
  *
  * Activation emits the _compositionEvaluations cache field on the generated class and marks
- * each composition validator with per-branch slot writes. When neither keyword is reachable
- * anywhere in the schema graph, this post processor is a complete no-op.
+ * each composition validator with per-branch slot writes. A schema whose class evaluates
+ * neither keyword is left untouched; a nested class activates its own tracking when this post
+ * processor processes it.
  *
- * Cross-state revalidation under mutation (setter + populate) is *not* handled here. It lives
- * in Model.phptpl and Populate.phptpl as a direct call to _executePostCompositionValidators
- * against a candidate state — see the templates for details. The unevaluatedProperties
- * validator participates in that pass simply by being registered as a post-composition
- * validator on the schema; this post processor's only responsibility is the activation-side
- * work that makes the cache available to it.
- *
- * Known limitation: when a cross-state check fails in direct-exception mode, composition
- * validation that ran during the setter's per-property _validate* phase may have updated
- * _propertyValidationState / _compositionEvaluations with state that was never committed.
- * The cache may briefly hold "would-be" entries until the next mutation invalidates them.
- * This is a pre-existing concern with composition revalidation, not specific to the
- * unevaluatedProperties feature, and self-corrects the next time an affecting property
- * changes.
+ * The validation of updates (setters, populate(), the additional and unevaluated property
+ * accessors) is *not* handled here: the update paths call _executePostCompositionValidators
+ * against the candidate state (see SetterValidationRenderer and the populate / accessor update
+ * templates), and a rejected update restores the complete model state, including the
+ * evaluation caches. The unevaluatedProperties validator participates in that pass simply by
+ * being registered as a post-composition validator on the schema; this post processor's only
+ * responsibility is the activation-side work that makes the cache available to it.
  */
 class UnevaluatedPropertiesPostProcessor extends PostProcessor
 {
@@ -69,9 +63,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
     public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
     {
-        $seen = [];
-
-        if (!$this->needsActivation($schema, $seen)) {
+        if (!$this->needsActivation($schema)) {
             return;
         }
 
@@ -431,8 +423,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      *
      * A self-referencing array composition (e.g. `{type: array, allOf: [{$ref: "#"}]}`) makes
      * the wrapped property this recurses into the same property again, indefinitely — required
-     * cycle protection, not defensive, the same class of cycle `needsActivation()` guards
-     * against for schemas. Keyed on file+pointer rather than object identity because
+     * cycle protection, not defensive. Keyed on file+pointer rather than object identity because
      * `getOrderedValidators()` returns fresh clones on every call (see
      * `activateValidatorsInBranch()`'s own comment on this), so the wrapped `PropertyInterface`
      * instance is not guaranteed stable across recursive calls even for the same schema location.
@@ -667,84 +658,69 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
     }
 
     /**
-     * Returns true when the schema or any reachable subschema contains unevaluatedProperties
-     * or unevaluatedItems, meaning composition validators on this schema must emit the
+     * Returns true when unevaluatedProperties or unevaluatedItems is evaluated by this schema's own
+     * generated class: declared by the schema itself, by one of its properties or by a branch of
+     * one of its compositions, meaning composition validators on this schema must emit the
      * _compositionEvaluations cache.
      *
-     * Uses a $seen map keyed by file+pointer to break reference cycles.
+     * A nested schema (the class of an object property or of an object-typed branch) is not
+     * searched: it is processed by this post processor on its own and activates its own tracking
+     * if the keyword is reachable from it. Searching the nested schemas as well was rejected: a
+     * keyword deep inside a nested class activated the tracking of every enclosing class, which
+     * no unevaluated keyword of the enclosing classes reads.
      */
-    private function needsActivation(Schema $schema, array &$seen): bool
+    private function needsActivation(Schema $schema): bool
     {
-        $schemaKey = $schema->getJsonSchema()->getFile() . '#' . $schema->getJsonSchema()->getPointer();
-
-        if (array_key_exists($schemaKey, $seen)) {
-            return $seen[$schemaKey];
-        }
-
-        // Mark false initially so cycles terminate without infinite recursion.
-        $seen[$schemaKey] = false;
-
         $json = $schema->getJsonSchema()->getJson();
 
         if (array_key_exists('unevaluatedProperties', $json) || array_key_exists('unevaluatedItems', $json)) {
-            return $seen[$schemaKey] = true;
+            return true;
         }
 
-        // Check each schema-level composition: both the branch-level JSON and any nested schema.
-        if ($this->compositionValidatorsNeedActivation($schema->getBaseValidators(), $seen)) {
-            return $seen[$schemaKey] = true;
+        if ($this->compositionValidatorsNeedActivation($schema->getBaseValidators())) {
+            return true;
         }
 
-        // Check each property: its own JSON, its nested schema, and any composition sitting
-        // directly on it. Array properties never carry a nested schema — their unevaluatedItems
-        // lives in the property's own JSON or in a composition branch on the property (e.g.
+        // Check each property: its own JSON and any composition sitting directly on it. Array
+        // properties never carry a nested schema — their unevaluatedItems lives in the property's
+        // own JSON or in a composition branch on the property (e.g.
         // {tags: {type: array, allOf: [{unevaluatedItems: {schema}}]}}), so both must be checked.
         foreach ($schema->getProperties() as $schemaProperty) {
             $propertyJson = $schemaProperty->getJsonSchema()->getJson();
 
-            if (
-                array_key_exists('unevaluatedProperties', $propertyJson)
-                || array_key_exists('unevaluatedItems', $propertyJson)
-            ) {
-                return $seen[$schemaKey] = true;
+            if (array_key_exists('unevaluatedItems', $propertyJson)) {
+                return true;
             }
 
-            $nestedSchema = $schemaProperty->getNestedSchema();
-
-            if ($nestedSchema !== null && $this->needsActivation($nestedSchema, $seen)) {
-                return $seen[$schemaKey] = true;
-            }
-
-            if ($this->compositionValidatorsNeedActivation($schemaProperty->getOrderedValidators(), $seen)) {
-                return $seen[$schemaKey] = true;
+            if ($this->compositionValidatorsNeedActivation($schemaProperty->getOrderedValidators())) {
+                return true;
             }
         }
 
-        return $seen[$schemaKey] = false;
+        return false;
     }
 
     /**
      * True when any composition validator in the given list carries a branch that declares an
-     * unevaluated keyword — either in the branch-level JSON, in a nested schema the branch
-     * produces, or in a further composition nested inside the branch's own JSON. Shared by the
-     * schema-level (base validators) and property-level checks.
+     * unevaluated keyword — either in the branch-level JSON or in a further composition nested
+     * inside the branch's own JSON. Shared by the schema-level (base validators) and
+     * property-level checks.
      *
      * An object-typed branch always gets its own nested `Schema` (routed through
-     * `processSchema()`), so a further composition nested inside it is reached by recursing
-     * into that `Schema` via `needsActivation()`. An array-typed branch never gets one, so a
-     * branch shaped like `{oneOf: [{unevaluatedItems: ...}]}` — a composition nested directly
-     * inside another branch, with no intervening object type — has no `Schema` object for that
-     * recursion to reach. Recursing through the branch's wrapped property's own validators
-     * instead mirrors how `activateValidatorsInBranch()` already walks this exact structure for
-     * the activation step itself. Without this, the branch's own nested validator still renders
-     * (schema processing is not gated by this detection), but the class it renders into never
-     * receives `CompositionEvaluationTrait` or the `_evaluatedItemIndices` field the rendered
-     * code calls into — a fatal `Error: Call to undefined method`, not a silent gap.
+     * `processSchema()`), which detects the keywords nested inside it itself (see
+     * `needsActivation()`). An array-typed branch never gets one, so a branch shaped like
+     * `{oneOf: [{unevaluatedItems: ...}]}` — a composition nested directly inside another branch,
+     * with no intervening object type — belongs to this schema's class. Recursing through the
+     * branch's wrapped property's own validators mirrors how `activateValidatorsInBranch()`
+     * already walks this exact structure for the activation step itself. Without this, the
+     * branch's own nested validator still renders (schema processing is not gated by this
+     * detection), but the class it renders into never receives `CompositionEvaluationTrait` or
+     * the `_evaluatedItemIndices` field the rendered code calls into — a fatal
+     * `Error: Call to undefined method`, not a silent gap.
      *
      * @param iterable<mixed> $validators
-     * @param array<string, bool> $seen
      */
-    private function compositionValidatorsNeedActivation(iterable $validators, array &$seen): bool
+    private function compositionValidatorsNeedActivation(iterable $validators): bool
     {
         foreach ($validators as $validator) {
             if (!$validator instanceof AbstractComposedPropertyValidator) {
@@ -761,20 +737,10 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                     return true;
                 }
 
-                $nestedSchema = $composedProperty->getNestedSchema();
-
-                if ($nestedSchema !== null) {
-                    if ($this->needsActivation($nestedSchema, $seen)) {
-                        return true;
-                    }
-
-                    continue;
-                }
-
                 if (
-                    $this->compositionValidatorsNeedActivation(
+                    $composedProperty->getNestedSchema() === null
+                    && $this->compositionValidatorsNeedActivation(
                         $composedProperty->getWrappedProperty()->getOrderedValidators(),
-                        $seen,
                     )
                 ) {
                     return true;

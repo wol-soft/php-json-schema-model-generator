@@ -46,7 +46,7 @@ class AutoDetectionDraft implements DraftFactoryInterface
         // own), not just the current node's own JSON -- $schema only ever appears on a document
         // root or an embedded resource root, so reading $jsonSchema->getJson()['$schema'] directly
         // would return null for every other node and silently fall back to the default draft
-        // regardless of what the document declared (issue #186). JsonSchema propagates this value
+        // regardless of what the document declared. JsonSchema propagates this value
         // through clone/navigate(), so a nested resource root's own $schema correctly overrides it
         // for that resource's descendants without leaking into its siblings -- no per-file caching
         // needed here, and none that could cache the wrong dialect across independently-dialected

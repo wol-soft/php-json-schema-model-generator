@@ -20,6 +20,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
+use PHPModelGenerator\Traits\CompositionEvaluationTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
 
@@ -1032,6 +1033,48 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                       - Provided JSON for '{$nodeClassName}' contains not allowed unevaluated properties ['stray']
                 MSG,
                 $exception->getMessage(),
+            );
+        }
+    }
+
+    /**
+     * A keyword inside a nested class is enforced by that class alone: neither the schema, the
+     * branch of its `allOf` nor the class of the intermediate `inner` property reads it, so none
+     * of them activates the evaluation tracking (CompositionEvaluationTrait). Activating every
+     * enclosing class of a keyword was rejected as generated code no unevaluated keyword reads.
+     */
+    public function testKeywordInADeeplyNestedClassIsEnforcedWithoutActivatingTheEnclosingClasses(): void
+    {
+        $className = $this->generateClassFromFile(
+            'KeywordInDeeplyNestedClass.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        $object = new $className(['inner' => ['deep' => ['name' => 'x']]]);
+        $innerClassName = $object->getInner()::class;
+        $deepClassName = $object->getInner()->getDeep()::class;
+
+        $this->assertNotContains(CompositionEvaluationTrait::class, class_uses($className));
+        $this->assertNotContains(CompositionEvaluationTrait::class, class_uses($innerClassName));
+        $this->assertContains(CompositionEvaluationTrait::class, class_uses($deepClassName));
+
+        try {
+            new $className(['inner' => ['deep' => ['name' => 'x', 'extra' => 1]]]);
+            $this->fail('Expected the nested class to reject the unevaluated key');
+        } catch (ErrorRegistryException $registry) {
+            $this->assertSame(
+                <<<MSG
+                Invalid value for '{$className}' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid nested object for property 'inner':
+                      - Invalid nested object for property 'deep':
+                          - Provided JSON for '{$deepClassName}' contains not allowed unevaluated properties ['extra']
+                Invalid nested object for property 'inner':
+                  - Invalid nested object for property 'deep':
+                      - Provided JSON for '{$deepClassName}' contains not allowed unevaluated properties ['extra']
+                MSG,
+                $registry->getMessage(),
             );
         }
     }
