@@ -19,7 +19,7 @@ use PHPModelGenerator\Utils\RenderHelper;
  * Adds methods to models which require composition validations on object level to validate the compositions, and the
  * state of the compositions of mutable models. The setters execute the validation methods of the compositions an
  * update of the property may change and stage, prepare and apply the filtered values of the active branches (see
- * RenderHelper::renderSetterValidation()).
+ * SetterValidationRenderer).
  *
  * Validating the compositions via a setter hook was rejected: hook code makes a setter snapshot the model state on
  * every call, also if the update of a present key can't change the result of a composition.

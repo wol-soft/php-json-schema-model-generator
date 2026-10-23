@@ -11,6 +11,7 @@ use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
+use PHPModelGenerator\SchemaProcessor\ModelUpdate\SetterValidationRenderer;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Utils\RenderFactory;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -111,6 +112,8 @@ class RenderJob
             '\\',
         );
 
+        $schemaHookResolver = new SchemaHookResolver($this->schema);
+
         try {
             $class = RenderFactory::create(__DIR__ . '/../Templates/')->renderTemplate(
                 'Model.phptpl',
@@ -118,7 +121,12 @@ class RenderJob
                     'namespace'                         => $namespace,
                     'use'                               => $this->getUseForSchema($generatorConfiguration, $namespace),
                     'schema'                            => $this->schema,
-                    'schemaHookResolver'                => new SchemaHookResolver($this->schema),
+                    'schemaHookResolver'                => $schemaHookResolver,
+                    'setterValidationRenderer'          => new SetterValidationRenderer(
+                        $this->schema,
+                        $generatorConfiguration,
+                        $schemaHookResolver,
+                    ),
                     'generatorConfiguration'            => $generatorConfiguration,
                     'viewHelper'                        => new RenderHelper($generatorConfiguration),
                     // one hack a day keeps the problems away. Make true literal available for the templating. Easy fix

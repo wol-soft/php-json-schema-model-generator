@@ -159,7 +159,7 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                  * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute(true) }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
                  {% if property.getValidators()
                      or schemaHookResolver.resolveSetterBeforeValidationHook(property)
-                     or viewHelper.hasSetterObjectValidation(schema, property)
+                     or setterValidationRenderer.hasObjectValidation(property)
                  %}
                      *
                      * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
@@ -192,12 +192,12 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
                     {% endif %}
 
-                    {{ viewHelper.indent(viewHelper.renderSetterValidation(schema, property, schemaHookResolver), 2) }}
+                    {{ viewHelper.indent(setterValidationRenderer.render(property), 2) }}
 
                     $this->{{ property.getAttribute(true) }} = $value;
                     $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
 
-                    {{ viewHelper.renderSetterBranchFilteredValueApplication(schema, property) }}
+                    {{ setterValidationRenderer.renderBranchFilteredValueApplication(property) }}
 
                     {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
 

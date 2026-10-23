@@ -19,6 +19,7 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
@@ -317,9 +318,6 @@ class Schema
     }
 
     /**
-     * Get the keys of all composition base validators
-     */
-    /**
      * The base validators except the compositions: they validate the object itself (e.g. additionalProperties,
      * maxProperties) and are rendered into _executeObjectValidators(). Keys are kept.
      *
@@ -334,6 +332,32 @@ class Schema
         );
     }
 
+    /**
+     * @return array<string, PropertyValidatorInterface[]> The dependency validators of the properties keyed by the
+     *                                                     property name
+     */
+    public function getDependencyValidators(): array
+    {
+        $dependencyValidators = [];
+
+        foreach ($this->properties as $property) {
+            if ($property->isInternal()) {
+                continue;
+            }
+
+            foreach ($property->getOrderedValidators() as $validator) {
+                if ($validator instanceof DependencyValidatorInterface) {
+                    $dependencyValidators[$property->getName()][] = $validator;
+                }
+            }
+        }
+
+        return $dependencyValidators;
+    }
+
+    /**
+     * Get the keys of all composition base validators
+     */
     public function getCompositionValidatorKeys(): array
     {
         $keys = [];

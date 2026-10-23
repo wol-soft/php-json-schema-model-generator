@@ -19,6 +19,8 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
+use PHPModelGenerator\SchemaProcessor\ModelUpdate\DependencyValidation;
+use PHPModelGenerator\SchemaProcessor\ModelUpdate\ModelStateRollback;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\AdditionalPropertiesPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\SerializationPostProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -187,6 +189,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                     'objectProperties' => RenderHelper::varExportArray($objectProperties),
                     'objectPropertyPointers' => RenderHelper::varExportArray($objectPropertyPointers),
                     'schemaHookResolver' => $schemaHookResolver,
+                    'modelStateRollback' => new ModelStateRollback($generatorConfiguration),
                     // the update is rendered on its own to be wrapped into the model state rollback
                     'renderUpdate' => static fn(): string => RenderedMethod::renderPart(
                         $schema,
@@ -256,9 +259,9 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
         $compositionValidatorKeys = $schema->getCompositionValidatorKeys();
         // A dependency of a declared property may require the removed key: the removal checks the dependencies against
         // the remaining data like the constructor does.
-        $dependencyValidators = RenderHelper::getDependencyValidators($schema) !== [];
+        $dependencyValidators = $schema->getDependencyValidators() !== [];
         if ($dependencyValidators) {
-            (new RenderHelper($generatorConfiguration))->addDependencyValidationMethod($schema);
+            (new DependencyValidation($generatorConfiguration))->addMethod($schema);
         }
 
         $schema->addMethod(
@@ -271,6 +274,7 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                     'minPropertyValidator' => $minPropertyValidator,
                     'compositionValidatorKeys' => $compositionValidatorKeys,
                     'dependencyValidators' => $dependencyValidators,
+                    'modelStateRollback' => new ModelStateRollback($generatorConfiguration),
                     // the update is rendered on its own to be wrapped into the model state rollback
                     'renderUpdate' => static fn(): string => RenderedMethod::renderPart(
                         $schema,

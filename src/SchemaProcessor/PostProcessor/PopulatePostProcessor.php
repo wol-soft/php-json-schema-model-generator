@@ -7,7 +7,8 @@ namespace PHPModelGenerator\SchemaProcessor\PostProcessor;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
-use PHPModelGenerator\Utils\RenderHelper;
+use PHPModelGenerator\SchemaProcessor\ModelUpdate\DependencyValidation;
+use PHPModelGenerator\SchemaProcessor\ModelUpdate\ModelStateRollback;
 
 /**
  * Class PopulatePostProcessor
@@ -28,18 +29,19 @@ class PopulatePostProcessor extends PostProcessor
                 'Populate.phptpl',
                 [
                     'schemaHookResolver' => $schemaHookResolver,
+                    'modelStateRollback' => new ModelStateRollback($generatorConfiguration),
                     'true' => true,
                     // Rendered as its own template: the body is wrapped into the model state rollback
-                    // (RenderHelper::wrapInModelStateRollback()), which needs the code as a string to embed it at
-                    // its own nesting depth.
+                    // (ModelStateRollback::wrap()), which needs the code as a string to embed it at its own nesting
+                    // depth.
                     'renderPopulateBody' => static fn(): string => RenderedMethod::renderPart(
                         $schema,
                         $generatorConfiguration,
                         'PopulateBody.phptpl',
                         [
                             'schemaHookResolver' => $schemaHookResolver,
-                            'dependencyValidation' => (new RenderHelper($generatorConfiguration))
-                                ->addPopulateDependencyValidation($schema),
+                            'dependencyValidation' => (new DependencyValidation($generatorConfiguration))
+                                ->addForPopulate($schema),
                         ],
                     ),
                 ],

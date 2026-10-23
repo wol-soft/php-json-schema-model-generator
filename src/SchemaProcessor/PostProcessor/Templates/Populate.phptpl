@@ -31,7 +31,7 @@ public function populate(array $modelData): self
         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
     {% endif %}
 
-    {{ viewHelper.indent(viewHelper.wrapInModelStateRollback(schema, renderPopulateBody()), 1) }}
+    {{ viewHelper.indent(modelStateRollback.wrap(schema, renderPopulateBody()), 1) }}
 
     $this->_rawModelDataInput = array_merge($this->_rawModelDataInput, $modelData);
 

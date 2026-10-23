@@ -47,7 +47,7 @@ private function _removeAdditionalProperty(string $key): bool
         data after the property is removed - restore the model state if they reject the removal.
     #}
     {% if compositionValidatorKeys or dependencyValidators %}
-        {{ viewHelper.indent(viewHelper.wrapInModelStateRollback(schema, renderUpdate()), 1) }}
+        {{ viewHelper.indent(modelStateRollback.wrap(schema, renderUpdate()), 1) }}
     {% else %}
         {{ viewHelper.indent(renderUpdate(), 1) }}
     {% endif %}

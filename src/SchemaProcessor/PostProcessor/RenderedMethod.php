@@ -53,7 +53,7 @@ class RenderedMethod implements MethodInterface
 
     /**
      * Render a part of a method on its own with the same default template values as a method, e.g. to embed it into
-     * the model state rollback (RenderHelper::wrapInModelStateRollback()), which needs the code as a string.
+     * the model state rollback (ModelStateRollback::wrap()), which needs the code as a string.
      *
      * @throws FileSystemException
      * @throws SyntaxErrorException

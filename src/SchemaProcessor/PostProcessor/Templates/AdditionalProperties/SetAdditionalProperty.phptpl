@@ -32,7 +32,7 @@ private function _setAdditionalProperty(
         validator), so the hook code is wrapped as well.
     #}
     {% if schema.getBaseValidators() %}
-        {{ viewHelper.indent(viewHelper.wrapInModelStateRollback(schema, renderUpdate()), 1) }}
+        {{ viewHelper.indent(modelStateRollback.wrap(schema, renderUpdate()), 1) }}
     {% else %}
         {{ viewHelper.indent(renderUpdate(), 1) }}
     {% endif %}
