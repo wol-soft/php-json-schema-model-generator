@@ -10,6 +10,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
+use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
@@ -192,6 +193,10 @@ class RenderHelper
             $validator->setScope($schema);
         }
 
+        if ($validator instanceof FilterValidator && !$validator->isExecuted()) {
+            return '';
+        }
+
         if (!$validator instanceof ExtractedMethodValidator) {
             $setUp = $validator->getValidatorSetUp();
 
@@ -291,17 +296,43 @@ class RenderHelper
         $addedKeyCode = $this->renderSetterUpdateValidation($schema, $property, $hookCode, true);
         $presentKeyCode = $this->renderSetterUpdateValidation($schema, $property, $hookCode, false);
 
+        // a path which doesn't validate a composition doesn't stage filtered values of an active branch
+        $initialisation = $this->stagesBranchFilteredValues($schema, $property)
+            ? "\$preparedBranchFilteredValues = null;\n\n"
+            : '';
+
         if ($addedKeyCode === $presentKeyCode) {
-            return $addedKeyCode;
+            return $initialisation . $addedKeyCode;
         }
 
-        return join("\n", [
+        return $initialisation . join("\n", [
             sprintf('if (!array_key_exists(%s, $this->_rawModelDataInput)) {', var_export($property->getName(), true)),
             '    ' . self::indent($addedKeyCode, 1),
             '} else {',
             '    ' . self::indent($presentKeyCode, 1),
             '}',
         ]);
+    }
+
+    /**
+     * Adopts the filtered values the active branches of the compositions staged during the setter once the update
+     * succeeded (see renderSetterValidation()).
+     */
+    public function renderSetterBranchFilteredValueApplication(Schema $schema, PropertyInterface $property): string
+    {
+        return $this->stagesBranchFilteredValues($schema, $property)
+            ? '$this->_applyBranchFilteredValues($preparedBranchFilteredValues);'
+            : '';
+    }
+
+    /**
+     * Whether the setter validates a composition which hands over filtered values of its active branch
+     */
+    private function stagesBranchFilteredValues(Schema $schema, PropertyInterface $property): bool
+    {
+        // adding the key validates every composition changing the value of a present key validates
+        return $schema->hasMethod('_prepareBranchFilteredValues')
+            && $this->getSetterObjectValidation($schema, $property, true)[1] !== '';
     }
 
     /**
@@ -374,6 +405,18 @@ class RenderHelper
             if ($compositionValidator->getObjectUpdateDependency($key)->requiresValidation($keyAdded)) {
                 $compositionCalls[] = sprintf('$this->_validateComposition_%s($modelData);', $validatorIndex);
             }
+        }
+
+        // The compositions stage the filtered values of their active branches: the setter starts with an empty
+        // staging and prepares the values before anything is assigned (a rejected dependent property rejects the
+        // update), they are applied once the update succeeded (see renderSetterBranchFilteredValueApplication()).
+        if ($compositionCalls !== [] && $schema->hasMethod('_prepareBranchFilteredValues')) {
+            array_unshift($compositionCalls, '$this->_stagedBranchFilteredValues = [];');
+            $compositionCalls[] = sprintf(
+                '$preparedBranchFilteredValues = $this->_prepareBranchFilteredValues(%s, %s);',
+                self::varExportArray([$property->getAttribute(true)]),
+                'array_merge($this->_rawModelDataInput, $modelData)',
+            );
         }
 
         $dependency = ObjectUpdateDependency::None;

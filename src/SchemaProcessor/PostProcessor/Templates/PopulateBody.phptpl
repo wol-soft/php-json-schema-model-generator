@@ -31,6 +31,15 @@
     $this->_executeDependencyValidators(array_merge($this->_rawModelDataInput, $modelData), $validatedProperties);
 {% endif %}
 
+{% if schema.hasMethod('_prepareBranchFilteredValues') %}
+    // Only the properties which were processed count as processed: a value which equals the current attribute is
+    // skipped, such a property is validated again if the active branch switched.
+    $preparedBranchFilteredValues = $this->_prepareBranchFilteredValues(
+        array_keys($updatedProperties),
+        array_merge($this->_rawModelDataInput, $modelData),
+    );
+{% endif %}
+
 {% if generatorConfiguration.collectErrors() %}
     if (count($this->_errorRegistry->getErrors())) {
         throw $this->_errorRegistry;

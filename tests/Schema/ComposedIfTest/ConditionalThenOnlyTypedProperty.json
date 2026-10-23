@@ -1,22 +1,24 @@
 {
   "type": "object",
   "properties": {
-    "name": {
-      "type": "string"
+    "kind": {
+      "type": "integer"
     }
   },
   "if": {
     "properties": {
-      "name": {
-        "const": "Alice"
+      "kind": {
+        "const": 1
       }
-    }
+    },
+    "required": ["kind"]
   },
   "then": {
     "properties": {
-      "age": {
+      "amount": {
         "type": "integer"
       }
-    }
+    },
+    "required": ["amount"]
   }
 }

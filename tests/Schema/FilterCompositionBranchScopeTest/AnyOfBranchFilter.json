@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "anyOf": [
+    {
+      "properties": {
+        "name": {
+          "type": "string",
+          "filter": "trim"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    {
+      "properties": {
+        "code": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code"
+      ]
+    }
+  ]
+}

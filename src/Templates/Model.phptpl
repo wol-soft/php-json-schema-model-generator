@@ -171,6 +171,10 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                     {{ viewHelper.getType(property) }} ${{ property.getAttribute(true) }}
                 ): static {
                     if ($this->{{ property.getAttribute(true) }} === ${{ property.getAttribute(true) }}) {
+                        // Nothing to validate, but the provided value is the raw input of the property now: the value
+                        // may be equal to a filtered value only, a later validation starts from the raw input.
+                        $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
+
                         return $this;
                     }
 
@@ -184,6 +188,8 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
 
                     $this->{{ property.getAttribute(true) }} = $value;
                     $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
+
+                    {{ viewHelper.renderSetterBranchFilteredValueApplication(schema, property) }}
 
                     {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
 

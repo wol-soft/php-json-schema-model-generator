@@ -157,12 +157,14 @@ Generated interface:
     public function setAge(int | string | null $age): static;
     public function getAge(): int | string | null;
 
-When only a ``then`` block is present (no ``else``), the branch may not apply at runtime, so the property is always nullable:
+When only a ``then`` block is present (no ``else``), the branch may not apply at runtime and a missing branch doesn't constrain anything. A value of any type is valid for the property while the ``if`` condition fails, so the type hint is widened to ``mixed``. The same applies to a property which is only defined in an ``else`` block:
 
 .. code-block:: php
 
-    public function setAge(?int $age): static;
-    public function getAge(): ?int;
+    public function setAge(mixed $age): static;
+    public function getAge(): mixed;
+
+While the branch is active the declared type is still enforced. A property which is additionally defined in the root ``properties`` keeps the type of the root definition.
 
 .. note::
 
@@ -220,3 +222,10 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
 
     See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
     explanation.
+
+.. note::
+
+    A property in a ``then`` or ``else`` branch may declare a ``"filter"``. The filter only affects the
+    value while its branch is the active one, otherwise the property keeps the value as provided. A
+    filter on a property of the ``if`` condition runs inside the condition and is not applied to the
+    generated class. See `Filters on properties of object branches <../nonStandardExtensions/filter.html#filters-on-properties-of-object-branches>`__.

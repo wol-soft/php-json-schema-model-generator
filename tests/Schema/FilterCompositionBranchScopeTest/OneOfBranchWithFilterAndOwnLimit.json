@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string",
+      "maxLength": 3
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "type": {
+          "const": "a"
+        },
+        "name": {
+          "type": "string",
+          "filter": "trim"
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "b"
+        },
+        "other": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ]
+    }
+  ]
+}

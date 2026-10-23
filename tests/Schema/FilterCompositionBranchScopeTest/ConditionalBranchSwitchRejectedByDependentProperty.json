@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3
+    }
+  },
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "a"
+      }
+    },
+    "required": [
+      "kind"
+    ]
+  },
+  "then": {
+    "properties": {
+      "title": {
+        "type": "string",
+        "filter": "trim"
+      }
+    }
+  }
+}

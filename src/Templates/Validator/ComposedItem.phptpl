@@ -6,7 +6,10 @@
     &$modifiedModelData,
     &$compositionErrorCollection,
     &$succeededCompositionElements,
-    &$validatorIndex
+    &$validatorIndex{% if publishesFilteredValues %},
+    &$publishedValues,
+    &$evaluatedComponents{% endif %}{% if filterSourceMap %},
+    &$publishedSources{% endif %}
 ) {
     $succeededCompositionElements = {{ availableAmount }};
     $validatorComponentIndex = 0;
@@ -27,7 +30,10 @@
                         the cached result is still valid can't be decided by the updated properties, always evaluate
                         the branch again.
                     #}
-                    {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
+                    {% if publishesFilteredValues %}
+                        $evaluatedComponents[] = $validatorComponentIndex;
+                    {% endif %}
+                    {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose, filterSourceMap), 2) }}
                 {% else %}
                     // check if the state of the validator is already known.
                     // If none of the properties affected by the validator are changed the validator must not be re-evaluated
@@ -61,11 +67,17 @@
                             throw new \Exception();
                         }
                     } else {
-                        {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 3) }}
+                        {% if publishesFilteredValues %}
+                            $evaluatedComponents[] = $validatorComponentIndex;
+                        {% endif %}
+                        {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose, filterSourceMap), 3) }}
                     }
                 {% endif %}
             {% else %}
-                {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
+                {% if publishesFilteredValues %}
+                    $evaluatedComponents[] = $validatorComponentIndex;
+                {% endif %}
+                {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose, filterSourceMap), 2) }}
             {% endif %}
         } catch (\Exception $e) {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
@@ -108,6 +120,14 @@
         value and, since array/object items are validated by reference, the original data itself.
     #}
     $compositionSatisfied = {{ composedValueValidation }};
+
+    {% if publishesFilteredValues %}
+        {#
+            Hand the filtered values of the passing branches to the schema. $modifiedValues only contains
+            values of passing components, so for a oneOf these are the values of the single matching branch.
+        #}
+        $publishedValues = $compositionSatisfied ? array_intersect_key($modifiedValues, {{ filteredKeyLookup }}) : null;
+    {% endif %}
 
     {% if mergedProperty %}
         if ($compositionSatisfied && is_object($proposedValue)) {

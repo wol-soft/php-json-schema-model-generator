@@ -1,0 +1,53 @@
+{
+  "type": "object",
+  "properties": {
+    "firstKind": {
+      "type": "string"
+    },
+    "secondKind": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "firstKind": {
+            "const": "c"
+          }
+        },
+        "required": [
+          "firstKind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "first": {
+            "type": "string",
+            "filter": "trim"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "secondKind": {
+            "const": "c"
+          }
+        },
+        "required": [
+          "secondKind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "second": {
+            "type": "string",
+            "filter": "trim"
+          }
+        }
+      }
+    }
+  ]
+}

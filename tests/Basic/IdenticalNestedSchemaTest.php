@@ -267,4 +267,26 @@ class IdenticalNestedSchemaTest extends AbstractPHPModelGeneratorTestCase
 
         $this->assertSame($subObject1->getObject1()::class, $subObject2->getObject1()[0]::class);
     }
+
+    /**
+     * Nested schemas which differ only in the order of a list whose order matters (the items of a tuple) are
+     * different classes; a different order of a list which is a set (required) still maps to one class.
+     */
+    public function testNestedSchemasDifferingOnlyInTheOrderOfTupleItemsAreDifferentClasses(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedSchemasDifferingInListOrder.json',
+            (new GeneratorConfiguration())->setCollectErrors(false),
+        );
+
+        $object = new $className([
+            'first' => ['pair' => ['a', 1], 'label' => 'x'],
+            'second' => ['pair' => [1, 'a'], 'label' => 'y'],
+            'third' => ['pair' => ['b', 2], 'label' => 'z'],
+        ]);
+
+        $this->assertSame([1, 'a'], $object->getSecond()->getPair());
+        $this->assertNotSame($object->getFirst()::class, $object->getSecond()::class);
+        $this->assertSame($object->getFirst()::class, $object->getThird()::class);
+    }
 }
