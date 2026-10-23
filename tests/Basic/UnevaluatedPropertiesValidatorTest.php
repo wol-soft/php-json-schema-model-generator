@@ -1380,4 +1380,272 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
         );
         new $className(['kind' => 'X', 'stray' => 5]);
     }
+
+    /**
+     * A composition nested inside another composition's branch renders as its own class, and the
+     * enclosing accumulator learns what that class evaluated through its
+     * `_getEvaluatedProperties()` method. When the nested composition is *disjunctive*
+     * (anyOf/oneOf/if-then-else), only the branches that actually succeeded may contribute — a
+     * name declared solely by a branch that failed is still unevaluated and must be rejected.
+     *
+     * The equivalent composition written directly on the outer schema already behaves correctly
+     * (see `AnyOfSelectsSuccessfulBranches.json` / `IfThenElseEvaluation.json`), so these rows pin
+     * the nested case specifically.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>, 2: array<string, mixed>, 3: string}>
+     *   [fixture, accepted input, rejected input, name expected in the rejection message]
+     */
+    public static function nestedDisjunctiveCompositionProvider(): array
+    {
+        return [
+            // anyOf branch 1 succeeds ('a' is a string); branch 2 fails ('b' is not an integer).
+            // Only 'a' is evaluated, so 'b' must be reported as unevaluated.
+            'anyOf nested inside an allOf branch' => [
+                'NestedAnyOfInAllOfBranch.json',
+                ['base' => 'x', 'a' => 'y'],
+                ['base' => 'x', 'a' => 'y', 'b' => 'not-an-integer'],
+                'b',
+            ],
+            // kind='a' selects `then` (declaring aOnly); `else` (declaring bOnly) never runs, so
+            // bOnly contributes nothing to the evaluated set.
+            'if/then/else nested inside an allOf branch' => [
+                'NestedIfThenElseInAllOfBranch.json',
+                ['kind' => 'a', 'aOnly' => 'y'],
+                ['kind' => 'a', 'bOnly' => 'y'],
+                'bOnly',
+            ],
+            // The idiomatic real-world shape: a single allOf branch referencing a discriminated
+            // oneOf. kind='click' selects the first variant, so 'code' — declared only by the
+            // second — is unevaluated.
+            'allOf branch referencing a discriminated oneOf' => [
+                'RefToDiscriminatorBranch.json',
+                ['id' => 'i', 'kind' => 'click', 'x' => 1],
+                ['id' => 'i', 'kind' => 'click', 'x' => 1, 'code' => 'z'],
+                'code',
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $acceptedInput
+     * @param array<string, mixed> $rejectedInput
+     */
+    #[DataProvider('nestedDisjunctiveCompositionProvider')]
+    public function testNestedDisjunctiveCompositionCreditsOnlySuccessfulBranches(
+        string $schemaFile,
+        array $acceptedInput,
+        array $rejectedInput,
+        string $unevaluatedName,
+    ): void {
+        $className = $this->generateClassFromFile($schemaFile);
+
+        $instance = new $className($acceptedInput);
+        $this->assertSame($acceptedInput, $instance->meta()->rawInput());
+
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['{$unevaluatedName}']",
+        );
+        new $className($rejectedInput);
+    }
+
+    /**
+     * The mirror of the disjunctive case: a key-claiming keyword declared inside a composition
+     * that is itself nested inside a branch still claims its keys, so the enclosing accumulator
+     * must credit them. Declaring the same keyword one level up (a direct branch of the outer
+     * schema) already works — see `BranchLevelAdditionalProperties.json` and
+     * `BranchPatternPropertiesClaim.json` — so these rows pin the extra level of nesting.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function nestedKeyClaimingKeywordProvider(): array
+    {
+        return [
+            // additionalProperties: true claims every key the branch did not declare, so `extra`
+            // is evaluated and unevaluatedProperties: false must not fire.
+            'additionalProperties two levels down claims every key' => [
+                'NestedAdditionalPropertiesTwoLevels.json',
+                ['base' => 'x', 'extra' => 'y'],
+            ],
+            // The pattern matches `x_1` and its value validates, so the key is evaluated.
+            'patternProperties two levels down claims matching keys' => [
+                'NestedPatternPropertiesTwoLevels.json',
+                ['base' => 'x', 'x_1' => 'y'],
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     */
+    #[DataProvider('nestedKeyClaimingKeywordProvider')]
+    public function testNestedKeyClaimingKeywordCreditsTheOuterAccumulator(
+        string $schemaFile,
+        array $input,
+    ): void {
+        $className = $this->generateClassFromFile($schemaFile);
+
+        $instance = new $className($input);
+        $this->assertSame($input, $instance->meta()->rawInput());
+    }
+
+    /**
+     * From Draft 2019-09 on, `$ref` is a positive applicator that applies alongside its siblings
+     * rather than replacing them. The referenced schema's evaluated set therefore contributes to
+     * the enclosing schema's accumulator exactly as an inline branch of the same shape would —
+     * which is what `docs/source/generic/references.rst` promises.
+     *
+     * `a` comes from the referenced schema and `b` from the sibling `properties`; both are
+     * evaluated. `c` is claimed by neither and must be rejected.
+     */
+    public function testSiblingRefContributesEvaluatedProperties(): void
+    {
+        $className = $this->generateClassFromFile('SiblingRefUnevaluated.json');
+
+        $instance = new $className(['a' => 'x', 'b' => 'y']);
+        $this->assertSame(['a' => 'x', 'b' => 'y'], $instance->meta()->rawInput());
+
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['c']",
+        );
+        new $className(['a' => 'x', 'c' => 'y']);
+    }
+
+    /**
+     * The same sibling-`$ref` merge on a nested property rather than at the schema root. The
+     * merged class is assembled by a different code path than the root-level case, so it gets its
+     * own coverage.
+     */
+    public function testSiblingRefOnNestedPropertyContributesEvaluatedProperties(): void
+    {
+        $className = $this->generateClassFromFile('PropertyLevelSiblingRefUnevaluated.json');
+
+        $instance = new $className(['inner' => ['a' => 'x', 'b' => 'y']]);
+        $this->assertSame(['inner' => ['a' => 'x', 'b' => 'y']], $instance->meta()->rawInput());
+
+        try {
+            new $className(['inner' => ['a' => 'x', 'c' => 'y']]);
+            $this->fail('An undeclared key inside the merged nested object must be rejected');
+        } catch (NestedObjectException $exception) {
+            $nested = $exception->getNestedException();
+            $this->assertInstanceOf(UnevaluatedPropertiesException::class, $nested);
+            $this->assertSame(['c'], $nested->getUnevaluatedProperties());
+        }
+    }
+
+    /**
+     * The schema form of `dependencies` is a positive applicator: while the trigger key is present
+     * on the instance, the dependent subschema applies at the same instance location and the names
+     * it evaluates flow into the enclosing accumulator.
+     *
+     * Three shapes:
+     *   1. `{kind, extra}` — the trigger key is present, so the dependent subschema's `extra`
+     *      declaration applies and the accumulator credits it.
+     *   2. `{kind, stray}` — the trigger key is present but `stray` is declared nowhere, so it
+     *      stays unevaluated. Proves the dependency only credits what its subschema declares.
+     *   3. `{extra}` — the trigger key is absent, so the dependent subschema never applies and
+     *      `extra` is unevaluated. Proves the crediting is gated on the trigger key.
+     *
+     * `dependentSchemas`, the Draft 2019-09 spelling of the same applicator, is a separate keyword
+     * the schema processor does not recognise at all — see
+     * testDependentSchemasContributionCreditsDependentPropertiesToAccumulator.
+     */
+    public function testSchemaDependencyContributionCreditsDependentPropertiesToAccumulator(): void
+    {
+        $className = $this->generateClassFromFile('DependenciesWithUnevaluated.json');
+
+        $instance = new $className(['kind' => 'X', 'extra' => 5]);
+        $this->assertSame(['kind' => 'X', 'extra' => 5], $instance->meta()->rawInput());
+
+        try {
+            new $className(['kind' => 'X', 'stray' => 5]);
+            $this->fail('A key the dependent subschema does not declare must stay unevaluated');
+        } catch (UnevaluatedPropertiesException $exception) {
+            $this->assertSame(
+                "Provided JSON for '{$className}' contains not allowed unevaluated properties ['stray']",
+                $exception->getMessage(),
+            );
+        }
+
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['extra']",
+        );
+        new $className(['extra' => 5]);
+    }
+
+    /**
+     * A dependent subschema contributes the names it declares directly. Names it only reaches
+     * through a composition or a `$ref` are not credited: the dependency validator runs during the
+     * trigger property's validation pass, after the phase where unevaluatedProperties evaluates,
+     * so there is no dependency result to read back — and a static harvest would credit branches
+     * that never ran.
+     *
+     * The shortfall over-rejects rather than over-accepts, so it is reported at generation time
+     * instead of being silent. This test pins both halves: the warning naming the keyword, and the
+     * rejection it predicts — so the day the contribution is implemented, this test fails and says
+     * exactly what to update.
+     */
+    public function testDependencyReachingThroughCompositionWarnsAndDoesNotCredit(): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'DependencyReachingThroughComposition.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors(false),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "The dependent schema of '{property}' on {class} reaches properties through"
+                    . ' {keywords}, which unevaluatedProperties cannot credit — those keys are'
+                    . ' reported as unevaluated even when the dependent schema evaluates them',
+                ['property' => 'kind', 'keywords' => 'allOf'],
+            ),
+            'The uncredited dependent contribution must be reported at generation time.',
+        );
+
+        // Spec-wise `{kind, extra}` is valid — the allOf branch inside the dependent subschema
+        // evaluates `extra`. The generator cannot see that, which is what the warning announces.
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['extra']",
+        );
+        new $className(['kind' => 'X', 'extra' => 5]);
+    }
+
+    /**
+     * `warnIfVacuousBranch()` decides whether a branch carries any validation keyword by asking
+     * the Draft which types register the keyword. `$ref` is resolved by a producer rather than a
+     * type modifier, so the lookup does not see it — and from Draft 2019-09 on, where `$ref` no
+     * longer swallows its siblings, a `$ref`-only branch's own JSON carries nothing else either.
+     * A branch that references a schema full of constraints is the opposite of vacuous and must
+     * not be reported as matching any value.
+     *
+     * Uses the fixture whose `allOf` branch is exactly `{"$ref": "#/$defs/extension"}` — the most
+     * common composition idiom in real schemas.
+     */
+    public function testRefOnlyCompositionBranchIsNotReportedAsVacuous(): void
+    {
+        $logger = new RecordingLogger();
+
+        $this->generateClassFromFile(
+            'RefResolvedBranchContributesAnnotations.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors(false),
+        );
+
+        $this->assertFalse(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+            ),
+            'A branch consisting only of a $ref carries the referenced schema\'s constraints and '
+            . 'must not be flagged as vacuous.',
+        );
+    }
 }

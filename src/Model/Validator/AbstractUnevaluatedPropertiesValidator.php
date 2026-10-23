@@ -35,18 +35,14 @@ abstract class AbstractUnevaluatedPropertiesValidator extends PropertyTemplateVa
         array $extraTemplateValues = [],
         ?string $propertyName = null,
     ) {
-        $json = $propertiesStructure->getJson();
-
         parent::__construct(
             new Property($propertyName ?? $compositionScope->getClassName(), null, $propertiesStructure),
             $templatePath,
             $extraTemplateValues + [
-                'declaredPropertyNames' => RenderHelper::varExportArray(
-                    array_keys($json['properties'] ?? []),
-                ),
-                'pcrePatterns' => RenderHelper::varExportPcrePatterns(
-                    array_keys($json['patternProperties'] ?? []),
-                ),
+                'declaredPropertyNames' => '[]',
+                'pcrePatterns' => '[]',
+                'hasDependentAllKeysClaim' => false,
+                'dependentAllKeysTriggerKeys' => '[]',
             ],
             $exceptionClass,
             $exceptionParams,
@@ -58,13 +54,81 @@ abstract class AbstractUnevaluatedPropertiesValidator extends PropertyTemplateVa
      */
     public function getCheck(): string
     {
-        // Resolved here — not in the constructor — because post-composition validators register
-        // on the schema after this validator's constructor returns. By the time getCheck() runs
-        // the base-validator list is final.
+        // Every template value below is resolved here rather than in the constructor because none
+        // of them is final while it runs: post-composition validators register on the schema
+        // afterwards, and a conjunctive `$ref` merges the referenced schema's names in only once
+        // that reference resolves. By the time getCheck() runs the schema is fully assembled.
+        $json = $this->property->getJsonSchema()->getJson();
+        $dependent = $this->compositionScope->getDependentEvaluatedProperties();
+
+        $this->templateValues['declaredPropertyNames'] = $this->buildNameListExpression(
+            RenderHelper::varExportArray(
+                array_values(array_unique(array_merge(
+                    array_map(strval(...), array_keys($json['properties'] ?? [])),
+                    $this->compositionScope->getUnconditionallyEvaluatedPropertyNames(),
+                ))),
+            ),
+            array_map(
+                static fn(array $dependency): string => RenderHelper::varExportArray($dependency['names']),
+                array_filter($dependent, static fn(array $dependency): bool => $dependency['names'] !== []),
+            ),
+        );
+        $this->templateValues['pcrePatterns'] = $this->buildNameListExpression(
+            RenderHelper::varExportPcrePatterns(
+                array_values(array_unique(array_merge(
+                    array_map(strval(...), array_keys($json['patternProperties'] ?? [])),
+                    $this->compositionScope->getUnconditionallyEvaluatedPropertyPatterns(),
+                ))),
+            ),
+            array_map(
+                static fn(array $dependency): string => RenderHelper::varExportPcrePatterns($dependency['patterns']),
+                array_filter($dependent, static fn(array $dependency): bool => $dependency['patterns'] !== []),
+            ),
+        );
+
+        // A dependent subschema declaring a non-false `additionalProperties` claims every
+        // remaining key rather than a set of names, so while its trigger is present nothing can be
+        // unevaluated at all. Rendered as a guard in front of the call instead of a name list.
+        $allKeysTriggerKeys = array_keys(
+            array_filter($dependent, static fn(array $dependency): bool => $dependency['claimsEveryKey']),
+        );
+        $this->templateValues['hasDependentAllKeysClaim'] = $allKeysTriggerKeys !== [];
+        $this->templateValues['dependentAllKeysTriggerKeys'] = RenderHelper::varExportArray(
+            array_fill_keys($allKeysTriggerKeys, true),
+        );
+
         $this->templateValues['compositionValidatorKeys'] = RenderHelper::varExportArray(
             $this->compositionScope->getCompositionValidatorKeys(),
         );
 
         return parent::getCheck();
+    }
+
+    /**
+     * Renders the argument expression for one of collectUnevaluatedKeys()'s name lists: the static
+     * list on its own when nothing is trigger-dependent, otherwise that list merged at runtime with
+     * the entries whose trigger property is present in the model data.
+     *
+     * `array_intersect_key` performs the presence test for every trigger at once, keeping the
+     * emitted expression flat regardless of how many dependencies the schema declares.
+     *
+     * @param array<string, string> $dependentListsByTriggerKey Trigger name => PHP array literal
+     */
+    private function buildNameListExpression(string $staticList, array $dependentListsByTriggerKey): string
+    {
+        if ($dependentListsByTriggerKey === []) {
+            return $staticList;
+        }
+
+        $literalEntries = [];
+        foreach ($dependentListsByTriggerKey as $triggerKey => $list) {
+            $literalEntries[] = var_export((string) $triggerKey, true) . ' => ' . $list;
+        }
+
+        return sprintf(
+            'array_merge(%s, ...array_values(array_intersect_key([%s], $modelData)))',
+            $staticList,
+            implode(', ', $literalEntries),
+        );
     }
 }
