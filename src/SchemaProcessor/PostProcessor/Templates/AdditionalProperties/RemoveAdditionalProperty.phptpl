@@ -25,6 +25,11 @@ private function _removeAdditionalProperty(string $key): bool
         {% endif %}
     {% endif %}
 
+    {% if compositionValidatorKeys and schema.hasMethod('_prepareBranchFilteredValues') %}
+        // the compositions stage the filtered values of their active branches for this update
+        $this->_stagedBranchFilteredValues = [];
+    {% endif %}
+
     {% if minPropertyValidator %}
         if ({{ minPropertyValidator.getCheck() }}) {
             {{ viewHelper.validationError(minPropertyValidator) }}
@@ -45,6 +50,10 @@ private function _removeAdditionalProperty(string $key): bool
         {{ viewHelper.indent(viewHelper.wrapInModelStateRollback(schema, renderUpdate()), 1) }}
     {% else %}
         {{ viewHelper.indent(renderUpdate(), 1) }}
+    {% endif %}
+
+    {% if compositionValidatorKeys and schema.hasMethod('_prepareBranchFilteredValues') %}
+        $this->_applyBranchFilteredValues($preparedBranchFilteredValues);
     {% endif %}
 
     return true;

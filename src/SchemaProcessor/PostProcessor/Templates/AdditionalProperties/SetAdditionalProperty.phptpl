@@ -20,6 +20,11 @@ private function _setAdditionalProperty(
         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
     {% endif %}
 
+    {% if schema.hasMethod('_prepareBranchFilteredValues') %}
+        // the compositions stage the filtered values of their active branches for this update
+        $this->_stagedBranchFilteredValues = [];
+    {% endif %}
+
     {#
         The base validators store the value (as additional or pattern property) and evaluate the compositions before
         the update is accepted - restore the model state if a later validator rejects the update. Hook code is only
@@ -33,6 +38,10 @@ private function _setAdditionalProperty(
     {% endif %}
 
     $this->_rawModelDataInput[$key] = $value;
+
+    {% if schema.hasMethod('_prepareBranchFilteredValues') %}
+        $this->_applyBranchFilteredValues($preparedBranchFilteredValues);
+    {% endif %}
 
     {% if validationProperty %}{{ schemaHookResolver.resolveSetterAfterValidationHook(validationProperty) }}{% endif %}
 }

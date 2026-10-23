@@ -14,6 +14,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
@@ -1192,5 +1193,87 @@ class FilterCompositionBranchScopeTest extends AbstractFilterTestCase
             (new GeneratorConfiguration())
                 ->addFilter($this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'upper')),
         );
+    }
+
+    /**
+     * Adding or removing an additional property may switch the active branch (here via minProperties and
+     * maxProperties): the filtered value of the newly active branch is adopted like the constructor adopts it.
+     */
+    #[DataProvider('collectErrorsDataProvider')]
+    public function testAdditionalPropertyAccessorSwitchingTheActiveBranchAdoptsItsFilteredValue(
+        bool $collectErrors,
+    ): void {
+        $className = $this->generateBranchSwitchedByTheNumberOfPropertiesClass($collectErrors, '');
+
+        $this->assertSame('a', (new $className(['kind' => 'k', 'name' => ' a ']))->getName());
+        $this->assertSame(' A ', (new $className(['kind' => 'k', 'name' => ' a ', 'extra' => 'e']))->getName());
+
+        $object = new $className(['kind' => 'k', 'name' => ' a ']);
+
+        $object->additionalProperties()->set('extra', 'e');
+        $this->assertSame(' A ', $object->getName());
+
+        $this->assertTrue($object->additionalProperties()->remove('extra'));
+        $this->assertSame('a', $object->getName());
+        $this->assertSame(['kind' => 'k', 'name' => ' a '], $object->meta()->rawInput());
+    }
+
+    /**
+     * The filtered value of the newly active branch violates the pattern of the property: adding the additional
+     * property is rejected like the constructor rejects the data, and the model keeps the previous branch and value.
+     */
+    #[DataProvider('collectErrorsDataProvider')]
+    public function testAdditionalPropertySwitchingToABranchWhoseFilteredValueIsInvalidIsRejected(
+        bool $collectErrors,
+    ): void {
+        $className = $this->generateBranchSwitchedByTheNumberOfPropertiesClass(
+            $collectErrors,
+            ', "pattern": "^[a-z ]*$"',
+        );
+
+        $expectedException = $this->catchException(
+            static fn() => new $className(['kind' => 'k', 'name' => ' a ', 'extra' => 'e']),
+        );
+        $this->assertNotNull($expectedException, 'The constructor must reject the data');
+
+        $object = new $className(['kind' => 'k', 'name' => ' a ']);
+        $actualException = $this->catchException(static fn() => $object->additionalProperties()->set('extra', 'e'));
+
+        $this->assertNotNull($actualException, 'Adding the additional property must be rejected');
+        $this->assertSame($expectedException::class, $actualException::class);
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+        $this->assertSame('a', $object->getName());
+        $this->assertSame(['kind' => 'k', 'name' => ' a '], $object->meta()->rawInput());
+
+        // the previous branch is still active
+        $object->setName(' b ');
+        $this->assertSame('b', $object->getName());
+    }
+
+    private function generateBranchSwitchedByTheNumberOfPropertiesClass(
+        bool $collectErrors,
+        string $nameConstraint,
+    ): string {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new AdditionalPropertiesAccessorPostProcessor(true));
+        };
+
+        return $this->generateClassFromFileTemplate(
+            'OneOfBranchSwitchedByTheNumberOfProperties.json',
+            [$nameConstraint],
+            (new GeneratorConfiguration())
+                ->setCollectErrors($collectErrors)
+                ->setImmutable(false)
+                ->addFilter($this->getCustomFilter([self::class, 'uppercaseFilterStringOnly'], 'upper')),
+            false,
+        );
+    }
+
+    public static function collectErrorsDataProvider(): array
+    {
+        return [
+            'direct exception' => [false],
+            'collect errors' => [true],
+        ];
     }
 }

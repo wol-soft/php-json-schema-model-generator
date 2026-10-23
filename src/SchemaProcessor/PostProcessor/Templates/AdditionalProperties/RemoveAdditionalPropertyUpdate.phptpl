@@ -31,6 +31,14 @@ if ($inAdditionalProperties) {
     $this->_executeDependencyValidators($this->_rawModelDataInput);
 {% endif %}
 
+{#
+    The removed key may switch the active branch of a composition: the properties depending on the active branch are
+    validated again before the removal is accepted (no property of the model is processed by the update).
+#}
+{% if compositionValidatorKeys and schema.hasMethod('_prepareBranchFilteredValues') %}
+    $preparedBranchFilteredValues = $this->_prepareBranchFilteredValues([], $this->_rawModelDataInput);
+{% endif %}
+
 {% if compositionValidatorKeys or dependencyValidators %}
     {% if generatorConfiguration.collectErrors() %}
         if (count($this->_errorRegistry->getErrors())) {
