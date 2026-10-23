@@ -12,11 +12,6 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\Factory\Composition\IfValidatorFactory;
 use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class ConditionalPropertyValidator
- *
- * @package PHPModelGenerator\Model\Validator
- */
 class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
 {
     /** @var CompositionPropertyDecorator[] */
@@ -32,7 +27,7 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
         array $conditionBranches,
         array $validatorVariables,
     ) {
-        $this->initModifiedValuesMethod();
+        $this->initModifiedValuesMethod($validatorVariables['schema'], $property);
         $this->isResolved = true;
 
         parent::__construct(
@@ -46,6 +41,7 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
             ),
             ConditionalException::class,
             ['&$ifException', '&$thenException', '&$elseException'],
+            $validatorVariables['schema'],
         );
 
         $this->compositionProcessor = IfValidatorFactory::class;
@@ -101,6 +97,10 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getCheck(): string
     {
+        // Late-bind `compositionValidator` so template guards see the flags set on the current
+        // clone rather than on the pre-`withJsonPointer()` original.
+        $this->templateValues['compositionValidator'] = $this;
+
         $filteredKeyMap = $this->getBranchFilteredKeyMap();
 
         $this->setupBranchDefaultHelpers($filteredKeyMap, $this->setupFilterSourceTemplateValues());

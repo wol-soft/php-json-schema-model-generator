@@ -49,6 +49,8 @@ class Schema
      *                                    before adding properties to the model
      */
     protected $baseValidators = [];
+    /** @var PropertyValidatorInterface[] Validators that run after all composition validators */
+    private array $postCompositionValidators = [];
     /** @var string[] */
     protected $usedClasses = [];
     /** @var SchemaNamespaceTransferDecorator[] */
@@ -67,6 +69,16 @@ class Schema
 
     /** @var string[] Maps normalized attribute → raw property name; used to detect property-vs-property collisions */
     private array $attributeIndex = [];
+
+    /**
+     * @var array<string, true> Internal accessor-cache fields that must be cleared before
+     *                          populate() runs so a stale cached accessor instance isn't reused
+     *                          after the underlying storage changes.
+     */
+    private array $accessorCacheProperties = [];
+
+    /** @var array<string, int> Number of times each candidate method name has been reserved */
+    private array $reservedMethodNames = [];
 
     private PropertyMerger $propertyMerger;
 
@@ -378,6 +390,21 @@ class Schema
         return $this;
     }
 
+    public function addPostCompositionValidator(PropertyValidatorInterface $postCompositionValidator): self
+    {
+        $this->postCompositionValidators[] = $postCompositionValidator;
+
+        return $this;
+    }
+
+    /**
+     * @return PropertyValidatorInterface[]
+     */
+    public function getPostCompositionValidators(): array
+    {
+        return $this->postCompositionValidators;
+    }
+
     public function getSchemaDictionary(): SchemaDefinitionDictionary
     {
         return $this->schemaDefinitionDictionary;
@@ -432,6 +459,22 @@ class Schema
     public function getMethods(): array
     {
         return $this->methods;
+    }
+
+    /**
+     * Reserve a method name unique within this class. The first reservation of a candidate keeps
+     * it unchanged; each further reservation of the same candidate gets a numeric suffix
+     * (`_2`, `_3`, ...). Names are therefore a function of the candidates requested for this
+     * class and their order only - never of object identity or of other classes generated in the
+     * same run - so regenerating an unchanged schema reproduces the same names.
+     */
+    public function reserveMethodName(string $candidate): string
+    {
+        $this->reservedMethodNames[$candidate] = ($this->reservedMethodNames[$candidate] ?? 0) + 1;
+
+        return $this->reservedMethodNames[$candidate] === 1
+            ? $candidate
+            : $candidate . '_' . $this->reservedMethodNames[$candidate];
     }
 
     public function hasMethod(string $methodKey): bool
@@ -492,6 +535,24 @@ class Schema
     public function isInitialClass(): bool
     {
         return $this->initialClass;
+    }
+
+    /**
+     * Register an internal accessor-cache field that must be reset before populate() runs.
+     */
+    public function addAccessorCacheProperty(string $internalPropertyName): self
+    {
+        $this->accessorCacheProperties[$internalPropertyName] = true;
+
+        return $this;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getAccessorCacheProperties(): array
+    {
+        return array_keys($this->accessorCacheProperties);
     }
 
     public function getPropertyMerger(): PropertyMerger

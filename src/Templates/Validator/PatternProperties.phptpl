@@ -21,19 +21,28 @@
             {% endforeach %}
 
             {% if generatorConfiguration.collectErrors() %}
+                {#
+                    An invalid value is not stored: the storage holds the validated pattern properties only, the
+                    unevaluatedProperties validation credits a key matching a pattern by its stored value. Restoring the
+                    storage after a failed validation (a rollback inside this validator) was rejected: a rejected update
+                    restores the complete model state anyway, the storage only must not hold the invalid value while the
+                    following validators run.
+                #}
                 if ($this->_errorRegistry->getErrors()) {
                     $invalidProperties[$propertyKey] = $this->_errorRegistry->getErrors();
+
+                    continue;
                 }
             {% endif %}
 
             if (!isset($this->_patternPropertiesMap[$propertyKey])) {
                 $this->_patternProperties['{{ patternHash }}'][$propertyKey] = $value;
             }
-        } catch (\Exception $e) {
+        } catch (\Exception $exception) {
             // collect all errors concerning invalid pattern properties
             isset($invalidProperties[$propertyKey])
-                ? $invalidProperties[$propertyKey][] = $e
-                : $invalidProperties[$propertyKey] = [$e];
+                ? $invalidProperties[$propertyKey][] = $exception
+                : $invalidProperties[$propertyKey] = [$exception];
         }
     }
 

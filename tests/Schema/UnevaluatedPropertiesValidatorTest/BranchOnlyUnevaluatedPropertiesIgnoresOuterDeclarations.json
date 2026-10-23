@@ -1,0 +1,14 @@
+{
+  "title": "BranchOnlyUnevaluatedPropertiesIgnoresOuterDeclarations",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "unevaluatedProperties": false
+    }
+  ]
+}

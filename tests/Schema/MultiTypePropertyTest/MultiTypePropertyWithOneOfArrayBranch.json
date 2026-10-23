@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "type": [
+        "object",
+        "array"
+      ],
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "array",
+          "items": [
+            {
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

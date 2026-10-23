@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "allOf": [
+        {
+          "unevaluatedItems": {
+            "type": "string"
+          }
+        }
+      ]
+    }
+  }
+}

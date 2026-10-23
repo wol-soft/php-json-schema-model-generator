@@ -9,6 +9,7 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AbstractPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 
 abstract class SimpleBaseValidatorFactory extends SimplePropertyValidatorFactory
 {
@@ -26,7 +27,7 @@ abstract class SimpleBaseValidatorFactory extends SimplePropertyValidatorFactory
 
         if ($validator instanceof AbstractPropertyValidator) {
             $validator = $validator->withJsonPointer(
-                $propertySchema->getPointer() . '/' . JsonSchema::encodePointer($this->key),
+                $propertySchema->getPointer() . '/' . JsonSchemaUtil::encodePointer($this->key),
             );
         }
 

@@ -1,0 +1,88 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "allOf": [
+        {
+          "maxItems": 10
+        }
+      ],
+      "anyOf": [
+        {
+          "minItems": 1
+        },
+        {
+          "maxItems": 0
+        }
+      ]
+    },
+    "child": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        }
+      },
+      "if": {
+        "properties": {
+          "x": {
+            "const": 1
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "x"
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "c": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "properties": {
+        "d": {
+          "type": "integer"
+        }
+      }
+    }
+  ],
+  "anyOf": [
+    {
+      "properties": {
+        "e": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "properties": {
+        "f": {
+          "type": "string"
+        }
+      }
+    }
+  ],
+  "oneOf": [
+    {
+      "required": [
+        "tags"
+      ]
+    },
+    {
+      "required": [
+        "c"
+      ]
+    }
+  ]
+}

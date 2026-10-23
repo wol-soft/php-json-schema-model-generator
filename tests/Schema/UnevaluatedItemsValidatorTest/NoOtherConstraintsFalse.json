@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "unevaluatedItems": false
+    }
+  }
+}

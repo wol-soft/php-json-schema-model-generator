@@ -313,7 +313,6 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
         ];
     }
 
-
     #[DataProvider('validPropertyTypeDataProvider')]
     public function testValidProvidedRequiredAnyOfTypePropertyIsValid(mixed $propertyValue): void
     {
@@ -589,7 +588,6 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
             'both invalid types array' => [['integerProperty' => [], 'stringProperty' => []]],
         ];
     }
-
 
     #[DataProvider('validComposedObjectDataProviderRequired')]
     #[DataProvider('validComposedObjectWithRequiredPropertiesDataProvider')]

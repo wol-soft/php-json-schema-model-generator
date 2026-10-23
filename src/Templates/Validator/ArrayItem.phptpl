@@ -20,11 +20,11 @@ is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}, $modelD
                     $invalidItems{{ suffix }}[$index] = $this->_errorRegistry->getErrors();
                 }
             {% endif %}
-        } catch (\Exception $e) {
+        } catch (\Exception $exception) {
             // collect all errors concerning invalid items
             isset($invalidItems{{ suffix }}[$index])
-                ? $invalidItems{{ suffix }}[$index][] = $e
-                : $invalidItems{{ suffix }}[$index] = [$e];
+                ? $invalidItems{{ suffix }}[$index][] = $exception
+                : $invalidItems{{ suffix }}[$index] = [$exception];
         }
     }
 

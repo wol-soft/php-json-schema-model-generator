@@ -132,7 +132,6 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
         $object->setAge(-12);
     }
 
-
     /**
      * The model state changed by a custom setter hook is part of the update: a rejected update restores it. A setter
      * without any before validation hook code throws before changing the model state and is rendered without the

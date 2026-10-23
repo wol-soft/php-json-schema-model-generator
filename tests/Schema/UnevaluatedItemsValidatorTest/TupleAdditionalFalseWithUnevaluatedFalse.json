@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": [
+        {
+          "type": "integer"
+        }
+      ],
+      "additionalItems": false,
+      "unevaluatedItems": false
+    }
+  }
+}

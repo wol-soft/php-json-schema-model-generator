@@ -14,9 +14,10 @@ use PHPModelGenerator\Utils\RenderHelper;
 
 /**
  * Renders the validation of the setters of a model like the constructor validates the data. Only the validation of
- * the object (object-level validators, compositions, dependencies of other properties) and before validation hook
- * code change the model state before the update is accepted - the validators of the property itself never write the
- * model state -, so only a setter executing such code is wrapped into the model state rollback.
+ * the object (object-level validators, compositions, dependencies of other properties, post-composition validators)
+ * and before validation hook code change the model state before the update is accepted - the validators of the
+ * property itself never write the model state -, so only a setter executing such code is wrapped into the model state
+ * rollback.
  *
  * The setter of a key which is already stored only executes the validation which depends on the value of the key:
  * changing the value of a present key can't change the result of e.g. maxProperties. Snapshotting and validating the
@@ -97,21 +98,26 @@ class SetterValidationRenderer
 
     private function renderUpdateValidation(PropertyInterface $property, string $hookCode, bool $keyAdded): string
     {
-        [$objectCode, $compositionCode, $dependencyCode] = $this->getObjectValidation($property, $keyAdded);
+        [$objectCode, $compositionCode, $dependencyCode, $postCompositionCode] = $this->getObjectValidation(
+            $property,
+            $keyAdded,
+        );
 
-        // the order of the constructor: object validators, compositions, properties
+        // the order of the constructor: object validators, compositions, properties. The post-composition validators
+        // follow the property, they validate the candidate state with the raw value of the update.
         $code = join("\n\n", array_filter([
             $objectCode,
             $compositionCode,
             $hookCode,
             $dependencyCode,
             sprintf('$value = $this->_validate%s($value, $modelData);', ucfirst($property->getAttribute())),
+            $postCompositionCode,
             $this->generatorConfiguration->collectErrors()
                 ? "if (\$this->_errorRegistry->getErrors()) {\n    throw \$this->_errorRegistry;\n}"
                 : '',
         ]));
 
-        return $objectCode . $compositionCode . $hookCode . $dependencyCode === ''
+        return $objectCode . $compositionCode . $hookCode . $dependencyCode . $postCompositionCode === ''
             ? $code
             : $this->modelStateRollback->wrap($this->schema, $code);
     }
@@ -128,7 +134,8 @@ class SetterValidationRenderer
      * e.g. additionalProperties, every setter of such a common model would validate and snapshot the model state for
      * nothing.
      *
-     * @return string[] The code for the object-level validators, the compositions and the dependencies
+     * @return string[] The code for the object-level validators, the compositions, the dependencies and the
+     *                  post-composition validators
      */
     private function getObjectValidation(PropertyInterface $property, bool $keyAdded): array
     {
@@ -179,6 +186,32 @@ class SetterValidationRenderer
             );
         }
 
-        return [$objectCode, join("\n", $compositionCalls), $dependencyCode];
+        return [
+            $objectCode,
+            join("\n", $compositionCalls),
+            $dependencyCode,
+            $this->getPostCompositionValidation($property),
+        ];
+    }
+
+    /**
+     * The post-composition validators (unevaluatedProperties) validate the keys no other keyword evaluated. Which keys
+     * are evaluated results from the compositions re-evaluated by the update (a switched branch may orphan another
+     * key), so they are executed with every update. They validate the candidate state - the stored raw input with the
+     * raw value of the update - as the stored raw input still holds the state before the update.
+     */
+    private function getPostCompositionValidation(PropertyInterface $property): string
+    {
+        if ($this->schema->getPostCompositionValidators() === []) {
+            return '';
+        }
+
+        return sprintf(
+            "\$candidateRawModelDataInput = \$this->_rawModelDataInput;\n"
+                . "\$candidateRawModelDataInput[%s] = \$%s;\n"
+                . '$this->_executePostCompositionValidators($candidateRawModelDataInput);',
+            var_export($property->getName(), true),
+            $property->getAttribute(true),
+        );
     }
 }

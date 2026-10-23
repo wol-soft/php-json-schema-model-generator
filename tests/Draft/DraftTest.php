@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Tests\Draft;
 use PHPModelGenerator\Draft\AutoDetectionDraft;
 use PHPModelGenerator\Draft\Draft_07;
 use PHPModelGenerator\Draft\Draft_2019_09;
+use PHPModelGenerator\Draft\Draft_2020_12;
 use PHPModelGenerator\Draft\Element\Type;
 use PHPModelGenerator\Draft\Producer\PropertyProducerInterface;
 use PHPModelGenerator\Exception\SchemaException;
@@ -174,18 +175,18 @@ class DraftTest extends TestCase
         $this->assertInstanceOf(Draft_07::class, (new AutoDetectionDraft())->getDraftForSchema($jsonSchema));
     }
 
-    public function testAutoDetectionFallsBackToDraft07WhenSchemaKeywordAbsent(): void
+    public function testAutoDetectionFallsBackToDraft202012WhenSchemaKeywordAbsent(): void
     {
         $jsonSchema = new JsonSchema('test.json', ['type' => 'object']);
 
-        $this->assertInstanceOf(Draft_07::class, (new AutoDetectionDraft())->getDraftForSchema($jsonSchema));
+        $this->assertInstanceOf(Draft_2020_12::class, (new AutoDetectionDraft())->getDraftForSchema($jsonSchema));
     }
 
-    public function testAutoDetectionFallsBackToDraft07ForUnrecognisedSchemaKeyword(): void
+    public function testAutoDetectionFallsBackToDraft202012ForUnrecognisedSchemaKeyword(): void
     {
         $jsonSchema = new JsonSchema('test.json', ['$schema' => 'https://example.com/custom-schema']);
 
-        $this->assertInstanceOf(Draft_07::class, (new AutoDetectionDraft())->getDraftForSchema($jsonSchema));
+        $this->assertInstanceOf(Draft_2020_12::class, (new AutoDetectionDraft())->getDraftForSchema($jsonSchema));
     }
 
     /** @return array<string, array{string}> */
@@ -212,12 +213,79 @@ class DraftTest extends TestCase
         $autoDetectionDraft = new AutoDetectionDraft();
 
         $firstSchema = new JsonSchema('first.json', ['$schema' => 'http://json-schema.org/draft-07/schema#']);
-        $secondSchema = new JsonSchema('second.json', ['type' => 'object']);
+        $secondSchema = new JsonSchema('second.json', ['$schema' => 'https://json-schema.org/draft-07/schema']);
 
         $this->assertSame(
             $autoDetectionDraft->getDraftForSchema($firstSchema),
             $autoDetectionDraft->getDraftForSchema($secondSchema),
         );
+    }
+
+    /** @return array<string, array{string}> */
+    public static function draft202012SchemaUriProvider(): array
+    {
+        return [
+            'https without trailing hash' => ['https://json-schema.org/draft/2020-12/schema'],
+            'https with trailing hash'    => ['https://json-schema.org/draft/2020-12/schema#'],
+            'http without trailing hash'  => ['http://json-schema.org/draft/2020-12/schema'],
+            'http with trailing hash'     => ['http://json-schema.org/draft/2020-12/schema#'],
+        ];
+    }
+
+    #[DataProvider('draft202012SchemaUriProvider')]
+    public function testAutoDetectionReturnsDraft202012ForDraft202012SchemaKeyword(string $schemaUri): void
+    {
+        $jsonSchema = new JsonSchema('test.json', ['$schema' => $schemaUri]);
+
+        $this->assertInstanceOf(Draft_2020_12::class, (new AutoDetectionDraft())->getDraftForSchema($jsonSchema));
+    }
+
+    /**
+     * The dialect declared at the document root governs every subschema of the same source file:
+     * a subschema (queried after the root, and carrying no `$schema` of its own) resolves to the
+     * draft the root declared rather than falling back to the default.
+     */
+    public function testAutoDetectionAppliesRootDialectToSubschemasOfTheSameFile(): void
+    {
+        $autoDetectionDraft = new AutoDetectionDraft();
+
+        $rootSchema = new JsonSchema('document.json', [
+            '$schema' => 'https://json-schema.org/draft/2019-09/schema',
+            'type' => 'object',
+        ]);
+        $subSchema = new JsonSchema('document.json', ['type' => 'object'], '/properties/child');
+
+        // Root is resolved first, seeding the per-file dialect.
+        $this->assertInstanceOf(Draft_2019_09::class, $autoDetectionDraft->getDraftForSchema($rootSchema));
+        $this->assertInstanceOf(Draft_2019_09::class, $autoDetectionDraft->getDraftForSchema($subSchema));
+    }
+
+    /**
+     * A nested subschema that declares its own `$schema` resolves to that dialect for itself, but
+     * must not overwrite the document dialect seeded by the root: a sibling subschema processed
+     * afterwards still inherits the root's dialect, not the nested declaration's.
+     */
+    public function testNestedSchemaDeclarationDoesNotLeakIntoSiblingSubschemas(): void
+    {
+        $autoDetectionDraft = new AutoDetectionDraft();
+
+        $rootSchema = new JsonSchema('document.json', [
+            '$schema' => 'https://json-schema.org/draft/2019-09/schema',
+            'type' => 'object',
+        ]);
+        $nestedResourceRoot = new JsonSchema(
+            'document.json',
+            ['$schema' => 'http://json-schema.org/draft-07/schema#', 'type' => 'object'],
+            '/properties/child',
+        );
+        $sibling = new JsonSchema('document.json', ['type' => 'object'], '/properties/other');
+
+        // Document root seeds the file dialect.
+        $this->assertInstanceOf(Draft_2019_09::class, $autoDetectionDraft->getDraftForSchema($rootSchema));
+        // The nested resource root resolves to its own declared dialect.
+        $this->assertInstanceOf(Draft_07::class, $autoDetectionDraft->getDraftForSchema($nestedResourceRoot));
+        // The sibling still inherits the root's dialect — the nested declaration did not leak.
+        $this->assertInstanceOf(Draft_2019_09::class, $autoDetectionDraft->getDraftForSchema($sibling));
     }
 
     public function testAutoDetectionReusesCachedDraft201909Instance(): void

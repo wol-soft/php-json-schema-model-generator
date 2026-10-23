@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "child": {
+      "type": "object",
+      "unevaluatedProperties": %s
+    }
+  }
+}

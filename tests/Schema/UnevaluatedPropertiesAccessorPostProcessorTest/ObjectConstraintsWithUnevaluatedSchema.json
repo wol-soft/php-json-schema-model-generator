@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "dependencies": {
+    "name": ["tag"]
+  },
+  "maxProperties": 3,
+  "unevaluatedProperties": {
+    "type": "integer"
+  }
+}

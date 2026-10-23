@@ -1,0 +1,36 @@
+/**
+ * serialize the property {{ property.getAttribute() }} — static tuple-index filters and/or a
+ * dynamic filter for indices unevaluatedItems credited at runtime, combined into a single method
+ * so the two never clobber each other's generated method name.
+ */
+protected function _serialize{{ viewHelper.ucfirst(property.getAttribute()) }}(): array
+{
+    $serialized = $this->{{ property.getAttribute(true) }};
+
+    {% foreach indexSerializers as indexSerializer %}
+        if (array_key_exists({{ indexSerializer.index }}, $serialized)) {
+            $serialized[{{ indexSerializer.index }}] = \{{ indexSerializer.serializerClass }}::{{ indexSerializer.serializerMethod }}(
+                $serialized[{{ indexSerializer.index }}],
+                {{ indexSerializer.serializerOptions }},
+            );
+        }
+    {% endforeach %}
+
+    {% if dynamicSerializerClass %}
+        foreach (array_keys($this->_evaluatedItemIndices['{{ arrayPropertyName }}'] ?? []) as $index) {
+            {% if staticIndices %}
+                // Indices already handled by a static tuple filter above must not also run
+                // through the dynamic unevaluatedItems filter.
+                if (in_array($index, {{ viewHelper.varExportArray(staticIndices) }}, true)) {
+                    continue;
+                }
+            {% endif %}
+            $serialized[$index] = \{{ dynamicSerializerClass }}::{{ dynamicSerializerMethod }}(
+                $serialized[$index],
+                {{ dynamicSerializerOptions }},
+            );
+        }
+    {% endif %}
+
+    return $serialized;
+}

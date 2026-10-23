@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "if": {
+        "items": true,
+        "minItems": 2
+      },
+      "then": {
+        "maxItems": 3
+      },
+      "unevaluatedItems": false
+    }
+  }
+}

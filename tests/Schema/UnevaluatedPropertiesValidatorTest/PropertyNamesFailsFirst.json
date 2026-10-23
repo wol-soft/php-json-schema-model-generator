@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "propertyNames": {
+    "pattern": "^[a-z]+$"
+  },
+  "unevaluatedProperties": {
+    "type": "integer"
+  }
+}

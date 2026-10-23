@@ -1,6 +1,6 @@
 /**
  *{% if hasObjectProperties %} @throws RegularPropertyAsAdditionalPropertyException{% endif %}
- *{% if schema.getBaseValidators() %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+ *{% if schema.getBaseValidators() or schema.getPostCompositionValidators() %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
  */
 private function _setAdditionalProperty(
     string $key,
@@ -29,9 +29,10 @@ private function _setAdditionalProperty(
         The base validators store the value (as additional or pattern property) and evaluate the compositions before
         the update is accepted - restore the model state if a later validator rejects the update. Hook code is only
         resolved for a validation property, which exists only with an AdditionalPropertiesValidator (a base
-        validator), so the hook code is wrapped as well.
+        validator), so the hook code is wrapped as well. The post-composition validators record the evaluated and
+        the unevaluated keys.
     #}
-    {% if schema.getBaseValidators() %}
+    {% if schema.getBaseValidators() or schema.getPostCompositionValidators() %}
         {{ viewHelper.indent(modelStateRollback.wrap(schema, renderUpdate()), 1) }}
     {% else %}
         {{ viewHelper.indent(renderUpdate(), 1) }}

@@ -17,11 +17,6 @@ use stdClass;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class MultiTypePropertyTest
- *
- * @package PHPModelGenerator\Tests\Objects
- */
 #[ApplicableDrafts]
 class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -324,5 +319,125 @@ class MultiTypePropertyTest extends AbstractPHPModelGeneratorTestCase
                 ERROR,
             ],
         ];
+    }
+
+    /**
+     * A property typed `["object", "array"]` with a `oneOf` spanning an object branch and an
+     * array branch used to throw a generation-time SchemaException: narrowing to the object
+     * variant re-processes the full `oneOf` as that nested class's own schema-root composition,
+     * and only an object-typed branch ever gets a nested schema, so the array branch looked like
+     * a conflict. SchemaProcessor::transferComposedPropertiesToSchema() now only treats a typed,
+     * schema-less branch as a conflict for allOf (which needs every branch to hold at once) -
+     * not oneOf/anyOf/if-then-else, where an unmatched branch simply isn't reached.
+     *
+     * Also covers the object branch on the same class: without further changes it would be
+     * double-validated against incompatible value shapes (the property-level `oneOf` copy would
+     * run its `instanceof` checks after the nested copy had already instantiated the value into
+     * an unrelated class). PropertyFactory::createMultiTypeProperty() now drops the object
+     * variant's own ObjectInstantiationDecorator and has MultiTypeCheckValidator recognize a raw,
+     * not-yet-instantiated JSON-object-shaped array, so only the property-level composition
+     * validator instantiates.
+     */
+    public function testMultiTypePropertyWithCompositionArrayBranchGeneratesAndValidatesArrayInput(): void
+    {
+        $className = $this->generateClassFromFile('MultiTypePropertyWithOneOfArrayBranch.json');
+
+        $arrayObject = new $className(['property' => ['Test']]);
+        $this->assertSame(['Test'], $arrayObject->getProperty());
+
+        $objectObject = new $className(['property' => ['name' => 'Hans']]);
+        $this->assertSame('Hans', $objectObject->getProperty()->getName());
+    }
+
+    #[DataProvider('invalidCompositionArrayBranchDataProvider')]
+    public function testInvalidMultiTypePropertyCompositionArrayBranchThrowsAnException(
+        mixed $propertyValue,
+        string $exceptionMessage,
+    ): void {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage($exceptionMessage);
+
+        $className = $this->generateClassFromFile('MultiTypePropertyWithOneOfArrayBranch.json');
+
+        new $className(['property' => $propertyValue]);
+    }
+
+    public static function invalidCompositionArrayBranchDataProvider(): array
+    {
+        return [
+            'wrong item type in tuple' => [
+                [42],
+                <<<ERROR
+                Invalid value for 'property' declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid type for 'property': requires 'object', got 'array'
+                  - Composition element #2: Failed
+                    * Invalid tuple item in array 'property':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array property': requires 'string', got 'integer'
+                ERROR,
+            ],
+            'scalar matching neither branch' => [
+                'nope',
+                "Invalid type for 'property': requires ['object', 'array'], got 'string'",
+            ],
+        ];
+    }
+
+    public function testInvalidMultiTypePropertyCompositionObjectBranchThrowsAnException(): void
+    {
+        $this->expectException(ValidationException::class);
+        // The array branch's own tuple-item detail beyond the initial type mismatch varies by
+        // draft (some drafts short-circuit further checks once the primary array-type check
+        // already failed); only the draft-independent prefix is asserted here.
+        $this->expectExceptionMessageMatches('/' . preg_quote(<<<ERROR
+            Invalid value for 'property' declined by composition constraint
+              Requires to match one composition element but matched 0 elements
+              - Composition element #1: Failed
+                * Invalid type for 'name': requires 'string', got 'integer'
+              - Composition element #2: Failed
+                * Invalid type for 'property': requires 'array', got 'object'
+            ERROR, '/') . '/');
+
+        $className = $this->generateClassFromFile('MultiTypePropertyWithOneOfArrayBranch.json');
+
+        new $className(['property' => ['name' => 42]]);
+    }
+
+    /**
+     * An empty JSON object `{}` and an empty JSON array `[]` both decode to the same empty PHP
+     * array (see TypeCheck::buildNegatedJsonSchemaTypeCheck() for the `object`/`array` ambiguity
+     * this causes). `{}` used to be flatly rejected as "not an object" for a multi-type object
+     * candidate whenever the sibling type wasn't `array` - pairing with `array` happened to mask
+     * the gap, which is why this needs its own fixture pairing "object" with "string" instead of
+     * reusing MultiTypePropertyWithOneOfArrayBranch.json.
+     */
+    public function testMultiTypePropertyObjectCandidateAcceptsEmptyObjectInput(): void
+    {
+        $className = $this->generateClassFromFile('MultiTypePropertyWithOneOfObjectStringBranch.json');
+
+        $emptyObject = new $className(['property' => []]);
+        $this->assertNull($emptyObject->getProperty()->getName());
+
+        $namedObject = new $className(['property' => ['name' => 'Alice']]);
+        $this->assertSame('Alice', $namedObject->getProperty()->getName());
+
+        $string = new $className(['property' => 'abc']);
+        $this->assertSame('abc', $string->getProperty());
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage(
+            <<<ERROR
+            Invalid value for 'property' declined by composition constraint
+              Requires to match one composition element but matched 0 elements
+              - Composition element #1: Failed
+                * Invalid type for 'property': requires 'object', got 'string'
+              - Composition element #2: Failed
+                * Value for 'property' must not be shorter than 3
+            ERROR,
+        );
+
+        new $className(['property' => 'ab']);
     }
 }

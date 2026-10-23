@@ -75,6 +75,10 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
             $this->_executeBaseValidators($rawModelDataInput);
         {% endif %}
 
+        {% if schema.getPostCompositionValidators() %}
+            $this->_executePostCompositionValidators($rawModelDataInput);
+        {% endif %}
+
         {% foreach schema.getProperties() as property %}
             {% if not property.isInternal() %}
                 $this->_process{{ viewHelper.ucfirst(property.getAttribute()) }}($rawModelDataInput);
@@ -93,6 +97,12 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
     }
 
     {% if schema.getBaseValidators() %}
+        /**
+         * Runs the object-level validators and the compositions against $modelData. Used for the
+         * constructor's full validation pass and for the updates of the model. Schema-level
+         * validators that depend on the results of the compositions live in
+         * _executePostCompositionValidators().
+         */
         protected function _executeBaseValidators(array &$modelData): void
         {
             {% if schema.getObjectValidators() %}
@@ -105,9 +115,27 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
         }
     {% endif %}
 
+    {% if schema.getPostCompositionValidators() %}
+        /**
+         * Runs schema-level validators that depend on the merged state of every property —
+         * currently just unevaluatedProperties. The constructor calls this on the raw input
+         * after _executeBaseValidators; the updates (setters, populate(), the additional property
+         * accessors) call it against the candidate state (the raw input with the update applied)
+         * before the update is committed.
+         */
+        protected function _executePostCompositionValidators(array &$modelData): void
+        {
+            $value = &$modelData;
+
+            {% foreach schema.getPostCompositionValidators() as validator %}
+                {{ viewHelper.renderValidator(validator, schema, 2) }}
+            {% endforeach %}
+        }
+    {% endif %}
+
     {#
-        Separate from the compositions: an update of a single property (setter) executes the object validators, the
-        compositions are validated by the setter hook of the CompositionValidationPostProcessor.
+        Separate from the compositions: an update of a single property (setter) executes the object validators and the
+        compositions only as far as the update may change their result (see SetterValidationRenderer).
     #}
     {% if schema.getObjectValidators() %}
         protected function _executeObjectValidators(array &$modelData): void
@@ -232,6 +260,13 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
              */
             protected function _validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, array $modelData)
             {
+                {% if viewHelper.hasUnevaluatedItemsValidator(property) %}
+                    // Reset before any validator runs (including compositions, which may credit
+                    // indices into this same slot during this pass) so a previous, unrelated
+                    // validation pass's credits never leak into this one.
+                    $this->_evaluatedItemIndices['{{ property.getName() }}'] = [];
+                {% endif %}
+
                 {% foreach property.getOrderedValidators() as validator %}
                     {{ viewHelper.renderValidator(validator, schema, 2) }}
                 {% endforeach %}

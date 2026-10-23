@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "integer"
+    }
+  },
+  "additionalProperties": {
+    "type": "object",
+    "properties": {
+      "known": {
+        "type": "string"
+      }
+    },
+    "unevaluatedProperties": false
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "x-a": {}
+  },
+  "allOf": [
+    {
+      "patternProperties": {
+        "^x-": {
+          "type": "integer"
+        }
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}

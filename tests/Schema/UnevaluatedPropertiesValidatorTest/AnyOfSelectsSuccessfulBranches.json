@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "anyOf": [
+    {
+      "properties": {
+        "kind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    {
+      "properties": {
+        "value": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "value"
+      ]
+    }
+  ],
+  "unevaluatedProperties": false
+}

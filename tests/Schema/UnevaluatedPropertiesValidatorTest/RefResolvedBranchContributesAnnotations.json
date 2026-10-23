@@ -1,0 +1,27 @@
+{
+  "$defs": {
+    "extension": {
+      "type": "object",
+      "properties": {
+        "foo": {
+          "type": "string"
+        },
+        "bar": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/$defs/extension"
+    }
+  ],
+  "unevaluatedProperties": false
+}

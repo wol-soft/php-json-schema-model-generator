@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "properties": {
+        "known": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "minLength": 3
+    }
+  }
+}

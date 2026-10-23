@@ -1,0 +1,12 @@
+/**
+ * serialize the property {{ property.getAttribute() }} (schema-form items, uniform filter)
+ */
+protected function _serialize{{ viewHelper.ucfirst(property.getAttribute()) }}(): array
+{
+    $serialized = [];
+    foreach ($this->{{ property.getAttribute(true) }} as $index => $value) {
+        $serialized[$index] = \{{ serializerClass }}::{{ serializerMethod }}($value, {{ serializerOptions }});
+    }
+
+    return $serialized;
+}

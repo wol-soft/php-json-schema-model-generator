@@ -1,5 +1,5 @@
 if ($inPatternProperties) {
-    foreach ($this->_patternProperties as $patternHash => $_) {
+    foreach (array_keys($this->_patternProperties) as $patternHash) {
         unset($this->_patternProperties[$patternHash][$key]);
     }
 }
@@ -32,6 +32,15 @@ if ($inAdditionalProperties) {
 {% endif %}
 
 {#
+    The removed key may have been the only one a composition branch required: the keys the active branches don't
+    evaluate any longer are validated against the remaining data. A copy, the validators take the data by reference.
+#}
+{% if schema.getPostCompositionValidators() %}
+    $remainingModelData = $this->_rawModelDataInput;
+    $this->_executePostCompositionValidators($remainingModelData);
+{% endif %}
+
+{#
     The removed key may switch the active branch of a composition: the properties depending on the active branch are
     validated again before the removal is accepted (no property of the model is processed by the update).
 #}
@@ -39,7 +48,7 @@ if ($inAdditionalProperties) {
     $preparedBranchFilteredValues = $this->_prepareBranchFilteredValues([], $this->_rawModelDataInput);
 {% endif %}
 
-{% if compositionValidatorKeys or dependencyValidators %}
+{% if compositionValidatorKeys or dependencyValidators or schema.getPostCompositionValidators() %}
     {% if generatorConfiguration.collectErrors() %}
         if (count($this->_errorRegistry->getErrors())) {
             throw $this->_errorRegistry;

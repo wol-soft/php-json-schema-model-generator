@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "definitions": {
+    "recursive": {
+      "type": "array",
+      "allOf": [
+        {
+          "$ref": "#/definitions/recursive"
+        }
+      ],
+      "unevaluatedItems": false
+    }
+  },
+  "properties": {
+    "tags": {
+      "$ref": "#/definitions/recursive"
+    }
+  }
+}

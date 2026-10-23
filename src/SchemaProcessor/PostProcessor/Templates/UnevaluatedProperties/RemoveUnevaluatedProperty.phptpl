@@ -1,0 +1,40 @@
+/**
+ * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
+ */
+private function _removeUnevaluatedProperty(string $key): bool
+{
+    if (!array_key_exists($key, $this->_unevaluatedProperties)) {
+        return false;
+    }
+
+    {% if generatorConfiguration.collectErrors() %}
+        $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+    {% endif %}
+
+    {% if compositionValidatorKeys and schema.hasMethod('_prepareBranchFilteredValues') %}
+        // the compositions stage the filtered values of their active branches for this update
+        $this->_stagedBranchFilteredValues = [];
+    {% endif %}
+
+    {#
+        The count includes the key which is about to be removed. Collected errors are thrown together with the errors of
+        the validation of the remaining data (like the constructor collects them).
+    #}
+    {% if minPropertyValidator %}
+        if ({{ minPropertyValidator.getCheck() }}) {
+            {{ viewHelper.validationError(minPropertyValidator) }}
+        }
+    {% endif %}
+
+    {#
+        The compositions, the dependencies of the declared properties and the unevaluatedProperties validator validate
+        the remaining model data after the property is removed - restore the model state if they reject the removal.
+    #}
+    {{ viewHelper.indent(modelStateRollback.wrap(schema, renderUpdate()), 1) }}
+
+    {% if compositionValidatorKeys and schema.hasMethod('_prepareBranchFilteredValues') %}
+        $this->_applyBranchFilteredValues($preparedBranchFilteredValues);
+    {% endif %}
+
+    return true;
+}

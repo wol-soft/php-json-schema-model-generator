@@ -1,0 +1,6 @@
+$unevaluatedProperties = $this->collectUnevaluatedKeys(
+    $modelData,
+    {{ declaredPropertyNames }},
+    {{ pcrePatterns }},
+    {{ compositionValidatorKeys }},
+)

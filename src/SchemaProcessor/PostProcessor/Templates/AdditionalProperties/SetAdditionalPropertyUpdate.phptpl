@@ -14,13 +14,22 @@
             array_merge($this->_rawModelDataInput, [$key => $value]),
         );
     {% endif %}
+{% else %}
+    // No base validators means no pattern properties either — value goes directly to _additionalProperties.
+    $this->_additionalProperties[$key] = $value;
+{% endif %}
 
-    {% if generatorConfiguration.collectErrors() %}
+{% if schema.getPostCompositionValidators() %}
+    // the stored raw input doesn't contain the added key yet: validate the state after the update
+    $candidateRawModelDataInput = $this->_rawModelDataInput;
+    $candidateRawModelDataInput[$key] = $value;
+    $this->_executePostCompositionValidators($candidateRawModelDataInput);
+{% endif %}
+
+{% if generatorConfiguration.collectErrors() %}
+    {% if schema.getBaseValidators() or schema.getPostCompositionValidators() %}
         if (count($this->_errorRegistry->getErrors())) {
             throw $this->_errorRegistry;
         }
     {% endif %}
-{% else %}
-    // No base validators means no pattern properties either — value goes directly to _additionalProperties.
-    $this->_additionalProperties[$key] = $value;
 {% endif %}

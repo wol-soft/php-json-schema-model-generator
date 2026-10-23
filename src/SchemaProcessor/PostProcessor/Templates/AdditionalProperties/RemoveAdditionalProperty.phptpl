@@ -1,5 +1,5 @@
 /**
- *{% if minPropertyValidator or compositionValidatorKeys or dependencyValidators %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+ *{% if minPropertyValidator or compositionValidatorKeys or dependencyValidators or schema.getPostCompositionValidators() %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
  */
 private function _removeAdditionalProperty(string $key): bool
 {
@@ -7,8 +7,8 @@ private function _removeAdditionalProperty(string $key): bool
 
     $inPatternProperties = false;
     if (isset($this->_patternProperties)) {
-        foreach ($this->_patternProperties as $patternHash => $_) {
-            if (isset($this->_patternProperties[$patternHash][$key])) {
+        foreach ($this->_patternProperties as $patternEntries) {
+            if (isset($patternEntries[$key])) {
                 $inPatternProperties = true;
                 break;
             }
@@ -20,7 +20,7 @@ private function _removeAdditionalProperty(string $key): bool
     }
 
     {% if generatorConfiguration.collectErrors() %}
-        {% if minPropertyValidator or compositionValidatorKeys or dependencyValidators %}
+        {% if minPropertyValidator or compositionValidatorKeys or dependencyValidators or schema.getPostCompositionValidators() %}
             $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
     {% endif %}
@@ -35,18 +35,25 @@ private function _removeAdditionalProperty(string $key): bool
             {{ viewHelper.validationError(minPropertyValidator) }}
         }
 
+        {#
+            Collected errors of the count are thrown together with the errors of the validation of the remaining data
+            (like the constructor collects them), which throws the registry itself.
+        #}
         {% if generatorConfiguration.collectErrors() %}
-            if (count($this->_errorRegistry->getErrors())) {
-                throw $this->_errorRegistry;
-            }
+            {% if not compositionValidatorKeys and not dependencyValidators and not schema.getPostCompositionValidators() %}
+                if (count($this->_errorRegistry->getErrors())) {
+                    throw $this->_errorRegistry;
+                }
+            {% endif %}
         {% endif %}
     {% endif %}
 
     {#
-        The compositions and the dependencies of the declared properties are validated against the remaining model
-        data after the property is removed - restore the model state if they reject the removal.
+        The compositions, the dependencies of the declared properties and the post-composition validators are validated
+        against the remaining model data after the property is removed - restore the model state if they reject the
+        removal.
     #}
-    {% if compositionValidatorKeys or dependencyValidators %}
+    {% if compositionValidatorKeys or dependencyValidators or schema.getPostCompositionValidators() %}
         {{ viewHelper.indent(modelStateRollback.wrap(schema, renderUpdate()), 1) }}
     {% else %}
         {{ viewHelper.indent(renderUpdate(), 1) }}

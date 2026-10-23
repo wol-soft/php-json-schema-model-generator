@@ -40,7 +40,7 @@ What can you do inside your custom post processor?
 
 .. note::
 
-    If an update is rejected (by a setter, the *populate* method or the *additionalProperties().set()* / *additionalProperties().remove()* methods), the complete state of the model is restored. This also covers changes the code of your **SetterBeforeValidationHookInterface** hooks applied to the model, so a hook doesn't need to undo its own changes.
+    If an update is rejected (by a setter, the *populate* method, the *additionalProperties().set()* / *additionalProperties().remove()* or the *unevaluatedProperties().set()* / *unevaluatedProperties().remove()* methods), the complete state of the model is restored. This also covers changes the code of your **SetterBeforeValidationHookInterface** hooks applied to the model, so a hook doesn't need to undo its own changes.
 
 .. warning::
 

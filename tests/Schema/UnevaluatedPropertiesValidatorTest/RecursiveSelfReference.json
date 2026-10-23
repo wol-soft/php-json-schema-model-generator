@@ -1,0 +1,22 @@
+{
+  "$defs": {
+    "node": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "child": {
+          "$ref": "#/$defs/node"
+        }
+      },
+      "unevaluatedProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "root": {
+      "$ref": "#/$defs/node"
+    }
+  }
+}

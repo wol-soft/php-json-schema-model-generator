@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "properties": {
+        "foo": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "^x-": {
+          "type": "string"
+        }
+      },
+      "unevaluatedProperties": {
+        "type": "integer"
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}

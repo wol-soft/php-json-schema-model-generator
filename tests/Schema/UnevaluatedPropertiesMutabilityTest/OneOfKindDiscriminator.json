@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    }
+  },
+  "required": ["kind"],
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "const": "a"
+        },
+        "alphaOnly": {
+          "type": "integer"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "b"
+        },
+        "betaOnly": {
+          "type": "integer"
+        }
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}

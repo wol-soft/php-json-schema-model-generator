@@ -1,0 +1,54 @@
+/**
+ * {% if hasObjectProperties or hasPatternProperties %}@throws RegularPropertyAsUnevaluatedPropertyException
+ * {% endif %}@throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
+ */
+private function _setUnevaluatedProperty(
+    string $key,
+    {% if validationProperty %}{{ viewHelper.getType(validationProperty) }}{% else %}mixed{% endif %} $value
+): void {
+    {% if hasObjectProperties %}
+        if (in_array($key, {{ objectProperties }})) {
+            throw new RegularPropertyAsUnevaluatedPropertyException(
+                $value,
+                $key,
+                {{ objectPropertyPointers }}[$key] ?? '',
+                self::class,
+            );
+        }
+    {% endif %}
+
+    {% if hasPatternProperties %}
+        foreach ({{ patternProperties }} as $regex => $pointer) {
+            if (preg_match($regex, $key)) {
+                throw new RegularPropertyAsUnevaluatedPropertyException($value, $key, $pointer, self::class);
+            }
+        }
+    {% endif %}
+
+    if (isset($this->_unevaluatedProperties[$key]) && $this->_unevaluatedProperties[$key] === $value) {
+        return;
+    }
+
+    {% if generatorConfiguration.collectErrors() %}
+        $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+    {% endif %}
+
+    {% if schema.hasMethod('_prepareBranchFilteredValues') %}
+        // the compositions stage the filtered values of their active branches for this update
+        $this->_stagedBranchFilteredValues = [];
+    {% endif %}
+
+    {#
+        The base validators and the compositions validate the added key, the unevaluatedProperties validator stores the
+        value - restore the model state if a later validator rejects the update.
+    #}
+    {{ viewHelper.indent(modelStateRollback.wrap(schema, renderUpdate()), 1) }}
+
+    $this->_rawModelDataInput[$key] = $value;
+
+    {% if schema.hasMethod('_prepareBranchFilteredValues') %}
+        $this->_applyBranchFilteredValues($preparedBranchFilteredValues);
+    {% endif %}
+
+    {% if validationProperty %}{{ schemaHookResolver.resolveSetterAfterValidationHook(validationProperty) }}{% endif %}
+}

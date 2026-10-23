@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Objects;
 
 use Closure;
+use DateTime;
 use PHPModelGenerator\Exception\Arrays\InvalidItemException;
 use PHPModelGenerator\Exception\Arrays\MaxItemsException;
 use PHPModelGenerator\Exception\Arrays\MinItemsException;
@@ -1099,5 +1100,58 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
             'string value' => ['ten'],
             'boolean'      => [true],
         ];
+    }
+
+    /**
+     * A transforming filter (here `dateTime`) declared on a schema-form `items` subschema
+     * persists the transformed value (the getter reports `DateTime` instances, not the raw
+     * strings) and accepts an already-transformed value passed directly — the item's own
+     * TypeCheckValidator is widened by TransformingFilterOutputTypePostProcessor, which recurses
+     * into ArrayItemValidator::getNestedProperty() to reach it. A mixed list of raw and
+     * already-transformed values is accepted since each index is validated independently.
+     *
+     * Serialization applies the filter's outputFormat to every transformed item, turning each
+     * DateTime back into the raw representation the filter accepts — mirrors the object-property
+     * equivalent (UnevaluatedPropertiesAccessorPostProcessorTest's transforming-filter companion
+     * test). Without a dedicated per-item serializer, DateTime has no public properties for the
+     * generic fallback to pick up and each item would silently serialize to an empty array
+     * instead.
+     */
+    public function testTransformingFilterOnArrayItemsPersistsAndAcceptsAlreadyTransformedValues(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ArrayPropertyWithTransformingFilter.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $accepted = new $className(['tags' => ['2020-10-10', '2020-12-12']]);
+        $this->assertEquals(
+            [new DateTime('2020-10-10'), new DateTime('2020-12-12')],
+            $accepted->getTags(),
+        );
+        // The raw input view stays untransformed — only the property's own storage is affected.
+        $this->assertSame(['2020-10-10', '2020-12-12'], $accepted->meta()->rawInput()['tags']);
+
+        $this->assertSame(['tags' => ['20201010', '20201212']], $accepted->toArray());
+        $decoded = json_decode($accepted->toJSON(), true);
+        $this->assertSame(['tags' => ['20201010', '20201212']], $decoded);
+
+        $alreadyTransformed = new $className(['tags' => [new DateTime('2020-10-10')]]);
+        $this->assertEquals([new DateTime('2020-10-10')], $alreadyTransformed->getTags());
+        $this->assertEquals([new DateTime('2020-10-10')], $alreadyTransformed->meta()->rawInput()['tags']);
+
+        $mixed = new $className(['tags' => ['2020-10-10', new DateTime('2020-12-12')]]);
+        $this->assertEquals(
+            [new DateTime('2020-10-10'), new DateTime('2020-12-12')],
+            $mixed->getTags(),
+        );
+
+        // The setter must exercise the same validator chain as construction: a raw date string
+        // is transformed and persisted, and an already-transformed value is accepted directly.
+        $accepted->setTags(['2020-01-01']);
+        $this->assertEquals([new DateTime('2020-01-01')], $accepted->getTags());
+
+        $accepted->setTags([new DateTime('2020-02-02')]);
+        $this->assertEquals([new DateTime('2020-02-02')], $accepted->getTags());
     }
 }

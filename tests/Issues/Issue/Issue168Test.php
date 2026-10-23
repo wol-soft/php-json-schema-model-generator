@@ -14,9 +14,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * $value` instantiation attempt) and "array" (`is_array($value)` / iterate-by-value item
  * validation) both key off exactly that same PHP `array` type. Fixed by additionally requiring
  * `array_is_list($value)` at every load-bearing guard (`TypeCheckValidator`,
- * `ReflectionTypeCheckValidator`, `ObjectInstantiationDecorator`, `DefaultValueModifier`). See
- * .claude/topics/array-object-type-guard-collision/analysis.md for the full investigation and
- * implementation notes.
+ * `ReflectionTypeCheckValidator`, `ObjectInstantiationDecorator`, `DefaultValueModifier`).
  */
 class Issue168Test extends AbstractIssueTestCase
 {

@@ -1,0 +1,32 @@
+{% if validationProperty %}{{ schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) }}{% endif %}
+
+{#
+    Validated like the constructor validates the data: the object-level validators (e.g. maxProperties) and the
+    compositions with the added key, a branch may switch with the key.
+#}
+{% if schema.getBaseValidators() %}
+    $addedProperty = [$key => $value];
+    $this->_executeBaseValidators($addedProperty);
+
+    {#
+        The added key may switch the active branch of a composition: the properties depending on the active branch
+        are validated again before anything is assigned (no property of the model is processed by the update).
+    #}
+    {% if schema.hasMethod('_prepareBranchFilteredValues') %}
+        $preparedBranchFilteredValues = $this->_prepareBranchFilteredValues(
+            [],
+            array_merge($this->_rawModelDataInput, [$key => $value]),
+        );
+    {% endif %}
+{% endif %}
+
+// the stored raw input doesn't contain the added key yet: validate (and store) the state after the update
+$candidateRawModelDataInput = $this->_rawModelDataInput;
+$candidateRawModelDataInput[$key] = $value;
+$this->_executePostCompositionValidators($candidateRawModelDataInput);
+
+{% if generatorConfiguration.collectErrors() %}
+    if (count($this->_errorRegistry->getErrors())) {
+        throw $this->_errorRegistry;
+    }
+{% endif %}

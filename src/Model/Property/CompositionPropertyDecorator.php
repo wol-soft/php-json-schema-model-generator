@@ -7,17 +7,14 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
+use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
+use PHPModelGenerator\Utils\RenderHelper;
 
-/**
- * Class CompositionPropertyDecorator
- *
- * @package PHPModelGenerator\Model\Property
- */
 class CompositionPropertyDecorator extends PropertyProxy
 {
     private const string PROPERTY_KEY = 'composition';
@@ -33,8 +30,6 @@ class CompositionPropertyDecorator extends PropertyProxy
     private bool $alwaysTrueBranch = false;
 
     /**
-     * CompositionPropertyDecorator constructor.
-     *
      * @throws SchemaException
      */
     public function __construct(string $propertyName, JsonSchema $jsonSchema, PropertyInterface $property)
@@ -72,7 +67,8 @@ class CompositionPropertyDecorator extends PropertyProxy
      * doesn't declare as property if no key is given (see ObjectUpdateDependency). A key the branch declares is
      * validated with its value. Otherwise the validators of the nested schema decide: its object-level validators
      * (maxProperties, additionalProperties - also implicitly denied via the generator configuration -,
-     * patternProperties, propertyNames, a nested composition, ...) and the dependencies of its properties. A true
+     * patternProperties, propertyNames, a nested composition, unevaluatedProperties, ...) and the dependencies of its
+     * properties. A true
      * branch has no validators, no update can change its result. Any other branch without a nested schema depends on
      * the value of every key, its validators are unknown.
      *
@@ -94,7 +90,12 @@ class CompositionPropertyDecorator extends PropertyProxy
             return ObjectUpdateDependency::Value;
         }
 
-        $dependency = ObjectUpdateDependency::ofValidators($nestedSchema->getBaseValidators(), $key);
+        // The post-composition validators (unevaluatedProperties) of the branch validate the keys the branch doesn't
+        // evaluate, they depend on every key.
+        $dependency = ObjectUpdateDependency::ofValidators(
+            [...$nestedSchema->getBaseValidators(), ...$nestedSchema->getPostCompositionValidators()],
+            $key,
+        );
 
         foreach ($nestedSchema->getProperties() as $property) {
             if ($property->isInternal()) {
@@ -154,6 +155,207 @@ class CompositionPropertyDecorator extends PropertyProxy
     }
 
     /**
+     * Return the wrapped property whose validators back this branch. Iterating its
+     * validators directly returns the source validator instances, whereas
+     * `getOrderedValidators()` on the decorator returns fresh `withProperty(...)` clones on
+     * every call. Mutations targeted at clones are invisible at render time; mutations
+     * targeted at the wrapped property's source validators propagate.
+     */
+    public function getWrappedProperty(): PropertyInterface
+    {
+        return $this->definitionsCollection->offsetGet(self::PROPERTY_KEY);
+    }
+
+    /**
+     * The property names declared in this branch's `properties` keyword, which a successful branch evaluates
+     *
+     * @return string[]
+     */
+    public function getBranchDeclaredPropertyNames(): array
+    {
+        return array_keys($this->jsonSchema->getJson()['properties'] ?? []);
+    }
+
+    /**
+     * Returns the declared property names as a PHP array literal ready for direct template
+     * embedding. var_export emits a syntactically-valid PHP literal regardless of which
+     * characters the names contain (quotes, backslashes, multibyte sequences).
+     */
+    public function getBranchDeclaredPropertyNamesPhpLiteral(): string
+    {
+        return var_export($this->getBranchDeclaredPropertyNames(), true);
+    }
+
+    /**
+     * Returns the patternProperties regexes as a PHP array literal ready for direct template
+     * embedding. Each pattern is wrapped with `/` delimiters and any embedded `/` is escaped so
+     * the result can be passed straight to `preg_match`.
+     */
+    public function getBranchPatternPropertyPatternsPhpLiteral(): string
+    {
+        return RenderHelper::varExportPcrePatterns(
+            array_keys($this->jsonSchema->getJson()['patternProperties'] ?? []),
+        );
+    }
+
+    /**
+     * Returns true if this branch's JSON schema explicitly declares an `additionalProperties`
+     * value that is not `false` (i.e., `true` or a schema object).
+     *
+     * Absent `additionalProperties` returns false: omitting the keyword does not contribute
+     * annotation results that unevaluatedProperties checks. When this method returns true,
+     * a successful branch is treated as evaluating every model key.
+     */
+    public function branchHasNonFalseAdditionalProperties(): bool
+    {
+        $branchJson = $this->jsonSchema->getJson();
+
+        return isset($branchJson['additionalProperties'])
+            && $branchJson['additionalProperties'] !== false;
+    }
+
+    /**
+     * Returns true when a successful branch is treated as evaluating every model key. That holds
+     * when the branch declares a non-false `additionalProperties` (claims every extra key) or an
+     * `unevaluatedProperties: true` (claims every key the branch did not otherwise evaluate).
+     * Either way the whole instance is covered, so the branch's evaluation slot becomes an
+     * all-keys-evaluated marker rather than an explicit name list or nested-instance query.
+     *
+     * `unevaluatedProperties: {schema}` is deliberately excluded: it claims only the remaining
+     * keys whose values validate against the subschema, which is instance-dependent and cannot be
+     * reduced to an all-keys marker at generation time.
+     */
+    public function branchClaimsAllKeys(): bool
+    {
+        return $this->branchHasNonFalseAdditionalProperties()
+            || ($this->jsonSchema->getJson()['unevaluatedProperties'] ?? null) === true;
+    }
+
+    /**
+     * True when a successful branch evaluates every index of the validated array: `items` as a
+     * schema object, an explicit `items: true`, an empty `items` (`{}`), or an explicit
+     * `unevaluatedItems: true`. Each validates trivially or per index and annotates the whole
+     * array; only an omitted keyword produces no annotation.
+     *
+     * An empty PHP array is treated as the empty schema `{}`, never as an empty tuple `[]`:
+     * json_decode(..., true) maps both to the same value, and the sibling-applicator path
+     * (UnevaluatedItemsValidatorFactory) makes the same call. Reading it as an empty tuple would
+     * credit nothing and over-reject a branch the author wrote as `items: {}`.
+     */
+    public function branchClaimsAllIndices(): bool
+    {
+        $branchJson = $this->jsonSchema->getJson();
+
+        if (($branchJson['unevaluatedItems'] ?? null) === true) {
+            return true;
+        }
+
+        $items = $branchJson['items'] ?? null;
+
+        return $items === true || (is_array($items) && ($items === [] || !array_is_list($items)));
+    }
+
+    /**
+     * Count of items in a tuple-form `items` array. Returns 0 when items is absent, boolean,
+     * or schema-form. The tuple claims indices 0..count-1 when the branch succeeds.
+     */
+    public function getBranchTupleItemsCount(): int
+    {
+        $items = $this->jsonSchema->getJson()['items'] ?? null;
+
+        if (!is_array($items) || $items === [] || !array_is_list($items)) {
+            return 0;
+        }
+
+        return count($items);
+    }
+
+    /**
+     * True when the branch declares `additionalItems` as anything other than `false`. The
+     * `false` value rejects tail indices; any other value (true or schema object) accepts
+     * them and contributes them to the evaluated set.
+     */
+    public function branchHasNonFalseAdditionalItems(): bool
+    {
+        $branchJson = $this->jsonSchema->getJson();
+
+        return array_key_exists('additionalItems', $branchJson)
+            && $branchJson['additionalItems'] !== false;
+    }
+
+    /**
+     * True when the branch declares the `contains` keyword. The actual matched indices are
+     * collected at runtime by the contains validator into a local accumulator; the composition
+     * template unions that accumulator into the branch's evaluated set on success.
+     */
+    public function branchHasContains(): bool
+    {
+        return array_key_exists('contains', $this->jsonSchema->getJson());
+    }
+
+    /**
+     * True when the branch carries at least one array-side applicator (`items`,
+     * `additionalItems`, `contains`, or an `unevaluatedItems: true` annotation) and no
+     * object-side applicators (`properties`,
+     * `additionalProperties`, `patternProperties`). Drives whether the composition template
+     * writes the branch's slot into `_compositionAnnotated`.
+     */
+    public function branchIsArrayKind(): bool
+    {
+        $branchJson = $this->jsonSchema->getJson();
+
+        $hasArrayApplicator = array_key_exists('items', $branchJson)
+            || array_key_exists('additionalItems', $branchJson)
+            || array_key_exists('contains', $branchJson)
+            || ($branchJson['unevaluatedItems'] ?? null) === true;
+
+        $hasObjectApplicator = array_key_exists('properties', $branchJson)
+            || array_key_exists('additionalProperties', $branchJson)
+            || array_key_exists('patternProperties', $branchJson);
+
+        return $hasArrayApplicator && !$hasObjectApplicator;
+    }
+
+    /**
+     * Slot keys of composition validators nested directly inside this branch's own JSON (the
+     * branch is itself `{allOf: [...]}`, `{oneOf: [...]}`, etc.) that also carry evaluation
+     * tracking. An array-typed branch never gets its own nested `Schema` (unlike an
+     * object-typed one, which always routes through `processSchema()`), so a composition
+     * nested inside it renders as a further validator call on the same wrapped property
+     * rather than inside a separate class — its claimed indices are reachable only by reading
+     * back `_compositionAnnotated[<slot>]` at runtime, not by recursing into a nested
+     * `Schema`'s own composed properties the way an object-typed branch's nesting would allow.
+     * The composition template unions each returned slot's tracked indices into this branch's
+     * own evaluated set.
+     *
+     * @return string[]
+     */
+    public function getNestedCompositionSlotKeys(): array
+    {
+        $slotKeys = [];
+
+        foreach ($this->getWrappedProperty()->getOrderedValidators() as $validator) {
+            if ($validator instanceof AbstractComposedPropertyValidator && $validator->getSlotKey() !== null) {
+                $slotKeys[] = $validator->getSlotKey();
+            }
+        }
+
+        return $slotKeys;
+    }
+
+    /**
+     * True when the composition template must build an evaluated-index set for this branch —
+     * either from the branch's own direct array applicators ({@see branchIsArrayKind()}) or
+     * from a composition nested inside the branch ({@see getNestedCompositionSlotKeys()}).
+     * Combines both into one boolean because the template engine's conditional expressions do
+     * not support parenthesised boolean grouping.
+     */
+    public function needsEvaluatedIndexAggregation(): bool
+    {
+        return $this->branchIsArrayKind() || $this->getNestedCompositionSlotKeys() !== [];
+    }
+
+    /**
      * @inheritdoc
      *
      * A composition branch must not render validators that only make sense for the property as
@@ -171,7 +373,7 @@ class CompositionPropertyDecorator extends PropertyProxy
      * processed entirely inside its generated nested class. So a branch here never simultaneously
      * has a nested schema and its own composed/conditional validator; the validator, when present,
      * always belongs to a bare (untyped) branch and must be kept and rendered, or the nested
-     * composition would silently accept every value (issue #167).
+     * composition would silently accept every value.
      *
      * Filtering here — at render time, without mutating the wrapped property's own validator
      * list — keeps the exclusion branch-local. The wrapped property may be shared (via

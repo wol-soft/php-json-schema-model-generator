@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "properties": {
+    "mode": {
+      "type": "string"
+    }
+  },
+  "required": ["mode"],
+  "if": {
+    "properties": {
+      "mode": {
+        "const": "on"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "onlyWhenOn": {
+        "type": "integer"
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "onlyWhenOff": {
+        "type": "integer"
+      }
+    }
+  },
+  "unevaluatedProperties": false
+}

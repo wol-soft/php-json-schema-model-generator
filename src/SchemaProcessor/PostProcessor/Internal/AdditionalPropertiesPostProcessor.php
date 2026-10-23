@@ -15,11 +15,6 @@ use PHPModelGenerator\Model\Validator\UpdateAdditionalPropertiesValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 
-/**
- * Class AdditionalPropertiesPostProcessor
- *
- * @package PHPModelGenerator\SchemaProcessor\PostProcessor\Internal
- */
 class AdditionalPropertiesPostProcessor extends PostProcessor
 {
     /**
