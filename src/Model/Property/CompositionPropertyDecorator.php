@@ -72,8 +72,9 @@ class CompositionPropertyDecorator extends PropertyProxy
      * doesn't declare as property if no key is given (see ObjectUpdateDependency). A key the branch declares is
      * validated with its value. Otherwise the validators of the nested schema decide: its object-level validators
      * (maxProperties, additionalProperties - also implicitly denied via the generator configuration -,
-     * patternProperties, propertyNames, a nested composition, ...) and the dependencies of its properties. A branch
-     * without a nested schema depends on the value of every key, its validators are unknown.
+     * patternProperties, propertyNames, a nested composition, ...) and the dependencies of its properties. A true
+     * branch has no validators, no update can change its result. Any other branch without a nested schema depends on
+     * the value of every key, its validators are unknown.
      *
      * Deciding by a whitelist of the keywords in the branch JSON was rejected: a $ref branch only contains the
      * reference and additionalProperties may be denied by the configuration without any keyword in the schema. The
@@ -81,6 +82,12 @@ class CompositionPropertyDecorator extends PropertyProxy
      */
     public function getObjectUpdateDependency(?string $key): ObjectUpdateDependency
     {
+        // Checked before the nested schema: a true branch has none, treating it as a branch with unknown validators
+        // made every setter of the model validate the composition.
+        if ($this->alwaysTrueBranch) {
+            return ObjectUpdateDependency::None;
+        }
+
         $nestedSchema = $this->getNestedSchema();
 
         if ($nestedSchema === null) {

@@ -35,6 +35,7 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
             'maxProperties' => [', "maxProperties": 1', false, false, true],
             'maxProperties (collect errors)' => [', "maxProperties": 1', false, true, true],
             'additionalProperties' => [', "additionalProperties": false', false, false, true],
+            'additionalProperties schema' => [', "additionalProperties": {"type": "integer"}', false, false, true],
             'implicitly denied additionalProperties' => ['', true, false, true],
             'patternProperties' => [
                 ', "patternProperties": {"^(note|extra)$": {"type": "integer"}}',
@@ -331,6 +332,59 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * A true branch has no validators, no update can change its result: the setter of a property no other branch
+     * declares doesn't validate the composition or snapshot the model state, and the cached result of the true
+     * branch is used. Updates of the property the other branch requires are rejected like the constructor rejects the
+     * resulting data (both branches match).
+     *
+     * Treating the true branch like a branch with unknown validators (depending on the value of every key) was
+     * rejected: a single true branch made every setter of the model validate the composition.
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testAlwaysTrueBranchKeepsCachedValidation(bool $collectErrors): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFile(
+            'BranchAlwaysTrue.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+        );
+
+        $object = new $className(['kind' => 'k']);
+        $object->setKind('l');
+        $object->populate(['kind' => 'm']);
+        $this->assertSame(['kind' => 'm'], $object->meta()->rawInput());
+
+        $expectedException = $this->catchException(static fn() => new $className(['kind' => 'm', 'note' => 'n']));
+        $this->assertNotNull($expectedException, 'The constructor must reject the data');
+
+        $updates = [
+            'setter' => static fn(object $object) => $object->setNote('n'),
+            'populate' => static fn(object $object) => $object->populate(['note' => 'n']),
+        ];
+
+        foreach ($updates as $update => $executeUpdate) {
+            $actualException = $this->catchException(static fn() => $executeUpdate($object));
+
+            $this->assertNotNull($actualException, "The $update must be rejected");
+            $this->assertSame($expectedException::class, $actualException::class, $update);
+            $this->assertSame($expectedException->getMessage(), $actualException->getMessage(), $update);
+            $this->assertSame(['kind' => 'm'], $object->meta()->rawInput(), $update);
+            $this->assertNull($object->getNote(), $update);
+        }
+
+        $source = file_get_contents((new ReflectionClass($className))->getFileName());
+        preg_match('/function setKind\(.*?\n    }\n/s', $source, $setKind);
+
+        $this->assertStringNotContainsString('_validateComposition_', $setKind[0]);
+        $this->assertStringNotContainsString('_backupModelState()', $setKind[0]);
+
+        // both branches keep the check for a cached result, none of them depends on added keys
+        $this->assertSame(2, substr_count($source, 'array_intersect('));
+        $this->assertSame(0, substr_count($source, 'array_diff_key($modifiedModelData, $this->_rawModelDataInput)'));
+    }
+
+    /**
      * Adding a key may also turn an invalid branch valid: the second branch depends on the number of properties, adding
      * a key makes it match besides the first branch. The update must evaluate the branch again although no branch
      * declares the added key.
@@ -389,6 +443,66 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
 
         // both branches keep the check for a cached result, the branch with maxProperties also checks for added keys
         $this->assertSame(2, substr_count($source, 'array_intersect('));
+        $this->assertSame(1, substr_count($source, 'array_diff_key($modifiedModelData, $this->_rawModelDataInput)'));
+    }
+
+    public static function deniedKeyProvider(): array
+    {
+        $deniedKeys = [
+            'denied property' => ['BranchWithDeniedProperties.json', []],
+            'forbidden pattern property' => [
+                'BranchWithObjectLevelKeyword.json',
+                [', "patternProperties": {"^(note|extra)$": false}'],
+            ],
+        ];
+
+        $dataSets = [];
+        foreach ($deniedKeys as $label => $dataSet) {
+            foreach (self::collectErrorsProvider() as $errorMode => [$collectErrors]) {
+                $dataSets["$label ($errorMode)"] = [...$dataSet, $collectErrors];
+            }
+        }
+
+        return $dataSets;
+    }
+
+    /**
+     * A branch denying a key (a property with the schema false, a pattern property with the schema false) depends on
+     * the presence of the key only, also if the branch doesn't declare the key: adding the key must be rejected like
+     * the constructor rejects the resulting data, changing the value of a present key neither validates the
+     * composition nor snapshots the model state.
+     */
+    #[DataProvider('deniedKeyProvider')]
+    public function testAddingAKeyDeniedByABranchIsRejectedLikeTheConstructor(
+        string $schemaFile,
+        array $templateValues,
+        bool $collectErrors,
+    ): void {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFileTemplate(
+            $schemaFile,
+            $templateValues,
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+            false,
+        );
+
+        $this->assertUpdatesAreRejectedLikeTheConstructor($className, true);
+
+        // the first branch matches, changing the value of the key the second branch denies keeps the result
+        $object = new $className(['kind' => 'A', 'note' => 'n']);
+        $object->setNote('m');
+        $this->assertSame(['kind' => 'A', 'note' => 'm'], $object->meta()->rawInput());
+
+        $source = file_get_contents((new ReflectionClass($className))->getFileName());
+        preg_match('/function setNote\(.*?\n    }\n/s', $source, $setNote);
+
+        // only the path adding the key validates the composition and snapshots the model state
+        $this->assertStringContainsString("if (!array_key_exists('note', \$this->_rawModelDataInput)) {", $setNote[0]);
+        $this->assertSame(1, substr_count($setNote[0], '_validateComposition_'));
+        $this->assertSame(1, substr_count($setNote[0], '_backupModelState()'));
+
+        // the branch denying the keys keeps the check for a cached result and also checks for added keys
         $this->assertSame(1, substr_count($source, 'array_diff_key($modifiedModelData, $this->_rawModelDataInput)'));
     }
 
