@@ -18,6 +18,13 @@ public function populate(array $modelData): self
         }
     }
 
+    {% if schema.hasMethod('_prepareBranchFilteredValues') %}
+        // A populate which failed after a composition staged filtered values of its active branches leaves them
+        // behind. The compositions only stage the components which are part of the update, so a stale value must not
+        // be adopted.
+        $this->_stagedBranchFilteredValues = [];
+    {% endif %}
+
     $rollbackValues = [];
 
     {% if generatorConfiguration.collectErrors() %}
@@ -45,6 +52,10 @@ public function populate(array $modelData): self
     {% endif %}
 
     $this->_rawModelDataInput = array_merge($this->_rawModelDataInput, $modelData);
+
+    {% if schema.hasMethod('_prepareBranchFilteredValues') %}
+        $this->_applyBranchFilteredValues($preparedBranchFilteredValues);
+    {% endif %}
 
     {% foreach schema.getProperties() as property %}
         {% if not property.isInternal() and schemaHookResolver.resolveSetterAfterValidationHook(property) %}

@@ -13,8 +13,10 @@ use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\Attributes\AttributesTrait;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyProxy;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
+use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
@@ -233,6 +235,18 @@ class Schema
             $property->onResolve($this->onPropertyResolved(...));
 
             return $this;
+        }
+
+        // The merge changes the registered property, which may be shared: the first property referencing a definition
+        // is the property every other reference (PropertyProxy) delegates to. A shared property is replaced by a copy
+        // of its own, other properties referencing the same definition must not be affected. An unresolved property
+        // is kept, the resolution bookkeeping is bound to it.
+        $existing = $this->properties[$property->getName()];
+
+        if ($existing->isResolved() && $existing instanceof PropertyProxy) {
+            $this->properties[$property->getName()] = $existing->detach();
+        } elseif ($existing->isResolved() && ResolvedDefinitionsCollection::isShared($existing)) {
+            $this->properties[$property->getName()] = clone $existing;
         }
 
         $replacesExisting = $this->propertyMerger->merge(

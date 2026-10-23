@@ -9,6 +9,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyProxy;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\RenderJob;
 use PHPModelGenerator\Model\Schema;
@@ -31,6 +32,7 @@ use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShape;
 use PHPModelGenerator\PropertyProcessor\ObjectShape\ObjectShapeResolver;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProvider\SchemaProviderInterface;
+use PHPModelGenerator\Utils\BranchFilterScope;
 use PHPModelGenerator\Utils\PropertyAttributeSynthesizer;
 
 class SchemaProcessor
@@ -39,6 +41,8 @@ class SchemaProcessor
     protected string $currentClassName;
 
     private PropertyAttributeSynthesizer $propertyAttributeSynthesizer;
+
+    private BranchFilterScope $branchFilterScope;
 
     /** @var Schema[] Collect processed schemas to avoid duplicated classes */
     protected array $processedSchema = [];
@@ -72,6 +76,7 @@ class SchemaProcessor
         protected RenderQueue $renderQueue,
     ) {
         $this->propertyAttributeSynthesizer = new PropertyAttributeSynthesizer($generatorConfiguration);
+        $this->branchFilterScope = new BranchFilterScope($generatorConfiguration);
     }
 
     /**
@@ -756,6 +761,13 @@ class SchemaProcessor
                             );
 
                             foreach ($composedProperty->getNestedSchema()->getProperties() as $branchProperty) {
+                                $this->branchFilterScope->assertBranchFilterIsDeclaredOnce(
+                                    $schema,
+                                    $validator,
+                                    $composedProperty,
+                                    $branchProperty,
+                                );
+
                                 if ($branchLabel !== null) {
                                     $this->checkRootBranchDefaultConflict(
                                         $branchProperty,
@@ -765,14 +777,26 @@ class SchemaProcessor
                                     );
                                 }
 
-                                $schema->addProperty(
-                                    $this->cloneTransferredProperty(
-                                        $branchProperty,
-                                        $composedProperty,
-                                        $validator,
-                                    ),
-                                    $validator->getCompositionProcessor(),
+                                $transferredProperty = $this->cloneTransferredProperty(
+                                    $branchProperty,
+                                    $composedProperty,
+                                    $validator,
                                 );
+                                $adoptFilters = $this->branchFilterScope->detachFiltersForAdoption(
+                                    $schema,
+                                    $transferredProperty,
+                                    $branchProperty,
+                                );
+
+                                $schema->addProperty($transferredProperty, $validator->getCompositionProcessor());
+
+                                if ($adoptFilters !== null) {
+                                    $adoptFilters();
+                                }
+
+                                if ($validator->publishesFilteredValueOf($composedProperty, $branchProperty)) {
+                                    $this->branchFilterScope->takeOverBranchFilteredValue($schema, $branchProperty);
+                                }
 
                                 $composedProperty->appendAffectedObjectProperty($branchProperty);
                                 $seenBranchPropertyNames[$branchProperty->getName()] = true;
@@ -815,6 +839,12 @@ class SchemaProcessor
             return;
         }
 
+        $this->branchFilterScope->assertAnyOfFiltersAreUnambiguous(
+            $validator,
+            $schema,
+            array_keys($seenBranchPropertyNames),
+        );
+
         foreach (array_keys($seenBranchPropertyNames) as $branchPropertyName) {
             $schema->getPropertyMerger()->checkForTotalConflict(
                 $branchPropertyName,
@@ -831,9 +861,9 @@ class SchemaProcessor
     /**
      * Clone the provided property to transfer it to a schema. Sets the nullability and required
      * flag based on the composition processor used to set up the composition. Widens the type to
-     * mixed when the property is exclusive to one anyOf/oneOf branch and at least one other branch
-     * allows additional properties, preventing TypeError when raw input values of an arbitrary
-     * type are stored in the property slot.
+     * mixed when the property is exclusive to one anyOf/oneOf/conditional branch and a path exists
+     * on which no branch declaring the property applies, preventing TypeError when raw input values
+     * of an arbitrary type are stored in the property slot.
      */
     private function cloneTransferredProperty(
         PropertyInterface $property,
@@ -842,12 +872,15 @@ class SchemaProcessor
     ): PropertyInterface {
         $compositionProcessor = $validator->getCompositionProcessor();
 
-        $transferredProperty = (clone $property)
+        // A property referencing a definition must not change the definition, which other properties share.
+        $transferredProperty = ($property instanceof PropertyProxy ? $property->detach() : clone $property)
             ->filterValidators(static fn(Validator $v): bool =>
                 is_a($v->getValidator(), PropertyTemplateValidator::class))
             ->setDefaultValue(null)
             ->filterDecorators(static fn($decorator): bool =>
                 !($decorator instanceof DefaultArrayToEmptyArrayDecorator));
+
+        $this->branchFilterScope->scopeFiltersToBranch($transferredProperty, $sourceBranch, $validator);
 
         if (!is_a($compositionProcessor, AllOfValidatorFactory::class, true)) {
             $transferredProperty->setRequired(false);
@@ -863,7 +896,10 @@ class SchemaProcessor
                 ? $validator->getConditionBranches()
                 : $validator->getComposedProperties();
 
-            if ($this->exclusiveBranchPropertyNeedsWidening($property->getName(), $sourceBranch, $wideningBranches)) {
+            if (
+                $this->hasImplicitUnconstrainedBranch($validator)
+                || $this->exclusiveBranchPropertyNeedsWidening($property->getName(), $sourceBranch, $wideningBranches)
+            ) {
                 $transferredProperty->setType(null, null, reset: true);
             }
 
@@ -878,6 +914,21 @@ class SchemaProcessor
         }
 
         return $transferredProperty;
+    }
+
+    /**
+     * Returns true for an if/then/else which defines only one of its branches. The missing branch is
+     * an implicit branch without any constraint: while the defined branch is inactive a value of any
+     * type is valid for the properties it declares. The defined branch alone therefore cannot assign
+     * a typed slot to such a property.
+     *
+     * Rejected alternative: keeping the typed slot and rejecting a value of another type outside of the
+     * active branch. That would invalidate instances the schema allows and silently change which values
+     * are valid instead of the type contract of the generated accessor.
+     */
+    private function hasImplicitUnconstrainedBranch(AbstractComposedPropertyValidator $validator): bool
+    {
+        return $validator instanceof ConditionalPropertyValidator && count($validator->getConditionBranches()) < 2;
     }
 
     /**

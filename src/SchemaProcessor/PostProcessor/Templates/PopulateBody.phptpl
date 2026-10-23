@@ -21,3 +21,12 @@ foreach (['_additionalProperties', '_patternProperties'] as $property) {
         }
     {% endif %}
 {% endforeach %}
+
+{% if schema.hasMethod('_prepareBranchFilteredValues') %}
+    // Only the properties which were processed count as processed: a value which equals the current attribute is
+    // skipped, such a property is validated again if the active branch switched.
+    $preparedBranchFilteredValues = $this->_prepareBranchFilteredValues(
+        array_keys($rollbackValues),
+        array_merge($this->_rawModelDataInput, $modelData),
+    );
+{% endif %}

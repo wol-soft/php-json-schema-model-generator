@@ -1,0 +1,45 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "maxLength": 1
+    },
+    "when": {
+      "type": "string"
+    }
+  },
+  "if": {
+    "properties": {
+      "kind": {
+        "type": "string",
+        "pattern": "^a"
+      }
+    },
+    "required": [
+      "kind"
+    ]
+  },
+  "then": {
+    "properties": {
+      "when": {
+        "type": "string",
+        "filter": {
+          "filter": "dateTime",
+          "outputFormat": "Y-m-d"
+        }
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "when": {
+        "type": "string",
+        "filter": {
+          "filter": "dateTime",
+          "outputFormat": "H:i"
+        }
+      }
+    }
+  }
+}

@@ -36,6 +36,8 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ComposedItem.phptpl',
             array_merge($validatorVariables, [
                 'modifiedValuesMethod' => $this->modifiedValuesMethod,
+                // Set by getCheck(), see getFilterSourceMap().
+                'filterSourceMap' => '',
                 // Rendered as its own template and embedded via viewHelper.indent() instead of being inlined
                 // directly: the shared per-composition-element validation body sits at a different real nesting
                 // depth depending on whether isMutableBaseValidator holds (it wraps the body in an extra
@@ -50,6 +52,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
                     $hasModifiedValuesMethod,
                     $modifiedValuesMethod,
                     $postPropose,
+                    $filterSourceMap,
                 ) use (
                     $schema,
                     $generatorConfiguration,
@@ -65,6 +68,7 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
                             'hasModifiedValuesMethod' => $hasModifiedValuesMethod,
                             'modifiedValuesMethod' => $modifiedValuesMethod,
                             'postPropose' => $postPropose,
+                            'filterSourceMap' => $filterSourceMap,
                         ],
                     );
                 },
@@ -85,7 +89,12 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getCheck(): string
     {
-        $this->setupBranchDefaultHelpers();
+        $filteredKeyMap = $this->getBranchFilteredKeyMap();
+
+        $this->setupBranchDefaultHelpers($filteredKeyMap, $this->setupFilterSourceTemplateValues());
+
+        $this->templateValues['publishesFilteredValues'] = $filteredKeyMap !== [];
+        $this->templateValues['filteredKeyLookup'] = $this->createFilteredKeyLookup($filteredKeyMap);
 
         return parent::getCheck();
     }
@@ -95,10 +104,21 @@ class ComposedPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getValidatorSetUp(): string
     {
-        return <<<'CODE'
-            $succeededCompositionElements = 0;
-            $compositionErrorCollection = [];
-            CODE;
+        $setUp = ['$succeededCompositionElements = 0;', '$compositionErrorCollection = [];'];
+
+        if ($this->getBranchFilteredKeyMap() !== []) {
+            // The published values and the components which were evaluated (not answered from the state of the
+            // previous evaluation) by this validation.
+            $setUp[] = '$publishedValues = null;';
+            $setUp[] = '$evaluatedComponents = [];';
+
+            // The producing filters of the published values, see getFilterSourceMap().
+            if ($this->getFilterSourceMap() !== []) {
+                $setUp[] = '$publishedSources = [];';
+            }
+        }
+
+        return implode("\n", $setUp);
     }
 
     /**

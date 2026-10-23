@@ -1,0 +1,71 @@
+/**
+ * Prepare the adoption of the filtered values which the active branches of the compositions staged during the update.
+ *
+ * Properties which were not processed by the update but depend on the active branch (the active branch switched) are
+ * validated again, otherwise they would keep the value of the previously active branch. Nothing is assigned: a
+ * dependent property which is rejected rejects the update before the model is changed. The prepared state is
+ * assigned by _applyBranchFilteredValues() once the update succeeded.
+ *
+ * @param string[]|null $processedAttributes The attributes of the properties which were processed by the update, null
+ *                                           if every property was processed
+ * @param array $rawModelData The raw input of the model including the update
+ *
+ * @return array|null The new filtered values, the values of the dependent properties and the filters which produced
+ *                    the filtered values (if remembered), null if nothing was staged
+ *
+ *{% if not generatorConfiguration.collectErrors() %} @throws ValidationException{% endif %}
+ */
+private function _prepareBranchFilteredValues(?array $processedAttributes, array $rawModelData): ?array
+{
+    if (!$this->_stagedBranchFilteredValues) {
+        return null;
+    }
+
+    $branchFilteredValues = $this->_branchFilteredValues;
+    {% if tracksFilterSources %}
+        $branchFilteredSources = $this->_branchFilteredSources;
+    {% endif %}
+
+    foreach ($this->_stagedBranchFilteredValues as $filteredKey => $stagedValue) {
+        if ($stagedValue === null) {
+            unset($branchFilteredValues[$filteredKey]);
+        } else {
+            $branchFilteredValues[$filteredKey] = $stagedValue[0];
+        }
+        {% if tracksFilterSources %}
+
+            if (($stagedValue[1] ?? null) === null) {
+                unset($branchFilteredSources[$filteredKey]);
+            } else {
+                $branchFilteredSources[$filteredKey] = $stagedValue[1];
+            }
+        {% endif %}
+    }
+
+    // The validation of a dependent property reads the staged values.
+    $dependentValues = [];
+
+    foreach ({{ branchFilteredKeys }} as $filteredKey => [$filteredAttribute, $filteredValidationMethod]) {
+        if (
+            $processedAttributes !== null
+            && !in_array($filteredAttribute, $processedAttributes, true)
+            && array_key_exists($filteredKey, $rawModelData)
+            && (
+                array_key_exists($filteredKey, $this->_branchFilteredValues)
+                    !== array_key_exists($filteredKey, $branchFilteredValues)
+                || ($this->_branchFilteredValues[$filteredKey] ?? null) !== ($branchFilteredValues[$filteredKey] ?? null)
+            )
+        ) {
+            $dependentValues[$filteredAttribute] = $this->$filteredValidationMethod(
+                $rawModelData[$filteredKey],
+                $rawModelData,
+            );
+        }
+    }
+
+    return [
+        $branchFilteredValues,
+        $dependentValues,
+        {% if tracksFilterSources %}$branchFilteredSources{% else %}null{% endif %},
+    ];
+}

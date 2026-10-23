@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "patternProperties": {
+    "^n": {
+      "type": "string",
+      "filter": "trim"
+    },
+    "^na": {
+      "type": "string",
+      "filter": "upper"
+    }
+  }
+}

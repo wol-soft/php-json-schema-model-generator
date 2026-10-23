@@ -1,0 +1,47 @@
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 2
+    }
+  },
+  "anyOf": [
+    {
+      "properties": {
+        "kind": {
+          "const": "a"
+        },
+        "name": {
+          "type": "string",
+          "filter": "trim"
+        },
+        "title": {
+          "type": "string",
+          "filter": "trim"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "b"
+        },
+        "name": {
+          "type": "string",
+          "filter": "trim"
+        },
+        "title": {
+          "type": "string",
+          "filter": "trim"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    }
+  ]
+}

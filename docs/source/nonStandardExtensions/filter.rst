@@ -115,7 +115,7 @@ Composition keywords (``allOf``, ``anyOf``, ``oneOf``, ``if``/``then``/``else``,
 
 A branch that spans both type-spaces raises a ``SchemaException`` at generation time because it cannot be placed correctly in either phase of the pipeline. The following additional constraints are also enforced:
 
-- A filter keyword inside any composition branch always raises a ``SchemaException``, regardless of whether the property itself carries a filter. The composition engine resets the value to the original input after each branch evaluation, which would silently discard any transformation applied inside the branch.
+- A filter keyword inside a composition branch which is not object-typed always raises a ``SchemaException``, regardless of whether the property itself carries a filter. The composition engine resets the value to the original input after each branch evaluation, which would silently discard any transformation applied inside the branch (with two filters in two different branches only one of them would take effect). A nested composition is checked on its own level, so the rule applies at any nesting depth. Branches of an object schema are not affected, see `Filters on properties of object branches`_.
 - ``anyOf`` / ``oneOf``: all branches must share a single type-space; cross-space branches raise a ``SchemaException``.
 - ``not``: the inner schema must target a single type-space.
 - ``if`` / ``then`` / ``else``: all three sub-schemas must share the same type-space.
@@ -167,6 +167,127 @@ The property accepts both raw strings (transformed by the filter) and already-co
 .. hint::
 
     The ``type`` keyword inside a composition branch always validates against the **raw input value** (before the filter runs). For a ``stringToInt`` filter, a branch like ``{"type": "integer", "minimum": 0}`` mixes an input-space constraint (``type``) with an output-space constraint (``minimum``), which raises a ``SchemaException`` at generation time. Declare the type at the **property level** instead.
+
+Filters on properties of object branches
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The branches of a composition on an object schema (explicitly typed ``object`` or inheriting ``object`` from the parent schema) are instantiated as classes of their own. A filter on a property of such a branch is applied inside the branch class, independent of the value reset described above, and runs before the validators of the same property. The properties of the branches are also part of the generated parent class. Which branch is allowed to filter a property of the parent class depends on the composition keyword:
+
+- ``if`` / ``then`` / ``else`` and ``oneOf``: exactly one branch is active. The filter only affects the value while its branch is the active one; the parent class receives the filtered value of the active branch. While the branch is inactive the property keeps the value as provided. The branches of one ``oneOf`` or ``if``/``then``/``else`` exclude each other and may filter the same property differently (e.g. ``trim`` in ``then`` and a different filter in ``else``). Filters inside branches which are nested in an ``allOf`` branch (or in another ``oneOf`` / ``if``/``then``/``else``) work in the same way, the value is passed on to the parent class.
+- The condition of an ``if`` and the schema of a schema dependency (``dependencies``): the filter runs inside the condition or the dependency schema (so a ``trim`` applies before a ``const`` or a ``minLength`` of the same property is checked) but the parent class keeps the value as provided. To get the filtered value declare the property including the filter in the main schema.
+- ``allOf``: all branches are always active, so the filter of a property which is declared in a single ``allOf`` branch is applied to every value. Several ``allOf`` branches may declare the same property with an identical filter list (the same filters with the same options in the same order): every branch filters the same input, the filters are executed once. Diverging filter lists raise a ``SchemaException`` (see below).
+- ``anyOf``: several branches can match, so the filtered value can only be attributed to a branch when the matching branch doesn't matter: every branch must declare the property with the same filter, which is then applied to the property independent of the matching branch. Any other filtered property in a branch of an ``anyOf`` raises a ``SchemaException`` (a branch without the property, different filters or options, or a filter which is handed over by a ``oneOf`` or ``if``/``then``/``else`` nested in the ``anyOf`` branch).
+
+If the schema itself declares the property without a filter and the filter of an ``allOf`` branch (or the identical filter of every ``anyOf`` branch) applies to every value, the property of the schema adopts the filter, as if it was declared on the property: the filter is executed first, the validators of the schema check the filtered value.
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "title": {
+                "type": "string",
+                "minLength": 3
+            }
+        },
+        "allOf": [
+            {
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "filter": "trim"
+                    }
+                }
+            }
+        ]
+    }
+
+The title ``"  My list  "`` is trimmed to ``"My list"``, the title ``"  ab  "`` is trimmed to ``"ab"`` and violates the ``minLength`` of the schema.
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "allOf": [
+            {
+                "if": {
+                    "properties": {
+                        "mode": {
+                            "const": 1
+                        }
+                    },
+                    "required": ["mode"]
+                },
+                "then": {
+                    "properties": {
+                        "title": {
+                            "type": "string",
+                            "minLength": 1,
+                            "filter": "trim"
+                        }
+                    },
+                    "required": ["title"]
+                }
+            }
+        ]
+    }
+
+With ``mode`` set to ``1`` the title ``"  My list  "`` is trimmed to ``"My list"``, a title consisting only of whitespace is empty after the filter and violates ``minLength``. With ``mode`` set to ``3`` the ``then`` branch is inactive: the title is not constrained and stays ``"  My list  "``. Values of a type the filter doesn't accept are passed through unchanged.
+
+If a setter or ``populate()`` changes the property which selects the branch (``mode`` in the example) the properties of the branches are validated again, so a title which was trimmed for ``mode`` ``1`` is returned as provided after ``mode`` was changed to ``3``.
+
+A setter or ``populate()`` which fails doesn't change the model: the filtered values which the active branches hand over and the properties which are validated again because the active branch switched are only adopted after the whole update was validated. A rejected update keeps the previous branch and the previous values, also if the property which depends on the branch rejects the update (e.g. a title which violates a ``minLength`` of the schema after it was trimmed by the newly active branch).
+
+A property which is filtered more than once by declarations which can apply to the same value raises a ``SchemaException``, as the filters of a property have no defined order. This applies to
+
+- a property which declares a filter and is filtered again in a branch (of an ``allOf``, ``oneOf`` or ``if``/``then``/``else``), also if the branch repeats the identical filter,
+- a property which is filtered in more than one branch of an ``allOf`` with diverging filter lists (different filters, options or order, or a list which is a part of the other one), or with values which the ``allOf`` branches hand over from nested ``oneOf`` or ``if``/``then``/``else`` compositions (they can select different branches),
+- a property which is filtered in the branches of different compositions of the same schema,
+- a property which matches a ``patternProperties`` entry with a filter (the filter of a matching pattern property applies to the declared property for every value) and is filtered by its own declaration, by a branch or by another matching ``patternProperties`` entry.
+
+.. code-block:: text
+
+    Property 'name' is filtered more than once ('trim', 'upper') in file <file>: filters of the same property have no defined order
+
+Transforming filters in the branches of an ``if``/``then``/``else`` or ``oneOf`` follow the same rules. As the branch may be inactive the property may hold the value as provided or the transformed value: the type hints of the getter and setter contain the type of the value as provided as well as the types returned by the filters of all branches, and the serialization only applies the serializer of a filter to a value of its output type:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "kind": {
+                "type": "string"
+            },
+            "when": {
+                "type": "string"
+            }
+        },
+        "if": {
+            "properties": {
+                "kind": {
+                    "const": "a"
+                }
+            },
+            "required": ["kind"]
+        },
+        "then": {
+            "properties": {
+                "when": {
+                    "type": "string",
+                    "filter": "dateTime"
+                }
+            }
+        }
+    }
+
+With ``kind`` set to ``"a"`` the property ``when`` contains a ``DateTime`` object, with any other ``kind`` the string is kept as provided (and not validated by the filter). The getter and the setter of ``when`` are typed ``string | DateTime | null``.
+
+The branches may also use the same transforming filter with different options (e.g. ``dateTime`` with the ``outputFormat`` ``Y-m-d`` in ``then`` and ``H:i`` in ``else``) or different transforming filters which return the same type. The type of a value can't tell which serializer applies, so the property remembers which filter produced the value it holds and the value is serialized by exactly that filter (also if the active branch switches via a setter or ``populate()``, or if an already transformed value is set while a branch is active). A value which no branch filter produced (e.g. a ``DateTime`` set while no branch which filters the property is active) is serialized by the first filter whose output type matches.
+
+.. hint::
+
+    A property which is declared only inside a branch (without a declaration in the parent schema) has no raw type of its own. As the branch may be inactive its getter and setter are typed ``mixed``, independent of the filter.
 
 Exceptions from filter
 ----------------------

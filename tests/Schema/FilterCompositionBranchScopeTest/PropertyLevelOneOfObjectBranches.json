@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "properties": {
+    "filteredProperty": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "a"
+            },
+            "name": {
+              "type": "string",
+              "filter": "trim"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "b"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    }
+  }
+}

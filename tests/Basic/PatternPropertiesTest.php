@@ -126,11 +126,17 @@ class PatternPropertiesTest extends AbstractPHPModelGeneratorTestCase
         }
     }
 
+    /**
+     * The filter of a matching pattern property can't be added to a property which declares a filter itself (the
+     * filters of a property have no defined order). Covered by the general rule for a property which is filtered more
+     * than once, which replaced the check for two transforming filters only.
+     */
     public function testMultipleTransformingFiltersForPatternPropertiesAndObjectPropertyThrowsAnException(): void
     {
         $this->expectException(SchemaException::class);
-        $this->expectExceptionMessage(
-            'Applying multiple transforming filters for property alpha is not supported',
+        $this->expectExceptionMessageMatches(
+            "/^Property 'alpha' is filtered more than once \\('dateTime', 'dateTime'\\) in file .+:"
+                . ' filters of the same property have no defined order at line \\d+, column \\d+$/',
         );
 
         $this->generateClassFromFile('MultipleTransformingFilters.json');
