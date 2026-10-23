@@ -337,7 +337,10 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
                     continue;
                 }
 
-                $allBranchDefaultAttributeMap[$branchProperty->getName()] = $branchProperty->getAttribute();
+                // The generated code writes to the attribute declared on $this, which belongs to the scope property
+                // (not to the branch property of the nested schema). A name starting with a digit is prefixed there,
+                // writing to the plain attribute name would create a dynamic property.
+                $allBranchDefaultAttributeMap[$branchProperty->getName()] = $scopeProperty->getAttribute(true);
             }
         }
 

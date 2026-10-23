@@ -57,6 +57,14 @@ class PropertyMerger
      * no such single, re-derivable source (composition-branch arrays validate each branch
      * independently at runtime instead, so they don't need this).
      *
+     * $incomingIsRoot must be true when $incoming is declared by the schema itself. A root declaration takes
+     * precedence over a property which was only transferred from a composition branch or a dependency schema
+     * ($isRootRegistered is false), independent of the order in which the properties are registered: the merge
+     * is not performed and true is returned, the caller has to let $incoming take over the slot of $existing. The
+     * property which is already registered keeps precedence over a transferred one (see guardRootPrecedence()).
+     *
+     * @return bool Whether $incoming replaces $existing instead of being merged into it
+     *
      * @throws SchemaException when allOf branches define conflicting types or conflicting defaults
      */
     public function merge(
@@ -67,14 +75,19 @@ class PropertyMerger
         ?JsonSchema $rebuildFrom = null,
         ?SchemaProcessor $schemaProcessor = null,
         ?Schema $schema = null,
-    ): void {
+        bool $incomingIsRoot = false,
+    ): bool {
+        if ($incomingIsRoot && !$isRootRegistered) {
+            return true;
+        }
+
         // Nested-object merging is owned by the merged-property system; don't interfere.
         if (
             $existing->getNestedSchema() !== null
             || $incoming->getNestedSchema() !== null
             || $this->guardRootPrecedence($existing, $incoming, $isAllOf, $isRootRegistered)
         ) {
-            return;
+            return false;
         }
 
         // Use getType(true) for the stored output type.
@@ -96,7 +109,7 @@ class PropertyMerger
         ) {
             $this->reconcileAllOfDefaults($existing, $incoming);
             $this->reapplyTypeSpecificConstraintsIfNeeded($existing, $rebuildFrom, $schemaProcessor, $schema);
-            return;
+            return false;
         }
 
         if ($this->mergeNullableBranch($existing, $incoming) || $this->mergeIntoExistingNull($existing, $incoming)) {
@@ -104,7 +117,7 @@ class PropertyMerger
                 $this->reconcileAllOfDefaults($existing, $incoming);
                 $this->reapplyTypeSpecificConstraintsIfNeeded($existing, $rebuildFrom, $schemaProcessor, $schema);
             }
-            return;
+            return false;
         }
 
         if ($isAllOf) {
@@ -121,10 +134,12 @@ class PropertyMerger
                 $schema,
             );
             $this->reconcileAllOfDefaults($existing, $incoming);
-            return;
+            return false;
         }
 
         $this->applyAnyOfOneOfUnion($existing, $incoming);
+
+        return false;
     }
 
     /**

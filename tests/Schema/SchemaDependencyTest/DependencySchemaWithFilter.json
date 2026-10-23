@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "credit_card": {
+      "type": "integer"
+    }
+  },
+  "dependencies": {
+    "credit_card": {
+      "properties": {
+        "note": {
+          "type": "string",
+          "filter": "trim",
+          "minLength": 2
+        }
+      }
+    }
+  }
+}

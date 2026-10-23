@@ -1,4 +1,7 @@
-array_key_exists('{{ property.getName() }}', $modelData) && (static function () use ($modelData, &$missingAttributes) {
+array_key_exists('{{ property.getName() }}', $modelData) && (function () use ($modelData, &$missingAttributes) {
+    // The values which are part of an update (setter, populate) don't contain the stored values of the dependants.
+    $modelData = array_merge($this->_rawModelDataInput, $modelData);
+
     foreach ({{ dependencies }} as $dependency) {
         if (!array_key_exists($dependency, $modelData)) {
             $missingAttributes[] = $dependency;
