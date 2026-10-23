@@ -55,6 +55,7 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Not
     - ``not: false`` — negation of the impossible schema; always valid. No validator is generated.
     - ``not: true`` — negation of the always-valid schema; always invalid. Providing any value
       raises a ``NotException`` at runtime. The generator also emits a warning at generation time.
+      On the object itself ``not: true`` rejects every object.
 
 .. hint::
 

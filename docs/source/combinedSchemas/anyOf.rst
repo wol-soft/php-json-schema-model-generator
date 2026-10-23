@@ -70,7 +70,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
     - ``false`` branch — can never be satisfied; always-failing branches participate in the
       composition but never succeed. If all branches are ``false``, any provided value raises an
       ``AnyOfException`` at runtime, and the generator emits a warning at generation time.
-      Absent optional properties are still allowed.
+      Absent optional properties are still allowed. A ``false`` branch of a composition of the
+      object itself never matches, the object is always present.
 
 .. hint::
 

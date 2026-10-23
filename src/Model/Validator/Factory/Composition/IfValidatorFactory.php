@@ -208,8 +208,6 @@ class IfValidatorFactory
      * Returns null when the entire if/then/else imposes no constraint and modify() should return
      * early. Returns the (possibly rewritten) $json array otherwise. Always-false branches are left
      * as boolean false values in the returned array so the foreach loop in modify() can handle them.
-     *
-     * @throws SchemaException
      */
     private function resolveBooleanBranches(
         array $json,
@@ -290,34 +288,21 @@ class IfValidatorFactory
             return $json;
         }
 
-        if (isset($json['then']) && is_bool($json['then'])) {
-            if ($json['then'] === false) {
-                throw new SchemaException(
-                    sprintf(
-                        'then: false is unsatisfiable for property %s in file %s',
-                        $property->getName(),
-                        $property->getJsonSchema()->getFile(),
-                    ),
-                    $property->getJsonSchema(),
-                );
-            }
-
-            unset($json['then']);
+        // A false then/else branch only rejects the values entering it (e.g. if: {required: [kind]}, then: false
+        // denies kind) and is left in place for the always-failing branch. Rejecting the schema as unsatisfiable was
+        // wrong: the values the branch doesn't apply to are valid. Only both branches false reject every value.
+        if (($json['then'] ?? null) === false && ($json['else'] ?? null) === false) {
+            $this->warnIfAlwaysFalse(
+                $schemaProcessor,
+                $property,
+                'then: false with else: false means the composition is always unsatisfiable',
+            );
         }
 
-        if (isset($json['else']) && is_bool($json['else'])) {
-            if ($json['else'] === false) {
-                throw new SchemaException(
-                    sprintf(
-                        'else: false is unsatisfiable for property %s in file %s',
-                        $property->getName(),
-                        $property->getJsonSchema()->getFile(),
-                    ),
-                    $property->getJsonSchema(),
-                );
+        foreach (['then', 'else'] as $keyword) {
+            if (($json[$keyword] ?? null) === true) {
+                unset($json[$keyword]);
             }
-
-            unset($json['else']);
         }
 
         if (!isset($json['then']) && !isset($json['else'])) {

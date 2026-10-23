@@ -93,7 +93,8 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
     - ``false`` branch — makes the whole composition unsatisfiable; any provided value raises an
       ``AllOfException`` at runtime (the false branch is represented as an always-failing composition
       element). The generator also emits a warning at generation time. Absent optional properties
-      are still allowed.
+      are still allowed. An ``allOf`` with a ``false`` branch on the object itself rejects every
+      object.
 
     An empty ``{}`` branch, and a branch carrying only annotation keywords such as ``example``,
     behave identically to ``true`` at runtime — they impose no constraint either. They are also

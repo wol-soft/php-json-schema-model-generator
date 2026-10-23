@@ -4,38 +4,267 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests\Basic;
 
-use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\ComposedValue\ConditionalException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
 
 #[ApplicableDrafts]
 class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
 {
-    /**
-     * if: {type: string}, then: false or else: false with a real if condition is an unsatisfiable
-     * composition that the generator detects and rejects at generation time.
-     */
-    #[DataProvider('unsatisfiableConditionalDataProvider')]
-    public function testUnsatisfiableConditionalThrowsSchemaException(
-        string $schemaFile,
-        string $expectedMessagePattern,
-    ): void {
-        $this->expectException(SchemaException::class);
-        $this->expectExceptionMessageMatches($expectedMessagePattern);
-        $this->generateClassFromFile($schemaFile);
+    public static function falseConditionalBranchDataProvider(): array
+    {
+        $propertyThenMessage = <<<ERROR
+            Invalid value for 'value' declined by conditional composition constraint
+              - Condition: Valid
+              - Conditional branch failed:
+                * Value for 'value' is not allowed
+            ERROR;
+        $propertyElseMessage = <<<ERROR
+            Invalid value for 'value' declined by conditional composition constraint
+              - Condition: Failed
+                * Invalid type for 'value': requires 'string', got 'integer'
+              - Conditional branch failed:
+                * Value for 'value' is not allowed
+            ERROR;
+        $objectThenMessage = <<<ERROR
+            Invalid value for '{class}' declined by conditional composition constraint
+              - Condition: Valid
+              - Conditional branch failed:
+                * Value for '{class}' is not allowed
+            ERROR;
+        $objectElseMessage = <<<ERROR
+            Invalid value for '{class}' declined by conditional composition constraint
+              - Condition: Failed
+                * Missing required value for 'kind'
+              - Conditional branch failed:
+                * Value for '{class}' is not allowed
+            ERROR;
+
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
+            [
+                // a string enters the then branch, any other value is valid
+                'property then: false' => [
+                    'IfStringThenFalse.json',
+                    [],
+                    [
+                        [['value' => 'hello'], $propertyThenMessage],
+                        [['value' => 42], null],
+                        [[], null],
+                    ],
+                ],
+                // a non-string enters the else branch, a string is valid
+                'property else: false' => [
+                    'IfStringElseFalse.json',
+                    [],
+                    [
+                        [['value' => 'hello'], null],
+                        [['value' => 42], $propertyElseMessage],
+                        [[], null],
+                    ],
+                ],
+                // the condition requires kind: kind is denied
+                'object then: false' => [
+                    'ObjectLevelComposition.json',
+                    ['"if": {"required": ["kind"]}, "then": false'],
+                    [
+                        [[], null],
+                        [['note' => 'n'], null],
+                        [['kind' => 'k'], $objectThenMessage],
+                    ],
+                ],
+                // the condition requires kind: kind is required
+                'object else: false' => [
+                    'ObjectLevelComposition.json',
+                    ['"if": {"required": ["kind"]}, "else": false'],
+                    [
+                        [['kind' => 'k'], null],
+                        [[], $objectElseMessage],
+                        [['note' => 'n'], $objectElseMessage],
+                    ],
+                ],
+            ],
+        );
     }
 
-    public static function unsatisfiableConditionalDataProvider(): array
+    /**
+     * A false then/else branch with a real if condition only rejects the values entering the branch, the values
+     * the branch doesn't apply to are valid.
+     *
+     * Rejecting such a schema at generation time as unsatisfiable was wrong: e.g. if: {required: [kind]}, then: false
+     * is the common way to deny a key under a condition.
+     *
+     * The complete message is asserted for direct exceptions. With collected errors the ConditionalException of the
+     * production library renders a collected condition / branch error without the bullet ("Condition: Failed" is
+     * directly followed by the error message), only the rejection is asserted there.
+     */
+    #[DataProvider('falseConditionalBranchDataProvider')]
+    public function testFalseConditionalBranchRejectsOnlyTheValuesEnteringTheBranch(
+        GeneratorConfiguration $configuration,
+        string $schemaFile,
+        array $templateValues,
+        array $cases,
+    ): void {
+        $className = $this->generateClassFromFileTemplate($schemaFile, $templateValues, $configuration, false);
+        $shortClassName = (new ReflectionClass($className))->getShortName();
+
+        foreach ($cases as [$data, $expectedMessage]) {
+            $exception = $this->catchException(static fn() => new $className($data));
+
+            if ($expectedMessage === null) {
+                $this->assertNull($exception, 'Valid data rejected: ' . json_encode($data));
+                continue;
+            }
+
+            $this->assertNotNull($exception, 'Invalid data accepted: ' . json_encode($data));
+
+            if ($configuration->collectErrors()) {
+                $this->assertInstanceOf(ErrorRegistryException::class, $exception);
+                $this->assertCount(1, $exception->getErrors());
+                $this->assertInstanceOf(ConditionalException::class, $exception->getErrors()[0]);
+                continue;
+            }
+
+            $this->assertInstanceOf(ConditionalException::class, $exception);
+            $this->assertSame(str_replace('{class}', $shortClassName, $expectedMessage), $exception->getMessage());
+        }
+    }
+
+    public static function falseBranchOfObjectLevelCompositionDataProvider(): array
     {
-        return [
-            // if: {string}, then: false — any string value would always fail the then branch
-            'if:string then:false' => ['IfStringThenFalse.json', '/then: false is unsatisfiable for property value/i'],
-            // if: {string}, else: false — any non-string would always fail the else branch
-            'if:string else:false' => ['IfStringElseFalse.json', '/else: false is unsatisfiable for property value/i'],
-        ];
+        $requiredNoteFailed = <<<ERROR
+              - Composition element #1: Failed
+                * Missing required value for 'note'
+            ERROR;
+        $falseBranchFailed = <<<ERROR
+              - Composition element #2: Failed
+                * Value for '{class}' is not allowed
+            ERROR;
+
+        return self::combineDataProvider(
+            self::validationMethodDataProvider(),
+            [
+                'oneOf false' => [
+                    '"oneOf": [{"required": ["note"]}, false]',
+                    true,
+                    <<<ERROR
+                    Invalid value for '{class}' declined by composition constraint
+                      Requires to match one composition element but matched 0 elements
+                    $requiredNoteFailed
+                    $falseBranchFailed
+                    ERROR,
+                ],
+                'oneOf not: true' => [
+                    '"oneOf": [{"required": ["note"]}, {"not": true}]',
+                    true,
+                    <<<ERROR
+                    Invalid value for '{class}' declined by composition constraint
+                      Requires to match one composition element but matched 0 elements
+                    $requiredNoteFailed
+                      - Composition element #2: Failed
+                        * Invalid value for '{nested}' declined by composition constraint
+                          Requires to match none composition element but matched 1 element
+                          - Composition element #1: Valid
+                    ERROR,
+                ],
+                'oneOf nested anyOf false' => [
+                    '"oneOf": [{"required": ["note"]}, {"anyOf": [false]}]',
+                    true,
+                    <<<ERROR
+                    Invalid value for '{class}' declined by composition constraint
+                      Requires to match one composition element but matched 0 elements
+                    $requiredNoteFailed
+                      - Composition element #2: Failed
+                        * Invalid value for '{nested}' declined by composition constraint
+                          Requires to match at least one composition element
+                          - Composition element #1: Failed
+                            * Value for '{nested}' is not allowed
+                    ERROR,
+                ],
+                'anyOf false' => [
+                    '"anyOf": [{"required": ["note"]}, false]',
+                    true,
+                    <<<ERROR
+                    Invalid value for '{class}' declined by composition constraint
+                      Requires to match at least one composition element
+                    $requiredNoteFailed
+                    $falseBranchFailed
+                    ERROR,
+                ],
+                'allOf false' => [
+                    '"allOf": [false]',
+                    false,
+                    <<<ERROR
+                    Invalid value for '{class}' declined by composition constraint
+                      Requires to match all composition elements but matched 0 elements
+                      - Composition element #1: Failed
+                        * Value for '{class}' is not allowed
+                    ERROR,
+                ],
+                'not: true' => [
+                    '"not": true',
+                    false,
+                    <<<ERROR
+                    Invalid value for '{class}' declined by composition constraint
+                      Requires to match none composition element but matched 1 element
+                      - Composition element #1: Valid
+                    ERROR,
+                ],
+            ],
+        );
+    }
+
+    /**
+     * A false branch (also a branch only containing not: true or a composition of false branches) of a composition
+     * of the schema itself never matches: the validated object is always present. Only the other branch may match.
+     *
+     * Checking the presence of a key named like the class (like the false branch of a property checks the presence of
+     * the property) was rejected: the false branch matched any object.
+     */
+    #[DataProvider('falseBranchOfObjectLevelCompositionDataProvider')]
+    public function testFalseBranchOfObjectLevelCompositionNeverMatches(
+        GeneratorConfiguration $configuration,
+        string $composition,
+        bool $noteMatchesOtherBranch,
+        string $expectedMessage,
+    ): void {
+        $className = $this->generateClassFromFileTemplate(
+            'ObjectLevelComposition.json',
+            [$composition],
+            $configuration,
+            false,
+        );
+
+        // the nested branch class names contain a hash
+        $expectedMessagePattern = '/^' . str_replace(
+            [preg_quote('{class}', '/'), preg_quote('{nested}', '/')],
+            [preg_quote((new ReflectionClass($className))->getShortName(), '/'), '\w+'],
+            preg_quote($expectedMessage, '/'),
+        ) . '$/';
+
+        $invalidData = [[], ['kind' => 'k'], ...($noteMatchesOtherBranch ? [] : [['note' => 'n']])];
+
+        foreach ($invalidData as $data) {
+            $exception = $this->catchException(static fn() => new $className($data));
+
+            $this->assertNotNull($exception, 'Invalid data accepted: ' . json_encode($data));
+            $this->assertInstanceOf(
+                $configuration->collectErrors() ? ErrorRegistryException::class : ValidationException::class,
+                $exception,
+            );
+            $this->assertMatchesRegularExpression($expectedMessagePattern, $exception->getMessage());
+        }
+
+        if ($noteMatchesOtherBranch) {
+            $object = new $className(['note' => 'n']);
+            $this->assertSame('n', $object->getNote());
+        }
     }
 
     /**
@@ -83,6 +312,9 @@ class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
                 // if: true, then: false — always-unsatisfiable; ConditionalException is thrown
                 'if:true then:false, str'    => ['IfTrueThenFalse.json', 'hello'],
                 'if:true then:false, int'    => ['IfTrueThenFalse.json', 42],
+                // then: false, else: false — whichever branch applies fails; ConditionalException is thrown
+                'then:false else:false, str' => ['IfStringThenFalseElseFalse.json', 'hello'],
+                'then:false else:false, int' => ['IfStringThenFalseElseFalse.json', 42],
             ],
         );
     }
@@ -143,6 +375,11 @@ class BooleanCompositionSchemaTest extends AbstractPHPModelGeneratorTestCase
             'if true then false'  => [
                 'IfTrueThenFalse.json',
                 'if: true with then: false means the composition is always unsatisfiable',
+            ],
+            // then: false, else: false — always unsatisfiable, whichever branch applies
+            'then false else false' => [
+                'IfStringThenFalseElseFalse.json',
+                'then: false with else: false means the composition is always unsatisfiable',
             ],
         ];
     }

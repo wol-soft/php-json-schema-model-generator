@@ -384,6 +384,77 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
         $this->assertSame(0, substr_count($source, 'array_diff_key($modifiedModelData, $this->_rawModelDataInput)'));
     }
 
+    public static function branchWithoutNestedSchemaProvider(): array
+    {
+        $branches = [
+            'false' => 'false',
+            'not: true' => '{"not": true}',
+            'nested anyOf of false' => '{"anyOf": [false]}',
+        ];
+
+        $dataSets = [];
+        foreach ($branches as $label => $branch) {
+            foreach (self::collectErrorsProvider() as $errorMode => [$collectErrors]) {
+                $dataSets["$label ($errorMode)"] = [$branch, $collectErrors];
+            }
+        }
+
+        return $dataSets;
+    }
+
+    /**
+     * A branch without a nested schema (other than a true branch) has unknown validators: it depends on the value of
+     * every key. Every update evaluates the composition, the branch keeps no cached result. Updates are rejected like
+     * the constructor rejects the resulting data.
+     */
+    #[DataProvider('branchWithoutNestedSchemaProvider')]
+    public function testBranchWithoutNestedSchemaIsEvaluatedWithEveryUpdate(string $branch, bool $collectErrors): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFileTemplate(
+            'BranchWithoutNestedSchema.json',
+            [$branch],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+            false,
+        );
+
+        $object = new $className(['kind' => 'A']);
+        $object->setNote('n');
+        $object->populate(['note' => 'm']);
+        $object->additionalProperties()->set('extra', 'e');
+        $this->assertSame(['kind' => 'A', 'note' => 'm', 'extra' => 'e'], $object->meta()->rawInput());
+
+        $resultingData = ['kind' => 'B', 'note' => 'm', 'extra' => 'e'];
+        $expectedException = $this->catchException(static fn() => new $className($resultingData));
+        $this->assertNotNull($expectedException, 'The constructor must reject the data');
+
+        $updates = [
+            'setter' => static fn(object $object) => $object->setKind('B'),
+            'populate' => static fn(object $object) => $object->populate(['kind' => 'B']),
+        ];
+
+        foreach ($updates as $update => $executeUpdate) {
+            $actualException = $this->catchException(static fn() => $executeUpdate($object));
+
+            $this->assertNotNull($actualException, "The $update must be rejected");
+            $this->assertSame($expectedException::class, $actualException::class, $update);
+            $this->assertSame($expectedException->getMessage(), $actualException->getMessage(), $update);
+            $this->assertSame(['kind' => 'A', 'note' => 'm', 'extra' => 'e'], $object->meta()->rawInput(), $update);
+        }
+
+        $source = file_get_contents((new ReflectionClass($className))->getFileName());
+        preg_match('/function setNote\(.*?\n    }\n/s', $source, $setNote);
+
+        // the setter of a key no branch declares validates the composition, also if the key is present: adding the key
+        // and changing a present key validate the same, the setter renders a single path
+        $this->assertStringNotContainsString("if (!array_key_exists('note', \$this->_rawModelDataInput))", $setNote[0]);
+        $this->assertSame(1, substr_count($setNote[0], '_validateComposition_'));
+
+        // only the branch with a nested schema keeps the check for a cached result
+        $this->assertSame(1, substr_count($source, 'array_intersect('));
+    }
+
     /**
      * Adding a key may also turn an invalid branch valid: the second branch depends on the number of properties, adding
      * a key makes it match besides the first branch. The update must evaluate the branch again although no branch
