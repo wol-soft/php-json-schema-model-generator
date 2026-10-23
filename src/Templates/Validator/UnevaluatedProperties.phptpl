@@ -6,7 +6,7 @@
         A rejected key doesn't restore the keys recorded for the other keys: the constructor discards the object, an
         update (setter, populate, accessors) restores the complete model state of a rejected update.
     #}
-    $unevaluatedKeys = $this->collectUnevaluatedKeys(
+    $unevaluatedKeys ={% if hasDependentAllKeysClaim %} array_intersect_key({{ dependentAllKeysTriggerKeys }}, $modelData) ? [] :{% endif %} $this->collectUnevaluatedKeys(
         $modelData,
         {{ declaredPropertyNames }},
         {{ pcrePatterns }},

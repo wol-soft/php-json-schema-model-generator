@@ -242,6 +242,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
     private function declaresArrayClaimingKeyword(array $json): bool
     {
         return array_key_exists('items', $json)
+            || array_key_exists('prefixItems', $json)
             || array_key_exists('additionalItems', $json)
             || array_key_exists('contains', $json);
     }
@@ -286,8 +287,10 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * validator reads those slots via the trait's `collectUnevaluatedKeys`. Schemas without
      * any composition skip the field declaration — the trait's reads use `?? []`, so the
      * absence is safe.
+     *
+     * @return bool Whether any composition was activated, i.e. whether the cache field now exists
      */
-    private function activateSchemaLevelTracking(Schema $schema): void
+    private function activateSchemaLevelTracking(Schema $schema): bool
     {
         $activated = false;
         foreach ($schema->getBaseValidators() as $baseValidator) {
@@ -298,7 +301,7 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         }
 
         if (!$activated) {
-            return;
+            return false;
         }
 
         $schema->addProperty(
@@ -310,6 +313,8 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                 ->setInternal(true)
                 ->setDefaultValue([]),
         );
+
+        return true;
     }
 
     /**
@@ -557,6 +562,17 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * schema property called `evaluatedProperties` (whose generated getter would be
      * `getEvaluatedProperties()` without the underscore) and so its internal-only role is
      * visible at the call site.
+     *
+     * Activation recurses through the branch's own composition branches. A branch class can only
+     * answer what it evaluated if its own compositions record their outcomes, and its `process()`
+     * pass will not enable that: the walk that decides activation looks for an unevaluated keyword
+     * reachable from the schema being processed, and a branch class that merely sits under an
+     * enclosing `unevaluatedProperties` has none of its own. Without recursing here, a branch whose
+     * body is itself a composition answers from a static name list — crediting names its losing
+     * branches happened to declare and missing what its winning ones actually claimed.
+     *
+     * `hasMethod()` doubles as the already-activated marker, so a branch class shared between
+     * several enclosing schemas is set up exactly once.
      */
     private function addGetEvaluatedPropertiesToNestedBranchSchemas(Schema $schema): void
     {
@@ -576,6 +592,15 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                     '_getEvaluatedProperties',
                     $this->buildGetEvaluatedPropertiesMethod($nestedSchema),
                 );
+
+                // Only a branch class that has compositions of its own needs the trait: its own
+                // branches call collectEvaluatedProperties() from it when they write their slots.
+                // A branch class without compositions would just carry an unused trait and import.
+                if ($this->activateSchemaLevelTracking($nestedSchema)) {
+                    $nestedSchema->addTrait(CompositionEvaluationTrait::class);
+                }
+
+                $this->addGetEvaluatedPropertiesToNestedBranchSchemas($nestedSchema);
             }
         }
     }
@@ -597,13 +622,31 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 
             public function getCode(): string
             {
-                $declaredPropertyNames = array_values(array_map(
-                    static fn(PropertyInterface $property): string => $property->getName(),
-                    array_filter(
-                        $this->nestedSchema->getProperties(),
-                        static fn(PropertyInterface $property): bool => !$property->isInternal(),
-                    ),
-                ));
+                $json = $this->nestedSchema->getJsonSchema()->getJson();
+
+                // A non-false additionalProperties claims every key the schema did not otherwise
+                // evaluate, so nothing is left to compute — the whole instance is covered. Only a
+                // branch that succeeded is ever queried, so its claim definitely applied.
+                if (isset($json['additionalProperties']) && $json['additionalProperties'] !== false) {
+                    return implode("\n", [
+                        '#[Internal]',
+                        'public function _getEvaluatedProperties(): array',
+                        '{',
+                        '    // additionalProperties claims every remaining key.',
+                        '    return array_keys($this->_rawModelDataInput);',
+                        '}',
+                    ]);
+                }
+
+                // The schema's own `properties` keyword, not getProperties(): the latter also holds
+                // names transferred from anyOf/oneOf/if branches purely so the generated class can
+                // expose getters for them, and those are evaluated only when their branch wins —
+                // reading them as declared credits a losing branch's properties. Names materialised
+                // from `required` land in getProperties() too, and `required` evaluates nothing.
+                $declaredPropertyNames = array_values(array_unique(array_merge(
+                    array_map(strval(...), array_keys($json['properties'] ?? [])),
+                    $this->nestedSchema->getUnconditionallyEvaluatedPropertyNames(),
+                )));
 
                 // Both fields are added by post processors, and RenderQueue::execute() runs every
                 // process() before the first render(), so by now the nested schema's final field
@@ -639,9 +682,53 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                     $lines[] = '    $evaluated += $this->_evaluatedPropertyKeys;';
                 }
 
+                array_push($lines, ...$this->renderCompositionContribution());
                 array_push($lines, '', '    return array_keys($evaluated);', '}');
 
                 return implode("\n", $lines);
+            }
+
+            /**
+             * The lines that fold in whatever this schema's own composition branches claimed, read
+             * from `_compositionEvaluations` with the slot conventions `collectUnevaluatedKeys()`
+             * uses. Only branches that succeeded hold a slot value, so a losing branch's
+             * declarations stay out — which no static name list could express.
+             *
+             * Empty for a schema without compositions: the cache field is not declared there, so
+             * the loop would iterate an empty key list to no effect.
+             *
+             * @return string[]
+             */
+            private function renderCompositionContribution(): array
+            {
+                $compositionValidatorKeys = $this->nestedSchema->getCompositionValidatorKeys();
+
+                if ($compositionValidatorKeys === []) {
+                    return [];
+                }
+
+                return [
+                    '    foreach (' . RenderHelper::varExportArray($compositionValidatorKeys)
+                        . ' as $validatorIndex) {',
+                    '        foreach ($this->_compositionEvaluations[$validatorIndex] ?? [] as $slot) {',
+                    '            if ($slot === null) {',
+                    '                continue;',
+                    '            }',
+                    '            if ($slot === true) {',
+                    '                return array_keys($this->_rawModelDataInput);',
+                    '            }',
+                    '            if (is_object($slot)) {',
+                    '                foreach ($slot->_getEvaluatedProperties() as $branchPropertyName) {',
+                    '                    $evaluated[$branchPropertyName] = true;',
+                    '                }',
+                    '                continue;',
+                    '            }',
+                    '            foreach ($slot as $branchPropertyName) {',
+                    '                $evaluated[$branchPropertyName] = true;',
+                    '            }',
+                    '        }',
+                    '    }',
+                ];
             }
 
             private function declaresInternalProperty(string $propertyName): bool

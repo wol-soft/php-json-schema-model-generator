@@ -391,14 +391,53 @@ Unevaluated Properties
 The ``unevaluatedProperties`` keyword (Draft 2019-09 and later) constrains every property whose
 name was not evaluated by any positive sibling applicator at the same schema level. A key is
 counted as *evaluated* when it is claimed by ``properties``, matched by ``patternProperties``,
-claimed by ``additionalProperties`` (when that keyword is present), or claimed by a **successful**
-branch of an adjacent composition (``allOf``, ``anyOf``, ``oneOf``, ``if``/``then``/``else``,
-``$ref``). ``not`` is a negative applicator and contributes nothing.
+claimed by ``additionalProperties`` (when that keyword is present), claimed by the schema form of
+``dependencies`` while its trigger property is present on the instance, or claimed by a
+**successful** branch of an adjacent composition (``allOf``, ``anyOf``, ``oneOf``,
+``if``/``then``/``else``, ``$ref``). ``not`` is a negative applicator and contributes nothing.
 
 Unlike ``additionalProperties``, ``unevaluatedProperties`` looks across composition branches:
 a property covered by a branch that ended up succeeding is credited, and a property covered only
-by a branch that failed is not. This makes the keyword suitable for enforcing "no leftovers" at
-the outermost schema level while individual branches are free to declare their own properties.
+by a branch that failed is not. This holds at every nesting depth — a composition inside another
+composition's branch is resolved the same way, so a name declared only by a branch that lost is
+never credited, and one declared by a branch that won always is. This makes the keyword suitable
+for enforcing "no leftovers" at the outermost schema level while individual branches are free to
+declare their own properties.
+
+.. note::
+
+    ``dependencies`` in its schema form contributes only while its trigger property is present. In
+    the schema below, ``extra`` is evaluated for ``{"kind": "a", "extra": 5}`` but not for
+    ``{"extra": 5}``, where the dependent subschema never applies:
+
+    .. code-block:: json
+
+        {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string"
+                }
+            },
+            "dependencies": {
+                "kind": {
+                    "properties": {
+                        "extra": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            },
+            "unevaluatedProperties": false
+        }
+
+    Only what the dependent subschema declares directly counts. Names it reaches through a
+    composition (``allOf``, ``anyOf``, ``oneOf``, ``if``) or a ``$ref`` are not credited, and the
+    generator emits a warning naming the keyword when it sees one. Such a key is then reported as
+    unevaluated even though the dependent subschema evaluates it — declare the properties on the
+    dependent subschema itself to avoid this.
+
+    ``dependentSchemas``, the Draft 2019-09 spelling of the same applicator, is not yet supported.
 
 .. hint::
 

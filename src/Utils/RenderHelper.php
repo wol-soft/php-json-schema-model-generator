@@ -7,11 +7,11 @@ namespace PHPModelGenerator\Utils;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\Validator\AbstractUnevaluatedItemsValidator;
 use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
-use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
 
 /**
  * Class RenderHelper
@@ -237,7 +237,8 @@ class RenderHelper
     }
 
     /**
-     * True when the property carries an UnevaluatedItemsValidator among its own validators.
+     * True when the property carries an unevaluatedItems validator of either form among its own
+     * validators.
      *
      * `_evaluatedItemIndices[$propertyName]` must be reset to an empty array before this
      * property's validator chain runs (ahead of any composition validator, which may credit
@@ -245,11 +246,16 @@ class RenderHelper
      * previous, unrelated validation pass (e.g. an earlier setter call) would incorrectly count
      * as "already evaluated" for a completely different array value, silently skipping both
      * validation and any transforming filter for that index.
+     *
+     * Matches the shared base class, not the schema-form subclass: `unevaluatedItems: false`
+     * produces a `NoUnevaluatedItemsValidator`, a sibling of `UnevaluatedItemsValidator` rather
+     * than a subclass of it, and it reads the very same slot. Testing for the schema form alone
+     * leaves the `false` form — the more common spelling — without a reset.
      */
     public function hasUnevaluatedItemsValidator(PropertyInterface $property): bool
     {
         foreach ($property->getValidators() as $propertyValidator) {
-            if ($propertyValidator->getValidator() instanceof UnevaluatedItemsValidator) {
+            if ($propertyValidator->getValidator() instanceof AbstractUnevaluatedItemsValidator) {
                 return true;
             }
         }

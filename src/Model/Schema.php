@@ -67,6 +67,17 @@ class Schema
     /** @var array<string, true> */
     private array $rootRegisteredPropertyNames = [];
 
+    /** @var array<string, true> Used as a set; see addUnconditionallyEvaluatedPropertyName() */
+    private array $unconditionallyEvaluatedPropertyNames = [];
+    /** @var array<string, true> Used as a set; see addUnconditionallyEvaluatedPropertyPattern() */
+    private array $unconditionallyEvaluatedPropertyPatterns = [];
+
+    /**
+     * @var array<string, array{names: string[], patterns: string[], claimsEveryKey: bool}>
+     *      Keyed by the trigger property name; see addDependentEvaluatedProperties()
+     */
+    private array $dependentEvaluatedProperties = [];
+
     /** @var string[] Maps normalized attribute → raw property name; used to detect property-vs-property collisions */
     private array $attributeIndex = [];
 
@@ -368,6 +379,118 @@ class Schema
     }
 
     /**
+     * Records a property name this schema evaluates at its own instance location without any
+     * runtime condition, even though the name does not appear in the schema's own `properties`
+     * keyword. From Draft 2019-09 on a `$ref` applies alongside its siblings instead of replacing
+     * them, and the referenced schema's properties are merged into this one — the merged names are
+     * evaluated exactly as locally declared ones are, so `unevaluatedProperties` must credit them.
+     *
+     * Deliberately a dedicated channel rather than reading `getProperties()`: that list also holds
+     * names transferred purely for accessibility from anyOf/oneOf/if branches, which are evaluated
+     * only when their branch succeeds and must stay under the composition slots' runtime control.
+     */
+    public function addUnconditionallyEvaluatedPropertyName(string $propertyName): self
+    {
+        $this->unconditionallyEvaluatedPropertyNames[$propertyName] = true;
+
+        return $this;
+    }
+
+    /**
+     * The `patternProperties` counterpart of {@see addUnconditionallyEvaluatedPropertyName()}:
+     * patterns merged in from a referenced schema, whose matches this schema evaluates too.
+     */
+    public function addUnconditionallyEvaluatedPropertyPattern(string $pattern): self
+    {
+        $this->unconditionallyEvaluatedPropertyPatterns[$pattern] = true;
+
+        return $this;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getUnconditionallyEvaluatedPropertyNames(): array
+    {
+        return array_keys($this->unconditionallyEvaluatedPropertyNames);
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getUnconditionallyEvaluatedPropertyPatterns(): array
+    {
+        return array_keys($this->unconditionallyEvaluatedPropertyPatterns);
+    }
+
+    /**
+     * Adopts what a conjunctively-referenced schema evaluates. A `$ref` applies at the same
+     * instance location as the schema carrying it, so from Draft 2019-09 on — where the reference
+     * no longer replaces its siblings — the referenced schema's declarations are evaluated here
+     * too and a sibling `unevaluatedProperties` must credit them.
+     *
+     * Reads the referenced schema's own JSON rather than its resolved property list: the list also
+     * carries names its own composition branches contributed, which are conditional on those
+     * branches succeeding and are accounted for through the base validators the merge transfers.
+     * Its own unconditional set is carried over as well, so a chain of references still arrives
+     * intact when an intermediate schema contributed nothing of its own.
+     */
+    public function adoptEvaluatedPropertiesOfReferencedSchema(Schema $referencedSchema): self
+    {
+        $referencedJson = $referencedSchema->getJsonSchema()->getJson();
+
+        foreach (array_keys($referencedJson['properties'] ?? []) as $propertyName) {
+            $this->addUnconditionallyEvaluatedPropertyName((string) $propertyName);
+        }
+        foreach ($referencedSchema->getUnconditionallyEvaluatedPropertyNames() as $propertyName) {
+            $this->addUnconditionallyEvaluatedPropertyName($propertyName);
+        }
+
+        foreach (array_keys($referencedJson['patternProperties'] ?? []) as $pattern) {
+            $this->addUnconditionallyEvaluatedPropertyPattern((string) $pattern);
+        }
+        foreach ($referencedSchema->getUnconditionallyEvaluatedPropertyPatterns() as $pattern) {
+            $this->addUnconditionallyEvaluatedPropertyPattern($pattern);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Records what the schema form of `dependencies` evaluates while its trigger property is
+     * present on the instance. The dependent subschema applies at the same instance location as
+     * the schema declaring it, so the names it claims are evaluated there — but only while the
+     * trigger key is actually present, which is why this cannot join the unconditional set.
+     *
+     * @param string[] $names          Names the dependent subschema's `properties` declares
+     * @param string[] $patterns       Regexes its `patternProperties` declares (raw, undelimited)
+     * @param bool     $claimsEveryKey Whether it declares a non-false `additionalProperties`, which
+     *                                 claims every remaining key rather than a nameable set
+     */
+    public function addDependentEvaluatedProperties(
+        string $triggerPropertyName,
+        array $names,
+        array $patterns,
+        bool $claimsEveryKey,
+    ): self {
+        $this->dependentEvaluatedProperties[$triggerPropertyName] = [
+            'names' => $names,
+            'patterns' => $patterns,
+            'claimsEveryKey' => $claimsEveryKey,
+        ];
+
+        return $this;
+    }
+
+    /**
+     * @return array<string, array{names: string[], patterns: string[], claimsEveryKey: bool}>
+     */
+    public function getDependentEvaluatedProperties(): array
+    {
+        return $this->dependentEvaluatedProperties;
+    }
+
+    /**
      * Get the keys of all composition base validators
      */
     public function getCompositionValidatorKeys(): array
@@ -490,9 +613,16 @@ class Schema
         return $this->traits;
     }
 
+    /**
+     * Adding the same trait twice would render two identical `use` statements in the class body,
+     * which is a fatal error rather than a no-op, so registration is idempotent.
+     */
     public function addTrait(string $trait): self
     {
-        $this->traits[] = $trait;
+        if (!in_array($trait, $this->traits, true)) {
+            $this->traits[] = $trait;
+        }
+
         $this->addUsedClass($trait);
 
         return $this;

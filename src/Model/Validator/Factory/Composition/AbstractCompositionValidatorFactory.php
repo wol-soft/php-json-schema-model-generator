@@ -167,15 +167,38 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * genuine annotation keyword) instead of being mistaken for a real constraint merely because
      * it wasn't anticipated.
      *
-     * @param array<string, mixed> $resolvedBranchJson
+     * A branch resolved by a producer ($ref) that landed on a schema of its own is not vacuous:
+     * the referenced schema carries the constraints, so the branch constrains exactly as much as
+     * its target does. Neither half of that test can be dropped:
+     *
+     * - The resolved JSON alone cannot see it. From Draft 2019-09 on, where $ref stopped
+     *   swallowing its siblings, a $ref-only branch resolves to an empty node — so the common
+     *   `allOf: [{"$ref": "#/$defs/thing"}]` idiom would be reported as matching any value.
+     * - The producer keyword alone is not enough either. A $ref pointing at a file that declares
+     *   only `definitions` produces no schema at all and genuinely does match any value; it must
+     *   keep its warning.
+     *
+     * Asking the Draft which producers apply keeps this driven by the registry rather than by a
+     * hardcoded '$ref' literal, the same way the validation-keyword test below is.
+     *
+     * @param array<string, mixed> $authoredBranchJson The branch exactly as written in the schema
+     * @param array<string, mixed> $resolvedBranchJson The branch after $ref resolution and any
+     *                                                 type inheritance the generator injected
+     * @param bool $branchHasNestedSchema Whether the branch produced a schema of its own
      */
     private function warnIfVacuousBranch(
         SchemaProcessor $schemaProcessor,
         PropertyInterface $property,
         int $oneBasedBranchIndex,
+        array $authoredBranchJson,
         array $resolvedBranchJson,
+        bool $branchHasNestedSchema,
         Draft $draft,
     ): void {
+        if ($branchHasNestedSchema && $draft->getProducersForSchema($authoredBranchJson) !== []) {
+            return;
+        }
+
         foreach (array_keys($resolvedBranchJson) as $keyword) {
             if (
                 in_array($keyword, self::MODIFIER_ONLY_VALIDATION_KEYWORDS, true)
@@ -401,7 +424,10 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                         $schemaProcessor,
                         $property,
                         $index + 1,
+                        // A literal `true` is not an object, so it can carry no producer keyword.
+                        [],
                         $trueBranchProperty->getJsonSchema()->getJson(),
+                        false,
                         $draft,
                     );
                 }
@@ -438,7 +464,15 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     unset($resolvedBranchJson['type']);
                 }
 
-                $this->warnIfVacuousBranch($schemaProcessor, $property, $index + 1, $resolvedBranchJson, $draft);
+                $this->warnIfVacuousBranch(
+                    $schemaProcessor,
+                    $property,
+                    $index + 1,
+                    $compositionSchema->getJson(),
+                    $resolvedBranchJson,
+                    $compositionProperty->getNestedSchema() !== null,
+                    $draft,
+                );
             }
 
             // RequiredPropertyValidator/InstanceOfValidator-for-empty-object exclusion for this

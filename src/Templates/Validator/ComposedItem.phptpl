@@ -125,7 +125,7 @@
                             true,
                         );
                     {% endif %}
-                    {% if not compositionProperty.branchClaimsAllIndices() and compositionProperty.branchHasNonFalseAdditionalItems() %}
+                    {% if not compositionProperty.branchClaimsAllIndices() and compositionProperty.branchAdditionalItemsCoversTail() %}
                         $compositionEvaluatedIndices += array_fill(
                             {{ compositionProperty.getBranchTupleItemsCount() }},
                             max(0, count($originalModelData) - {{ compositionProperty.getBranchTupleItemsCount() }}),

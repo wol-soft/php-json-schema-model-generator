@@ -54,24 +54,31 @@ abstract class AbstractUnevaluatedItemsValidator extends PropertyTemplateValidat
     }
 
     /**
-     * Positional index coverage from a sibling `items` tuple and `additionalItems` on the same
-     * property: a tuple `items` evaluates indices [0, count); a non-false `additionalItems` then
-     * evaluates every index past the tuple. Every other `items` shape is suppressed as dead code
-     * by UnevaluatedItemsValidatorFactory, so it contributes no coverage here.
+     * Positional index coverage from a sibling tuple and its trailing-entry keyword on the same
+     * property: the tuple evaluates indices [0, count); a non-false trailing keyword then
+     * evaluates every index past it. Every other shape is suppressed as dead code by
+     * UnevaluatedItemsValidatorFactory, so it contributes no coverage here.
      *
-     * @return array{0: int, 1: bool} [tuple length, whether additionalItems covers the tail]
+     * Draft 2020-12 spells the tuple `prefixItems` and its trailing entries `items`, where earlier
+     * drafts use `items` and `additionalItems`. Reading `prefixItems` first covers both: the
+     * keyword cannot appear with its 2020-12 meaning on a draft that does not register it, because
+     * there it is an unknown keyword and `items` keeps the tuple role.
+     *
+     * @return array{0: int, 1: bool} [tuple length, whether the trailing keyword covers the rest]
      */
     private function siblingItemsCoverage(array $json): array
     {
-        $items = $json['items'] ?? null;
+        $hasPrefixItems = array_key_exists('prefixItems', $json);
+        $tuple = $hasPrefixItems ? $json['prefixItems'] : ($json['items'] ?? null);
+        $tailKeyword = $hasPrefixItems ? 'items' : 'additionalItems';
 
-        if (!is_array($items) || $items === [] || !array_is_list($items)) {
+        if (!is_array($tuple) || $tuple === [] || !array_is_list($tuple)) {
             return [0, false];
         }
 
-        $coversTail = array_key_exists('additionalItems', $json) && $json['additionalItems'] !== false;
+        $coversTail = array_key_exists($tailKeyword, $json) && $json[$tailKeyword] !== false;
 
-        return [count($items), $coversTail];
+        return [count($tuple), $coversTail];
     }
 
     public function getCheck(): string
