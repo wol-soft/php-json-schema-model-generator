@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "definitions": {
+    "text": {
+      "type": "string",
+      "minLength": 2
+    }
+  },
+  "properties": {
+    "title": {
+      "$ref": "#/definitions/text"
+    },
+    "other": {
+      "$ref": "#/definitions/text"
+    },
+    "plain": {
+      "$ref": "#/definitions/text"
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "title": {
+          "type": "string",
+          "filter": "upper"
+        }
+      }
+    },
+    {
+      "properties": {
+        "other": {
+          "type": "string",
+          "filter": "exclaim"
+        }
+      }
+    }
+  ]
+}

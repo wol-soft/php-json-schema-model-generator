@@ -462,6 +462,57 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
         new $className(['kind' => 'a', 'extra' => 'not-an-integer']);
     }
 
+    public static function removalBreakingDependencyProvider(): array
+    {
+        return [
+            'property dependency' => ['["b"]', false],
+            'property dependency (collect errors)' => ['["b"]', true],
+            'schema dependency' => ['{"required": ["b"]}', false],
+            'schema dependency (collect errors)' => ['{"required": ["b"]}', true],
+        ];
+    }
+
+    /**
+     * The dependency of the declared property a requires the additional property b. Removing b must be rejected like
+     * the constructor rejects the remaining data, and leave the model unchanged.
+     */
+    #[DataProvider('removalBreakingDependencyProvider')]
+    public function testRemovalBreakingADependencyIsRejectedLikeTheConstructor(
+        string $dependency,
+        bool $collectErrors,
+    ): void {
+        $this->addPostProcessor(true);
+
+        $className = $this->generateClassFromFileTemplate(
+            'RemovalBreakingDependency.json',
+            [$dependency],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+            false,
+        );
+
+        $expectedException = $this->catchException(static fn() => new $className(['a' => 'x']));
+        $this->assertNotNull($expectedException, 'The constructor must reject the remaining data');
+
+        $object = new $className(['a' => 'x', 'b' => 'y']);
+        $actualException = $this->catchException(static fn() => $object->additionalProperties()->remove('b'));
+
+        $this->assertNotNull($actualException, 'The removal must be rejected');
+        $this->assertSame($expectedException::class, $actualException::class);
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+        $this->assertSame(['a' => 'x', 'b' => 'y'], $object->meta()->rawInput());
+        $this->assertSame(['b' => 'y'], $object->additionalProperties()->getAll());
+
+        // removing a key no dependency requires is accepted
+        $object = new $className(['a' => 'x', 'b' => 'y', 'c' => 'z']);
+        $this->assertTrue($object->additionalProperties()->remove('c'));
+        $this->assertSame(['a' => 'x', 'b' => 'y'], $object->meta()->rawInput());
+
+        // without the dependent property the dependency doesn't apply
+        $object = new $className(['b' => 'y']);
+        $this->assertTrue($object->additionalProperties()->remove('b'));
+        $this->assertSame([], $object->meta()->rawInput());
+    }
+
     public function testSetterSchemaHooksAreResolvedInSetAdditionalProperties(): void
     {
         $this->modifyModelGenerator = static function (ModelGenerator $modelGenerator): void {
@@ -546,7 +597,6 @@ class AdditionalPropertiesAccessorPostProcessorTest extends AbstractPHPModelGene
             $this->getParameterTypeNames($accessor, 'set', 1),
         );
     }
-
 
     public function testAdditionalPropertiesAreSerializedWithoutAdditionalPropertiesAccessorPostProcessor(): void
     {

@@ -1,0 +1,145 @@
+{
+  "type": "object",
+  "properties": {
+    "first": {
+      "type": "string"
+    },
+    "second": {
+      "type": "string"
+    },
+    "third": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": 1
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "then": {
+        "properties": {
+          "first": {
+            "type": "string",
+            "filter": {
+              "filter": "dateTime",
+              "outputFormat": "Y-m-d"
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "first": {
+            "type": "string",
+            "filter": {
+              "filter": "dateTime",
+              "outputFormat": "H:i"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "sel": {
+          "const": "p"
+        },
+        "second": {
+          "type": "string",
+          "filter": {
+            "filter": "dateTime",
+            "outputFormat": "Y"
+          }
+        }
+      },
+      "required": [
+        "sel"
+      ]
+    },
+    {
+      "properties": {
+        "sel": {
+          "const": "q"
+        },
+        "second": {
+          "type": "string",
+          "filter": {
+            "filter": "dateTime",
+            "outputFormat": "H:i"
+          }
+        }
+      },
+      "required": [
+        "sel"
+      ]
+    }
+  ],
+  "if": {
+    "properties": {
+      "sw": {
+        "const": 1
+      }
+    },
+    "required": [
+      "sw"
+    ]
+  },
+  "then": {
+    "oneOf": [
+      {
+        "properties": {
+          "pick": {
+            "const": "x"
+          },
+          "third": {
+            "type": "string",
+            "filter": {
+              "filter": "dateTime",
+              "outputFormat": "Y"
+            }
+          }
+        },
+        "required": [
+          "pick"
+        ]
+      },
+      {
+        "properties": {
+          "pick": {
+            "const": "y"
+          },
+          "third": {
+            "type": "string",
+            "filter": {
+              "filter": "dateTime",
+              "outputFormat": "m"
+            }
+          }
+        },
+        "required": [
+          "pick"
+        ]
+      }
+    ]
+  },
+  "else": {
+    "properties": {
+      "third": {
+        "type": "string",
+        "filter": {
+          "filter": "dateTime",
+          "outputFormat": "d"
+        }
+      }
+    }
+  }
+}

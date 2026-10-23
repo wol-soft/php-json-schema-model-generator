@@ -286,16 +286,22 @@ class CompositionCompatibilityChecker
     }
 
     /**
-     * Recursively check whether a branch schema (or any of its nested composition branches
-     * or named properties) contains a "filter" keyword.
+     * Check whether a single composition branch declares a "filter" keyword which the composition
+     * cannot apply: either directly on the branch, or (for a branch which is not object-typed) on a
+     * named property below "properties".
      *
-     * The check covers:
-     *   - A direct "filter" key in the branch itself.
-     *   - "filter" nested inside nested allOf / anyOf / oneOf / not / if / then / else.
-     *   - "filter" inside a named property value under "properties" when the branch does NOT
-     *     declare "type": "object". Object-typed branches create nested schemas whose
-     *     properties are processed independently (not subject to ComposedItem.phptpl's
-     *     $value reset), so their inner filters are correctly applied.
+     * Object-typed branches create nested schemas whose properties are processed independently of
+     * the value reset ComposedItem.phptpl performs after each branch, so the filters of their
+     * properties are applied correctly and are not scanned.
+     *
+     * Nested compositions inside the branch (allOf / anyOf / oneOf / not / if / then / else) are
+     * deliberately NOT descended into. Every nested composition is built as a branch property of
+     * its own and its composition factory runs this check on its own branches after it has
+     * inherited the type of its parent. Descending here as well would apply the check to a nested
+     * branch before that inheritance happened: the untyped "then" of a conditional inside an
+     * object-typed allOf branch would be taken for a scalar branch and its object properties would
+     * be rejected for carrying a filter. Passing the inherited object-ness down manually instead
+     * would duplicate the inheritance rules and drift from them.
      *
      * @param array<string, mixed> $branchSchema
      */
@@ -305,10 +311,8 @@ class CompositionCompatibilityChecker
             return true;
         }
 
-        // Object-typed branches create nested schemas whose properties are processed
-        // independently of ComposedItem $value resets, so their inner filters are applied
-        // correctly. Accept both the string form ('object') and the single-element array form
-        // (['object']) — type inheritance may inject the parent type as an array.
+        // Accept both the string form ('object') and the single-element array form (['object']) -
+        // type inheritance may inject the parent type as an array.
         $branchType = $branchSchema['type'] ?? null;
         $isObjectTyped = $branchType === 'object'
             || (is_array($branchType) && in_array('object', $branchType, true));
@@ -322,28 +326,6 @@ class CompositionCompatibilityChecker
                 if (is_array($propertySchema) && static::branchContainsFilter($propertySchema)) {
                     return true;
                 }
-            }
-        }
-
-        foreach (self::ARRAY_COMPOSITION_KEYWORDS as $keyword) {
-            if (!isset($branchSchema[$keyword]) || !is_array($branchSchema[$keyword])) {
-                continue;
-            }
-
-            foreach ($branchSchema[$keyword] as $nestedBranch) {
-                if (is_array($nestedBranch) && static::branchContainsFilter($nestedBranch)) {
-                    return true;
-                }
-            }
-        }
-
-        foreach (self::SINGLE_COMPOSITION_KEYWORDS as $keyword) {
-            if (
-                isset($branchSchema[$keyword])
-                && is_array($branchSchema[$keyword])
-                && static::branchContainsFilter($branchSchema[$keyword])
-            ) {
-                return true;
             }
         }
 

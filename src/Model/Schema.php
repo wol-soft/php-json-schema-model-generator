@@ -13,10 +13,13 @@ use PHPModelGenerator\Interfaces\JSONModelInterface;
 use PHPModelGenerator\Model\Attributes\AttributesTrait;
 use PHPModelGenerator\Model\Attributes\PhpAttribute;
 use PHPModelGenerator\Model\Property\PropertyInterface;
+use PHPModelGenerator\Model\Property\PropertyProxy;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchemaTrait;
+use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\Model\Validator\Factory\Composition\AllOfValidatorFactory;
@@ -66,13 +69,6 @@ class Schema
 
     /** @var string[] Maps normalized attribute → raw property name; used to detect property-vs-property collisions */
     private array $attributeIndex = [];
-
-    /**
-     * @var array<string, true> Internal model fields whose pre-populate value must be restored
-     *                          if populate() rolls back. Post processors register their backing
-     *                          collection fields here; Populate.phptpl iterates the list.
-     */
-    private array $rollbackProperties = [];
 
     /**
      * @var array<string, true> Internal accessor-cache fields that must be cleared before
@@ -197,8 +193,10 @@ class Schema
     }
 
     /**
-     * @param string|null $compositionProcessor The FQCN of the composition processor transferring this property,
-     *                                           or null when not called from a composition context.
+     * @param string|null $compositionProcessor The FQCN of the composition processor (or of another component which
+     *                                           transfers the property from a nested schema, e.g. the schema
+     *                                           dependency validator) transferring this property, or null when the
+     *                                           property is declared by this schema itself.
      * @param JsonSchema|null $rebuildFrom See PropertyMerger::merge()'s docblock. Only meaningful together with
      *                                     $schemaProcessor; both are forwarded as-is.
      *
@@ -247,20 +245,24 @@ class Schema
 
             $property->isResolved() ? $registerAttribute() : $property->onResolve($registerAttribute);
 
-            $property->onResolve(function (): void {
-                if (++$this->resolvedProperties === count($this->properties)) {
-                    foreach ($this->onAllPropertiesResolvedCallbacks as $callback) {
-                        $callback();
-
-                        $this->onAllPropertiesResolvedCallbacks = [];
-                    }
-                }
-            });
+            $property->onResolve($this->onPropertyResolved(...));
 
             return $this;
         }
 
-        $this->propertyMerger->merge(
+        // The merge changes the registered property, which may be shared: the first property referencing a definition
+        // is the property every other reference (PropertyProxy) delegates to. A shared property is replaced by a copy
+        // of its own, other properties referencing the same definition must not be affected. An unresolved property
+        // is kept, the resolution bookkeeping is bound to it.
+        $existing = $this->properties[$property->getName()];
+
+        if ($existing->isResolved() && $existing instanceof PropertyProxy) {
+            $this->properties[$property->getName()] = $existing->detach();
+        } elseif ($existing->isResolved() && ResolvedDefinitionsCollection::isShared($existing)) {
+            $this->properties[$property->getName()] = clone $existing;
+        }
+
+        $replacesExisting = $this->propertyMerger->merge(
             $this->properties[$property->getName()],
             $property,
             is_a($compositionProcessor, AllOfValidatorFactory::class, true),
@@ -268,9 +270,45 @@ class Schema
             $rebuildFrom,
             $schemaProcessor,
             $this,
+            $compositionProcessor === null,
         );
 
+        if ($replacesExisting) {
+            $this->replaceRegisteredProperty($property);
+        }
+
         return $this;
+    }
+
+    /**
+     * The slot keeps its position in the property order, the generated class lists the property where it was first
+     * registered.
+     */
+    private function replaceRegisteredProperty(PropertyInterface $property): void
+    {
+        $wasResolved = $this->properties[$property->getName()]->isResolved();
+
+        $this->properties[$property->getName()] = $property;
+        $this->rootRegisteredPropertyNames[$property->getName()] = true;
+
+        // The resolution counter counts the slot, not the property: a replaced property which was resolved already
+        // counted it, the replacement has to count it again once it resolves. The pending callback of an unresolved
+        // replaced property counts the slot when that one resolves.
+        if ($wasResolved && !$property->isResolved()) {
+            $this->resolvedProperties--;
+            $property->onResolve($this->onPropertyResolved(...));
+        }
+    }
+
+    private function onPropertyResolved(): void
+    {
+        if (++$this->resolvedProperties === count($this->properties)) {
+            foreach ($this->onAllPropertiesResolvedCallbacks as $callback) {
+                $callback();
+
+                $this->onAllPropertiesResolvedCallbacks = [];
+            }
+        }
     }
 
     public function isRootRegistered(string $name): bool
@@ -289,6 +327,44 @@ class Schema
     public function getBaseValidators(): array
     {
         return $this->baseValidators;
+    }
+
+    /**
+     * The base validators except the compositions: they validate the object itself (e.g. additionalProperties,
+     * maxProperties) and are rendered into _executeObjectValidators(). Keys are kept.
+     *
+     * @return PropertyValidatorInterface[]
+     */
+    public function getObjectValidators(): array
+    {
+        return array_filter(
+            $this->baseValidators,
+            static fn(PropertyValidatorInterface $validator): bool =>
+                !is_a($validator, AbstractComposedPropertyValidator::class),
+        );
+    }
+
+    /**
+     * @return array<string, PropertyValidatorInterface[]> The dependency validators of the properties keyed by the
+     *                                                     property name
+     */
+    public function getDependencyValidators(): array
+    {
+        $dependencyValidators = [];
+
+        foreach ($this->properties as $property) {
+            if ($property->isInternal()) {
+                continue;
+            }
+
+            foreach ($property->getOrderedValidators() as $validator) {
+                if ($validator instanceof DependencyValidatorInterface) {
+                    $dependencyValidators[$property->getName()][] = $validator;
+                }
+            }
+        }
+
+        return $dependencyValidators;
     }
 
     /**
@@ -459,26 +535,6 @@ class Schema
     public function isInitialClass(): bool
     {
         return $this->initialClass;
-    }
-
-    /**
-     * Register an internal model field whose pre-populate value must be restored on rollback.
-     * Idempotent — registering the same field twice is a no-op. Order of registration is
-     * preserved by returning array_keys; the order is the order rollback is iterated.
-     */
-    public function addRollbackProperty(string $internalPropertyName): self
-    {
-        $this->rollbackProperties[$internalPropertyName] = true;
-
-        return $this;
-    }
-
-    /**
-     * @return string[]
-     */
-    public function getRollbackProperties(): array
-    {
-        return array_keys($this->rollbackProperties);
     }
 
     /**

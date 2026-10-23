@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator\Factory\Object;
 
-use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator\DeniedPropertyValidator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
-use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
@@ -62,10 +61,8 @@ class PropertiesValidatorFactory extends AbstractValidatorFactory
                 }
 
                 $schema->addBaseValidator(
-                    (new PropertyValidator(
+                    (new DeniedPropertyValidator(
                         new Property($propertyName, null, $propertySchema->withJson([])),
-                        "array_key_exists('" . addslashes($propertyName) . "', \$modelData)",
-                        DeniedPropertyException::class,
                     ))->withJsonPointer(
                         $propertySchema->getPointer()
                             . '/properties/'

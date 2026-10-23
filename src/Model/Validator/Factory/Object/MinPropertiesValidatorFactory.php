@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator\Factory\Object;
 
-use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\Factory\SimpleBaseValidatorFactory;
-use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Model\Validator\MinPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 
 class MinPropertiesValidatorFactory extends SimpleBaseValidatorFactory
@@ -29,11 +28,6 @@ class MinPropertiesValidatorFactory extends SimpleBaseValidatorFactory
 
     protected function getValidator(PropertyInterface $property, mixed $value): PropertyValidatorInterface
     {
-        return new PropertyValidator(
-            $property,
-            sprintf('%s < %d', self::COUNT_PROPERTIES, $value),
-            MinPropertiesException::class,
-            [$value, '&$count'],
-        );
+        return new MinPropertiesValidator($property, $value);
     }
 }

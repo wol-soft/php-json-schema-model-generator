@@ -12,6 +12,8 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
+use ReflectionMethod;
 
 /**
  * Class ComposedAnyOfTest
@@ -180,6 +182,43 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
         $this->assertPropertyHasJsonPointer($object, 'integerProperty', '/anyOf/1/properties/integerProperty');
     }
 
+    /**
+     * The composition of a mutable model records the result of each branch, even if no branch declares a property.
+     * The state must be a declared property: writing to an undeclared one creates a dynamic property, which is
+     * deprecated.
+     */
+    public function testMutableObjectLevelAnyOfWithoutDeclaredPropertiesDeclaresItsValidationState(): void
+    {
+        $className = $this->generateClassFromFile(
+            'ObjectBranchesWithoutProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $object = new $className(['property' => 1]);
+        $this->assertSame(['property' => 1], $object->meta()->rawInput());
+    }
+
+    /**
+     * The internal validation state of a mutable branch class is no property of the branch: a composition whose
+     * branches declare no property has no modified values to collect and needs no helper method for it.
+     */
+    public function testCompositionOfBranchesWithoutDeclaredPropertiesHasNoModifiedValuesHelper(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedCompositionWithoutProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $object = new $className(['property' => 1]);
+        $this->assertSame(['property' => 1], $object->meta()->rawInput());
+
+        $helperMethods = array_filter(
+            (new ReflectionClass($className))->getMethods(),
+            static fn(ReflectionMethod $method): bool => str_starts_with($method->getName(), '_getModifiedValues_'),
+        );
+        $this->assertSame([], $helperMethods);
+    }
+
     #[DataProvider('validPropertyTypeDataProvider')]
     #[DataProvider('nullDataProvider')]
     public function testValidProvidedAnyOfTypePropertyIsValid(mixed $propertyValue): void
@@ -273,7 +312,6 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
             'object' => [new stdClass()],
         ];
     }
-
 
     #[DataProvider('validPropertyTypeDataProvider')]
     public function testValidProvidedRequiredAnyOfTypePropertyIsValid(mixed $propertyValue): void
@@ -550,7 +588,6 @@ class ComposedAnyOfTest extends AbstractPHPModelGeneratorTestCase
             'both invalid types array' => [['integerProperty' => [], 'stringProperty' => []]],
         ];
     }
-
 
     #[DataProvider('validComposedObjectDataProviderRequired')]
     #[DataProvider('validComposedObjectWithRequiredPropertiesDataProvider')]

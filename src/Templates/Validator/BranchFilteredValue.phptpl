@@ -1,0 +1,13 @@
+(function (&$value): bool {
+    // the staged values belong to the update which is in progress. A staged null: the branch
+    // which owns the filter is inactive, the value stays as provided
+    if (array_key_exists('{{ property.getName() }}', $this->_stagedBranchFilteredValues)) {
+        if ($this->_stagedBranchFilteredValues['{{ property.getName() }}'] !== null) {
+            $value = $this->_stagedBranchFilteredValues['{{ property.getName() }}'][0];
+        }
+    } elseif (array_key_exists('{{ property.getName() }}', $this->_branchFilteredValues)) {
+        $value = $this->_branchFilteredValues['{{ property.getName() }}'];
+    }
+
+    return false;
+})($value)

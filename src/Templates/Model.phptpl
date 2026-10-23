@@ -98,18 +98,16 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
 
     {% if schema.getBaseValidators() %}
         /**
-         * Runs property-level validators and composition validators against $modelData. Used
-         * for the constructor's full validation pass and for populate()'s per-property delta
-         * check. Schema-level validators that depend on the merged cross-property state live
-         * in _executePostCompositionValidators().
+         * Runs the object-level validators and the compositions against $modelData. Used for the
+         * constructor's full validation pass and for the updates of the model. Schema-level
+         * validators that depend on the results of the compositions live in
+         * _executePostCompositionValidators().
          */
         protected function _executeBaseValidators(array &$modelData): void
         {
-            $value = &$modelData;
-
-            {% foreach baseValidatorsWithoutCompositions as validator %}
-                {{ viewHelper.renderValidator(validator, schema, 2) }}
-            {% endforeach %}
+            {% if schema.getObjectValidators() %}
+                $this->_executeObjectValidators($modelData);
+            {% endif %}
 
             {% foreach schema.getCompositionValidatorKeys() as compositionValidatorKey %}
                 $this->_validateComposition_{{ compositionValidatorKey }}($modelData);
@@ -121,16 +119,31 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
         /**
          * Runs schema-level validators that depend on the merged state of every property —
          * currently just unevaluatedProperties. The constructor calls this on the raw input
-         * after _executeBaseValidators; setters call it against a candidate state (raw input
-         * with the new value plugged in) before commit; populate() calls it against the
-         * would-be merged state before applying the merge.
+         * after _executeBaseValidators; the updates (setters, populate(), the additional property
+         * accessors) call it against the candidate state (the raw input with the update applied)
+         * before the update is committed.
          */
         protected function _executePostCompositionValidators(array &$modelData): void
         {
             $value = &$modelData;
 
             {% foreach schema.getPostCompositionValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema) }}
+                {{ viewHelper.renderValidator(validator, schema, 2) }}
+            {% endforeach %}
+        }
+    {% endif %}
+
+    {#
+        Separate from the compositions: an update of a single property (setter) executes the object validators and the
+        compositions only as far as the update may change their result (see SetterValidationRenderer).
+    #}
+    {% if schema.getObjectValidators() %}
+        protected function _executeObjectValidators(array &$modelData): void
+        {
+            $value = &$modelData;
+
+            {% foreach schema.getObjectValidators() as validator %}
+                {{ viewHelper.renderValidator(validator, schema, 2) }}
             {% endforeach %}
         }
     {% endif %}
@@ -172,7 +185,10 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                  * Set the value of {{ property.getName() }}.
                  *
                  * @param {{ viewHelper.getTypeHintAnnotation(property) }} ${{ property.getAttribute(true) }}{% if property.getDescription() %} {{ property.getDescription() }}{% endif %}
-                 {% if property.getValidators() %}
+                 {% if property.getValidators()
+                     or schemaHookResolver.resolveSetterBeforeValidationHook(property)
+                     or setterValidationRenderer.hasObjectValidation(property)
+                 %}
                      *
                      * @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}
                  {% endif %}
@@ -182,7 +198,19 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                 public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
                     {{ viewHelper.getType(property) }} ${{ property.getAttribute(true) }}
                 ): static {
-                    if ($this->{{ property.getAttribute(true) }} === ${{ property.getAttribute(true) }}) {
+                    {#
+                        Only for a stored key: providing the current value of a property which isn't stored yet (e.g.
+                        null or a default) adds the key to the model, which must be validated like any added key
+                        (e.g. maxProperties).
+                    #}
+                    if (
+                        $this->{{ property.getAttribute(true) }} === ${{ property.getAttribute(true) }}
+                        && array_key_exists('{{ property.getName() }}', $this->_rawModelDataInput)
+                    ) {
+                        // Nothing to validate, but the provided value is the raw input of the property now: the value
+                        // may be equal to a filtered value only, a later validation starts from the raw input.
+                        $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
+
                         return $this;
                     }
 
@@ -192,29 +220,12 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
                     {% endif %}
 
-                    {{ schemaHookResolver.resolveSetterBeforeValidationHook(property) }}
-
-                    $value = $this->_validate{{ viewHelper.ucfirst(property.getAttribute()) }}($value, $modelData);
-
-                    {% if schema.getPostCompositionValidators() %}
-                        // Cross-state validation: build a candidate raw input with the new
-                        // value plugged in so post-composition validators (notably
-                        // unevaluatedProperties) see the would-be state instead of the still
-                        // pre-mutation $this->_rawModelDataInput. Validates without committing —
-                        // the commit below only runs after every validator passes.
-                        $candidateRawModelDataInput = $this->_rawModelDataInput;
-                        $candidateRawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
-                        $this->_executePostCompositionValidators($candidateRawModelDataInput);
-                    {% endif %}
-
-                    {% if generatorConfiguration.collectErrors() %}
-                        if ($this->_errorRegistry->getErrors()) {
-                            throw $this->_errorRegistry;
-                        }
-                    {% endif %}
+                    {{ viewHelper.indent(setterValidationRenderer.render(property), 2) }}
 
                     $this->{{ property.getAttribute(true) }} = $value;
                     $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
+
+                    {{ setterValidationRenderer.renderBranchFilteredValueApplication(property) }}
 
                     {{ schemaHookResolver.resolveSetterAfterValidationHook(property) }}
 

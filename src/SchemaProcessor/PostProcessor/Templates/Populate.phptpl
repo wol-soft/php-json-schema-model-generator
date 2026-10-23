@@ -20,37 +20,30 @@ public function populate(array $modelData): self
         }
     }
 
-    $rollbackValues = [];
+    {% if schema.hasMethod('_prepareBranchFilteredValues') %}
+        // A populate which failed after a composition staged filtered values of its active branches leaves them
+        // behind. The compositions only stage the components which are part of the update, so a stale value must not
+        // be adopted.
+        $this->_stagedBranchFilteredValues = [];
+    {% endif %}
+
+    $updatedProperties = [];
 
     {% if generatorConfiguration.collectErrors() %}
         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-
-        {{ viewHelper.indent(renderPopulateBody(), 1) }}
-
-        if (count($this->_errorRegistry->getErrors())) {
-            foreach ($rollbackValues as $property => $value) {
-                $this->{$property} = $value;
-            }
-
-            throw $this->_errorRegistry;
-        }
-    {% else %}
-        try {
-            {{ viewHelper.indent(renderPopulateBody(), 2) }}
-        } catch (ValidationException $exception) {
-            foreach ($rollbackValues as $property => $value) {
-                $this->{$property} = $value;
-            }
-
-            throw $exception;
-        }
     {% endif %}
+
+    {{ viewHelper.indent(modelStateRollback.wrap(schema, renderPopulateBody()), 1) }}
 
     $this->_rawModelDataInput = array_merge($this->_rawModelDataInput, $modelData);
 
+    {% if schema.hasMethod('_prepareBranchFilteredValues') %}
+        $this->_applyBranchFilteredValues($preparedBranchFilteredValues);
+    {% endif %}
+
     {% foreach schema.getProperties() as property %}
         {% if not property.isInternal() and schemaHookResolver.resolveSetterAfterValidationHook(property) %}
-            if (array_key_exists('{{ property.getAttribute(true) }}', $rollbackValues)) {
+            if (array_key_exists('{{ property.getAttribute(true) }}', $updatedProperties)) {
                 {{ schemaHookResolver.resolveSetterAfterValidationHook(property, true) }}
             }
         {% endif %}

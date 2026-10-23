@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "oneOf": [
+    {
+      "required": [
+        "note"
+      ]
+    },
+    true
+  ]
+}

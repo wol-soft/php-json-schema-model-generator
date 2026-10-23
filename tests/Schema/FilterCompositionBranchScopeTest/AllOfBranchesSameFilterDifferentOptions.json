@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "properties": {
+        "date": {
+          "type": "string",
+          "filter": {
+            "filter": "dateTime",
+            "outputFormat": "Y-m-d"
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "date": {
+          "type": "string",
+          "filter": {
+            "filter": "dateTime",
+            "outputFormat": "H:i"
+          }
+        }
+      }
+    }
+  ]
+}

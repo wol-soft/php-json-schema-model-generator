@@ -1,0 +1,51 @@
+{
+  "type": "object",
+  "definitions": {
+    "trimmed": {
+      "type": "string",
+      "filter": "trim"
+    }
+  },
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "code": {
+      "$ref": "#/definitions/trimmed"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "const": "a"
+        },
+        "name": {
+          "$ref": "#/definitions/trimmed"
+        },
+        "label": {
+          "$ref": "#/definitions/trimmed"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "b"
+        },
+        "name": {
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/definitions/trimmed"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    }
+  ]
+}

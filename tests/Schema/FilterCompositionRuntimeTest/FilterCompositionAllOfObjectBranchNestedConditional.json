@@ -1,0 +1,55 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "playlist-management": {
+            "const": 1
+          }
+        },
+        "required": ["playlist-management"]
+      },
+      "then": {
+        "properties": {
+          "playlist-title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "filter": "trim"
+          },
+          "playlist-type": {
+            "type": "integer",
+            "enum": [1, 2, 16, 32, 64]
+          }
+        },
+        "required": ["playlist-title", "playlist-type"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "playlist-management": {
+            "const": 2
+          }
+        },
+        "required": ["playlist-management"]
+      },
+      "then": {
+        "properties": {
+          "playlist-id": {
+            "type": "integer"
+          }
+        },
+        "required": ["playlist-id"]
+      }
+    }
+  ],
+  "properties": {
+    "playlist-management": {
+      "type": "integer",
+      "enum": [0, 1, 2, 3, 4],
+      "default": 0
+    }
+  }
+}

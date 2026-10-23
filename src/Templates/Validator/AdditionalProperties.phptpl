@@ -2,9 +2,6 @@
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
-    {% if collectAdditionalProperties %}
-        $rollbackValues = $this->_additionalProperties;
-    {% endif %}
 
     foreach (array_diff(array_keys($properties), {{ additionalProperties }}) as $propertyKey) {
         {% if patternProperties %}
@@ -47,12 +44,6 @@
 
     {% if generatorConfiguration.collectErrors() %}
         $this->_errorRegistry = $originalErrorRegistry;
-    {% endif %}
-
-    {% if collectAdditionalProperties %}
-        if (!empty($invalidProperties)) {
-            $this->_additionalProperties = $rollbackValues;
-        }
     {% endif %}
 
     return !empty($invalidProperties);

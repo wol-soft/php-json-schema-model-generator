@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use Exception;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\Number\MinimumException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
@@ -22,6 +23,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
 
 /**
  * Class SchemaHookTest
@@ -130,6 +132,55 @@ class SchemaHookTest extends AbstractPHPModelGeneratorTestCase
         $object->setAge(-12);
     }
 
+    /**
+     * The model state changed by a custom setter hook is part of the update: a rejected update restores it. A setter
+     * without any before validation hook code throws before changing the model state and is rendered without the
+     * rollback handling.
+     */
+    #[DataProvider('collectErrorsDataProvider')]
+    public function testModelStateChangedBySetterBeforeValidationHookIsRestoredForRejectedUpdate(
+        bool $collectErrors,
+        string $expectedException,
+    ): void {
+        $this->addSchemaHook(new class () implements SetterBeforeValidationHookInterface {
+            public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
+            {
+                return $property->getName() === 'age' ? '$this->_rawModelDataInput[\'hookExecuted\'] = true;' : '';
+            }
+        });
+
+        $className = $this->generateClassFromFile(
+            'BasicSchema.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+        );
+
+        $object = new $className(['name' => 'Albert', 'age' => 35]);
+
+        $exception = $this->catchException(static fn() => $object->setAge(-12));
+        $this->assertInstanceOf($expectedException, $exception, 'Expected the minimum violation of age');
+        $this->assertSame("Value for 'age' must not be smaller than 0", $exception->getMessage());
+
+        $this->assertSame(35, $object->getAge());
+        $this->assertSame(['name' => 'Albert', 'age' => 35], $object->meta()->rawInput());
+
+        $object = new $className(['name' => 'Albert', 'age' => 35]);
+        $object->setAge(40);
+        $this->assertSame(['name' => 'Albert', 'age' => 40, 'hookExecuted' => true], $object->meta()->rawInput());
+
+        $source = file_get_contents((new ReflectionClass($className))->getFileName());
+        preg_match('/function setAge\(.*?\n    }\n/s', $source, $setAge);
+        preg_match('/function setName\(.*?\n    }\n/s', $source, $setName);
+        $this->assertStringContainsString('_restoreModelState', $setAge[0]);
+        $this->assertStringNotContainsString('_restoreModelState', $setName[0]);
+    }
+
+    public static function collectErrorsDataProvider(): array
+    {
+        return [
+            'exception on the first violation' => [false, MinimumException::class],
+            'collect errors' => [true, ErrorRegistryException::class],
+        ];
+    }
 
     #[DataProvider('setterAfterValidationHookDataProvider')]
     public function testSetterAfterValidationHookIsResolved(

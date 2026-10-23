@@ -156,4 +156,70 @@ class ComposedIfThenElseBranchDefaultTest extends AbstractPHPModelGeneratorTestC
             . ' failed for an unrelated field.',
         );
     }
+
+    /**
+     * The attribute of a property whose name starts with a digit is prefixed in the generated class. The default of a
+     * branch must be written to (and removed from) this attribute, not to a dynamic property (the deprecation fails the
+     * test run via failOnDeprecation in phpunit.xml). This applies to the then and else branch of a conditional
+     * composition as well as to the branches of a oneOf composition, which render their reset logic from different
+     * templates.
+     */
+    public function testBranchDefaultOfPropertyStartingWithDigitIsAppliedAndRemoved(): void
+    {
+        $className = $this->generateClassFromFile(
+            'BranchDefaultOfPropertyStartingWithDigit.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        // Then branch: the default is applied to the attribute and is not part of the raw input.
+        $object = new $className(['kind' => 'A', 'mode' => 'X']);
+        $this->assertSame('default-a', $object->get1stValue());
+        $this->assertNull($object->get2ndValue());
+        $this->assertSame(['kind' => 'A', 'mode' => 'X'], $object->meta()->rawInput());
+
+        // Switching to the else branch removes the then default and applies the else default.
+        $object->setKind('B');
+        $this->assertNull($object->get1stValue());
+        $this->assertSame('default-b', $object->get2ndValue());
+
+        // Switching back removes the else default again.
+        $object->setKind('A');
+        $this->assertSame('default-a', $object->get1stValue());
+        $this->assertNull($object->get2ndValue());
+
+        // oneOf branch: the default of the matched branch is applied and removed when the matched branch changes.
+        $this->assertSame('default-x', $object->get3rdValue());
+        $object->setMode('Y');
+        $this->assertNull($object->get3rdValue());
+        $object->setMode('X');
+        $this->assertSame('default-x', $object->get3rdValue());
+        $this->assertSame(['kind' => 'A', 'mode' => 'X'], $object->meta()->rawInput());
+
+        // An explicitly provided value is neither overwritten by the default nor reset to null, no matter which
+        // branch is matched or which unrelated property is updated afterwards.
+        $explicit = new $className([
+            'kind' => 'B',
+            'mode' => 'Y',
+            '1st value' => 'custom-1',
+            '3rd value' => 'custom-3',
+        ]);
+        $this->assertSame('custom-1', $explicit->get1stValue());
+        $this->assertSame('custom-3', $explicit->get3rdValue());
+        $this->assertSame('default-b', $explicit->get2ndValue());
+
+        $explicit->setKind('A');
+        $this->assertSame('custom-1', $explicit->get1stValue());
+        $this->assertNull($explicit->get2ndValue());
+
+        $explicit->setKind('B');
+        $this->assertSame('custom-1', $explicit->get1stValue());
+        $this->assertSame('default-b', $explicit->get2ndValue());
+
+        $explicit->setMode('X');
+        $this->assertSame('custom-3', $explicit->get3rdValue());
+        $this->assertSame(
+            ['kind' => 'B', 'mode' => 'X', '1st value' => 'custom-1', '3rd value' => 'custom-3'],
+            $explicit->meta()->rawInput(),
+        );
+    }
 }

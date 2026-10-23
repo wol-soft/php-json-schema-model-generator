@@ -18,6 +18,8 @@ use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
 use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\Utils\TypeCheck;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
+use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
+use PHPModelGenerator\Utils\BranchFilterOutputType;
 use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\RenderHelper;
 use ReflectionException;
@@ -81,6 +83,66 @@ class TransformingFilterOutputTypePostProcessor extends PostProcessor
     }
 
     /**
+     * Output type of a property whose transforming filters are owned by branches of compositions: the raw
+     * type stays valid (the branch may be inactive) and the output types of all filters are added.
+     *
+     * @param FilterValidator[] $branchFilters
+     *
+     * @throws ReflectionException
+     */
+    private function processBranchFilters(
+        PropertyInterface $property,
+        array $branchFilters,
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+    ): void {
+        $returnTypeNames = [];
+        $returnNullable = false;
+
+        foreach ($branchFilters as $branchFilter) {
+            $returnTypeNames = array_merge(
+                $returnTypeNames,
+                FilterReflection::getReturnTypeNames($branchFilter->getFilter(), $property),
+            );
+            $returnNullable = $returnNullable || FilterReflection::isReturnNullable($branchFilter->getFilter());
+        }
+
+        $returnTypeNames = array_values(array_unique($returnTypeNames));
+
+        if (!empty($returnTypeNames)) {
+            TypeCheck::extendTypeCheckValidatorToAllowTransformedValue($property, $returnTypeNames);
+        }
+
+        foreach ($returnTypeNames as $typeName) {
+            if (!TypeCheck::isPrimitive($typeName)) {
+                $schema->addUsedClass($typeName);
+            }
+        }
+
+        $baseType = $property->getType();
+
+        // Without a base type the property accepts every value, there is no type to extend.
+        if ($baseType === null) {
+            return;
+        }
+
+        $property->setType(
+            $baseType,
+            BranchFilterOutputType::create(
+                $baseType,
+                $property->getType(true),
+                $returnTypeNames,
+                $returnNullable,
+                $generatorConfiguration,
+            ),
+        );
+
+        // The docblock type hint only renders the first name of a type, it has to list the raw type and every type
+        // the filters return (the builder class also derives its imports from it).
+        $property->addTypeHintDecorator(new TypeHintDecorator($property->getType(true)->getNames()));
+    }
+
+    /**
      * @param array<int, true> $seenPropertyIds Object ids of properties already visited in the
      *                                          current recursive walk, threaded by reference so
      *                                          a `$ref` cycle can be detected across calls.
@@ -111,7 +173,10 @@ class TransformingFilterOutputTypePostProcessor extends PostProcessor
         // are picked up separately below), so they are otherwise invisible to this pass.
         // Mirrors the recursion EnumPostProcessor already performs via
         // ArrayItemValidator::getNestedProperty().
+        // The filters which are owned by a branch of a composition are not executed on the property: the value is
+        // only transformed while the branch is active, otherwise the property still holds the value as provided.
         $transformingFilterValidator = null;
+        $branchFilters = [];
         foreach ($property->getValidators() as $propertyValidator) {
             $validator = $propertyValidator->getValidator();
 
@@ -139,11 +204,21 @@ class TransformingFilterOutputTypePostProcessor extends PostProcessor
                 $validator instanceof FilterValidator
                 && $validator->getFilter() instanceof TransformingFilterInterface
             ) {
-                $transformingFilterValidator = $validator;
+                $transformingFilterValidator ??= $validator;
+
+                if (!$validator->isExecuted()) {
+                    $branchFilters[] = $validator;
+                }
             }
         }
 
         if ($transformingFilterValidator === null) {
+            return;
+        }
+
+        if ($branchFilters !== []) {
+            $this->processBranchFilters($property, $branchFilters, $schema, $generatorConfiguration);
+
             return;
         }
 

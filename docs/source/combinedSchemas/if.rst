@@ -157,12 +157,14 @@ Generated interface:
     public function setAge(int | string | null $age): static;
     public function getAge(): int | string | null;
 
-When only a ``then`` block is present (no ``else``), the branch may not apply at runtime, so the property is always nullable:
+When only a ``then`` block is present (no ``else``), the branch may not apply at runtime and a missing branch doesn't constrain anything. A value of any type is valid for the property while the ``if`` condition fails, so the type hint is widened to ``mixed``. The same applies to a property which is only defined in an ``else`` block:
 
 .. code-block:: php
 
-    public function setAge(?int $age): static;
-    public function getAge(): ?int;
+    public function setAge(mixed $age): static;
+    public function getAge(): mixed;
+
+While the branch is active the declared type is still enforced. A property which is additionally defined in the root ``properties`` keeps the type of the root definition.
 
 .. note::
 
@@ -176,9 +178,11 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
     - ``if: false, else: false`` or ``if: true, then: false`` — the composition is always
       unsatisfiable; providing any value raises a ``ConditionalException`` at runtime. The generator
       also emits a warning at generation time.
-    - ``then: false`` / ``else: false`` (with a real schema for ``if``) — when the relevant
-      branch is entered, the value would always be invalid; the generator throws a
-      ``SchemaException`` at generation time.
+    - ``then: false`` / ``else: false`` (with a real schema for ``if``) — a value entering the
+      branch is rejected with a ``ConditionalException`` at runtime, all other values are valid.
+      E.g. ``"if": {"required": ["kind"]}, "then": false`` on an object denies the key ``kind``.
+      If both ``then`` and ``else`` are ``false``, any provided value is rejected and the generator
+      emits a warning at generation time.
     - ``then: true`` / ``else: true`` — when the relevant branch is entered, any value is
       accepted; treated as absent (no additional constraint).
 
@@ -220,6 +224,13 @@ When only a ``then`` block is present (no ``else``), the branch may not apply at
 
     See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
     explanation.
+
+.. note::
+
+    A property in a ``then`` or ``else`` branch may declare a ``"filter"``. The filter only affects the
+    value while its branch is the active one, otherwise the property keeps the value as provided. A
+    filter on a property of the ``if`` condition runs inside the condition and is not applied to the
+    generated class. See `Filters on properties of object branches <../nonStandardExtensions/filter.html#filters-on-properties-of-object-branches>`__.
 
 Property and item evaluation propagation
 ----------------------------------------

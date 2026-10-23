@@ -446,7 +446,8 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
                 <<<MSG
                 Invalid value for '{$className}' declined by conditional composition constraint
                   - Condition: Valid
-                  - Conditional branch failed:Missing required value for 'x'
+                  - Conditional branch failed:
+                    * Missing required value for 'x'
                     * Invalid type for 'x': requires 'int', got 'NULL'
                 Provided JSON for '{$className}' contains not allowed unevaluated properties ['marker', 'other']
                 MSG,
@@ -461,9 +462,11 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
             $this->assertSame(
                 <<<MSG
                 Invalid value for '{$className}' declined by conditional composition constraint
-                  - Condition: FailedMissing required value for 'marker'
+                  - Condition: Failed
+                    * Missing required value for 'marker'
                     * Value for 'marker' must be true, got null
-                  - Conditional branch failed:Missing required value for 'y'
+                  - Conditional branch failed:
+                    * Missing required value for 'y'
                     * Invalid type for 'y': requires 'int', got 'NULL'
                 Provided JSON for '{$className}' contains not allowed unevaluated properties ['other']
                 MSG,

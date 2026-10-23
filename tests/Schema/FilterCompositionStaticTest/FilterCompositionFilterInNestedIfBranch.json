@@ -7,6 +7,9 @@
         {
           "if": {
             "filter": "trim"
+          },
+          "then": {
+            "minLength": 1
           }
         }
       ]

@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": {
+    "type": "string"
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "const": "A"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "B"
+        },
+        "note": false,
+        "extra": false
+      },
+      "required": [
+        "kind"
+      ]
+    }
+  ]
+}

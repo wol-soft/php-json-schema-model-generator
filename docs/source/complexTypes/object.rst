@@ -754,6 +754,8 @@ Generated interface:
 
     Basically this means your base object gets getters and setters for the additional properties transferred from the schema dependency but this getters and setters won't perform any validation. If you require type checks and validations performed on the properties define them in your main schema as not required properties and require them as a property dependency.
 
+    The same applies to filters: a filter of a property inside the dependency schema runs inside the dependency schema (the validators of the property see the filtered value) but the base object returns the value as provided. If the base object should return the filtered value declare the property including the filter in your main schema. A property which is declared by the main schema keeps the declaration of the main schema, independent of the order of the properties.
+
 Possible exceptions:
 
 .. code-block:: none

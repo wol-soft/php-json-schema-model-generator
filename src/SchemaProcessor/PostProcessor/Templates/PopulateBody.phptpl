@@ -1,13 +1,9 @@
-// Each internal post processor that owns a backing collection field registers it here so
-// its pre-populate value is restored on rollback — see Schema::addRollbackProperty().
-foreach ({{ viewHelper.varExportArray(schema.getRollbackProperties()) }} as $property) {
-    if (isset($this->{$property})) {
-        $rollbackValues[$property] = $this->{$property};
-    }
-}
-
 {% if schema.getBaseValidators() %}
     $this->_executeBaseValidators($modelData);
+{% endif %}
+
+{% if dependencyValidation %}
+    $validatedProperties = [];
 {% endif %}
 
 {% foreach schema.getProperties() as property %}
@@ -18,19 +14,43 @@ foreach ({{ viewHelper.varExportArray(schema.getRollbackProperties()) }} as $pro
         ) {
             {{ schemaHookResolver.resolveSetterBeforeValidationHook(property, true) }}
 
-            $rollbackValues['{{ property.getAttribute(true) }}'] = $this->{{ property.getAttribute(true) }};
+            $updatedProperties['{{ property.getAttribute(true) }}'] = true;
+            {% if dependencyValidation %}
+                $validatedProperties[] = '{{ property.getName() }}';
+            {% endif %}
             $this->_process{{ viewHelper.ucfirst(property.getAttribute()) }}($modelData);
         }
     {% endif %}
 {% endforeach %}
 
+{#
+    A schema dependency of a property which isn't updated validates the whole object, the update may violate it. The
+    dependencies of the updated properties are validated with the properties.
+#}
+{% if dependencyValidation %}
+    $this->_executeDependencyValidators(array_merge($this->_rawModelDataInput, $modelData), $validatedProperties);
+{% endif %}
+
 {% if schema.getPostCompositionValidators() %}
-    // Cross-state validation: the per-property loop above only sees the populate delta, so
-    // violations that depend on the union of pre-existing state plus the delta (notably
-    // unevaluatedProperties claims that flip with a discriminator) need to be checked
-    // against the would-be merged state. The check runs without committing the merge —
-    // the rollback paths in the caller restore property fields if it fails, leaving the
-    // original _rawModelDataInput untouched on failure.
+    {#
+        The properties above only validate the updated keys: the keys the compositions don't evaluate any longer (e.g.
+        a discriminator switched the branch which claimed them) are found against the merged state.
+    #}
     $candidateRawModelDataInput = array_merge($this->_rawModelDataInput, $modelData);
     $this->_executePostCompositionValidators($candidateRawModelDataInput);
+{% endif %}
+
+{% if schema.hasMethod('_prepareBranchFilteredValues') %}
+    // Only the properties which were processed count as processed: a value which equals the current attribute is
+    // skipped, such a property is validated again if the active branch switched.
+    $preparedBranchFilteredValues = $this->_prepareBranchFilteredValues(
+        array_keys($updatedProperties),
+        array_merge($this->_rawModelDataInput, $modelData),
+    );
+{% endif %}
+
+{% if generatorConfiguration.collectErrors() %}
+    if (count($this->_errorRegistry->getErrors())) {
+        throw $this->_errorRegistry;
+    }
 {% endif %}

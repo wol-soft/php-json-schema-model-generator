@@ -10,6 +10,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Validator\Factory\Composition\IfValidatorFactory;
+use PHPModelGenerator\Utils\RenderHelper;
 
 class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
 {
@@ -33,7 +34,11 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
             $generatorConfiguration,
             $property,
             DIRECTORY_SEPARATOR . 'Validator' . DIRECTORY_SEPARATOR . 'ConditionalComposedItem.phptpl',
-            array_merge($validatorVariables, ['modifiedValuesMethod' => $this->modifiedValuesMethod]),
+            array_merge(
+                $validatorVariables,
+                // filterSourceMap is set by getCheck(), see getFilterSourceMap().
+                ['modifiedValuesMethod' => $this->modifiedValuesMethod, 'filterSourceMap' => ''],
+            ),
             ConditionalException::class,
             ['&$ifException', '&$thenException', '&$elseException'],
             $validatorVariables['schema'],
@@ -96,7 +101,9 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
         // clone rather than on the pre-`withJsonPointer()` original.
         $this->templateValues['compositionValidator'] = $this;
 
-        $this->setupBranchDefaultHelpers();
+        $filteredKeyMap = $this->getBranchFilteredKeyMap();
+
+        $this->setupBranchDefaultHelpers($filteredKeyMap, $this->setupFilterSourceTemplateValues());
 
         $thenProperty = $this->templateValues['thenProperty'] ?? null;
         $elseProperty = $this->templateValues['elseProperty'] ?? null;
@@ -111,6 +118,16 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
             ? (int) array_search($elseProperty, $this->composedProperties, true)
             : -1;
 
+        $this->templateValues['publishesFilteredValues'] = $filteredKeyMap !== [];
+        $this->templateValues['thenFilteredKeyLookup'] = $this->createFilteredKeyLookup(
+            $filteredKeyMap,
+            [$this->templateValues['thenComponentIndex']],
+        );
+        $this->templateValues['elseFilteredKeyLookup'] = $this->createFilteredKeyLookup(
+            $filteredKeyMap,
+            [$this->templateValues['elseComponentIndex']],
+        );
+
         return parent::getCheck();
     }
 
@@ -119,6 +136,22 @@ class ConditionalPropertyValidator extends AbstractComposedPropertyValidator
      */
     public function getValidatorSetUp(): string
     {
-        return '$ifException = $thenException = $elseException = null;';
+        $setUp = ['$ifException = $thenException = $elseException = null;'];
+
+        if ($this->getBranchFilteredKeyMap() !== []) {
+            $setUp[] = '$publishedValues = null;';
+            // A conditional is evaluated as a whole every time, all components count as evaluated.
+            $setUp[] = sprintf(
+                '$evaluatedComponents = %s;',
+                RenderHelper::varExportArray(array_keys($this->composedProperties)),
+            );
+
+            // The producing filters of the published values, see getFilterSourceMap().
+            if ($this->getFilterSourceMap() !== []) {
+                $setUp[] = '$publishedSources = [];';
+            }
+        }
+
+        return implode("\n", $setUp);
     }
 }

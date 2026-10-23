@@ -8,7 +8,9 @@ use DateTime;
 use PHPModelGenerator\Accessor\ImmutableUnevaluatedPropertiesAccessor;
 use PHPModelGenerator\Accessor\UnevaluatedPropertiesAccessor;
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
+use PHPModelGenerator\Exception\Dependency\InvalidPropertyDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\Object\MaxPropertiesException;
 use PHPModelGenerator\Exception\Object\MinPropertiesException;
 use PHPModelGenerator\Exception\Object\RegularPropertyAsUnevaluatedPropertyException;
 use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
@@ -976,7 +978,6 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         }
     }
 
-
     /**
      * `remove()` walks both the backing _unevaluatedProperties array and the raw model data so
      * a subsequent `getAll()` reports the post-removal state and `meta()->rawInput()` no longer
@@ -1063,6 +1064,55 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         $this->assertFalse($accessor->remove('does-not-exist'));
         $this->assertSame(['a' => 1, 'b' => 2], $accessor->getAll());
         $this->assertSame(['name' => 'Alice', 'a' => 1, 'b' => 2], $object->meta()->rawInput());
+    }
+
+    /**
+     * set() and remove() validate the object like the constructor does: adding a key is checked
+     * against the object-level validators (maxProperties), removing a key against the
+     * dependencies of the declared properties. Both rejected updates leave the model unchanged,
+     * an accepted update after them still works.
+     */
+    public function testSetAndRemoveValidateObjectConstraintsAndDependenciesLikeTheConstructor(): void
+    {
+        $this->addPostProcessor();
+        $className = $this->generateClassFromFile(
+            'ObjectConstraintsWithUnevaluatedSchema.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className(['name' => 'n', 'tag' => 1, 'x' => 2]);
+        $accessor = $object->unevaluatedProperties();
+
+        try {
+            $accessor->set('y', 3);
+            $this->fail('Expected maxProperties to reject the added key');
+        } catch (MaxPropertiesException $exception) {
+            $this->assertSame(
+                "Provided object for '{$className}' must not contain more than 3 properties",
+                $exception->getMessage(),
+            );
+        }
+
+        try {
+            $accessor->remove('tag');
+            $this->fail('Expected the dependency of name to reject the removal');
+        } catch (InvalidPropertyDependencyException $exception) {
+            $this->assertSame(
+                <<<MSG
+                Missing required attributes which are dependants of 'name':
+                  - 'tag'
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertSame(['name' => 'n', 'tag' => 1, 'x' => 2], $object->meta()->rawInput());
+        $this->assertSame(['tag' => 1, 'x' => 2], $accessor->getAll());
+
+        $this->assertTrue($accessor->remove('x'));
+        $accessor->set('y', 3);
+        $this->assertSame(['name' => 'n', 'tag' => 1, 'y' => 3], $object->meta()->rawInput());
+        $this->assertSame(['tag' => 1, 'y' => 3], $accessor->getAll());
     }
 
     /**
@@ -1222,6 +1272,23 @@ class UnevaluatedPropertiesAccessorPostProcessorTest extends AbstractPHPModelGen
         // Rollback discipline: _patternProperties restored to the pre-call value;
         // _rawModelDataInput unchanged.
         $this->assertSame(['name' => 'Alice', 'x_foo' => 5], $object->meta()->rawInput());
+
+        // The constructor reports the same pair: the invalid pattern value is never stored as a
+        // validated pattern property, so the unevaluated check doesn't credit it either.
+        try {
+            new $className(['name' => 'Alice', 'x_foo' => 'bad-string']);
+            $this->fail('Expected ErrorRegistryException with pattern + unevaluated errors');
+        } catch (ErrorRegistryException $registry) {
+            $this->assertSame(
+                <<<MSG
+                Provided JSON for '{$className}' contains invalid pattern properties
+                  - invalid property 'x_foo' matching pattern '^x_'
+                    * Invalid type for 'pattern property': requires 'int', got 'string'
+                Provided JSON for '{$className}' contains not allowed unevaluated properties ['x_foo']
+                MSG,
+                $registry->getMessage(),
+            );
+        }
     }
 
     /**

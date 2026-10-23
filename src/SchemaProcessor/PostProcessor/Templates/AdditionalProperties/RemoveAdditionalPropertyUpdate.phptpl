@@ -1,0 +1,57 @@
+if ($inPatternProperties) {
+    foreach (array_keys($this->_patternProperties) as $patternHash) {
+        unset($this->_patternProperties[$patternHash][$key]);
+    }
+}
+
+unset($this->_rawModelDataInput[$key]);
+
+if ($inAdditionalProperties) {
+    unset($this->_additionalProperties[$key]);
+}
+
+{#
+    Validate the remaining data in the order of the constructor: the compositions are base validators, the
+    dependencies are validators of the declared properties.
+#}
+{% if compositionValidatorKeys %}
+    // the compositions merge the remaining model data, no property is updated
+    $updatedModelData = [];
+    {% foreach compositionValidatorKeys as compositionValidatorKey %}
+        {#
+            The cached result of a branch is kept as long as none of its properties is updated, but the removed key
+            may be one of them - and a removed key can't be passed as updated model data. Discard the cached results.
+        #}
+        $this->_propertyValidationState[{{ compositionValidatorKey }}] = [];
+        $this->_validateComposition_{{ compositionValidatorKey }}($updatedModelData);
+    {% endforeach %}
+{% endif %}
+
+{% if dependencyValidators %}
+    $this->_executeDependencyValidators($this->_rawModelDataInput);
+{% endif %}
+
+{#
+    The removed key may have been the only one a composition branch required: the keys the active branches don't
+    evaluate any longer are validated against the remaining data. A copy, the validators take the data by reference.
+#}
+{% if schema.getPostCompositionValidators() %}
+    $remainingModelData = $this->_rawModelDataInput;
+    $this->_executePostCompositionValidators($remainingModelData);
+{% endif %}
+
+{#
+    The removed key may switch the active branch of a composition: the properties depending on the active branch are
+    validated again before the removal is accepted (no property of the model is processed by the update).
+#}
+{% if compositionValidatorKeys and schema.hasMethod('_prepareBranchFilteredValues') %}
+    $preparedBranchFilteredValues = $this->_prepareBranchFilteredValues([], $this->_rawModelDataInput);
+{% endif %}
+
+{% if compositionValidatorKeys or dependencyValidators or schema.getPostCompositionValidators() %}
+    {% if generatorConfiguration.collectErrors() %}
+        if (count($this->_errorRegistry->getErrors())) {
+            throw $this->_errorRegistry;
+        }
+    {% endif %}
+{% endif %}

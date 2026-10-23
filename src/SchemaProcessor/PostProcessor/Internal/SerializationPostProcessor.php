@@ -25,7 +25,10 @@ use PHPModelGenerator\SchemaProcessor\Hook\SerializationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Traits\SerializableTrait;
+use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\RenderHelper;
+use PHPModelGenerator\Utils\TypeCheck;
+use ReflectionException;
 
 /**
  * Class SerializationPostProcessor
@@ -60,6 +63,73 @@ class SerializationPostProcessor extends PostProcessor
     }
 
     /**
+     * Renders the body of the serializer of a property which holds the value as provided or the output of one of
+     * several filters. A filter which declares no return type can't be recognized by its output, it is tried last:
+     * trying it earlier would make the serializers of the other filters unreachable. Of several such filters only
+     * the first one is reachable.
+     *
+     * @param FilterValidator[] $filterValidators
+     *
+     * @throws ReflectionException
+     */
+    private function renderGuardedSerializers(array $filterValidators, PropertyInterface $property): string
+    {
+        $code = ['$value = $this->' . $property->getAttribute(true) . ';', ''];
+        $unconditionalSerialization = null;
+
+        // Several filters can produce a value of the same type: the property remembers the filter which produced the
+        // value. A value no branch filter produced (e.g. set while no branch which filters the property is active)
+        // falls back to the serializers guarded by the output type.
+        if (FilterValidator::requiresSourceTracking($property)) {
+            $code[] = sprintf(
+                'switch ($this->_branchFilteredSources[%s] ?? null) {',
+                var_export($property->getName(), true),
+            );
+
+            foreach (FilterValidator::branchTransformingFiltersOf($property) as $filterValidator) {
+                array_push(
+                    $code,
+                    '    case ' . var_export($filterValidator->getIdentifier(), true) . ':',
+                    '        ' . $this->renderSerialization($filterValidator),
+                );
+            }
+
+            array_push($code, '}', '');
+        }
+
+        foreach ($filterValidators as $filterValidator) {
+            $returnTypeNames = FilterReflection::getReturnTypeNames($filterValidator->getFilter(), $property);
+            $serialization = $this->renderSerialization($filterValidator);
+
+            if ($returnTypeNames === []) {
+                $unconditionalSerialization ??= $serialization;
+
+                continue;
+            }
+
+            array_push(
+                $code,
+                'if ' . TypeCheck::buildCompound($returnTypeNames) . ' {',
+                "    $serialization",
+                '}',
+                '',
+            );
+        }
+
+        $code[] = $unconditionalSerialization ?? 'return $value;';
+
+        return implode("\n", $code);
+    }
+
+    private function renderSerialization(FilterValidator $filterValidator): string
+    {
+        [$serializerClass, $serializerMethod] = $filterValidator->getFilter()->getSerializer();
+
+        return "return \\{$serializerClass}::{$serializerMethod}("
+            . '$value, ' . RenderHelper::varExportArray($filterValidator->getFilterOptions()) . ');';
+    }
+
+    /**
      * Each transforming filter must provide a method to serialize the value. Add a method to the schema to call the
      * serialization for each property with a transforming filter
      */
@@ -71,6 +141,7 @@ class SerializationPostProcessor extends PostProcessor
             $arrayItemValidator = null;
             $arrayTupleValidator = null;
             $unevaluatedItemsValidator = null;
+            $transformingFilterValidators = [];
 
             foreach ($property->getValidators() as $propertyValidator) {
                 $validator = $propertyValidator->getValidator();
@@ -92,32 +163,21 @@ class SerializationPostProcessor extends PostProcessor
                     $arrayTupleValidator = $validator;
                 } elseif ($validator instanceof UnevaluatedItemsValidator) {
                     $unevaluatedItemsValidator = $validator;
-                }
-
-                if (
-                    $validator instanceof FilterValidator &&
-                    $validator->getFilter() instanceof TransformingFilterInterface
+                } elseif (
+                    $validator instanceof FilterValidator
+                    && $validator->getFilter() instanceof TransformingFilterInterface
                 ) {
-                    [$serializerClass, $serializerMethod] = $validator->getFilter()->getSerializer();
-
-                    $schema->addMethod(
-                        "_serialize{$property->getAttribute()}",
-                        new RenderedMethod(
-                            $schema,
-                            $generatorConfiguration,
-                            join(
-                                DIRECTORY_SEPARATOR,
-                                ['Serialization', 'TransformingFilterSerializer.phptpl'],
-                            ),
-                            [
-                                'property' => $property,
-                                'serializerClass' => $serializerClass,
-                                'serializerMethod' => $serializerMethod,
-                                'serializerOptions' => RenderHelper::varExportArray($validator->getFilterOptions()),
-                            ],
-                        )
-                    );
+                    $transformingFilterValidators[] = $validator;
                 }
+            }
+
+            if ($transformingFilterValidators !== []) {
+                $this->addPropertyTransformingFilterSerializer(
+                    $schema,
+                    $generatorConfiguration,
+                    $property,
+                    $transformingFilterValidators,
+                );
             }
 
             if ($arrayItemValidator !== null) {
@@ -175,6 +235,54 @@ class SerializationPostProcessor extends PostProcessor
                 }
             }
         }
+    }
+
+    /**
+     * @param FilterValidator[] $transformingFilterValidators The transforming filters of the property
+     *
+     * @throws ReflectionException
+     */
+    private function addPropertyTransformingFilterSerializer(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+        PropertyInterface $property,
+        array $transformingFilterValidators,
+    ): void {
+        $templateValues = ['property' => $property, 'guardedSerializers' => ''];
+
+        // A filter which is owned by a branch of a composition may not have run: the property then still holds
+        // the value as provided. Only a value of the output type of a filter is serialized by it.
+        $ownedByBranch = array_filter(
+            $transformingFilterValidators,
+            static fn(FilterValidator $validator): bool => !$validator->isExecuted(),
+        );
+
+        if ($ownedByBranch !== []) {
+            $templateValues['guardedSerializers'] = $this->renderGuardedSerializers(
+                $transformingFilterValidators,
+                $property,
+            );
+        } else {
+            // Only one transforming filter can be executed on a property.
+            $validator = $transformingFilterValidators[0];
+            [$serializerClass, $serializerMethod] = $validator->getFilter()->getSerializer();
+
+            $templateValues += [
+                'serializerClass' => $serializerClass,
+                'serializerMethod' => $serializerMethod,
+                'serializerOptions' => RenderHelper::varExportArray($validator->getFilterOptions()),
+            ];
+        }
+
+        $schema->addMethod(
+            "_serialize{$property->getAttribute()}",
+            new RenderedMethod(
+                $schema,
+                $generatorConfiguration,
+                join(DIRECTORY_SEPARATOR, ['Serialization', 'TransformingFilterSerializer.phptpl']),
+                $templateValues,
+            ),
+        );
     }
 
     /**

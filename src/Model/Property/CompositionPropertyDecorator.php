@@ -8,7 +8,9 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
+use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
+use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -16,23 +18,6 @@ use PHPModelGenerator\Utils\RenderHelper;
 class CompositionPropertyDecorator extends PropertyProxy
 {
     private const string PROPERTY_KEY = 'composition';
-
-    /**
-     * Object keywords whose outcome is decided by the shape or the count of the instance's keys
-     * rather than by the names listed in `properties`. A branch declaring any of them reacts to
-     * keys it never names, so no static name list can describe which mutations affect it.
-     */
-    private const array UNDECLARED_KEY_SENSITIVE_KEYWORDS = [
-        'additionalProperties',
-        'patternProperties',
-        'unevaluatedProperties',
-        'propertyNames',
-        'minProperties',
-        'maxProperties',
-        'dependencies',
-        'dependentRequired',
-        'dependentSchemas',
-    ];
 
     /**
      * Store all properties from nested schemas of the composed property validator. If the composition validator fails
@@ -77,6 +62,78 @@ class CompositionPropertyDecorator extends PropertyProxy
         return $this->affectedObjectProperties;
     }
 
+    /**
+     * How the result of the branch may change with an update of the key, or with an update of any key the branch
+     * doesn't declare as property if no key is given (see ObjectUpdateDependency). A key the branch declares is
+     * validated with its value. Otherwise the validators of the nested schema decide: its object-level validators
+     * (maxProperties, additionalProperties - also implicitly denied via the generator configuration -,
+     * patternProperties, propertyNames, a nested composition, unevaluatedProperties, ...) and the dependencies of its
+     * properties. A true
+     * branch has no validators, no update can change its result. Any other branch without a nested schema depends on
+     * the value of every key, its validators are unknown.
+     *
+     * Deciding by a whitelist of the keywords in the branch JSON was rejected: a $ref branch only contains the
+     * reference and additionalProperties may be denied by the configuration without any keyword in the schema. The
+     * validators of the generated nested schema cover both.
+     */
+    public function getObjectUpdateDependency(?string $key): ObjectUpdateDependency
+    {
+        // Checked before the nested schema: a true branch has none, treating it as a branch with unknown validators
+        // made every setter of the model validate the composition.
+        if ($this->alwaysTrueBranch) {
+            return ObjectUpdateDependency::None;
+        }
+
+        $nestedSchema = $this->getNestedSchema();
+
+        if ($nestedSchema === null) {
+            return ObjectUpdateDependency::Value;
+        }
+
+        // The post-composition validators (unevaluatedProperties) of the branch validate the keys the branch doesn't
+        // evaluate, they depend on every key.
+        $dependency = ObjectUpdateDependency::ofValidators(
+            [...$nestedSchema->getBaseValidators(), ...$nestedSchema->getPostCompositionValidators()],
+            $key,
+        );
+
+        foreach ($nestedSchema->getProperties() as $property) {
+            if ($property->isInternal()) {
+                continue;
+            }
+
+            if ($property->getName() === $key) {
+                return ObjectUpdateDependency::Value;
+            }
+
+            foreach ($property->getOrderedValidators() as $validator) {
+                if ($validator instanceof DependencyValidatorInterface) {
+                    $dependency = $dependency->strongest(ObjectUpdateDependency::ofValidator($validator, $key));
+                }
+            }
+        }
+
+        return $dependency;
+    }
+
+    /**
+     * Whether the value of a key the branch doesn't declare may change the result: the branch must be evaluated again
+     * with every update, the cached result can't be used.
+     */
+    public function dependsOnUndeclaredValues(): bool
+    {
+        return $this->getObjectUpdateDependency(null) === ObjectUpdateDependency::Value;
+    }
+
+    /**
+     * Whether adding a key the branch doesn't declare may change the result: the cached result is only used as long
+     * as no key is added.
+     */
+    public function dependsOnAddedKeys(): bool
+    {
+        return $this->getObjectUpdateDependency(null) === ObjectUpdateDependency::AddedKey;
+    }
+
     public function markAsAlwaysTrueBranch(): void
     {
         $this->alwaysTrueBranch = true;
@@ -110,10 +167,7 @@ class CompositionPropertyDecorator extends PropertyProxy
     }
 
     /**
-     * Returns the property names declared in this branch's `properties` keyword.
-     *
-     * Used by the composition post processor to harvest names that must invalidate the
-     * setter-side validation cache when those properties change.
+     * The property names declared in this branch's `properties` keyword, which a successful branch evaluates
      *
      * @return string[]
      */
@@ -175,36 +229,6 @@ class CompositionPropertyDecorator extends PropertyProxy
     {
         return $this->branchHasNonFalseAdditionalProperties()
             || ($this->jsonSchema->getJson()['unevaluatedProperties'] ?? null) === true;
-    }
-
-    /**
-     * True when a key the branch does not declare in `properties` can still flip the branch's
-     * outcome.
-     *
-     * The setter-side validation cache decides "nothing relevant changed" by intersecting the
-     * mutated keys with this branch's declared property names. That test is only sound while
-     * every keyword in the branch reacts to names it declares. A branch carrying
-     * `additionalProperties`, `patternProperties`, `minProperties`, ... is decided by keys it
-     * never names, so the intersection reports "no change" for a mutation that does change the
-     * outcome and the branch is wrongly skipped.
-     *
-     * `required` is deliberately absent from the list even though a required name need not
-     * appear in `properties`: the schema processor materialises every required name as a
-     * property of the branch's nested schema, so such a name is already part of the declared
-     * set the cache tests against. Adding `required` here would disable the cache for a large
-     * share of real schemas without closing any gap.
-     */
-    public function branchEvaluationDependsOnUndeclaredKeys(): bool
-    {
-        $branchJson = $this->jsonSchema->getJson();
-
-        foreach (self::UNDECLARED_KEY_SENSITIVE_KEYWORDS as $keyword) {
-            if (array_key_exists($keyword, $branchJson)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

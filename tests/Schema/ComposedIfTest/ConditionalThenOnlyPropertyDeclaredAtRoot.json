@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "integer"
+    },
+    "amount": {
+      "type": "integer"
+    }
+  },
+  "if": {
+    "properties": {
+      "kind": {
+        "const": 1
+      }
+    },
+    "required": ["kind"]
+  },
+  "then": {
+    "properties": {
+      "amount": {
+        "type": "integer",
+        "minimum": 10
+      }
+    }
+  }
+}

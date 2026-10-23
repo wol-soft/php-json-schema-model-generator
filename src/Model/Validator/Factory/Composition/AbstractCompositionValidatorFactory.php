@@ -460,8 +460,11 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     /**
      * Create a composition branch for a boolean `false` schema element.
      *
-     * The branch always fails when the property key is present in $modelData, so absent optional
-     * properties are not denied. Used for false branches in allOf/anyOf/oneOf compositions.
+     * The branch of a property always fails when the property key is present in $modelData, so
+     * absent optional properties are not denied. The branch of a composition of the schema itself
+     * always fails: the validated object is always present. Checking the presence there was
+     * rejected: the check looked for a key named like the class, the false branch matched any
+     * object without such a key. Used for false branches in allOf/anyOf/oneOf compositions.
      */
     protected function createAlwaysFalseBranchProperty(
         SchemaProcessor $schemaProcessor,
@@ -484,7 +487,9 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             ),
         );
 
-        $presenceCheck = "array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
+        $presenceCheck = $property instanceof BaseProperty
+            ? 'true'
+            : "array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
 
         // RequiredPropertyValidator exclusion for this branch is handled by
         // CompositionPropertyDecorator::getOrderedValidators() at render time.
@@ -699,7 +704,6 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         if (!$isAllOf && count($activeBranches) < count($compositionProperties)) {
             return;
         }
-
 
         $hasBranchWithRequiredProperty = array_filter(
             $activeBranches,

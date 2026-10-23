@@ -1,2 +1,3 @@
-$value = $modelData;
+// The values which are part of an update (setter, populate) don't contain the stored values of the model.
+$value = array_merge($this->_rawModelDataInput, $modelData);
 {{ viewHelper.resolvePropertyDecorator(nestedProperty, false, 0) }}

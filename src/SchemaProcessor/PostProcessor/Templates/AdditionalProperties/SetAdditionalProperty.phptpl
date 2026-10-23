@@ -1,6 +1,6 @@
 /**
- *{% if hasObjectProperties %} @throws RegularPropertyAsAdditionalPropertyException
- *{% endif %}{% if schema.getBaseValidators() or schema.getPostCompositionValidators() %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+ *{% if hasObjectProperties %} @throws RegularPropertyAsAdditionalPropertyException{% endif %}
+ *{% if schema.getBaseValidators() or schema.getPostCompositionValidators() %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
  */
 private function _setAdditionalProperty(
     string $key,
@@ -16,50 +16,33 @@ private function _setAdditionalProperty(
         return;
     }
 
-    {% if validationProperty %}{{ schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) }}{% endif %}
+    {% if generatorConfiguration.collectErrors() %}
+        $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
+    {% endif %}
 
+    {% if schema.hasMethod('_prepareBranchFilteredValues') %}
+        // the compositions stage the filtered values of their active branches for this update
+        $this->_stagedBranchFilteredValues = [];
+    {% endif %}
+
+    {#
+        The base validators store the value (as additional or pattern property) and evaluate the compositions before
+        the update is accepted - restore the model state if a later validator rejects the update. Hook code is only
+        resolved for a validation property, which exists only with an AdditionalPropertiesValidator (a base
+        validator), so the hook code is wrapped as well. The post-composition validators record the evaluated and
+        the unevaluated keys.
+    #}
     {% if schema.getBaseValidators() or schema.getPostCompositionValidators() %}
-        // Snapshot the _additionalProperties bucket so any base-validator write or post-
-        // composition rejection can be unwound.
-        $rollbackAdditionalProperties = $this->_additionalProperties;
-
-        {% if generatorConfiguration.collectErrors() %}
-            $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-        {% else %}
-            try {
-        {% endif %}
-
-            {% if schema.getBaseValidators() %}
-                $addedProperty = [$key => $value];
-                $this->_executeBaseValidators($addedProperty);
-            {% else %}
-                $this->_additionalProperties[$key] = $value;
-            {% endif %}
-
-            {% if schema.getPostCompositionValidators() %}
-                // Cross-state revalidation: feed the candidate raw input view to the post-
-                // composition phase so unevaluatedProperties sees the would-be state.
-                $candidateRawModelDataInput = $this->_rawModelDataInput;
-                $candidateRawModelDataInput[$key] = $value;
-                $this->_executePostCompositionValidators($candidateRawModelDataInput);
-            {% endif %}
-
-        {% if generatorConfiguration.collectErrors() %}
-            if (count($this->_errorRegistry->getErrors())) {
-                $this->_additionalProperties = $rollbackAdditionalProperties;
-                throw $this->_errorRegistry;
-            }
-        {% else %}
-            } catch (\Throwable $rejection) {
-                $this->_additionalProperties = $rollbackAdditionalProperties;
-                throw $rejection;
-            }
-        {% endif %}
+        {{ viewHelper.indent(modelStateRollback.wrap(schema, renderUpdate()), 1) }}
     {% else %}
-        $this->_additionalProperties[$key] = $value;
+        {{ viewHelper.indent(renderUpdate(), 1) }}
     {% endif %}
 
     $this->_rawModelDataInput[$key] = $value;
+
+    {% if schema.hasMethod('_prepareBranchFilteredValues') %}
+        $this->_applyBranchFilteredValues($preparedBranchFilteredValues);
+    {% endif %}
 
     {% if validationProperty %}{{ schemaHookResolver.resolveSetterAfterValidationHook(validationProperty) }}{% endif %}
 }

@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "if": {
+    "properties": {
+      "code": {
+        "type": "string",
+        "filter": "trim",
+        "const": "abc"
+      }
+    },
+    "required": [
+      "code"
+    ]
+  },
+  "then": {
+    "properties": {
+      "thenValue": {
+        "type": "string",
+        "filter": "trim"
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "elseValue": {
+        "type": "string"
+      }
+    }
+  }
+}

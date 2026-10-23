@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Model\Validator\Factory\Composition;
 
 use PHPModelGenerator\Exception\ComposedValue\NotException;
 use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
+use PHPModelGenerator\Model\Property\BaseProperty;
 use PHPModelGenerator\Model\Property\CompositionPropertyDecorator;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
@@ -116,6 +117,10 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
      * the not constraint to be satisfied (no exception). When the property IS present, the
      * validator does not fire, the branch succeeds, and the not constraint is violated — throwing
      * NotException.
+     *
+     * For `not: true` on the schema itself the branch never fails: the validated object is always
+     * present. Checking the absence there was rejected: the check looked for a key named like the
+     * class, `not: true` accepted any object without such a key.
      */
     private function buildNotTrueComposition(
         SchemaProcessor $schemaProcessor,
@@ -138,7 +143,9 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
             ),
         );
 
-        $absenceCheck = "!array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
+        $absenceCheck = $property instanceof BaseProperty
+            ? 'false'
+            : "!array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
 
         $branchProperty->onResolve(
             function () use ($branchProperty, $absenceCheck): void {

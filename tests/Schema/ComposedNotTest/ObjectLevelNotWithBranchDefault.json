@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    }
+  },
+  "not": {
+    "properties": {
+      "kind": {
+        "const": "forbidden"
+      },
+      "flag": {
+        "type": "boolean",
+        "default": true
+      }
+    },
+    "required": [
+      "kind"
+    ]
+  }
+}

@@ -16,7 +16,8 @@ use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
  * InvalidPatternPropertiesException listing the matched property names, consistent with the
  * exception thrown by PatternPropertiesValidator for schema-constrained pattern properties.
  */
-class ForbiddenPatternPropertiesValidator extends AbstractPropertyValidator
+class ForbiddenPatternPropertiesValidator extends AbstractPropertyValidator implements
+    ObjectUpdateDependentValidatorInterface
 {
     private readonly string $patternPointer;
 
@@ -72,5 +73,23 @@ class ForbiddenPatternPropertiesValidator extends AbstractPropertyValidator
                 return !empty(\$invalidProperties);
             })()
             PHP;
+    }
+
+    /**
+     * A key matching the pattern is rejected by its presence.
+     */
+    public function getObjectUpdateDependency(string $key): ObjectUpdateDependency
+    {
+        return preg_match('/' . addcslashes($this->pattern, '/') . '/', $key) === 1
+            ? ObjectUpdateDependency::AddedKey
+            : ObjectUpdateDependency::None;
+    }
+
+    /**
+     * Any undeclared key may match the pattern.
+     */
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::AddedKey;
     }
 }

@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "additionalProperties": true,
+  "anyOf": [
+    {
+      "required": [
+        "y"
+      ]
+    },
+    {
+      "required": [
+        "z"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+/**
+ * Validate the dependencies of the properties against the provided model data
+ *
+ * @param string[] $skippedProperties The properties whose dependencies are validated with the property itself
+ *{% if not generatorConfiguration.collectErrors() %}
+ * @throws ValidationException{% endif %}
+ */
+private function _executeDependencyValidators(array $modelData, array $skippedProperties = []): void
+{
+    {#
+        Each dependency validator checks itself whether its property is present. $value is the provided value the
+        validators pass to their exception, like in the constructor.
+    #}
+    {% foreach dependencyValidators as propertyName, validators %}
+        if (!in_array('{{ propertyName }}', $skippedProperties, true)) {
+            $value = $modelData['{{ propertyName }}'] ?? null;
+
+            {% foreach validators as validator %}
+                {{ viewHelper.renderValidator(validator, schema, 2) }}
+            {% endforeach %}
+        }
+    {% endforeach %}
+}

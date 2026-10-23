@@ -1,0 +1,65 @@
+{
+  "type": "object",
+  "properties": {
+    "first": {
+      "type": "object",
+      "properties": {
+        "pair": {
+          "type": "array",
+          "items": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        }
+      },
+      "required": [
+        "pair",
+        "label"
+      ]
+    },
+    "second": {
+      "type": "object",
+      "properties": {
+        "pair": {
+          "type": "array",
+          "items": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "required": [
+        "pair",
+        "label"
+      ]
+    },
+    "third": {
+      "type": "object",
+      "properties": {
+        "pair": {
+          "type": "array",
+          "items": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "pair"
+      ]
+    }
+  }
+}

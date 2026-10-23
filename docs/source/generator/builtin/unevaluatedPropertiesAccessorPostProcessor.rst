@@ -88,10 +88,11 @@ filtered (and for transforming filters, transformed) values.
 property does not exist. Like ``getAll``, returns the processed value.
 
 **set**: Adds or updates an unevaluated property. Re-runs the enclosing schema's validation
-against the new state, including composition re-evaluation, so a mutation that would move a key
+against the new state like the constructor does — the object-level constraints (e.g.
+``maxProperties`` or ``propertyNames``) and the compositions —, so a mutation that would move a key
 into the coverage of another sibling applicator (or vice versa) is rejected up front. Throws
 *RegularPropertyAsUnevaluatedPropertyException* if the key conflicts with a regularly-defined
-schema property.
+schema property. If the update is rejected, the model stays unchanged.
 
 **set** on a key that a successful composition branch claims (for example through the branch's
 own ``additionalProperties``) is validated by that branch: a value violating the branch's claim is
@@ -103,10 +104,10 @@ always claims every extra key the bucket therefore simply stays empty.
 
 **remove**: Removes an existing unevaluated property from the model. Returns true if the property
 was removed, false if it did not exist. Re-runs the enclosing schema's validation against the
-post-removal state — including composition re-evaluation — and throws a *ValidationException* if
-the removal would produce an invalid model (for example dropping below a ``minProperties``
-constraint or flipping a composition branch that a remaining key depended on), leaving the model
-unchanged.
+post-removal state — including composition re-evaluation and the **dependencies** of the declared
+properties — and throws a *ValidationException* if the removal would produce an invalid model (for
+example dropping below a ``minProperties`` constraint, removing a property a dependency requires or
+flipping a composition branch that a remaining key depended on), leaving the model unchanged.
 
 Serialization
 ~~~~~~~~~~~~~

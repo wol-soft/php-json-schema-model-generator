@@ -6,13 +6,23 @@ private function {{ modifiedValuesMethod }}(
     $modifiedValues = [];
     $componentDefaultValueMap = {{ componentDefaultValueMap }};
     $branchDefaultProps = $componentDefaultValueMap[$componentIndex] ?? [];
+    $filteredKeys = {{ filteredKeys }};
+    // A filter which doesn't change the value (e.g. an already transformed value) still produced the value.
+    $sourceTrackedKeys = {{ sourceTrackedKeys }};
 
     foreach ({{ propertyAccessors }} as $key => $accessor) {
         if (
-            (isset($originalModelData[$key]) || in_array($key, $branchDefaultProps))
+            (
+                isset($originalModelData[$key])
+                || in_array($key, $branchDefaultProps)
+                || (array_key_exists($key, $originalModelData) && in_array($key, $filteredKeys, true))
+            )
             && method_exists($nestedCompositionObject, $accessor)
-            && ($modifiedValue = $nestedCompositionObject->$accessor())
-                !== ($originalModelData[$key] ?? !$modifiedValue)
+            && (
+                ($modifiedValue = $nestedCompositionObject->$accessor())
+                    !== ($originalModelData[$key] ?? !$modifiedValue)
+                || (array_key_exists($key, $originalModelData) && in_array($key, $sourceTrackedKeys, true))
+            )
         ) {
             $modifiedValues[$key] = $modifiedValue;
         }

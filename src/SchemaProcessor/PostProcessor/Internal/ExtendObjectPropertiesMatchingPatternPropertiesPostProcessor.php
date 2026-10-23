@@ -10,13 +10,11 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
-use PHPModelGenerator\Model\Validator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\ForbiddenPatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
-use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Utils\PropertyMerger;
 
@@ -31,46 +29,6 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
         $this->applyPatternPropertiesTypeIntersection($schema, $generatorConfiguration);
         $this->applyPatternPropertiesDefaults($schema);
         $this->transferPatternPropertiesFilterToProperty($schema, $generatorConfiguration);
-
-        $schema->addSchemaHook(
-            new class ($schema) implements SetterBeforeValidationHookInterface {
-                public function __construct(private readonly Schema $schema)
-                {}
-
-                public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
-                {
-                    $json = $this->schema->getJsonSchema()->getJson();
-                    // A batch update must execute the base validators to check the integrity of the object.
-                    // Consequently, the schema hook must not add validation code in that places.
-                    if ($batchUpdate || !isset($json['patternProperties'])) {
-                        return '';
-                    }
-
-                    $matchesAnyPattern = false;
-
-                    foreach (array_keys($json['patternProperties']) as $pattern) {
-                        if (preg_match('/' . addcslashes($pattern, '/') . '/', $property->getName())) {
-                            $matchesAnyPattern = true;
-                        }
-                    }
-
-                    if (!$matchesAnyPattern) {
-                        return '';
-                    }
-
-                    // TODO: extract pattern property validation from the base validator into a separate method and
-                    // TODO: call only the pattern property validation at this location to avoid executing unnecessary
-                    // TODO: validators
-                    return sprintf(
-                        '
-                            $modelData = array_merge($this->_rawModelDataInput, ["%s" => $value]);
-                            $this->_executeBaseValidators($modelData);
-                        ',
-                        $property->getName(),
-                    );
-                }
-            },
-        );
     }
 
     /**
@@ -366,6 +324,40 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
     }
 
     /**
+     * The filter of a matching pattern property applies to the declared property for every value. A property which is
+     * filtered already (by its own declaration, by a branch of a composition - also only while the branch is active -
+     * or by another matching pattern property) would be filtered more than once: the filters of a property have no
+     * defined order, the schema is rejected.
+     *
+     * @throws SchemaException
+     */
+    private function assertNotFilteredYet(
+        Schema $schema,
+        PropertyInterface $property,
+        string|array $patternFilter,
+    ): void {
+        $filterValidators = FilterValidator::of($property);
+
+        if ($filterValidators === []) {
+            return;
+        }
+
+        $patternFilterToken = FilterProcessor::normalizeFilterList($patternFilter)[0];
+
+        throw new SchemaException(
+            sprintf(
+                "Property '%s' is filtered more than once ('%s', '%s') in file %s:"
+                    . ' filters of the same property have no defined order',
+                $property->getName(),
+                $filterValidators[0]->getFilter()->getToken(),
+                is_array($patternFilterToken) ? ($patternFilterToken['filter'] ?? '') : $patternFilterToken,
+                $schema->getJsonSchema()->getFile(),
+            ),
+            $property->getJsonSchema(),
+        );
+    }
+
+    /**
      * @throws SchemaException
      */
     protected function transferPatternPropertiesFilterToProperty(
@@ -382,15 +374,6 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
         }
 
         foreach ($schema->getProperties() as $property) {
-            $propertyHasTransformingFilter = !empty(
-                array_filter(
-                    $property->getValidators(),
-                    static fn(Validator $validator): bool =>
-                        $validator->getValidator() instanceof FilterValidator &&
-                        $validator->getValidator()->getFilter() instanceof TransformingFilterInterface,
-                )
-            );
-
             /** @var PatternPropertiesValidator $patternPropertiesValidator */
             foreach ($patternPropertiesValidators as $patternPropertiesValidator) {
                 if (
@@ -411,26 +394,15 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
                 ) {
                     continue;
                 }
-                if ($propertyHasTransformingFilter) {
-                    foreach (
-                        $patternPropertiesValidator->getValidationProperty()->getValidators() as $validator
-                    ) {
-                        if (
-                            $validator->getValidator() instanceof FilterValidator &&
-                            $validator->getValidator()->getFilter() instanceof TransformingFilterInterface
-                        ) {
-                            throw new SchemaException(
-                                sprintf(
-                                    'Applying multiple transforming filters for property %s'
-                                        . ' is not supported in file %s',
-                                    $property->getName(),
-                                    $property->getJsonSchema()->getFile(),
-                                ),
-                                $property->getJsonSchema(),
-                            );
-                        }
-                    }
-                }
+
+                $this->assertNotFilteredYet(
+                    $schema,
+                    $property,
+                    $schema->getJsonSchema()->getJson()
+                        ['patternProperties']
+                        [$patternPropertiesValidator->getPattern()]
+                        ['filter'],
+                );
 
                 (new FilterProcessor())->process(
                     $property,

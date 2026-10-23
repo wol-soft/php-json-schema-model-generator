@@ -1,0 +1,35 @@
+{% if validationProperty %}{{ schemaHookResolver.resolveSetterBeforeValidationHook(validationProperty) }}{% endif %}
+
+{% if schema.getBaseValidators() %}
+    $addedProperty = [$key => $value];
+    $this->_executeBaseValidators($addedProperty);
+
+    {#
+        The added key may switch the active branch of a composition: the properties depending on the active branch
+        are validated again before anything is assigned (no property of the model is processed by the update).
+    #}
+    {% if schema.hasMethod('_prepareBranchFilteredValues') %}
+        $preparedBranchFilteredValues = $this->_prepareBranchFilteredValues(
+            [],
+            array_merge($this->_rawModelDataInput, [$key => $value]),
+        );
+    {% endif %}
+{% else %}
+    // No base validators means no pattern properties either — value goes directly to _additionalProperties.
+    $this->_additionalProperties[$key] = $value;
+{% endif %}
+
+{% if schema.getPostCompositionValidators() %}
+    // the stored raw input doesn't contain the added key yet: validate the state after the update
+    $candidateRawModelDataInput = $this->_rawModelDataInput;
+    $candidateRawModelDataInput[$key] = $value;
+    $this->_executePostCompositionValidators($candidateRawModelDataInput);
+{% endif %}
+
+{% if generatorConfiguration.collectErrors() %}
+    {% if schema.getBaseValidators() or schema.getPostCompositionValidators() %}
+        if (count($this->_errorRegistry->getErrors())) {
+            throw $this->_errorRegistry;
+        }
+    {% endif %}
+{% endif %}

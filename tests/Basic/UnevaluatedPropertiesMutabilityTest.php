@@ -15,20 +15,14 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use ReflectionProperty;
+use Throwable;
 
 /**
  * Verifies that mutations performed after construction re-run the unevaluatedProperties check
  * and roll back the model state when the new value would leave a previously-evaluated key
- * orphaned. Without the setter revalidation hook a named-property setter that flips a
- * composition discriminator would silently transition the model into a state the constructor
- * would have rejected.
- *
- * Known limitation: when a property's own validators fail in collect-errors mode (e.g. a
- * minLength violation), the setter throws its accumulated error registry *before* reaching
- * the after-hook, so an additional unevaluated-properties violation that the same setter
- * would have triggered is never collected alongside it. Closing that gap requires deferring
- * the setter's registry throw past the after-hooks, which is a Model.phptpl change beyond
- * the scope of the revalidation hook itself.
+ * orphaned. Without the revalidation a named-property setter that flips a composition
+ * discriminator would silently transition the model into a state the constructor would have
+ * rejected.
  */
 #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
 class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestCase
@@ -256,10 +250,52 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
     }
 
     /**
-     * populate() that breaks the unevaluated check rolls every snapshotted field back so the
-     * caller observing the throw sees the pre-call state. Populate.phptpl runs a single
-     * one-shot revalidation after the merge — the per-property hooks emit empty code in
-     * batch mode — and the rollback restores both rollbackValues and _rawModelDataInput.
+     * A branch whose own unevaluatedProperties rejects a key it doesn't declare depends on every
+     * added key. The cached result of the branch must not be reused for an update adding such a
+     * key: the update is rejected like the constructor rejects the same data, and the model stays
+     * unchanged. Deciding the reuse by the base validators of the branch only (the
+     * unevaluatedProperties validator is a post-composition validator) accepted the update.
+     */
+    public function testAddedKeyRevalidatesABranchDenyingUnevaluatedProperties(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new PopulatePostProcessor());
+        };
+
+        $className = $this->generateClassFromFile('AllOfBranchDeniesUnevaluatedKeys.json', $this->defaultConfig());
+
+        $expectedMessage = <<<MSG
+            Invalid value for '{$className}' declined by composition constraint
+              Requires to match all composition elements but matched 0 elements
+            MSG;
+
+        try {
+            new $className(['kind' => 'a', 'extra' => 1]);
+            $this->fail('Expected the constructor to reject the key the branch does not evaluate');
+        } catch (AllOfException $exception) {
+            $this->assertSame($expectedMessage, $exception->getMessage());
+        }
+
+        $object = new $className(['kind' => 'a']);
+
+        try {
+            $object->populate(['extra' => 1]);
+            $this->fail('Expected populate to reject the key the branch does not evaluate');
+        } catch (AllOfException $exception) {
+            $this->assertSame($expectedMessage, $exception->getMessage());
+        }
+
+        $this->assertSame(['kind' => 'a'], $object->meta()->rawInput());
+
+        // An update of the declared key is still accepted.
+        $object->setKind('b');
+        $this->assertSame(['kind' => 'b'], $object->meta()->rawInput());
+    }
+
+    /**
+     * populate() that breaks the unevaluated check restores the model state so the caller
+     * observing the throw sees the pre-call state. populate() validates the unevaluated keys
+     * once against the merged state, after the updated properties are processed.
      */
     public function testPopulateRollsBackEveryFieldWhenDeltaBreaksUnevaluated(): void
     {
@@ -286,14 +322,6 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
     }
 
     /**
-     * Collect-errors mode: the registry accumulates failures rather than throwing on the
-     * first one. The hook's collect-errors emission compares the registry's state after
-     * the revalidate call and surfaces the registry when new errors landed. Confirms the
-     * codegen-time branch picks the right shape for collect-errors mode and that the
-     * collected error carries the orphaned-key message produced by the unevaluated
-     * validator.
-     */
-    /**
      * Collect-errors mode must surface every error detected by a setter in one exception,
      * regardless of which validation phase recorded it. This setter triggers both a
      * property-validator failure (kind's minLength constraint) and an unevaluated-properties
@@ -314,9 +342,8 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
 
         try {
             // Two-char value: violates kind's minLength: 3 *and* fails both oneOf branches'
-            // const checks. With the setter deferring its registry throw past the after-hook
-            // the unevaluated revalidation still runs and contributes its own error to the
-            // registry before the setter finally throws.
+            // const checks. The setter throws its registry only after the unevaluated
+            // revalidation contributed its own error.
             $object->setKind('bb');
             $this->fail('Expected setKind to throw an aggregated error registry');
         } catch (ErrorRegistryException $registry) {
@@ -324,11 +351,11 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
 
             $minLengthErrors = array_values(array_filter(
                 $errors,
-                static fn(\Throwable $error): bool => $error instanceof MinLengthException,
+                static fn(Throwable $error): bool => $error instanceof MinLengthException,
             ));
             $unevaluatedErrors = array_values(array_filter(
                 $errors,
-                static fn(\Throwable $error): bool => $error instanceof UnevaluatedPropertiesException,
+                static fn(Throwable $error): bool => $error instanceof UnevaluatedPropertiesException,
             ));
 
             $this->assertCount(
@@ -336,7 +363,7 @@ class UnevaluatedPropertiesMutabilityTest extends AbstractPHPModelGeneratorTestC
                 $minLengthErrors,
                 'expected one MinLengthException; got messages: ' . implode(
                     ' | ',
-                    array_map(static fn(\Throwable $e): string => $e->getMessage(), $errors),
+                    array_map(static fn(Throwable $error): string => $error->getMessage(), $errors),
                 ),
             );
             $this->assertSame("Value for 'kind' must not be shorter than 3", $minLengthErrors[0]->getMessage());

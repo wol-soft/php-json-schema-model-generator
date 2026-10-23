@@ -21,6 +21,8 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\ArrayTypeHintDecorator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
+use PHPModelGenerator\SchemaProcessor\ModelUpdate\DependencyValidation;
+use PHPModelGenerator\SchemaProcessor\ModelUpdate\ModelStateRollback;
 use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 use PHPModelGenerator\Utils\RenderHelper;
 use ReflectionClass;
@@ -246,7 +248,6 @@ class UnevaluatedPropertiesAccessorPostProcessor extends PostProcessor
         }
 
         $schema->addProperty($backingField);
-        $schema->addRollbackProperty('_unevaluatedProperties');
     }
 
     /**
@@ -342,6 +343,8 @@ class UnevaluatedPropertiesAccessorPostProcessor extends PostProcessor
             $schema->addUsedClass(RegularPropertyAsUnevaluatedPropertyException::class);
         }
 
+        $schemaHookResolver = new SchemaHookResolver($schema);
+
         $schema->addMethod(
             '_setUnevaluatedProperty',
             new RenderedMethod(
@@ -357,7 +360,18 @@ class UnevaluatedPropertiesAccessorPostProcessor extends PostProcessor
                     'patternProperties' => $hasPatternProperties
                         ? RenderHelper::varExportPcrePatternMap($patternPropertyPointers)
                         : null,
-                    'schemaHookResolver' => new SchemaHookResolver($schema),
+                    'schemaHookResolver' => $schemaHookResolver,
+                    'modelStateRollback' => new ModelStateRollback($generatorConfiguration),
+                    // the update is rendered on its own to be wrapped into the model state rollback
+                    'renderUpdate' => static fn(): string => RenderedMethod::renderPart(
+                        $schema,
+                        $generatorConfiguration,
+                        'UnevaluatedProperties' . DIRECTORY_SEPARATOR . 'SetUnevaluatedPropertyUpdate.phptpl',
+                        [
+                            'validationProperty' => $validationProperty,
+                            'schemaHookResolver' => $schemaHookResolver,
+                        ],
+                    ),
                 ],
             ),
         );
@@ -373,7 +387,7 @@ class UnevaluatedPropertiesAccessorPostProcessor extends PostProcessor
         $minPropertyValidator = null;
         $json = $schema->getJsonSchema()->getJson();
         if (isset($json['minProperties'])) {
-            $minPropertyValidator = new PropertyValidator(
+            $minPropertyValidator = (new PropertyValidator(
                 new Property($schema->getClassName(), null, $schema->getJsonSchema()),
                 sprintf(
                     '($updatedPropertiesCount = count($this->_rawModelDataInput) - 1) < %d',
@@ -381,7 +395,16 @@ class UnevaluatedPropertiesAccessorPostProcessor extends PostProcessor
                 ),
                 MinPropertiesException::class,
                 [$json['minProperties'], '&$updatedPropertiesCount'],
-            );
+            ))->withJsonPointer($schema->getJsonSchema()->getPointer() . '/minProperties');
+        }
+
+        // Every composition is validated again, like a removed additional property: a removed key may be required by
+        // any branch, and the branch outcome decides which other keys are evaluated.
+        $compositionValidatorKeys = $schema->getCompositionValidatorKeys();
+        // A dependency of a declared property may require the removed key.
+        $dependencyValidators = $schema->getDependencyValidators() !== [];
+        if ($dependencyValidators) {
+            (new DependencyValidation($generatorConfiguration))->addMethod($schema);
         }
 
         $schema->addMethod(
@@ -390,7 +413,21 @@ class UnevaluatedPropertiesAccessorPostProcessor extends PostProcessor
                 $schema,
                 $generatorConfiguration,
                 'UnevaluatedProperties/RemoveUnevaluatedProperty.phptpl',
-                ['minPropertyValidator' => $minPropertyValidator],
+                [
+                    'minPropertyValidator' => $minPropertyValidator,
+                    'compositionValidatorKeys' => $compositionValidatorKeys,
+                    'modelStateRollback' => new ModelStateRollback($generatorConfiguration),
+                    // the update is rendered on its own to be wrapped into the model state rollback
+                    'renderUpdate' => static fn(): string => RenderedMethod::renderPart(
+                        $schema,
+                        $generatorConfiguration,
+                        'UnevaluatedProperties' . DIRECTORY_SEPARATOR . 'RemoveUnevaluatedPropertyUpdate.phptpl',
+                        [
+                            'compositionValidatorKeys' => $compositionValidatorKeys,
+                            'dependencyValidators' => $dependencyValidators,
+                        ],
+                    ),
+                ],
             ),
         );
     }

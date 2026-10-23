@@ -3,5 +3,9 @@
  */
 protected function _serialize{{ viewHelper.ucfirst(property.getAttribute()) }}()
 {
-    return \{{ serializerClass }}::{{ serializerMethod }}($this->{{ property.getAttribute(true) }}, {{ serializerOptions }});
+    {% if guardedSerializers %}
+        {{ viewHelper.indent(guardedSerializers, 1) }}
+    {% else %}
+        return \{{ serializerClass }}::{{ serializerMethod }}($this->{{ property.getAttribute(true) }}, {{ serializerOptions }});
+    {% endif %}
 }

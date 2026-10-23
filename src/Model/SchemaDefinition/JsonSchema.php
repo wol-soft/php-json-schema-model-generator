@@ -7,6 +7,7 @@ namespace PHPModelGenerator\Model\SchemaDefinition;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Utils\ArrayHash;
 use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
+use PHPModelGenerator\Utils\SchemaSignatureNormalizer;
 
 class JsonSchema
 {
@@ -109,7 +110,11 @@ class JsonSchema
      */
     public function getSignature(): string
     {
-        return ArrayHash::hash($this->json, self::SCHEMA_SIGNATURE_RELEVANT_FIELDS);
+        return ArrayHash::hash(
+            SchemaSignatureNormalizer::normalize($this->json),
+            self::SCHEMA_SIGNATURE_RELEVANT_FIELDS,
+            false,
+        );
     }
 
     public function withJson(array $json): JsonSchema

@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "patternProperties": {
+    "^note$": {
+      "type": "string"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "const": "A"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "B"
+        }%1$s
+      },
+      "required": [
+        "kind"
+      ]%2$s
+    }
+  ]
+}

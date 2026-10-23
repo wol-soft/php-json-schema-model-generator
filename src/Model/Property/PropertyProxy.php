@@ -45,6 +45,27 @@ class PropertyProxy extends AbstractProperty
     }
 
     /**
+     * A copy which no longer shares the referenced property with the other properties referencing the same
+     * definition: changes to the copy (e.g. while it is transferred from a composition branch to the schema containing
+     * the composition, or merged with a branch declaration) must not change the definition. A plain clone would keep
+     * delegating every change to the shared property.
+     *
+     * Only a resolved proxy can be detached, an unresolved one is returned as a plain clone.
+     */
+    public function detach(): static
+    {
+        $copy = clone $this;
+
+        if ($this->isResolved()) {
+            $copy->definitionsCollection = new ResolvedDefinitionsCollection(
+                [$this->key => clone $this->getProperty()],
+            );
+        }
+
+        return $copy;
+    }
+
+    /**
      * Get the property out of the resolved definitions collection to proxy function calls
      */
     protected function getProperty(): PropertyInterface
