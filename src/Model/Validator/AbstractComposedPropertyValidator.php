@@ -48,6 +48,21 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
         return $this->composedProperties;
     }
 
+    /**
+     * How the result of the composition may change with an update of the key: the strongest dependency of its branches,
+     * see CompositionPropertyDecorator::getObjectUpdateDependency().
+     */
+    public function getObjectUpdateDependency(string $key): ObjectUpdateDependency
+    {
+        $dependency = ObjectUpdateDependency::None;
+
+        foreach ($this->composedProperties as $composedProperty) {
+            $dependency = $dependency->strongest($composedProperty->getObjectUpdateDependency($key));
+        }
+
+        return $dependency;
+    }
+
     protected function initModifiedValuesMethod(): void
     {
         $this->modifiedValuesMethod = '_getModifiedValues_' . substr(md5(spl_object_hash($this)), 0, 5);
@@ -56,13 +71,22 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     /**
      * Returns true when at least one composition branch has a nested schema with declared
      * properties, meaning the modified-values helper method may produce non-empty results.
+     * Internal properties (e.g. the composition validation state of a mutable branch class) are no
+     * branch data and don't count, like in the branch default map below.
      */
     protected function hasNestedSchemaWithProperties(): bool
     {
         foreach ($this->composedProperties as $compositionProperty) {
             $nestedSchema = $compositionProperty->getNestedSchema();
-            if ($nestedSchema !== null && !empty($nestedSchema->getProperties())) {
-                return true;
+
+            if ($nestedSchema === null) {
+                continue;
+            }
+
+            foreach ($nestedSchema->getProperties() as $branchProperty) {
+                if (!$branchProperty->isInternal()) {
+                    return true;
+                }
             }
         }
 
@@ -283,6 +307,7 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
             return false;
         }
 
+        $isBaseValidator = $this->scope !== null && in_array($this, $this->scope->getBaseValidators(), true);
         $allBranchDefaultAttributeMap = [];
         $componentDefaultValueMap = [];
         $propertyAccessors = [];
@@ -313,19 +338,23 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
 
                 $componentDefaultValueMap[$branchIndex][] = $branchProperty->getName();
 
-                $scopeProperty = $this->scope?->getProperty($branchProperty->getName());
+                // Only the branch properties of a base validator (a composition of the schema itself) are transferred
+                // onto the containing schema (via SchemaProcessor::transferComposedPropertiesToSchema()) and are real
+                // attributes of $this. A composition on a named property (e.g. `target: {"oneOf": [...]}`) never
+                // transfers its branches' properties - an object-typed branch compiles to its own generated class
+                // which applies its defaults in its own constructor, so no external reset is needed.
+                // Deciding by a name lookup of the branch property on the scope was rejected: it also matches an
+                // unrelated sibling property of the outer schema with the same name, whose value would be
+                // overwritten with the default of the nested branch.
+                if (!$isBaseValidator) {
+                    continue;
+                }
 
-                // Only a branch property which was actually transferred onto the containing
-                // schema (root-schema/base compositions, via
-                // SchemaProcessor::transferComposedPropertiesToSchema()) is a real attribute of
-                // $this. A composition on a named property (e.g. `target: {"oneOf": [...]}`)
-                // never transfers its branches' properties — an object-typed branch instead
-                // compiles to its own separate generated class, instantiated as a nested object.
-                // Resetting such a branch-local property (e.g. the internal
-                // `additionalProperties`/`patternProperties` bookkeeping properties) on $this
-                // would create a dynamic property on the wrong object instead of doing nothing,
-                // which is what's correct here: that nested object already initializes its own
-                // default state through its own constructor, so no external reset is needed.
+                $scopeProperty = $this->scope->getProperty($branchProperty->getName());
+
+                // The branch properties of a `not` composition are never transferred onto the scope (only
+                // compositions of a ComposedPropertiesValidatorFactoryInterface are), so they are no attributes of
+                // $this: resetting them would create a dynamic property.
                 if ($scopeProperty === null) {
                     continue;
                 }

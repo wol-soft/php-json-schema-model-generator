@@ -25,31 +25,13 @@ public function populate(array $modelData): self
         $this->_stagedBranchFilteredValues = [];
     {% endif %}
 
-    $rollbackValues = [];
+    $updatedProperties = [];
 
     {% if generatorConfiguration.collectErrors() %}
         $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
-
-        {{ viewHelper.indent(renderPopulateBody(), 1) }}
-
-        if (count($this->_errorRegistry->getErrors())) {
-            foreach ($rollbackValues as $property => $value) {
-                $this->{$property} = $value;
-            }
-
-            throw $this->_errorRegistry;
-        }
-    {% else %}
-        try {
-            {{ viewHelper.indent(renderPopulateBody(), 2) }}
-        } catch (ValidationException $exception) {
-            foreach ($rollbackValues as $property => $value) {
-                $this->{$property} = $value;
-            }
-
-            throw $exception;
-        }
     {% endif %}
+
+    {{ viewHelper.indent(modelStateRollback.wrap(schema, renderPopulateBody()), 1) }}
 
     $this->_rawModelDataInput = array_merge($this->_rawModelDataInput, $modelData);
 
@@ -59,7 +41,7 @@ public function populate(array $modelData): self
 
     {% foreach schema.getProperties() as property %}
         {% if not property.isInternal() and schemaHookResolver.resolveSetterAfterValidationHook(property) %}
-            if (array_key_exists('{{ property.getAttribute(true) }}', $rollbackValues)) {
+            if (array_key_exists('{{ property.getAttribute(true) }}', $updatedProperties)) {
                 {{ schemaHookResolver.resolveSetterAfterValidationHook(property, true) }}
             }
         {% endif %}

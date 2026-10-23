@@ -1,5 +1,5 @@
 /**
- *{% if minPropertyValidator %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
+ *{% if minPropertyValidator or compositionValidatorKeys or dependencyValidators %} @throws {% if generatorConfiguration.collectErrors() %}{{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}{% else %}ValidationException{% endif %}{% endif %}
  */
 private function _removeAdditionalProperty(string $key): bool
 {
@@ -19,11 +19,18 @@ private function _removeAdditionalProperty(string $key): bool
         return false;
     }
 
-    {% if minPropertyValidator %}
-        {% if generatorConfiguration.collectErrors() %}
+    {% if generatorConfiguration.collectErrors() %}
+        {% if minPropertyValidator or compositionValidatorKeys or dependencyValidators %}
             $this->_errorRegistry = new {{ viewHelper.getSimpleClassName(generatorConfiguration.getErrorRegistryClass()) }}();
         {% endif %}
+    {% endif %}
 
+    {% if compositionValidatorKeys and schema.hasMethod('_prepareBranchFilteredValues') %}
+        // the compositions stage the filtered values of their active branches for this update
+        $this->_stagedBranchFilteredValues = [];
+    {% endif %}
+
+    {% if minPropertyValidator %}
         if ({{ minPropertyValidator.getCheck() }}) {
             {{ viewHelper.validationError(minPropertyValidator) }}
         }
@@ -35,17 +42,19 @@ private function _removeAdditionalProperty(string $key): bool
         {% endif %}
     {% endif %}
 
-    if ($inPatternProperties) {
-        foreach ($this->_patternProperties as $patternHash => $_) {
-            unset($this->_patternProperties[$patternHash][$key]);
-        }
-    }
+    {#
+        The compositions and the dependencies of the declared properties are validated against the remaining model
+        data after the property is removed - restore the model state if they reject the removal.
+    #}
+    {% if compositionValidatorKeys or dependencyValidators %}
+        {{ viewHelper.indent(modelStateRollback.wrap(schema, renderUpdate()), 1) }}
+    {% else %}
+        {{ viewHelper.indent(renderUpdate(), 1) }}
+    {% endif %}
 
-    unset($this->_rawModelDataInput[$key]);
-
-    if ($inAdditionalProperties) {
-        unset($this->_additionalProperties[$key]);
-    }
+    {% if compositionValidatorKeys and schema.hasMethod('_prepareBranchFilteredValues') %}
+        $this->_applyBranchFilteredValues($preparedBranchFilteredValues);
+    {% endif %}
 
     return true;
 }

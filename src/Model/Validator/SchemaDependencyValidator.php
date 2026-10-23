@@ -18,7 +18,9 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * @package PHPModelGenerator\Model\Validator
  */
-class SchemaDependencyValidator extends PropertyTemplateValidator
+class SchemaDependencyValidator extends PropertyTemplateValidator implements
+    DependencyValidatorInterface,
+    ObjectUpdateDependentValidatorInterface
 {
     /**
      * SchemaDependencyValidator constructor.
@@ -67,5 +69,18 @@ class SchemaDependencyValidator extends PropertyTemplateValidator
     public function getValidatorSetUp(): string
     {
         return '$dependencyException = null;';
+    }
+
+    /**
+     * The dependency schema validates the whole object: any update may change the result.
+     */
+    public function getObjectUpdateDependency(string $key): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::Value;
+    }
+
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::Value;
     }
 }

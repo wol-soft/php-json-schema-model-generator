@@ -51,6 +51,23 @@ class RenderedMethod implements MethodInterface
         );
     }
 
+    /**
+     * Render a part of a method on its own with the same default template values as a method, e.g. to embed it into
+     * the model state rollback (ModelStateRollback::wrap()), which needs the code as a string.
+     *
+     * @throws FileSystemException
+     * @throws SyntaxErrorException
+     * @throws UndefinedSymbolException
+     */
+    public static function renderPart(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+        string $template,
+        array $templateValues = [],
+    ): string {
+        return (new self($schema, $generatorConfiguration, $template, $templateValues))->getCode();
+    }
+
     protected function getRenderer(): Render
     {
         return RenderFactory::create(__DIR__ . DIRECTORY_SEPARATOR . 'Templates' . DIRECTORY_SEPARATOR);

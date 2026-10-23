@@ -159,9 +159,10 @@ class ComposedIfThenElseBranchDefaultTest extends AbstractPHPModelGeneratorTestC
 
     /**
      * The attribute of a property whose name starts with a digit is prefixed in the generated class. The default of a
-     * branch must be written to (and removed from) this attribute, not to a dynamic property. This applies to the
-     * then and else branch of a conditional composition as well as to the branches of a oneOf composition, which
-     * render their reset logic from different templates.
+     * branch must be written to (and removed from) this attribute, not to a dynamic property (the deprecation fails the
+     * test run via failOnDeprecation in phpunit.xml). This applies to the then and else branch of a conditional
+     * composition as well as to the branches of a oneOf composition, which render their reset logic from different
+     * templates.
      */
     public function testBranchDefaultOfPropertyStartingWithDigitIsAppliedAndRemoved(): void
     {
@@ -185,12 +186,6 @@ class ComposedIfThenElseBranchDefaultTest extends AbstractPHPModelGeneratorTestC
         $object->setKind('A');
         $this->assertSame('default-a', $object->get1stValue());
         $this->assertNull($object->get2ndValue());
-
-        // No dynamic property was created by the reset logic.
-        $this->assertSame(
-            [],
-            array_values(array_intersect(array_keys(get_object_vars($object)), ['1stValue', '2ndValue', '3rdValue'])),
-        );
 
         // oneOf branch: the default of the matched branch is applied and removed when the matched branch changes.
         $this->assertSame('default-x', $object->get3rdValue());

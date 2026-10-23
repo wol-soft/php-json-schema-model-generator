@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"%s
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "name": {
+          "type": "string",
+          "filter": "trim"
+        }
+      },
+      "maxProperties": 2
+    },
+    {
+      "properties": {
+        "name": {
+          "type": "string",
+          "filter": "upper"
+        }
+      },
+      "minProperties": 3
+    }
+  ]
+}

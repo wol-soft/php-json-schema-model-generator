@@ -19,6 +19,8 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
+use PHPModelGenerator\SchemaProcessor\ModelUpdate\DependencyValidation;
+use PHPModelGenerator\SchemaProcessor\ModelUpdate\ModelStateRollback;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\AdditionalPropertiesPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\Internal\SerializationPostProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -173,6 +175,8 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             $schema->addUsedClass(RegularPropertyAsAdditionalPropertyException::class);
         }
 
+        $schemaHookResolver = new SchemaHookResolver($schema);
+
         $schema->addMethod(
             '_setAdditionalProperty',
             new RenderedMethod(
@@ -184,7 +188,18 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
                     'hasObjectProperties' => $hasObjectProperties,
                     'objectProperties' => RenderHelper::varExportArray($objectProperties),
                     'objectPropertyPointers' => RenderHelper::varExportArray($objectPropertyPointers),
-                    'schemaHookResolver' => new SchemaHookResolver($schema),
+                    'schemaHookResolver' => $schemaHookResolver,
+                    'modelStateRollback' => new ModelStateRollback($generatorConfiguration),
+                    // the update is rendered on its own to be wrapped into the model state rollback
+                    'renderUpdate' => static fn(): string => RenderedMethod::renderPart(
+                        $schema,
+                        $generatorConfiguration,
+                        'AdditionalProperties' . DIRECTORY_SEPARATOR . 'SetAdditionalPropertyUpdate.phptpl',
+                        [
+                            'validationProperty' => $validationProperty,
+                            'schemaHookResolver' => $schemaHookResolver,
+                        ],
+                    ),
                 ],
             )
         );
@@ -237,13 +252,40 @@ class AdditionalPropertiesAccessorPostProcessor extends PostProcessor
             ))->withJsonPointer($schema->getJsonSchema()->getPointer() . '/minProperties');
         }
 
+        // Every composition is validated again: a removed key may be required by any branch, also by a branch which
+        // only declares properties (a property declared only inside a branch is stored as additional property).
+        // Validating only the compositions with a branch depending on keys it doesn't declare was rejected: it
+        // accepted removals the constructor rejects.
+        $compositionValidatorKeys = $schema->getCompositionValidatorKeys();
+        // A dependency of a declared property may require the removed key: the removal checks the dependencies against
+        // the remaining data like the constructor does.
+        $dependencyValidators = $schema->getDependencyValidators() !== [];
+        if ($dependencyValidators) {
+            (new DependencyValidation($generatorConfiguration))->addMethod($schema);
+        }
+
         $schema->addMethod(
             '_removeAdditionalProperty',
             new RenderedMethod(
                 $schema,
                 $generatorConfiguration,
                 'AdditionalProperties/RemoveAdditionalProperty.phptpl',
-                ['minPropertyValidator' => $minPropertyValidator],
+                [
+                    'minPropertyValidator' => $minPropertyValidator,
+                    'compositionValidatorKeys' => $compositionValidatorKeys,
+                    'dependencyValidators' => $dependencyValidators,
+                    'modelStateRollback' => new ModelStateRollback($generatorConfiguration),
+                    // the update is rendered on its own to be wrapped into the model state rollback
+                    'renderUpdate' => static fn(): string => RenderedMethod::renderPart(
+                        $schema,
+                        $generatorConfiguration,
+                        'AdditionalProperties' . DIRECTORY_SEPARATOR . 'RemoveAdditionalPropertyUpdate.phptpl',
+                        [
+                            'compositionValidatorKeys' => $compositionValidatorKeys,
+                            'dependencyValidators' => $dependencyValidators,
+                        ],
+                    ),
+                ],
             )
         );
     }

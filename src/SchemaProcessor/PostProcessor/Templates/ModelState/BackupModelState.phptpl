@@ -1,0 +1,23 @@
+/**
+ * Snapshot of the model state before an update, restored via _restoreModelState() if the update is rejected
+ */
+private function _backupModelState(): array
+{
+    $modelState = [];
+
+    {#
+        Copy each attribute's value instead of using get_object_vars() directly: get_object_vars() keeps an attribute
+        which is a PHP reference (e.g. a declared property linked into the pattern property storage) as reference, so
+        the snapshot would follow later changes of the attribute and the restore couldn't detect them. References
+        nested inside an attribute (the links in the pattern property storage) stay shared with the model: they
+        point to attributes, which are restored by value themselves.
+        Attributes missing from the snapshot (dynamic properties, typed properties of a subclass which weren't
+        initialized before the update) aren't removed by the restore: unsetting them throws for an initialized
+        readonly property, which would replace the exception of the rejected update.
+    #}
+    foreach (get_object_vars($this) as $attribute => $value) {
+        $modelState[$attribute] = $value;
+    }
+
+    return $modelState;
+}

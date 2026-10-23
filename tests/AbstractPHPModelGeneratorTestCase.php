@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Tests;
 
+use Closure;
 use Exception;
 use FilesystemIterator;
 use PHPModelGenerator\Attributes\JsonPointer;
@@ -33,6 +34,7 @@ use ReflectionNamedType;
 use ReflectionProperty;
 use ReflectionType;
 use ReflectionUnionType;
+use Throwable;
 
 /**
  * Class AbstractPHPModelGeneratorTest
@@ -384,6 +386,23 @@ abstract class AbstractPHPModelGeneratorTestCase extends TestCase
             $this->expectException(ValidationException::class);
             $this->expectExceptionMessageMatches($messages[0]);
         }
+    }
+
+    /**
+     * Execute the callable and return the exception it throws (null if it doesn't throw). Unlike expectException()
+     * the test continues afterwards, e.g. to assert the model state after a rejected update. Unlike a try/catch around
+     * the call followed by $this->fail(), the AssertionFailedError of a missing exception isn't caught as the
+     * exception under test.
+     */
+    protected function catchException(Closure $callable): ?Throwable
+    {
+        try {
+            $callable();
+        } catch (Throwable $exception) {
+            return $exception;
+        }
+
+        return null;
     }
 
     /**

@@ -14,7 +14,7 @@ use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\RenderHelper;
 
-class PropertyNamesValidator extends PropertyTemplateValidator
+class PropertyNamesValidator extends PropertyTemplateValidator implements ObjectUpdateDependentValidatorInterface
 {
     /**
      * PropertyNamesValidator constructor.
@@ -85,5 +85,15 @@ class PropertyNamesValidator extends PropertyTemplateValidator
     public function getValidatorSetUp(): string
     {
         return '$invalidProperties = [];';
+    }
+
+    public function getObjectUpdateDependency(string $key): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::AddedKey;
+    }
+
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::AddedKey;
     }
 }

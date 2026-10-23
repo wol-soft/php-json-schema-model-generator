@@ -15,7 +15,6 @@ use PHPModelGenerator\Model\Validator\ForbiddenPatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\PropertyProcessor\Filter\FilterProcessor;
-use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Utils\PropertyMerger;
 
@@ -30,46 +29,6 @@ class ExtendObjectPropertiesMatchingPatternPropertiesPostProcessor extends PostP
         $this->applyPatternPropertiesTypeIntersection($schema, $generatorConfiguration);
         $this->applyPatternPropertiesDefaults($schema);
         $this->transferPatternPropertiesFilterToProperty($schema, $generatorConfiguration);
-
-        $schema->addSchemaHook(
-            new class ($schema) implements SetterBeforeValidationHookInterface {
-                public function __construct(private readonly Schema $schema)
-                {}
-
-                public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
-                {
-                    $json = $this->schema->getJsonSchema()->getJson();
-                    // A batch update must execute the base validators to check the integrity of the object.
-                    // Consequently, the schema hook must not add validation code in that places.
-                    if ($batchUpdate || !isset($json['patternProperties'])) {
-                        return '';
-                    }
-
-                    $matchesAnyPattern = false;
-
-                    foreach (array_keys($json['patternProperties']) as $pattern) {
-                        if (preg_match('/' . addcslashes($pattern, '/') . '/', $property->getName())) {
-                            $matchesAnyPattern = true;
-                        }
-                    }
-
-                    if (!$matchesAnyPattern) {
-                        return '';
-                    }
-
-                    // TODO: extract pattern property validation from the base validator into a separate method and
-                    // TODO: call only the pattern property validation at this location to avoid executing unnecessary
-                    // TODO: validators
-                    return sprintf(
-                        '
-                            $modelData = array_merge($this->_rawModelDataInput, ["%s" => $value]);
-                            $this->_executeBaseValidators($modelData);
-                        ',
-                        $property->getName(),
-                    );
-                }
-            },
-        );
     }
 
     /**

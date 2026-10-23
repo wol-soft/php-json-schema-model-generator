@@ -410,7 +410,8 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
                   - Composition element #1: Failed
                     * Invalid value for '%class%' declined by conditional composition constraint
                       - Condition: Valid
-                      - Conditional branch failed:Invalid type for 'amount': requires 'int', got 'string'
+                      - Conditional branch failed:
+                        * Invalid type for 'amount': requires 'int', got 'string'
                 ERROR,
             ],
         ];

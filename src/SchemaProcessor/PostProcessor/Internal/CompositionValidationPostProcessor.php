@@ -6,27 +6,23 @@ namespace PHPModelGenerator\SchemaProcessor\PostProcessor\Internal;
 
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\Property;
-use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\SchemaProcessor\Hook\ConstructorAfterValidationHookInterface;
-use PHPModelGenerator\SchemaProcessor\Hook\SetterAfterValidationHookInterface;
-use PHPModelGenerator\SchemaProcessor\Hook\SetterBeforeValidationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
- * Class CompositionValidationPostProcessor
+ * Adds methods to models which require composition validations on object level to validate the compositions, and the
+ * state of the compositions of mutable models. The setters execute the validation methods of the compositions an
+ * update of the property may change and stage, prepare and apply the filtered values of the active branches (see
+ * SetterValidationRenderer).
  *
- * The CompositionValidationPostProcessor adds methods to models which require composition validations on object level
- * to validate the compositions.
- *
- * Additionally extends setter methods to also validate compositions if the updated property is part of a composition
- *
- * @package PHPModelGenerator\SchemaProcessor\PostProcessor\Internal
+ * Validating the compositions via a setter hook was rejected: hook code makes a setter snapshot the model state on
+ * every call, also if the update of a present key can't change the result of a composition.
  */
 class CompositionValidationPostProcessor extends PostProcessor
 {
@@ -37,8 +33,6 @@ class CompositionValidationPostProcessor extends PostProcessor
         if (empty($compositionValidatorKeys)) {
             return;
         }
-
-        $validatorPropertyMap = $this->generateValidatorPropertyMap($schema);
 
         $allFilteredKeys = $this->addValidationMethods(
             $schema,
@@ -51,63 +45,32 @@ class CompositionValidationPostProcessor extends PostProcessor
         }
 
         // if the generator is immutable no validation on value updates are required
-        if ($generatorConfiguration->isImmutable() || empty($validatorPropertyMap)) {
+        if ($generatorConfiguration->isImmutable()) {
             return;
         }
 
-        $this->addValidationCallsToSetterMethods($schema, $validatorPropertyMap, $allFilteredKeys);
+        $this->addValidationStateProperty($schema, $compositionValidatorKeys);
     }
 
     /**
-     * Set up a map containing the properties and the corresponding composition validators which must be checked when
-     * the property is updated
+     * The composition of a mutable model records the result of each branch, whether or not a branch declares a
+     * property. Declaring the state only if a setter validates the composition was rejected: the composition records
+     * its result in the constructor as well, an undeclared state is created as (deprecated) dynamic property.
+     *
+     * @param int[] $compositionValidatorKeys
      */
-    private function generateValidatorPropertyMap(Schema $schema): array
+    private function addValidationStateProperty(Schema $schema, array $compositionValidatorKeys): void
     {
-        $validatorPropertyMap = [];
-
-        // get all base validators which are composed value validators and set up a map of affected object properties
-        foreach ($schema->getBaseValidators() as $validatorIndex => $validator) {
-            if (!is_a($validator, AbstractComposedPropertyValidator::class)) {
-                continue;
-            }
-
-            foreach ($validator->getComposedProperties() as $composedProperty) {
-                if ($composedProperty->getNestedSchema() === null) {
-                    continue;
-                }
-
-                foreach ($composedProperty->getNestedSchema()->getProperties() as $property) {
-                    if (!isset($validatorPropertyMap[$property->getName()])) {
-                        $validatorPropertyMap[$property->getName()] = [];
-                    }
-
-                    $validatorPropertyMap[$property->getName()][] = $validatorIndex;
-                }
-            }
-        }
-
-        if (!empty($validatorPropertyMap)) {
-            $schema->addProperty(
-                (new Property(
-                    'propertyValidationState',
-                    new PropertyType('array'),
-                    new JsonSchema(__FILE__, []),
-                    'Track the internal validation state of composed validations',
-                ))
-                    ->setInternal(true)
-                    ->setDefaultValue(
-                        array_fill_keys(
-                            array_unique(
-                                array_merge(...array_values($validatorPropertyMap)),
-                            ),
-                            [],
-                        )
-                    ),
-            );
-        }
-
-        return $validatorPropertyMap;
+        $schema->addProperty(
+            (new Property(
+                'propertyValidationState',
+                new PropertyType('array'),
+                new JsonSchema(__FILE__, []),
+                'Track the internal validation state of composed validations',
+            ))
+                ->setInternal(true)
+                ->setDefaultValue(array_fill_keys($compositionValidatorKeys, [])),
+        );
     }
 
     /**
@@ -215,69 +178,6 @@ class CompositionValidationPostProcessor extends PostProcessor
             {
                 return '$this->_applyBranchFilteredValues('
                     . '$this->_prepareBranchFilteredValues(null, $this->_rawModelDataInput));';
-            }
-        });
-    }
-
-    /**
-     * Add internal calls to validation methods to the setters which are part of a composition validation. The
-     * validation methods will validate the state of all compositions when the value is updated.
-     *
-     * The compositions stage the filtered values of their active branches. A setter starts with an empty staging, the
-     * values are adopted once the update succeeded. The batch update (populate) validates all compositions up front
-     * and adopts the staged values after all properties were updated.
-     *
-     * @param array $allFilteredKeys property name => [attribute, validation method]
-     */
-    private function addValidationCallsToSetterMethods(
-        Schema $schema,
-        array $validatorPropertyMap,
-        array $allFilteredKeys,
-    ): void {
-        $schema->addSchemaHook(
-            new class ($validatorPropertyMap, $allFilteredKeys !== []) implements SetterBeforeValidationHookInterface {
-                public function __construct(protected array $validatorPropertyMap, protected bool $stages)
-                {}
-
-                public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
-                {
-                    $validatorIndices = array_unique($this->validatorPropertyMap[$property->getName()] ?? []);
-
-                    $code = array_map(
-                        static fn(int $validatorIndex): string =>
-                            sprintf('$this->_validateComposition_%s($modelData);', $validatorIndex),
-                        $validatorIndices,
-                    );
-
-                    if ($this->stages && !$batchUpdate && $validatorIndices !== []) {
-                        array_unshift($code, '$this->_stagedBranchFilteredValues = [];');
-                        // Before the setter assigns anything (see the setter after validation hook).
-                        $code[] = sprintf(
-                            '$preparedBranchFilteredValues = $this->_prepareBranchFilteredValues(%s, %s);',
-                            RenderHelper::varExportArray([$property->getAttribute(true)]),
-                            'array_merge($this->_rawModelDataInput, $modelData)',
-                        );
-                    }
-
-                    return join("\n", $code);
-                }
-            },
-        );
-
-        if ($allFilteredKeys === []) {
-            return;
-        }
-
-        // populate() prepares and applies the filtered values itself, once for all properties.
-        $schema->addSchemaHook(new class ($validatorPropertyMap) implements SetterAfterValidationHookInterface {
-            public function __construct(protected array $validatorPropertyMap)
-            {}
-
-            public function getCode(PropertyInterface $property, bool $batchUpdate = false): string
-            {
-                return $batchUpdate || empty($this->validatorPropertyMap[$property->getName()])
-                    ? ''
-                    : '$this->_applyBranchFilteredValues($preparedBranchFilteredValues);';
             }
         });
     }

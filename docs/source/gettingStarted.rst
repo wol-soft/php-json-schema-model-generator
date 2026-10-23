@@ -196,7 +196,7 @@ Immutable classes
 
     setImmutable(bool $immutable);
 
-If set to true the generated model classes will be delivered without setter methods for the object properties. By default the classes are generated without setter methods. Each setter will validate the provided value and throw either a specific exception or a collection exception depending on the `error collection configuration <#collect-errors-vs-early-return>`__. If all validations pass the internal value will be updated as well as the value which will be returned when `meta()->rawInput()` is called.
+If set to true the generated model classes will be delivered without setter methods for the object properties. By default the classes are generated without setter methods. Each setter will validate the provided value and throw either a specific exception or a collection exception depending on the `error collection configuration <#collect-errors-vs-early-return>`__. If all validations pass the internal value will be updated as well as the value which will be returned when `meta()->rawInput()` is called. If a validation fails, the model stays unchanged, including its internal state (e.g. the default values applied by a composition branch). Each setter validates everything the update may change, so a setter rejects data the constructor rejects: the compositions of the schema whose branches depend on the property, the object level keywords of the schema itself (e.g. **maxProperties**, **propertyNames**, **patternProperties**, **additionalProperties** for a property which is only declared by a composition branch) and the schema dependencies of other properties. Constraints which only depend on the keys of the model (e.g. **maxProperties**, **minProperties**, **propertyNames**, denied additional properties, property dependencies), also in composition branches, are only validated if the setter adds the property to the model; changing the value of a property which is already present doesn't validate them again.
 
 .. code-block:: php
 
@@ -263,6 +263,10 @@ By setting the **denyAdditionalProperties** option each object which doesn't spe
 
     (new GeneratorConfiguration())
         ->setDenyAdditionalProperties(true);
+
+.. note::
+
+    The option also applies to the branches of a composition (e.g. **oneOf**) of an object. Such a branch rejects all properties it doesn't define, so it depends on the keys of the model: if `immutability <#immutable-classes>`__ is disabled, the composition is validated again by every setter which adds a property to the model, not only by the setters of the properties defined in its branches. To avoid this, set *additionalProperties* to *true* explicitly for the branches.
 
 Implicit object composition
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

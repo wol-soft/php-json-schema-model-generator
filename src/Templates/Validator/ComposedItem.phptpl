@@ -17,10 +17,6 @@
     $proposedValue = null;
     $modifiedValues = [];
 
-    {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-        $originalPropertyValidationState = $this->_propertyValidationState ?? [];
-    {% endif %}
-
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
@@ -28,38 +24,55 @@
     {% foreach compositionProperties as compositionProperty %}
         try {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-                // check if the state of the validator is already known.
-                // If none of the properties affected by the validator are changed the validator must not be re-evaluated
-                if (
-                    isset($validatorIndex) &&
-                    isset($this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]) &&
-                    !array_intersect(
-                        array_keys($modifiedModelData),
-                        [
-                            {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
-                                '{{ affectedObjectProperty.getName() }}',
-                            {% endforeach %}
-                        ]
-                    )
-                ) {
-                    {% if generatorConfiguration.collectErrors() %}
-                        $compositionErrorCollection[] = $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex];
-                    {% endif %}
-
-                    if ({% if generatorConfiguration.collectErrors() %}
-                            $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]->getErrors()
-                        {% else %}
-                            $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] !== true
-                        {% endif %}
-                    ) {
-                        throw new \Exception();
-                    }
-                } else {
+                {% if compositionProperty.dependsOnUndeclaredValues() %}
+                    {#
+                        The branch depends on the values of keys it doesn't declare (e.g. patternProperties): whether
+                        the cached result is still valid can't be decided by the updated properties, always evaluate
+                        the branch again.
+                    #}
                     {% if publishesFilteredValues %}
                         $evaluatedComponents[] = $validatorComponentIndex;
                     {% endif %}
-                    {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose, filterSourceMap), 3) }}
-                }
+                    {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose, filterSourceMap), 2) }}
+                {% else %}
+                    // check if the state of the validator is already known.
+                    // If none of the properties affected by the validator are changed the validator must not be re-evaluated
+                    {#
+                        A branch depending on the keys only (e.g. maxProperties) is evaluated again if an update adds
+                        a key: the updated data isn't stored yet.
+                    #}
+                    if (
+                        isset($validatorIndex) &&
+                        isset($this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]) &&
+                        !array_intersect(
+                            array_keys($modifiedModelData),
+                            [
+                                {% foreach compositionProperty.getAffectedObjectProperties() as affectedObjectProperty %}
+                                    '{{ affectedObjectProperty.getName() }}',
+                                {% endforeach %}
+                            ]
+                        ){% if compositionProperty.dependsOnAddedKeys() %} &&
+                        !array_diff_key($modifiedModelData, $this->_rawModelDataInput){% endif %}
+                    ) {
+                        {% if generatorConfiguration.collectErrors() %}
+                            $compositionErrorCollection[] = $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex];
+                        {% endif %}
+
+                        if ({% if generatorConfiguration.collectErrors() %}
+                                $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]->getErrors()
+                            {% else %}
+                                $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] !== true
+                            {% endif %}
+                        ) {
+                            throw new \Exception();
+                        }
+                    } else {
+                        {% if publishesFilteredValues %}
+                            $evaluatedComponents[] = $validatorComponentIndex;
+                        {% endif %}
+                        {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose, filterSourceMap), 3) }}
+                    }
+                {% endif %}
             {% else %}
                 {% if publishesFilteredValues %}
                     $evaluatedComponents[] = $validatorComponentIndex;
@@ -132,17 +145,15 @@
         if ($compositionSatisfied) {
             {% if hasModifiedValuesMethod %}
                 {#
-                    Branch defaults only apply to object/array inputs. In a mixed composition where
-                    the value can also be a scalar (e.g. anyOf/oneOf of an object branch and a string
-                    branch) $originalModelData may be that scalar, which array_key_exists cannot accept.
+                    The map is only populated for compositions of the schema itself, whose value is always
+                    the model data array - a composition on a named property (which may hold a scalar) never
+                    writes branch defaults to the model.
                 #}
-                if (is_array($originalModelData)) {
-                    foreach ({{ allBranchDefaultAttributeMap }} as $branchDefaultKey => $branchDefaultAttr) {
-                        if (!array_key_exists($branchDefaultKey, $originalModelData)) {
-                            $this->$branchDefaultAttr = array_key_exists($branchDefaultKey, $modifiedValues)
-                                ? $modifiedValues[$branchDefaultKey]
-                                : null;
-                        }
+                foreach ({{ allBranchDefaultAttributeMap }} as $branchDefaultKey => $branchDefaultAttr) {
+                    if (!array_key_exists($branchDefaultKey, $originalModelData)) {
+                        $this->$branchDefaultAttr = array_key_exists($branchDefaultKey, $modifiedValues)
+                            ? $modifiedValues[$branchDefaultKey]
+                            : null;
                     }
                 }
             {% endif %}
@@ -156,13 +167,9 @@
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
-    $result = !$compositionSatisfied;
-
-    {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-        if ($result) {
-            $this->_propertyValidationState = $originalPropertyValidationState;
-        }
-    {% endif %}
-
-    return $result;
+    {#
+        A rejected composition doesn't restore the validation state recorded above: the update operation (setter,
+        populate, additional property accessors) restores the complete model state of a rejected update.
+    #}
+    return !$compositionSatisfied;
 })($value)

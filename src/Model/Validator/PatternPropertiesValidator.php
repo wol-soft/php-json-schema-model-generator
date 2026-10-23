@@ -19,7 +19,7 @@ use PHPModelGenerator\Utils\RenderHelper;
  *
  * @package PHPModelGenerator\Model\Validator
  */
-class PatternPropertiesValidator extends PropertyTemplateValidator
+class PatternPropertiesValidator extends PropertyTemplateValidator implements ObjectUpdateDependentValidatorInterface
 {
     private readonly PropertyInterface $validationProperty;
     private readonly string $key;
@@ -101,5 +101,23 @@ class PatternPropertiesValidator extends PropertyTemplateValidator
             $properties = $value;
             $invalidProperties = [];
             CODE;
+    }
+
+    /**
+     * A key matching the pattern is validated with its value against the schema of the pattern.
+     */
+    public function getObjectUpdateDependency(string $key): ObjectUpdateDependency
+    {
+        return preg_match('/' . addcslashes($this->pattern, '/') . '/', $key) === 1
+            ? ObjectUpdateDependency::Value
+            : ObjectUpdateDependency::None;
+    }
+
+    /**
+     * Any undeclared key may match the pattern.
+     */
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::Value;
     }
 }

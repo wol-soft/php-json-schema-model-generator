@@ -1,0 +1,12 @@
+/**
+ * Restore the model state of a rejected update
+ */
+private function _restoreModelState(array $modelState): void
+{
+    foreach ($modelState as $attribute => $value) {
+        // Skip unchanged values: cheap, and never writes a readonly property of a subclass
+        if ($this->{$attribute} !== $value) {
+            $this->{$attribute} = $value;
+        }
+    }
+}

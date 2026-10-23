@@ -1,0 +1,628 @@
+<?php
+
+declare(strict_types=1);
+
+namespace PHPModelGenerator\Tests\ComposedValue;
+
+use PHPModelGenerator\Model\GeneratorConfiguration;
+use PHPModelGenerator\Model\Property\Property;
+use PHPModelGenerator\Model\Property\PropertyType;
+use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\ModelGenerator;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\AdditionalPropertiesAccessorPostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
+use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
+use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
+
+/**
+ * A composition of the schema remembers the result of each branch and evaluates a branch again only if an update
+ * changes one of the properties the branch declares. A branch with an object-level keyword (maxProperties,
+ * additionalProperties, patternProperties, propertyNames, dependencies, a nested composition, ...) depends on keys it
+ * does not declare. Such a branch must be evaluated again on every update, otherwise an update the constructor
+ * rejects is accepted.
+ *
+ * The reference for each update is the constructor: an update must be rejected with the same exception the
+ * constructor throws for the resulting model data.
+ */
+class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTestCase
+{
+    public static function objectLevelKeywordProvider(): array
+    {
+        return [
+            'maxProperties' => [', "maxProperties": 1', false, false, true],
+            'maxProperties (collect errors)' => [', "maxProperties": 1', false, true, true],
+            'additionalProperties' => [', "additionalProperties": false', false, false, true],
+            'additionalProperties schema' => [', "additionalProperties": {"type": "integer"}', false, false, true],
+            'implicitly denied additionalProperties' => ['', true, false, true],
+            'patternProperties' => [
+                ', "patternProperties": {"^(note|extra)$": {"type": "integer"}}',
+                false,
+                false,
+                true,
+            ],
+            'propertyNames' => [', "propertyNames": {"pattern": "^kind$"}', false, false, true],
+            'schema dependency' => [', "dependencies": {"kind": {"maxProperties": 1}}', false, false, true],
+            'nested composition' => [', "allOf": [{"maxProperties": 1}]', false, false, true],
+        ];
+    }
+
+    #[DataProvider('objectLevelKeywordProvider')]
+    public function testUpdateViolatingObjectLevelKeywordOfBranchIsRejectedLikeTheConstructor(
+        string $branchKeyword,
+        bool $denyAdditionalProperties,
+        bool $collectErrors,
+        bool $additionalPropertyViolatesBranch,
+    ): void {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFileTemplate(
+            'BranchWithObjectLevelKeyword.json',
+            [$branchKeyword],
+            (new GeneratorConfiguration())
+                ->setImmutable(false)
+                ->setCollectErrors($collectErrors)
+                ->setDenyAdditionalProperties($denyAdditionalProperties),
+            false,
+        );
+
+        $this->assertUpdatesAreRejectedLikeTheConstructor($className, $additionalPropertyViolatesBranch);
+    }
+
+    public function testUpdateViolatingObjectLevelKeywordOfReferencedBranchIsRejectedLikeTheConstructor(): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFile(
+            'ReferencedBranchWithObjectLevelKeyword.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $this->assertUpdatesAreRejectedLikeTheConstructor($className, true);
+    }
+
+    public static function removalProvider(): array
+    {
+        return [
+            'minProperties' => ['BranchWithObjectLevelKeyword.json', [', "minProperties": 3'], false],
+            'minProperties (collect errors)' => ['BranchWithObjectLevelKeyword.json', [', "minProperties": 3'], true],
+            // the dependency of the declared property note requires the additional property extra
+            'property dependency' => ['BranchWithPropertyDependency.json', [], false],
+        ];
+    }
+
+    /**
+     * Removing an additional property changes keys a branch with an object-level keyword depends on: the removal
+     * must be rejected like the constructor rejects the remaining data, and leave the model unchanged.
+     */
+    #[DataProvider('removalProvider')]
+    public function testRemovalViolatingObjectLevelKeywordOfBranchIsRejectedLikeTheConstructor(
+        string $schemaFile,
+        array $templateValues,
+        bool $collectErrors,
+    ): void {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFileTemplate(
+            $schemaFile,
+            $templateValues,
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+            false,
+        );
+
+        $initialData = ['kind' => 'B', 'note' => 'n', 'extra' => 'e'];
+        $remainingData = ['kind' => 'B', 'note' => 'n'];
+
+        $expectedException = $this->catchException(static fn() => new $className($remainingData));
+        $this->assertNotNull($expectedException, 'The constructor must reject the remaining data');
+
+        $object = new $className($initialData);
+        $actualException = $this->catchException(static fn() => $object->additionalProperties()->remove('extra'));
+
+        $this->assertNotNull($actualException, 'The removal must be rejected');
+        $this->assertSame($expectedException::class, $actualException::class);
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+
+        $this->assertSame($initialData, $object->meta()->rawInput());
+        $this->assertSame(['extra' => 'e'], $object->additionalProperties()->getAll());
+
+        // a removal which keeps the data valid is accepted
+        $object = new $className($initialData + ['other' => 'o']);
+        $this->assertTrue($object->additionalProperties()->remove('other'));
+        $this->assertSame($initialData, $object->meta()->rawInput());
+    }
+
+    /**
+     * A property a branch only requires (it isn't declared in the properties of the schema) is stored as additional
+     * property and can be removed. A branch which only constrains its declared properties depends on that key as
+     * well: the removal must be rejected like the constructor rejects the remaining data, and the cached result of
+     * the branch must not survive the removal.
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testRemovalOfPropertyRequiredOnlyByBranchIsRejectedLikeTheConstructor(bool $collectErrors): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFile(
+            'BranchesRequiringUndeclaredProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+        );
+
+        $expectedException = $this->catchException(static fn() => new $className([]));
+        $this->assertNotNull($expectedException, 'The constructor must reject the remaining data');
+
+        $object = new $className(['y' => 1]);
+        $actualException = $this->catchException(static fn() => $object->additionalProperties()->remove('y'));
+
+        $this->assertNotNull($actualException, 'The removal must be rejected');
+        $this->assertSame($expectedException::class, $actualException::class);
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+        $this->assertSame(['y' => 1], $object->meta()->rawInput());
+        $this->assertSame(['y' => 1], $object->additionalProperties()->getAll());
+
+        // the accepted removal of y re-evaluates the branch requiring y, a later removal of z can't rely on a stale
+        // result of that branch
+        $object = new $className(['y' => 1, 'z' => 2]);
+        $this->assertTrue($object->additionalProperties()->remove('y'));
+        $this->assertSame(['z' => 2], $object->meta()->rawInput());
+
+        $actualException = $this->catchException(static fn() => $object->additionalProperties()->remove('z'));
+
+        $this->assertNotNull($actualException, 'The removal of the last required property must be rejected');
+        $this->assertSame($expectedException::class, $actualException::class);
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+        $this->assertSame(['z' => 2], $object->meta()->rawInput());
+    }
+
+    /**
+     * The dependency of the second branch requires extra, which the branch doesn't declare. Adding extra makes the
+     * second branch match besides the first one, so the update must be rejected like the constructor rejects the
+     * resulting data - a cached result of the branch, which was evaluated without extra, must not be used.
+     */
+    public function testAddingThePropertyADependencyOfABranchRequiresIsRejectedLikeTheConstructor(): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFile(
+            'BranchWithDependencyOnUndeclaredProperty.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $initialData = ['kind' => 'k', 'note' => 'n'];
+
+        $expectedException = $this->catchException(
+            static fn() => new $className($initialData + ['extra' => 'e']),
+        );
+        $this->assertNotNull($expectedException, 'The constructor must reject the data');
+
+        $updates = [
+            'additional property' => static fn(object $object) => $object->additionalProperties()->set('extra', 'e'),
+            'populate' => static fn(object $object) => $object->populate(['extra' => 'e']),
+        ];
+
+        foreach ($updates as $update => $executeUpdate) {
+            $object = new $className($initialData);
+            $actualException = $this->catchException(static fn() => $executeUpdate($object));
+
+            $this->assertNotNull($actualException, "The $update must be rejected");
+            $this->assertSame($expectedException::class, $actualException::class, $update);
+            $this->assertSame($expectedException->getMessage(), $actualException->getMessage(), $update);
+            $this->assertSame($initialData, $object->meta()->rawInput(), $update);
+        }
+    }
+
+    public static function patternPropertyMatchingDeclaredPropertyProvider(): array
+    {
+        return [
+            'branch with object-level keyword' => ['', ', "maxProperties": 1'],
+            'branch declaring the property' => [', "note": {"type": "string", "maxLength": 0}', ''],
+        ];
+    }
+
+    /**
+     * The setter of a property matching a pattern property executes the base validators to store the pattern
+     * property. The composition must be validated only once by such a setter, otherwise each failing composition is
+     * reported twice with collected errors.
+     */
+    #[DataProvider('patternPropertyMatchingDeclaredPropertyProvider')]
+    public function testUpdateOfPropertyMatchingPatternPropertyIsRejectedLikeTheConstructor(
+        string $branchProperty,
+        string $branchKeyword,
+    ): void {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFileTemplate(
+            'PatternPropertyMatchingDeclaredProperty.json',
+            [$branchProperty, $branchKeyword],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(true),
+            false,
+        );
+
+        $this->assertUpdatesAreRejectedLikeTheConstructor($className, false);
+    }
+
+    public static function collectErrorsProvider(): array
+    {
+        return [
+            'direct exception' => [false],
+            'collect errors' => [true],
+        ];
+    }
+
+    /**
+     * A post processor may add properties after the composition validation was set up. The setter of such a property
+     * must validate a composition which depends on all properties as well.
+     *
+     * Mapping the setters when the composition validation is set up was rejected: a property added by a later post
+     * processor isn't part of the schema at that time, its setter accepted data the constructor rejects.
+     */
+    public function testSetterOfPropertyAddedByLaterPostProcessorIsRejectedLikeTheConstructor(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator->addPostProcessor(new class () extends PostProcessor {
+                public function process(Schema $schema, GeneratorConfiguration $generatorConfiguration): void
+                {
+                    // only the schema containing the composition, not the classes of its branches
+                    if ($schema->getCompositionValidatorKeys() === []) {
+                        return;
+                    }
+
+                    $schema->addProperty(
+                        new Property(
+                            'added',
+                            new PropertyType('string'),
+                            new JsonSchema(__FILE__, ['type' => 'string']),
+                        ),
+                    );
+                }
+            });
+        };
+
+        $className = $this->generateClassFromFileTemplate(
+            'BranchWithObjectLevelKeyword.json',
+            [', "maxProperties": 1'],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            false,
+        );
+
+        $expectedException = $this->catchException(static fn() => new $className(['kind' => 'B', 'added' => 'a']));
+        $this->assertNotNull($expectedException, 'The constructor must reject the data');
+
+        $object = new $className(['kind' => 'B']);
+        $actualException = $this->catchException(static fn() => $object->setAdded('a'));
+
+        $this->assertNotNull($actualException, 'The setter must be rejected');
+        $this->assertSame($expectedException::class, $actualException::class);
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+        $this->assertSame(['kind' => 'B'], $object->meta()->rawInput());
+    }
+
+    /**
+     * A branch which only constrains the properties it declares keeps the cached result: the setter of a property no
+     * branch declares doesn't execute the composition validation, and the cached result of a branch is used as long as
+     * none of its properties is updated.
+     */
+    public function testBranchWithDeclaredPropertiesOnlyKeepsCachedValidation(): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFile(
+            'BranchWithDeclaredPropertiesOnly.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+        );
+
+        $object = new $className(['kind' => 'B']);
+        $object->setNote('n');
+        $object->populate(['note' => 'm']);
+        $this->assertSame(['kind' => 'B', 'note' => 'm'], $object->meta()->rawInput());
+
+        $source = file_get_contents((new ReflectionClass($className))->getFileName());
+
+        $this->assertMatchesRegularExpression('/function setNote\(.*?\n    }\n/s', $source);
+        preg_match('/function setNote\(.*?\n    }\n/s', $source, $setNote);
+        $this->assertStringNotContainsString('_validateComposition_', $setNote[0]);
+
+        preg_match('/function setKind\(.*?\n    }\n/s', $source, $setKind);
+        $this->assertStringContainsString('_validateComposition_', $setKind[0]);
+
+        // both branches keep the check for a cached result
+        $this->assertSame(2, substr_count($source, 'array_intersect('));
+    }
+
+    /**
+     * A true branch has no validators, no update can change its result: the setter of a property no other branch
+     * declares doesn't validate the composition or snapshot the model state, and the cached result of the true
+     * branch is used. Updates of the property the other branch requires are rejected like the constructor rejects the
+     * resulting data (both branches match).
+     *
+     * Treating the true branch like a branch with unknown validators (depending on the value of every key) was
+     * rejected: a single true branch made every setter of the model validate the composition.
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testAlwaysTrueBranchKeepsCachedValidation(bool $collectErrors): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFile(
+            'BranchAlwaysTrue.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+        );
+
+        $object = new $className(['kind' => 'k']);
+        $object->setKind('l');
+        $object->populate(['kind' => 'm']);
+        $this->assertSame(['kind' => 'm'], $object->meta()->rawInput());
+
+        $expectedException = $this->catchException(static fn() => new $className(['kind' => 'm', 'note' => 'n']));
+        $this->assertNotNull($expectedException, 'The constructor must reject the data');
+
+        $updates = [
+            'setter' => static fn(object $object) => $object->setNote('n'),
+            'populate' => static fn(object $object) => $object->populate(['note' => 'n']),
+        ];
+
+        foreach ($updates as $update => $executeUpdate) {
+            $actualException = $this->catchException(static fn() => $executeUpdate($object));
+
+            $this->assertNotNull($actualException, "The $update must be rejected");
+            $this->assertSame($expectedException::class, $actualException::class, $update);
+            $this->assertSame($expectedException->getMessage(), $actualException->getMessage(), $update);
+            $this->assertSame(['kind' => 'm'], $object->meta()->rawInput(), $update);
+            $this->assertNull($object->getNote(), $update);
+        }
+
+        $source = file_get_contents((new ReflectionClass($className))->getFileName());
+        preg_match('/function setKind\(.*?\n    }\n/s', $source, $setKind);
+
+        $this->assertStringNotContainsString('_validateComposition_', $setKind[0]);
+        $this->assertStringNotContainsString('_backupModelState()', $setKind[0]);
+
+        // both branches keep the check for a cached result, none of them depends on added keys
+        $this->assertSame(2, substr_count($source, 'array_intersect('));
+        $this->assertSame(0, substr_count($source, 'array_diff_key($modifiedModelData, $this->_rawModelDataInput)'));
+    }
+
+    public static function branchWithoutNestedSchemaProvider(): array
+    {
+        $branches = [
+            'false' => 'false',
+            'not: true' => '{"not": true}',
+            'nested anyOf of false' => '{"anyOf": [false]}',
+        ];
+
+        $dataSets = [];
+        foreach ($branches as $label => $branch) {
+            foreach (self::collectErrorsProvider() as $errorMode => [$collectErrors]) {
+                $dataSets["$label ($errorMode)"] = [$branch, $collectErrors];
+            }
+        }
+
+        return $dataSets;
+    }
+
+    /**
+     * A branch without a nested schema (other than a true branch) has unknown validators: it depends on the value of
+     * every key. Every update evaluates the composition, the branch keeps no cached result. Updates are rejected like
+     * the constructor rejects the resulting data.
+     */
+    #[DataProvider('branchWithoutNestedSchemaProvider')]
+    public function testBranchWithoutNestedSchemaIsEvaluatedWithEveryUpdate(string $branch, bool $collectErrors): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFileTemplate(
+            'BranchWithoutNestedSchema.json',
+            [$branch],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+            false,
+        );
+
+        $object = new $className(['kind' => 'A']);
+        $object->setNote('n');
+        $object->populate(['note' => 'm']);
+        $object->additionalProperties()->set('extra', 'e');
+        $this->assertSame(['kind' => 'A', 'note' => 'm', 'extra' => 'e'], $object->meta()->rawInput());
+
+        $resultingData = ['kind' => 'B', 'note' => 'm', 'extra' => 'e'];
+        $expectedException = $this->catchException(static fn() => new $className($resultingData));
+        $this->assertNotNull($expectedException, 'The constructor must reject the data');
+
+        $updates = [
+            'setter' => static fn(object $object) => $object->setKind('B'),
+            'populate' => static fn(object $object) => $object->populate(['kind' => 'B']),
+        ];
+
+        foreach ($updates as $update => $executeUpdate) {
+            $actualException = $this->catchException(static fn() => $executeUpdate($object));
+
+            $this->assertNotNull($actualException, "The $update must be rejected");
+            $this->assertSame($expectedException::class, $actualException::class, $update);
+            $this->assertSame($expectedException->getMessage(), $actualException->getMessage(), $update);
+            $this->assertSame(['kind' => 'A', 'note' => 'm', 'extra' => 'e'], $object->meta()->rawInput(), $update);
+        }
+
+        $source = file_get_contents((new ReflectionClass($className))->getFileName());
+        preg_match('/function setNote\(.*?\n    }\n/s', $source, $setNote);
+
+        // the setter of a key no branch declares validates the composition, also if the key is present: adding the key
+        // and changing a present key validate the same, the setter renders a single path
+        $this->assertStringNotContainsString("if (!array_key_exists('note', \$this->_rawModelDataInput))", $setNote[0]);
+        $this->assertSame(1, substr_count($setNote[0], '_validateComposition_'));
+
+        // only the branch with a nested schema keeps the check for a cached result
+        $this->assertSame(1, substr_count($source, 'array_intersect('));
+    }
+
+    /**
+     * Adding a key may also turn an invalid branch valid: the second branch depends on the number of properties, adding
+     * a key makes it match besides the first branch. The update must evaluate the branch again although no branch
+     * declares the added key.
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testAddingAKeyEvaluatesABranchDependingOnTheNumberOfPropertiesAgain(bool $collectErrors): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFile(
+            'BranchWithMinProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+        );
+
+        $this->assertUpdatesAreRejectedLikeTheConstructor($className, true);
+    }
+
+    /**
+     * A branch whose object-level keyword only depends on the keys of the object (maxProperties) keeps its cached
+     * result as long as no key is added: changing the value of a present key neither validates the composition nor
+     * snapshots the model state, adding a key validates the branch again.
+     */
+    public function testBranchDependingOnTheKeysKeepsCachedValidationForPresentKeys(): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFileTemplate(
+            'BranchWithObjectLevelKeyword.json',
+            [', "maxProperties": 2'],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            false,
+        );
+
+        $object = new $className(['kind' => 'B', 'note' => 'n']);
+        $object->setNote('m');
+        $object->populate(['note' => 'o']);
+        $this->assertSame(['kind' => 'B', 'note' => 'o'], $object->meta()->rawInput());
+
+        $expectedException = $this->catchException(
+            static fn() => new $className(['kind' => 'B', 'note' => 'o', 'extra' => 'e']),
+        );
+        $this->assertNotNull($expectedException, 'The constructor must reject the data');
+
+        $actualException = $this->catchException(static fn() => $object->additionalProperties()->set('extra', 'e'));
+        $this->assertNotNull($actualException, 'Adding a key must be rejected');
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+        $this->assertSame(['kind' => 'B', 'note' => 'o'], $object->meta()->rawInput());
+
+        $source = file_get_contents((new ReflectionClass($className))->getFileName());
+        preg_match('/function setNote\(.*?\n    }\n/s', $source, $setNote);
+
+        // only the path adding the key validates the composition and snapshots the model state
+        $this->assertStringContainsString("if (!array_key_exists('note', \$this->_rawModelDataInput)) {", $setNote[0]);
+        $this->assertSame(1, substr_count($setNote[0], '_validateComposition_'));
+        $this->assertSame(1, substr_count($setNote[0], '_backupModelState()'));
+
+        // both branches keep the check for a cached result, the branch with maxProperties also checks for added keys
+        $this->assertSame(2, substr_count($source, 'array_intersect('));
+        $this->assertSame(1, substr_count($source, 'array_diff_key($modifiedModelData, $this->_rawModelDataInput)'));
+    }
+
+    public static function deniedKeyProvider(): array
+    {
+        $deniedKeys = [
+            'denied property' => ['BranchWithDeniedProperties.json', []],
+            'forbidden pattern property' => [
+                'BranchWithObjectLevelKeyword.json',
+                [', "patternProperties": {"^(note|extra)$": false}'],
+            ],
+        ];
+
+        $dataSets = [];
+        foreach ($deniedKeys as $label => $dataSet) {
+            foreach (self::collectErrorsProvider() as $errorMode => [$collectErrors]) {
+                $dataSets["$label ($errorMode)"] = [...$dataSet, $collectErrors];
+            }
+        }
+
+        return $dataSets;
+    }
+
+    /**
+     * A branch denying a key (a property with the schema false, a pattern property with the schema false) depends on
+     * the presence of the key only, also if the branch doesn't declare the key: adding the key must be rejected like
+     * the constructor rejects the resulting data, changing the value of a present key neither validates the
+     * composition nor snapshots the model state.
+     */
+    #[DataProvider('deniedKeyProvider')]
+    public function testAddingAKeyDeniedByABranchIsRejectedLikeTheConstructor(
+        string $schemaFile,
+        array $templateValues,
+        bool $collectErrors,
+    ): void {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFileTemplate(
+            $schemaFile,
+            $templateValues,
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+            false,
+        );
+
+        $this->assertUpdatesAreRejectedLikeTheConstructor($className, true);
+
+        // the first branch matches, changing the value of the key the second branch denies keeps the result
+        $object = new $className(['kind' => 'A', 'note' => 'n']);
+        $object->setNote('m');
+        $this->assertSame(['kind' => 'A', 'note' => 'm'], $object->meta()->rawInput());
+
+        $source = file_get_contents((new ReflectionClass($className))->getFileName());
+        preg_match('/function setNote\(.*?\n    }\n/s', $source, $setNote);
+
+        // only the path adding the key validates the composition and snapshots the model state
+        $this->assertStringContainsString("if (!array_key_exists('note', \$this->_rawModelDataInput)) {", $setNote[0]);
+        $this->assertSame(1, substr_count($setNote[0], '_validateComposition_'));
+        $this->assertSame(1, substr_count($setNote[0], '_backupModelState()'));
+
+        // the branch denying the keys keeps the check for a cached result and also checks for added keys
+        $this->assertSame(1, substr_count($source, 'array_diff_key($modifiedModelData, $this->_rawModelDataInput)'));
+    }
+
+    /**
+     * Each update of a model with kind 'B' must be rejected exactly like the constructor rejects the resulting data.
+     */
+    private function assertUpdatesAreRejectedLikeTheConstructor(
+        string $className,
+        bool $additionalPropertyViolatesBranch,
+    ): void {
+        $updates = [
+            'setter' => [static fn(object $object) => $object->setNote('n'), ['kind' => 'B', 'note' => 'n']],
+            'populate' => [
+                static fn(object $object) => $object->populate(['note' => 'n']),
+                ['kind' => 'B', 'note' => 'n'],
+            ],
+        ];
+
+        if ($additionalPropertyViolatesBranch) {
+            $updates['additional property'] = [
+                static fn(object $object) => $object->additionalProperties()->set('extra', 'e'),
+                ['kind' => 'B', 'extra' => 'e'],
+            ];
+        }
+
+        foreach ($updates as $update => [$executeUpdate, $resultingData]) {
+            $expectedException = $this->catchException(static fn() => new $className($resultingData));
+            $this->assertNotNull($expectedException, "The constructor must reject the data of the $update");
+
+            $object = new $className(['kind' => 'B']);
+            $actualException = $this->catchException(static fn() => $executeUpdate($object));
+
+            $this->assertNotNull($actualException, "The $update must be rejected");
+            $this->assertSame($expectedException::class, $actualException::class, $update);
+            $this->assertSame($expectedException->getMessage(), $actualException->getMessage(), $update);
+
+            // the rejected update didn't change the model
+            $this->assertSame(['kind' => 'B'], $object->meta()->rawInput(), $update);
+            $this->assertNull($object->getNote(), $update);
+            $this->assertSame([], $object->additionalProperties()->getAll(), $update);
+        }
+    }
+
+    private function addUpdatePostProcessors(): void
+    {
+        $this->modifyModelGenerator = static function (ModelGenerator $generator): void {
+            $generator
+                ->addPostProcessor(new PopulatePostProcessor())
+                ->addPostProcessor(new AdditionalPropertiesAccessorPostProcessor(true));
+        };
+    }
+}

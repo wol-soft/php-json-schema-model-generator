@@ -7,7 +7,9 @@ namespace PHPModelGenerator\Model\Property;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
+use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
+use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 
@@ -63,6 +65,72 @@ class CompositionPropertyDecorator extends PropertyProxy
     public function getAffectedObjectProperties(): array
     {
         return $this->affectedObjectProperties;
+    }
+
+    /**
+     * How the result of the branch may change with an update of the key, or with an update of any key the branch
+     * doesn't declare as property if no key is given (see ObjectUpdateDependency). A key the branch declares is
+     * validated with its value. Otherwise the validators of the nested schema decide: its object-level validators
+     * (maxProperties, additionalProperties - also implicitly denied via the generator configuration -,
+     * patternProperties, propertyNames, a nested composition, ...) and the dependencies of its properties. A true
+     * branch has no validators, no update can change its result. Any other branch without a nested schema depends on
+     * the value of every key, its validators are unknown.
+     *
+     * Deciding by a whitelist of the keywords in the branch JSON was rejected: a $ref branch only contains the
+     * reference and additionalProperties may be denied by the configuration without any keyword in the schema. The
+     * validators of the generated nested schema cover both.
+     */
+    public function getObjectUpdateDependency(?string $key): ObjectUpdateDependency
+    {
+        // Checked before the nested schema: a true branch has none, treating it as a branch with unknown validators
+        // made every setter of the model validate the composition.
+        if ($this->alwaysTrueBranch) {
+            return ObjectUpdateDependency::None;
+        }
+
+        $nestedSchema = $this->getNestedSchema();
+
+        if ($nestedSchema === null) {
+            return ObjectUpdateDependency::Value;
+        }
+
+        $dependency = ObjectUpdateDependency::ofValidators($nestedSchema->getBaseValidators(), $key);
+
+        foreach ($nestedSchema->getProperties() as $property) {
+            if ($property->isInternal()) {
+                continue;
+            }
+
+            if ($property->getName() === $key) {
+                return ObjectUpdateDependency::Value;
+            }
+
+            foreach ($property->getOrderedValidators() as $validator) {
+                if ($validator instanceof DependencyValidatorInterface) {
+                    $dependency = $dependency->strongest(ObjectUpdateDependency::ofValidator($validator, $key));
+                }
+            }
+        }
+
+        return $dependency;
+    }
+
+    /**
+     * Whether the value of a key the branch doesn't declare may change the result: the branch must be evaluated again
+     * with every update, the cached result can't be used.
+     */
+    public function dependsOnUndeclaredValues(): bool
+    {
+        return $this->getObjectUpdateDependency(null) === ObjectUpdateDependency::Value;
+    }
+
+    /**
+     * Whether adding a key the branch doesn't declare may change the result: the cached result is only used as long
+     * as no key is added.
+     */
+    public function dependsOnAddedKeys(): bool
+    {
+        return $this->getObjectUpdateDependency(null) === ObjectUpdateDependency::AddedKey;
     }
 
     public function markAsAlwaysTrueBranch(): void

@@ -42,7 +42,9 @@ class PropertyTemplateValidator extends AbstractPropertyValidator
             $this->templateValues['schema'] = $schema;
         }
 
-        $this->templateValues['isBaseValidator'] = in_array($this, $schema->getBaseValidators());
+        // Identity, not equality: only this very instance is a base validator of the schema. A loose comparison
+        // would compare whole object graphs and could match an equal validator of a property.
+        $this->templateValues['isBaseValidator'] = in_array($this, $schema->getBaseValidators(), true);
     }
 
     /**

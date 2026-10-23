@@ -178,9 +178,11 @@ While the branch is active the declared type is still enforced. A property which
     - ``if: false, else: false`` or ``if: true, then: false`` — the composition is always
       unsatisfiable; providing any value raises a ``ConditionalException`` at runtime. The generator
       also emits a warning at generation time.
-    - ``then: false`` / ``else: false`` (with a real schema for ``if``) — when the relevant
-      branch is entered, the value would always be invalid; the generator throws a
-      ``SchemaException`` at generation time.
+    - ``then: false`` / ``else: false`` (with a real schema for ``if``) — a value entering the
+      branch is rejected with a ``ConditionalException`` at runtime, all other values are valid.
+      E.g. ``"if": {"required": ["kind"]}, "then": false`` on an object denies the key ``kind``.
+      If both ``then`` and ``else`` are ``false``, any provided value is rejected and the generator
+      emits a warning at generation time.
     - ``then: true`` / ``else: true`` — when the relevant branch is entered, any value is
       accepted; treated as absent (no additional constraint).
 
