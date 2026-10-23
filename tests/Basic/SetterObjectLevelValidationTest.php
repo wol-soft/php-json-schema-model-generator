@@ -101,6 +101,32 @@ class SetterObjectLevelValidationTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(1, substr_count($setNote[0], '_backupModelState()'));
     }
 
+    /**
+     * A setter which provides the current value of a property returns early, but if the property isn't stored yet the
+     * setter adds the key to the model: it must be validated like any other added key.
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testSetterAddingAKeyWithTheCurrentValueIsRejectedLikeTheConstructor(bool $collectErrors): void
+    {
+        $className = $this->generateClassFromFileTemplate(
+            'RootObjectLevelKeyword.json',
+            [', "maxProperties": 1'],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+            false,
+        );
+
+        $expectedException = $this->catchException(static fn() => new $className(['kind' => 'k', 'note' => null]));
+        $this->assertNotNull($expectedException, 'The constructor must reject the data');
+
+        $object = new $className(['kind' => 'k']);
+        $actualException = $this->catchException(static fn() => $object->setNote(null));
+
+        $this->assertNotNull($actualException, 'The setter must be rejected');
+        $this->assertSame($expectedException::class, $actualException::class);
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+        $this->assertSame(['kind' => 'k'], $object->meta()->rawInput());
+    }
+
     public static function collectErrorsProvider(): array
     {
         return [

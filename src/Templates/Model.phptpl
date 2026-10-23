@@ -170,7 +170,15 @@ class {{ schema.getClassName() }}{% if schema.getInterfaces() %} implements {{ v
                 public function set{{ viewHelper.ucfirst(property.getAttribute()) }}(
                     {{ viewHelper.getType(property) }} ${{ property.getAttribute(true) }}
                 ): static {
-                    if ($this->{{ property.getAttribute(true) }} === ${{ property.getAttribute(true) }}) {
+                    {#
+                        Only for a stored key: providing the current value of a property which isn't stored yet (e.g.
+                        null or a default) adds the key to the model, which must be validated like any added key
+                        (e.g. maxProperties).
+                    #}
+                    if (
+                        $this->{{ property.getAttribute(true) }} === ${{ property.getAttribute(true) }}
+                        && array_key_exists('{{ property.getName() }}', $this->_rawModelDataInput)
+                    ) {
                         // Nothing to validate, but the provided value is the raw input of the property now: the value
                         // may be equal to a filtered value only, a later validation starts from the raw input.
                         $this->_rawModelDataInput['{{ property.getName() }}'] = ${{ property.getAttribute(true) }};
