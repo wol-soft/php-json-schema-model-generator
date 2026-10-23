@@ -1513,6 +1513,76 @@ class UnevaluatedPropertiesValidatorTest extends AbstractPHPModelGeneratorTestCa
     }
 
     /**
+     * `patternProperties` on the referenced schema is adopted the same way its `properties` are:
+     * the pattern applies at the referencing schema's instance location, so a key it matches is
+     * evaluated there. `x_1` is matched by the adopted pattern and `b` by the local `properties`;
+     * `other` is claimed by neither.
+     */
+    public function testSiblingRefContributesEvaluatedPatternProperties(): void
+    {
+        $className = $this->generateClassFromFile('SiblingRefPatternPropertiesUnevaluated.json');
+
+        // The referenced schema's pattern validator runs on this class, so the field it writes
+        // must be declared on it — a `$ref` is the one way that validator reaches a class whose
+        // own JSON never spells `patternProperties`. Without the declaration the generated code
+        // creates the field dynamically, which PHP 8.2 deprecates and PHP 9 rejects.
+        $this->assertTrue(
+            (new ReflectionClass($className))->hasProperty('_patternProperties'),
+            'The field the transferred pattern validator writes must be declared on the class.',
+        );
+
+        $instance = new $className(['x_1' => 'v', 'b' => 'y']);
+        $this->assertSame(['x_1' => 'v', 'b' => 'y'], $instance->meta()->rawInput());
+
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['other']",
+        );
+        new $className(['other' => 'v']);
+    }
+
+    /**
+     * A chain of conjunctive references: the root references `middle`, which carries its own
+     * base-level `$ref` to `inner` plus its own `properties`, and each level adds a sibling
+     * declaration of its own. Every name and pattern along the chain is evaluated at the root,
+     * which only holds if each link passes on what it adopted from the link below it rather than
+     * just what it declares itself — `a` and the `^p_` pattern reach the root only through
+     * `middle`, which declares neither.
+     */
+    public function testChainedSiblingRefsCarryEveryAdoptedNameAndPattern(): void
+    {
+        $className = $this->generateClassFromFile('ChainedSiblingRefUnevaluated.json');
+
+        $accepted = ['a' => 'x', 'b' => 'y', 'c' => 'z'];
+        $instance = new $className($accepted);
+        $this->assertSame($accepted, $instance->meta()->rawInput());
+
+        try {
+            new $className(['d' => 'stray']);
+            $this->fail('A name no link in the chain declares must stay unevaluated');
+        } catch (UnevaluatedPropertiesException $exception) {
+            $this->assertSame(['d'], $exception->getUnevaluatedProperties());
+        }
+
+        // `^p_` reaches the accumulator's pattern list (the generated collectUnevaluatedKeys call
+        // receives it), but a pattern is only credited once the validator that matched it has
+        // recorded the key, and that validator never arrives: a chained reference transfers the
+        // referenced schema's *properties* but not its base validators, so `inner`'s pattern
+        // validator stops short of this class and `_patternProperties` is never declared on it.
+        // A single-hop reference does carry it — see
+        // testSiblingRefContributesEvaluatedPatternProperties. The shortfall belongs to reference
+        // merging rather than to this keyword (it drops every object-level validator the inner
+        // schema declares, not just pattern ones), so it is asserted here as it currently behaves
+        // instead of being hidden by a fixture that omits the pattern: when the transfer is fixed,
+        // this assertion fails and says so.
+        $this->expectException(UnevaluatedPropertiesException::class);
+        $this->expectExceptionMessage(
+            "Provided JSON for '{$className}' contains not allowed unevaluated properties ['p_1']",
+        );
+        new $className(['a' => 'x', 'p_1' => 'w']);
+    }
+
+    /**
      * The same sibling-`$ref` merge on a nested property rather than at the schema root. The
      * merged class is assembled by a different code path than the root-level case, so it gets its
      * own coverage.

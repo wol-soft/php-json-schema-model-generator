@@ -1435,4 +1435,59 @@ MSG,
             );
         }
     }
+
+    /**
+     * The idiomatic Draft 2020-12 array: `prefixItems` carries the tuple and `items` constrains
+     * everything behind it, the role `additionalItems` fills in earlier drafts. The two keywords
+     * must not both validate the tuple entries — the pass registered under `items` stands down
+     * when `prefixItems` is present, so index 0 answers to the tuple's own subschema only.
+     *
+     * Between them they claim every index, so `unevaluatedItems` has nothing left and is reported
+     * as dead code.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2020_12)]
+    public function testPrefixItemsLeavesTheTrailingEntriesToItems(): void
+    {
+        $logger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'PrefixItemsWithTailItems.json',
+            (new GeneratorConfiguration())->setLogger($logger)->setCollectErrors(false),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                'unevaluatedItems on {class}::{property} is dead code — {reason}',
+                ['property' => 'tags'],
+            ),
+            'The tuple plus its trailing-entry schema claim every index.',
+        );
+
+        // Index 0 against the tuple entry (string), every further index against `items` (integer).
+        $instance = new $className(['tags' => ['a', 1, 2]]);
+        $this->assertSame(['tags' => ['a', 1, 2]], $instance->meta()->rawInput());
+
+        // A trailing entry is judged by `items`, not by the tuple's string subschema.
+        try {
+            new $className(['tags' => ['a', 'b']]);
+            $this->fail('Index 1 must be validated against the trailing-entry schema');
+        } catch (InvalidAdditionalTupleItemsException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+                Tuple array 'tags' contains invalid additional items
+                  - invalid additional item '1'
+                    * Invalid type for 'additional item': requires 'int', got 'string'
+                MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        // And index 0 is still judged by the tuple entry, not by `items`.
+        $this->expectException(InvalidTupleException::class);
+        $this->expectExceptionMessage("Invalid tuple item in array 'tags'");
+
+        new $className(['tags' => [42, 1]]);
+    }
 }
