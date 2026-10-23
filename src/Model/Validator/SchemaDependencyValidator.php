@@ -78,4 +78,9 @@ class SchemaDependencyValidator extends PropertyTemplateValidator implements
     {
         return ObjectUpdateDependency::Value;
     }
+
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::Value;
+    }
 }

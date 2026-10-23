@@ -76,6 +76,31 @@ class SetterObjectLevelValidationTest extends AbstractPHPModelGeneratorTestCase
         $this->assertUpdatesAreRejectedLikeTheConstructor($className, 'setNote', 'note');
     }
 
+    /**
+     * maxProperties only depends on the keys of the object: the setter of a present key neither validates it nor
+     * snapshots the model state, the setter adding the key does.
+     */
+    public function testSetterOfPresentKeySkipsValidatorsDependingOnTheKeysOnly(): void
+    {
+        $className = $this->generateClassFromFileTemplate(
+            'RootObjectLevelKeyword.json',
+            [', "maxProperties": 2'],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            false,
+        );
+
+        $object = new $className(['kind' => 'k', 'note' => 'n']);
+        $object->setNote('m');
+        $this->assertSame(['kind' => 'k', 'note' => 'm'], $object->meta()->rawInput());
+
+        $source = file_get_contents((new ReflectionClass($className))->getFileName());
+        preg_match('/function setNote\(.*?\n    }\n/s', $source, $setNote);
+
+        $this->assertStringContainsString("if (!array_key_exists('note', \$this->_rawModelDataInput)) {", $setNote[0]);
+        $this->assertSame(1, substr_count($setNote[0], '_executeObjectValidators('));
+        $this->assertSame(1, substr_count($setNote[0], '_backupModelState()'));
+    }
+
     public static function collectErrorsProvider(): array
     {
         return [

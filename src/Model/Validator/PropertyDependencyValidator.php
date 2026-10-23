@@ -17,12 +17,13 @@ class PropertyDependencyValidator extends PropertyTemplateValidator implements
     DependencyValidatorInterface,
     ObjectUpdateDependentValidatorInterface
 {
-    /**
-     * PropertyDependencyValidator constructor.
-     */
+    /** @var string[] */
+    private readonly array $dependencies;
+
     public function __construct(PropertyInterface $property, array $dependencies)
     {
         $this->isResolved = true;
+        $this->dependencies = array_map('strval', array_values($dependencies));
 
         parent::__construct(
             $property,
@@ -44,11 +45,22 @@ class PropertyDependencyValidator extends PropertyTemplateValidator implements
     }
 
     /**
-     * The dependency requires keys to be present: an update never removes a key, it can't violate the dependency of
-     * another property. The dependency of the updated property itself is validated with the property.
+     * The dependency requires keys to be present: adding the property or a required key may change the result (an
+     * update never removes a key, so it can't violate the dependency, but it may satisfy it - relevant for the
+     * cached result of a composition branch).
      */
     public function getObjectUpdateDependency(string $key): ObjectUpdateDependency
     {
-        return ObjectUpdateDependency::None;
+        return $key === $this->property->getName() || in_array($key, $this->dependencies, true)
+            ? ObjectUpdateDependency::AddedKey
+            : ObjectUpdateDependency::None;
+    }
+
+    /**
+     * A required key may be an undeclared property.
+     */
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::AddedKey;
     }
 }

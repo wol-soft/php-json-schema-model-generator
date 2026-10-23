@@ -35,19 +35,18 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     }
 
     /**
-     * Whether a branch of the composition depends on keys of the object it doesn't declare, see
-     * CompositionPropertyDecorator::dependsOnAllObjectProperties(). Such a composition must be validated again by
-     * every update of the object.
+     * How the result of the composition may change with an update of the key: the strongest dependency of its branches,
+     * see CompositionPropertyDecorator::getObjectUpdateDependency().
      */
-    public function dependsOnAllObjectProperties(): bool
+    public function getObjectUpdateDependency(string $key): ObjectUpdateDependency
     {
+        $dependency = ObjectUpdateDependency::None;
+
         foreach ($this->composedProperties as $composedProperty) {
-            if ($composedProperty->dependsOnAllObjectProperties()) {
-                return true;
-            }
+            $dependency = $dependency->strongest($composedProperty->getObjectUpdateDependency($key));
         }
 
-        return false;
+        return $dependency;
     }
 
     protected function initModifiedValuesMethod(): void

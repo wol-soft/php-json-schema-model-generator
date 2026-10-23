@@ -331,6 +331,68 @@ class ComposedObjectLevelKeywordUpdateTest extends AbstractPHPModelGeneratorTest
     }
 
     /**
+     * Adding a key may also turn an invalid branch valid: the second branch depends on the number of properties, adding
+     * a key makes it match besides the first branch. The update must evaluate the branch again although no branch
+     * declares the added key.
+     */
+    #[DataProvider('collectErrorsProvider')]
+    public function testAddingAKeyEvaluatesABranchDependingOnTheNumberOfPropertiesAgain(bool $collectErrors): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFile(
+            'BranchWithMinProperties.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors($collectErrors),
+        );
+
+        $this->assertUpdatesAreRejectedLikeTheConstructor($className, true);
+    }
+
+    /**
+     * A branch whose object-level keyword only depends on the keys of the object (maxProperties) keeps its cached
+     * result as long as no key is added: changing the value of a present key neither validates the composition nor
+     * snapshots the model state, adding a key validates the branch again.
+     */
+    public function testBranchDependingOnTheKeysKeepsCachedValidationForPresentKeys(): void
+    {
+        $this->addUpdatePostProcessors();
+
+        $className = $this->generateClassFromFileTemplate(
+            'BranchWithObjectLevelKeyword.json',
+            [', "maxProperties": 2'],
+            (new GeneratorConfiguration())->setImmutable(false)->setCollectErrors(false),
+            false,
+        );
+
+        $object = new $className(['kind' => 'B', 'note' => 'n']);
+        $object->setNote('m');
+        $object->populate(['note' => 'o']);
+        $this->assertSame(['kind' => 'B', 'note' => 'o'], $object->meta()->rawInput());
+
+        $expectedException = $this->catchException(
+            static fn() => new $className(['kind' => 'B', 'note' => 'o', 'extra' => 'e']),
+        );
+        $this->assertNotNull($expectedException, 'The constructor must reject the data');
+
+        $actualException = $this->catchException(static fn() => $object->additionalProperties()->set('extra', 'e'));
+        $this->assertNotNull($actualException, 'Adding a key must be rejected');
+        $this->assertSame($expectedException->getMessage(), $actualException->getMessage());
+        $this->assertSame(['kind' => 'B', 'note' => 'o'], $object->meta()->rawInput());
+
+        $source = file_get_contents((new ReflectionClass($className))->getFileName());
+        preg_match('/function setNote\(.*?\n    }\n/s', $source, $setNote);
+
+        // only the path adding the key validates the composition and snapshots the model state
+        $this->assertStringContainsString("if (!array_key_exists('note', \$this->_rawModelDataInput)) {", $setNote[0]);
+        $this->assertSame(1, substr_count($setNote[0], '_validateComposition_'));
+        $this->assertSame(1, substr_count($setNote[0], '_backupModelState()'));
+
+        // both branches keep the check for a cached result, the branch with maxProperties also checks for added keys
+        $this->assertSame(2, substr_count($source, 'array_intersect('));
+        $this->assertSame(1, substr_count($source, 'array_diff_key($modifiedModelData, $this->_rawModelDataInput)'));
+    }
+
+    /**
      * Each update of a model with kind 'B' must be rejected exactly like the constructor rejects the resulting data.
      */
     private function assertUpdatesAreRejectedLikeTheConstructor(

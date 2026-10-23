@@ -112,4 +112,12 @@ class PatternPropertiesValidator extends PropertyTemplateValidator implements Ob
             ? ObjectUpdateDependency::Value
             : ObjectUpdateDependency::None;
     }
+
+    /**
+     * Any undeclared key may match the pattern.
+     */
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::Value;
+    }
 }

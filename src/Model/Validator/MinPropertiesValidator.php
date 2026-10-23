@@ -21,10 +21,16 @@ class MinPropertiesValidator extends PropertyValidator implements ObjectUpdateDe
     }
 
     /**
-     * An update never removes a key, the number of properties can't decrease.
+     * Adding a key may satisfy minProperties (relevant for the cached result of a composition branch), an update
+     * never removes a key.
      */
     public function getObjectUpdateDependency(string $key): ObjectUpdateDependency
     {
-        return ObjectUpdateDependency::None;
+        return ObjectUpdateDependency::AddedKey;
+    }
+
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::AddedKey;
     }
 }

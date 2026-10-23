@@ -91,4 +91,9 @@ class PropertyNamesValidator extends PropertyTemplateValidator implements Object
     {
         return ObjectUpdateDependency::AddedKey;
     }
+
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::AddedKey;
+    }
 }

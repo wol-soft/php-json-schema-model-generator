@@ -21,15 +21,20 @@
     {% foreach compositionProperties as compositionProperty %}
         try {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) %}
-                {% if compositionProperty.dependsOnAllObjectProperties() %}
+                {% if compositionProperty.dependsOnUndeclaredValues() %}
                     {#
-                        The branch depends on keys it doesn't declare (e.g. maxProperties): whether the cached result
-                        is still valid can't be decided by the updated properties, always evaluate the branch again.
+                        The branch depends on the values of keys it doesn't declare (e.g. patternProperties): whether
+                        the cached result is still valid can't be decided by the updated properties, always evaluate
+                        the branch again.
                     #}
                     {{ viewHelper.indent(renderComposedItemBody(compositionProperty, true, hasModifiedValuesMethod, modifiedValuesMethod, postPropose), 2) }}
                 {% else %}
                     // check if the state of the validator is already known.
                     // If none of the properties affected by the validator are changed the validator must not be re-evaluated
+                    {#
+                        A branch depending on the keys only (e.g. maxProperties) is evaluated again if an update adds
+                        a key: the updated data isn't stored yet.
+                    #}
                     if (
                         isset($validatorIndex) &&
                         isset($this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]) &&
@@ -40,7 +45,8 @@
                                     '{{ affectedObjectProperty.getName() }}',
                                 {% endforeach %}
                             ]
-                        )
+                        ){% if compositionProperty.dependsOnAddedKeys() %} &&
+                        !array_diff_key($modifiedModelData, $this->_rawModelDataInput){% endif %}
                     ) {
                         {% if generatorConfiguration.collectErrors() %}
                             $compositionErrorCollection[] = $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex];

@@ -84,4 +84,12 @@ class ForbiddenPatternPropertiesValidator extends AbstractPropertyValidator impl
             ? ObjectUpdateDependency::AddedKey
             : ObjectUpdateDependency::None;
     }
+
+    /**
+     * Any undeclared key may match the pattern.
+     */
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::AddedKey;
+    }
 }

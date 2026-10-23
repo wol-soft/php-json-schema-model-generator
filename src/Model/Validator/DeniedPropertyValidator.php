@@ -25,4 +25,12 @@ class DeniedPropertyValidator extends PropertyValidator implements ObjectUpdateD
     {
         return $key === $this->property->getName() ? ObjectUpdateDependency::AddedKey : ObjectUpdateDependency::None;
     }
+
+    /**
+     * The denied property isn't declared as property of the object.
+     */
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::AddedKey;
+    }
 }

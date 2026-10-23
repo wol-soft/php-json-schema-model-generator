@@ -92,6 +92,11 @@ class AdditionalPropertiesValidator extends PropertyTemplateValidator implements
             : ObjectUpdateDependency::Value;
     }
 
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::Value;
+    }
+
     /**
      * @inheritDoc
      */

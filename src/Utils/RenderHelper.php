@@ -7,10 +7,10 @@ namespace PHPModelGenerator\Utils;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
+use PHPModelGenerator\Model\Validator\AbstractComposedPropertyValidator;
 use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
 use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
-use PHPModelGenerator\Model\Validator\ObjectUpdateDependentValidatorInterface;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\SchemaProcessor\Hook\SchemaHookResolver;
@@ -272,12 +272,15 @@ class RenderHelper
     }
 
     /**
-     * The validation of a setter. Only before validation hook code (e.g. the composition validation) changes the
-     * model state before the update is accepted - the validators of the property itself never write the model
-     * state -, so only a setter with hook code is wrapped into the model state rollback.
+     * The validation of a setter. Only the validation of the object (object-level validators, compositions,
+     * dependencies of other properties) and before validation hook code change the model state before the update is
+     * accepted - the validators of the property itself never write the model state -, so only a setter executing
+     * such code is wrapped into the model state rollback.
      *
-     * Wrapping every setter was rejected: a setter without hook code throws before the model state is changed, the
-     * snapshot would only add runtime costs to the setters of simple models.
+     * The setter of a key which is already stored only executes the validation which depends on the value of the key:
+     * changing the value of a present key can't change the result of e.g. maxProperties. Snapshotting and validating
+     * the object on every call was rejected: it made the setters of a model with such a constraint (e.g. every
+     * composition branch with denied additional properties) expensive although most updates change present values.
      */
     public function renderSetterValidation(
         Schema $schema,
@@ -285,23 +288,20 @@ class RenderHelper
         SchemaHookResolver $schemaHookResolver,
     ): string {
         $hookCode = $schemaHookResolver->resolveSetterBeforeValidationHook($property);
-        $objectValidationCode = $this->renderSetterObjectValidation($schema, $property);
-        $dependencyValidationCode = $this->renderSetterDependencyValidation($schema, $property);
+        $addedKeyCode = $this->renderSetterUpdateValidation($schema, $property, $hookCode, true);
+        $presentKeyCode = $this->renderSetterUpdateValidation($schema, $property, $hookCode, false);
 
-        // The order of the constructor: object validators, compositions (hook code), dependencies of the properties
-        $code = join("\n\n", array_filter([
-            $objectValidationCode,
-            $hookCode,
-            $dependencyValidationCode,
-            sprintf('$value = $this->_validate%s($value, $modelData);', $this->ucfirst($property->getAttribute())),
-            $this->generatorConfiguration->collectErrors()
-                ? "if (\$this->_errorRegistry->getErrors()) {\n    throw \$this->_errorRegistry;\n}"
-                : '',
-        ]));
+        if ($addedKeyCode === $presentKeyCode) {
+            return $addedKeyCode;
+        }
 
-        return $hookCode === '' && $objectValidationCode === '' && $dependencyValidationCode === ''
-            ? $code
-            : $this->wrapInModelStateRollback($schema, $code);
+        return join("\n", [
+            sprintf('if (!array_key_exists(%s, $this->_rawModelDataInput)) {', var_export($property->getName(), true)),
+            '    ' . self::indent($addedKeyCode, 1),
+            '} else {',
+            '    ' . self::indent($presentKeyCode, 1),
+            '}',
+        ]);
     }
 
     /**
@@ -309,55 +309,91 @@ class RenderHelper
      */
     public function hasSetterObjectValidation(Schema $schema, PropertyInterface $property): bool
     {
-        return $this->renderSetterObjectValidation($schema, $property) !== ''
-            || $this->renderSetterDependencyValidation($schema, $property) !== '';
+        // adding the key validates everything changing the value of a present key validates
+        return array_filter($this->getSetterObjectValidation($schema, $property, true)) !== [];
+    }
+
+    private function renderSetterUpdateValidation(
+        Schema $schema,
+        PropertyInterface $property,
+        string $hookCode,
+        bool $keyAdded,
+    ): string {
+        [$objectCode, $compositionCode, $dependencyCode] = $this->getSetterObjectValidation(
+            $schema,
+            $property,
+            $keyAdded,
+        );
+
+        // the order of the constructor: object validators, compositions, properties
+        $code = join("\n\n", array_filter([
+            $objectCode,
+            $compositionCode,
+            $hookCode,
+            $dependencyCode,
+            sprintf('$value = $this->_validate%s($value, $modelData);', $this->ucfirst($property->getAttribute())),
+            $this->generatorConfiguration->collectErrors()
+                ? "if (\$this->_errorRegistry->getErrors()) {\n    throw \$this->_errorRegistry;\n}"
+                : '',
+        ]));
+
+        return $objectCode . $compositionCode . $hookCode . $dependencyCode === ''
+            ? $code
+            : $this->wrapInModelStateRollback($schema, $code);
     }
 
     /**
-     * The object validators (e.g. maxProperties, propertyNames) validate the update of the property like the
-     * constructor validates the data. Only the updated key is passed: the validators which count the properties
-     * include the stored data themselves, the others only validate the provided keys.
+     * The validation of the object an update of the property requires, like the constructor validates the data:
+     * - the object-level validators (e.g. maxProperties). Only the updated key is passed: the validators which count
+     *   the properties include the stored data themselves, the others only validate the provided keys.
+     * - the compositions of the schema, which evaluate their branches again as far as the update may change them
+     * - the dependencies of the other properties (a schema dependency validates the whole object), the dependencies
+     *   of the property itself are validated with the property
      *
      * Executing the object validators in every setter was rejected: the setter of a declared property can't violate
      * e.g. additionalProperties, every setter of such a common model would validate and snapshot the model state for
      * nothing.
+     *
+     * @return string[] The code for the object-level validators, the compositions and the dependencies
      */
-    private function renderSetterObjectValidation(Schema $schema, PropertyInterface $property): string
+    private function getSetterObjectValidation(Schema $schema, PropertyInterface $property, bool $keyAdded): array
     {
-        if (!self::isAffectedByUpdateOf($schema->getObjectValidators(), $property->getName())) {
-            return '';
-        }
-
-        // a copy: the validators must not change the value of the setter
-        return "\$objectModelData = \$modelData;\n\$this->_executeObjectValidators(\$objectModelData);";
-    }
-
-    /**
-     * A schema dependency of another property validates the whole object, an update of the property may violate it.
-     * The dependencies of the property itself are validated with the property.
-     */
-    private function renderSetterDependencyValidation(Schema $schema, PropertyInterface $property): string
-    {
-        $isAffected = false;
-
         $key = $property->getName();
 
-        foreach (self::getDependencyValidators($schema) as $propertyName => $validators) {
-            if ($propertyName !== $key && self::isAffectedByUpdateOf($validators, $key)) {
-                $isAffected = true;
+        $objectCode = ObjectUpdateDependency::ofValidators($schema->getObjectValidators(), $key)
+            ->requiresValidation($keyAdded)
+            // a copy: the validators must not change the value of the setter
+            ? "\$objectModelData = \$modelData;\n\$this->_executeObjectValidators(\$objectModelData);"
+            : '';
+
+        $compositionCalls = [];
+        foreach ($schema->getCompositionValidatorKeys() as $validatorIndex) {
+            /** @var AbstractComposedPropertyValidator $compositionValidator */
+            $compositionValidator = $schema->getBaseValidators()[$validatorIndex];
+
+            if ($compositionValidator->getObjectUpdateDependency($key)->requiresValidation($keyAdded)) {
+                $compositionCalls[] = sprintf('$this->_validateComposition_%s($modelData);', $validatorIndex);
             }
         }
 
-        if (!$isAffected) {
-            return '';
+        $dependency = ObjectUpdateDependency::None;
+        foreach (self::getDependencyValidators($schema) as $propertyName => $validators) {
+            if ($propertyName !== $key) {
+                $dependency = $dependency->strongest(ObjectUpdateDependency::ofValidators($validators, $key));
+            }
         }
 
-        $this->addDependencyValidationMethod($schema);
+        $dependencyCode = '';
+        if ($dependency->requiresValidation($keyAdded)) {
+            $this->addDependencyValidationMethod($schema);
 
-        return sprintf(
-            '$this->_executeDependencyValidators(array_merge($this->_rawModelDataInput, $modelData), [%s]);',
-            var_export($property->getName(), true),
-        );
+            $dependencyCode = sprintf(
+                '$this->_executeDependencyValidators(array_merge($this->_rawModelDataInput, $modelData), [%s]);',
+                var_export($key, true),
+            );
+        }
+
+        return [$objectCode, join("\n", $compositionCalls), $dependencyCode];
     }
 
     /**
@@ -366,40 +402,20 @@ class RenderHelper
      */
     public function addPopulateDependencyValidation(Schema $schema): bool
     {
-        $keys = [];
-        foreach ($schema->getProperties() as $property) {
-            if (!$property->isInternal()) {
-                $keys[] = $property->getName();
-            }
-        }
-
-        // stands for an additional property: a property can't have an empty name (rejected on generation)
-        $keys[] = '';
-
         foreach (self::getDependencyValidators($schema) as $validators) {
-            foreach ($keys as $key) {
-                if (self::isAffectedByUpdateOf($validators, $key)) {
-                    $this->addDependencyValidationMethod($schema);
+            $dependency = ObjectUpdateDependency::ofValidators($validators, null);
 
-                    return true;
+            foreach ($schema->getProperties() as $property) {
+                if (!$property->isInternal()) {
+                    $dependency = $dependency->strongest(
+                        ObjectUpdateDependency::ofValidators($validators, $property->getName()),
+                    );
                 }
             }
-        }
 
-        return false;
-    }
+            if ($dependency->requiresValidation(true)) {
+                $this->addDependencyValidationMethod($schema);
 
-    /**
-     * @param PropertyValidatorInterface[] $validators
-     */
-    public static function isAffectedByUpdateOf(array $validators, string $key): bool
-    {
-        foreach ($validators as $validator) {
-            // a validator which doesn't know its dependency is treated as depending on the value of every key
-            if (
-                !$validator instanceof ObjectUpdateDependentValidatorInterface
-                || $validator->getObjectUpdateDependency($key) !== ObjectUpdateDependency::None
-            ) {
                 return true;
             }
         }

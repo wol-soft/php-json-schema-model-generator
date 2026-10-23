@@ -24,4 +24,9 @@ class MaxPropertiesValidator extends PropertyValidator implements ObjectUpdateDe
     {
         return ObjectUpdateDependency::AddedKey;
     }
+
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::AddedKey;
+    }
 }

@@ -56,4 +56,9 @@ class UpdateAdditionalPropertiesValidator extends PropertyTemplateValidator impl
     {
         return ObjectUpdateDependency::None;
     }
+
+    public function getUndeclaredKeyDependency(): ObjectUpdateDependency
+    {
+        return ObjectUpdateDependency::None;
+    }
 }

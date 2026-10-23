@@ -9,9 +9,9 @@ use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
 use PHPModelGenerator\Model\SchemaDefinition\ResolvedDefinitionsCollection;
 use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
+use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
-use PHPModelGenerator\Model\Validator\UpdateAdditionalPropertiesValidator;
 
 /**
  * Class CompositionPropertyDecorator
@@ -68,39 +68,62 @@ class CompositionPropertyDecorator extends PropertyProxy
     }
 
     /**
-     * Whether the validity of the branch may change with keys of the object which the branch doesn't declare as
-     * properties: true for a branch with an object-level validator (maxProperties, additionalProperties - also
-     * implicitly denied via the generator configuration -, patternProperties, propertyNames, a nested composition,
-     * ...) or a dependency, and for a branch without a nested schema, whose dependencies are unknown.
+     * How the result of the branch may change with an update of the key, or with an update of any key the branch
+     * doesn't declare as property if no key is given (see ObjectUpdateDependency). A key the branch declares is
+     * validated with its value. Otherwise the validators of the nested schema decide: its object-level validators
+     * (maxProperties, additionalProperties - also implicitly denied via the generator configuration -,
+     * patternProperties, propertyNames, a nested composition, ...) and the dependencies of its properties. A branch
+     * without a nested schema depends on the value of every key, its validators are unknown.
      *
      * Deciding by a whitelist of the keywords in the branch JSON was rejected: a $ref branch only contains the
      * reference and additionalProperties may be denied by the configuration without any keyword in the schema. The
      * validators of the generated nested schema cover both.
      */
-    public function dependsOnAllObjectProperties(): bool
+    public function getObjectUpdateDependency(?string $key): ObjectUpdateDependency
     {
         $nestedSchema = $this->getNestedSchema();
 
         if ($nestedSchema === null) {
-            return true;
+            return ObjectUpdateDependency::Value;
         }
 
-        foreach ($nestedSchema->getBaseValidators() as $baseValidator) {
-            // only stores the additional properties, never rejects a value
-            if (!$baseValidator instanceof UpdateAdditionalPropertiesValidator) {
-                return true;
-            }
-        }
+        $dependency = ObjectUpdateDependency::ofValidators($nestedSchema->getBaseValidators(), $key);
 
         foreach ($nestedSchema->getProperties() as $property) {
-            foreach ($property->getValidators() as $validator) {
-                if ($validator->getValidator() instanceof DependencyValidatorInterface) {
-                    return true;
+            if ($property->isInternal()) {
+                continue;
+            }
+
+            if ($property->getName() === $key) {
+                return ObjectUpdateDependency::Value;
+            }
+
+            foreach ($property->getOrderedValidators() as $validator) {
+                if ($validator instanceof DependencyValidatorInterface) {
+                    $dependency = $dependency->strongest(ObjectUpdateDependency::ofValidator($validator, $key));
                 }
             }
         }
 
-        return false;
+        return $dependency;
+    }
+
+    /**
+     * Whether the value of a key the branch doesn't declare may change the result: the branch must be evaluated again
+     * with every update, the cached result can't be used.
+     */
+    public function dependsOnUndeclaredValues(): bool
+    {
+        return $this->getObjectUpdateDependency(null) === ObjectUpdateDependency::Value;
+    }
+
+    /**
+     * Whether adding a key the branch doesn't declare may change the result: the cached result is only used as long
+     * as no key is added.
+     */
+    public function dependsOnAddedKeys(): bool
+    {
+        return $this->getObjectUpdateDependency(null) === ObjectUpdateDependency::AddedKey;
     }
 
     public function markAsAlwaysTrueBranch(): void
