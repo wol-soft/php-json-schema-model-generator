@@ -18,11 +18,6 @@ use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class ComposedAllOfTest
- *
- * @package PHPModelGenerator\Tests\ComposedValue
- */
 #[ApplicableDrafts]
 class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -913,10 +908,12 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
             $object->setOther('second');
             $this->fail('Expected the branch maxProperties claim to reject the second key');
         } catch (AllOfException $exception) {
-            $this->assertSame(
+            $this->assertMessageMatchesTemplate(
                 <<<MSG
-                Invalid value for '{$className}' declined by composition constraint
+                Invalid value for '$className' declined by composition constraint
                   Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Provided object for '%class%' must not contain more than 1 properties
                 MSG,
                 $exception->getMessage(),
             );

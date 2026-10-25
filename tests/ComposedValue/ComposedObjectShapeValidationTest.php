@@ -479,37 +479,32 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
 
     /**
      * In direct-exception mode a failing composition enumerates every branch with its own reason,
-     * matching what collect-errors mode has always produced - but only when the composition is not
-     * a MUTABLE base validator. Both composition templates gate the enumeration on
-     * `not isMutableBaseValidator(...)`, so a root composition generated with setImmutable(false)
-     * still produces only the bare summary.
+     * matching what collect-errors mode has always produced - for a mutable base validator as well.
      *
-     * Pinned rather than fixed: closing the gap means giving the mutable base-validator template
-     * path its own per-branch error registry, which is follow-up work. Asserting the divergence
-     * here keeps it from being mistaken for a regression, and makes the eventual fix show up as a
-     * failure in a test that names the exact scenario.
+     * A mutable model answers a branch from the state of the previous evaluation when an update
+     * doesn't touch the properties the branch depends on. That state has to keep what the
+     * enumeration needs, otherwise the branches answered from it are missing (a valid branch) or
+     * lose their reason (a failed branch): the cases below cover a cached valid branch and a cached
+     * failed branch, each next to a branch which is evaluated again by the update.
      */
-    public function testBranchEnumerationInDirectExceptionModeSkipsMutableBaseValidators(): void
+    public function testBranchEnumerationInDirectExceptionModeCoversMutableBaseValidators(): void
     {
-        $matchingBothBranches = ['name' => 'Hannes', 'code' => 42];
-        $summaryFor = static fn(string $className): string => sprintf(
-            "Invalid value for '%s' declined by composition constraint\n"
-                . '  Requires to match one composition element but matched 2 elements',
-            substr($className, (int) strrpos('\\' . $className, '\\')),
-        );
-
         $immutableClassName = $this->generateClassFromFile(
             'RootExplicitObjectWithDescribingOneOf.json',
             (new GeneratorConfiguration())->setCollectErrors(false),
         );
 
         try {
-            new $immutableClassName($matchingBothBranches);
+            new $immutableClassName(['name' => 'Hannes', 'code' => 42]);
             $this->fail('Expected the immutable class to reject a value matching both branches.');
         } catch (JSONModelValidationException $exception) {
             $this->assertSame(
-                $summaryFor($immutableClassName)
-                    . "\n  - Composition element #1: Valid\n  - Composition element #2: Valid",
+                <<<MESSAGE
+                Invalid value for '$immutableClassName' declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
+                  - Composition element #1: Valid
+                  - Composition element #2: Valid
+                MESSAGE,
                 $exception->getMessage(),
             );
         }
@@ -519,11 +514,99 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
             (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
         );
 
+        // The constructor evaluates both branches: the message equals the one of the immutable class.
         try {
-            new $mutableClassName($matchingBothBranches);
+            new $mutableClassName(['name' => 'Hannes', 'code' => 42]);
             $this->fail('Expected the mutable class to reject a value matching both branches.');
         } catch (JSONModelValidationException $exception) {
-            $this->assertSame($summaryFor($mutableClassName), $exception->getMessage());
+            $this->assertSame(
+                <<<MESSAGE
+                Invalid value for '$mutableClassName' declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
+                  - Composition element #1: Valid
+                  - Composition element #2: Valid
+                MESSAGE,
+                $exception->getMessage(),
+            );
+        }
+
+        try {
+            new $mutableClassName([]);
+            $this->fail('Expected the mutable class to reject a value matching no branch.');
+        } catch (JSONModelValidationException $exception) {
+            $this->assertSame(
+                <<<MESSAGE
+                Invalid value for '$mutableClassName' declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
+                  - Composition element #1: Failed
+                    * Missing required value for 'name'
+                  - Composition element #2: Failed
+                    * Missing required value for 'code'
+                MESSAGE,
+                $exception->getMessage(),
+            );
+        }
+
+        // Cached valid branch: after the constructor only the second branch matches. Setting the code
+        // evaluates the second branch again and answers the first one, which depends on the name only,
+        // from the state - the first element is still part of the enumeration, in its schema position.
+        $object = new $mutableClassName(['name' => 'Hannes']);
+
+        try {
+            $object->setCode(42);
+            $this->fail('Expected the update to be rejected as both branches match.');
+        } catch (JSONModelValidationException $exception) {
+            $this->assertSame(
+                <<<MESSAGE
+                Invalid value for '$mutableClassName' declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
+                  - Composition element #1: Valid
+                  - Composition element #2: Valid
+                MESSAGE,
+                $exception->getMessage(),
+            );
+        }
+
+        // Cached failed branch: the second branch failed in the constructor because the code is
+        // missing. Nulling the name evaluates the first branch again (it fails now as well) and answers
+        // the second one from the state - it must keep the reason of its failure.
+        $object = new $mutableClassName(['name' => 'Hannes']);
+
+        try {
+            $object->setName(null);
+            $this->fail('Expected the update to be rejected as no branch matches.');
+        } catch (JSONModelValidationException $exception) {
+            $this->assertSame(
+                <<<MESSAGE
+                Invalid value for '$mutableClassName' declined by composition constraint
+                  Requires to match one composition element but matched 0 elements
+                  - Composition element #1: Failed
+                    * Invalid type for 'name': requires 'string', got 'NULL'
+                  - Composition element #2: Failed
+                    * Missing required value for 'code'
+                MESSAGE,
+                $exception->getMessage(),
+            );
+        }
+
+        // A rejected update leaves the model, and with it the state of the branches, unchanged: the
+        // failure of the first branch which the rejected update produced must not leak into the state,
+        // the next update still finds the first branch valid.
+        $this->assertSame('Hannes', $object->getName());
+
+        try {
+            $object->setCode(42);
+            $this->fail('Expected the update to be rejected as both branches match.');
+        } catch (JSONModelValidationException $exception) {
+            $this->assertSame(
+                <<<MESSAGE
+                Invalid value for '$mutableClassName' declined by composition constraint
+                  Requires to match one composition element but matched 2 elements
+                  - Composition element #1: Valid
+                  - Composition element #2: Valid
+                MESSAGE,
+                $exception->getMessage(),
+            );
         }
     }
 
