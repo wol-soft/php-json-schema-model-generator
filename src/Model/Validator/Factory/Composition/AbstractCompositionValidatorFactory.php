@@ -62,7 +62,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      *   yields string branch keys, and every branch-numbering site computes `$index + 1` on them
      *   ("Unsupported operand types: string + int");
      * - a branch that is not a schema at all (`{"allOf": ["notASchema"]}`) is indexed into as an
-     *   array by the branch processing that follows.
+     *   array by the branch processing that follows, and a branch given as a JSON array rather
+     *   than an object (`{"allOf": [[1, 2]]}`) yields integer keyword names there.
      *
      * Only the list-shaped keywords (allOf/anyOf/oneOf) call this. `not` and `if`/`then`/`else`
      * take a single branch schema rather than an array, so neither defect applies to them.
@@ -88,7 +89,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         }
 
         foreach ($branches as $index => $branch) {
-            if (!is_array($branch) && !is_bool($branch)) {
+            if (!$this->isBooleanOrSchemaObject($branch)) {
                 throw new SchemaException(
                     sprintf(
                         "Branch #%d of composition keyword '%s' for property '%s' in file %s must be a schema"
@@ -111,7 +112,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * The array-shaped counterpart of assertCompositionBranchesAreWellFormed(), for the keywords
      * that take one branch instead of a list: `not`, and `if`/`then`/`else`. A scalar there is
      * indexed into as an array by the type inheritance that follows, which surfaces as a raw
-     * TypeError from JsonSchema rather than a schema error naming the offending keyword.
+     * TypeError from JsonSchema rather than a schema error naming the offending keyword; a JSON
+     * array rather than an object yields integer keyword names and a TypeError of its own.
      *
      * @param string[] $keywords
      *
@@ -125,7 +127,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
         $json = $propertySchema->getJson();
 
         foreach ($keywords as $keyword) {
-            if (!array_key_exists($keyword, $json) || is_array($json[$keyword]) || is_bool($json[$keyword])) {
+            if (!array_key_exists($keyword, $json) || $this->isBooleanOrSchemaObject($json[$keyword])) {
                 continue;
             }
 

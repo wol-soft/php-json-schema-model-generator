@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use ReflectionClass;
 use ReflectionMethod;
 use stdClass;
@@ -179,7 +180,49 @@ class ComposedAllOfTest extends AbstractPHPModelGeneratorTestCase
                 "/^Composition keyword 'then' for property 'property' in file .*\\.json must be a schema or a"
                     . ' boolean, got string at line \\d+, column \\d+$/',
             ],
+            // A JSON array instead of a schema object: both decode to a PHP array, but a list is
+            // indexed with integer keys which the keyword processing of a branch can't handle -
+            // it used to fail with a TypeError naming a draft method.
+            'oneOf branch is a list' => [
+                'CompositionBranchIsAList.json',
+                "/^Branch #2 of composition keyword 'oneOf' for property 'property' in file .*\\.json must be"
+                    . ' a schema or a boolean, got array at line \\d+, column \\d+$/',
+            ],
+            'not is a list' => [
+                'SingleBranchKeywordIsAList.json',
+                "/^Composition keyword 'not' for property 'property' in file .*\\.json must be a schema or a"
+                    . ' boolean, got array at line \\d+, column \\d+$/',
+            ],
+            'conditional else is a list' => [
+                'ConditionalBranchIsAList.json',
+                "/^Composition keyword 'else' for property 'property' in file .*\\.json must be a schema or a"
+                    . ' boolean, got array at line \\d+, column \\d+$/',
+            ],
         ];
+    }
+
+    /**
+     * json_decode() maps an empty JSON array and an empty JSON object to the same empty PHP array, so an empty array
+     * as a branch can't be told apart from the empty schema and is treated as one - which matches any value and is
+     * reported like every other branch of that kind.
+     */
+    public function testEmptyArrayBranchIsAcceptedAsTheEmptySchema(): void
+    {
+        $logger = new RecordingLogger();
+
+        $this->generateClassFromFile(
+            'CompositionBranchIsAnEmptyArray.json',
+            (new GeneratorConfiguration())->setLogger($logger),
+        );
+
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $logger->getEntries(),
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and matches any value",
+                ['index' => 2, 'property' => 'property'],
+            ),
+        );
     }
 
     #[DataProvider('implicitNullDataProvider')]
