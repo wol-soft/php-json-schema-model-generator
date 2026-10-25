@@ -62,6 +62,24 @@ trait PropertyDependencyTrait
             $schema->getSchemaDictionary(),
         );
 
+        // processSchema() skips a schema which neither declares "type": "object" nor carries a composition or a
+        // reference. An untyped dependency received the object type above, so only a dependency which declares another
+        // type ends up here. A type list which merely includes "object" is rejected as well instead of being narrowed
+        // to "object": the other listed types can never apply to the object which holds the property, and accepting
+        // the wider declaration is not part of the documented contract of a schema dependency.
+        if ($dependencySchema === null) {
+            throw new SchemaException(
+                sprintf(
+                    "Schema dependency of property '%s' in file '%s' must be an object schema, a composition or a"
+                        . ' reference to an object schema but declares %s',
+                    $property->getName(),
+                    $dependencyJsonSchema->getFile(),
+                    $this->formatDeclaredTypes($dependencyJsonSchema->getJson()['type']),
+                ),
+                $dependencyJsonSchema,
+            );
+        }
+
         $property->addValidator(
             (new SchemaDependencyValidator($schemaProcessor, $property, $dependencySchema))
                 ->withJsonPointer($dependencyPointer),
@@ -69,6 +87,16 @@ trait PropertyDependencyTrait
         $schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
 
         $this->transferDependentPropertiesToBaseSchema($dependencySchema, $schema);
+    }
+
+    private function formatDeclaredTypes(mixed $declaredType): string
+    {
+        $types = array_map(
+            static fn(mixed $type): string => is_string($type) ? $type : (string) json_encode($type),
+            (array) $declaredType,
+        );
+
+        return sprintf("the %s '%s'", count($types) === 1 ? 'type' : 'types', implode("', '", $types));
     }
 
     /**
