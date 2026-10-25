@@ -97,12 +97,10 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
       object.
 
     An empty ``{}`` branch, and a branch carrying only annotation keywords such as ``example``,
-    behave identically to ``true`` at runtime — they impose no constraint either. They are also
-    warned about, but only where the branch does not inherit a ``type`` from the enclosing schema:
-    a branch that declares no ``type`` of its own inherits the outer one, which counts as a
-    constraint and suppresses the warning. Since a schema root always has ``"type": "object"``
-    applied to it, an empty branch in a root-level composition does not currently warn, while a
-    ``true`` branch there does (boolean branches are not subject to the inheritance).
+    behave identically to ``true`` at runtime — they impose no constraint either, and they are
+    warned about in the same way. A ``type`` which a branch inherits from the enclosing schema (a
+    schema root always has ``"type": "object"`` applied to it) is not a constraint of the branch
+    itself, so it doesn't suppress the warning; only a ``type`` declared by the branch does.
 
 .. note::
 

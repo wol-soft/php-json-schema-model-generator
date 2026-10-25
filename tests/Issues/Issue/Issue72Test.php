@@ -743,8 +743,8 @@ class Issue72Test extends AbstractIssueTestCase
 
     /**
      * A schema dependency whose value is a single-level $ref to an explicit `type: object`
-     * definition must enforce that definition's constraints (P3.5 consumer sweep,
-     * SchemaDependencyValidator's own ObjectInstantiationDecorator wiring). Baseline for
+     * definition must enforce that definition's constraints, through SchemaDependencyValidator's
+     * own ObjectInstantiationDecorator wiring. Baseline for
      * testDependencyWithMultiLevelImpliedObjectEnforcesConstraints below, which pins a gap in the
      * same mechanism for a multi-level composition-implied-object definition.
      */
@@ -1012,7 +1012,9 @@ class Issue72Test extends AbstractIssueTestCase
      * addModifier() rather than addValidator() in Draft_07, so invisible to
      * Draft::getTypesForKeyword() - must not, since both are genuine constraints.
      *
-     * Also covers 'not', including the type-inheritance exclusion (notBranchInheritingParentType).
+     * Also covers the type-inheritance exclusion: a branch which declares nothing of its own
+     * inherits the type of the enclosing schema, which must not make it look constrained
+     * (allOfBranchInheritingParentType, notBranchInheritingParentType).
      */
     public function testVacuousBranchWarningIsDrivenByRegisteredValidatorsNotAHardcodedList(): void
     {
@@ -1111,6 +1113,70 @@ class Issue72Test extends AbstractIssueTestCase
                 ['index' => 1, 'property' => 'notBranchInheritingParentType'],
             ),
             'Expected a vacuous-branch warning for the notBranchInheritingParentType property.',
+        );
+
+        // The same exclusion for the list-shaped keywords: the empty second branch inherits
+        // `type: string` from its property and must warn anyway, while the sibling branch which
+        // declares its own `minLength` must stay silent.
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $entries,
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+                ['index' => 2, 'property' => 'allOfBranchInheritingParentType'],
+            ),
+            'Expected a vacuous-branch warning for the empty branch of allOfBranchInheritingParentType.',
+        );
+        $this->assertFalse(
+            $this->hasLogEntry(
+                $entries,
+                'warning',
+                "Composition branch #{index} for '{property}' carries no validation keyword and"
+                    . ' matches any value',
+                ['index' => 1, 'property' => 'allOfBranchInheritingParentType'],
+            ),
+            'The minLength branch of allOfBranchInheritingParentType must not be treated as vacuous.',
+        );
+    }
+
+    /**
+     * A schema root always has `type: object` applied to it before its composition is processed,
+     * and every branch which declares no type inherits it. That inherited type is not a constraint
+     * the author wrote, so empty and annotation-only branches of a root-level composition warn
+     * exactly like the ones of a composition on a property without a type.
+     */
+    public function testRootLevelEmptyAndAnnotationOnlyBranchesWarnDespiteTheInheritedObjectType(): void
+    {
+        $recordingLogger = new RecordingLogger();
+
+        $className = $this->generateClassFromFile(
+            'RootLevelAllOfWithEmptyBranches.json',
+            (new GeneratorConfiguration())->setLogger($recordingLogger),
+        );
+
+        $message = "Composition branch #{index} for '{property}' carries no validation keyword and matches any value";
+
+        foreach ([2, 3] as $vacuousBranchIndex) {
+            $this->assertTrue(
+                $this->hasLogEntry(
+                    $recordingLogger->getEntries(),
+                    'warning',
+                    $message,
+                    ['index' => $vacuousBranchIndex, 'property' => $className],
+                ),
+                "Expected a vacuous-branch warning for branch #$vacuousBranchIndex of the root composition.",
+            );
+        }
+
+        $this->assertFalse(
+            $this->hasLogEntry(
+                $recordingLogger->getEntries(),
+                'warning',
+                $message,
+                ['index' => 1, 'property' => $className],
+            ),
+            'The branch declaring properties must not be treated as vacuous.',
         );
     }
 
