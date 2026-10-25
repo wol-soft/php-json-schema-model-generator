@@ -10,7 +10,6 @@ use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
 use Throwable;
-use TypeError;
 
 class SchemaDefinitionDictionary extends ArrayObject
 {
@@ -145,8 +144,8 @@ class SchemaDefinitionDictionary extends ArrayObject
      * references may parse the external file, which the order-independent external-schema machinery would parse
      * moments later anyway).
      *
-     * @return array|bool|null The decoded target; `false` for a boolean-valued definition; null if the target can't be
-     *                         determined
+     * @return array|bool|null The decoded target; its boolean for a boolean-valued definition; null if the target can't
+     *                         be determined
      */
     public function peekReference(
         string $reference,
@@ -156,26 +155,15 @@ class SchemaDefinitionDictionary extends ArrayObject
         $path = [];
 
         try {
-            $definition = $this->getDefinition($reference, $schemaProcessor, $path, $baseId);
+            $target = $this->getDefinition($reference, $schemaProcessor, $path, $baseId)
+                ?->getSource()
+                ->navigate(implode('/', $path));
 
-            return $definition?->getSource()->navigate(implode('/', $path))->getJson();
-        } catch (TypeError) {
-            // A $ref that resolves to a boolean-valued definition (`true` or `false`) hits
-            // JsonSchema::navigate(), which assigns the resolved leaf into a property typed
-            // `array` and throws a TypeError for a boolean leaf. Unlike an unresolvable
-            // reference, this is NOT undetermined - the target is known and is definitely not
-            // representable as an object - so it must not map to null. Returning false keeps
-            // it decidable: ObjectShapeResolver::classify() treats a literal `false` json value
-            // as Blocking via its own is_bool() branch (reusing that path instead of adding a
-            // second one), and a `false` schema is not vacuous either. The true/false
-            // distinction of the actual definition is deliberately not preserved (both
-            // collapse to `false` here): classifying `true` faithfully as Neutral was tried
-            // and reverted, because it lets generation proceed past
-            // checkObjectRepresentability() and then fail deeper in the pipeline with this
-            // exact same uncaught TypeError once the real (non-speculative) $ref resolution
-            // reaches JsonSchema::navigate() - trading a clean SchemaException for an uncaught
-            // TypeError is a regression, not an improvement.
-            return false;
+            if ($target === null) {
+                return null;
+            }
+
+            return $target->isBooleanSchema() ? $target->getBooleanValue() : $target->getJson();
         } catch (Throwable) {
             // An unresolvable, malformed, or cyclic reference leaves the target genuinely
             // undetermined - it might turn out to be anything; returning null makes the caller

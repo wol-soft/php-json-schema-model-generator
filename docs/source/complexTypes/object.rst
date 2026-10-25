@@ -778,6 +778,25 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Dependency\\Invali
 
 Multiple violations against the schema dependency may be included.
 
+Boolean dependencies
+^^^^^^^^^^^^^^^^^^^^
+
+The value of a dependency can be the boolean literal ``true`` or ``false``. A ``true`` dependency imposes nothing. A ``false`` dependency can't be fulfilled by any object which contains the property, so the property is forbidden: an object which contains the key (also with a ``null`` value) is rejected with a *PHPModelGenerator\\Exception\\Generic\\DeniedPropertyException*. A property which is also listed as ``required`` can never be provided validly and is rejected with a **SchemaException** during the generation.
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "legacy_id": {
+                "type": "string"
+            }
+        },
+        "dependencies": {
+            "legacy_id": false
+        }
+    }
+
 Pattern Properties
 ------------------
 

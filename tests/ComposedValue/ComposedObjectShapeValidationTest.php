@@ -71,12 +71,10 @@ class ComposedObjectShapeValidationTest extends AbstractPHPModelGeneratorTestCas
             // generated constructor only ever takes an array, so this was never representable -
             // it merely used to generate a class that could not accept its own schema's null.
             'multi-type object-or-null root' => 'RootMultiTypeObjectAndNull.json',
-            // A $ref to a boolean-valued definition. JsonSchema::$json is typed `array`, so a
-            // boolean target cannot round-trip through it - the target IS known and is decidably
-            // unrepresentable, which is why it stays a clean rejection here rather than being
-            // treated as undecidable and handed back to the pipeline (where it would resurface as
-            // an uncaught TypeError from JsonSchema::navigate()).
-            'reference to a boolean definition' => 'RootAllOfReferenceToBooleanDefinition.json',
+            // A $ref to a definition that is `false` blocks: no value satisfies the allOf, exactly as
+            // an inline `false` branch doesn't either. The reference to `true` imposes nothing like
+            // the inline `true` and is accepted instead - covered by BooleanSchemaReferenceTest.
+            'reference to a false definition' => 'RootAllOfReferenceToFalseDefinition.json',
             // A composition with no branches at all constrains nothing, so every value - object or
             // not - satisfies it. Both keywords are listed because they reach the verdict by
             // different routes: an empty allOf combines conjunctively, an empty anyOf disjunctively.

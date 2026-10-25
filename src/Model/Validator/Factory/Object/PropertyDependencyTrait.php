@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Model\Validator\Factory\Object;
 
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Model\Property\Property;
 use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\SchemaDefinition\JsonSchema;
+use PHPModelGenerator\Model\Validator\DeniedPropertyValidator;
 use PHPModelGenerator\Model\Validator\PropertyDependencyValidator;
 use PHPModelGenerator\Model\Validator\SchemaDependencyValidator;
 use PHPModelGenerator\PropertyProcessor\Decorator\SchemaNamespaceTransferDecorator;
@@ -30,6 +32,12 @@ trait PropertyDependencyTrait
         SchemaProcessor $schemaProcessor,
         Schema $schema,
     ): void {
+        if ($dependencyJsonSchema->isBooleanSchema()) {
+            $this->addBooleanDependencyValidator($property, $dependencyJsonSchema, $schema);
+
+            return;
+        }
+
         $propertyDependency = true;
 
         foreach ($dependencyJsonSchema->getJson() as $index => $dependency) {
@@ -87,6 +95,43 @@ trait PropertyDependencyTrait
         $schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
 
         $this->transferDependentPropertiesToBaseSchema($dependencySchema, $schema);
+    }
+
+    /**
+     * A dependency which is `true` imposes nothing. A dependency which is `false` can't be satisfied by any object that
+     * contains the property, so the property must not be provided at all: the presence of the key in the model data is
+     * denied exactly like the `false` entry of `properties` does, which doesn't depend on the value (also not on a null
+     * which implicit null treats as absent). A required property would never be valid, which is rejected like the
+     * required property of a `false` entry in `properties`.
+     *
+     * @throws SchemaException
+     */
+    private function addBooleanDependencyValidator(
+        PropertyInterface $property,
+        JsonSchema $dependencyJsonSchema,
+        Schema $schema,
+    ): void {
+        if ($dependencyJsonSchema->getBooleanValue()) {
+            return;
+        }
+
+        if ($property->isRequired()) {
+            throw new SchemaException(
+                sprintf(
+                    "Property '%s' has the dependency false and must not be provided, but is also listed as required"
+                        . " in file '%s'",
+                    $property->getName(),
+                    $dependencyJsonSchema->getFile(),
+                ),
+                $dependencyJsonSchema,
+            );
+        }
+
+        $schema->addBaseValidator(
+            (new DeniedPropertyValidator(
+                new Property($property->getName(), null, $dependencyJsonSchema->withJson([])),
+            ))->withJsonPointer($dependencyJsonSchema->getPointer()),
+        );
     }
 
     private function formatDeclaredTypes(mixed $declaredType): string

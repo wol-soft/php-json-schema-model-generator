@@ -434,13 +434,9 @@ class ObjectShapeResolverTest extends TestCase
                 ['allOf' => [self::PERSON_OBJECT, ['$ref' => '#/definitions/anything']]],
                 ObjectShape::ObjectAsserting,
             ],
-            // This case also stands in for the real $ref resolver of
-            // ObjectShapeResolver::forDictionary(), which cannot let a boolean-valued *definition*
-            // (e.g. `"definitions": {"x": false}`) round-trip through JsonSchema, whose $json
-            // property is typed `array`: SchemaDefinitionDictionary::peekReference() translates
-            // that failure into this same literal `false` return (see its TypeError catch) rather
-            // than null, precisely so a boolean-leaf definition stays a decidable Blocking
-            // instead of degrading to Undecidable.
+            // The real $ref resolver of ObjectShapeResolver::forDictionary() returns the boolean of
+            // a boolean-valued definition (e.g. `"definitions": {"x": false}`) just like this
+            // fake, so the reference is a decidable Blocking instead of degrading to Undecidable.
             'allOf asserting plus reference to false schema' => [
                 ['#/definitions/unsatisfiable' => false],
                 ['allOf' => [self::PERSON_OBJECT, ['$ref' => '#/definitions/unsatisfiable']]],

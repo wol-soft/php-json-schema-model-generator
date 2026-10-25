@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\SchemaDefinition;
 
+use LogicException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Utils\ArrayHash;
 use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
@@ -34,6 +35,14 @@ class JsonSchema
     protected array $json;
 
     /**
+     * Set when the JsonSchema is a boolean schema (`true` accepts every value, `false` accepts none), which navigate()
+     * returns for a boolean-valued target such as a definition `"yes": true`. A boolean is no decoded JSON object, so
+     * $json stays empty for such a schema and getJson() refuses to hand it out: an empty array would turn `false` into
+     * the schema which accepts everything.
+     */
+    private ?bool $booleanValue = null;
+
+    /**
      * The nearest enclosing $id, normalized to always start with '#' (matching
      * SchemaDefinitionDictionary's dictionary key format). Defaults to the document root ('#')
      * and is updated by navigate() whenever it descends into a node carrying its own $id. Used to
@@ -58,8 +67,6 @@ class JsonSchema
     private ?string $schemaUri = null;
 
     /**
-     * JsonSchema constructor.
-     *
      * @param string $file the source file for the schema
      * @param array $json Decoded json schema
      * @param string $pointer The JSON pointer inside the $file leading to the schema provided in $json
@@ -81,9 +88,39 @@ class JsonSchema
         }
     }
 
+    /**
+     * @throws LogicException for a boolean schema, see isBooleanSchema()
+     */
     public function getJson(): array
     {
+        if ($this->booleanValue !== null) {
+            throw new LogicException(
+                sprintf(
+                    "The boolean schema at '%s' in file '%s' has no JSON object, check isBooleanSchema() before"
+                        . ' reading it',
+                    $this->pointer,
+                    $this->file,
+                ),
+            );
+        }
+
         return $this->json;
+    }
+
+    public function isBooleanSchema(): bool
+    {
+        return $this->booleanValue !== null;
+    }
+
+    /**
+     * @throws LogicException if the schema is no boolean schema
+     */
+    public function getBooleanValue(): bool
+    {
+        return $this->booleanValue
+            ?? throw new LogicException(
+                sprintf("The schema at '%s' in file '%s' is not a boolean schema", $this->pointer, $this->file),
+            );
     }
 
     /**
@@ -121,6 +158,7 @@ class JsonSchema
     {
         $jsonSchema = clone $this;
         $jsonSchema->json = $json;
+        $jsonSchema->booleanValue = null;
         $jsonSchema->schemaUri = $jsonSchema->deriveSchemaUri($json);
 
         return $jsonSchema;
@@ -141,6 +179,11 @@ class JsonSchema
     /**
      * Creates a clone of the JsonSchema object with a subschema,
      * navigated to the provided $pointer from the current schema.
+     *
+     * A boolean-valued target yields a boolean schema, which can't be navigated into any further. A scalar or null
+     * isn't a schema at all and is rejected.
+     *
+     * @throws SchemaException
      */
     public function navigate(string | int $pointer): JsonSchema
     {
@@ -160,9 +203,30 @@ class JsonSchema
                 throw new SchemaException("Unresolved path segment $pathSegment in file $this->file", $jsonSchema);
             }
 
-            $jsonSchema->json = $jsonSchema->json[$decodedPathSegment];
+            $target = $jsonSchema->json[$decodedPathSegment];
 
-            if (is_array($jsonSchema->json) && isset($jsonSchema->json['$id'])) {
+            if (is_bool($target)) {
+                $jsonSchema->json = [];
+                $jsonSchema->booleanValue = $target;
+
+                continue;
+            }
+
+            if (!is_array($target)) {
+                throw new SchemaException(
+                    sprintf(
+                        "The value at '%s' in file '%s' is not a schema, got %s",
+                        $jsonSchema->pointer,
+                        $this->file,
+                        gettype($target),
+                    ),
+                    $jsonSchema,
+                );
+            }
+
+            $jsonSchema->json = $target;
+
+            if (isset($jsonSchema->json['$id'])) {
                 $jsonSchema->baseId = self::normalizeId((string) $jsonSchema->json['$id']);
             }
         }
