@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace PHPModelGenerator\Model\Validator\Factory\Composition;
 
+use Closure;
 use PHPModelGenerator\Draft\Draft;
+use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
 use PHPModelGenerator\Exception\Generic\DeniedPropertyException;
 use PHPModelGenerator\Exception\MessageFormatter;
 use PHPModelGenerator\Exception\SchemaException;
@@ -30,8 +32,8 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
      * than addValidator() (TypeCheckModifier for 'type', ConstModifier for 'const' - see
      * Draft_07::getDefinition()), so Draft::getTypesForKeyword() cannot see them: Type::$modifiers
      * only exposes addValidator() entries as keyword => factory pairs; addModifier() entries are
-     * appended with plain numeric keys. Without this list, isVacuousBranch() would incorrectly
-     * treat a branch containing only e.g. {"const": "foo"} as vacuous.
+     * appended with plain numeric keys. Without this list, isVacuousSchema() would incorrectly
+     * treat a schema containing only e.g. {"const": "foo"} as vacuous.
      */
     private const array MODIFIER_ONLY_VALIDATION_KEYWORDS = ['type', 'const'];
 
@@ -157,33 +159,26 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     }
 
     /**
-     * Emit a generation-time warning when a ($ref-resolved) composition branch carries no
-     * validation/assertion keyword at all and therefore matches any value. This is purely
-     * informational and does not change generated behavior - a vacuous branch keeps its full
-     * (odd but spec-correct) effect on the composition regardless of this warning.
+     * Emit a generation-time warning when a composition branch carries no validation/assertion
+     * keyword at all and therefore matches any value. This is purely informational and does not
+     * change generated behavior - a vacuous branch keeps its full (odd but spec-correct) effect on
+     * the composition regardless of this warning.
      *
-     * A branch is vacuous when none of its keys is an actually-registered validation keyword -
-     * driven by the Draft itself rather than a hardcoded list of "known safe" keywords, so an
-     * unrecognized or misspelled key is correctly treated as non-constraining (the same as a
-     * genuine annotation keyword) instead of being mistaken for a real constraint merely because
-     * it wasn't anticipated.
-     *
-     * @param array<string, mixed> $resolvedBranchJson
+     * @param array<string, mixed>                    $branchJson      The branch as the author wrote it, without
+     *                                                                 a type the branch inherited
+     * @param Closure(string): (array|bool|null)|null $referencePeeker Resolves a `$ref` to the raw JSON of its
+     *                                                                 target, see isVacuousSchema()
      */
     private function warnIfVacuousBranch(
         SchemaProcessor $schemaProcessor,
         PropertyInterface $property,
         int $oneBasedBranchIndex,
-        array $resolvedBranchJson,
+        array $branchJson,
         Draft $draft,
+        ?Closure $referencePeeker = null,
     ): void {
-        foreach (array_keys($resolvedBranchJson) as $keyword) {
-            if (
-                in_array($keyword, self::MODIFIER_ONLY_VALIDATION_KEYWORDS, true)
-                || $draft->getTypesForKeyword($keyword) !== []
-            ) {
-                return;
-            }
+        if (!$this->isVacuousSchema($branchJson, $draft, $referencePeeker)) {
+            return;
         }
 
         $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
@@ -191,6 +186,77 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 . ' matches any value',
             ['index' => $oneBasedBranchIndex, 'property' => $property->getName()],
         );
+    }
+
+    /**
+     * Whether a schema matches any value because none of its keys constrains one.
+     *
+     * A key constrains when it is an actually-registered validation keyword - driven by the Draft
+     * itself rather than a hardcoded list of "known safe" keywords, so an unrecognized or
+     * misspelled key is correctly treated as non-constraining (the same as a genuine annotation
+     * keyword) instead of being mistaken for a real constraint merely because it wasn't
+     * anticipated.
+     *
+     * A `$ref` constrains nothing by itself, it forwards to its target: the schema is as vacuous
+     * as the target is (a boolean target is vacuous if it is `true`). The keywords next to the
+     * `$ref` only count in the drafts which apply them together with the reference - the same
+     * sibling policy PropertyFactory and ObjectShapeResolver follow. The target is read from the
+     * source through $referencePeeker. Judging the property built for the branch instead was
+     * rejected: for a `$ref` with sibling keywords (which includes the type the enclosing schema
+     * passes down) that property is a merge target which carries the siblings only, so every
+     * such branch looked vacuous no matter what it references.
+     *
+     * Whenever the target can't be determined (no peeker, unresolvable or cyclic reference) the
+     * schema is not claimed to be vacuous: the warning is only emitted for a provable case.
+     *
+     * @param array<string, mixed>|bool               $schemaJson
+     * @param Closure(string): (array|bool|null)|null $referencePeeker
+     * @param string[]                                $visitedReferences `$ref` strings on the current path
+     */
+    private function isVacuousSchema(
+        array | bool $schemaJson,
+        Draft $draft,
+        ?Closure $referencePeeker,
+        array $visitedReferences = [],
+    ): bool {
+        if (is_bool($schemaJson)) {
+            return $schemaJson;
+        }
+
+        $siblingJson = $schemaJson;
+
+        if (array_key_exists('$ref', $schemaJson)) {
+            $reference = $schemaJson['$ref'];
+            unset($siblingJson['$ref']);
+
+            if (!is_string($reference) || $referencePeeker === null || in_array($reference, $visitedReferences, true)) {
+                return false;
+            }
+
+            $targetJson = $referencePeeker($reference);
+
+            if (
+                $targetJson === null
+                || !$this->isVacuousSchema($targetJson, $draft, $referencePeeker, [...$visitedReferences, $reference])
+            ) {
+                return false;
+            }
+
+            if ($draft->getProducerForKeyword('$ref') instanceof ExclusiveProducer) {
+                return true;
+            }
+        }
+
+        foreach (array_keys($siblingJson) as $keyword) {
+            if (
+                in_array($keyword, self::MODIFIER_ONLY_VALIDATION_KEYWORDS, true)
+                || $draft->getTypesForKeyword($keyword) !== []
+            ) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -516,23 +582,32 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 ),
             );
 
-            // Only branches that resolve synchronously (i.e. right here, not deferred to a later
-            // onResolve callback) can be inspected safely: a branch still awaiting resolution is,
-            // by construction, part of a recursive $ref chain, which requires structural content
-            // (properties/items/...) to recurse through and can therefore never be the vacuous
-            // shape this check looks for. Calling getJsonSchema() on a not-yet-resolved branch
-            // would risk a fatal error (its wrapped property may still be an unresolved proxy).
-            if ($compositionProperty->isResolved()) {
-                $resolvedBranchJson = $compositionProperty->getJsonSchema()->getJson();
+            // The branch is judged as the author wrote it, not by the property which was built for
+            // it: for a `$ref` that property is the referenced target in the drafts which ignore
+            // siblings, but a merge target holding the sibling keywords only in the drafts which
+            // apply them (which includes the type passed down by the enclosing schema) - see
+            // isVacuousSchema(). The property isn't touched, so a branch which is still awaiting
+            // its resolution (part of a recursive $ref chain) can be judged as well.
+            $branchJson = $compositionSchema->getJson();
 
-                // An inherited 'type' isn't an author-declared constraint - strip it so
-                // vacuousness is judged on what the branch actually declares.
-                if (isset($injectedTypeBranchIndices[$index])) {
-                    unset($resolvedBranchJson['type']);
-                }
-
-                $this->warnIfVacuousBranch($schemaProcessor, $property, $index + 1, $resolvedBranchJson, $draft);
+            // An inherited 'type' isn't an author-declared constraint - strip it so
+            // vacuousness is judged on what the branch actually declares.
+            if (isset($injectedTypeBranchIndices[$index])) {
+                unset($branchJson['type']);
             }
+
+            $this->warnIfVacuousBranch(
+                $schemaProcessor,
+                $property,
+                $index + 1,
+                $branchJson,
+                $draft,
+                static fn(string $reference): array | bool | null => $schema->getSchemaDictionary()->peekReference(
+                    $reference,
+                    $schemaProcessor,
+                    $compositionSchema->getBaseId(),
+                ),
+            );
 
             // RequiredPropertyValidator/InstanceOfValidator-for-empty-object exclusion for this
             // branch is handled by CompositionPropertyDecorator::getOrderedValidators() at render

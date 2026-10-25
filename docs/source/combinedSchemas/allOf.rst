@@ -100,7 +100,9 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
     behave identically to ``true`` at runtime — they impose no constraint either, and they are
     warned about in the same way. A ``type`` which a branch inherits from the enclosing schema (a
     schema root always has ``"type": "object"`` applied to it) is not a constraint of the branch
-    itself, so it doesn't suppress the warning; only a ``type`` declared by the branch does.
+    itself, so it doesn't suppress the warning; only a ``type`` declared by the branch does. A branch
+    consisting of a ``$ref`` is judged by the schema it references and only warned about if that schema
+    matches any value as well.
 
 .. note::
 
