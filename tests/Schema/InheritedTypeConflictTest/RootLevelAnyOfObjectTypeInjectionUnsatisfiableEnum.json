@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "anyOf": [
+    {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    {
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    }
+  ]
+}

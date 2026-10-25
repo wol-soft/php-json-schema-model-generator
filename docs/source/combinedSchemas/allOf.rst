@@ -114,6 +114,15 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
 
 .. note::
 
+    A branch which declares no ``type`` inherits the ``type`` of its schema (a schema root always has
+    ``"type": "object"`` applied to it) and has to be satisfiable together with it. An ``enum`` or ``const`` of
+    the branch which lists no value of the inherited type (e.g. ``{"enum": [1, 2, 3]}`` inside an object schema)
+    can never hold. As every ``allOf`` branch has to hold, the schema is unsatisfiable and the generator throws a
+    ``SchemaException`` at generation time. The branches of the other composition keywords are only dead in this
+    case, so the generator emits a warning for them instead.
+
+.. note::
+
     For object-level ``allOf`` compositions, when a property appears in the ``required`` array of
     **any** branch, the generator promotes that property to non-nullable in the generated class. All
     ``allOf`` branches must hold simultaneously, so any branch's ``required`` constraint is effectively
