@@ -17,6 +17,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\ArrayItemFilterScope;
 use PHPModelGenerator\Utils\RenderHelper;
 
 class NotValidatorFactory extends AbstractCompositionValidatorFactory
@@ -61,6 +62,11 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
         // are processed as a nested schema and are not subject to ComposedItem $value reset).
         $this->checkForFilterInBranches($property, $propertySchema);
         $json = $propertySchema->getJson();
+        ArrayItemFilterScope::assertNoItemFilterInValidationOnlyBranch(
+            $json[$this->key],
+            $property,
+            "a 'not' composition branch",
+        );
 
         // Wrap the single 'not' schema in an array so getCompositionProperties can iterate it.
         $json[$this->key] = [$json[$this->key]];

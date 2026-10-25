@@ -154,6 +154,10 @@ The ``items`` keyword also accepts the boolean literals ``true`` and ``false``.
 ``items: false`` — the array must be empty. Providing a non-empty array throws a ``MaxItemsException``
 (Array X must not contain more than 0 items).
 
+.. hint::
+
+    The items may be transformed by a filter (eg. ``dateTime``), also if they are declared inside a branch of a composition or as tuple items or ``unevaluatedItems``. The array then contains the transformed items. See `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
+
 Tuples
 ------
 

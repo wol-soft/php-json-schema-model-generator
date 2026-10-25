@@ -77,7 +77,8 @@ Filters may be applied to arrays. In this case the filter operates on the whole 
 
 The array filter is executed before the items are processed. Consequently strings which aren't empty at the beginning but are empty after the trim filter is applied to each element won't be filtered out in the example given above.
 
-It is not possible to use transforming filters on arrays.
+It is not possible to use transforming filters on arrays. Transforming filters on the *items* of an array are supported,
+see `Filters on array items`_.
 
 Transforming filter
 -------------------
@@ -288,6 +289,71 @@ The branches may also use the same transforming filter with different options (e
 .. hint::
 
     A property which is declared only inside a branch (without a declaration in the parent schema) has no raw type of its own. As the branch may be inactive its getter and setter are typed ``mixed``, independent of the filter.
+
+Filters on array items
+^^^^^^^^^^^^^^^^^^^^^^
+
+A transforming filter may be applied to the items of an array: to the schema of ``items``, to a single index of a tuple-form ``items`` or to ``unevaluatedItems``. The transformed items are stored in the property, so the getter returns the transformed values. Like for any other property an already transformed item is accepted as input (the setter of the array and the constructor accept a ``DateTime`` object as well as a date string) and the serialization applies the serializer of the filter to each transformed item:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "dates": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "filter": [
+                        {
+                            "filter": "dateTime",
+                            "outputFormat": "Y-m-d"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+
+The same applies if the items are validated inside a branch of a composition:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "dates": {
+                "type": "array",
+                "allOf": [
+                    {
+                        "items": {
+                            "type": "string",
+                            "filter": "dateTime"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+The items of every branch which succeeded are transformed, independent of the position of the branch in the composition. A branch of an ``allOf`` is always active. A branch of an ``anyOf``, a ``oneOf`` or the ``then`` and ``else`` branch of an ``if``/``then``/``else`` may be inactive: the items then keep the value as provided and the serialization only applies the serializer of the filter to an item of the output type of the filter (a ``DateTime`` object in the example). If a transforming filter doesn't declare a return type (or declares ``mixed``) the output type can't be recognized and its serializer is applied to every item, so the serializer of such a filter has to accept all values.
+
+The items of one slot (the schema-form ``items``, a single index of a tuple-form ``items`` or ``unevaluatedItems``) can only be filtered by a single declaration. The property itself and all of its branches together may declare at most one transforming filter for a slot, otherwise a ``SchemaException`` is thrown at generation time, also if the filters are identical. The branches of an ``allOf`` would filter the same items twice, and for branches which exclude each other (``oneOf``, ``then`` and ``else``) the serializer can't tell which branch transformed an item. Schema-form ``items`` validate every index, so they also conflict with a filter on a tuple index. Different tuple indices (also in different branches) and ``unevaluatedItems`` don't conflict.
+
+.. code-block:: text
+
+    Array items of property 'dates' are filtered more than once ('dateTime', 'dateTime') in file <file>: filters of the same array item have no defined order
+
+A ``not`` branch and the ``if`` condition of an ``if``/``then``/``else`` only decide whether the value is valid: their filters run while the branch is evaluated, but the property keeps the items as provided. A filter on the items of such a branch is rejected with a ``SchemaException``:
+
+.. code-block:: text
+
+    A filter keyword inside the array items of a 'not' composition branch is not supported for property 'dates' in file <file>
+    A filter keyword inside the array items of the 'if' condition of an 'if/then/else' composition is not supported for property 'dates' in file <file>
+
+.. warning::
+
+    If the items of an array are arrays themselves (``"items": {"type": "array", "items": {"filter": "dateTime"}}``) the filter of the inner items is executed and the transformed values are stored, but the serialization doesn't apply the serializer of the filter to them yet.
 
 Exceptions from filter
 ----------------------

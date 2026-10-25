@@ -13,11 +13,6 @@ use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
 
-/**
- * Class RenderHelper
- *
- * @package PHPModelGenerator\Utils
- */
 class RenderHelper
 {
     public function __construct(protected GeneratorConfiguration $generatorConfiguration)
@@ -237,19 +232,21 @@ class RenderHelper
     }
 
     /**
-     * True when the property carries an UnevaluatedItemsValidator among its own validators.
+     * True when the property or a branch of one of its compositions carries an UnevaluatedItemsValidator.
      *
      * `_evaluatedItemIndices[$propertyName]` must be reset to an empty array before this
      * property's validator chain runs (ahead of any composition validator, which may credit
      * indices into the same slot during this same pass) — otherwise indices credited by a
      * previous, unrelated validation pass (e.g. an earlier setter call) would incorrectly count
      * as "already evaluated" for a completely different array value, silently skipping both
-     * validation and any transforming filter for that index.
+     * validation and any transforming filter for that index. The validator of a branch credits
+     * into the slot of the property in the same way, also when the branch is a `not` branch or
+     * the condition of an if/then/else.
      */
     public function hasUnevaluatedItemsValidator(PropertyInterface $property): bool
     {
-        foreach ($property->getValidators() as $propertyValidator) {
-            if ($propertyValidator->getValidator() instanceof UnevaluatedItemsValidator) {
+        foreach (ArrayItemFilterScope::declarationsOf($property, true) as $declaration) {
+            if ($declaration->validator instanceof UnevaluatedItemsValidator) {
                 return true;
             }
         }

@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "definitions": {
+    "node": {
+      "type": "array",
+      "allOf": [
+        {
+          "items": {
+            "$ref": "#/definitions/node"
+          }
+        }
+      ]
+    }
+  },
+  "properties": {
+    "tree": {
+      "$ref": "#/definitions/node"
+    }
+  }
+}

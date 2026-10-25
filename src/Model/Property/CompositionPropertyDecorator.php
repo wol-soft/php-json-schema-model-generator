@@ -13,6 +13,7 @@ use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
+use PHPModelGenerator\Utils\ArrayItemFilterScope;
 use PHPModelGenerator\Utils\RenderHelper;
 
 class CompositionPropertyDecorator extends PropertyProxy
@@ -132,6 +133,24 @@ class CompositionPropertyDecorator extends PropertyProxy
     public function dependsOnAddedKeys(): bool
     {
         return $this->getObjectUpdateDependency(null) === ObjectUpdateDependency::AddedKey;
+    }
+
+    /**
+     * Whether the items of the array are transformed by a filter which is declared by this branch or by a composition
+     * nested in this branch. The transformed items are only part of the result of the branch: the composition has to
+     * adopt them explicitly.
+     */
+    public function filtersArrayItems(): bool
+    {
+        foreach (ArrayItemFilterScope::declarationsOf($this) as $declaration) {
+            foreach ($declaration->getItemProperties() as $itemProperty) {
+                if (ArrayItemFilterScope::transformingFilterOf($itemProperty) !== null) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public function markAsAlwaysTrueBranch(): void

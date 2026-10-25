@@ -10,15 +10,13 @@ use PHPModelGenerator\Model\Property\PropertyInterface;
 use PHPModelGenerator\Model\Property\PropertyType;
 use PHPModelGenerator\Model\Schema;
 use PHPModelGenerator\Model\Validator\AdditionalPropertiesValidator;
-use PHPModelGenerator\Model\Validator\ArrayItemValidator;
-use PHPModelGenerator\Model\Validator\ArrayTupleValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PatternPropertiesValidator;
-use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
 use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\Utils\TypeCheck;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\PropertyProcessor\Decorator\TypeHint\TypeHintDecorator;
+use PHPModelGenerator\Utils\ArrayItemFilterScope;
 use PHPModelGenerator\Utils\BranchFilterOutputType;
 use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -38,9 +36,10 @@ use ReflectionException;
  * filter-processing time (composition case where the type comes from a sibling allOf branch).
  *
  * Array items (schema-form `items`, tuple-form `items`, and `unevaluatedItems`) are widened the
- * same way object properties are: each lives on its own validation property reachable only by
- * recursing into ArrayItemValidator/ArrayTupleValidator/UnevaluatedItemsValidator, mirroring the
- * recursion EnumPostProcessor already performs for the same reason.
+ * same way object properties are: each lives on its own validation property reachable only through
+ * the ArrayItemDeclarations of the array property, which include the declarations inside the
+ * branches of its compositions (see ArrayItemFilterScope). The declarations of one item slot are
+ * checked for a second filter beforehand.
  *
  * Output type formula:
  *   accepted       = filter callable's first-parameter types ([] = accepts all)
@@ -166,39 +165,26 @@ class TransformingFilterOutputTypePostProcessor extends PostProcessor
         }
         $seenPropertyIds[$propertyId] = true;
 
-        // Find the FilterValidator whose filter implements TransformingFilterInterface, and
-        // recurse into any array-item validator's own validation property along the way —
-        // array items live on a separate property from the array itself (the same reason
+        // Array items live on a separate property from the array itself (the same reason
         // AdditionalProperties/PatternProperties/UnevaluatedProperties validation properties
-        // are picked up separately below), so they are otherwise invisible to this pass.
-        // Mirrors the recursion EnumPostProcessor already performs via
-        // ArrayItemValidator::getNestedProperty().
+        // are picked up separately below), so they are otherwise invisible to this pass. The
+        // items are validated by the property itself and by the branches of its compositions,
+        // an item filter in a branch widens the type check of the item the same way.
+        ArrayItemFilterScope::assertItemSlotsAreFilteredOnce($property, $schema);
+
+        foreach (ArrayItemFilterScope::declarationsOf($property) as $declaration) {
+            foreach ($declaration->getItemProperties() as $itemProperty) {
+                $this->processProperty($itemProperty, $schema, $generatorConfiguration, $seenPropertyIds);
+            }
+        }
+
+        // Find the FilterValidator whose filter implements TransformingFilterInterface.
         // The filters which are owned by a branch of a composition are not executed on the property: the value is
         // only transformed while the branch is active, otherwise the property still holds the value as provided.
         $transformingFilterValidator = null;
         $branchFilters = [];
         foreach ($property->getValidators() as $propertyValidator) {
             $validator = $propertyValidator->getValidator();
-
-            if ($validator instanceof ArrayItemValidator) {
-                $this->processProperty(
-                    $validator->getNestedProperty(),
-                    $schema,
-                    $generatorConfiguration,
-                    $seenPropertyIds,
-                );
-            } elseif ($validator instanceof ArrayTupleValidator) {
-                foreach ($validator->getTupleProperties() as $tupleProperty) {
-                    $this->processProperty($tupleProperty, $schema, $generatorConfiguration, $seenPropertyIds);
-                }
-            } elseif ($validator instanceof UnevaluatedItemsValidator) {
-                $this->processProperty(
-                    $validator->getValidationProperty(),
-                    $schema,
-                    $generatorConfiguration,
-                    $seenPropertyIds,
-                );
-            }
 
             if (
                 $validator instanceof FilterValidator

@@ -17,6 +17,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\ArrayItemFilterScope;
 use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeIntersection;
 
@@ -86,6 +87,16 @@ class IfValidatorFactory
                     $property->getJsonSchema(),
                 );
             }
+        }
+
+        // The condition only selects the branch: the filters of its items run inside the condition and never
+        // transform the stored value, unlike the filters of the items of the then and else branches.
+        if (isset($json['if']) && is_array($json['if'])) {
+            ArrayItemFilterScope::assertNoItemFilterInValidationOnlyBranch(
+                $json['if'],
+                $property,
+                "the 'if' condition of an 'if/then/else' composition",
+            );
         }
 
         $propertyFactory = new PropertyFactory();

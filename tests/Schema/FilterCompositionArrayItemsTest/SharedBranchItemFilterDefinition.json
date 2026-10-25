@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "definitions": {
+    "dates": {
+      "type": "array",
+      "allOf": [
+        {
+          "items": {
+            "type": "string",
+            "filter": [
+              {
+                "filter": "dateTime",
+                "outputFormat": "Ymd"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "properties": {
+    "first": {
+      "$ref": "#/definitions/dates"
+    },
+    "second": {
+      "$ref": "#/definitions/dates"
+    }
+  }
+}
