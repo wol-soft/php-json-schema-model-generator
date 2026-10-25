@@ -19,6 +19,30 @@ use ReflectionMethod;
 #[ApplicableDrafts]
 class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
+    /**
+     * The schema dependency counterpart of PropertyDependencyTest::
+     * testPropertyDependencyOfAnUndeclaredPropertyIsEnforced(): the dependency of a property which
+     * is neither declared nor required is dropped silently, so the object is accepted although the
+     * dependency requires `billing_address`.
+     *
+     * The test turns green by itself as soon as the dependency is enforced; the assertion of the
+     * complete exception message belongs here then.
+     */
+    public function testSchemaDependencyOfAnUndeclaredPropertyIsEnforced(): void
+    {
+        $className = $this->generateClassFromFile('SchemaDependencyOnUndeclaredProperty.json');
+
+        try {
+            new $className(['credit_card' => 12345]);
+        } catch (InvalidSchemaDependencyException) {
+            return;
+        }
+
+        $this->markTestIncomplete(
+            'Known gap: a dependency of a property which is neither declared nor required is dropped silently.',
+        );
+    }
+
     #[DataProvider('validSchemaDependencyDataProvider')]
     public function testValidSchemaDependency(array $propertyValue): void
     {
