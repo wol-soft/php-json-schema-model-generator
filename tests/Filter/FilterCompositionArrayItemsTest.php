@@ -10,6 +10,7 @@ use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -25,6 +26,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * The items of one slot (schema-form items, one tuple index, unevaluatedItems) can only be filtered by one
  * declaration: the property itself and every branch together contribute at most one transforming filter per slot.
  * Item filters inside a `not` branch never transform the stored value and are rejected.
+ *
+ * The tests which use `unevaluatedItems` only apply from Draft 2019-09, the keyword does not exist in Draft 07.
  */
 #[ApplicableDrafts]
 class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
@@ -123,6 +126,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
         $this->assertSame(['tags' => ['20200202', 'other']], $object->toArray());
     }
 
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsFilterInAllOfBranchPersistsAcceptsTransformedValuesAndSerializes(): void
     {
         $className = $this->generateClassFromFile(
@@ -182,6 +186,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * The tuple of a branch evaluates index 0, unevaluatedItems of the property the remaining indices: different
      * slots, each filtered by its own declaration.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
     public function testBranchTupleFilterAndUnevaluatedItemsFilterOfThePropertyAreCombined(): void
     {
         $className = $this->generateClassFromFile(
@@ -344,6 +349,7 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      * The unevaluatedItems of a branch which may be inactive: the serializer of the credited indices is guarded. Only a
      * single branch can declare it, a branch with unevaluatedItems next to a sibling branch is not supported.
      */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
     public function testUnevaluatedItemsFilterInConditionallyActiveBranchIsSerializedByItsOutputType(): void
     {
         $className = $this->generateClassFromFile(
