@@ -12,16 +12,12 @@ use PHPModelGenerator\Exception\FileSystemException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
 use PHPModelGenerator\Exception\RenderException;
 use PHPModelGenerator\Exception\SchemaException;
+use PHPModelGenerator\Exception\ValidationException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/**
- * Class ComposedIfTest
- *
- * @package PHPModelGenerator\Tests\ComposedValue
- */
 #[ApplicableDrafts]
 class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
 {
@@ -114,6 +110,108 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
                 ERROR,
             ],
         ];
+    }
+
+    /**
+     * The generator hands the type of the property to the condition and to the branches of a conditional. The
+     * condition only routes a value to `then` or `else`, so typing it must not change the route of a value of the type
+     * of the property: a property with a type and one without accept and reject exactly the same integers. A value of
+     * another type never reaches the routing of the typed property, its type check rejects it. The property without a
+     * type accepts it: a keyword which constrains numbers is satisfied by a string.
+     */
+    public function testConditionRoutesValuesOfThePropertyTypeIdenticallyWithAndWithoutADeclaredType(): void
+    {
+        $typedClassName = $this->generateClassFromFile('ConditionalPropertyDefinition.json');
+        $untypedClassName = $this->generateClassFromFile('ConditionalUntypedPropertyDefinition.json');
+
+        // below the minimum of the condition the multiples of 30 are valid, from the minimum on the multiples of 50
+        $expectedAcceptance = [
+            -50 => false,
+            -30 => true,
+            0 => true,
+            30 => true,
+            50 => false,
+            60 => true,
+            99 => false,
+            100 => true,
+            120 => false,
+            150 => true,
+        ];
+
+        foreach ($expectedAcceptance as $value => $expected) {
+            $this->assertSame($expected, $this->isAccepted($typedClassName, ['property' => $value]), "typed: $value");
+            $this->assertSame(
+                $expected,
+                $this->isAccepted($untypedClassName, ['property' => $value]),
+                "untyped: $value",
+            );
+        }
+
+        try {
+            new $typedClassName(['property' => 'abc']);
+            $this->fail('Expected an InvalidTypeException for the string');
+        } catch (InvalidTypeException $exception) {
+            $this->assertSame("Invalid type for 'property': requires 'int', got 'string'", $exception->getMessage());
+        }
+
+        $this->assertTrue($this->isAccepted($untypedClassName, ['property' => 'abc']));
+    }
+
+    /**
+     * The object variant of testConditionRoutesValuesOfThePropertyTypeIdenticallyWithAndWithoutADeclaredType(): the
+     * conditional of a property which is typed as an object and the one of a property without a type route the same
+     * objects. An integer is rejected by the type check of the typed property and accepted by the other one, as the
+     * keywords of the condition and of the branches constrain objects only.
+     */
+    public function testConditionRoutesObjectsIdenticallyWithAndWithoutADeclaredType(): void
+    {
+        $typedClassName = $this->generateClassFromFile('ConditionalTypedObjectProperty.json');
+        $untypedClassName = $this->generateClassFromFile('ConditionalUntypedObjectProperty.json');
+
+        $expectedAcceptance = [
+            'company with registration' => [['kind' => 'company', 'registration' => 'HRB 1'], true],
+            'company without registration' => [['kind' => 'company', 'birthday' => '1990-01-01'], false],
+            'other kind with birthday' => [['kind' => 'person', 'birthday' => '1990-01-01'], true],
+            'other kind without birthday' => [['kind' => 'person', 'registration' => 'HRB 1'], false],
+            'without kind with birthday' => [['birthday' => '1990-01-01'], true],
+            'without kind and birthday' => [[], false],
+        ];
+
+        foreach ($expectedAcceptance as $description => [$person, $expected]) {
+            $this->assertSame(
+                $expected,
+                $this->isAccepted($typedClassName, ['person' => $person]),
+                "typed: $description",
+            );
+            $this->assertSame(
+                $expected,
+                $this->isAccepted($untypedClassName, ['person' => $person]),
+                "untyped: $description",
+            );
+        }
+
+        try {
+            new $typedClassName(['person' => 42]);
+            $this->fail('Expected an InvalidTypeException for the integer');
+        } catch (InvalidTypeException $exception) {
+            $this->assertSame(
+                "Invalid type for 'person': requires 'object', got 'integer'",
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertTrue($this->isAccepted($untypedClassName, ['person' => 42]));
+    }
+
+    private function isAccepted(string $className, array $input): bool
+    {
+        try {
+            new $className($input);
+
+            return true;
+        } catch (ValidationException) {
+            return false;
+        }
     }
 
     #[DataProvider('validConditionalObjectPropertyDataProvider')]

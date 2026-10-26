@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "properties": {
+    "person": {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "company"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "registration"
+        ]
+      },
+      "else": {
+        "required": [
+          "birthday"
+        ]
+      }
+    }
+  }
+}
