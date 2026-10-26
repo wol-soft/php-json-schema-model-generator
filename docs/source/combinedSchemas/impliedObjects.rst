@@ -301,9 +301,11 @@ object-ness.
 
     This requirement applies only to a schema file's root and to a ``$ref`` target parsed as its
     own top-level schema. A named property, array item, or schema ``dependencies`` value never
-    triggers this rejection — an object-describing schema there follows the property-level
-    behaviour described in *Object-describing: bare validation keywords, no type* above: a
-    non-object value passes through unchanged instead of being rejected.
+    triggers this rejection. An object-describing schema at a property or an array item follows
+    the behaviour described in *Object-describing: bare validation keywords, no type* above: a
+    non-object value passes through unchanged instead of being rejected. The schema of a
+    ``dependencies`` entry validates the object which holds the property, so it asserts an object
+    (see the note about ``dependencies`` in that section).
 
 By default an object-describing composition (as opposed to object-asserting, or a composition that
 doesn't resolve to an object at all) is rejected. Enable
