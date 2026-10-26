@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "definitions": {
+    "both": {
+      "allOf": [
+        {
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "properties": {
+            "code": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "code"
+          ]
+        }
+      ]
+    }
+  },
+  "properties": {
+    "property": {
+      "type": "object",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/both"
+        }
+      ]
+    }
+  }
+}
