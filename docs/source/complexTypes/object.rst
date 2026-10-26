@@ -119,7 +119,9 @@ The native return type is ``mixed``, not ``Child | mixed``: ``mixed`` already su
 
 A ``child`` object carrying an unevaluated key is rejected, while a scalar ``child`` value is accepted without modification. A bare untyped schema (``{}``) declares no applicators, so no nested class is generated and the property remains a plain ``mixed`` value.
 
-This applies to property subschemas. A *root* schema without ``type: object`` does not generate a class at all, so an ``unevaluatedProperties`` keyword on a typeless root has nothing to apply to — declare ``type: object`` on the root.
+A subschema which carries nothing but object applicators, like ``child`` above, makes the generator emit a warning: the missing ``type: object`` is easy to forget and lets every other value pass. A subschema which also constrains another type (e.g. ``minLength``) declares the mixture itself and is not reported. See `Composition-implied objects <../combinedSchemas/impliedObjects.html#object-describing-bare-validation-keywords-no-type>`__ for the details.
+
+This applies to property subschemas. A *root* schema without ``type: object`` doesn't generate a class by default, so an ``unevaluatedProperties`` keyword on a typeless root has nothing to apply to: the generator warns about the file, naming the class and the fix. Declare ``type: object`` on the root, or enable `setImplicitObjectComposition <../gettingStarted.html#implicit-object-composition>`__ to generate the class as if the type was declared.
 
 .. note::
 
@@ -703,7 +705,7 @@ As stated above the dependency declaration is not bidirectional. If the presence
 Schema Dependencies
 ^^^^^^^^^^^^^^^^^^^
 
-Schema dependencies allow you to define a schema which must be fulfilled if a given property is present. The schema provided for the property must be either an object schema, a composition schema or a reference to an object schema.
+Schema dependencies allow you to define a schema which must be fulfilled if a given property is present. The schema provided for the property must be either an object schema, a composition schema or a reference to an object schema. The schema is validated against the object which holds the property, so a schema which declares another type (e.g. ``"type": "string"``) or a type list (e.g. ``["object", "null"]``) is rejected with a **SchemaException** during the generation.
 
 .. code-block:: json
 
@@ -777,6 +779,25 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Dependency\\Invali
     public function getJsonPointer(): JsonPointer
 
 Multiple violations against the schema dependency may be included.
+
+Boolean dependencies
+^^^^^^^^^^^^^^^^^^^^
+
+The value of a dependency can be the boolean literal ``true`` or ``false``. A ``true`` dependency imposes nothing. A ``false`` dependency can't be fulfilled by any object which contains the property, so the property is forbidden: an object which contains the key (also with a ``null`` value) is rejected with a *PHPModelGenerator\\Exception\\Generic\\DeniedPropertyException*. A property which is also listed as ``required`` can never be provided validly and is rejected with a **SchemaException** during the generation.
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "legacy_id": {
+                "type": "string"
+            }
+        },
+        "dependencies": {
+            "legacy_id": false
+        }
+    }
 
 Pattern Properties
 ------------------

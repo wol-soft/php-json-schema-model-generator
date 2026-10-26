@@ -9,8 +9,6 @@ use PHPModelGenerator\Draft\Draft;
 use PHPModelGenerator\Draft\Producer\ExclusiveProducer;
 use PHPModelGenerator\Model\SchemaDefinition\SchemaDefinitionDictionary;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
-use Throwable;
-use TypeError;
 
 /**
  * Statically classifies a raw decoded schema as ObjectAsserting, ObjectDescribing, NotObject, or
@@ -121,41 +119,10 @@ class ObjectShapeResolver
         SchemaDefinitionDictionary $dictionary,
         Draft $draft,
     ): self {
-        $refResolver = static function (string $reference) use ($schemaProcessor, $dictionary): array|bool|null {
-            $path = [];
-
-            try {
-                $definition = $dictionary->getDefinition($reference, $schemaProcessor, $path);
-
-                return $definition?->getSource()->navigate(implode('/', $path))->getJson();
-            } catch (TypeError) {
-                // A $ref that resolves to a boolean-valued definition (`true` or `false`) hits
-                // JsonSchema::navigate(), which assigns the resolved leaf into a property typed
-                // `array` and throws a TypeError for a boolean leaf. Unlike an unresolvable
-                // reference, this is NOT undecidable - the target is known and is definitely not
-                // representable as an object - so it must keep mapping to
-                // BranchObjectShape::Blocking, not ::Undecidable. Returning false (rather than
-                // null) achieves that: classify() already treats a literal `false` json value as
-                // Blocking via its own is_bool() branch, so this reuses that path instead of
-                // adding a second one. The true/false distinction of the actual definition is
-                // deliberately not preserved (both collapse to `false` here): classifying `true`
-                // faithfully as Neutral was tried and reverted, because it lets generation
-                // proceed past checkObjectRepresentability() and then fail deeper in the pipeline
-                // with this exact same uncaught TypeError once the real (non-speculative) $ref
-                // resolution reaches JsonSchema::navigate() - trading a clean SchemaException for
-                // an uncaught TypeError is a regression, not an improvement.
-                return false;
-            } catch (Throwable) {
-                // An unresolvable, malformed, or cyclic reference leaves object-ness genuinely
-                // undecidable - the target might turn out to be an object; returning null makes
-                // the resolver bail out to BranchObjectShape::Undecidable, keeping the schema on
-                // its current processing path and deferring to the real $ref resolution's own,
-                // more precise error.
-                return null;
-            }
-        };
-
-        return new self($draft, $refResolver);
+        return new self(
+            $draft,
+            static fn(string $reference): array|bool|null => $dictionary->peekReference($reference, $schemaProcessor),
+        );
     }
 
     public function resolve(array|bool $json): ObjectShape

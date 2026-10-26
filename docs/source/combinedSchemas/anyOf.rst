@@ -73,6 +73,13 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
       Absent optional properties are still allowed. A ``false`` branch of a composition of the
       object itself never matches, the object is always present.
 
+.. note::
+
+    A branch which declares no ``type`` inherits the ``type`` of its schema (a schema root always has
+    ``"type": "object"`` applied to it). An ``enum`` or ``const`` of the branch which lists no value of the
+    inherited type (e.g. ``{"enum": [1, 2, 3]}`` inside an object schema) can never be satisfied. Another branch
+    can still match, so the generation proceeds and the generator emits a warning for the dead branch.
+
 .. hint::
 
     When combining multiple nested objects with an `anyOf` composition a `merged property <mergedProperty.html>`__ will be generated

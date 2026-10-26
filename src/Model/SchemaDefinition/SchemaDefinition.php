@@ -13,21 +13,15 @@ use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
- * Class SchemaDefinition
- *
- * Hold a definition from a schema
- *
- * @package PHPModelGenerator\Model
+ * Creates the properties for the references into the definitions of one schema document. A property is shared by all
+ * reference sites which point to the same definition and carry identical metadata.
  */
 class SchemaDefinition
 {
     protected ResolvedDefinitionsCollection $resolvedPaths;
-    /** @var array */
-    protected $unresolvedProxies = [];
+    /** @var array<string, PropertyProxy[]> */
+    protected array $unresolvedProxies = [];
 
-    /**
-     * SchemaDefinition constructor.
-     */
     public function __construct(
         protected JsonSchema $source,
         protected SchemaProcessor $schemaProcessor,
@@ -52,7 +46,11 @@ class SchemaDefinition
     }
 
     /**
-     * Resolve a reference
+     * Resolve a reference.
+     *
+     * A failure to reach the definition (the path doesn't resolve) is thrown as it is. A fault in the definition
+     * itself is marked as a referenced schema failure: the reference resolved, so the caller must not restate the
+     * fault as an unresolved reference.
      *
      * @throws PHPModelGeneratorException
      * @throws SchemaException
@@ -63,8 +61,9 @@ class SchemaDefinition
         bool $required,
         ?array $dependencies = null,
         bool $isArrayItem = false,
+        bool $objectAsserted = false,
     ): PropertyInterface {
-        $jsonSchema = $this->source->navigate($path);
+        $jsonSchema = $this->source->navigate($path)->withObjectAssertedByContext($objectAsserted);
 
         // if the properties point to the same definition and share identical metadata the generated property can be
         // recycled. Otherwise, a new property must be generated as diverging metadata lead to different validators.
@@ -79,7 +78,16 @@ class SchemaDefinition
         // and whichever wired isArrayItem=true would silently flip the other's getter to non-nullable. Confirmed via
         // a $ref used both as `items` of an array and as a plain optional property: gating changed the optional
         // property's generated getter from `?Item` to the incorrect `Item`.
-        $key = implode('-', [$path, $required ? '1' : '0', $isArrayItem ? '1' : '0', md5(json_encode($dependencies))]);
+        // $objectAsserted is part of the key as well: a definition which describes an object without declaring the type
+        // is judged by the site which references it (see JsonSchema::isObjectAssertedByContext()), so a site which
+        // asserts an object and one which doesn't can't share the property.
+        $key = implode('-', [
+            $path,
+            $required ? '1' : '0',
+            $isArrayItem ? '1' : '0',
+            md5(json_encode($dependencies)),
+            $objectAsserted ? '1' : '0',
+        ]);
 
         if (!$this->resolvedPaths->offsetExists($key)) {
             // create a dummy entry for the path first. If the path is used recursive the recursive usages will point
@@ -109,7 +117,11 @@ class SchemaDefinition
                 return $property;
             } catch (PHPModelGeneratorException $exception) {
                 $this->resolvedPaths->offsetUnset($key);
-                throw $exception;
+
+                // The path was navigated above, so everything thrown while the property of the definition is built
+                // is a fault in the definition. Restating it as "Unresolved Reference" (RefResolver does so for
+                // every unmarked exception) would hide the real cause behind the reference site.
+                throw $exception instanceof SchemaException ? $exception->markAsReferencedSchemaFailure() : $exception;
             }
         }
 

@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "fragment": {
+      "$ref": "ObjectDescribingFragment.json"
+    }
+  }
+}

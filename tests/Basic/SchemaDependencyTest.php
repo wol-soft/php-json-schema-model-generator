@@ -6,6 +6,7 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
+use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
@@ -15,14 +16,33 @@ use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionMethod;
 
-/**
- * Class SchemaDependencyTest
- *
- * @package PHPModelGenerator\Tests\Basic
- */
 #[ApplicableDrafts]
 class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
+    /**
+     * The schema dependency counterpart of PropertyDependencyTest::
+     * testPropertyDependencyOfAnUndeclaredPropertyIsEnforced(): the dependency of a property which
+     * is neither declared nor required is dropped silently, so the object is accepted although the
+     * dependency requires `billing_address`.
+     *
+     * The test turns green by itself as soon as the dependency is enforced; the assertion of the
+     * complete exception message belongs here then.
+     */
+    public function testSchemaDependencyOfAnUndeclaredPropertyIsEnforced(): void
+    {
+        $className = $this->generateClassFromFile('SchemaDependencyOnUndeclaredProperty.json');
+
+        try {
+            new $className(['credit_card' => 12345]);
+        } catch (InvalidSchemaDependencyException) {
+            return;
+        }
+
+        $this->markTestIncomplete(
+            'Known gap: a dependency of a property which is neither declared nor required is dropped silently.',
+        );
+    }
+
     #[DataProvider('validSchemaDependencyDataProvider')]
     public function testValidSchemaDependency(array $propertyValue): void
     {
@@ -500,5 +520,40 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         }
 
         $this->assertNull($object->getCreditCard());
+    }
+
+    public static function nonObjectSchemaDependencyDataProvider(): array
+    {
+        return [
+            'scalar type' => ['ScalarTypeSchemaDependency.json', "the type 'string'"],
+            'type list including object' => ['MultiTypeSchemaDependency.json', "the types 'object', 'null'"],
+            'dependency of a required property which isn\'t declared' => [
+                'ScalarTypeSchemaDependencyOfRequiredProperty.json',
+                "the type 'array'",
+            ],
+        ];
+    }
+
+    /**
+     * The schema of a schema dependency is validated against the object which holds the property, so it has to
+     * describe an object. A dependency which declares another type (also a type list which merely includes "object")
+     * can't be represented by a generated class and has to be rejected during the generation instead of failing with a
+     * TypeError.
+     */
+    #[DataProvider('nonObjectSchemaDependencyDataProvider')]
+    public function testSchemaDependencyWithoutAnObjectTypeIsRejected(string $schemaFile, string $declaredType): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            '/^' . preg_quote("Schema dependency of property 'credit_card' in file '", '/') . ".+\.json'"
+                . preg_quote(
+                    ' must be an object schema, a composition or a reference to an object schema but declares '
+                        . $declaredType,
+                    '/',
+                )
+                . ' at line \d+, column \d+$/',
+        );
+
+        $this->generateClassFromFile($schemaFile);
     }
 }

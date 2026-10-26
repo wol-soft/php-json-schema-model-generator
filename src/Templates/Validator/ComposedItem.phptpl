@@ -85,14 +85,29 @@
                             $compositionErrorCollection[] = $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex];
                         {% endif %}
 
+                        {#
+                            Collect-errors mode stores the error registry of the branch. Direct-exception mode stores
+                            true for a valid branch and the exception which rejected the branch otherwise. The stored
+                            exception is thrown again so that the catch block below records it exactly like the
+                            exception of a branch which is evaluated now; a valid branch contributes its entry here as
+                            the body of the branch, which would do so, is skipped.
+                        #}
                         if ({% if generatorConfiguration.collectErrors() %}
                                 $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex]->getErrors()
                             {% else %}
                                 $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] !== true
                             {% endif %}
                         ) {
-                            throw new \Exception();
+                            {% if generatorConfiguration.collectErrors() %}
+                                throw new \Exception();
+                            {% else %}
+                                throw $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex];
+                            {% endif %}
                         }
+                        {% if not generatorConfiguration.collectErrors() %}
+
+                            $compositionErrorCollection[] = new \PHPModelGenerator\Exception\ErrorRegistryException();
+                        {% endif %}
                     } else {
                         {% if compositionValidator.getSlotKey() and compositionProperty.branchHasContains() %}
                             $branchContainsMatches = [];
@@ -162,8 +177,13 @@
             {% endif %}
         } catch (\Exception $e) {
             {% if viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator) and not generatorConfiguration.collectErrors() %}
+                {#
+                    Keep the exception, not just the verdict: a later update which answers this branch from the
+                    state needs the reason to enumerate the branch. Storing a bare false was rejected, it loses
+                    the message.
+                #}
                 if (isset($validatorIndex)) {
-                    $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = false;
+                    $this->_propertyValidationState[$validatorIndex][$validatorComponentIndex] = $e;
                 }
             {% endif %}
 
@@ -171,9 +191,7 @@
                 $this->_compositionEvaluations[$validatorIndex][$validatorComponentIndex] = null;
             {% endif %}
 
-            {% if not generatorConfiguration.collectErrors()
-                  and not viewHelper.isMutableBaseValidator(generatorConfiguration, isBaseValidator)
-            %}
+            {% if not generatorConfiguration.collectErrors() %}
                 {#
                     Record the failing branch's own exception (rendered as "Failed" with its
                     message) so the composition exception surfaces the underlying reason in

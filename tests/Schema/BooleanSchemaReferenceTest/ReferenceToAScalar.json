@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "definitions": {
+    "title": "not a schema"
+  },
+  "properties": {
+    "name": {
+      "$ref": "#/definitions/title"
+    }
+  }
+}

@@ -57,6 +57,13 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Not
       raises a ``NotException`` at runtime. The generator also emits a warning at generation time.
       On the object itself ``not: true`` rejects every object.
 
+.. note::
+
+    A ``not`` schema which declares no ``type`` inherits the ``type`` of its schema (a schema root always has
+    ``"type": "object"`` applied to it). An ``enum`` or ``const`` of the ``not`` schema which lists no value of the
+    inherited type (e.g. ``{"enum": [1, 2, 3]}`` inside an object schema) can never be satisfied, so ``not`` holds
+    for every value. The generator emits a warning at generation time.
+
 .. hint::
 
     The ``not`` schema does not need to declare ``"type": "object"`` itself to be treated as an

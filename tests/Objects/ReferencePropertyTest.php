@@ -51,6 +51,37 @@ class ReferencePropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * A fault in the referenced definition itself (here a type the draft doesn't know) is reported with its own
+     * message instead of being restated as an unresolved reference: the reference resolved perfectly well, the
+     * definition behind it is broken. The reference chain and the external file are covered as well, as the fault
+     * is raised at a different depth there.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     */
+    #[DataProvider('failingReferencedDefinitionProvider')]
+    public function testFaultInReferencedDefinitionIsReportedWithItsOwnCause(string $reference): void
+    {
+        try {
+            $this->generateClassFromFileTemplate('FailingReferencedDefinition.json', [$reference]);
+            $this->fail('Expected a SchemaException for the broken definition');
+        } catch (SchemaException $exception) {
+            $this->assertSame('Unsupported property type unknownType', $exception->getMessage());
+        }
+    }
+
+    public static function failingReferencedDefinitionProvider(): array
+    {
+        return [
+            'definition of the same file' => ['#/definitions/broken'],
+            'definition behind a reference chain' => ['#/definitions/alias'],
+            'definition of an external file' => [
+                '../ReferencePropertyTest_external/brokenLibrary.json#/definitions/broken',
+            ],
+        ];
+    }
+
+    /**
      * internalReferenceProvider() plus the empty-string $ref form, for use at a position nested
      * inside the "person" $id scope (e.g. the "children" array's items). There, an empty $ref
      * resolves to the enclosing "#person" scope (RFC 3986 base-URI scoping) and is a real,

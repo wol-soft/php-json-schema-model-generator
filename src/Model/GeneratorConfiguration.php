@@ -399,18 +399,18 @@ class GeneratorConfiguration
     }
 
     /**
-     * By default a composition defining its own generated class (a schema file's root, or a
-     * $ref target parsed as a top-level schema in its own right) must resolve to a definite
-     * object - a composition that only constrains object shape without ever declaring
-     * `type: object` is vacuously satisfied by non-object input too, so it cannot faithfully back
-     * a generated class and raises a SchemaException. Enabling this treats such a composition
-     * exactly as if it had declared `type: object` itself.
+     * By default a schema which defines its own generated class (a schema file's root, or a
+     * $ref target parsed as a top-level schema in its own right) and only constrains object shape
+     * without ever declaring `type: object` is not turned into a class: it is vacuously satisfied
+     * by non-object input too, which a generated class cannot represent. A composition of such
+     * branches is rejected with a SchemaException, a root which carries the object keywords
+     * (properties, required, ...) directly is skipped with a warning. Enabling this treats such a
+     * schema exactly as if it had declared `type: object` itself.
      *
-     * Scoped to compositions on purpose, and this flag does not widen that scope: a root carrying
-     * only object keywords (e.g. a bare `properties`/`required` schema) with no composition
-     * keyword, no `$ref` and no `type` is not a composition at all. SchemaProcessor's own gate
-     * skips such a root before the representability check ever sees it, so it produces no class
-     * and no diagnostic under either setting of this flag.
+     * The flag concerns the schemas which define a class only. At any other site (a property, an
+     * array item, a branch of a composition, ...) such a schema is always accepted: an object is
+     * validated, any other value passes through unchanged, and a warning points out the missing
+     * type.
      */
     public function setImplicitObjectComposition(bool $allowImplicitObjectComposition): self
     {

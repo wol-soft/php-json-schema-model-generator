@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "property": {
+      "if": {
+        "minimum": 100
+      },
+      "then": {
+        "multipleOf": 50
+      },
+      "else": {
+        "multipleOf": 30
+      }
+    }
+  }
+}

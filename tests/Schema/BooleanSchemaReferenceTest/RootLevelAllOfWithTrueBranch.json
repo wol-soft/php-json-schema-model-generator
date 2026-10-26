@@ -9,10 +9,11 @@
         "name": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
-    {
-      "$ref": "#/definitions/anything"
-    }
+    %s
   ]
 }
