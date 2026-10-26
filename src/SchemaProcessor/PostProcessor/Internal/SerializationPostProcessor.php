@@ -273,10 +273,6 @@ class SerializationPostProcessor extends PostProcessor
             $levelsOnPath,
         );
 
-        if ($level === null) {
-            return;
-        }
-
         $schema->addMethod(
             "_serialize{$arrayProperty->getAttribute()}",
             new RenderedMethod(
@@ -294,7 +290,11 @@ class SerializationPostProcessor extends PostProcessor
 
     /**
      * Collects how the slots of one array level are serialized: the schema-form items, each tuple index and, on the
-     * level of the property itself, the unevaluatedItems. Null if no slot is filtered.
+     * level of the property itself, the unevaluatedItems.
+     *
+     * The caller has to make sure that the level filters items (ArrayItemFilterScope::filtersItemsOnAnyLevel()). The
+     * check follows the declarations the same way as this method, so at least one slot is serialized. A level which
+     * serializes nothing is not guarded here, the method would only be an empty copy of its parameter.
      *
      * A slot holds either the serializer of a filter or, if the items are arrays themselves, a call of the generated
      * method of the nested level (see createSlot()). Several declarations may contribute to one slot (the branches of
@@ -314,7 +314,7 @@ class SerializationPostProcessor extends PostProcessor
      *     indexSerializers: array<int, array{index: int, call: string, guard: string}>,
      *     staticIndices: int[],
      *     dynamicSerializer: array{call: string, guard: string}|null,
-     * }|null
+     * }
      *
      * @throws ReflectionException
      */
@@ -326,7 +326,7 @@ class SerializationPostProcessor extends PostProcessor
         bool $root,
         string $levelName,
         array &$levelsOnPath,
-    ): ?array {
+    ): array {
         $itemsParts = self::emptySlot();
         $indexParts = [];
         $dynamicParts = self::emptySlot();
@@ -388,10 +388,6 @@ class SerializationPostProcessor extends PostProcessor
             if ($indexSerializer !== null) {
                 $indexSerializers[] = ['index' => $index] + $indexSerializer;
             }
-        }
-
-        if ($itemsSerializer === null && $indexSerializers === [] && $dynamicSerializer === null) {
-            return null;
         }
 
         return [
@@ -546,10 +542,6 @@ class SerializationPostProcessor extends PostProcessor
         );
 
         unset($levelsOnPath[$levelKey]);
-
-        if ($level === null) {
-            return null;
-        }
 
         $schema->addMethod(
             $methodName,
