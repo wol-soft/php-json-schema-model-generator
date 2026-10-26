@@ -7,8 +7,9 @@ keywords that only make sense for objects. The generator detects both cases, but
 differently. A composition that *guarantees* object-ness (**object-asserting**) is treated exactly
 like an explicit ``"type": "object"``: a non-object value is rejected. A schema that only *carries
 object-constraining keywords* (**object-describing**) is merely recognized as object-shaped: a
-non-object value still passes through unchanged, and at a site that defines its own generated
-class it is rejected unless ``setImplicitObjectComposition(true)`` is set.
+non-object value still passes through unchanged. A schema that defines its own generated class
+can't pass a value through, so it is not turned into a class unless
+``setImplicitObjectComposition(true)`` is set.
 
 Object-asserting: composition guarantees object-ness
 -------------------------------------------------------
@@ -120,12 +121,14 @@ rejected:
 
 The generator emits a generation-time warning for an object-describing property, array item or
 composition branch — since it is easy to write one by accident (forgetting ``"type": "object"``)
-and get silent pass-through instead of the intended validation:
+and get silent pass-through instead of the intended validation. The warning names the property
+and the location of the offending schema:
 
 .. code-block:: none
 
-    Property 'person' carries object-constraining keywords (eg. 'properties', 'required')
-    without a 'type' declaration and does not constrain non-object values
+    Property 'person' at '/properties/person' in file '...' carries object-constraining keywords
+    (eg. 'properties', 'required') without a 'type' declaration and does not constrain non-object
+    values
 
 .. note::
 
@@ -134,6 +137,18 @@ and get silent pass-through instead of the intended validation:
     happens, so it is treated as object-*asserting* — a non-object value is rejected rather than
     passed through — and no warning is emitted. Declare ``"type": "object"`` explicitly there to
     make what you get match what you wrote.
+
+.. note::
+
+    No warning is emitted where an enclosing schema already asserts an object, as nothing is
+    implied there: the branches of a composition of a class root or of a property declared as
+    ``"type": "object"`` validate that very value, and the target of a ``$ref`` on the root of a
+    schema file is the object of the class (the schema of a ``dependencies`` entry is such a site
+    as well, see above). This holds for a schema written inline and for a ``$ref`` to a definition
+    alike: the reference is judged by the site it is used at, so a definition which is referenced
+    from such a branch and from a plain property warns for the property only. The assertion
+    covers the value of the branch and nothing below it, a property inside such a definition is
+    judged by itself.
 
 .. note::
 
@@ -297,10 +312,47 @@ doesn't resolve to an object at all) is rejected. Enable
 class-defining composition exactly as if it had declared ``"type": "object"`` itself, instead of
 rejecting it.
 
-.. note::
+A schema file whose root carries only object keywords — a bare ``properties``/``required``
+schema with no ``allOf``/``anyOf``/``oneOf``/``if``, no ``$ref`` and no ``type`` — is not a
+composition, so it is not rejected. It describes an object without declaring it as well, and the
+generated class couldn't pass a non-object value through either: by default no class is generated
+for it and the generator warns, naming the class and the file:
 
-    Both the requirement and the flag apply to *compositions*. A schema file whose root carries
-    only object keywords — a bare ``properties``/``required`` schema with no ``allOf``/``anyOf``/
-    ``oneOf``/``if``, no ``$ref`` and no ``type`` — is not a composition, and is skipped before
-    this check runs: it produces no generated class and no message, whether or not the flag is
-    enabled. Add ``"type": "object"`` to such a root to have a class generated for it.
+.. code-block:: none
+
+    Schema for 'Base' in file '...' carries object-constraining keywords (eg. 'properties',
+    'required') without a 'type' declaration and no class is generated for it: add an explicit
+    '"type": "object"' constraint, or enable
+    'GeneratorConfiguration::setImplicitObjectComposition(true)' to generate it
+
+With ``setImplicitObjectComposition(true)`` the class is generated as if the type was declared,
+and so it is by adding ``"type": "object"`` to the root. A root which describes no object at all —
+a file which only holds definitions, a root which declares another type, or one which carries
+nothing but a ``not`` or annotations — is skipped silently, as a schema directory routinely
+contains files which are only meant to be referenced. Each component of an OpenAPI document is
+the root of a class of its own and is reported by itself.
+
+Summary
+-------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 50 25 25
+
+   * - Site
+     - Default
+     - ``setImplicitObjectComposition(true)``
+   * - Property, array item, ``additionalProperties`` / ``patternProperties`` value, ... without
+       a ``type``
+     - Accepted, warning
+     - Unchanged
+   * - Branch of a composition of a class root or of a property declared as an object,
+       ``dependencies`` schema, target of a ``$ref`` on the root of a schema file
+     - Accepted, no warning
+     - Unchanged
+   * - Composition which defines a class (file root, ``$ref`` target parsed as a top-level schema)
+     - Rejected with a **SchemaException**
+     - Class generated
+   * - File root with object keywords only
+     - Skipped, warning
+     - Class generated

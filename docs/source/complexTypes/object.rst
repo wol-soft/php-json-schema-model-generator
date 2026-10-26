@@ -119,7 +119,9 @@ The native return type is ``mixed``, not ``Child | mixed``: ``mixed`` already su
 
 A ``child`` object carrying an unevaluated key is rejected, while a scalar ``child`` value is accepted without modification. A bare untyped schema (``{}``) declares no applicators, so no nested class is generated and the property remains a plain ``mixed`` value.
 
-This applies to property subschemas. A *root* schema without ``type: object`` does not generate a class at all, so an ``unevaluatedProperties`` keyword on a typeless root has nothing to apply to — declare ``type: object`` on the root.
+A subschema which carries nothing but object applicators, like ``child`` above, makes the generator emit a warning: the missing ``type: object`` is easy to forget and lets every other value pass. A subschema which also constrains another type (e.g. ``minLength``) declares the mixture itself and is not reported. See `Composition-implied objects <../combinedSchemas/impliedObjects.html#object-describing-bare-validation-keywords-no-type>`__ for the details.
+
+This applies to property subschemas. A *root* schema without ``type: object`` doesn't generate a class by default, so an ``unevaluatedProperties`` keyword on a typeless root has nothing to apply to: the generator warns about the file, naming the class and the fix. Declare ``type: object`` on the root, or enable `setImplicitObjectComposition <../gettingStarted.html#implicit-object-composition>`__ to generate the class as if the type was declared.
 
 .. note::
 
