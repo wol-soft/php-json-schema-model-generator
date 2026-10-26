@@ -524,10 +524,9 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     ): array {
         $propertyFactory = new PropertyFactory();
         $compositionProperties = [];
-        $json = $propertySchema->getJson()['propertySchema']->getJson();
-        $draft = $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft(
-            $propertySchema->getJson()['propertySchema'],
-        );
+        $ownerSchema = $propertySchema->getJson()['propertySchema'];
+        $json = $ownerSchema->getJson();
+        $draft = $schemaProcessor->getGeneratorConfiguration()->getBuiltDraft($ownerSchema);
 
         $property->addTypeHintDecorator(new ClearTypeHintDecorator());
 
@@ -537,7 +536,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     $schemaProcessor,
                     $schema,
                     $property,
-                    $propertySchema->getJson()['propertySchema'],
+                    $ownerSchema,
                 );
                 continue;
             }
@@ -547,7 +546,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                     $schemaProcessor,
                     $schema,
                     $property,
-                    $propertySchema->getJson()['propertySchema'],
+                    $ownerSchema,
                 );
                 $compositionProperties[] = $trueBranchProperty;
 
@@ -570,7 +569,12 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 continue;
             }
 
-            $compositionSchema = $propertySchema->getJson()['propertySchema']->navigate("$this->key/$index");
+            // The branches validate the very value of their owner: if the owner asserts an object, so do they. This
+            // includes a branch which is a reference, where the type injected by inheritPropertyType() is ignored or
+            // merged into a separate property and says nothing about the definition behind the reference.
+            $compositionSchema = $ownerSchema
+                ->navigate("$this->key/$index")
+                ->withObjectAssertedByContext($ownerSchema->assertsObject());
 
             $compositionProperty = new CompositionPropertyDecorator(
                 $property->getName(),

@@ -43,6 +43,19 @@ class JsonSchema
     private ?bool $booleanValue = null;
 
     /**
+     * Set when an enclosing schema already asserts that the value of this schema is an object: the branches of a
+     * composition of an object validate that very value, the schema of a dependency is only ever applied to the object
+     * which holds the property, and the target of a class-defining reference is the object of the class. Nothing is
+     * implied by a missing `type` there, so an object-describing schema doesn't need a warning.
+     *
+     * It is carried by the schema instead of being derived from the JSON: the type which the generator hands to a
+     * branch is lost next to a `$ref` in the drafts which ignore the siblings of a reference, and the definition behind
+     * a reference is built without knowing the site which references it. A value below the schema (a property, an
+     * item, ...) is no such site, navigate() resets the marker.
+     */
+    private bool $objectAssertedByContext = false;
+
+    /**
      * The nearest enclosing $id, normalized to always start with '#' (matching
      * SchemaDefinitionDictionary's dictionary key format). Defaults to the document root ('#')
      * and is updated by navigate() whenever it descends into a node carrying its own $id. Used to
@@ -123,6 +136,28 @@ class JsonSchema
             );
     }
 
+    public function isObjectAssertedByContext(): bool
+    {
+        return $this->objectAssertedByContext;
+    }
+
+    public function withObjectAssertedByContext(bool $objectAsserted = true): JsonSchema
+    {
+        $jsonSchema = clone $this;
+        $jsonSchema->objectAssertedByContext = $objectAsserted;
+
+        return $jsonSchema;
+    }
+
+    /**
+     * Whether every value this schema is applied to is known to be an object: the schema declares the object type
+     * itself (a list holding only "object" is the same declaration), or an enclosing schema asserts it.
+     */
+    public function assertsObject(): bool
+    {
+        return $this->objectAssertedByContext || (array) ($this->json['type'] ?? []) === ['object'];
+    }
+
     /**
      * The $schema URI in effect for this node — see the $schemaUri property doc.
      */
@@ -181,7 +216,9 @@ class JsonSchema
      * navigated to the provided $pointer from the current schema.
      *
      * A boolean-valued target yields a boolean schema, which can't be navigated into any further. A scalar or null
-     * isn't a schema at all and is rejected.
+     * isn't a schema at all and is rejected. The subschema is no more asserted to be an object by the context than any
+     * other value below this schema; a caller which navigates to a branch of a composition of an object passes the
+     * assertion on explicitly.
      *
      * @throws SchemaException
      */
@@ -194,6 +231,7 @@ class JsonSchema
         }
 
         $jsonSchema = clone $this;
+        $jsonSchema->objectAssertedByContext = false;
 
         foreach (explode('/', $trimmed) as $pathSegment) {
             $jsonSchema->pointer .= "/$pathSegment";

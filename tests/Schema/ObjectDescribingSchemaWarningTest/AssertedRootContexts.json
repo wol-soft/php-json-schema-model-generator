@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "definitions": {
+    "person": {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "properties": {
+    "trigger": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/person"
+    }
+  ],
+  "dependencies": {
+    "trigger": {
+      "$ref": "#/definitions/person"
+    }
+  }
+}

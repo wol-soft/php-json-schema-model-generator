@@ -61,8 +61,9 @@ class SchemaDefinition
         bool $required,
         ?array $dependencies = null,
         bool $isArrayItem = false,
+        bool $objectAsserted = false,
     ): PropertyInterface {
-        $jsonSchema = $this->source->navigate($path);
+        $jsonSchema = $this->source->navigate($path)->withObjectAssertedByContext($objectAsserted);
 
         // if the properties point to the same definition and share identical metadata the generated property can be
         // recycled. Otherwise, a new property must be generated as diverging metadata lead to different validators.
@@ -77,7 +78,16 @@ class SchemaDefinition
         // and whichever wired isArrayItem=true would silently flip the other's getter to non-nullable. Confirmed via
         // a $ref used both as `items` of an array and as a plain optional property: gating changed the optional
         // property's generated getter from `?Item` to the incorrect `Item`.
-        $key = implode('-', [$path, $required ? '1' : '0', $isArrayItem ? '1' : '0', md5(json_encode($dependencies))]);
+        // $objectAsserted is part of the key as well: a definition which describes an object without declaring the type
+        // is judged by the site which references it (see JsonSchema::isObjectAssertedByContext()), so a site which
+        // asserts an object and one which doesn't can't share the property.
+        $key = implode('-', [
+            $path,
+            $required ? '1' : '0',
+            $isArrayItem ? '1' : '0',
+            md5(json_encode($dependencies)),
+            $objectAsserted ? '1' : '0',
+        ]);
 
         if (!$this->resolvedPaths->offsetExists($key)) {
             // create a dummy entry for the path first. If the path is used recursive the recursive usages will point

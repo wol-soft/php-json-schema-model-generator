@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "definitions": {
+    "holder": {
+      "properties": {
+        "inner": {
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      }
+    }
+  },
+  "properties": {
+    "typed": {
+      "type": "object",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/holder"
+        }
+      ]
+    }
+  }
+}

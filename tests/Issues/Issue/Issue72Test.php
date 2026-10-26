@@ -28,6 +28,10 @@ use PHPUnit\Framework\Attributes\DataProvider;
  */
 class Issue72Test extends AbstractIssueTestCase
 {
+    private const DESCRIBING_PROPERTY_WARNING = "Property '{property}' at '{pointer}' in file '{file}' carries"
+        . " object-constraining keywords (eg. 'properties', 'required') without a 'type' declaration and does not"
+        . ' constrain non-object values';
+
     /**
      * Deeply nested `allOf` compositions (a property whose `allOf` branches are themselves `$ref`s
      * to further `allOf` definitions) must instantiate the nested property as an object exposing
@@ -673,9 +677,8 @@ class Issue72Test extends AbstractIssueTestCase
             $this->hasLogEntry(
                 $recordingLogger->getEntries(),
                 'warning',
-                "Property '{property}' carries object-constraining keywords (eg. 'properties',"
-                    . " 'required') without a 'type' declaration and does not constrain non-object values",
-                ['property' => 'p'],
+                self::DESCRIBING_PROPERTY_WARNING,
+                ['property' => 'p', 'pointer' => '/properties/p'],
             ),
             'Expected a describing-property warning for p.',
         );
@@ -789,9 +792,7 @@ class Issue72Test extends AbstractIssueTestCase
             $this->hasLogEntry(
                 $recordingLogger->getEntries(),
                 'warning',
-                "Property '{property}' carries object-constraining keywords (eg. 'properties',"
-                    . " 'required') without a 'type' declaration and does not constrain non-object values",
-                ['property' => 'creditCard'],
+                self::DESCRIBING_PROPERTY_WARNING,
             ),
             'A dependencies value is force-typed before classification, so it must not warn.',
         );
@@ -973,9 +974,8 @@ class Issue72Test extends AbstractIssueTestCase
             $this->hasLogEntry(
                 $recordingLogger->getEntries(),
                 'warning',
-                "Property '{property}' carries object-constraining keywords (eg. 'properties',"
-                    . " 'required') without a 'type' declaration and does not constrain non-object values",
-                ['property' => 'members'],
+                self::DESCRIBING_PROPERTY_WARNING,
+                ['property' => 'members', 'pointer' => '/properties/members/items'],
             ),
             'Expected a describing-property warning for the array item.',
         );

@@ -316,11 +316,20 @@ class PropertyFactory
             return null;
         }
 
-        $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
-            "Property '{property}' carries object-constraining keywords (eg. 'properties',"
-                . " 'required') without a 'type' declaration and does not constrain non-object values",
-            ['property' => $propertyName],
-        );
+        // Nothing is implied where an enclosing schema asserts the object, see JsonSchema::isObjectAssertedByContext():
+        // the schema is represented the same way, but there is no non-object value which could pass unnoticed.
+        if (!$propertySchema->isObjectAssertedByContext()) {
+            $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                "Property '{property}' at '{pointer}' in file '{file}' carries object-constraining keywords"
+                    . " (eg. 'properties', 'required') without a 'type' declaration and does not constrain"
+                    . ' non-object values',
+                [
+                    'property' => $propertyName,
+                    'pointer' => $propertySchema->getPointer(),
+                    'file' => $propertySchema->getFile(),
+                ],
+            );
+        }
 
         $objectJson = $json;
         $objectJson['type'] = 'object';
@@ -516,11 +525,13 @@ class PropertyFactory
             )
             : null;
 
+        // The siblings apply to the value of the reference here, so a sibling which declares the object type asserts an
+        // object for the definition behind the reference as well. Draft 07 ignores the siblings and never gets here.
         $refProperty = array_values($producers)[0]->produce(
             $schemaProcessor,
             $schema,
             $propertyName,
-            $propertySchema,
+            $siblingSchema->assertsObject() ? $propertySchema->withObjectAssertedByContext() : $propertySchema,
             $required,
             $isArrayItem,
         );

@@ -1,0 +1,47 @@
+{
+  "type": "object",
+  "definitions": {
+    "assertedFirst": {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "plainFirst": {
+      "properties": {
+        "code": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code"
+      ]
+    }
+  },
+  "properties": {
+    "plainUse": {
+      "$ref": "#/definitions/plainFirst"
+    },
+    "triggerPlainFirst": {
+      "type": "string"
+    },
+    "triggerAssertedFirst": {
+      "type": "string"
+    },
+    "lateUse": {
+      "$ref": "#/definitions/assertedFirst"
+    }
+  },
+  "dependencies": {
+    "triggerPlainFirst": {
+      "$ref": "#/definitions/plainFirst"
+    },
+    "triggerAssertedFirst": {
+      "$ref": "#/definitions/assertedFirst"
+    }
+  }
+}
