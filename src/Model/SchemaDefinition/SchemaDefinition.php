@@ -13,21 +13,15 @@ use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 /**
- * Class SchemaDefinition
- *
- * Hold a definition from a schema
- *
- * @package PHPModelGenerator\Model
+ * Creates the properties for the references into the definitions of one schema document. A property is shared by all
+ * reference sites which point to the same definition and carry identical metadata.
  */
 class SchemaDefinition
 {
     protected ResolvedDefinitionsCollection $resolvedPaths;
-    /** @var array */
-    protected $unresolvedProxies = [];
+    /** @var array<string, PropertyProxy[]> */
+    protected array $unresolvedProxies = [];
 
-    /**
-     * SchemaDefinition constructor.
-     */
     public function __construct(
         protected JsonSchema $source,
         protected SchemaProcessor $schemaProcessor,
@@ -52,7 +46,11 @@ class SchemaDefinition
     }
 
     /**
-     * Resolve a reference
+     * Resolve a reference.
+     *
+     * A failure to reach the definition (the path doesn't resolve) is thrown as it is. A fault in the definition
+     * itself is marked as a referenced schema failure: the reference resolved, so the caller must not restate the
+     * fault as an unresolved reference.
      *
      * @throws PHPModelGeneratorException
      * @throws SchemaException
@@ -109,7 +107,11 @@ class SchemaDefinition
                 return $property;
             } catch (PHPModelGeneratorException $exception) {
                 $this->resolvedPaths->offsetUnset($key);
-                throw $exception;
+
+                // The path was navigated above, so everything thrown while the property of the definition is built
+                // is a fault in the definition. Restating it as "Unresolved Reference" (RefResolver does so for
+                // every unmarked exception) would hide the real cause behind the reference site.
+                throw $exception instanceof SchemaException ? $exception->markAsReferencedSchemaFailure() : $exception;
             }
         }
 

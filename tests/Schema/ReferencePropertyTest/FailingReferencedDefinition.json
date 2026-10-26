@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "definitions": {
+    "broken": {
+      "type": "unknownType"
+    },
+    "alias": {
+      "$ref": "#/definitions/broken"
+    }
+  },
+  "properties": {
+    "property": {
+      "$ref": "%s"
+    }
+  }
+}
