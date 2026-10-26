@@ -293,7 +293,7 @@ The branches may also use the same transforming filter with different options (e
 Filters on array items
 ^^^^^^^^^^^^^^^^^^^^^^
 
-A transforming filter may be applied to the items of an array: to the schema of ``items``, to a single index of a tuple-form ``items`` or to ``unevaluatedItems``. The transformed items are stored in the property, so the getter returns the transformed values. Like for any other property an already transformed item is accepted as input (the setter of the array and the constructor accept a ``DateTime`` object as well as a date string) and the serialization applies the serializer of the filter to each transformed item:
+A transforming filter may be applied to the items of an array: to the schema of ``items``, to a single index of a tuple-form ``items`` or to ``unevaluatedItems``. The transformed items are stored in the property, so the getter returns the transformed values. Like for any other property an already transformed item is accepted as input (the setter of the array and the constructor accept a ``DateTime`` object as well as a date string) and the serialization applies the serializer of the filter to each transformed item (also if the items are arrays themselves, see `Nested arrays`_):
 
 .. code-block:: json
 
@@ -338,7 +338,62 @@ The same applies if the items are validated inside a branch of a composition:
 
 The items of every branch which succeeded are transformed, independent of the position of the branch in the composition. A branch of an ``allOf`` is always active. A branch of an ``anyOf``, a ``oneOf`` or the ``then`` and ``else`` branch of an ``if``/``then``/``else`` may be inactive: the items then keep the value as provided and the serialization only applies the serializer of the filter to an item of the output type of the filter (a ``DateTime`` object in the example). If a transforming filter doesn't declare a return type (or declares ``mixed``) the output type can't be recognized and its serializer is applied to every item, so the serializer of such a filter has to accept all values.
 
-The items of one slot (the schema-form ``items``, a single index of a tuple-form ``items`` or ``unevaluatedItems``) can only be filtered by a single declaration. The property itself and all of its branches together may declare at most one transforming filter for a slot, otherwise a ``SchemaException`` is thrown at generation time, also if the filters are identical. The branches of an ``allOf`` would filter the same items twice, and for branches which exclude each other (``oneOf``, ``then`` and ``else``) the serializer can't tell which branch transformed an item. Schema-form ``items`` validate every index, so they also conflict with a filter on a tuple index. Different tuple indices (also in different branches) and ``unevaluatedItems`` don't conflict.
+Nested arrays
+~~~~~~~~~~~~~
+
+The items of an array may be arrays themselves. The transforming filter of the inner items is executed, stored and serialized like the filter of the items of an array which is a property of the model. This applies to any depth, to schema-form ``items`` and tuple indices as well as to inner arrays which are validated by a branch of a composition:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "properties": {
+            "calendar": {
+                "type": "array",
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "filter": [
+                            {
+                                "filter": "dateTime",
+                                "outputFormat": "Y-m-d"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+The getter of ``calendar`` returns a list of lists of ``DateTime`` objects. Already transformed values are accepted as input, the serialization creates the date strings again. A level of nested arrays which may be inactive (the inner array is validated by a branch of an ``anyOf``, a ``oneOf`` or the ``then`` and ``else`` branch of an ``if``/``then``/``else``) keeps its items as provided if another branch was the active one, and so does a value which isn't an array at all (the items are a composition of types). The serialization only applies the serializer of the filter to items of the output type of the filter, with the same limitation for filters without a declared return type as described above.
+
+A schema which refers to itself is supported as well, for example a tree of arrays whose leaves are arrays of dates: each level of the tree is serialized by the same generated method.
+
+Arrays held by additional, pattern and unevaluated properties
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The same applies to arrays which are the values of ``additionalProperties``, ``patternProperties`` and ``unevaluatedProperties`` (the latter with the `UnevaluatedPropertiesAccessorPostProcessor <../generator/builtin/unevaluatedPropertiesAccessorPostProcessor.html>`__). The items are transformed when the properties are collected and serialized by the filter, also if the arrays are nested:
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "additionalProperties": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "filter": [
+                    {
+                        "filter": "dateTime",
+                        "outputFormat": "Y-m-d"
+                    }
+                ]
+            }
+        }
+    }
+
+The items of one slot (the schema-form ``items``, a single index of a tuple-form ``items`` or ``unevaluatedItems``) can only be filtered by a single declaration. The property itself and all of its branches together may declare at most one transforming filter for a slot, otherwise a ``SchemaException`` is thrown at generation time, also if the filters are identical. The branches of an ``allOf`` would filter the same items twice, and for branches which exclude each other (``oneOf``, ``then`` and ``else``) the serializer can't tell which branch transformed an item. If the items of a slot are arrays themselves, the filters of their items on any level count for the slot: branches which filter the items of nested arrays are rejected like branches which filter the items directly, also if they do so at a different depth. A declaration which is reached more than once (a definition which is referenced by several branches or which refers to itself) is still one declaration. Schema-form ``items`` validate every index, so they also conflict with a filter on a tuple index. Different tuple indices (also in different branches) and ``unevaluatedItems`` don't conflict.
 
 .. code-block:: text
 
@@ -353,7 +408,7 @@ A ``not`` branch and the ``if`` condition of an ``if``/``then``/``else`` only de
 
 .. warning::
 
-    If the items of an array are arrays themselves (``"items": {"type": "array", "items": {"filter": "dateTime"}}``) the filter of the inner items is executed and the transformed values are stored, but the serialization doesn't apply the serializer of the filter to them yet.
+    ``unevaluatedItems`` declared for an array which is itself an item of another array is not supported yet. The generated model fails with an error when such a value is validated, as the evaluation of ``unevaluatedItems`` is only generated for the arrays which are properties of a model. This is independent of filters, a filter inside such an ``unevaluatedItems`` isn't serialized either.
 
 Exceptions from filter
 ----------------------

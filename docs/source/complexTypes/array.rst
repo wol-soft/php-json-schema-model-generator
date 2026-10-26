@@ -156,7 +156,7 @@ The ``items`` keyword also accepts the boolean literals ``true`` and ``false``.
 
 .. hint::
 
-    The items may be transformed by a filter (eg. ``dateTime``), also if they are declared inside a branch of a composition or as tuple items or ``unevaluatedItems``. The array then contains the transformed items. See `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
+    The items may be transformed by a filter (eg. ``dateTime``), also if they are declared inside a branch of a composition, as tuple items or ``unevaluatedItems`` or inside nested arrays (arrays which are items of an array). The array then contains the transformed items. See `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
 
 Tuples
 ------
