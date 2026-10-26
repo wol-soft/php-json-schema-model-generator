@@ -1,11 +1,22 @@
-/**
- * serialize the property {{ property.getAttribute() }}: the transforming filters of the items (schema-form items,
- * tuple indices and unevaluatedItems) are combined into a single method, each slot applies the serializer of its filter
- */
-protected function _serialize{{ viewHelper.ucfirst(property.getAttribute()) }}(): array
+{% if methodName %}
+    /**
+     * serialize the items of a nested array of the property {{ property.getAttribute() }}: each slot (schema-form
+     * items, tuple indices) applies the serializer of its filter or serializes the arrays of the next level
+     */
+    private function {{ methodName }}(array $serialized): array
+{% else %}
+    /**
+     * serialize the property {{ property.getAttribute() }}: the transforming filters of the items (schema-form
+     * items, tuple indices and unevaluatedItems) are combined into a single method, each slot applies the
+     * serializer of its filter or serializes the arrays of the next level
+     */
+    protected function _serialize{{ viewHelper.ucfirst(property.getAttribute()) }}(): array
+{% endif %}
 {
-    $serialized = $this->{{ property.getAttribute(true) }};
+    {% if not methodName %}
+        $serialized = $this->{{ property.getAttribute(true) }};
 
+    {% endif %}
     {% if itemsSerializer %}
         foreach ($serialized as $index => $value) {
             {% if dynamicSerializer %}
@@ -17,24 +28,24 @@ protected function _serialize{{ viewHelper.ucfirst(property.getAttribute()) }}()
 
             {% if itemsSerializer.guard %}
                 if ({{ itemsSerializer.guard }}) {
-                    $serialized[$index] = \{{ itemsSerializer.serializerClass }}::{{ itemsSerializer.serializerMethod }}($value, {{ itemsSerializer.serializerOptions }});
+                    $serialized[$index] = {{ itemsSerializer.call }};
                 }
             {% else %}
-                $serialized[$index] = \{{ itemsSerializer.serializerClass }}::{{ itemsSerializer.serializerMethod }}($value, {{ itemsSerializer.serializerOptions }});
+                $serialized[$index] = {{ itemsSerializer.call }};
             {% endif %}
         }
     {% endif %}
 
     {% foreach indexSerializers as indexSerializer %}
         if (array_key_exists({{ indexSerializer.index }}, $serialized)) {
-            {% if indexSerializer.guard %}
-                $value = $serialized[{{ indexSerializer.index }}];
+            $value = $serialized[{{ indexSerializer.index }}];
 
+            {% if indexSerializer.guard %}
                 if ({{ indexSerializer.guard }}) {
-                    $serialized[{{ indexSerializer.index }}] = \{{ indexSerializer.serializerClass }}::{{ indexSerializer.serializerMethod }}($value, {{ indexSerializer.serializerOptions }});
+                    $serialized[{{ indexSerializer.index }}] = {{ indexSerializer.call }};
                 }
             {% else %}
-                $serialized[{{ indexSerializer.index }}] = \{{ indexSerializer.serializerClass }}::{{ indexSerializer.serializerMethod }}($serialized[{{ indexSerializer.index }}], {{ indexSerializer.serializerOptions }});
+                $serialized[{{ indexSerializer.index }}] = {{ indexSerializer.call }};
             {% endif %}
         }
     {% endforeach %}
@@ -49,14 +60,14 @@ protected function _serialize{{ viewHelper.ucfirst(property.getAttribute()) }}()
                 }
             {% endif %}
 
-            {% if dynamicSerializer.guard %}
-                $value = $serialized[$index];
+            $value = $serialized[$index];
 
+            {% if dynamicSerializer.guard %}
                 if ({{ dynamicSerializer.guard }}) {
-                    $serialized[$index] = \{{ dynamicSerializer.serializerClass }}::{{ dynamicSerializer.serializerMethod }}($value, {{ dynamicSerializer.serializerOptions }});
+                    $serialized[$index] = {{ dynamicSerializer.call }};
                 }
             {% else %}
-                $serialized[$index] = \{{ dynamicSerializer.serializerClass }}::{{ dynamicSerializer.serializerMethod }}($serialized[$index], {{ dynamicSerializer.serializerOptions }});
+                $serialized[$index] = {{ dynamicSerializer.call }};
             {% endif %}
         }
     {% endif %}

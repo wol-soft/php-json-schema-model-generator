@@ -24,7 +24,6 @@ use PHPModelGenerator\SchemaProcessor\Hook\SerializationHookInterface;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\RenderedMethod;
 use PHPModelGenerator\Traits\SerializableTrait;
-use PHPModelGenerator\Utils\ArrayItemDeclaration;
 use PHPModelGenerator\Utils\ArrayItemFilterScope;
 use PHPModelGenerator\Utils\FilterReflection;
 use PHPModelGenerator\Utils\RenderHelper;
@@ -160,38 +159,36 @@ class SerializationPostProcessor extends PostProcessor
         }
 
         foreach ($schema->getBaseValidators() as $validator) {
-            if ($validator instanceof PatternPropertiesValidator) {
-                foreach ($validator->getValidationProperty()->getValidators() as $patternPropertyValidator) {
-                    $filterValidator = $patternPropertyValidator->getValidator();
-
-                    if (
-                        $filterValidator instanceof FilterValidator &&
-                        $filterValidator->getFilter() instanceof TransformingFilterInterface
-                    ) {
-                        [$serializerClass, $serializerMethod] = $filterValidator->getFilter()->getSerializer();
-
-                        $schema->addMethod(
-                            "_serialize{$validator->getKey()}",
-                            new RenderedMethod(
-                                $schema,
-                                $generatorConfiguration,
-                                join(
-                                    DIRECTORY_SEPARATOR,
-                                    ['Serialization', 'PatternPropertyTransformingFilterSerializer.phptpl'],
-                                ),
-                                [
-                                    'key' => $validator->getKey(),
-                                    'serializerClass' => $serializerClass,
-                                    'serializerMethod' => $serializerMethod,
-                                    'serializerOptions' => RenderHelper::varExportArray(
-                                        $filterValidator->getFilterOptions(),
-                                    ),
-                                ],
-                            )
-                        );
-                    }
-                }
+            if (!$validator instanceof PatternPropertiesValidator) {
+                continue;
             }
+
+            $levelsOnPath = [];
+            $entrySerializer = self::serializerOf($this->createSlot(
+                $schema,
+                $generatorConfiguration,
+                $validator->getValidationProperty(),
+                false,
+                'Pattern' . $validator->getKey(),
+                $levelsOnPath,
+            ));
+
+            if ($entrySerializer === null) {
+                continue;
+            }
+
+            $schema->addMethod(
+                "_serialize{$validator->getKey()}",
+                new RenderedMethod(
+                    $schema,
+                    $generatorConfiguration,
+                    join(
+                        DIRECTORY_SEPARATOR,
+                        ['Serialization', 'PatternPropertyTransformingFilterSerializer.phptpl'],
+                    ),
+                    ['key' => $validator->getKey(), 'entrySerializer' => $entrySerializer],
+                )
+            );
         }
     }
 
@@ -261,31 +258,22 @@ class SerializationPostProcessor extends PostProcessor
         GeneratorConfiguration $generatorConfiguration,
         PropertyInterface $arrayProperty,
     ): void {
-        $itemsSerializer = null;
-        $indexSerializers = [];
-        $staticIndices = [];
-        $dynamicSerializer = null;
-
-        foreach (ArrayItemFilterScope::declarationsOf($arrayProperty) as $declaration) {
-            $validator = $declaration->validator;
-
-            if ($validator instanceof ArrayItemValidator) {
-                $itemsSerializer ??= $this->createItemSerializer($validator->getNestedProperty(), $declaration);
-            } elseif ($validator instanceof ArrayTupleValidator) {
-                foreach ($validator->getTupleProperties() as $index => $tupleProperty) {
-                    $staticIndices[$index] = $index;
-
-                    $itemSerializer = $this->createItemSerializer($tupleProperty, $declaration);
-                    if ($itemSerializer !== null) {
-                        $indexSerializers[$index] ??= ['index' => $index] + $itemSerializer;
-                    }
-                }
-            } else {
-                $dynamicSerializer ??= $this->createItemSerializer($validator->getValidationProperty(), $declaration);
-            }
+        if (!ArrayItemFilterScope::filtersItemsOnAnyLevel($arrayProperty)) {
+            return;
         }
 
-        if ($itemsSerializer === null && $indexSerializers === [] && $dynamicSerializer === null) {
+        $levelsOnPath = [];
+        $level = $this->buildArrayLevel(
+            $schema,
+            $generatorConfiguration,
+            $arrayProperty,
+            false,
+            true,
+            ucfirst($arrayProperty->getAttribute()),
+            $levelsOnPath,
+        );
+
+        if ($level === null) {
             return;
         }
 
@@ -295,47 +283,333 @@ class SerializationPostProcessor extends PostProcessor
                 $schema,
                 $generatorConfiguration,
                 join(DIRECTORY_SEPARATOR, ['Serialization', 'ArrayItemsTransformingFilterSerializer.phptpl']),
-                [
+                $level + [
                     'property' => $arrayProperty,
                     'arrayPropertyName' => $arrayProperty->getName(),
-                    'itemsSerializer' => $itemsSerializer,
-                    'indexSerializers' => array_values($indexSerializers),
-                    'staticIndices' => array_values($staticIndices),
-                    'dynamicSerializer' => $dynamicSerializer,
+                    'methodName' => '',
                 ],
             ),
         );
     }
 
     /**
-     * Describes the serialization of the items of one slot, null if the items of the slot aren't filtered.
+     * Collects how the slots of one array level are serialized: the schema-form items, each tuple index and, on the
+     * level of the property itself, the unevaluatedItems. Null if no slot is filtered.
      *
+     * A slot holds either the serializer of a filter or, if the items are arrays themselves, a call of the generated
+     * method of the nested level (see createSlot()). Several declarations may contribute to one slot (the branches of
+     * an anyOf): see finishSlot().
+     *
+     * The unevaluatedItems of a nested level are not visited. Their indices are tracked per property name
+     * (_evaluatedItemIndices), the nested arrays of all elements would share one entry and the serializer could not
+     * tell which indices the keyword evaluated in which nested array.
+     *
+     * @param bool $conditional Whether the level itself is reached through a branch which may be inactive
+     * @param bool $root Whether the level is the array property of the model (it owns the unevaluatedItems tracking)
+     * @param string $levelName The part of the generated method name which identifies the level
+     * @param array<string, string> $levelsOnPath Method names of the levels on the way to this level
+     *
+     * @return array{
+     *     itemsSerializer: array{call: string, guard: string}|null,
+     *     indexSerializers: array<int, array{index: int, call: string, guard: string}>,
+     *     staticIndices: int[],
+     *     dynamicSerializer: array{call: string, guard: string}|null,
+     * }|null
+     *
+     * @throws ReflectionException
+     */
+    private function buildArrayLevel(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+        PropertyInterface $arrayProperty,
+        bool $conditional,
+        bool $root,
+        string $levelName,
+        array &$levelsOnPath,
+    ): ?array {
+        $itemsParts = self::emptySlot();
+        $indexParts = [];
+        $dynamicParts = self::emptySlot();
+
+        foreach (ArrayItemFilterScope::declarationsOf($arrayProperty) as $declaration) {
+            $validator = $declaration->validator;
+            $declarationConditional = $conditional || $declaration->conditional;
+
+            if ($validator instanceof ArrayItemValidator) {
+                self::addToSlot(
+                    $itemsParts,
+                    $this->createSlot(
+                        $schema,
+                        $generatorConfiguration,
+                        $validator->getNestedProperty(),
+                        $declarationConditional,
+                        $levelName . 'Items',
+                        $levelsOnPath,
+                    ),
+                );
+            } elseif ($validator instanceof ArrayTupleValidator) {
+                foreach ($validator->getTupleProperties() as $index => $tupleProperty) {
+                    $indexParts[$index] ??= self::emptySlot();
+
+                    self::addToSlot(
+                        $indexParts[$index],
+                        $this->createSlot(
+                            $schema,
+                            $generatorConfiguration,
+                            $tupleProperty,
+                            $declarationConditional,
+                            $levelName . 'Index' . $index,
+                            $levelsOnPath,
+                        ),
+                    );
+                }
+            } elseif ($root) {
+                self::addToSlot(
+                    $dynamicParts,
+                    $this->createSlot(
+                        $schema,
+                        $generatorConfiguration,
+                        $validator->getValidationProperty(),
+                        $declarationConditional,
+                        $levelName . 'Unevaluated',
+                        $levelsOnPath,
+                    ),
+                );
+            }
+        }
+
+        $itemsSerializer = self::finishSlot($itemsParts);
+        $dynamicSerializer = self::finishSlot($dynamicParts);
+        $indexSerializers = [];
+
+        foreach ($indexParts as $index => $parts) {
+            $indexSerializer = self::finishSlot($parts);
+
+            if ($indexSerializer !== null) {
+                $indexSerializers[] = ['index' => $index] + $indexSerializer;
+            }
+        }
+
+        if ($itemsSerializer === null && $indexSerializers === [] && $dynamicSerializer === null) {
+            return null;
+        }
+
+        return [
+            'itemsSerializer' => $itemsSerializer,
+            'indexSerializers' => $indexSerializers,
+            'staticIndices' => array_keys($indexParts),
+            'dynamicSerializer' => $dynamicSerializer,
+        ];
+    }
+
+    /**
+     * @return array{filter: array{call: string, guard: string}|null, levels: array<string, string>}
+     */
+    private static function emptySlot(): array
+    {
+        return ['filter' => null, 'levels' => []];
+    }
+
+    /**
+     * @param array{filter: array{call: string, guard: string}|null, levels: array<string, string>} $slot
+     * @param array{kind: string, call: string, guard: string, method?: string}|null $contribution
+     */
+    private static function addToSlot(array &$slot, ?array $contribution): void
+    {
+        if ($contribution === null) {
+            return;
+        }
+
+        if ($contribution['kind'] === 'level') {
+            $slot['levels'][$contribution['method']] = $contribution['method'];
+
+            return;
+        }
+
+        // The declarations of one slot reach the same filter (ArrayItemFilterScope::assertItemSlotsAreFilteredOnce()),
+        // the first stands for all of them.
+        $slot['filter'] ??= ['call' => $contribution['call'], 'guard' => $contribution['guard']];
+    }
+
+    /**
+     * Combines the contributions of the declarations of a slot into the serialization of one value.
+     *
+     * The declarations of a slot are alternatives if they are declared by the branches of a composition: an element is
+     * either an array validated by one of the nested levels or it is filtered itself (a tree of arrays whose leaves
+     * are arrays of filtered items). An element which is an array is run through the nested levels, any other element
+     * through the filter. A nested level only serializes what its own filter produced, so the levels of alternative
+     * branches can be applied one after the other.
+     *
+     * Choosing the first contribution only was rejected: the nested level of an earlier branch would hide the filter
+     * of a later one.
+     *
+     * @param array{filter: array{call: string, guard: string}|null, levels: array<string, string>} $slot
+     *
+     * @return array{call: string, guard: string}|null
+     */
+    private static function finishSlot(array $slot): ?array
+    {
+        if ($slot['levels'] === []) {
+            return $slot['filter'];
+        }
+
+        $levelCall = '$value';
+        foreach ($slot['levels'] as $methodName) {
+            $levelCall = '$this->' . $methodName . '(' . $levelCall . ')';
+        }
+
+        if ($slot['filter'] === null) {
+            return ['call' => $levelCall, 'guard' => 'is_array($value)'];
+        }
+
+        $filterCall = $slot['filter']['guard'] === ''
+            ? $slot['filter']['call']
+            : '(' . $slot['filter']['guard'] . ' ? ' . $slot['filter']['call'] . ' : $value)';
+
+        return ['call' => 'is_array($value) ? ' . $levelCall . ' : ' . $filterCall, 'guard' => ''];
+    }
+
+    /**
+     * The serialization of the value of a slot which a single declaration contributes (an entry of the additional,
+     * pattern or unevaluated properties). Null if the value isn't filtered.
+     *
+     * @param array{kind: string, call: string, guard: string, method?: string}|null $contribution
+     *
+     * @return array{call: string, guard: string}|null
+     */
+    private static function serializerOf(?array $contribution): ?array
+    {
+        $slot = self::emptySlot();
+        self::addToSlot($slot, $contribution);
+
+        return self::finishSlot($slot);
+    }
+
+    /**
+     * Describes what a declaration contributes to the serialization of the value of one slot (the items of an array,
+     * an entry of the additional, pattern or unevaluated properties). Null if the value of the slot isn't filtered.
+     * The contribution is either `filter` (the value is filtered itself) or `level` (the value is an array with
+     * filtered items on a nested level, `method` serializes it). `call` is an expression which serializes `$value`,
+     * `guard` the condition under which the call is applied (empty if it always is).
+     *
+     * An array never has a transforming filter of its own (FilterProcessor rejects it), so a declaration contributes
+     * one or the other.
+     *
+     * A nested level is generated as a method of its own. Inlining the levels was rejected: the levels of a
+     * schema which references itself can't be unrolled, a call of the method of the level on the way back is the
+     * natural form of the recursion.
+     *
+     * @param array<string, string> $levelsOnPath Method names of the levels on the way to this slot
+     *
+     * @return array{kind: string, call: string, guard: string, method?: string}|null
+     *
+     * @throws ReflectionException
+     */
+    private function createSlot(
+        Schema $schema,
+        GeneratorConfiguration $generatorConfiguration,
+        PropertyInterface $valueProperty,
+        bool $conditional,
+        string $levelName,
+        array &$levelsOnPath,
+    ): ?array {
+        $filterValidator = ArrayItemFilterScope::transformingFilterOf($valueProperty);
+        if ($filterValidator !== null) {
+            return $this->createFilterSlot($filterValidator, $valueProperty, $conditional);
+        }
+
+        if (!ArrayItemFilterScope::filtersItemsOnAnyLevel($valueProperty, false)) {
+            return null;
+        }
+
+        // A level is shared by the paths which reach it with the same activity: the guards of the filters inside are
+        // part of the method.
+        $levelKey = ArrayItemFilterScope::identityOf($valueProperty) . ($conditional ? ':conditional' : ':certain');
+
+        // The slot refers to a level which is being built further up (the schema references itself): the level calls
+        // its own method.
+        if (isset($levelsOnPath[$levelKey])) {
+            return self::levelContribution($levelsOnPath[$levelKey]);
+        }
+
+        $methodName = $schema->reserveMethodName('_nestedItemsSerializer' . $levelName);
+        $levelsOnPath[$levelKey] = $methodName;
+
+        $level = $this->buildArrayLevel(
+            $schema,
+            $generatorConfiguration,
+            $valueProperty,
+            $conditional,
+            false,
+            $levelName,
+            $levelsOnPath,
+        );
+
+        unset($levelsOnPath[$levelKey]);
+
+        if ($level === null) {
+            return null;
+        }
+
+        $schema->addMethod(
+            $methodName,
+            new RenderedMethod(
+                $schema,
+                $generatorConfiguration,
+                join(DIRECTORY_SEPARATOR, ['Serialization', 'ArrayItemsTransformingFilterSerializer.phptpl']),
+                $level + [
+                    'property' => $valueProperty,
+                    'arrayPropertyName' => $valueProperty->getName(),
+                    'methodName' => $methodName,
+                ],
+            ),
+        );
+
+        return self::levelContribution($methodName);
+    }
+
+    /**
+     * @return array{kind: string, call: string, guard: string, method: string}
+     */
+    private static function levelContribution(string $methodName): array
+    {
+        return [
+            'kind' => 'level',
+            'call' => '$this->' . $methodName . '($value)',
+            'guard' => 'is_array($value)',
+            'method' => $methodName,
+        ];
+    }
+
+    /**
      * An item of a declaration inside a branch which may be inactive is only serialized if it is an instance of the
      * output type of the filter (the guard): the branch may not have transformed the items, an item which still has
      * the value as provided must not reach the serializer. A filter without a declared return type can't be guarded,
      * its serializer is always applied - the same limitation as for the filters of properties of several branches.
      *
-     * @return array{serializerClass: string, serializerMethod: string, serializerOptions: string, guard: string}|null
+     * @return array{kind: string, call: string, guard: string}
      *
      * @throws ReflectionException
      */
-    private function createItemSerializer(PropertyInterface $itemProperty, ArrayItemDeclaration $declaration): ?array
-    {
-        $filterValidator = ArrayItemFilterScope::transformingFilterOf($itemProperty);
-        if ($filterValidator === null) {
-            return null;
-        }
-
+    private function createFilterSlot(
+        FilterValidator $filterValidator,
+        PropertyInterface $valueProperty,
+        bool $conditional,
+    ): array {
         [$serializerClass, $serializerMethod] = $filterValidator->getFilter()->getSerializer();
 
-        $returnTypeNames = $declaration->conditional
-            ? FilterReflection::getReturnTypeNames($filterValidator->getFilter(), $itemProperty)
+        $returnTypeNames = $conditional
+            ? FilterReflection::getReturnTypeNames($filterValidator->getFilter(), $valueProperty)
             : [];
 
         return [
-            'serializerClass' => $serializerClass,
-            'serializerMethod' => $serializerMethod,
-            'serializerOptions' => RenderHelper::varExportArray($filterValidator->getFilterOptions()),
+            'kind' => 'filter',
+            'call' => sprintf(
+                '\\%s::%s($value, %s)',
+                $serializerClass,
+                $serializerMethod,
+                RenderHelper::varExportArray($filterValidator->getFilterOptions()),
+            ),
             'guard' => $returnTypeNames === [] ? '' : TypeCheck::buildCompound($returnTypeNames),
         ];
     }
@@ -373,27 +647,23 @@ class SerializationPostProcessor extends PostProcessor
             }
         }
 
-        $transformingFilterValidator = null;
-        $serializerClass = null;
-        $serializerMethod = null;
-
-        if ($validationProperty) {
-            foreach ($validationProperty->getValidators() as $validator) {
-                $validator = $validator->getValidator();
-
-                if (
-                    $validator instanceof FilterValidator &&
-                    $validator->getFilter() instanceof TransformingFilterInterface
-                ) {
-                    $transformingFilterValidator = $validator;
-                    [$serializerClass, $serializerMethod] = $validator->getFilter()->getSerializer();
-                }
-            }
+        if (!$validationProperty) {
+            return;
         }
 
-        // Only generate the model-side override when a transforming filter is present.
-        // The trait's default _serializeAdditionalProperties handles the generic case.
-        if (!$transformingFilterValidator) {
+        $levelsOnPath = [];
+        $entrySerializer = self::serializerOf($this->createSlot(
+            $schema,
+            $generatorConfiguration,
+            $validationProperty,
+            false,
+            'AdditionalProperties',
+            $levelsOnPath,
+        ));
+
+        // Only generate the model-side override when the values are filtered themselves or are arrays with filtered
+        // items. The trait's default _serializeAdditionalProperties handles the generic case.
+        if ($entrySerializer === null) {
             return;
         }
 
@@ -403,13 +673,7 @@ class SerializationPostProcessor extends PostProcessor
                 $schema,
                 $generatorConfiguration,
                 'Serialization/AdditionalPropertiesSerializer.phptpl',
-                [
-                    'serializerClass' => $serializerClass,
-                    'serializerMethod' => $serializerMethod,
-                    'serializerOptions' => RenderHelper::varExportArray(
-                        $transformingFilterValidator->getFilterOptions(),
-                    ),
-                ],
+                ['entrySerializer' => $entrySerializer],
             )
         );
     }
@@ -435,25 +699,21 @@ class SerializationPostProcessor extends PostProcessor
             }
         }
 
-        $transformingFilterValidator = null;
-        $serializerClass = null;
-        $serializerMethod = null;
-
-        if ($validationProperty) {
-            foreach ($validationProperty->getValidators() as $validator) {
-                $validator = $validator->getValidator();
-
-                if (
-                    $validator instanceof FilterValidator &&
-                    $validator->getFilter() instanceof TransformingFilterInterface
-                ) {
-                    $transformingFilterValidator = $validator;
-                    [$serializerClass, $serializerMethod] = $validator->getFilter()->getSerializer();
-                }
-            }
+        if (!$validationProperty) {
+            return;
         }
 
-        if (!$transformingFilterValidator) {
+        $levelsOnPath = [];
+        $entrySerializer = self::serializerOf($this->createSlot(
+            $schema,
+            $generatorConfiguration,
+            $validationProperty,
+            false,
+            'UnevaluatedProperties',
+            $levelsOnPath,
+        ));
+
+        if ($entrySerializer === null) {
             return;
         }
 
@@ -463,11 +723,7 @@ class SerializationPostProcessor extends PostProcessor
                 $schema,
                 $generatorConfiguration,
                 'Serialization/UnevaluatedPropertiesSerializer.phptpl',
-                [
-                    'serializerClass' => $serializerClass,
-                    'serializerMethod' => $serializerMethod,
-                    'serializerOptions' => var_export($transformingFilterValidator->getFilterOptions(), true),
-                ],
+                ['entrySerializer' => $entrySerializer],
             )
         );
     }

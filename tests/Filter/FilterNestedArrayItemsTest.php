@@ -270,6 +270,40 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
         $this->assertSame(['tree' => [[[]], []], 'when' => '20201010'], $object->toArray());
     }
 
+    /**
+     * The elements are either arrays of further elements (the array references itself) or arrays of filtered items.
+     * The slot of the items is contributed to by both branches: an element which is an array is serialized by the
+     * level of the nested arrays, the filtered items are serialized by the filter. The level which only calls itself
+     * must not hide the filter of the other branch.
+     */
+    public function testRecursiveArrayWhichEndsInAnArrayOfFilteredItemsIsSerialized(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RecursiveArrayWithFilteredLevel.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $object = new $className(['tree' => [['2020-10-10'], [['2021-01-01'], [['2022-02-02', '2022-03-03']]], []]]);
+        $this->assertEquals(
+            [
+                [new DateTime('2020-10-10')],
+                [[new DateTime('2021-01-01')], [[new DateTime('2022-02-02'), new DateTime('2022-03-03')]]],
+                [],
+            ],
+            $object->getTree(),
+        );
+        $this->assertSame(
+            ['tree' => [['20201010'], [['20210101'], [['20220202', '20220303']]], []]],
+            $object->toArray(),
+        );
+
+        $transformed = new $className(['tree' => [[[new DateTime('2020-10-10')]]]]);
+        $this->assertSame(['tree' => [[['20201010']]]], $transformed->toArray());
+
+        $object->setTree([[[['2023-01-01']]]]);
+        $this->assertSame(['tree' => [[[['20230101']]]]], $object->toArray());
+    }
+
     // -------------------------------------------------------------------------
     // Arrays held by additionalProperties, patternProperties and unevaluatedProperties
     // -------------------------------------------------------------------------
@@ -352,8 +386,9 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
             $object->toArray(),
         );
 
+        // The declared property which isn't provided is serialized as null (implicit null is enabled by default).
         $transformed = new $className(['first' => [new DateTime('2020-10-10')]]);
-        $this->assertSame(['first' => ['20201010']], $transformed->toArray());
+        $this->assertSame(['name' => null, 'first' => ['20201010']], $transformed->toArray());
     }
 
     // -------------------------------------------------------------------------
@@ -386,6 +421,32 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
                 )
             ),
         );
+    }
+
+    /**
+     * Branches which filter the items of arrays at different depths exclude each other: the serializer can't tell
+     * which branch validated (and transformed) an array, so every filter of an item slot has to be the same
+     * declaration.
+     */
+    #[DataProvider('alternativeNestedFilterFixtureDataProvider')]
+    public function testNestedItemsOfAlternativeBranchesWhichAreFilteredDifferentlyThrowAnException(
+        string $schemaFile,
+    ): void {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Array items of property 'tags' are filtered more than once \\('dateTime', 'dateTime'\\) in file "
+                . '.+: filters of the same array item have no defined order at line \\d+, column \\d+$/',
+        );
+
+        $this->generateClassFromFile($schemaFile);
+    }
+
+    public static function alternativeNestedFilterFixtureDataProvider(): array
+    {
+        return [
+            'arrays of the same depth' => ['NestedAlternativesFilteredDifferently.json'],
+            'arrays of different depth' => ['NestedAlternativeWithLeafAlternative.json'],
+        ];
     }
 
     public static function arrayTransformingFilterFixtureDataProvider(): array
