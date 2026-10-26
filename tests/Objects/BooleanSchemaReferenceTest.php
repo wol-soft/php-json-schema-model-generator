@@ -254,8 +254,8 @@ class BooleanSchemaReferenceTest extends AbstractPHPModelGeneratorTestCase
     public static function rootLevelAllOfWithTrueBranchDataProvider(): array
     {
         return [
-            'reference to true' => ['RootLevelAllOfWithReferenceToTrue.json'],
-            'inline true' => ['RootLevelAllOfWithInlineTrue.json'],
+            'reference to true' => ['{"$ref": "#/definitions/anything"}'],
+            'inline true' => ['true'],
         ];
     }
 
@@ -264,14 +264,19 @@ class BooleanSchemaReferenceTest extends AbstractPHPModelGeneratorTestCase
      * `true` branch does. A reference to `true` used to be classified as a branch which blocks the object, and was
      * rejected as not representable. The reference to `false` still blocks the object, see
      * ComposedObjectShapeValidationTest::testNonRepresentableRootCompositionIsRejected().
+     *
+     * The schema is the same for both rows but for the second branch of the allOf, which is either the inline `true`
+     * or a reference to the definition which holds `true`.
      */
     #[DataProvider('rootLevelAllOfWithTrueBranchDataProvider')]
-    public function testRootLevelAllOfWithTrueBranchIsAccepted(string $schemaFile): void
+    public function testRootLevelAllOfWithTrueBranchIsAccepted(string $trueBranch): void
     {
         $logger = new RecordingLogger();
-        $className = $this->generateClassFromFile(
-            $schemaFile,
+        $className = $this->generateClassFromFileTemplate(
+            'RootLevelAllOfWithTrueBranch.json',
+            [$trueBranch],
             (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($logger),
+            escape: false,
         );
 
         $this->assertSame('Hannes', (new $className(['name' => 'Hannes']))->getName());

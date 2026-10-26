@@ -22,8 +22,12 @@ class VacuousReferenceBranchTest extends AbstractPHPModelGeneratorTestCase
     protected const EXTERNAL_JSON_DIRECTORIES = ['../VacuousReferenceBranchTest_external'];
 
     /**
-     * Draft 07 ignores every keyword next to a `$ref`, so the sibling `minLength` of the last property does not make
-     * its vacuous target any less vacuous.
+     * Draft 07 ignores every keyword next to a `$ref`, so the sibling `minLength` of the property with the constraining
+     * sibling does not make its vacuous target any less vacuous.
+     *
+     * The target of a reference into another file is judged like the target of a reference into the same file: the
+     * last two properties reference the definitions of another file, the vacuous one is reported, the constrained
+     * one is not.
      */
     #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
     public function testReferenceBranchesAreJudgedByTheirTargetOnly(): void
@@ -34,6 +38,7 @@ class VacuousReferenceBranchTest extends AbstractPHPModelGeneratorTestCase
                 ['index' => 1, 'property' => 'vacuousReferenceUnderTypedParent'],
                 ['index' => 1, 'property' => 'referenceChainToVacuousDefinition'],
                 ['index' => 1, 'property' => 'vacuousReferenceWithConstrainingSibling'],
+                ['index' => 1, 'property' => 'externalVacuousReference'],
             ],
             $this->generateAndCollectVacuousBranchWarnings('ReferenceBranches.json'),
         );
@@ -41,7 +46,7 @@ class VacuousReferenceBranchTest extends AbstractPHPModelGeneratorTestCase
 
     /**
      * Draft 2019-09 and later apply the keywords next to a `$ref` together with the reference, so the sibling
-     * `minLength` of the last property constrains the branch although its target does not.
+     * `minLength` of the property with the constraining sibling constrains the branch although its target does not.
      *
      * A reference to a constrained target must not be reported, also not if the type of the enclosing schema is
      * inherited next to the `$ref` (the typed parents) or if the reference is negated: the inherited type is no
@@ -55,6 +60,7 @@ class VacuousReferenceBranchTest extends AbstractPHPModelGeneratorTestCase
                 ['index' => 1, 'property' => 'vacuousReferenceUnderUntypedParent'],
                 ['index' => 1, 'property' => 'vacuousReferenceUnderTypedParent'],
                 ['index' => 1, 'property' => 'referenceChainToVacuousDefinition'],
+                ['index' => 1, 'property' => 'externalVacuousReference'],
             ],
             $this->generateAndCollectVacuousBranchWarnings('ReferenceBranches.json'),
         );
@@ -69,17 +75,6 @@ class VacuousReferenceBranchTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(
             [],
             $this->generateAndCollectVacuousBranchWarnings('RootLevelAllOfWithReferenceBranch.json'),
-        );
-    }
-
-    /**
-     * The target of a reference into another file is judged like the target of a reference into the same file.
-     */
-    public function testReferencesIntoAnotherFileAreJudgedByTheirTarget(): void
-    {
-        $this->assertSame(
-            [['index' => 1, 'property' => 'externalVacuousReference']],
-            $this->generateAndCollectVacuousBranchWarnings('ExternalReferenceBranches.json'),
         );
     }
 

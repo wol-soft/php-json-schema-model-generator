@@ -20,6 +20,20 @@
       "required": [
         "code"
       ]
+    },
+    "holder": {
+      "properties": {
+        "inner": {
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      }
     }
   },
   "properties": {
@@ -34,6 +48,14 @@
     },
     "lateUse": {
       "$ref": "#/definitions/assertedFirst"
+    },
+    "assertedHolder": {
+      "type": "object",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/holder"
+        }
+      ]
     }
   },
   "dependencies": {

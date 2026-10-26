@@ -14,8 +14,6 @@
         "name"
       ]
     },
-    {
-      "$ref": "#/definitions/anything"
-    }
+    %s
   ]
 }

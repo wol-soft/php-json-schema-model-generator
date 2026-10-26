@@ -2,6 +2,7 @@
   "type": "object",
   "properties": {
     "person": {
+      %s
       "if": {
         "properties": {
           "kind": {

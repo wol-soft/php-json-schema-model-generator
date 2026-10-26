@@ -1,9 +1,10 @@
 {
   "type": "object",
   "definitions": {
-    "both": {
-      "allOf": [
+    "choice": {
+      "oneOf": [
         {
+          "type": "object",
           "properties": {
             "name": {
               "type": "string"
@@ -14,6 +15,7 @@
           ]
         },
         {
+          "type": "object",
           "properties": {
             "code": {
               "type": "integer"
@@ -26,14 +28,9 @@
       ]
     }
   },
-  "properties": {
-    "property": {
-      "type": "object",
-      "anyOf": [
-        {
-          "$ref": "#/definitions/both"
-        }
-      ]
+  "%s": [
+    {
+      "$ref": "#/definitions/choice"
     }
-  }
+  ]
 }

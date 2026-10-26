@@ -162,11 +162,18 @@ class ComposedIfTest extends AbstractPHPModelGeneratorTestCase
      * conditional of a property which is typed as an object and the one of a property without a type route the same
      * objects. An integer is rejected by the type check of the typed property and accepted by the other one, as the
      * keywords of the condition and of the branches constrain objects only.
+     *
+     * Both classes are generated from the same schema, which declares the type of the property in the place of the
+     * placeholder only for the typed one.
      */
     public function testConditionRoutesObjectsIdenticallyWithAndWithoutADeclaredType(): void
     {
-        $typedClassName = $this->generateClassFromFile('ConditionalTypedObjectProperty.json');
-        $untypedClassName = $this->generateClassFromFile('ConditionalUntypedObjectProperty.json');
+        $typedClassName = $this->generateClassFromFileTemplate(
+            'ConditionalPersonProperty.json',
+            ['"type": "object",'],
+            escape: false,
+        );
+        $untypedClassName = $this->generateClassFromFileTemplate('ConditionalPersonProperty.json', [''], escape: false);
 
         $expectedAcceptance = [
             'company with registration' => [['kind' => 'company', 'registration' => 'HRB 1'], true],

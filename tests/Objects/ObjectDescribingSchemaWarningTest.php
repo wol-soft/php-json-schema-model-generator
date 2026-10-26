@@ -89,6 +89,7 @@ class ObjectDescribingSchemaWarningTest extends AbstractPHPModelGeneratorTestCas
     private function assertReferencedBareDefinitionsInAssertedContextsAreSilent(): void
     {
         // property level: allOf / anyOf / not / if-then-else under an object-typed property
+        // class root: a branch of the root composition and the schema of a dependency
         [$className, $warnings] = $this->generateRecordingDescribingWarnings('AssertedContexts.json');
 
         $this->assertSame([], $this->describeLocations($warnings));
@@ -96,16 +97,12 @@ class ObjectDescribingSchemaWarningTest extends AbstractPHPModelGeneratorTestCas
         // The generated code is unchanged: the allOf reaches the bare schema through a chain of references and still
         // validates it. (The anyOf property is not used for the rejection: the composition behind its third branch is
         // a known gap, tracked by NestedCompositionBehindReferenceTest.)
-        new $className(['allOfProperty' => ['name' => 'Hannes']]);
-        $this->assertRejected($className, ['allOfProperty' => ['name' => 1]]);
+        new $className(['name' => 'Hannes', 'trigger' => 'value', 'allOfProperty' => ['name' => 'Hannes']]);
+        $this->assertRejected($className, ['name' => 'Hannes', 'allOfProperty' => ['name' => 1]]);
 
-        // class root: a branch of the root composition and the schema of a dependency
-        [$className, $warnings] = $this->generateRecordingDescribingWarnings('AssertedRootContexts.json');
-
-        $this->assertSame([], $this->describeLocations($warnings));
-
-        new $className(['name' => 'Hannes', 'trigger' => 'value']);
-        $this->assertRejected($className, []);
+        // The branch of the root composition validates as well: the input is valid below the root, so the missing name
+        // of the bare schema is rejected by the root alone.
+        $this->assertRejected($className, ['allOfProperty' => ['name' => 'Hannes']]);
 
         // a class-defining reference
         [$className, $warnings] = $this->generateRecordingDescribingWarnings('ClassRootReference.json');
@@ -121,30 +118,26 @@ class ObjectDescribingSchemaWarningTest extends AbstractPHPModelGeneratorTestCas
      * schema of a dependency (asserted) and by a plain property warns for the plain use only, whichever use comes
      * first. A dependency is evaluated while the properties are processed, so both orders can be arranged in one
      * schema (the properties of one schema share the properties which are created for a definition).
+     *
+     * The assertion covers the value the branch validates and nothing below it: a property of a referenced
+     * definition is a value site of its own and is judged as such, also when the definition is used in an asserted
+     * context.
      */
-    public function testDefinitionUsedInAnAssertedAndAPlainContextWarnsForThePlainUseOnly(): void
+    public function testWarningsFollowTheContextOfEachUseOfADefinition(): void
     {
         [, $warnings] = $this->generateRecordingDescribingWarnings('MixedUse.json');
 
         $this->assertSame(
             [
+                // a value site below the branch of an object-typed property
+                'inner @ /definitions/holder/properties/inner',
+                // the dependency comes first, the plain property follows
                 'lateUse @ /definitions/assertedFirst',
+                // the plain property comes first, the dependency follows
                 'plainUse @ /definitions/plainFirst',
             ],
             $this->describeLocations($warnings),
         );
-    }
-
-    /**
-     * The assertion covers the value the branch validates and nothing below it: a property of a referenced
-     * definition is a value site of its own and is judged as such, also when the definition is used in an asserted
-     * context.
-     */
-    public function testValueSiteInsideAnAssertedDefinitionIsStillJudged(): void
-    {
-        [, $warnings] = $this->generateRecordingDescribingWarnings('ValueSiteInAssertedDefinition.json');
-
-        $this->assertSame(['inner @ /definitions/holder/properties/inner'], $this->describeLocations($warnings));
     }
 
     /**

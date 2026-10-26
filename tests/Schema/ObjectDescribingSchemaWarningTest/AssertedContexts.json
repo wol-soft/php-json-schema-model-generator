@@ -40,6 +40,9 @@
     }
   },
   "properties": {
+    "trigger": {
+      "type": "string"
+    },
     "inlineBranches": {
       "type": "object",
       "anyOf": [
@@ -104,6 +107,16 @@
       "else": {
         "$ref": "#/definitions/choice"
       }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/person"
+    }
+  ],
+  "dependencies": {
+    "trigger": {
+      "$ref": "#/definitions/person"
     }
   }
 }
