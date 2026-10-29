@@ -68,9 +68,11 @@ class SchemaDefinitionDictionary extends ArrayObject
     ): void {
         $json = $jsonSchema->getJson();
 
-        if (isset($json['$id'])) {
+        $declaredId = JsonSchema::extractId($json);
+
+        if ($declaredId !== null) {
             $this->addDefinition(
-                JsonSchema::normalizeId((string) $json['$id']),
+                JsonSchema::normalizeId($declaredId),
                 new SchemaDefinition($jsonSchema, $schemaProcessor, $schema),
             );
         }
