@@ -41,7 +41,9 @@ class RequiredValidatorFactory extends AbstractValidatorFactory
         $json = $propertySchema->getJson();
 
         foreach ($json[$this->key] ?? [] as $propertyName) {
-            $requiredProperty = $schema->getProperty((string) $propertyName)
+            // The owned copy: a property declared via $ref is recycled for every reference to the definition, and the
+            // required check belongs to this schema only.
+            $requiredProperty = $schema->getOwnedProperty((string) $propertyName)
                 ?? $this->createUndeclaredProperty($schemaProcessor, $schema, $propertySchema, (string) $propertyName);
 
             $requiredProperty->addValidator(

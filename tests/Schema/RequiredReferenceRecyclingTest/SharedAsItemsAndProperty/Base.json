@@ -1,0 +1,22 @@
+{
+  "$id": "Base",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "p": {
+      "$ref": "Shared.json"
+    },
+    "list": {
+      "type": "array",
+      "items": {
+        "$ref": "Shared.json"
+      }
+    }
+  },
+  "required": [
+    "title",
+    "p"
+  ]
+}
