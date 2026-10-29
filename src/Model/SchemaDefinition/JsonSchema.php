@@ -58,8 +58,6 @@ class JsonSchema
     private ?string $schemaUri = null;
 
     /**
-     * JsonSchema constructor.
-     *
      * @param string $file the source file for the schema
      * @param array $json Decoded json schema
      * @param string $pointer The JSON pointer inside the $file leading to the schema provided in $json
@@ -76,8 +74,10 @@ class JsonSchema
         $this->schemaUri = $this->deriveSchemaUri($json);
         $this->json = $json;
 
-        if (isset($json['$id'])) {
-            $this->baseId = self::normalizeId((string) $json['$id']);
+        $declaredId = self::extractId($json);
+
+        if ($declaredId !== null) {
+            $this->baseId = self::normalizeId($declaredId);
         }
     }
 
@@ -101,7 +101,28 @@ class JsonSchema
      */
     private function deriveSchemaUri(mixed $json): ?string
     {
-        return (is_array($json) ? $json['$schema'] ?? null : null) ?? $this->schemaUri;
+        return self::extractStringKeyword($json, '$schema') ?? $this->schemaUri;
+    }
+
+    /**
+     * The $id declared by the given node, or null if the node doesn't declare one.
+     */
+    public static function extractId(mixed $json): ?string
+    {
+        return self::extractStringKeyword($json, '$id');
+    }
+
+    /**
+     * Only a string value counts as the keyword. The node handed in is not necessarily a schema:
+     * navigating lands on keyword maps such as "properties" or "definitions", whose keys are
+     * user-chosen names, so a property named "$schema" or "$id" holds a property definition (an
+     * array) under that key. Checking only for the key's presence would misread that definition
+     * as the keyword, and tracking which keywords introduce a map instead would need a keyword
+     * table kept in sync with every draft.
+     */
+    private static function extractStringKeyword(mixed $json, string $keyword): ?string
+    {
+        return is_array($json) && is_string($json[$keyword] ?? null) ? $json[$keyword] : null;
     }
 
     /**
@@ -162,8 +183,10 @@ class JsonSchema
 
             $jsonSchema->json = $jsonSchema->json[$decodedPathSegment];
 
-            if (is_array($jsonSchema->json) && isset($jsonSchema->json['$id'])) {
-                $jsonSchema->baseId = self::normalizeId((string) $jsonSchema->json['$id']);
+            $declaredId = self::extractId($jsonSchema->json);
+
+            if ($declaredId !== null) {
+                $jsonSchema->baseId = self::normalizeId($declaredId);
             }
         }
 
