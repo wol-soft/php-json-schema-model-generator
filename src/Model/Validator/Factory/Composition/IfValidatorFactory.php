@@ -127,11 +127,11 @@ class IfValidatorFactory
                 ),
             );
 
-            // RequiredPropertyValidator exclusion for this branch is handled by
+            // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by
             // CompositionPropertyDecorator::getOrderedValidators() at render time — see that
             // method's docblock for why it must not be a destructive, schema-processing-time
             // filterValidators() call, and for why a branch's own nested composition/conditional
-            // validator (issue #167) is deliberately never excluded there.
+            // validator is deliberately never excluded there.
 
             $properties[$keyword] = $compositionProperty;
         }
@@ -187,7 +187,7 @@ class IfValidatorFactory
             ),
         );
 
-        // RequiredPropertyValidator exclusion for this branch is handled by
+        // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by
         // CompositionPropertyDecorator::getOrderedValidators() at render time.
         $branchProperty->onResolve(function () use ($branchProperty): void {
             $branchProperty->addValidator(
