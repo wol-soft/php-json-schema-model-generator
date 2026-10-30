@@ -17,6 +17,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\ArrayItemFilterScope;
 use PHPModelGenerator\Utils\RenderHelper;
 
 class NotValidatorFactory extends AbstractCompositionValidatorFactory
@@ -83,6 +84,14 @@ class NotValidatorFactory extends AbstractCompositionValidatorFactory
             false,
             $injectedTypeBranchIndices,
         );
+
+        foreach ($compositionProperties as $compositionProperty) {
+            ArrayItemFilterScope::assertNoItemFilterInValidationOnlyBranch(
+                $compositionProperty,
+                $property,
+                "a 'not' composition branch",
+            );
+        }
 
         $availableAmount = count($compositionProperties);
 

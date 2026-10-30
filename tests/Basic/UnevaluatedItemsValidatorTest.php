@@ -1245,6 +1245,47 @@ MSG,
     }
 
     /**
+     * The credits of an unevaluatedItems validator which is declared inside a branch of a composition must be
+     * reset like the credits of an unevaluatedItems validator of the property itself: the first pass credits
+     * index 1 to the unevaluatedItems of the branch. Without a reset before the validator chain runs the stale
+     * credit makes a later `setTags()` call skip the validation of index 1, a value which is rejected at
+     * construction time is accepted by the setter.
+     */
+    public function testSetterRevalidatesUnevaluatedItemsOfABranchRegardlessOfPriorPassCredits(): void
+    {
+        $className = $this->generateClassFromFile(
+            'UnevaluatedItemsInAllOfBranch.json',
+            (new GeneratorConfiguration())->setImmutable(false),
+        );
+
+        $object = new $className(['tags' => ['a', 1]]);
+        $this->assertSame(['a', 1], $object->getTags());
+
+        try {
+            $object->setTags(['a', 'not an integer']);
+            $this->fail('Expected an exception for a string where unevaluatedItems requires an integer');
+        } catch (ErrorRegistryException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+    Invalid value for 'tags' declined by composition constraint
+      Requires to match all composition elements but matched 0 elements
+      - Composition element #1: Failed
+        * Invalid unevaluated items in array 'tags':
+          - invalid unevaluated item #1
+            * Invalid type for 'unevaluated item': requires 'int', got 'string'
+    MSG,
+                $exception->getMessage(),
+            );
+        }
+
+        // The rejected setter call must leave the object's state unchanged.
+        $this->assertSame(['a', 1], $object->getTags());
+
+        $object->setTags(['b', 2]);
+        $this->assertSame(['b', 2], $object->getTags());
+    }
+
+    /**
      * Which indices unevaluatedItems credits is only known at runtime (tracked in
      * `_evaluatedItemIndices`) — unlike a tuple index, it can't be resolved to a static list at
      * generation time. Index 0 is claimed by an `allOf` branch's tuple-form `items` (no filter,

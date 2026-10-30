@@ -12,6 +12,7 @@ use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
+use TypeError;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -476,5 +477,23 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $accepted->setTags([new DateTime('2020-02-02'), 'plain']);
         $this->assertEquals([new DateTime('2020-02-02'), 'plain'], $accepted->getTags());
+    }
+
+    /**
+     * A boolean schema is a valid entry of a tuple-form `items` list, but the tuple validator only handles
+     * schema objects: the generation fails with an uncaught TypeError instead of generating a class.
+     *
+     * This test pins the current behaviour so the gap stays visible. It fails as soon as boolean entries are
+     * supported, the test then has to assert the generated behaviour (`true` accepts every value at the index,
+     * `false` rejects every value).
+     */
+    public function testKnownGapBooleanSchemaInTupleItemsCrashesTheGenerator(): void
+    {
+        $this->expectException(TypeError::class);
+        $this->expectExceptionMessage(
+            'Cannot assign true to property PHPModelGenerator\Model\SchemaDefinition\JsonSchema::$json of type array',
+        );
+
+        $this->generateClassFromFile('TupleWithBooleanSchema.json');
     }
 }

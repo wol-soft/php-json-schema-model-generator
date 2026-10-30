@@ -261,17 +261,9 @@ class Schema
             return $this;
         }
 
-        // The merge changes the registered property, which may be shared: the first property referencing a definition
-        // is the property every other reference (PropertyProxy) delegates to. A shared property is replaced by a copy
-        // of its own, other properties referencing the same definition must not be affected. An unresolved property
-        // is kept, the resolution bookkeeping is bound to it.
-        $existing = $this->properties[$property->getName()];
-
-        if ($existing->isResolved() && $existing instanceof PropertyProxy) {
-            $this->properties[$property->getName()] = $existing->detach();
-        } elseif ($existing->isResolved() && ResolvedDefinitionsCollection::isShared($existing)) {
-            $this->properties[$property->getName()] = clone $existing;
-        }
+        // The merge changes the registered property, other properties referencing the same definition must not be
+        // affected.
+        $this->detachSharedProperty($property->getName());
 
         $replacesExisting = $this->propertyMerger->merge(
             $this->properties[$property->getName()],
@@ -289,6 +281,50 @@ class Schema
         }
 
         return $this;
+    }
+
+    /**
+     * Replaces the property registered under the name by a copy of its own if it is shared with other references to
+     * the same definition: the first property referencing a definition is the property every other reference
+     * (PropertyProxy) delegates to, so a change of a shared property would show up in every schema referencing the
+     * definition. An unresolved property is kept, the resolution bookkeeping is bound to it.
+     */
+    private function detachSharedProperty(string $name): void
+    {
+        $existing = $this->properties[$name];
+
+        if ($existing->isResolved() && $existing instanceof PropertyProxy) {
+            $this->properties[$name] = $existing->detach();
+        } elseif ($existing->isResolved() && ResolvedDefinitionsCollection::isShared($existing)) {
+            $this->properties[$name] = clone $existing;
+        }
+    }
+
+    /**
+     * Applies a change which belongs to this schema only (e.g. a validator added because of the schema's own
+     * 'required' keyword) to the property registered under the name, which must exist. A property recycled for several
+     * references to the same definition is replaced by a copy of its own first, see detachSharedProperty().
+     *
+     * A reference to a definition which is still being processed (a recursive definition) is a PropertyProxy without a
+     * property to delegate to. The change is applied as soon as the reference resolved. Queueing the change in the
+     * proxy instead was rejected: the proxy can only delegate it to the property recycled for the definition, which is
+     * exactly the shared property the change must not reach.
+     *
+     * @param callable(PropertyInterface): mixed $change
+     */
+    public function withOwnedProperty(string $name, callable $change): void
+    {
+        $apply = function () use ($name, $change): void {
+            $this->detachSharedProperty($name);
+
+            $change($this->properties[$name]);
+        };
+
+        $property = $this->properties[$name];
+
+        $property instanceof PropertyProxy && !$property->isResolved()
+            ? $property->onResolve($apply)
+            : $apply();
     }
 
     /**
