@@ -26,6 +26,13 @@
                 }
             {% endif %}
 
+            {% if serializedIndices %}
+                // Indices with a serializer of their own are serialized below.
+                if (in_array($index, {{ viewHelper.varExportArray(serializedIndices) }}, true)) {
+                    continue;
+                }
+            {% endif %}
+
             {% if itemsSerializer.guard %}
                 if ({{ itemsSerializer.guard }}) {
                     $serialized[$index] = {{ itemsSerializer.call }};

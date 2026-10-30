@@ -224,6 +224,44 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
         $this->assertSame(['tags' => [['20201010']]], $transformed->toArray());
     }
 
+    public static function nestedArrayBranchBehindAPlainBranchProvider(): array
+    {
+        return [
+            'allOf, the branch with the nested array filter is the second branch' => [
+                'NestedArrayBranchBehindPlainBranchAllOf.json',
+            ],
+            'anyOf, a plain branch which also accepts the items comes first' => [
+                'NestedArrayBranchBehindPlainBranchAnyOf.json',
+            ],
+        ];
+    }
+
+    /**
+     * A composition proposes the value of the first branch which succeeded. The filter of the items of a nested array
+     * is declared one level deeper than the items of the branch: a branch which only declares the nested filter must
+     * be recognized as filtering, otherwise its transformed items are not adopted and the serializer of the filter
+     * receives the strings as provided.
+     */
+    #[DataProvider('nestedArrayBranchBehindAPlainBranchProvider')]
+    public function testNestedArrayFilterOfABranchWhichFollowsAPlainBranchIsAdopted(string $schemaFile): void
+    {
+        $className = $this->generateClassFromFile(
+            $schemaFile,
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $object = new $className(['tags' => [['2020-10-10'], ['2020-12-12', '2021-01-01']]]);
+        $this->assertEquals(
+            [[new DateTime('2020-10-10')], [new DateTime('2020-12-12'), new DateTime('2021-01-01')]],
+            $object->getTags(),
+        );
+        $this->assertSame(['tags' => [['20201010'], ['20201212', '20210101']]], $object->toArray());
+
+        $object->setTags([['2020-01-01']]);
+        $this->assertEquals([[new DateTime('2020-01-01')]], $object->getTags());
+        $this->assertSame(['tags' => [['20200101']]], $object->toArray());
+    }
+
     /**
      * An element of the outer array which is not an array (the item schema is a composition of types) must reach
      * the serialization unchanged.

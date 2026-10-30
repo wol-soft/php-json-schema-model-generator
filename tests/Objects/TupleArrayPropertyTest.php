@@ -128,10 +128,10 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 'not all elements invalid type' => [
                     [400, ''],
                     <<<ERROR
-            Invalid tuple item in array 'property':
-              - invalid tuple #2
-                * Value for 'tuple item #1 of array property' must be one of ["Street","Avenue","Boulevard"], got ""
-            ERROR,
+                    Invalid tuple item in array 'property':
+                      - invalid tuple #2
+                        * Value for 'tuple item #1 of array property' must be one of ["Street","Avenue","Boulevard"], got ""
+                    ERROR,
                 ],
                 'invalid type' => [
                     ['400', 'Avenue', ['name' => 'Hans', 'age' => 42]],
@@ -153,10 +153,10 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
                 'invalid enum value' => [
                     [400, 'Way', ['name' => 'Hans', 'age' => 42]],
                     <<<ERROR
-            Invalid tuple item in array 'property':
-              - invalid tuple #2
-                * Value for 'tuple item #1 of array property' must be one of ["Street","Avenue","Boulevard"], got "Way"
-            ERROR
+                    Invalid tuple item in array 'property':
+                      - invalid tuple #2
+                        * Value for 'tuple item #1 of array property' must be one of ["Street","Avenue","Boulevard"], got "Way"
+                    ERROR
 
                 ],
                 'Missing required field in nested object' => [

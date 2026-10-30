@@ -304,6 +304,11 @@ class SerializationPostProcessor extends PostProcessor
      * (_evaluatedItemIndices), the nested arrays of all elements would share one entry and the serializer could not
      * tell which indices the keyword evaluated in which nested array.
      *
+     * The indices which have a serializer of their own (`serializedIndices`) are skipped by the serializer of the
+     * schema-form items: the slots overlap and may reach the very same filter declaration, the serializer must run
+     * once for the item. Rejecting the combination of schema-form items and a tuple index which reach the same
+     * filter was considered and dropped: a definition shared by both declarations is a valid schema.
+     *
      * @param bool $conditional Whether the level itself is reached through a branch which may be inactive
      * @param bool $root Whether the level is the array property of the model (it owns the unevaluatedItems tracking)
      * @param string $levelName The part of the generated method name which identifies the level
@@ -312,6 +317,7 @@ class SerializationPostProcessor extends PostProcessor
      * @return array{
      *     itemsSerializer: array{call: string, guard: string}|null,
      *     indexSerializers: array<int, array{index: int, call: string, guard: string}>,
+     *     serializedIndices: int[],
      *     staticIndices: int[],
      *     dynamicSerializer: array{call: string, guard: string}|null,
      * }
@@ -393,6 +399,7 @@ class SerializationPostProcessor extends PostProcessor
         return [
             'itemsSerializer' => $itemsSerializer,
             'indexSerializers' => $indexSerializers,
+            'serializedIndices' => array_column($indexSerializers, 'index'),
             'staticIndices' => array_keys($indexParts),
             'dynamicSerializer' => $dynamicSerializer,
         ];

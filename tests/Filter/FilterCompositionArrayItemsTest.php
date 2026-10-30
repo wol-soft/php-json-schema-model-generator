@@ -183,6 +183,27 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
     }
 
     /**
+     * The schema-form items validate every index, so they overlap with each tuple index. Both reach the very same
+     * filter declaration (a shared definition): the filter is declared once and applies to the item once. The
+     * serializer must not run a second time on the index which both slots cover, the serializer of the filter
+     * receives the already serialized string and fails.
+     */
+    public function testSchemaFormItemsAndTupleIndexReachingTheSameFilterAreSerializedOnce(): void
+    {
+        $className = $this->generateClassFromFile(
+            'SchemaFormItemsAndTupleIndexSharedFilter.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $object = new $className(['tags' => ['2020-10-10', '2020-11-11']]);
+        $this->assertEquals([new DateTime('2020-10-10'), new DateTime('2020-11-11')], $object->getTags());
+        $this->assertSame(['tags' => ['20201010', '20201111']], $object->toArray());
+
+        $transformed = new $className(['tags' => [new DateTime('2020-10-10'), new DateTime('2020-11-11')]]);
+        $this->assertSame(['tags' => ['20201010', '20201111']], $transformed->toArray());
+    }
+
+    /**
      * The tuple of a branch evaluates index 0, unevaluatedItems of the property the remaining indices: different
      * slots, each filtered by its own declaration.
      */
@@ -542,6 +563,18 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
             ],
             'schema-form items in the if condition' => [
                 'IfConditionItemFilter.json',
+                "the 'if' condition of an 'if/then/else' composition",
+            ],
+            'items of a not branch which refer to a definition with a filter' => [
+                'NotBranchReferencedItemFilter.json',
+                "a 'not' composition branch",
+            ],
+            'items inside an allOf nested in a not branch' => [
+                'NotBranchNestedAllOfItemFilter.json',
+                "a 'not' composition branch",
+            ],
+            'items of the if condition which refer to a definition with a filter' => [
+                'IfConditionReferencedItemFilter.json',
                 "the 'if' condition of an 'if/then/else' composition",
             ],
         ];

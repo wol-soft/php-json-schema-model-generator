@@ -89,16 +89,6 @@ class IfValidatorFactory
             }
         }
 
-        // The condition only selects the branch: the filters of its items run inside the condition and never
-        // transform the stored value, unlike the filters of the items of the then and else branches.
-        if (isset($json['if']) && is_array($json['if'])) {
-            ArrayItemFilterScope::assertNoItemFilterInValidationOnlyBranch(
-                $json['if'],
-                $property,
-                "the 'if' condition of an 'if/then/else' composition",
-            );
-        }
-
         $propertyFactory = new PropertyFactory();
 
         $onlyForDefinedValues = !($property instanceof BaseProperty)
@@ -142,9 +132,19 @@ class IfValidatorFactory
             // CompositionPropertyDecorator::getOrderedValidators() at render time — see that
             // method's docblock for why it must not be a destructive, schema-processing-time
             // filterValidators() call, and for why a branch's own nested composition/conditional
-            // validator (issue #167) is deliberately never excluded there.
+            // validator is deliberately never excluded there.
 
             $properties[$keyword] = $compositionProperty;
+        }
+
+        // The condition only selects the branch: the filters of its items run inside the condition and never
+        // transform the stored value, unlike the filters of the items of the then and else branches.
+        if ($properties['if'] !== null) {
+            ArrayItemFilterScope::assertNoItemFilterInValidationOnlyBranch(
+                $properties['if'],
+                $property,
+                "the 'if' condition of an 'if/then/else' composition",
+            );
         }
 
         $this->applyIfThenElseTypeSemantics($property, $properties);

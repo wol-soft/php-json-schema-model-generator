@@ -109,61 +109,42 @@ class ArrayItemFilterScope
     }
 
     /**
-     * Whether the schema declares a "filter" keyword for the items of an array: on the schema of the items, on a
-     * tuple item, on unevaluatedItems or - for items which are arrays themselves - on their items.
-     *
-     * @param array<string, mixed> $schema
-     */
-    public static function schemaDeclaresItemFilter(array $schema): bool
-    {
-        $items = $schema['items'] ?? null;
-        $itemSchemas = is_array($items) ? (array_is_list($items) ? $items : [$items]) : [];
-
-        if (is_array($schema['unevaluatedItems'] ?? null)) {
-            $itemSchemas[] = $schema['unevaluatedItems'];
-        }
-
-        foreach ($itemSchemas as $itemSchema) {
-            if (
-                is_array($itemSchema)
-                && (array_key_exists('filter', $itemSchema) || self::schemaDeclaresItemFilter($itemSchema))
-            ) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * A `not` branch and the condition of an if/then/else only decide whether the value is valid. Their filters run
      * while the branch is evaluated, but the property keeps the items as provided. Accepting the schema would
      * generate a model which widens the type check of the items for the output of the filter and serializes
      * items which were never transformed.
      *
-     * @param array<string, mixed> $branchSchema
+     * The processed branch is inspected, not its JSON. Looking for a `filter` keyword in the schema of the items was
+     * rejected: a filter reaches the items through a `$ref` or through an allOf/anyOf/oneOf/if nested in the branch
+     * without any keyword in the schema of the items. A `not` or condition nested in the branch is validated by the
+     * factory which creates it.
+     *
      * @param string $branchDescription The branch as part of the message, e.g. "a 'not' composition branch"
      *
      * @throws SchemaException
      */
     public static function assertNoItemFilterInValidationOnlyBranch(
-        array $branchSchema,
+        PropertyInterface $branch,
         PropertyInterface $property,
         string $branchDescription,
     ): void {
-        if (!self::schemaDeclaresItemFilter($branchSchema)) {
-            return;
-        }
+        foreach (self::declarationsOf($branch) as $declaration) {
+            foreach ($declaration->getItemProperties() as $itemProperty) {
+                if (self::filtersOfSlotValue($itemProperty) === []) {
+                    continue;
+                }
 
-        throw new SchemaException(
-            sprintf(
-                "A filter keyword inside the array items of %s is not supported for property '%s' in file %s",
-                $branchDescription,
-                $property->getName(),
-                $property->getJsonSchema()->getFile(),
-            ),
-            $property->getJsonSchema(),
-        );
+                throw new SchemaException(
+                    sprintf(
+                        "A filter keyword inside the array items of %s is not supported for property '%s' in file %s",
+                        $branchDescription,
+                        $property->getName(),
+                        $property->getJsonSchema()->getFile(),
+                    ),
+                    $property->getJsonSchema(),
+                );
+            }
+        }
     }
 
     /**
