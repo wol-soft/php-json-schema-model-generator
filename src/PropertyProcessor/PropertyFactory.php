@@ -491,6 +491,10 @@ class PropertyFactory
                         );
                     }
 
+                    // The merged class's own unevaluatedProperties must credit what the reference
+                    // evaluates alongside what the sibling declares.
+                    $mergedSchema->adoptEvaluatedPropertiesOfReferencedSchema($refProperty->getNestedSchema());
+
                     // Ensure the merged Schema's class can resolve all types used by the
                     // ref's properties (e.g. when those properties reference nested classes).
                     $mergedSchema->addNamespaceTransferDecorator(

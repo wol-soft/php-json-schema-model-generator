@@ -292,6 +292,17 @@ A ``$ref`` is a positive applicator. When an enclosing schema uses
 `unevaluatedProperties <../complexTypes/object.html#unevaluated-properties>`__ or
 `unevaluatedItems <../complexTypes/array.html#unevaluated-items>`__ (Draft 2019-09 and later),
 the resolved schema's evaluated set contributes to the enclosing schema's evaluated set —
-exactly as an inline branch of the same shape would. Self-referential ``$ref`` chains are
-handled without infinite recursion: the generator terminates the walk when it revisits a
-schema it has already processed.
+exactly as an inline branch of the same shape would. This holds whether the reference sits at the
+schema root, on a property, or inside a composition branch, and the names a reference adopted from
+a further reference travel on with it. Self-referential ``$ref`` chains are handled without
+infinite recursion: the generator terminates the walk when it revisits a schema it has already
+processed.
+
+.. note::
+
+    One shortfall: a key matched by ``patternProperties`` is credited only when the pattern's own
+    validator reached the referencing class, and that validator currently stops at the first hop.
+    A single reference to a schema declaring ``patternProperties`` therefore credits its matches,
+    while a *chain* of references through an intermediate that declares siblings of its own does
+    not — such a key is reported as unevaluated. Declare the pattern on the schema that needs it,
+    or reference it directly, to avoid this.

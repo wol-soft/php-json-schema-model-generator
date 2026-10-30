@@ -19,6 +19,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use stdClass;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
+use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -1153,6 +1154,28 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
 
         $accepted->setTags([new DateTime('2020-02-02')]);
         $this->assertEquals([new DateTime('2020-02-02')], $accepted->getTags());
+    }
+
+    /**
+     * `prefixItems` carries the tuple only from Draft 2020-12 on, where `items` degrades to the
+     * schema for the entries behind that tuple. On every earlier draft `prefixItems` is simply an
+     * unknown keyword, which the spec requires to be ignored — `items` keeps its full meaning and
+     * must still validate every entry.
+     *
+     * Pinning this because the two spellings share one factory: the pass registered under `items`
+     * stands down when `prefixItems` is present so it does not double-validate the tuple entries.
+     * That hand-off is only correct where the draft actually registers `prefixItems`; applying it
+     * everywhere turns an ignorable keyword into a silent switch that disables `items` entirely.
+     */
+    #[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testUnknownPrefixItemsKeywordDoesNotDisableItemsValidation(): void
+    {
+        $className = $this->generateClassFromFile('UnknownPrefixItemsAlongsideItems.json');
+
+        $this->expectException(InvalidItemException::class);
+        $this->expectExceptionMessage("Invalid items in array 'tags'");
+
+        new $className(['tags' => [1, 2]]);
     }
 
     /**

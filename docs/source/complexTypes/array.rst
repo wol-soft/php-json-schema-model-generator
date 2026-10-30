@@ -343,7 +343,8 @@ Unevaluated Items
 
 The ``unevaluatedItems`` keyword (Draft 2019-09 and later) constrains every index that was not
 evaluated by any positive sibling applicator at the same schema level. Indices claimed by
-``items`` (single-schema or tuple form), by ``additionalItems`` when present, by a passing
+``items`` (single-schema or tuple form), by ``prefixItems`` (the Draft 2020-12 spelling of the
+tuple form), by the keyword covering the entries behind the tuple when present, by a passing
 ``contains`` match, or by a **successful** composition branch (``allOf``, ``anyOf``, ``oneOf``,
 ``if``/``then``/``else``, ``$ref``) count as evaluated. ``not`` is a negative applicator and
 contributes nothing.
@@ -356,6 +357,45 @@ the same way, to any depth.
 A property subschema that declares array applicators but omits ``type: array`` is treated as an
 array property: the keywords apply whenever the provided value is an array, and a value of any
 other type passes through unchanged.
+
+.. note::
+
+    ``additionalItems`` only claims indices when a tuple sits in front of it. Declared on its own,
+    without a tuple-form ``items``/``prefixItems`` alongside it, the keyword has no effect and
+    claims nothing — so every index stays unevaluated. This holds identically whether the keyword
+    is declared directly on the array property or inside one of its composition branches.
+
+Tuple items in Draft 2020-12
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Draft 2020-12 renamed the tuple form of ``items`` to ``prefixItems`` and reused ``items`` itself
+for the entries behind the tuple — the role ``additionalItems`` fills in earlier drafts. Both
+spellings validate positionally and contribute the same evaluated indices:
+
+.. code-block:: json
+
+    {
+        "$id": "example",
+        "type": "object",
+        "properties": {
+            "example": {
+                "type": "array",
+                "prefixItems": [
+                    {
+                        "type": "string"
+                    }
+                ],
+                "unevaluatedItems": false
+            }
+        }
+    }
+
+Index 0 is validated against the ``prefixItems`` entry and counted as evaluated; every further
+element raises an ``UnevaluatedItemsException``. Adding ``"items": {"type": "integer"}`` alongside
+``prefixItems`` instead validates every element from index 1 on, leaving nothing unevaluated.
+
+On Draft 7 and Draft 2019-09 ``prefixItems`` is not a known keyword and is ignored, so ``items``
+keeps its own meaning there and still validates every element.
 
 Using ``false``
 ^^^^^^^^^^^^^^^

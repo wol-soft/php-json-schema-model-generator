@@ -1,0 +1,47 @@
+{
+  "$defs": {
+    "variant": {
+      "type": "object",
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "click"
+            },
+            "x": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "key"
+            },
+            "code": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/$defs/variant"
+    }
+  ],
+  "unevaluatedProperties": false
+}

@@ -1,0 +1,20 @@
+{
+  "$defs": {
+    "base": {
+      "type": "object",
+      "patternProperties": {
+        "^x_": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "$ref": "#/$defs/base",
+  "properties": {
+    "b": {
+      "type": "string"
+    }
+  },
+  "unevaluatedProperties": false
+}

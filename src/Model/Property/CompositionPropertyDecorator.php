@@ -280,7 +280,10 @@ class CompositionPropertyDecorator extends PropertyProxy
      */
     public function getBranchTupleItemsCount(): int
     {
-        $items = $this->jsonSchema->getJson()['items'] ?? null;
+        $branchJson = $this->jsonSchema->getJson();
+        // Draft 2020-12 spells the tuple `prefixItems`; on earlier drafts that key is unknown
+        // and `items` keeps the tuple role, so reading prefixItems first is correct for both.
+        $items = $branchJson['prefixItems'] ?? $branchJson['items'] ?? null;
 
         if (!is_array($items) || $items === [] || !array_is_list($items)) {
             return 0;
@@ -290,15 +293,25 @@ class CompositionPropertyDecorator extends PropertyProxy
     }
 
     /**
-     * True when the branch declares `additionalItems` as anything other than `false`. The
-     * `false` value rejects tail indices; any other value (true or schema object) accepts
-     * them and contributes them to the evaluated set.
+     * True when the branch's `additionalItems` evaluates every index at or past the tuple length.
+     * That requires a tuple to sit in front of it: `additionalItems` has no effect at all without
+     * a tuple-form `items` alongside it, so a branch declaring it alone claims nothing rather than
+     * claiming the whole array. The `false` value rejects tail indices instead of evaluating them,
+     * so it does not count either.
+     *
+     * Deliberately not "does the branch declare a non-false additionalItems" — that phrasing drops
+     * the tuple precondition and makes a lone `{additionalItems: {...}}` branch credit every index
+     * of the value. The sibling-applicator path applies the same precondition (see
+     * `UnevaluatedItemsValidatorFactory::isDeadCode()`, which only considers `additionalItems` once
+     * it has established a tuple); the two must agree, because the same JSON means the same thing
+     * whether it sits on the property or inside one of its composition branches.
      */
-    public function branchHasNonFalseAdditionalItems(): bool
+    public function branchAdditionalItemsCoversTail(): bool
     {
         $branchJson = $this->jsonSchema->getJson();
 
-        return array_key_exists('additionalItems', $branchJson)
+        return $this->getBranchTupleItemsCount() > 0
+            && array_key_exists('additionalItems', $branchJson)
             && $branchJson['additionalItems'] !== false;
     }
 
@@ -324,6 +337,7 @@ class CompositionPropertyDecorator extends PropertyProxy
         $branchJson = $this->jsonSchema->getJson();
 
         $hasArrayApplicator = array_key_exists('items', $branchJson)
+            || array_key_exists('prefixItems', $branchJson)
             || array_key_exists('additionalItems', $branchJson)
             || array_key_exists('contains', $branchJson)
             || ($branchJson['unevaluatedItems'] ?? null) === true;

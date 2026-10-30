@@ -15,10 +15,21 @@ use PHPModelGenerator\Model\Validator\ArrayItemValidator;
 use PHPModelGenerator\Model\Validator\ArrayTupleValidator;
 use PHPModelGenerator\Model\Validator\Factory\AbstractValidatorFactory;
 use PHPModelGenerator\Model\Validator\PropertyValidator;
+use PHPModelGenerator\Model\Validator\TrailingItemsValidator;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
 
 class ItemsValidatorFactory extends AbstractValidatorFactory
 {
+    /**
+     * The keyword that constrains the entries a tuple does not cover, per tuple keyword. Draft
+     * 2020-12 renamed the tuple form of `items` to `prefixItems` and reused `items` itself for the
+     * trailing entries, which is the role `additionalItems` fills in earlier drafts.
+     */
+    private const array TAIL_KEYWORD = [
+        'items' => 'additionalItems',
+        'prefixItems' => 'items',
+    ];
+
     /**
      * @throws SchemaException
      */
@@ -31,6 +42,18 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         $json = $propertySchema->getJson();
 
         if (!isset($json[$this->key])) {
+            return;
+        }
+
+        // With `prefixItems` present, `items` is the tuple's tail schema and the prefixItems pass
+        // registers a validator for it. Falling through here as well would additionally validate
+        // every entry against that tail schema — including the entries the tuple already covers
+        // with their own, usually different, positional subschemas.
+        //
+        // Only where the draft in play actually knows `prefixItems`, though. Before Draft 2020-12
+        // it is an unknown keyword, which the spec says to ignore — standing down on sight of it
+        // there would turn an ignorable key into a switch that silently disables `items` entirely.
+        if ($this->key === 'items' && $this->declaresPrefixItemsTuple($schemaProcessor, $propertySchema, $json)) {
             return;
         }
 
@@ -77,6 +100,25 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
     }
 
     /**
+     * Whether `prefixItems` carries the tuple for this schema node, which is what demotes a
+     * sibling `items` to the trailing-entry schema. Asks the draft rather than testing for the
+     * key alone: the keyword only has that meaning from Draft 2020-12 on, and the same factory
+     * instance serves every draft.
+     *
+     * @param array<string, mixed> $json
+     */
+    private function declaresPrefixItemsTuple(
+        SchemaProcessor $schemaProcessor,
+        JsonSchema $propertySchema,
+        array $json,
+    ): bool {
+        return array_key_exists('prefixItems', $json)
+            && $schemaProcessor->getGeneratorConfiguration()
+                ->getBuiltDraft($propertySchema)
+                ->getTypesForKeyword('prefixItems') !== [];
+    }
+
+    /**
      * @throws SchemaException
      */
     private function addTupleValidator(
@@ -87,8 +129,9 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         string $itemsPointer,
     ): void {
         $json = $propertySchema->getJson();
+        $tailKeyword = self::TAIL_KEYWORD[$this->key];
 
-        if (isset($json['additionalItems']) && $json['additionalItems'] !== true) {
+        if (isset($json[$tailKeyword]) && $json[$tailKeyword] !== true) {
             $this->addAdditionalItemsValidator($schemaProcessor, $schema, $property, $propertySchema);
         }
 
@@ -112,11 +155,16 @@ class ItemsValidatorFactory extends AbstractValidatorFactory
         JsonSchema $propertySchema,
     ): void {
         $json = $propertySchema->getJson();
-        $additionalItemsPointer = $propertySchema->getPointer() . '/additionalItems';
+        $tailKeyword = self::TAIL_KEYWORD[$this->key];
+        $additionalItemsPointer = $propertySchema->getPointer() . '/' . $tailKeyword;
 
-        if (!is_bool($json['additionalItems'])) {
+        if (!is_bool($json[$tailKeyword])) {
+            $validatorClass = $tailKeyword === 'additionalItems'
+                ? AdditionalItemsValidator::class
+                : TrailingItemsValidator::class;
+
             $property->addValidator(
-                (new AdditionalItemsValidator(
+                (new $validatorClass(
                     $schemaProcessor,
                     $schema,
                     $propertySchema,

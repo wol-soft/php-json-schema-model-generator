@@ -1,0 +1,34 @@
+{
+  "$defs": {
+    "inner": {
+      "type": "object",
+      "properties": {
+        "a": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "^p_": {
+          "type": "string"
+        }
+      }
+    },
+    "middle": {
+      "type": "object",
+      "$ref": "#/$defs/inner",
+      "properties": {
+        "b": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "$ref": "#/$defs/middle",
+  "properties": {
+    "c": {
+      "type": "string"
+    }
+  },
+  "unevaluatedProperties": false
+}

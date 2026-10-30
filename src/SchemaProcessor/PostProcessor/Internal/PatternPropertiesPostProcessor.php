@@ -24,10 +24,6 @@ class PatternPropertiesPostProcessor extends PostProcessor
     {
         $json = $schema->getJsonSchema()->getJson();
 
-        if (!isset($json['patternProperties'])) {
-            return;
-        }
-
         $patternHashes = [];
         $schemaProperties = array_keys($json['properties'] ?? []);
 
@@ -63,6 +59,17 @@ class PatternPropertiesPostProcessor extends PostProcessor
                     [],
                 );
             }
+        }
+
+        // Driven by the validators rather than by the schema's own `patternProperties` keyword: a
+        // base-level `$ref` transfers the referenced schema's base validators onto the referencing
+        // schema, so a PatternPropertiesValidator can run on a class whose own JSON never mentions
+        // the keyword. The field it writes has to follow the validator, otherwise the generated
+        // class creates `$_patternProperties` dynamically — deprecated since PHP 8.2 and an error
+        // in PHP 9. Keying off the keyword also kept the fields off every unrelated class, which
+        // the emptiness check preserves.
+        if ($patternHashes === []) {
+            return;
         }
 
         $this->initObjectPropertiesMatchingPatternProperties($schema, $patternHashes);
