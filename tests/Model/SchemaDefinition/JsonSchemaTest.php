@@ -109,4 +109,91 @@ class JsonSchemaTest extends TestCase
             $jsonSchema->withJson(['$schema' => 'http://json-schema.org/draft-07/schema#'])->getSchemaUri(),
         );
     }
+
+    // --- `type` array normalization ---
+
+    /**
+     * A single-element type array is exactly equivalent to the scalar form per JSON Schema. Each of
+     * the three ways a JsonSchema comes into existence must apply the collapse, since a subschema
+     * reached through withJson() or navigate() never passes through the constructor.
+     */
+    public function testSingleElementTypeArrayCollapsesToItsScalarFormAtEveryConstructionPoint(): void
+    {
+        $constructed = new JsonSchema('/path/to/schema.json', [
+            'type' => ['object'],
+            'properties' => ['age' => ['type' => ['integer']]],
+        ]);
+
+        $this->assertSame('object', $constructed->getJson()['type']);
+        $this->assertSame(['type' => 'integer'], $constructed->navigate('/properties/age')->getJson());
+        $this->assertSame('string', $constructed->withJson(['type' => ['string']])->getJson()['type']);
+    }
+
+    /**
+     * Duplicate entries are dropped before the collapse, so a list that only repeats one type is
+     * indistinguishable from that type's scalar declaration, while a list that still holds several
+     * distinct types stays a multi-type declaration.
+     */
+    public function testDuplicateTypeEntriesAreRemoved(): void
+    {
+        $this->assertSame(
+            'string',
+            (new JsonSchema('/path/to/schema.json', ['type' => ['string', 'string']]))->getJson()['type'],
+        );
+        $this->assertSame(
+            ['string', 'integer'],
+            (new JsonSchema(
+                '/path/to/schema.json',
+                ['type' => ['string', 'integer', 'string']],
+            ))->getJson()['type'],
+        );
+    }
+
+    /**
+     * An empty type array permits no value at all - it is invalid per spec (the array must hold at
+     * least one entry) and unsatisfiable - so it is rejected instead of yielding a property with no
+     * type and no validation.
+     */
+    public function testEmptyTypeArrayIsRejected(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage("Empty 'type' array in file '/path/to/schema.json'");
+
+        new JsonSchema('/path/to/schema.json', ['type' => []]);
+    }
+
+    /**
+     * The rejection reports the position of the offending node, not of the document root, so a
+     * navigated subschema names its own location.
+     */
+    public function testEmptyTypeArrayInASubSchemaIsRejectedWithItsOwnSourcePosition(): void
+    {
+        $rawSource = "{\n    \"properties\": {\n        \"age\": {\n            \"type\": []\n        }\n    }\n}";
+        $jsonSchema = new JsonSchema('/path/to/schema.json', json_decode($rawSource, true), '', $rawSource);
+
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessage("Empty 'type' array in file '/path/to/schema.json' at line 3, column 16");
+
+        $jsonSchema->navigate('/properties/age');
+    }
+
+    /**
+     * Normalization must not touch a declaration that is already in its canonical form, nor invent
+     * one for a schema that declares no type at all.
+     */
+    public function testDeclarationsRequiringNoNormalizationAreLeftUnchanged(): void
+    {
+        $this->assertSame(
+            'object',
+            (new JsonSchema('/path/to/schema.json', ['type' => 'object']))->getJson()['type'],
+        );
+        $this->assertSame(
+            ['string', 'null'],
+            (new JsonSchema('/path/to/schema.json', ['type' => ['string', 'null']]))->getJson()['type'],
+        );
+        $this->assertArrayNotHasKey(
+            'type',
+            (new JsonSchema('/path/to/schema.json', ['properties' => []]))->getJson(),
+        );
+    }
 }

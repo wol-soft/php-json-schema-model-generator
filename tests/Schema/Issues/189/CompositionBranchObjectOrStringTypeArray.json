@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "person": {
+      "allOf": [
+        {
+          "type": ["object", "string"],
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": ["object", "string"],
+          "required": ["name"]
+        }
+      ]
+    }
+  }
+}
