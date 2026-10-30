@@ -65,6 +65,26 @@ abstract class AbstractComposedPropertyValidator extends ExtractedMethodValidato
     }
 
     /**
+     * Whether a branch transforms array items by a filter (see CompositionPropertyDecorator::filtersArrayItems()). The
+     * composition then adopts the transformed items of every branch which succeeded. A `not` composition never does:
+     * its branches only decide whether the value is valid.
+     */
+    public function hasItemFilteringBranches(): bool
+    {
+        if ($this->isNotComposition()) {
+            return false;
+        }
+
+        foreach ($this->composedProperties as $composedProperty) {
+            if ($composedProperty->filtersArrayItems()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * When true, this validator's rendered output will emit the _compositionEvaluations
      * cache field and per-branch slot writes needed for unevaluatedProperties tracking.
      */

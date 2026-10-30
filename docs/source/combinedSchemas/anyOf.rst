@@ -122,6 +122,13 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Any
     itself declares without a filter adopts the filter which every branch declares. See
     `Filters on properties of object branches <../nonStandardExtensions/filter.html#filters-on-properties-of-object-branches>`__.
 
+.. note::
+
+    A transforming ``"filter"`` may be declared for the items of an array inside an ``anyOf`` branch. The items of every
+    branch which succeeded are transformed, the items keep the value as provided while the branch is inactive. At most
+    one declaration (the property itself or one branch) may filter the items of a slot, branches which filter the same
+    items differently are rejected with a ``SchemaException``. See `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
+
 Property and item evaluation propagation
 ----------------------------------------
 

@@ -116,4 +116,6 @@ When the **UnevaluatedPropertiesAccessorPostProcessor** is applied and
 `serialization <../../gettingStarted.html#serialization-methods>`__ is enabled, the unevaluated
 properties are merged into the serialization result. If unevaluated properties are processed via
 a transforming filter, each value is serialized via the serialization method of the transforming
-filter.
+filter. The same applies to unevaluated
+properties which are arrays with items processed via a transforming filter (also nested arrays): each
+transformed item is serialized via the serialization method of the transforming filter.

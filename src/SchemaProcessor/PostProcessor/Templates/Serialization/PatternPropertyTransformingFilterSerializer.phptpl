@@ -5,7 +5,11 @@ protected function _serialize{{ viewHelper.ucfirst(key) }}(): array
 {
     $serialized = [];
     foreach ($this->_patternProperties['{{ key }}'] as $propertyKey => $value) {
-        $serialized[$propertyKey] = \{{ serializerClass }}::{{ serializerMethod }}($value, {{ serializerOptions }});
+        {% if entrySerializer.guard %}
+            $serialized[$propertyKey] = {{ entrySerializer.guard }} ? {{ entrySerializer.call }} : $value;
+        {% else %}
+            $serialized[$propertyKey] = {{ entrySerializer.call }};
+        {% endif %}
     }
 
     return $serialized;

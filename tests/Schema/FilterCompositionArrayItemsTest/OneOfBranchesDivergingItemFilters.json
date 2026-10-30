@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "oneOf": [
+        {
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "filter": [
+              {
+                "filter": "dateTime",
+                "outputFormat": "Ymd"
+              }
+            ]
+          }
+        },
+        {
+          "maxItems": 0,
+          "items": {
+            "type": "string",
+            "filter": [
+              {
+                "filter": "dateTime",
+                "outputFormat": "Y"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

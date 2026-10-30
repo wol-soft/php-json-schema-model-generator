@@ -12,6 +12,7 @@ use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
+use PHPModelGenerator\Utils\ArrayItemFilterScope;
 use PHPModelGenerator\Utils\RenderHelper;
 
 class CompositionPropertyDecorator extends PropertyProxy
@@ -27,6 +28,8 @@ class CompositionPropertyDecorator extends PropertyProxy
     protected $affectedObjectProperties = [];
 
     private bool $alwaysTrueBranch = false;
+
+    private ?bool $filtersArrayItems = null;
 
     /**
      * @throws SchemaException
@@ -131,6 +134,23 @@ class CompositionPropertyDecorator extends PropertyProxy
     public function dependsOnAddedKeys(): bool
     {
         return $this->getObjectUpdateDependency(null) === ObjectUpdateDependency::AddedKey;
+    }
+
+    /**
+     * Whether the items of the array are transformed by a filter which is declared by this branch or by a composition
+     * nested in this branch. The transformed items are only part of the result of the branch: the composition has to
+     * adopt them explicitly.
+     *
+     * The filters of the items of nested arrays count as well. Only looking at the filter of the items themselves was
+     * rejected: a branch `{items: {type: array, items: {filter}}}` transforms the items one level deeper and would be
+     * treated as plain, its transformed items would be dropped unless it is the first successful branch.
+     *
+     * Evaluated on first use (when the composition is rendered): recursive references are resolved after the branch
+     * is created.
+     */
+    public function filtersArrayItems(): bool
+    {
+        return $this->filtersArrayItems ??= ArrayItemFilterScope::filtersItemsOnAnyLevel($this);
     }
 
     public function markAsAlwaysTrueBranch(): void
