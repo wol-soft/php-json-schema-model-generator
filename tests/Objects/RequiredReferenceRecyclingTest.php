@@ -11,7 +11,6 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use ReflectionClass;
-use TypeError;
 
 /**
  * SchemaDefinition::resolveReference() recycles one property per definition path and metadata, so several schemas
@@ -199,26 +198,66 @@ class RequiredReferenceRecyclingTest extends AbstractPHPModelGeneratorTestCase
     /**
      * A required property which references the definition it is declared in, where the definition itself is
      * referenced by a required property: both references share one recycled property which is still unresolved while
-     * the definition's required check is attached, so the check has no resolved property to be added to.
-     *
-     * Known defect which does not depend on the recycling of required checks (it occurs identically when the required
-     * check is added to the recycled property directly): generation fails with a TypeError instead of rendering the
-     * class. The assertion documents the current behaviour. When the defect is fixed, replace it by assertions on the
-     * generated class (one required check for 'next' carrying the pointer of the definition's 'required' keyword).
+     * the definition's required check is attached. The check must be attached once the reference resolved, to the
+     * definition's own copy of the property, and not to the property recycled for the outer reference.
      *
      * @throws FileSystemException
      * @throws RenderException
      * @throws SchemaException
      */
-    public function testRequiredPropertyReferencingItsOwnDefinitionFailsGenerationWithATypeError(): void
+    public function testRequiredPropertyReferencingItsOwnDefinitionRendersItsRequiredCheckInTheDefinitionClass(): void
     {
-        $this->expectException(TypeError::class);
-        $this->expectExceptionMessage(
-            'PropertyProxy::getProperty(): Return value must be of type '
-                . 'PHPModelGenerator\Model\Property\PropertyInterface, null returned',
+        $this->generateDirectory('RequiredSelfReference', $this->directoryConfig('RequiredSelfReference'));
+
+        $mainClass = $this->classOf('Main');
+        $nodeClass = $this->returnClassOf($mainClass, 'getFirst');
+
+        $this->assertSame(['/required'], $this->requiredPointers($mainClass, 'first'));
+        $this->assertSame(['/definitions/node/required'], $this->requiredPointers($nodeClass, 'next'));
+
+        $firstException = $this->catchException(static fn(): object => new $mainClass([]));
+        $this->assertSame("Missing required value for 'first'", $firstException?->getMessage());
+
+        $nextException = $this->catchException(static fn(): object => new $mainClass(['first' => []]));
+        $this->assertSame(
+            <<<MSG
+            Invalid nested object for property 'first':
+              - Missing required value for 'next'
+            MSG,
+            $nextException?->getMessage(),
+        );
+    }
+
+    /**
+     * The same recursion entered through an allOf branch: the branch property is required, so the recursive
+     * reference shares its recycled property while it is unresolved.
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testRequiredPropertyReferencingItsOwnDefinitionInACompositionBranchRendersItsRequiredCheck(): void
+    {
+        $this->generateDirectory(
+            'RequiredSelfReferenceInBranch',
+            $this->directoryConfig('RequiredSelfReferenceInBranch'),
         );
 
-        $this->generateDirectory('RequiredSelfReference', $this->directoryConfig('RequiredSelfReference'));
+        $mainClass = $this->classOf('Main');
+
+        $this->assertNull((new $mainClass([]))->getBranch());
+
+        $nextException = $this->catchException(static fn(): object => new $mainClass(['branch' => []]));
+        $this->assertSame(
+            <<<MSG
+            Invalid nested object for property 'branch':
+              - Invalid value for 'Main_Branch' declined by composition constraint
+                  Requires to match all composition elements but matched 0 elements
+                  - Composition element #1: Failed
+                    * Missing required value for 'next'
+            MSG,
+            $nextException?->getMessage(),
+        );
     }
 
     private function directoryConfig(string $namespace): GeneratorConfiguration
@@ -232,6 +271,11 @@ class RequiredReferenceRecyclingTest extends AbstractPHPModelGeneratorTestCase
     private function classOf(string $name): string
     {
         return "\\{$this->lastGeneratedNamespacePrefix}\\$name";
+    }
+
+    private function returnClassOf(string $className, string $getterName): string
+    {
+        return (new ReflectionClass($className))->getMethod($getterName)->getReturnType()->getName();
     }
 
     private function sourceOf(string $className): string

@@ -290,19 +290,30 @@ class Schema
     }
 
     /**
-     * The property registered under the name for changes which belong to this schema only (e.g. a validator added
-     * because of the schema's own 'required' keyword). A property recycled for several references to the same
-     * definition is replaced by a copy of its own first, see detachSharedProperty().
+     * Applies a change which belongs to this schema only (e.g. a validator added because of the schema's own
+     * 'required' keyword) to the property registered under the name, which must exist. A property recycled for several
+     * references to the same definition is replaced by a copy of its own first, see detachSharedProperty().
+     *
+     * A reference to a definition which is still being processed (a recursive definition) is a PropertyProxy without a
+     * property to delegate to. The change is applied as soon as the reference resolved. Queueing the change in the
+     * proxy instead was rejected: the proxy can only delegate it to the property recycled for the definition, which is
+     * exactly the shared property the change must not reach.
+     *
+     * @param callable(PropertyInterface): mixed $change
      */
-    public function getOwnedProperty(string $name): ?PropertyInterface
+    public function withOwnedProperty(string $name, callable $change): void
     {
-        if (!isset($this->properties[$name])) {
-            return null;
-        }
+        $apply = function () use ($name, $change): void {
+            $this->detachSharedProperty($name);
 
-        $this->detachSharedProperty($name);
+            $change($this->properties[$name]);
+        };
 
-        return $this->properties[$name];
+        $property = $this->properties[$name];
+
+        $property instanceof PropertyProxy && !$property->isResolved()
+            ? $property->onResolve($apply)
+            : $apply();
     }
 
     /**
