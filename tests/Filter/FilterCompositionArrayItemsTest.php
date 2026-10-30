@@ -553,10 +553,6 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
         return [
             'schema-form items in a not branch' => ['NotBranchSchemaFormItemFilter.json', "a 'not' composition branch"],
             'tuple items in a not branch' => ['NotBranchTupleItemFilter.json', "a 'not' composition branch"],
-            'unevaluatedItems in a not branch' => [
-                'NotBranchUnevaluatedItemsFilter.json',
-                "a 'not' composition branch",
-            ],
             'items of nested arrays in a not branch' => [
                 'NotBranchNestedArrayItemFilter.json',
                 "a 'not' composition branch",
@@ -587,6 +583,26 @@ class FilterCompositionArrayItemsTest extends AbstractFilterTestCase
      */
     #[DataProvider('itemFilterInValidationOnlyBranchProvider')]
     public function testItemFilterInValidationOnlyBranchThrowsSchemaException(
+        string $schemaFile,
+        string $expectedBranchDescription,
+    ): void {
+        $this->assertItemFilterInValidationOnlyBranchIsRejected($schemaFile, $expectedBranchDescription);
+    }
+
+    /**
+     * The same rejection for unevaluatedItems, which only exist from Draft 2019-09. Draft 07 ignores the keyword, so
+     * there is no filter on any items to reject.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testUnevaluatedItemsFilterInNotBranchThrowsSchemaException(): void
+    {
+        $this->assertItemFilterInValidationOnlyBranchIsRejected(
+            'NotBranchUnevaluatedItemsFilter.json',
+            "a 'not' composition branch",
+        );
+    }
+
+    private function assertItemFilterInValidationOnlyBranchIsRejected(
         string $schemaFile,
         string $expectedBranchDescription,
     ): void {
