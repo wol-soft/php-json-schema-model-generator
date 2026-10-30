@@ -12,7 +12,6 @@ use PHPModelGenerator\Model\Validator\DependencyValidatorInterface;
 use PHPModelGenerator\Model\Validator\InstanceOfValidator;
 use PHPModelGenerator\Model\Validator\ObjectUpdateDependency;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
-use PHPModelGenerator\Model\Validator\RequiredPropertyValidator;
 use PHPModelGenerator\Utils\RenderHelper;
 
 class CompositionPropertyDecorator extends PropertyProxy
@@ -358,11 +357,16 @@ class CompositionPropertyDecorator extends PropertyProxy
     /**
      * @inheritdoc
      *
-     * A composition branch must not render validators that only make sense for the property as
-     * a whole: RequiredPropertyValidator checks presence of the outer property (already checked
-     * once, outside any branch); InstanceOfValidator against an empty-property placeholder class
-     * would incorrectly reject any object value that satisfies the branch's actual (unconstrained)
-     * semantics.
+     * A composition branch must not render an InstanceOfValidator against an empty-property
+     * placeholder class: it would incorrectly reject any object value that satisfies the branch's
+     * actual (unconstrained) semantics.
+     *
+     * No RequiredPropertyValidator needs to be excluded: the 'required' keyword attaches its
+     * validator to the property owned by the requiring schema (Schema::getOwnedProperty()), never
+     * to the property recycled for every reference to a $ref definition, so a branch referencing
+     * that definition (through PropertyProxy) cannot receive the required check of another
+     * schema. Excluding it here instead was rejected: it would hide a leaked validator in the
+     * other classes rendering the recycled property.
      *
      * A branch's own nested composition/conditional validator (allOf, anyOf, oneOf, not,
      * if/then/else — see AbstractComposedPropertyValidator) is deliberately NOT excluded here:
@@ -376,10 +380,9 @@ class CompositionPropertyDecorator extends PropertyProxy
      * composition would silently accept every value.
      *
      * Filtering here — at render time, without mutating the wrapped property's own validator
-     * list — keeps the exclusion branch-local. The wrapped property may be shared (via
+     * list — keeps the exclusion branch-local: the wrapped property may be shared (via
      * PropertyProxy's underlying-property delegation) with a completely different use of the same
-     * $ref definition, e.g. as a directly required property elsewhere; that other use must keep
-     * its own RequiredPropertyValidator intact.
+     * $ref definition.
      */
     public function getOrderedValidators(): array
     {
@@ -388,10 +391,6 @@ class CompositionPropertyDecorator extends PropertyProxy
         return array_values(array_filter(
             parent::getOrderedValidators(),
             static function (PropertyValidatorInterface $validator) use ($nestedSchema): bool {
-                if (is_a($validator, RequiredPropertyValidator::class)) {
-                    return false;
-                }
-
                 return !(
                     is_a($validator, InstanceOfValidator::class)
                     && $nestedSchema !== null

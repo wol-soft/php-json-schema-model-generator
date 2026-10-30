@@ -11,6 +11,7 @@ use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use ReflectionClass;
+use TypeError;
 
 /**
  * SchemaDefinition::resolveReference() recycles one property per definition path and metadata, so several schemas
@@ -193,6 +194,31 @@ class RequiredReferenceRecyclingTest extends AbstractPHPModelGeneratorTestCase
             MSG,
             $nameException?->getMessage(),
         );
+    }
+
+    /**
+     * A required property which references the definition it is declared in, where the definition itself is
+     * referenced by a required property: both references share one recycled property which is still unresolved while
+     * the definition's required check is attached, so the check has no resolved property to be added to.
+     *
+     * Known defect which does not depend on the recycling of required checks (it occurs identically when the required
+     * check is added to the recycled property directly): generation fails with a TypeError instead of rendering the
+     * class. The assertion documents the current behaviour. When the defect is fixed, replace it by assertions on the
+     * generated class (one required check for 'next' carrying the pointer of the definition's 'required' keyword).
+     *
+     * @throws FileSystemException
+     * @throws RenderException
+     * @throws SchemaException
+     */
+    public function testRequiredPropertyReferencingItsOwnDefinitionFailsGenerationWithATypeError(): void
+    {
+        $this->expectException(TypeError::class);
+        $this->expectExceptionMessage(
+            'PropertyProxy::getProperty(): Return value must be of type '
+                . 'PHPModelGenerator\Model\Property\PropertyInterface, null returned',
+        );
+
+        $this->generateDirectory('RequiredSelfReference', $this->directoryConfig('RequiredSelfReference'));
     }
 
     private function directoryConfig(string $namespace): GeneratorConfiguration
