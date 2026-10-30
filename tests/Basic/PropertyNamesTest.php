@@ -226,6 +226,14 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
             '_foo and foo' => ['LeadingUnderscoreAndPlain.json', '_foo', 'foo', 'foo', 63],
             // multiple separators still collapse to the same attribute as a single separator
             'foo--bar and foo_bar' => ['MultipleSeparators.json', 'foo--bar', 'foo_bar', 'fooBar', 71],
+            // an acronym prefix and the same name in camelCase normalize to the same attribute
+            'SHSArtistId and shsArtistId' => [
+                'AcronymAndCamelCase.json',
+                'SHSArtistId',
+                'shsArtistId',
+                'shsArtistId',
+                78,
+            ],
         ];
     }
 
@@ -256,6 +264,22 @@ class PropertyNamesTest extends AbstractPHPModelGeneratorTestCase
         );
 
         $this->generateClassFromFile($schemaFile);
+    }
+
+    /**
+     * 'fooBar' and 'foobar' are different attributes, but their accessors getFooBar() and getFoobar() are the same
+     * method for PHP (method names are case-insensitive). Without the check the generated class is a fatal error
+     * ("Cannot redeclare") when it gets loaded.
+     */
+    public function testPropertyNamesWithAccessorsDifferingOnlyInCaseThrowSchemaException(): void
+    {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Property names 'fooBar' and 'foobar' result in the attributes 'fooBar' and 'foobar' whose accessor"
+                . " methods only differ in case in file .+\.json at line 1, column 68$/",
+        );
+
+        $this->generateClassFromFile('DifferingOnlyInCase.json');
     }
 
     public function testAllOfCompositionReusingTheSameRawNameDoesNotTriggerCollisionDetection(): void

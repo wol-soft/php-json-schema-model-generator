@@ -632,6 +632,11 @@ class EnumPostProcessorTest extends AbstractPHPModelGeneratorTestCase
             'includes spaces' => ['not available', 'NotAvailable'],
             'includes non alphanumeric characters' => ['not-available', 'NotAvailable'],
             'numeric' => ['100', '_100'],
+            'camel case' => ['notAvailable', 'NotAvailable'],
+            'acronym followed by a word' => ['SHSArtist', 'ShsArtist'],
+            'trailing acronym' => ['userID', 'UserId'],
+            'acronym with digit' => ['HTTP2Server', 'Http2Server'],
+            'snake case with acronym' => ['not_AVAILABLE_yet', 'NotAvailableYet'],
         ];
     }
 

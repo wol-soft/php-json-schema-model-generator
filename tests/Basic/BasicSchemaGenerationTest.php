@@ -20,6 +20,7 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
 
 #[ApplicableDrafts]
 class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
@@ -397,6 +398,13 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
             '1000' => 1000,
             '1000string' => '1000',
             '0' => 0,
+            'SHSArtistId' => 'acronym prefix',
+            'userID' => 'acronym suffix',
+            'HTTP2Server' => 'acronym with digit',
+            'address2Line' => 'digit before uppercase',
+            'XML_http-request' => 'mixed separators',
+            'snake_case_ID' => 'snake case with acronym',
+            'kebab-CASE-name' => 'kebab case with uppercase segment',
         ]);
 
         $this->assertSame('___', $object->getUnderscoreProperty());
@@ -406,6 +414,25 @@ class BasicSchemaGenerationTest extends AbstractPHPModelGeneratorTestCase
         $this->assertSame(1000, $object->get1000());
         $this->assertSame('1000', $object->get1000string());
         $this->assertSame(0, $object->get0());
+
+        // A run of capitals followed by a capitalised word keeps the word boundary: the last capital of
+        // the run starts the next word
+        $this->assertSame('acronym prefix', $object->getShsArtistId());
+        // A trailing acronym is treated as a single word
+        $this->assertSame('acronym suffix', $object->getUserId());
+        // A digit followed by an uppercase letter ends a word, digits never start a new word on their own
+        $this->assertSame('acronym with digit', $object->getHttp2Server());
+        $this->assertSame('digit before uppercase', $object->getAddress2Line());
+        $this->assertSame('mixed separators', $object->getXmlHttpRequest());
+        $this->assertSame('snake case with acronym', $object->getSnakeCaseId());
+        $this->assertSame('kebab case with uppercase segment', $object->getKebabCaseName());
+
+        // The private attributes follow the same word boundaries as the accessors
+        $reflection = new ReflectionClass($object);
+        foreach (['shsArtistId', 'userId', 'http2Server', 'address2Line', 'xmlHttpRequest'] as $attribute) {
+            $this->assertTrue($reflection->hasProperty($attribute), "Attribute '$attribute' not found");
+        }
+        $this->assertFalse($reflection->hasProperty('shsartistId'));
     }
 
     public function testEmptyNormalizedPropertyNameThrowsAnException(): void
