@@ -11,9 +11,13 @@ class NormalizedName
 {
     public static function from(string $name, JsonSchema $jsonSchema): string
     {
-        $attributeName = preg_replace_callback(
-            '/([a-z][a-z0-9]*)([A-Z])/',
-            static fn(array $matches): string => "{$matches[1]}-{$matches[2]}",
+        // Word boundaries are inserted before an uppercase letter which follows a lowercase letter or a digit
+        // (userId, http2Server) and before the last capital of a run of capitals if it starts a capitalised word
+        // (SHSArtist => SHS-Artist). Lowercasing a run of capitals as a whole (SHSArtist => Shsartist) would
+        // swallow the boundary of the following word.
+        $attributeName = preg_replace(
+            ['/(?<=[a-z0-9])(?=[A-Z])/', '/(?<=[A-Z])(?=[A-Z][a-z])/'],
+            '-',
             $name,
         );
 

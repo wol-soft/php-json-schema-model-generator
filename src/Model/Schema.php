@@ -67,7 +67,12 @@ class Schema
     /** @var array<string, true> */
     private array $rootRegisteredPropertyNames = [];
 
-    /** @var string[] Maps normalized attribute → raw property name; used to detect property-vs-property collisions */
+    /**
+     * Maps the lowercased attribute → raw property name and attribute; used to detect property-vs-property
+     * collisions
+     *
+     * @var array<string, array{name: string, attribute: string}>
+     */
     private array $attributeIndex = [];
 
     /**
@@ -226,21 +231,37 @@ class Schema
             $registerAttribute = function () use ($property): void {
                 $attribute = $property->getAttribute();
 
-                $existingRawName = $this->attributeIndex[$attribute] ?? null;
-                if ($existingRawName !== null && $existingRawName !== $property->getName()) {
+                // Indexed by the lowercased attribute - do NOT index by the exact attribute: the accessors
+                // (getFooBar() / getFoobar()) are PHP method names which are case-insensitive, so attributes
+                // differing only in case ('fooBar' and 'foobar') generate a class which can't be loaded.
+                $existing = $this->attributeIndex[strtolower($attribute)] ?? null;
+                if ($existing !== null && $existing['name'] !== $property->getName()) {
                     throw new SchemaException(
-                        sprintf(
-                            "Property names '%s' and '%s' both normalize to attribute '%s' in file %s",
-                            $existingRawName,
-                            $property->getName(),
-                            $attribute,
-                            $this->jsonSchema->getFile(),
-                        ),
+                        $existing['attribute'] === $attribute
+                            ? sprintf(
+                                "Property names '%s' and '%s' both normalize to attribute '%s' in file %s",
+                                $existing['name'],
+                                $property->getName(),
+                                $attribute,
+                                $this->jsonSchema->getFile(),
+                            )
+                            : sprintf(
+                                "Property names '%s' and '%s' result in the attributes '%s' and '%s' whose "
+                                    . 'accessor methods only differ in case in file %s',
+                                $existing['name'],
+                                $property->getName(),
+                                $existing['attribute'],
+                                $attribute,
+                                $this->jsonSchema->getFile(),
+                            ),
                         $property->getJsonSchema(),
                     );
                 }
 
-                $this->attributeIndex[$attribute] = $property->getName();
+                $this->attributeIndex[strtolower($attribute)] = [
+                    'name' => $property->getName(),
+                    'attribute' => $attribute,
+                ];
             };
 
             $property->isResolved() ? $registerAttribute() : $property->onResolve($registerAttribute);
