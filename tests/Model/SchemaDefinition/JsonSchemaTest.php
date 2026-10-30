@@ -94,6 +94,58 @@ class JsonSchemaTest extends TestCase
         $this->assertSame('http://json-schema.org/draft-07/schema#', $legacyDescendant->getSchemaUri());
     }
 
+    // --- property names which spell a schema keyword ---
+
+    /**
+     * The "properties" node is a map of property names to schemas, not a schema. A property named
+     * "$schema" makes the map hold an array under the "$schema" key; reading that as the dialect
+     * URI must not happen - neither on the map node nor on the property definition below it.
+     */
+    public function testNavigateIgnoresAPropertyNamedSchemaWhenReadingTheSchemaUri(): void
+    {
+        $jsonSchema = new JsonSchema('/path/to/schema.json', [
+            '$schema' => 'https://json-schema.org/draft/2019-09/schema',
+            'properties' => [
+                '$schema' => ['type' => 'string'],
+                'name' => ['type' => 'string'],
+            ],
+        ]);
+
+        $this->assertSame(
+            'https://json-schema.org/draft/2019-09/schema',
+            $jsonSchema->navigate('/properties')->getSchemaUri(),
+        );
+        $this->assertSame(
+            'https://json-schema.org/draft/2019-09/schema',
+            $jsonSchema->navigate('/properties/$schema')->getSchemaUri(),
+        );
+    }
+
+    public function testNavigateIgnoresAPropertyNamedSchemaWhenNoAncestorDeclaresASchemaUri(): void
+    {
+        $jsonSchema = new JsonSchema('/path/to/schema.json', [
+            'properties' => ['$schema' => ['type' => 'string']],
+        ]);
+
+        $this->assertNull($jsonSchema->navigate('/properties')->getSchemaUri());
+        $this->assertNull($jsonSchema->withJson(['$schema' => ['type' => 'string']])->getSchemaUri());
+    }
+
+    public function testNavigateIgnoresAPropertyNamedIdWhenResolvingTheBaseId(): void
+    {
+        $jsonSchema = new JsonSchema('/path/to/schema.json', [
+            '$id' => 'http://example.com/root.json',
+            'properties' => ['$id' => ['type' => 'string']],
+        ]);
+
+        $this->assertSame('#http://example.com/root.json', $jsonSchema->navigate('/properties')->getBaseId());
+        $this->assertSame('#http://example.com/root.json', $jsonSchema->navigate('/properties/$id')->getBaseId());
+
+        $withoutRootId = new JsonSchema('/path/to/schema.json', ['properties' => ['$id' => ['type' => 'string']]]);
+
+        $this->assertSame('#', $withoutRootId->navigate('/properties')->getBaseId());
+    }
+
     public function testWithJsonAlsoHonoursALocalSchemaOverrideAndOtherwiseInherits(): void
     {
         $jsonSchema = new JsonSchema('/path/to/schema.json', [

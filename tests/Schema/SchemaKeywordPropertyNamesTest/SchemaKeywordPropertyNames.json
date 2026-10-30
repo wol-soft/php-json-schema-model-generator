@@ -1,0 +1,41 @@
+{
+  "type": "object",
+  "definitions": {
+    "$schema": {
+      "type": "string"
+    },
+    "$id": {
+      "type": "integer"
+    }
+  },
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "fromDefinitions": {
+      "$ref": "#/definitions/$schema"
+    },
+    "nested": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "integer"
+        },
+        "$id": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "patternProperties": {
+    "^\\$id[0-9]+$": {
+      "type": "integer"
+    }
+  }
+}
