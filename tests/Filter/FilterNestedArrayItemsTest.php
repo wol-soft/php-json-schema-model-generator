@@ -6,6 +6,8 @@ namespace PHPModelGenerator\Tests\Filter;
 
 use DateTime;
 use Error;
+use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
+use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
@@ -340,6 +342,167 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
 
         $object->setTree([[[['2023-01-01']]]]);
         $this->assertSame(['tree' => [[[['20230101']]]]], $object->toArray());
+    }
+
+    /**
+     * A tuple whose index 1 references the array itself with a transforming filter at index 0: every level of the
+     * nesting transforms the item at index 0, the serialization of the cycle applies the serializer of the filter on
+     * every level.
+     */
+    #[DataProvider('collectErrorsDataProvider')]
+    public function testRecursiveTupleArrayWithAFilterNextToTheRecursionIsTransformedAndSerialized(
+        bool $collectErrors,
+    ): void {
+        $className = $this->generateClassFromFile(
+            'RecursiveTupleArrayWithFilteredIndex.json',
+            (new GeneratorConfiguration())
+                ->setCollectErrors($collectErrors)
+                ->setImmutable(false)
+                ->setSerialization(true),
+        );
+
+        $object = new $className(['tree' => ['2020-10-10', ['2021-01-01', ['2022-02-02']]]]);
+        $this->assertEquals(
+            [new DateTime('2020-10-10'), [new DateTime('2021-01-01'), [new DateTime('2022-02-02')]]],
+            $object->getTree(),
+        );
+        $this->assertSame(['tree' => ['20201010', ['20210101', ['20220202']]]], $object->toArray());
+        $this->assertSame(
+            ['tree' => ['20201010', ['20210101', ['20220202']]]],
+            json_decode($object->toJSON(), true),
+        );
+        // The raw input of the model keeps the values as they were provided.
+        $this->assertSame(
+            ['tree' => ['2020-10-10', ['2021-01-01', ['2022-02-02']]]],
+            $object->meta()->rawInput(),
+        );
+
+        // The cycle is deeper than the levels which are unrolled in the generated code.
+        $deep = new $className(['tree' => ['2020-01-01', ['2020-02-02', ['2020-03-03', ['2020-04-04', ['2020-05-05']]]]]]);
+        $this->assertSame(
+            ['tree' => ['20200101', ['20200202', ['20200303', ['20200404', ['20200505']]]]]],
+            $deep->toArray(),
+        );
+
+        // Arrays which end before the recursion starts and the exclusion of the property.
+        $short = new $className(['tree' => ['2020-10-10']]);
+        $this->assertSame(['tree' => ['20201010']], $short->toArray());
+        $this->assertSame([], $short->toArray(['tree']));
+
+        // An already transformed value is accepted on every level, also mixed with raw values.
+        $transformed = new $className(
+            ['tree' => [new DateTime('2020-10-10'), ['2021-01-01', [new DateTime('2022-02-02')]]]],
+        );
+        $this->assertEquals(
+            [new DateTime('2020-10-10'), [new DateTime('2021-01-01'), [new DateTime('2022-02-02')]]],
+            $transformed->getTree(),
+        );
+        $this->assertSame(['tree' => ['20201010', ['20210101', ['20220202']]]], $transformed->toArray());
+
+        // The setter runs the same validation as the constructor.
+        $object->setTree(['2023-03-03', ['2023-04-04']]);
+        $this->assertEquals([new DateTime('2023-03-03'), [new DateTime('2023-04-04')]], $object->getTree());
+        $this->assertSame(['tree' => ['20230303', ['20230404']]], $object->toArray());
+
+        $object->setTree([new DateTime('2024-01-01'), [new DateTime('2024-02-02')]]);
+        $this->assertSame(['tree' => ['20240101', ['20240202']]], $object->toArray());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['2020-10-10', ['not a date']]],
+            $collectErrors ? ErrorRegistryException::class : InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #2
+                * Invalid tuple item in array 'tuple item #1 of array tree':
+                  - invalid tuple #1
+                    * Invalid value for property 'tuple item #0 of array tuple item #1 of array tree' denied by filter 'dateTime': Invalid Date Time value "not a date"
+            MSG,
+        );
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['tree' => ['2020-10-10', ['2021-01-01', [5]]]],
+            $collectErrors ? ErrorRegistryException::class : InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tree':
+              - invalid tuple #2
+                * Invalid tuple item in array 'tuple item #1 of array tree':
+                  - invalid tuple #2
+                    * Invalid tuple item in array 'tuple item #1 of array tuple item #1 of array tree':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array tuple item #1 of array tree': requires ['DateTime', 'string'], got 'integer'
+            MSG,
+        );
+    }
+
+    /**
+     * The recursion starts at index 0 and the filtered item follows at index 1: the serializer of the cycle visits
+     * the recursing slot before the filtered one.
+     */
+    public function testRecursiveTupleArrayWhichRecursesBeforeTheFilteredIndexIsSerialized(): void
+    {
+        $className = $this->generateClassFromFile(
+            'RecursiveTupleArrayRecursingAtFirstIndex.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $object = new $className(['tree' => [[[[], '2020-10-10'], '2021-01-01'], '2022-02-02']]);
+        $this->assertEquals(
+            [[[[], new DateTime('2020-10-10')], new DateTime('2021-01-01')], new DateTime('2022-02-02')],
+            $object->getTree(),
+        );
+        $this->assertSame(
+            ['tree' => [[[[], '20201010'], '20210101'], '20220202']],
+            $object->toArray(),
+        );
+        $this->assertSame(
+            ['tree' => [[[[], '20201010'], '20210101'], '20220202']],
+            json_decode($object->toJSON(), true),
+        );
+
+        $transformed = new $className(['tree' => [[[], new DateTime('2020-10-10')], '2021-01-01']]);
+        $this->assertSame(['tree' => [[[], '20201010'], '20210101']], $transformed->toArray());
+
+        $object->setTree([[[], '2023-03-03'], new DateTime('2023-04-04')]);
+        $this->assertSame(['tree' => [[[], '20230303'], '20230404']], $object->toArray());
+    }
+
+    /**
+     * Two definitions reference each other and filter their first item differently: the serializer of each level
+     * applies the filter of its own definition, also when the cycle is run through several times.
+     */
+    public function testMutuallyRecursiveTupleArraysWithDifferentFiltersAreSerialized(): void
+    {
+        $className = $this->generateClassFromFile(
+            'MutuallyRecursiveTupleArraysWithFilters.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $object = new $className(
+            ['chain' => ['2020-10-10', ['2021-02-02', ['2022-03-03', ['2023-04-04', ['2024-05-05']]]]]],
+        );
+        $this->assertEquals(
+            [
+                new DateTime('2020-10-10'),
+                [new DateTime('2021-02-02'), [new DateTime('2022-03-03'), [new DateTime('2023-04-04'), [new DateTime('2024-05-05')]]]],
+            ],
+            $object->getChain(),
+        );
+        $this->assertSame(
+            ['chain' => ['20201010', ['2021', ['20220303', ['2023', ['20240505']]]]]],
+            $object->toArray(),
+        );
+        $this->assertSame(
+            ['chain' => ['20201010', ['2021', ['20220303', ['2023', ['20240505']]]]]],
+            json_decode($object->toJSON(), true),
+        );
+
+        $transformed = new $className(['chain' => [new DateTime('2020-10-10'), [new DateTime('2021-02-02')]]]);
+        $this->assertSame(['chain' => ['20201010', ['2021']]], $transformed->toArray());
+
+        $object->setChain(['2025-06-06', ['2026-07-07']]);
+        $this->assertSame(['chain' => ['20250606', ['2026']]], $object->toArray());
     }
 
     // -------------------------------------------------------------------------
