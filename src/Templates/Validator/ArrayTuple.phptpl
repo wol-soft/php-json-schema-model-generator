@@ -18,9 +18,7 @@ is_array($value) && (function (&$items) use (&$invalidTuples, $modelData) {
             $value = &$items[$index++];
             {{ viewHelper.resolvePropertyDecorator(tuple, false, 2) }}
 
-            {% foreach tuple.getOrderedValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema, 2) }}
-            {% endforeach %}
+            {{ viewHelper.renderValidators(tuple, schema, 2) }}
 
             {% if generatorConfiguration.collectErrors() %}
                 if ($this->_errorRegistry->getErrors()) {

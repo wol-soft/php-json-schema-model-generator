@@ -11,7 +11,6 @@ use PHPModelGenerator\Model\Validator\ExtractedMethodValidator;
 use PHPModelGenerator\Model\Validator\FilterValidator;
 use PHPModelGenerator\Model\Validator\PropertyTemplateValidator;
 use PHPModelGenerator\Model\Validator\PropertyValidatorInterface;
-use PHPModelGenerator\Model\Validator\UnevaluatedItemsValidator;
 
 class RenderHelper
 {
@@ -232,7 +231,8 @@ class RenderHelper
     }
 
     /**
-     * True when the property or a branch of one of its compositions carries an UnevaluatedItemsValidator.
+     * True when the property or a branch of one of its compositions carries an unevaluatedItems validator (the
+     * schema-form as well as the `false`-form, which reads the indices credited by a sibling `contains`).
      *
      * `_evaluatedItemIndices[$propertyName]` must be reset to an empty array before this
      * property's validator chain runs (ahead of any composition validator, which may credit
@@ -245,13 +245,56 @@ class RenderHelper
      */
     public function hasUnevaluatedItemsValidator(PropertyInterface $property): bool
     {
-        foreach (ArrayItemFilterScope::declarationsOf($property, true) as $declaration) {
-            if ($declaration->validator instanceof UnevaluatedItemsValidator) {
-                return true;
-            }
+        return EvaluatedItemsScope::isTracked($property);
+    }
+
+    /**
+     * Renders the validators of the property which validates one element of a container (the items of an array, the
+     * value of an additional property, ...).
+     *
+     * An element which carries an unevaluatedItems validator is validated in an evaluation scope of its own: the
+     * element starts with an empty set of evaluated indices and hands the set of the enclosing array back untouched.
+     * The set is tracked by the name of the array property, and the element shares that name with its siblings (all
+     * inner arrays of an outer array) and with the enclosing array (the schema-form items carry the name of the
+     * enclosing property).
+     *
+     * The scope is restored in a `finally` block, a failing element (the exception is collected by the caller) and a
+     * `continue` of the caller must not leave the credits of the element behind. Resetting the set without restoring
+     * it was rejected: the set of the enclosing array holds the indices a sibling `contains` credited before the
+     * elements are validated, a following unevaluatedItems check of the enclosing array would lose them. Separate
+     * keys per element were rejected as well: the element index is not available to the validators of the element
+     * (extracted methods and closures) and a reference cycle validates the same location on several levels at once.
+     */
+    public function renderValidators(PropertyInterface $property, Schema $schema, int $indentLevel = 0): string
+    {
+        $renderedValidators = array_filter(
+            array_map(
+                fn(PropertyValidatorInterface $validator): string => $this->renderValidator($validator, $schema),
+                $property->getOrderedValidators(),
+            ),
+            static fn(string $renderedValidator): bool => $renderedValidator !== '',
+        );
+
+        $code = implode("\n", $renderedValidators);
+
+        if ($this->hasUnevaluatedItemsValidator($property)) {
+            $key = var_export($property->getName(), true);
+
+            $code = implode(
+                "\n",
+                [
+                    "\$savedEvaluatedItemIndices = \$this->_evaluatedItemIndices[$key] ?? [];",
+                    "\$this->_evaluatedItemIndices[$key] = [];",
+                    'try {',
+                    '    ' . self::indent($code, 1),
+                    '} finally {',
+                    "    \$this->_evaluatedItemIndices[$key] = \$savedEvaluatedItemIndices;",
+                    '}',
+                ],
+            );
         }
 
-        return false;
+        return self::indent($code, $indentLevel);
     }
 
     /**

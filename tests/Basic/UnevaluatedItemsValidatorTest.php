@@ -5,13 +5,20 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Basic;
 
 use DateTime;
+use Exception;
+use PHPModelGenerator\Exception\Arrays\ContainsException;
 use PHPModelGenerator\Exception\Arrays\InvalidAdditionalTupleItemsException;
+use PHPModelGenerator\Exception\Arrays\InvalidItemException;
+use PHPModelGenerator\Exception\Arrays\InvalidTupleException;
 use PHPModelGenerator\Exception\Arrays\InvalidUnevaluatedItemsException;
 use PHPModelGenerator\Exception\Arrays\UnevaluatedItemsException;
 use PHPModelGenerator\Exception\Arrays\UniqueItemsException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
 use PHPModelGenerator\Exception\ComposedValue\AllOfException;
 use PHPModelGenerator\Exception\Generic\InvalidTypeException;
+use PHPModelGenerator\Exception\Object\InvalidAdditionalPropertiesException;
+use PHPModelGenerator\Exception\Object\InvalidPatternPropertiesException;
+use PHPModelGenerator\Exception\Object\InvalidUnevaluatedPropertiesException;
 use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\UnsupportedSchemaFeatureException;
@@ -20,7 +27,9 @@ use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
 use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPModelGenerator\Tests\Support\ApplicableDrafts;
 use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
+use PHPModelGenerator\Traits\CompositionEvaluationTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
 
 /**
  * Verifies the runtime behaviour of `unevaluatedItems`: array indices not claimed by `items`,
@@ -1376,5 +1385,629 @@ MSG,
         );
 
         $this->generateClassFromFile('BranchUnevaluatedItemsIgnoresSiblingTupleClaim.json', null, true);
+    }
+
+    /**
+     * @param callable(): mixed $action
+     * @param class-string<Exception> $exceptionClass
+     */
+    private function assertThrowsWithMessage(callable $action, string $exceptionClass, string $expectedMessage): void
+    {
+        $thrown = null;
+
+        try {
+            $action();
+        } catch (Exception $exception) {
+            $thrown = $exception;
+        }
+
+        $this->assertInstanceOf($exceptionClass, $thrown, "Expected $exceptionClass to be thrown");
+        $this->assertSame($expectedMessage, $thrown->getMessage());
+    }
+
+    /**
+     * `unevaluatedItems` declared on an array which is an item of another array is evaluated per inner array: the
+     * indices a tuple or the keyword itself evaluated in one inner array never count as evaluated in another one.
+     * The inner arrays of the outer array share the property name, so the evaluation state of an inner array must
+     * be isolated from the state of its siblings (and of the outer array) by the validation of the element.
+     *
+     * Covers the construction and the setter of a mutable model with direct exceptions, including the state of a
+     * rejected setter call.
+     */
+    public function testUnevaluatedItemsOfANestedArrayAreEvaluatedPerInnerArray(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayTupleUnevaluatedSchema.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        // Index 0 is evaluated by the tuple, index 1 by unevaluatedItems.
+        $object = new $className(['tags' => [[1, 'a']]]);
+        $this->assertSame([[1, 'a']], $object->getTags());
+        $this->assertSame(['tags' => [[1, 'a']]], $object->meta()->rawInput());
+
+        // Inner arrays of different length, also empty ones.
+        $this->assertSame([[1, 'a', 'b'], [2], []], (new $className(['tags' => [[1, 'a', 'b'], [2], []]]))->getTags());
+
+        // The indices 1 and 2 which unevaluatedItems evaluated in the first inner array are not evaluated in the
+        // second inner array: the integer at index 1 has to match the unevaluatedItems schema.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tags' => [[1, 'a', 'b'], [2, 3]]]),
+            InvalidItemException::class,
+            <<<'MSG'
+            Invalid items in array 'tags':
+              - invalid item #1
+                * Invalid unevaluated items in array 'tags':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+            MSG,
+        );
+
+        // A violation of the tuple in the second inner array is reported for the second inner array only.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tags' => [[1, 'a'], ['x']]]),
+            InvalidItemException::class,
+            <<<'MSG'
+            Invalid items in array 'tags':
+              - invalid item #1
+                * Invalid tuple item in array 'tags':
+                  - invalid tuple #1
+                    * Invalid type for 'tuple item #0 of array tags': requires 'int', got 'string'
+            MSG,
+        );
+
+        // The failing elements are reported by index, valid inner arrays in between are not.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tags' => [[1, true], [2, 'a'], [3, 4.5]]]),
+            InvalidItemException::class,
+            <<<'MSG'
+            Invalid items in array 'tags':
+              - invalid item #0
+                * Invalid unevaluated items in array 'tags':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'string', got 'boolean'
+              - invalid item #2
+                * Invalid unevaluated items in array 'tags':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'string', got 'double'
+            MSG,
+        );
+
+        // The setter validates the new value from scratch, the state of the previous values doesn't leak.
+        $object->setTags([[5, 'x', 'y'], [6]]);
+        $this->assertSame([[5, 'x', 'y'], [6]], $object->getTags());
+
+        $this->assertThrowsWithMessage(
+            static fn() => $object->setTags([[7, 'x', 'y'], [8, 9]]),
+            InvalidItemException::class,
+            <<<'MSG'
+            Invalid items in array 'tags':
+              - invalid item #1
+                * Invalid unevaluated items in array 'tags':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+            MSG,
+        );
+
+        // The rejected setter call leaves the model unchanged, a following valid call is accepted.
+        $this->assertSame([[5, 'x', 'y'], [6]], $object->getTags());
+        $object->setTags([[9, 'z'], [10]]);
+        $this->assertSame([[9, 'z'], [10]], $object->getTags());
+    }
+
+    /**
+     * Immutable model with collected errors: all violations of all inner arrays are collected, the errors of one
+     * inner array (a violated tuple and a violated unevaluatedItems schema) are reported for that inner array.
+     */
+    public function testUnevaluatedItemsOfANestedArrayCollectErrorsPerInnerArray(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayTupleUnevaluatedSchema.json',
+            (new GeneratorConfiguration())->setCollectErrors(true),
+        );
+
+        $object = new $className(['tags' => [[1, 'a', 'b'], [2, 'c']]]);
+        $this->assertSame([[1, 'a', 'b'], [2, 'c']], $object->getTags());
+
+        // The evaluated indices of the first inner array don't count for the second inner array.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tags' => [[1, 'a', 'b'], [2, 3]]]),
+            ErrorRegistryException::class,
+            <<<'MSG'
+            Invalid items in array 'tags':
+              - invalid item #1
+                * Invalid unevaluated items in array 'tags':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+            MSG,
+        );
+
+        // Both keywords of one inner array fail, the inner array before and after it is valid.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tags' => [[1, 'a'], ['x', 5], [3, 'b']]]),
+            ErrorRegistryException::class,
+            <<<'MSG'
+            Invalid items in array 'tags':
+              - invalid item #1
+                * Invalid tuple item in array 'tags':
+                  - invalid tuple #1
+                    * Invalid type for 'tuple item #0 of array tags': requires 'int', got 'string'
+                * Invalid unevaluated items in array 'tags':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+            MSG,
+        );
+    }
+
+    /**
+     * The serialization of a model with nested arrays whose unevaluatedItems declare no filter hands the items
+     * through unchanged.
+     */
+    public function testSerializationOfNestedArraysWithUnevaluatedItems(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayTupleUnevaluatedSchema.json',
+            (new GeneratorConfiguration())->setSerialization(true),
+        );
+
+        $object = new $className(['tags' => [[1, 'a', 'b'], [2], []]]);
+
+        $this->assertSame(['tags' => [[1, 'a', 'b'], [2], []]], $object->toArray());
+        $this->assertSame(['tags' => [[1, 'a', 'b'], [2], []]], json_decode($object->toJSON(), true));
+    }
+
+    /**
+     * `unevaluatedItems: false` of a nested array rejects exactly the indices which the tuple of that inner array
+     * doesn't evaluate, per inner array. The exception of the inner array is reachable from the exception of the
+     * outer array.
+     */
+    public function testUnevaluatedItemsFalseOfANestedArrayRejectsTheIndicesOfTheInnerArray(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayTupleUnevaluatedFalse.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['tags' => [[1], [2], []]]);
+        $this->assertSame([[1], [2], []], $object->getTags());
+
+        try {
+            new $className(['tags' => [[1], [2, 'a', 'b'], [3, 4]]]);
+            $this->fail('Expected InvalidItemException');
+        } catch (InvalidItemException $exception) {
+            $this->assertSame(
+                <<<'MSG'
+                Invalid items in array 'tags':
+                  - invalid item #1
+                    * Provided JSON for 'tags' contains not allowed unevaluated items [#1, #2]
+                  - invalid item #2
+                    * Provided JSON for 'tags' contains not allowed unevaluated items [#1]
+                MSG,
+                $exception->getMessage(),
+            );
+
+            $invalidItems = $exception->getInvalidItems();
+            $this->assertSame([1, 2], array_keys($invalidItems));
+            $this->assertInstanceOf(UnevaluatedItemsException::class, $invalidItems[1][0]);
+            $this->assertSame([1, 2], $invalidItems[1][0]->getUnevaluatedItems());
+            $this->assertSame([1], $invalidItems[2][0]->getUnevaluatedItems());
+            $this->assertSame(
+                '/properties/tags/items/unevaluatedItems',
+                $invalidItems[1][0]->getJsonPointer()->pointer,
+            );
+        }
+
+        // The setter validates every inner array of the new value.
+        $this->assertThrowsWithMessage(
+            static fn() => $object->setTags([[1, 2]]),
+            InvalidItemException::class,
+            <<<'MSG'
+            Invalid items in array 'tags':
+              - invalid item #0
+                * Provided JSON for 'tags' contains not allowed unevaluated items [#1]
+            MSG,
+        );
+        $this->assertSame([[1], [2], []], $object->getTags());
+    }
+
+    /**
+     * Arrays nested three levels deep with the keyword on the two inner levels (different types so a state shared
+     * between the levels or between the elements of a level would be visible).
+     */
+    public function testUnevaluatedItemsOnEveryLevelOfThreeNestedArrays(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayThreeLevels.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $input = [[['a', true, false], 5, 6], [['b'], 7], [['c', false]]];
+        $object = new $className(['tags' => $input]);
+        $this->assertSame($input, $object->getTags());
+
+        // The booleans evaluated by unevaluatedItems of the first innermost array don't count for the second one.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tags' => [[['a', true, false], 5], [['b', 'x']]]]),
+            InvalidItemException::class,
+            <<<'MSG'
+            Invalid items in array 'tags':
+              - invalid item #1
+                * Invalid tuple item in array 'tags':
+                  - invalid tuple #1
+                    * Invalid unevaluated items in array 'tuple item #0 of array tags':
+                      - invalid unevaluated item #1
+                        * Invalid type for 'unevaluated item': requires 'bool', got 'string'
+            MSG,
+        );
+
+        // The integers evaluated by unevaluatedItems of the middle level are independent of the innermost level.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tags' => [[['a'], 1, 2], [['b'], 'three']]]),
+            InvalidItemException::class,
+            <<<'MSG'
+            Invalid items in array 'tags':
+              - invalid item #1
+                * Invalid unevaluated items in array 'tags':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'int', got 'string'
+            MSG,
+        );
+
+        // The setter runs the same validation.
+        $object->setTags([[['d', false]], [['e', true, true], 8]]);
+        $this->assertSame([[['d', false]], [['e', true, true], 8]], $object->getTags());
+    }
+
+    /**
+     * Nested arrays in the other slots of an array: an item at a tuple index is not named like the outer array, the
+     * additionalItems, the schema of unevaluatedItems and the schema of contains share the evaluation of the inner
+     * arrays the same way.
+     */
+    public function testUnevaluatedItemsOfArraysInTupleAdditionalUnevaluatedAndContainsSlots(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayInTupleAndSchemaSlots.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $valid = ['tupleSlot' => [[1]], 'unevaluatedSlot' => [], 'containsSlot' => [['a']]];
+
+        $object = new $className([
+            'tupleSlot' => [[1, 'a', 'b'], ['x'], ['y']],
+            'unevaluatedSlot' => [5, ['a', true, false], ['b', true]],
+            'containsSlot' => [1, ['a', 'b'], ['c']],
+        ]);
+        $this->assertSame([[1, 'a', 'b'], ['x'], ['y']], $object->getTupleSlot());
+        $this->assertSame([5, ['a', true, false], ['b', true]], $object->getUnevaluatedSlot());
+        $this->assertSame([1, ['a', 'b'], ['c']], $object->getContainsSlot());
+
+        // The tuple slot: the inner array at the tuple index and the inner arrays of the additional items.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tupleSlot' => [[1, 'a', 2], ['x']]] + $valid),
+            InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tupleSlot':
+              - invalid tuple #1
+                * Invalid unevaluated items in array 'tuple item #0 of array tupleSlot':
+                  - invalid unevaluated item #2
+                    * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+            MSG,
+        );
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tupleSlot' => [[1], ['x'], ['y', 'z']]] + $valid),
+            InvalidAdditionalTupleItemsException::class,
+            <<<'MSG'
+            Tuple array 'tupleSlot' contains invalid additional items
+              - invalid additional item '2'
+                * Provided JSON for 'additional item' contains not allowed unevaluated items [#1]
+            MSG,
+        );
+
+        // The schema of unevaluatedItems of the outer array is an array with unevaluatedItems itself.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['unevaluatedSlot' => [5, ['a', true], ['b', 'x']]] + $valid),
+            InvalidUnevaluatedItemsException::class,
+            <<<'MSG'
+            Invalid unevaluated items in array 'unevaluatedSlot':
+              - invalid unevaluated item #2
+                * Invalid unevaluated items in array 'unevaluated item':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'bool', got 'string'
+            MSG,
+        );
+
+        // The schema of contains: the inner arrays which are not valid don't match. The only inner array has an index
+        // which no applicator evaluated, so no item matches.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['containsSlot' => [['a', 1]]] + $valid),
+            ContainsException::class,
+            "No item in array 'containsSlot' matches the 'contains' constraint",
+        );
+    }
+
+    /**
+     * Arrays held by the values of additionalProperties and patternProperties are validated per array and per key:
+     * the schema of the object doesn't have to declare the keyword itself.
+     */
+    public function testUnevaluatedItemsOfArraysHeldByAdditionalAndPatternProperties(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayInObjectValues.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $input = ['id' => 1, 'first' => [1, 'x', 'y'], 'second' => [2], 'list_one' => ['s'], 'list_two' => ['t']];
+        $object = new $className($input);
+        $this->assertSame($input, $object->meta()->rawInput());
+
+        // The index evaluated by unevaluatedItems in the value of the first additional property doesn't count for
+        // the value of the second additional property.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['first' => [1, 'x', 'y'], 'second' => [2, 3]]),
+            InvalidAdditionalPropertiesException::class,
+            <<<MSG
+            Provided JSON for '{$className}' contains invalid additional properties
+              - invalid additional property 'second'
+                * Invalid unevaluated items in array 'additional property':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+            MSG,
+        );
+
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['list_one' => ['s'], 'list_two' => ['t', 'u']]),
+            InvalidPatternPropertiesException::class,
+            <<<MSG
+            Provided JSON for '{$className}' contains invalid pattern properties
+              - invalid property 'list_two' matching pattern '^list_'
+                * Provided JSON for 'pattern property' contains not allowed unevaluated items [#1]
+            MSG,
+        );
+    }
+
+    /**
+     * The arrays held by the values of unevaluatedProperties are elements of the object like the values of additional
+     * and pattern properties: validated per key, each with its own evaluated indices.
+     */
+    public function testUnevaluatedItemsOfArraysHeldByUnevaluatedProperties(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayInUnevaluatedPropertyValues.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $input = ['id' => 1, 'first' => [1, 'x', 'y'], 'second' => [2]];
+        $object = new $className($input);
+        $this->assertSame($input, $object->meta()->rawInput());
+
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['first' => [1, 'x', 'y'], 'second' => [2, 3]]),
+            InvalidUnevaluatedPropertiesException::class,
+            <<<MSG
+            Provided JSON for '{$className}' contains invalid unevaluated properties
+              - invalid unevaluated property 'second'
+                * Invalid unevaluated items in array 'unevaluated property':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+            MSG,
+        );
+    }
+
+    /**
+     * An outer array and the inner array at its tuple index both carry compositions which track the evaluated
+     * indices: the compositions of the two arrays are tracked independently (the contains of the inner allOf credits
+     * indices of the inner array, the contains of the outer allOf indices of the outer array).
+     */
+    public function testCompositionsOfOuterAndInnerArrayCreditTheirOwnIndices(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayWithOuterAndInnerCompositions.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        // Outer: index 0 by the tuple, index 1 and 2 by contains (5 matches). Inner: 1 by the tuple, 'x' by contains.
+        $object = new $className(['tags' => [[1, 'x'], 5, 5]]);
+        $this->assertSame([[1, 'x'], 5, 5], $object->getTags());
+
+        // The inner array at index 0 is valid, index 2 of the outer array is not evaluated by anything.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tags' => [[1, 'x'], 5, 'surplus']]),
+            UnevaluatedItemsException::class,
+            "Provided JSON for 'tags' contains not allowed unevaluated items [#2]",
+        );
+
+        // The 5 credited to the outer array at index 1 is not evaluated for the inner array, which is the tuple item
+        // at index 0: index 1 of the inner array is credited by its own contains only.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tags' => [[1, 'x', 'surplus'], 5]]),
+            InvalidTupleException::class,
+            <<<'MSG'
+            Invalid tuple item in array 'tags':
+              - invalid tuple #1
+                * Provided JSON for 'tuple item #0 of array tags' contains not allowed unevaluated items [#2]
+            MSG,
+        );
+    }
+
+    /**
+     * The composition branches of a nested array credit the indices they evaluate to the unevaluatedItems of the
+     * inner array they belong to (a tuple in one branch, contains in the sibling branch).
+     */
+    public function testCompositionBranchesOfANestedArrayCreditTheIndicesOfTheirInnerArray(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayWithCompositionBranches.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['tags' => [[1, 'x', 'x'], [2, 'x']]]);
+        $this->assertSame([[1, 'x', 'x'], [2, 'x']], $object->getTags());
+
+        // The indices contains matched in the first inner array are not credited to the second inner array.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tags' => [[1, 'x', 'x'], [2, 'x', 'y']]]),
+            InvalidItemException::class,
+            <<<'MSG'
+            Invalid items in array 'tags':
+              - invalid item #1
+                * Provided JSON for 'tags' contains not allowed unevaluated items [#2]
+            MSG,
+        );
+
+        // The first branch (tuple) of the inner array fails: the composition fails before unevaluatedItems runs.
+        $this->assertThrowsWithMessage(
+            static fn() => $object->setTags([['wrong', 'x']]),
+            InvalidItemException::class,
+            <<<'MSG'
+            Invalid items in array 'tags':
+              - invalid item #0
+                * Invalid value for 'tags' declined by composition constraint
+                  Requires to match all composition elements but matched 1 element
+                  - Composition element #1: Failed
+                    * Invalid tuple item in array 'tags':
+                      - invalid tuple #1
+                        * Invalid type for 'tuple item #0 of array tags': requires 'int', got 'string'
+                  - Composition element #2: Valid
+            MSG,
+        );
+        $this->assertSame([[1, 'x', 'x'], [2, 'x']], $object->getTags());
+    }
+
+    /**
+     * A sibling contains of a nested array credits the matched indices to the unevaluatedItems of the inner array
+     * only: the matches of one inner array don't count for the next one.
+     */
+    public function testSiblingContainsOfANestedArrayCreditsOnlyTheMatchesOfTheInnerArray(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayWithSiblingContains.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['tags' => [['a'], ['b', 'c']]]);
+        $this->assertSame([['a'], ['b', 'c']], $object->getTags());
+
+        // The match at index 0 of the first inner array doesn't evaluate index 0 of the second inner array.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tags' => [['a'], [1, 'b']]]),
+            InvalidItemException::class,
+            <<<'MSG'
+            Invalid items in array 'tags':
+              - invalid item #1
+                * Provided JSON for 'tags' contains not allowed unevaluated items [#0]
+            MSG,
+        );
+
+        $this->assertThrowsWithMessage(
+            static fn() => $object->setTags([['a', 1]]),
+            InvalidItemException::class,
+            <<<'MSG'
+            Invalid items in array 'tags':
+              - invalid item #0
+                * Provided JSON for 'tags' contains not allowed unevaluated items [#1]
+            MSG,
+        );
+    }
+
+    /**
+     * The elements of an array which are objects are validated by a class of their own: the keyword inside that
+     * class is evaluated by the class, the enclosing class has no use for the evaluation tracking.
+     */
+    public function testUnevaluatedItemsInTheClassOfAnObjectElementDoNotActivateTheEnclosingClass(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayInObjectElements.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['entries' => [['list' => [1, 'a']], ['list' => [2]]]]);
+        $elementClassName = $object->getEntries()[0]::class;
+
+        $this->assertNotContains(CompositionEvaluationTrait::class, class_uses($className));
+        $this->assertFalse((new ReflectionClass($className))->hasProperty('_evaluatedItemIndices'));
+        $this->assertContains(CompositionEvaluationTrait::class, class_uses($elementClassName));
+        $this->assertTrue((new ReflectionClass($elementClassName))->hasProperty('_evaluatedItemIndices'));
+
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['entries' => [['list' => [1, 'a']], ['list' => [2, 3]]]]),
+            InvalidItemException::class,
+            <<<'MSG'
+            Invalid items in array 'entries':
+              - invalid item #1
+                * Invalid unevaluated items in array 'list':
+                  - invalid unevaluated item #1
+                    * Invalid type for 'unevaluated item': requires 'string', got 'integer'
+            MSG,
+        );
+    }
+
+    /**
+     * The evaluation of an inner array is isolated from the evaluated indices of the outer array in both directions.
+     * The schema-form items of the branch validate the elements with the name of the outer array, so:
+     *
+     *   - the index which contains credited to the outer array must not count as evaluated in the inner array
+     *     (the inner array at index 0 has an unevaluated item at its index 0 and fails the branch), and
+     *   - the credit of contains must survive the validation of the inner arrays: index 0 is still evaluated for the
+     *     unevaluatedItems check of the outer array afterwards, only index 1 (which nothing evaluated) is reported.
+     */
+    public function testEvaluationOfNestedArraysIsIsolatedFromTheEvaluatedIndicesOfTheOuterArray(): void
+    {
+        $className = $this->generateClassFromFile('NestedArrayBesideSiblingCredits.json');
+
+        // Index 0 is evaluated by contains. The branch fails (the inner array has an unevaluated item), the anyOf
+        // passes by its second branch.
+        $object = new $className(['tags' => [[1]]]);
+        $this->assertSame([[1]], $object->getTags());
+
+        // Would be accepted if the credit of contains at index 0 counted for the inner array at index 0: the branch
+        // would pass and claim every index. Reports only index 1 if the credit of contains survived.
+        $this->assertThrowsWithMessage(
+            static fn() => new $className(['tags' => [[1], []]]),
+            UnevaluatedItemsException::class,
+            "Provided JSON for 'tags' contains not allowed unevaluated items [#1]",
+        );
+    }
+
+    /**
+     * A branch which declares the keyword without being able to see the claims of its enclosing schema is rejected
+     * for a nested array the same way as for an array property.
+     */
+    public function testBranchUnevaluatedItemsOfANestedArrayThrowsUnsupportedSchemaFeatureException(): void
+    {
+        $this->expectException(UnsupportedSchemaFeatureException::class);
+        $this->expectExceptionMessage(
+            "Branch #1 of the composition for 'tags' declares 'unevaluatedItems', which cannot "
+                . 'yet see property names or indices declared by the enclosing schema or a '
+                . "sibling branch - remove 'unevaluatedItems' from the branch, or restructure the "
+                . 'schema so it is declared only at the level that needs it at line 14, column 11',
+        );
+
+        $this->generateClassFromFile('NestedArrayBranchUnevaluatedItemsWithSiblingClaim.json', null, true);
+    }
+
+    /**
+     * The credits of a previous validation of an array property are not applied to the next one: contains credits
+     * the matched indices, a stale credit of index 0 would skip the check of the string at index 0 of the next value
+     * if unevaluatedItems: false doesn't reset the credits like the schema-form keyword does.
+     */
+    public function testSetterDiscardsTheCreditsOfSiblingContainsForUnevaluatedItemsFalse(): void
+    {
+        $className = $this->generateClassFromFile(
+            'SiblingContains.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setImmutable(false),
+        );
+
+        $object = new $className(['tags' => [5]]);
+        $this->assertSame([5], $object->getTags());
+
+        $this->assertThrowsWithMessage(
+            static fn() => $object->setTags(['surplus', 6]),
+            UnevaluatedItemsException::class,
+            "Provided JSON for 'tags' contains not allowed unevaluated items [#0]",
+        );
+        $this->assertSame([5], $object->getTags());
+
+        $object->setTags([6, 7]);
+        $this->assertSame([6, 7], $object->getTags());
     }
 }

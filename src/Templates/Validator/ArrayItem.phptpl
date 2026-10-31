@@ -11,9 +11,7 @@ is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}, $modelD
         try {
             {{ viewHelper.resolvePropertyDecorator(nestedProperty, false, 3) }}
 
-            {% foreach nestedProperty.getOrderedValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema, 3) }}
-            {% endforeach %}
+            {{ viewHelper.renderValidators(nestedProperty, schema, 3) }}
 
             {% if generatorConfiguration.collectErrors() %}
                 if ($this->_errorRegistry->getErrors()) {

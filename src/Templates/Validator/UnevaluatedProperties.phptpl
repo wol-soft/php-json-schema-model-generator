@@ -23,9 +23,7 @@
 
             {{ viewHelper.resolvePropertyDecorator(validationProperty) }}
 
-            {% foreach validationProperty.getOrderedValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema) }}
-            {% endforeach %}
+            {{ viewHelper.renderValidators(validationProperty, schema, 3) }}
 
             {% if generatorConfiguration.collectErrors() %}
                 if ($this->_errorRegistry->getErrors()) {

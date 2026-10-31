@@ -16,6 +16,7 @@ use PHPModelGenerator\SchemaProcessor\PostProcessor\BuilderClassPostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionClass;
 
 /**
@@ -373,6 +374,36 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
         $report = $this->runPhpcs($this->getGeneratedFiles());
 
         $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    /**
+     * The validation of an element of a container (the items, a tuple index, the additional items, the contained
+     * item and the unevaluated item of an array, the values of pattern and unevaluated properties) is rendered in an
+     * evaluation scope with a try/finally block when the element is an array with unevaluatedItems. Covers every
+     * container template, with and without collected errors.
+     */
+    #[DataProvider('collectErrorsDataProvider')]
+    public function testEvaluationScopeOfNestedArraysGeneratesCodeMatchingTheCodingStandard(bool $collectErrors): void
+    {
+        $this->generateClassFromFile(
+            'NestedUnevaluatedItems.json',
+            (new GeneratorConfiguration())
+                ->setNamespacePrefix('\\GeneratedCodeFormattingTest')
+                ->setImmutable(false)
+                ->setCollectErrors($collectErrors),
+        );
+
+        $report = $this->runPhpcs($this->getGeneratedFiles());
+
+        $this->assertSame([], $this->collectMessages($report), $this->formatReport($report));
+    }
+
+    public static function collectErrorsDataProvider(): array
+    {
+        return [
+            'direct exception' => [false],
+            'collect errors' => [true],
+        ];
     }
 
     public function testBuilderClassGeneratesCodeMatchingTheCodingStandard(): void

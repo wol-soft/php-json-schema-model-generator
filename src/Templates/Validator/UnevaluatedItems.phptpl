@@ -1,4 +1,4 @@
-is_array($value) && (function (&$items) use (&$invalidItems, $modelData): bool {
+is_array($value) && (function (&$items) use (&$invalidItems{{ suffix }}, $modelData): bool {
     {% if generatorConfiguration.collectErrors() %}
         $originalErrorRegistry = $this->_errorRegistry;
     {% endif %}
@@ -22,13 +22,11 @@ is_array($value) && (function (&$items) use (&$invalidItems, $modelData): bool {
 
             {{ viewHelper.resolvePropertyDecorator(validationProperty, false, 3) }}
 
-            {% foreach validationProperty.getOrderedValidators() as validator %}
-                {{ viewHelper.renderValidator(validator, schema, 3) }}
-            {% endforeach %}
+            {{ viewHelper.renderValidators(validationProperty, schema, 3) }}
 
             {% if generatorConfiguration.collectErrors() %}
                 if ($this->_errorRegistry->getErrors()) {
-                    $invalidItems[$index] = $this->_errorRegistry->getErrors();
+                    $invalidItems{{ suffix }}[$index] = $this->_errorRegistry->getErrors();
                     continue;
                 }
             {% endif %}
@@ -37,9 +35,9 @@ is_array($value) && (function (&$items) use (&$invalidItems, $modelData): bool {
             // enclosing schema's unevaluatedItems accumulator can credit it.
             $this->_evaluatedItemIndices['{{ arrayPropertyName }}'][$index] = true;
         } catch (\Exception $exception) {
-            isset($invalidItems[$index])
-                ? $invalidItems[$index][] = $exception
-                : $invalidItems[$index] = [$exception];
+            isset($invalidItems{{ suffix }}[$index])
+                ? $invalidItems{{ suffix }}[$index][] = $exception
+                : $invalidItems{{ suffix }}[$index] = [$exception];
         }
     }
 
@@ -47,9 +45,9 @@ is_array($value) && (function (&$items) use (&$invalidItems, $modelData): bool {
         $this->_errorRegistry = $originalErrorRegistry;
     {% endif %}
 
-    if (!empty($invalidItems)) {
+    if (!empty($invalidItems{{ suffix }})) {
         $this->_evaluatedItemIndices = $rollbackEvaluatedItemIndices;
     }
 
-    return !empty($invalidItems);
+    return !empty($invalidItems{{ suffix }});
 })($value)

@@ -20,7 +20,7 @@ class ArrayContainsValidator extends PropertyTemplateValidator
 {
     public function __construct(
         PropertyInterface $property,
-        PropertyInterface $nestedProperty,
+        private readonly PropertyInterface $nestedProperty,
         Schema $schema,
         GeneratorConfiguration $generatorConfiguration,
         bool $countMatches,
@@ -37,11 +37,21 @@ class ArrayContainsValidator extends PropertyTemplateValidator
                 'trackBranchMatches' => false,
                 'trackEvaluatedItems' => false,
                 'trackEvaluatedItemsProperty' => '',
+                'capturedVariables' => '',
                 'viewHelper' => new RenderHelper($generatorConfiguration),
                 'generatorConfiguration' => $generatorConfiguration,
             ],
             ContainsException::class,
         );
+    }
+
+    /**
+     * The property which validates each item of the array. Exposed so post processors can recurse into it - mirrors
+     * ArrayItemValidator::getNestedProperty().
+     */
+    public function getNestedProperty(): PropertyInterface
+    {
+        return $this->nestedProperty;
     }
 
     /**
@@ -66,6 +76,24 @@ class ArrayContainsValidator extends PropertyTemplateValidator
     {
         $this->templateValues['trackEvaluatedItems'] = true;
         $this->templateValues['trackEvaluatedItemsProperty'] = $this->property->getName();
+    }
+
+    /**
+     * The variables the closure shares with its surrounding scope depend on the tracking which is enabled after the
+     * validator was created.
+     */
+    public function getCheck(): string
+    {
+        $capturedVariables = array_filter([
+            $this->templateValues['countMatches'] ? '&$containsMatches' : null,
+            $this->templateValues['trackBranchMatches'] ? '&$branchContainsMatches' : null,
+        ]);
+
+        $this->templateValues['capturedVariables'] = $capturedVariables
+            ? ' use (' . implode(', ', $capturedVariables) . ')'
+            : '';
+
+        return parent::getCheck();
     }
 
     public function getValidatorSetUp(): string

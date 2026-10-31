@@ -19,6 +19,7 @@ use PHPModelGenerator\Model\Validator\Factory\Composition\NotValidatorFactory;
 use PHPModelGenerator\Model\Validator\UnevaluatedPropertiesValidator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PostProcessor;
 use PHPModelGenerator\Traits\CompositionEvaluationTrait;
+use PHPModelGenerator\Utils\EvaluatedItemsScope;
 use PHPModelGenerator\Utils\RenderHelper;
 
 /**
@@ -42,10 +43,10 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
 {
     /**
      * Monotonically increasing counter scoped to a single ($schema, $property) activation
-     * pass. Reset per property at the start of its walk so each property's compositions
-     * receive `<propertyName>_0`, `<propertyName>_1`, ... slot keys. Tracked on the
-     * instance so the recursive activation helpers do not need to thread a by-reference
-     * parameter through every call.
+     * pass. Reset per property of the model at the start of its walk so each property's compositions
+     * (and the compositions of the arrays nested in it) receive `<propertyName>_0`,
+     * `<propertyName>_1`, ... slot keys. Tracked on the instance so the recursive activation
+     * helpers do not need to thread a by-reference parameter through every call.
      */
     private int $slotKeyCounter = 0;
 
@@ -120,17 +121,37 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             }
         }
 
-        foreach ($schema->getProperties() as $schemaProperty) {
-            foreach ($schemaProperty->getOrderedValidators() as $validator) {
+        foreach ($this->arrayPropertiesOf($schema) as $arrayProperty) {
+            foreach ($arrayProperty->getOrderedValidators() as $validator) {
                 if ($validator instanceof AbstractComposedPropertyValidator) {
                     $this->checkBranchesForUnsupportedDownPropagation(
                         $validator,
-                        $schemaProperty->getJsonSchema()->getJson(),
-                        $schemaProperty->getName(),
+                        $arrayProperty->getJsonSchema()->getJson(),
+                        $arrayProperty->getName(),
                     );
                 }
             }
         }
+    }
+
+    /**
+     * Every property of the schema which may hold an array validated by this schema's generated class: the
+     * properties of the model and the properties which validate the values of its additional, pattern and
+     * unevaluated properties, followed by the properties which validate the elements of those arrays on any level
+     * (the items of an array which is an item of another array, ...). The class owns the evaluation of all of them,
+     * an element which is an object is validated by a class of its own.
+     *
+     * @return PropertyInterface[]
+     */
+    private function arrayPropertiesOf(Schema $schema): array
+    {
+        $arrayProperties = [];
+
+        foreach ([...$schema->getProperties(), ...EvaluatedItemsScope::valuePropertiesOf($schema)] as $rootProperty) {
+            array_push($arrayProperties, $rootProperty, ...EvaluatedItemsScope::elementPropertiesOf($rootProperty));
+        }
+
+        return $arrayProperties;
     }
 
     /**
@@ -322,54 +343,34 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      *   - `_evaluatedItemIndices` — whenever at least one array property carries
      *     `unevaluatedItems`. The unevaluatedItems template writes a `[propertyName =>
      *     [index => true]]` entry after each successful per-index validation.
+     *
+     * The walk covers the properties of the model, the properties which validate the values of the additional,
+     * pattern and unevaluated properties and the properties which validate the elements of those arrays on any level
+     * (an array which is an item of another array). An element is validated by the very same class, its validators
+     * read and write the same fields; the evaluation scope rendered around the validation of an element
+     * (see RenderHelper::renderValidators()) isolates the indices of the elements.
      */
     private function activateArrayPropertyTracking(Schema $schema): void
     {
         $evaluatedItemIndicesNeeded = false;
         $compositionActivated = false;
 
-        foreach ($schema->getProperties() as $schemaProperty) {
-            // The unevaluatedItems factory is registered on the `array` type only, so a
-            // property whose type cannot hold an array never produces an unevaluatedItems
-            // validator at runtime. Activating compositions in that case would write
-            // `_compositionAnnotated` slots that nobody reads — wasted state.
-            $typeNames = $schemaProperty->getType()?->getNames() ?? [];
-            if ($typeNames !== [] && !in_array('array', $typeNames, true)) {
-                continue;
+        // The slot keys of the compositions of a property and of its elements are numbered together, an element
+        // shares the name of its enclosing property. The values of the additional, pattern and unevaluated properties
+        // continue the numbering, their names are unique per kind of property.
+        $rootProperties = $schema->getProperties();
+        $valueProperties = EvaluatedItemsScope::valuePropertiesOf($schema);
+
+        foreach ([...$rootProperties, ...$valueProperties] as $rootProperty) {
+            if (in_array($rootProperty, $rootProperties, true)) {
+                $this->slotKeyCounter = 0;
             }
 
-            $propertyJson = $schemaProperty->getJsonSchema()->getJson();
-            $hasDirectUnevaluatedItems = array_key_exists('unevaluatedItems', $propertyJson);
-            // A composition branch may carry unevaluatedItems even when the array property itself
-            // does not (e.g. allOf: [{unevaluatedItems: {schema}}]). The branch's validator still
-            // needs the _evaluatedItemIndices field declared on the class.
-            $hasBranchUnevaluatedItems = $this->propertyHasBranchUnevaluatedItems($schemaProperty);
+            foreach ([$rootProperty, ...EvaluatedItemsScope::elementPropertiesOf($rootProperty)] as $arrayProperty) {
+                [$propertyNeedsIndices, $propertyActivatedComposition] = $this->activateArrayProperty($arrayProperty);
 
-            if (!$hasDirectUnevaluatedItems && !$hasBranchUnevaluatedItems) {
-                continue;
-            }
-
-            $evaluatedItemIndicesNeeded = true;
-
-            // Composition activation and sibling crediting are only relevant when the property
-            // itself carries an unevaluatedItems check that reads those annotations. A branch-only
-            // unevaluatedItems validates within its own branch and needs no outer crediting.
-            if (!$hasDirectUnevaluatedItems) {
-                continue;
-            }
-
-            // A direct-sibling `contains` credits its matched indices to the property's evaluated
-            // set so the sibling unevaluatedItems check sees them as evaluated.
-            $this->enableDirectSiblingContainsTracking($schemaProperty);
-
-            $this->slotKeyCounter = 0;
-            $this->activatedCompositions = [];
-
-            foreach ($schemaProperty->getOrderedValidators() as $validator) {
-                if ($validator instanceof AbstractComposedPropertyValidator) {
-                    $this->activateArrayComposition($validator, $schemaProperty);
-                    $compositionActivated = true;
-                }
+                $evaluatedItemIndicesNeeded = $evaluatedItemIndicesNeeded || $propertyNeedsIndices;
+                $compositionActivated = $compositionActivated || $propertyActivatedComposition;
             }
         }
 
@@ -391,9 +392,11 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
         if ($evaluatedItemIndicesNeeded) {
             // Per-array-property index map of indices the property's UnevaluatedItems validator
             // successfully evaluated, shaped as [propertyName => [index => true]]. Inner and outer
-            // UnevaluatedItems validators share the same instance field — there are no nested
-            // array classes to cross. Transient: every chain run overwrites it; never registered
-            // with the rollback registry, never snapshotted across setter calls.
+            // UnevaluatedItems validators of one array (a composition branch) share the same
+            // entry; an array which is an element of another array evaluates in an evaluation scope
+            // of its own (see RenderHelper::renderValidators()). Transient: every chain run
+            // overwrites it; never registered with the rollback registry, never snapshotted across
+            // setter calls.
             $schema->addProperty(
                 (new Property(
                     'evaluatedItemIndices',
@@ -404,6 +407,58 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
                     ->setDefaultValue([]),
             );
         }
+    }
+
+    /**
+     * Activates the evaluation tracking for a single array property.
+     *
+     * @return array{0: bool, 1: bool} Whether the property needs the `_evaluatedItemIndices` field, whether a
+     *                                 property-level composition was activated
+     */
+    private function activateArrayProperty(PropertyInterface $arrayProperty): array
+    {
+        // The unevaluatedItems factory is registered on the `array` type only, so a
+        // property whose type cannot hold an array never produces an unevaluatedItems
+        // validator at runtime. Activating compositions in that case would write
+        // `_compositionAnnotated` slots that nobody reads — wasted state.
+        $typeNames = $arrayProperty->getType()?->getNames() ?? [];
+        if ($typeNames !== [] && !in_array('array', $typeNames, true)) {
+            return [false, false];
+        }
+
+        $propertyJson = $arrayProperty->getJsonSchema()->getJson();
+        $hasDirectUnevaluatedItems = array_key_exists('unevaluatedItems', $propertyJson);
+        // A composition branch may carry unevaluatedItems even when the array property itself
+        // does not (e.g. allOf: [{unevaluatedItems: {schema}}]). The branch's validator still
+        // needs the _evaluatedItemIndices field declared on the class.
+        $hasBranchUnevaluatedItems = $this->propertyHasBranchUnevaluatedItems($arrayProperty);
+
+        if (!$hasDirectUnevaluatedItems && !$hasBranchUnevaluatedItems) {
+            return [false, false];
+        }
+
+        // Composition activation and sibling crediting are only relevant when the property
+        // itself carries an unevaluatedItems check that reads those annotations. A branch-only
+        // unevaluatedItems validates within its own branch and needs no outer crediting.
+        if (!$hasDirectUnevaluatedItems) {
+            return [true, false];
+        }
+
+        // A direct-sibling `contains` credits its matched indices to the property's evaluated
+        // set so the sibling unevaluatedItems check sees them as evaluated.
+        $this->enableDirectSiblingContainsTracking($arrayProperty);
+
+        $this->activatedCompositions = [];
+        $compositionActivated = false;
+
+        foreach ($arrayProperty->getOrderedValidators() as $validator) {
+            if ($validator instanceof AbstractComposedPropertyValidator) {
+                $this->activateArrayComposition($validator, $arrayProperty);
+                $compositionActivated = true;
+            }
+        }
+
+        return [true, $compositionActivated];
     }
 
     /**
@@ -663,11 +718,11 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
      * one of its compositions, meaning composition validators on this schema must emit the
      * _compositionEvaluations cache.
      *
-     * A nested schema (the class of an object property or of an object-typed branch) is not
-     * searched: it is processed by this post processor on its own and activates its own tracking
-     * if the keyword is reachable from it. Searching the nested schemas as well was rejected: a
-     * keyword deep inside a nested class activated the tracking of every enclosing class, which
-     * no unevaluated keyword of the enclosing classes reads.
+     * A nested schema (the class of an object property, of an object element of an array or of an
+     * object-typed branch) is not searched: it is processed by this post processor on its own and
+     * activates its own tracking if the keyword is reachable from it. Searching the nested schemas
+     * as well was rejected: a keyword deep inside a nested class activated the tracking of every
+     * enclosing class, which no unevaluated keyword of the enclosing classes reads.
      */
     private function needsActivation(Schema $schema): bool
     {
@@ -681,18 +736,20 @@ class UnevaluatedPropertiesPostProcessor extends PostProcessor
             return true;
         }
 
-        // Check each property: its own JSON and any composition sitting directly on it. Array
+        // Check each array property: its own JSON and any composition sitting directly on it. Array
         // properties never carry a nested schema — their unevaluatedItems lives in the property's
         // own JSON or in a composition branch on the property (e.g.
         // {tags: {type: array, allOf: [{unevaluatedItems: {schema}}]}}), so both must be checked.
-        foreach ($schema->getProperties() as $schemaProperty) {
-            $propertyJson = $schemaProperty->getJsonSchema()->getJson();
+        // The same holds for the arrays nested in those properties (the items of an array which is
+        // an item of another array, ...): this class validates them.
+        foreach ($this->arrayPropertiesOf($schema) as $arrayProperty) {
+            $propertyJson = $arrayProperty->getJsonSchema()->getJson();
 
             if (array_key_exists('unevaluatedItems', $propertyJson)) {
                 return true;
             }
 
-            if ($this->compositionValidatorsNeedActivation($schemaProperty->getOrderedValidators())) {
+            if ($this->compositionValidatorsNeedActivation($arrayProperty->getOrderedValidators())) {
                 return true;
             }
         }
