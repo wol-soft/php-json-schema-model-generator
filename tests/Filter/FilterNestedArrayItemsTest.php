@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace PHPModelGenerator\Tests\Filter;
 
 use DateTime;
-use Error;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
@@ -487,6 +486,17 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
         ];
     }
 
+    public static function nestedUnevaluatedItemsFilterFixtureDataProvider(): array
+    {
+        return [
+            'array as item of an array' => ['NestedUnevaluatedItemsFilter.json', 'tags'],
+            'array held by additionalProperties' => [
+                'AdditionalPropertiesUnevaluatedItemsFilter.json',
+                'additional property',
+            ],
+        ];
+    }
+
     public static function arrayTransformingFilterFixtureDataProvider(): array
     {
         return [
@@ -499,46 +509,54 @@ class FilterNestedArrayItemsTest extends AbstractFilterTestCase
     }
 
     /**
-     * Known gap: unevaluatedItems declared on an array which is an item of another array can't be evaluated. The
-     * class neither receives the evaluation tracking trait nor the field which holds the evaluated indices, so the
-     * validation of the inner array calls into code which doesn't exist. This is independent of any filter. The
-     * indices are tracked per property name, the inner arrays of all outer elements would share one entry.
-     *
-     * This test pins the current failure so the gap stays visible. It fails as soon as nested unevaluatedItems are
-     * supported, the test then has to assert the evaluated behaviour.
+     * The evaluated indices of a nested array are only kept while its element is validated, the serializer couldn't
+     * tell which items the filter of unevaluatedItems transformed. The schema is rejected instead of serializing
+     * every transformed item as an empty array.
      */
     #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
-    public function testKnownGapUnevaluatedItemsOfANestedArrayCrashAtRuntime(): void
+    #[DataProvider('nestedUnevaluatedItemsFilterFixtureDataProvider')]
+    public function testTransformingFilterInUnevaluatedItemsOfANestedArrayThrowsAnExceptionWhenSerializing(
+        string $schemaFile,
+        string $arrayName,
+    ): void {
+        $this->expectException(SchemaException::class);
+        $this->expectExceptionMessageMatches(
+            "/^Transforming filter 'dateTime' in the unevaluatedItems of the nested array '"
+                . preg_quote($arrayName, '/') . "' can't be serialized in file .+: the evaluated indices are only "
+                . 'kept for the array properties of the model at line \d+, column \d+$/',
+        );
+
+        $this->generateClassFromFile(
+            $schemaFile,
+            (new GeneratorConfiguration())->setSerialization(true),
+        );
+    }
+
+    /**
+     * Without serialization nothing reads the evaluated indices after the validation: the filter of unevaluatedItems
+     * of a nested array transforms the items which are unevaluated in the very inner array, per inner array.
+     */
+    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
+    public function testTransformingFilterInUnevaluatedItemsOfANestedArrayTransformsPerInnerArray(): void
     {
         $className = $this->generateClassFromFile(
-            'NestedUnevaluatedItems.json',
+            'NestedUnevaluatedItemsFilter.json',
             (new GeneratorConfiguration())->setImmutable(false),
         );
 
-        $warnings = [];
-        set_error_handler(
-            static function (int $severity, string $message) use (&$warnings): bool {
-                $warnings[] = $message;
-
-                return true;
-            },
-            E_WARNING,
+        $object = new $className(['tags' => [[1, '2020-10-10', '2020-11-11'], [2], [3, '2021-01-01']]]);
+        $this->assertEquals(
+            [
+                [1, new DateTime('2020-10-10'), new DateTime('2020-11-11')],
+                [2],
+                [3, new DateTime('2021-01-01')],
+            ],
+            $object->getTags(),
         );
 
-        try {
-            new $className(['tags' => [[1, 'a']]]);
-
-            $this->fail('Expected the evaluation tracking of the nested array to be missing');
-        } catch (Error $error) {
-            $this->assertSame(
-                sprintf('Call to undefined method %s::collectUnevaluatedIndices()', $className),
-                $error->getMessage(),
-            );
-        } finally {
-            restore_error_handler();
-        }
-
-        $this->assertSame([sprintf('Undefined property: %s::$_evaluatedItemIndices', $className)], $warnings);
+        // An already transformed value is accepted, the integer of the tuple is not touched by the filter.
+        $object->setTags([[4, new DateTime('2022-02-02')]]);
+        $this->assertEquals([[4, new DateTime('2022-02-02')]], $object->getTags());
     }
 
     public static function collectErrorsDataProvider(): array

@@ -11,7 +11,8 @@
           }
         ],
         "unevaluatedItems": {
-          "type": "string"
+          "type": "string",
+          "filter": "dateTime"
         }
       }
     }
