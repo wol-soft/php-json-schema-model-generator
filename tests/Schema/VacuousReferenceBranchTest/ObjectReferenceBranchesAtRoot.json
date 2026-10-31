@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "allOf": [
+    {
+      "properties": {
+        "first": {
+          "type": "integer"
+        }
+      }
+    },
+    {
+      "$ref": "../VacuousReferenceBranchTest_external/Person.json"
+    }
+  ],
+  "anyOf": [
+    {
+      "$ref": "../VacuousReferenceBranchTest_external/Person.json"
+    },
+    {
+      "properties": {
+        "second": {
+          "type": "integer"
+        }
+      }
+    }
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "third": {
+          "type": "integer"
+        }
+      }
+    },
+    {
+      "$ref": "../VacuousReferenceBranchTest_external/Person.json"
+    }
+  ]
+}
