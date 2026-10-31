@@ -167,6 +167,12 @@ For the class name of a nested class the following priority order applies:
    property key is prefixed with the parent class name and a short content hash is appended
    to avoid collisions between branches that share the same property name.
 
+   The branches of a composition declared directly on a schema (an ``allOf``/``anyOf``/``oneOf``/``not``/``if``
+   on the object level, not below a ``properties`` keyword) don't use a property key. They are named
+   **{RootClass}_Branch{hash}**, where the root class is the class generated for the schema file. The
+   name doesn't grow with the nesting depth: a branch which contains another composition again results in
+   **{RootClass}_Branch{hash}**, so deeply nested compositions stay below the file name limit of the file system.
+
 .. hint::
 
     Set ``title``, ``$id``, or ``$anchor`` on nested schemas, or use named

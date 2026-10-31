@@ -35,6 +35,31 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
     private const array MODIFIER_ONLY_VALIDATION_KEYWORDS = ['type', 'const'];
 
     /**
+     * Base name of the branch classes of a composition declared on the root level of a schema.
+     */
+    private const string ROOT_BRANCH_PROPERTY_NAME = 'Branch';
+
+    /**
+     * The name handed to the property factory for the branches of a composition. The class name
+     * generation derives the class name of a branch which has no explicit name from it.
+     *
+     * The root property of a schema is named like the class of the schema. Passing that name on
+     * would make the name of a branch class contain the name of its parent class, and the branch
+     * classes nested one level deeper would again contain the name of the branch class: the length
+     * of the class names (and file names) would grow with every level of nesting until the file name
+     * exceeds the limit of the file system. Renaming the root property was rejected: its name is
+     * part of the exception messages of the object level validators. Only the name used for the
+     * branches is therefore replaced; the composition and the exception messages keep the name of
+     * the root property. A property inside of a schema keeps its own name, the length of a property
+     * name is bounded by the schema and the class name of its nested object is unrelated to the
+     * name of the parent class.
+     */
+    protected function getBranchPropertyName(PropertyInterface $property): string
+    {
+        return $property instanceof BaseProperty ? self::ROOT_BRANCH_PROPERTY_NAME : $property->getName();
+    }
+
+    /**
      * Emit a generation-time warning for always-unsatisfiable composition schemas.
      */
     protected function warnIfAlwaysFalse(
@@ -417,7 +442,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 $propertyFactory->create(
                     $schemaProcessor,
                     $schema,
-                    $property->getName(),
+                    $this->getBranchPropertyName($property),
                     $compositionSchema,
                     $property->isRequired(),
                 ),
