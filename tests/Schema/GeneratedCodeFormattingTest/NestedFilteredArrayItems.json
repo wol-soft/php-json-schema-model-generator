@@ -1,0 +1,116 @@
+{
+  "type": "object",
+  "definitions": {
+    "tree": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/definitions/tree"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "filter": [
+                {
+                  "filter": "dateTime",
+                  "outputFormat": "Ymd"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "filter": [
+              {
+                "filter": "dateTime",
+                "outputFormat": "Ymd"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "tuple": {
+      "type": "array",
+      "items": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "filter": [
+              {
+                "filter": "dateTime",
+                "outputFormat": "Ymd"
+              }
+            ]
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": [
+              {
+                "type": "string",
+                "filter": [
+                  {
+                    "filter": "dateTime",
+                    "outputFormat": "Ymd"
+                  }
+                ]
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "tree": {
+      "$ref": "#/definitions/tree"
+    }
+  },
+  "patternProperties": {
+    "^d_": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "filter": [
+          {
+            "filter": "dateTime",
+            "outputFormat": "Ymd"
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": {
+    "type": "array",
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "filter": [
+          {
+            "filter": "dateTime",
+            "outputFormat": "Ymd"
+          }
+        ]
+      }
+    }
+  }
+}

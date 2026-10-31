@@ -1157,6 +1157,23 @@ class ArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
+     * The filter of the items of a nested array lives one level deeper than the array property itself. The filter
+     * runs, its output is persisted and the serialization applies the serializer of the filter to each transformed
+     * item: without it the generic serialization turns each DateTime into an empty array.
+     */
+    public function testFilteredItemsOfNestedArraysAreSerialized(): void
+    {
+        $className = $this->generateClassFromFile(
+            'NestedArrayItemsWithTransformingFilter.json',
+            (new GeneratorConfiguration())->setImmutable(false)->setSerialization(true),
+        );
+
+        $object = new $className(['tags' => [['2020-10-10']]]);
+        $this->assertEquals([[new DateTime('2020-10-10')]], $object->getTags());
+        $this->assertSame(['tags' => [['20201010']]], $object->toArray());
+    }
+
+    /**
      * `prefixItems` carries the tuple only from Draft 2020-12 on, where `items` degrades to the
      * schema for the entries behind that tuple. On every earlier draft `prefixItems` is simply an
      * unknown keyword, which the spec requires to be ignored — `items` keeps its full meaning and

@@ -1,12 +1,83 @@
-/**
- * serialize the property {{ property.getAttribute() }} (schema-form items, uniform filter)
- */
-protected function _serialize{{ viewHelper.ucfirst(property.getAttribute()) }}(): array
+{% if methodName %}
+    /**
+     * serialize the items of a nested array of the property {{ property.getAttribute() }}: each slot (schema-form
+     * items, tuple indices) applies the serializer of its filter or serializes the arrays of the next level
+     */
+    private function {{ methodName }}(array $serialized): array
+{% else %}
+    /**
+     * serialize the property {{ property.getAttribute() }}: the transforming filters of the items (schema-form
+     * items, tuple indices and unevaluatedItems) are combined into a single method, each slot applies the
+     * serializer of its filter or serializes the arrays of the next level
+     */
+    protected function _serialize{{ viewHelper.ucfirst(property.getAttribute()) }}(): array
+{% endif %}
 {
-    $serialized = [];
-    foreach ($this->{{ property.getAttribute(true) }} as $index => $value) {
-        $serialized[$index] = \{{ serializerClass }}::{{ serializerMethod }}($value, {{ serializerOptions }});
-    }
+    {% if not methodName %}
+        $serialized = $this->{{ property.getAttribute(true) }};
+
+    {% endif %}
+    {% if itemsSerializer %}
+        foreach ($serialized as $index => $value) {
+            {% if dynamicSerializer %}
+                // Indices validated by unevaluatedItems are serialized by its filter below.
+                if (array_key_exists($index, $this->_evaluatedItemIndices['{{ arrayPropertyName }}'] ?? [])) {
+                    continue;
+                }
+            {% endif %}
+
+            {% if serializedIndices %}
+                // Indices with a serializer of their own are serialized below.
+                if (in_array($index, {{ viewHelper.varExportArray(serializedIndices) }}, true)) {
+                    continue;
+                }
+            {% endif %}
+
+            {% if itemsSerializer.guard %}
+                if ({{ itemsSerializer.guard }}) {
+                    $serialized[$index] = {{ itemsSerializer.call }};
+                }
+            {% else %}
+                $serialized[$index] = {{ itemsSerializer.call }};
+            {% endif %}
+        }
+    {% endif %}
+
+    {% foreach indexSerializers as indexSerializer %}
+        if (array_key_exists({{ indexSerializer.index }}, $serialized)) {
+            $value = $serialized[{{ indexSerializer.index }}];
+
+            {% if indexSerializer.guard %}
+                if ({{ indexSerializer.guard }}) {
+                    $serialized[{{ indexSerializer.index }}] = {{ indexSerializer.call }};
+                }
+            {% else %}
+                $serialized[{{ indexSerializer.index }}] = {{ indexSerializer.call }};
+            {% endif %}
+        }
+    {% endforeach %}
+
+    {% if dynamicSerializer %}
+        foreach (array_keys($this->_evaluatedItemIndices['{{ arrayPropertyName }}'] ?? []) as $index) {
+            {% if staticIndices %}
+                // Indices already handled by a static tuple filter above must not also run
+                // through the dynamic unevaluatedItems filter.
+                if (in_array($index, {{ viewHelper.varExportArray(staticIndices) }}, true)) {
+                    continue;
+                }
+            {% endif %}
+
+            $value = $serialized[$index];
+
+            {% if dynamicSerializer.guard %}
+                if ({{ dynamicSerializer.guard }}) {
+                    $serialized[$index] = {{ dynamicSerializer.call }};
+                }
+            {% else %}
+                $serialized[$index] = {{ dynamicSerializer.call }};
+            {% endif %}
+        }
+    {% endif %}
 
     return $serialized;
 }

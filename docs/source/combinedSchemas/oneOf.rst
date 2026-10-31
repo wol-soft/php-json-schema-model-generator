@@ -127,6 +127,13 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\One
     See `Default values <../generic/default.html#branch-defaults-in-compositions>`__ for the full
     explanation and examples.
 
+.. note::
+
+    A transforming ``"filter"`` may be declared for the items of an array inside a ``oneOf`` branch. The items are
+    transformed while the branch matches and keep the value as provided otherwise. At most one declaration (the
+    property itself or one branch) may filter the items of a slot, branches which filter the same items differently
+    are rejected with a ``SchemaException``. See `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
+
 Property and item evaluation propagation
 ----------------------------------------
 

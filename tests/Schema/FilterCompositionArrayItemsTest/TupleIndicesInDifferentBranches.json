@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "allOf": [
+        {
+          "items": [
+            {
+              "type": "string",
+              "filter": [
+                {
+                  "filter": "dateTime",
+                  "outputFormat": "Ymd"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "items": [
+            {
+              "description": "Index 0 is validated and filtered by the first branch"
+            },
+            {
+              "type": "string",
+              "filter": [
+                {
+                  "filter": "dateTime",
+                  "outputFormat": "Y-m-d"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

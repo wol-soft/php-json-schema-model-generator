@@ -17,6 +17,7 @@ use PHPModelGenerator\Model\Validator\PropertyValidator;
 use PHPModelGenerator\PropertyProcessor\Filter\CompositionCompatibilityChecker;
 use PHPModelGenerator\PropertyProcessor\PropertyFactory;
 use PHPModelGenerator\SchemaProcessor\SchemaProcessor;
+use PHPModelGenerator\Utils\ArrayItemFilterScope;
 use PHPModelGenerator\Utils\RenderHelper;
 use PHPModelGenerator\Utils\TypeIntersection;
 
@@ -127,13 +128,23 @@ class IfValidatorFactory
                 ),
             );
 
-            // RequiredPropertyValidator exclusion for this branch is handled by
+            // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by
             // CompositionPropertyDecorator::getOrderedValidators() at render time — see that
             // method's docblock for why it must not be a destructive, schema-processing-time
             // filterValidators() call, and for why a branch's own nested composition/conditional
-            // validator (issue #167) is deliberately never excluded there.
+            // validator is deliberately never excluded there.
 
             $properties[$keyword] = $compositionProperty;
+        }
+
+        // The condition only selects the branch: the filters of its items run inside the condition and never
+        // transform the stored value, unlike the filters of the items of the then and else branches.
+        if ($properties['if'] !== null) {
+            ArrayItemFilterScope::assertNoItemFilterInValidationOnlyBranch(
+                $properties['if'],
+                $property,
+                "the 'if' condition of an 'if/then/else' composition",
+            );
         }
 
         $this->applyIfThenElseTypeSemantics($property, $properties);
@@ -187,7 +198,7 @@ class IfValidatorFactory
             ),
         );
 
-        // RequiredPropertyValidator exclusion for this branch is handled by
+        // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by
         // CompositionPropertyDecorator::getOrderedValidators() at render time.
         $branchProperty->onResolve(function () use ($branchProperty): void {
             $branchProperty->addValidator(

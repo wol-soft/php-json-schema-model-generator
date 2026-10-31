@@ -41,13 +41,21 @@ class RequiredValidatorFactory extends AbstractValidatorFactory
         $json = $propertySchema->getJson();
 
         foreach ($json[$this->key] ?? [] as $propertyName) {
-            $requiredProperty = $schema->getProperty((string) $propertyName)
-                ?? $this->createUndeclaredProperty($schemaProcessor, $schema, $propertySchema, (string) $propertyName);
+            $propertyName = (string) $propertyName;
 
-            $requiredProperty->addValidator(
-                (new RequiredPropertyValidator($requiredProperty))
-                    ->withJsonPointer($propertySchema->getPointer() . '/' . $this->key),
-                1,
+            if ($schema->getProperty($propertyName) === null) {
+                $this->createUndeclaredProperty($schemaProcessor, $schema, $propertySchema, $propertyName);
+            }
+
+            // A property declared via $ref is recycled for every reference to the definition, and the required check
+            // belongs to this schema only.
+            $schema->withOwnedProperty(
+                $propertyName,
+                fn(PropertyInterface $requiredProperty): PropertyInterface => $requiredProperty->addValidator(
+                    (new RequiredPropertyValidator($requiredProperty))
+                        ->withJsonPointer($propertySchema->getPointer() . '/' . $this->key),
+                    1,
+                ),
             );
         }
     }
@@ -60,7 +68,7 @@ class RequiredValidatorFactory extends AbstractValidatorFactory
         Schema $schema,
         JsonSchema $propertySchema,
         string $propertyName,
-    ): PropertyInterface {
+    ): void {
         // navigate() cannot traverse into a path segment that doesn't exist in the raw JSON; use
         // withPointer() to advance the pointer without descending into JSON content.
         $nestedPropertySchema = $propertySchema
@@ -89,7 +97,5 @@ class RequiredValidatorFactory extends AbstractValidatorFactory
         }
 
         $schema->addProperty($nestedProperty);
-
-        return $nestedProperty;
     }
 }

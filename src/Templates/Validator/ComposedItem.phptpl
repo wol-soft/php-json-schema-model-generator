@@ -17,6 +17,10 @@
     $proposedValue = null;
     $modifiedValues = [];
 
+    {% if compositionValidator.hasItemFilteringBranches() %}
+        $branchItemValues = [];
+    {% endif %}
+
     {% if compositionValidator.getSlotKey() %}
         $slotKey = '{{ compositionValidator.getSlotKey() }}';
         $compositionEvaluatedIndices = [];
@@ -111,6 +115,12 @@
                     $evaluatedComponents[] = $validatorComponentIndex;
                 {% endif %}
                 {{ viewHelper.indent(renderComposedItemBody(compositionProperty, false, hasModifiedValuesMethod, modifiedValuesMethod, postPropose, filterSourceMap), 2) }}
+            {% endif %}
+
+            {% if compositionValidator.hasItemFilteringBranches() and compositionProperty.filtersArrayItems() %}
+                // The branch succeeded and its filters transformed the items. The reset after the branch gives the
+                // next branch the items as provided, the result of the branch is adopted after all branches ran.
+                $branchItemValues[$validatorComponentIndex] = $value;
             {% endif %}
 
             {% if compositionValidator.hasEvaluationTrackingEnabled() and compositionValidator.getSlotKey() and compositionProperty.needsEvaluatedIndexAggregation() %}
@@ -256,6 +266,29 @@
             {% endif %}
         } else {
             $value = $originalModelData;
+        }
+    {% endif %}
+
+    {% if compositionValidator.hasItemFilteringBranches() %}
+        {#
+            Every successful branch which filters items contributes the items it transformed. Adopting the proposed
+            value alone was rejected: it is the value of the first successful branch, the transformed items of any other
+            branch (a later allOf branch, a branch of an anyOf behind a plain one) would be discarded, and a composition
+            which tracks evaluated indices doesn't adopt a proposed value at all. Only the items which differ from the
+            items as provided are taken over, a branch never changes the other items.
+        #}
+        if ($compositionSatisfied && is_array($originalModelData) && is_array($value)) {
+            foreach ($branchItemValues as $branchItemValue) {
+                if (!is_array($branchItemValue)) {
+                    continue;
+                }
+
+                foreach ($branchItemValue as $itemIndex => $itemValue) {
+                    if (!array_key_exists($itemIndex, $originalModelData) || $itemValue !== $originalModelData[$itemIndex]) {
+                        $value[$itemIndex] = $itemValue;
+                    }
+                }
+            }
         }
     {% endif %}
 

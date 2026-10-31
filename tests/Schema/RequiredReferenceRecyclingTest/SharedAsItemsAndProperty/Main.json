@@ -1,0 +1,33 @@
+{
+  "$id": "Main",
+  "type": "object",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$id": "Role",
+            "properties": {
+              "p": {
+                "$ref": "Shared.json"
+              },
+              "role": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "p",
+              "role"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "$ref": "Base.json"
+    }
+  ]
+}

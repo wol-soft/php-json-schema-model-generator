@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "definitions": {
+    "date": {
+      "type": "string",
+      "filter": [
+        {
+          "filter": "dateTime",
+          "outputFormat": "Ymd"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "tags": {
+      "type": "array",
+      "if": {
+        "items": {
+          "$ref": "#/definitions/date"
+        }
+      },
+      "then": {
+        "minItems": 1
+      }
+    }
+  }
+}

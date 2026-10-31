@@ -24,6 +24,27 @@
     },
     "0": {
       "type": "integer"
+    },
+    "SHSArtistId": {
+      "type": "string"
+    },
+    "userID": {
+      "type": "string"
+    },
+    "HTTP2Server": {
+      "type": "string"
+    },
+    "address2Line": {
+      "type": "string"
+    },
+    "XML_http-request": {
+      "type": "string"
+    },
+    "snake_case_ID": {
+      "type": "string"
+    },
+    "kebab-CASE-name": {
+      "type": "string"
     }
   }
 }

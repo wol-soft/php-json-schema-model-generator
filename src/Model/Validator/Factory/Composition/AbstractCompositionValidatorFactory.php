@@ -475,7 +475,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
                 );
             }
 
-            // RequiredPropertyValidator/InstanceOfValidator-for-empty-object exclusion for this
+            // The InstanceOfValidator-for-empty-object exclusion for this
             // branch is handled by CompositionPropertyDecorator::getOrderedValidators() at render
             // time, not here — see that method's docblock for why it must not be a destructive,
             // schema-processing-time filterValidators() call.
@@ -525,7 +525,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
             ? 'true'
             : "array_key_exists('" . addslashes($property->getName()) . "', \$modelData)";
 
-        // RequiredPropertyValidator exclusion for this branch is handled by
+        // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by
         // CompositionPropertyDecorator::getOrderedValidators() at render time.
         $branchProperty->onResolve(
             function () use ($branchProperty, $presenceCheck): void {
@@ -573,7 +573,7 @@ abstract class AbstractCompositionValidatorFactory extends AbstractValidatorFact
 
         // No validator added — true schema always succeeds.
         // No type hint decorator — true schema contributes no type constraint.
-        // RequiredPropertyValidator exclusion for this branch is handled by
+        // The InstanceOfValidator-for-empty-object exclusion for this branch is handled by
         // CompositionPropertyDecorator::getOrderedValidators() at render time.
 
         return $branchProperty;

@@ -67,6 +67,11 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\Not
     is needed for it.
     See `Composition-implied objects <impliedObjects.html>`__ for the full explanation.
 
+.. note::
+
+    A ``"filter"`` on the items of an array inside the ``not`` schema is rejected with a ``SchemaException``: the schema
+    only decides whether the value is valid and never transforms the stored value. See `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
+
 Property and item evaluation propagation
 ----------------------------------------
 

@@ -140,6 +140,12 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\ComposedValue\\All
     is rejected with a ``SchemaException``, as the filters of a property have no defined order.
     See `Filters on properties of object branches <../nonStandardExtensions/filter.html#filters-on-properties-of-object-branches>`__.
 
+.. note::
+
+    A transforming ``"filter"`` may also be declared for the items of an array inside an ``allOf`` branch. All branches
+    are always active, so the items are transformed. At most one declaration (the property itself or one branch) may
+    filter the items of a slot, otherwise a ``SchemaException`` is thrown. See `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
+
 Property and item evaluation propagation
 ----------------------------------------
 

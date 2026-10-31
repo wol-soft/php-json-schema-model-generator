@@ -232,6 +232,12 @@ While the branch is active the declared type is still enforced. A property which
     filter on a property of the ``if`` condition runs inside the condition and is not applied to the
     generated class. See `Filters on properties of object branches <../nonStandardExtensions/filter.html#filters-on-properties-of-object-branches>`__.
 
+.. note::
+
+    A transforming ``"filter"`` may be declared for the items of an array inside the ``then`` or ``else`` branch, the items
+    are transformed while the branch is the active one. A filter on the items of the ``if`` condition is rejected with a
+    ``SchemaException``: the condition only selects the branch and never transforms the stored value. See `Filters on array items <../nonStandardExtensions/filter.html#filters-on-array-items>`__.
+
 Property and item evaluation propagation
 ----------------------------------------
 

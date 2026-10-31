@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "properties": {
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "anyOf": [
+          {
+            "items": {
+              "type": "string",
+              "filter": [
+                {
+                  "filter": "dateTime",
+                  "outputFormat": "Ymd"
+                }
+              ]
+            }
+          },
+          {
+            "items": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
