@@ -49,6 +49,20 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
                 );
             }
 
+            $unreachableReason = $this->getUnreachableTriggerReason($schemaProcessor, $json, $triggerName);
+            if ($unreachableReason !== null) {
+                $schemaProcessor->getGeneratorConfiguration()->getLogger()->warning(
+                    "Dependencies on '{trigger}' in class '{class}' can never apply: {reason}",
+                    [
+                        'trigger' => $triggerName,
+                        'class' => $schema->getClassName(),
+                        'reason' => $unreachableReason,
+                    ],
+                );
+
+                continue;
+            }
+
             $triggerProperty = $schema->getProperty($triggerName);
             if ($triggerProperty === null) {
                 $triggerProperty = $propertyFactory->create(
@@ -71,9 +85,14 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
                 $dependencyPointer = $propertySchema->getPointer()
                     . '/dependencies/'
                     . JsonSchemaUtil::encodePointer($triggerName);
-                $triggerProperty->addValidator(
-                    (new PropertyDependencyValidator($triggerProperty, $dependency))
-                        ->withJsonPointer($dependencyPointer),
+                // A trigger declared via $ref is recycled for every reference to the definition; the dependency
+                // belongs to this schema only.
+                $schema->withOwnedProperty(
+                    $triggerName,
+                    static fn(PropertyInterface $ownedTrigger): PropertyInterface => $ownedTrigger->addValidator(
+                        (new PropertyDependencyValidator($ownedTrigger, $dependency))
+                            ->withJsonPointer($dependencyPointer),
+                    ),
                 );
                 continue;
             }
@@ -94,14 +113,17 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
                 $schema->getSchemaDictionary(),
             );
 
-            // Add as a schema-level base validator, not a property validator on the trigger.
-            // Trigger properties from $ref definitions share a single underlying Property object
-            // via PropertyProxy; addValidator() on a proxy delegates to that shared object, so
-            // all dependency validators for different triggers would land on the same property and
-            // be rendered under the wrong trigger condition. Base validators avoid this entirely.
-            $schema->addBaseValidator(
-                (new SchemaDependencyValidator($schemaProcessor, $triggerProperty, $dependencySchema))
-                    ->withJsonPointer($dependencyJsonSchema->getPointer()),
+            // Attached to the trigger property, not as a schema-level base validator: base validators only run
+            // for the constructor, so a setter or a removal of an additional property would skip the dependency.
+            // A trigger declared via $ref is recycled for every reference to the definition (a PropertyProxy
+            // delegates addValidator() to that shared property), so the validator goes through
+            // withOwnedProperty() to keep it from landing on the other references.
+            $schema->withOwnedProperty(
+                $triggerName,
+                static fn(PropertyInterface $ownedTrigger): PropertyInterface => $ownedTrigger->addValidator(
+                    (new SchemaDependencyValidator($schemaProcessor, $ownedTrigger, $dependencySchema))
+                        ->withJsonPointer($dependencyJsonSchema->getPointer()),
+                ),
             );
             $schema->addNamespaceTransferDecorator(new SchemaNamespaceTransferDecorator($dependencySchema));
 
@@ -112,6 +134,46 @@ class DependenciesValidatorFactory extends AbstractValidatorFactory
                 $propertySchema->getFile(),
             );
         }
+    }
+
+    /**
+     * Returns why the trigger key can never be part of an input of this schema, or null when it can.
+     *
+     * Decided on the raw schema JSON, not on $schema->getProperty(): a property registered for the key by
+     * the required-stub mechanism or a composition transfer does not make the key acceptable, the schema's
+     * own additionalProperties still rejects it.
+     */
+    private function getUnreachableTriggerReason(
+        SchemaProcessor $schemaProcessor,
+        array $json,
+        string $triggerName,
+    ): ?string {
+        if (array_key_exists($triggerName, $json['properties'] ?? [])) {
+            return null;
+        }
+
+        // Mirrors AdditionalPropertiesValidatorFactory: an absent keyword is flipped to false by the
+        // denyAdditionalProperties() configuration, an explicit value is never overridden.
+        if (isset($json['additionalProperties'])) {
+            $reason = 'additionalProperties: false rejects the undeclared key';
+            $rejectsAdditionalProperties = $json['additionalProperties'] === false;
+        } else {
+            $reason = 'denyAdditionalProperties() rejects the undeclared key';
+            $rejectsAdditionalProperties = $schemaProcessor->getGeneratorConfiguration()->denyAdditionalProperties();
+        }
+
+        if (!$rejectsAdditionalProperties) {
+            return null;
+        }
+
+        // A key matching a patternProperties regex is not an additional property.
+        foreach (array_keys($json['patternProperties'] ?? []) as $pattern) {
+            if (preg_match('/' . addcslashes((string) $pattern, '/') . '/', $triggerName) === 1) {
+                return null;
+            }
+        }
+
+        return $reason;
     }
 
     private function isArrayFormDependency(mixed $dependency): bool

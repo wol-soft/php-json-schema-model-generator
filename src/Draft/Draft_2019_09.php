@@ -24,7 +24,6 @@ class Draft_2019_09 extends Draft_07
             ->addValidator('unevaluatedItems', new UnevaluatedItemsValidatorFactory());
 
         $builder->getType('object')
-            ->removeValidator('dependencies')
             ->addValidator('unevaluatedProperties', new UnevaluatedPropertiesValidatorFactory());
 
         return $builder;

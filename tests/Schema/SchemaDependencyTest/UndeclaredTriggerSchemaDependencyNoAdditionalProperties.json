@@ -1,8 +1,9 @@
 {
   "type": "object",
+  "additionalProperties": false,
   "properties": {
-    "credit_card": {
-      "type": "integer"
+    "name": {
+      "type": "string"
     }
   },
   "dependencies": {
@@ -16,6 +17,5 @@
         "billing_address"
       ]
     }
-  },
-  "unevaluatedProperties": false
+  }
 }

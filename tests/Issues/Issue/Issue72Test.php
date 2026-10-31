@@ -766,7 +766,7 @@ class Issue72Test extends AbstractIssueTestCase
     /**
      * A schema `dependencies` value carrying only object-constraining keywords is the one site that
      * does NOT get the object-describing treatment a property or array item gets:
-     * PropertyDependencyTrait::addDependencyValidator() forces `type: object` onto an untyped
+     * DependenciesValidatorFactory forces `type: object` onto an untyped
      * dependency schema before any classification runs, so the schema is treated as
      * object-ASSERTING (its constraints are enforced outright) and no describing warning is
      * emitted.
@@ -817,7 +817,7 @@ class Issue72Test extends AbstractIssueTestCase
      * definition) must enforce that definition's `required`/type constraints, exactly like the
      * single-level case (see testDependencyWithSingleLevelImpliedObjectEnforcesConstraints above).
      *
-     * PropertyDependencyTrait::addDependencyValidator() builds the dependency's own class via
+     * DependenciesValidatorFactory builds the dependency's own class via
      * RefResolver::resolveBaseReference() (a bare `{"$ref": ...}` at base level). A
      * multi-level implied-object $ref target enforces its constraints via a composition validator
      * on its OWN schema, not via validators on its individual properties - those are merged/

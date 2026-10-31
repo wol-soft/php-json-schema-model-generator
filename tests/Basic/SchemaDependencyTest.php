@@ -6,24 +6,17 @@ namespace PHPModelGenerator\Tests\Basic;
 
 use PHPModelGenerator\Exception\Dependency\InvalidSchemaDependencyException;
 use PHPModelGenerator\Exception\ErrorRegistryException;
-use PHPModelGenerator\Exception\Object\UnevaluatedPropertiesException;
+use PHPModelGenerator\Exception\Object\AdditionalPropertiesException;
 use PHPModelGenerator\Exception\SchemaException;
 use PHPModelGenerator\Exception\String\MinLengthException;
 use PHPModelGenerator\Model\GeneratorConfiguration;
 use PHPModelGenerator\ModelGenerator;
 use PHPModelGenerator\SchemaProcessor\PostProcessor\PopulatePostProcessor;
 use PHPModelGenerator\Tests\AbstractPHPModelGeneratorTestCase;
-use PHPModelGenerator\Tests\Support\ApplicableDrafts;
-use PHPModelGenerator\Tests\Support\JsonSchemaDraft;
+use PHPModelGenerator\Tests\Fixtures\RecordingLogger;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionMethod;
 
-/**
- * Class SchemaDependencyTest
- *
- * @package PHPModelGenerator\Tests\Basic
- */
-#[ApplicableDrafts(until: JsonSchemaDraft::DRAFT_07)]
 class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
 {
     #[DataProvider('validSchemaDependencyDataProvider')]
@@ -426,7 +419,6 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
      * A `dependencies` trigger that is declared neither in `properties` nor `required` was
      * silently dropped instead of being enforced — the schema-form variant of
      * testDependencyTriggerNotDeclaredInPropertiesOrRequiredIsEnforced in PropertyDependencyTest.
-     * Restricted to Draft 7 to avoid entangling this with the separate Draft-gating defect.
      *
      * Also asserts that the trigger property and the properties declared inside the dependency
      * subschema are both synthesised onto the generated class and accessible via their accessors,
@@ -449,7 +441,7 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         // Invalid: trigger present but required dependent property absent
         $this->expectException(InvalidSchemaDependencyException::class);
         $this->expectExceptionMessage(
-            "Invalid schema which is dependant on credit_card:\n  - Missing required value for billing_address",
+            "Invalid schema which is dependant on 'credit_card':\n  - Missing required value for 'billing_address'",
         );
 
         new $className(['credit_card' => 12345]);
@@ -544,7 +536,7 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
      * a composition branch — the trigger is synthesised as mixed while each subschema property is
      * merged with its pre-existing declaration (same path as allOf property merging) rather than
      * being introduced anew. Covers root-property merging (billing_address) and composition
-     * merging (name via allOf). Restricted to Draft 7.
+     * merging (name via allOf).
      */
     public function testSchemaDependencySubschemaPropertiesMergeWithPreExistingDeclarations(): void
     {
@@ -565,7 +557,7 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
         // Invalid: trigger present but required properties absent
         $this->expectException(InvalidSchemaDependencyException::class);
         $this->expectExceptionMessage(
-            "Invalid schema which is dependant on credit_card:\n  - Missing required value for billing_address",
+            "Invalid schema which is dependant on 'credit_card':\n  - Missing required value for 'billing_address'",
         );
 
         new $className(['credit_card' => 'any']);
@@ -575,7 +567,7 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
      * When a dep-subschema declares a property whose type contradicts the type already declared
      * for that property in the root schema, generation must fail with SchemaException. The
      * contradiction is unsatisfiable: the root schema constrains billing_address to integer while
-     * the dependency subschema for credit_card constrains it to string. Restricted to Draft 7.
+     * the dependency subschema for credit_card constrains it to string.
      */
     public function testSchemaDependencyConflictingPropertyTypeThrowsSchemaException(): void
     {
@@ -588,56 +580,46 @@ class SchemaDependencyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Under Draft 2019-09, the legacy schema-form `dependencies` must be inert — it is not part
-     * of the 2019-09 vocabulary — so omitting the dependency's required property must NOT be
-     * rejected. It was incorrectly rejected because `dependencies` fired regardless of the active
-     * Draft, and once it fired the resulting `billing_address` requirement was enforced even
-     * though `unevaluatedProperties` (the keyword meant to be active here) never saw it.
+     * With `additionalProperties: false` an undeclared trigger can never be part of the input, so its schema
+     * dependency is skipped (including the properties of the dependency schema) and a warning is logged.
      */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
-    public function testSchemaDependencyDoesNotWronglyRejectValidDraft201909Instance(): void
+    public function testUndeclaredSchemaDependencyTriggerIsSkippedWithWarningWhenAdditionalPropertiesIsFalse(): void
     {
-        $className = $this->generateClassFromFile('SchemaDependencyWithUnevaluatedProperties.json');
+        $recordingLogger = new RecordingLogger();
 
-        $object = new $className(['credit_card' => 12345]);
-
-        $this->assertSame(12345, $object->getCreditCard());
-    }
-
-    /**
-     * Companion to testSchemaDependencyDoesNotWronglyRejectValidDraft201909Instance: a property
-     * that exists only because the (now-inert) dependency subschema declares it must still be
-     * rejected by `unevaluatedProperties`. This assertion holds both before and after the fix —
-     * before, it was rejected for the wrong reason (never added to the evaluated-keys set);
-     * after, it is rejected because the keyword that would have introduced it is correctly inert.
-     * Kept as a guard against the fix overcorrecting into silently accepting everything.
-     */
-    #[ApplicableDrafts(from: JsonSchemaDraft::DRAFT_2019_09)]
-    public function testSchemaDependencyIntroducedPropertyStillRejectedByUnevaluatedProperties(): void
-    {
-        $className = $this->generateClassFromFile('SchemaDependencyWithUnevaluatedProperties.json');
-
-        $this->expectException(UnevaluatedPropertiesException::class);
-        $this->expectExceptionMessageMatches('/contains not allowed unevaluated properties \[billing_address\]/');
-
-        new $className(['credit_card' => 12345, 'billing_address' => '555 Debitors Lane']);
-    }
-
-    /**
-     * Regression guard: removing `dependencies` from Draft 2019-09 must not disable it under
-     * Draft 7. The `unevaluatedProperties` keyword present in this fixture is simply unrecognised
-     * (ignored) under Draft 7, so `dependencies` must enforce exactly as it does without that
-     * keyword present at all.
-     */
-    public function testSchemaDependencyStillEnforcedUnderDraft07RegardlessOfUnevaluatedPropertiesKeyword(): void
-    {
-        $className = $this->generateClassFromFile('SchemaDependencyWithUnevaluatedProperties.json');
-
-        $this->expectException(InvalidSchemaDependencyException::class);
-        $this->expectExceptionMessage(
-            "Invalid schema which is dependant on credit_card:\n  - Missing required value for billing_address",
+        $className = $this->generateClassFromFile(
+            'UndeclaredTriggerSchemaDependencyNoAdditionalProperties.json',
+            (new GeneratorConfiguration())->setCollectErrors(false)->setLogger($recordingLogger),
         );
 
-        new $className(['credit_card' => 12345]);
+        $warnings = array_filter(
+            $recordingLogger->getEntries(),
+            static fn(array $entry): bool => $entry['level'] === 'warning',
+        );
+        $this->assertCount(1, $warnings);
+        $this->assertTrue(
+            $this->hasLogEntry(
+                $warnings,
+                'warning',
+                "Dependencies on '{trigger}' in class '{class}' can never apply: {reason}",
+                [
+                    'trigger' => 'credit_card',
+                    'reason' => 'additionalProperties: false rejects the undeclared key',
+                ],
+            ),
+        );
+
+        $this->assertFalse(method_exists($className, 'getCreditCard'));
+        $this->assertFalse(method_exists($className, 'getBillingAddress'));
+
+        $object = new $className(['name' => 'John']);
+        $this->assertSame('John', $object->getName());
+
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['credit_card' => 12345],
+            AdditionalPropertiesException::class,
+            "Provided JSON for '%class%' contains not allowed additional properties ['credit_card']",
+        );
     }
 }

@@ -808,6 +808,24 @@ The thrown exception will be a *PHPModelGenerator\\Exception\\Dependency\\Invali
 
 Multiple violations against the schema dependency may be included.
 
+Dependencies on undeclared properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The property which defines a dependency (and the properties a property dependency refers to) doesn't have to be declared in the `properties` of the schema. The dependency is enforced for such a property as well, also inside a composition branch. The generated class provides an untyped getter and setter for the property, as it does for properties which are only required by the schema.
+
+.. code-block:: json
+
+    {
+        "type": "object",
+        "dependencies": {
+            "credit_card": [
+                "billing_address"
+            ]
+        }
+    }
+
+If the property can never be part of the input, the dependency is skipped and a warning is logged via the PSR-3 logger of the `GeneratorConfiguration`. That is the case if `additionalProperties` is `false` (explicitly or via ``GeneratorConfiguration::setDenyAdditionalProperties(true)``), the property isn't declared in `properties` and doesn't match a regular expression of `patternProperties`. A property matching a `patternProperties` expression is a valid key, so its dependency is enforced.
+
 Pattern Properties
 ------------------
 
