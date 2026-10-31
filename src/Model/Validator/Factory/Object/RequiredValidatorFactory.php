@@ -27,8 +27,6 @@ use PHPModelGenerator\Utils\JsonSchema as JsonSchemaUtil;
  */
 class RequiredValidatorFactory extends AbstractValidatorFactory
 {
-    use PropertyDependencyTrait;
-
     /**
      * @throws SchemaException
      */
@@ -84,17 +82,6 @@ class RequiredValidatorFactory extends AbstractValidatorFactory
             $nestedPropertySchema,
             true,
         );
-
-        $dependencies = $propertySchema->getJson()['dependencies'][$propertyName] ?? null;
-
-        if ($dependencies !== null) {
-            $this->addDependencyValidator(
-                $nestedProperty,
-                $schema->getJsonSchema()->navigate('dependencies/' . JsonSchemaUtil::encodePointer($propertyName)),
-                $schemaProcessor,
-                $schema,
-            );
-        }
 
         $schema->addProperty($nestedProperty);
     }
