@@ -176,6 +176,15 @@ class GeneratedCodeFormattingTest extends AbstractPHPModelGeneratorTestCase
             <<<'PROPERTIES'
                 protected $tags;
 
+                #[JsonPointer('/properties/coordinates')]
+            PROPERTIES,
+            $classContent,
+        );
+        // properties transferred from a dependency schema are appended after all declared properties
+        $this->assertStringContainsString(
+            <<<'PROPERTIES'
+                protected $config;
+
                 #[JsonPointer('/dependencies/tags/properties/category')]
             PROPERTIES,
             $classContent,
