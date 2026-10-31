@@ -1059,21 +1059,30 @@ class TupleArrayPropertyTest extends AbstractPHPModelGeneratorTestCase
     }
 
     /**
-     * Known gap: an array with tuple items at a tuple index of another tuple array resets the errors the outer tuple
-     * collected so far. The set up of the inner tuple validator assigns the variable which the closure of the outer
-     * tuple validator captured by reference. An invalid tuple item before the inner array is accepted.
-     *
-     * This test pins the current behaviour so the gap stays visible. It fails as soon as the gap is closed, the test
-     * then has to assert that the invalid item is rejected.
+     * An array with tuple items at a tuple index of another tuple array must not reset the errors the outer tuple
+     * collected so far: the set up of the inner tuple validator assigned a variable which the outer tuple validator
+     * captured by reference, so an invalid tuple item before the inner array was accepted.
      */
-    public function testKnownGapTupleArrayAtATupleIndexResetsTheErrorsOfTheOuterTuple(): void
-    {
-        $className = $this->generateClassFromFile('TupleAtATupleIndex.json');
+    #[DataProvider('validationMethodDataProvider')]
+    public function testTupleArrayAtATupleIndexKeepsTheErrorsOfTheOuterTuple(
+        GeneratorConfiguration $configuration,
+    ): void {
+        $className = $this->generateClassFromFile('TupleAtATupleIndex.json', $configuration);
+
+        $object = new $className(['pair' => [3, [1]]]);
+        $this->assertSame([3, [1]], $object->getPair());
 
         // Index 0 has to be an integer
-        $object = new $className(['pair' => ['not an integer', [1]]]);
-
-        $this->assertSame(['not an integer', [1]], $object->getPair());
+        $this->assertInstantiationFailsWithMessage(
+            $className,
+            ['pair' => ['not an integer', [1]]],
+            $this->getExpectedExceptionClass($configuration),
+            <<<'MSG'
+            Invalid tuple item in array 'pair':
+              - invalid tuple #1
+                * Invalid type for 'tuple item #0 of array pair': requires 'int', got 'string'
+            MSG,
+        );
     }
 
     /**
